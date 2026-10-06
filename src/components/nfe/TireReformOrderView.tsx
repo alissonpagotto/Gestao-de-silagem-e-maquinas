@@ -377,7 +377,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
     // Localiza o serviço de borracharia na lista de estoque e captura o preço de venda configurado
     const matchedStockItem = borrachariaServicesList.find(s => s.name.toUpperCase() === upperServico);
-    const autoPrice = matchedStockItem && matchedStockItem.price > 0 ? matchedStockItem.price : undefined;
+    const autoPrice = matchedStockItem !== undefined ? (matchedStockItem.price ?? 0) : undefined;
 
     const updated = pendingTires.map(t => {
       if (t.id === tireId) {
@@ -437,7 +437,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     if (!serviceToApply) return;
     const upper = normalizeStockServiceName(serviceToApply).toUpperCase();
     const matchedStockItem = borrachariaServicesList.find(s => s.name.toUpperCase() === upper);
-    const autoPrice = matchedStockItem && matchedStockItem.price > 0 ? matchedStockItem.price : undefined;
+    const autoPrice = matchedStockItem !== undefined ? (matchedStockItem.price ?? 0) : undefined;
 
     const updated = pendingTires.map(t => ({
       ...t,

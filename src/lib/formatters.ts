@@ -381,84 +381,87 @@ export interface CnpjLookupResult {
 }
 
 export async function fetchCompanyByCnpj(cnpj: string): Promise<CnpjLookupResult> {
-  const digits = cleanDigits(cnpj);
-  if (digits.length !== 14) {
-    return { success: false, message: 'CNPJ deve ter 14 dígitos.' };
-  }
-
-  // Strategy 1: BrasilAPI
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    const digits = cleanDigits(cnpj);
+    if (digits.length !== 14) {
+      return { success: false, message: 'CNPJ deve ter 14 dígitos.' };
+    }
 
-    if (res.ok) {
-      const data = await res.json();
-      
-      // Extract phone & format
-      let phone = '';
-      if (data.ddd_telefone_1) {
-        phone = formatPhone(data.ddd_telefone_1);
-      } else if (data.telefone) {
-        phone = formatPhone(data.telefone);
+    // Strategy 1: BrasilAPI (Try/Catch bypass)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res && res.ok) {
+        const data = await res.json();
+        
+        let phone = '';
+        if (data.ddd_telefone_1) {
+          phone = formatPhone(data.ddd_telefone_1);
+        } else if (data.telefone) {
+          phone = formatPhone(data.telefone);
+        }
+
+        return {
+          success: true,
+          cnpj: formatCpfCnpj(digits),
+          corporateName: data.razao_social || '',
+          tradeName: data.nome_fantasia || data.razao_social || '',
+          phone,
+          email: (data.email || '').toLowerCase(),
+          zipCode: formatCep(data.cep || ''),
+          street: data.logradouro ? `${data.descricao_tipo_de_logradouro ? data.descricao_tipo_de_logradouro + ' ' : ''}${data.logradouro}`.trim() : '',
+          number: data.numero || '',
+          complement: data.complemento || '',
+          neighborhood: data.bairro || '',
+          city: data.municipio || '',
+          state: data.uf || '',
+          status: data.descricao_situacao_cadastral || 'ATIVA',
+          activitySector: data.cnae_fiscal_descricao || 'GESTÃO AGRÍCOLA',
+        };
       }
-
-      return {
-        success: true,
-        cnpj: formatCpfCnpj(digits),
-        corporateName: data.razao_social || '',
-        tradeName: data.nome_fantasia || data.razao_social || '',
-        phone,
-        email: (data.email || '').toLowerCase(),
-        zipCode: formatCep(data.cep || ''),
-        street: data.logradouro ? `${data.descricao_tipo_de_logradouro ? data.descricao_tipo_de_logradouro + ' ' : ''}${data.logradouro}`.trim() : '',
-        number: data.numero || '',
-        complement: data.complemento || '',
-        neighborhood: data.bairro || '',
-        city: data.municipio || '',
-        state: data.uf || '',
-        status: data.descricao_situacao_cadastral || 'ATIVA',
-        activitySector: data.cnae_fiscal_descricao || 'GESTÃO AGRÍCOLA',
-      };
+    } catch {
+      // Falha de rede ou CORS na BrasilAPI: bypass imediato para manter 100% offline
     }
-  } catch (err) {
-    console.warn('BrasilAPI CNPJ lookup failed, trying MinhaReceita...', err);
-  }
 
-  // Strategy 2: MinhaReceita.org Fallback
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`https://minhareceita.org/${digits}`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    // Strategy 2: MinhaReceita.org Fallback (Try/Catch bypass)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`https://minhareceita.org/${digits}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        success: true,
-        cnpj: formatCpfCnpj(digits),
-        corporateName: data.razao_social || '',
-        tradeName: data.nome_fantasia || data.razao_social || '',
-        phone: formatPhone(data.ddd_telefone_1 || ''),
-        email: (data.email || '').toLowerCase(),
-        zipCode: formatCep(data.cep || ''),
-        street: data.logradouro || '',
-        number: data.numero || '',
-        complement: data.complemento || '',
-        neighborhood: data.bairro || '',
-        city: data.municipio || '',
-        state: data.uf || '',
-        status: data.descricao_situacao_cadastral || 'ATIVA',
-      };
+      if (res && res.ok) {
+        const data = await res.json();
+        return {
+          success: true,
+          cnpj: formatCpfCnpj(digits),
+          corporateName: data.razao_social || '',
+          tradeName: data.nome_fantasia || data.razao_social || '',
+          phone: formatPhone(data.ddd_telefone_1 || ''),
+          email: (data.email || '').toLowerCase(),
+          zipCode: formatCep(data.cep || ''),
+          street: data.logradouro || '',
+          number: data.numero || '',
+          complement: data.complemento || '',
+          neighborhood: data.bairro || '',
+          city: data.municipio || '',
+          state: data.uf || '',
+          status: data.descricao_situacao_cadastral || 'ATIVA',
+        };
+      }
+    } catch {
+      // Falha de rede ou CORS: bypass imediato
     }
-  } catch (err) {
-    console.warn('MinhaReceita lookup failed:', err);
-  }
 
-  return { success: false, message: 'CNPJ não localizado na base pública da Receita Federal.' };
+    return { success: false, message: 'CNPJ offline ou não localizado na base pública.' };
+  } catch {
+    return { success: false, message: 'Operação mantida offline.' };
+  }
 }

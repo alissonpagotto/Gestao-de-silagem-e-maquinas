@@ -68,6 +68,7 @@ import {
   saveStoredCostCenters,
   getStoredDocumentosEntrada,
   getStoredDocumentosEntradaItens,
+  saveStoredDocumentosEntradaItens,
   getStoredManualEntryDocumentTypes,
   saveStoredManualEntryDocumentTypes,
   DEFAULT_INVENTORY_CATEGORIES,
@@ -1719,6 +1720,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         });
       }
 
+      // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
+      if (manualDocItems && manualDocItems.length > 0) {
+        try {
+          const existingItems = getStoredDocumentosEntradaItens();
+          const otherItems = existingItems.filter(i => i.documento_entrada_id !== savedDoc.id);
+          const itemsToSave: DocumentoEntradaItem[] = manualDocItems.map(mItem => ({
+            ...mItem,
+            documento_entrada_id: savedDoc.id,
+          }));
+          saveStoredDocumentosEntradaItens([...itemsToSave, ...otherItems]);
+        } catch (e) {
+          console.warn('Aviso ao sincronizar itens no colaca_silagem_documentos_entrada_itens:', e);
+        }
+      }
+
       setIsManualEntryModalOpen(false);
       setSuccessMessage('Entrada salva como Rascunho com sucesso! Você pode continuar a edição pelo histórico.');
       setTimeout(() => setSuccessMessage(''), 5000);
@@ -2355,6 +2371,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
         onAddExpenseFromNfe(expenseRecords);
       }
+
+      // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
+      if (manualDocItems && manualDocItems.length > 0) {
+        try {
+          const existingItems = getStoredDocumentosEntradaItens();
+          const otherItems = existingItems.filter(i => i.documento_entrada_id !== activeDocId);
+          const itemsToSave: DocumentoEntradaItem[] = manualDocItems.map(mItem => ({
+            ...mItem,
+            documento_entrada_id: activeDocId,
+          }));
+          saveStoredDocumentosEntradaItens([...itemsToSave, ...otherItems]);
+        } catch (e) {
+          console.warn('Aviso ao sincronizar itens no colaca_silagem_documentos_entrada_itens:', e);
+        }
+      }
+
+      // Limpeza completa de rascunhos temporários do cache
+      clearActiveNfeDraft();
+      try {
+        localStorage.removeItem('colaca_silagem_manual_entry_draft');
+        localStorage.removeItem('colaca_silagem_nfe_active_draft');
+      } catch (_) {}
 
       setIsManualInstallmentsModalOpen(false);
       setIsManualEntryModalOpen(false);
@@ -4785,7 +4823,36 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       });
     }
 
+    // Persistência compulsória em colaca_silagem_documentos_entrada_itens
+    if (parsedData.items && parsedData.items.length > 0) {
+      try {
+        const xmlItemsPayload: DocumentoEntradaItem[] = parsedData.items.map((item, idx) => ({
+          id: `item_nfe_${cleanInvoiceNumber}_${idx}_${Date.now()}`,
+          documento_entrada_id: fiscalRecordId,
+          produto_id: item.linkedInventoryId,
+          descricao: item.description,
+          codigo_produto: item.code || undefined,
+          ncm: item.ncm,
+          quantidade: Number(item.quantity) || 1,
+          unidade: item.unit || 'UN',
+          valor_unitario: Number(item.unitPrice) || 0,
+          valor_total: Number(item.totalPrice) || (Number(item.quantity) * Number(item.unitPrice)) || 0,
+          created_at: new Date().toISOString()
+        }));
+
+        const existingAllItems = getStoredDocumentosEntradaItens();
+        const filteredExisting = existingAllItems.filter(i => i.documento_entrada_id !== fiscalRecordId);
+        saveStoredDocumentosEntradaItens([...xmlItemsPayload, ...filteredExisting]);
+      } catch (err) {
+        console.warn('Erro ao salvar itens no colaca_silagem_documentos_entrada_itens:', err);
+      }
+    }
+
     clearActiveNfeDraft();
+    try {
+      localStorage.removeItem('colaca_silagem_nfe_active_draft');
+      localStorage.removeItem('colaca_silagem_manual_entry_draft');
+    } catch (_) {}
     setParsedData(null);
     setXmlContent('');
     setSearchNfeNumber('');
@@ -5091,6 +5158,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         <TireReformOrderView 
           companyProfile={companyProfile}
           initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
+          onOrderSaved={() => {
+            setReformOrdersCount(getStoredReformOrders().length);
+            setPendingReformCount(getStoredPendingReformTires().length);
+          }}
         />
       ) : activeFiscalSubTab === 'devolucao' ? (
         <DevolucaoNotasView companyProfile={companyProfile} />

@@ -1170,7 +1170,20 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
  * filtrando estritamente onde categoria === 'SERVIÇOS MÃO DE OBRA BORRACHARIA'.
  */
 export function getBorrachariaServicesFromStock(): InventoryItem[] {
-  const inventory = getStoredInventory();
+  let inventory = getStoredInventory();
+  const hasBorracharia = inventory.some(item => {
+    const cat = (item.categoria || item.category || '').trim().toUpperCase();
+    return cat === 'SERVIÇOS MÃO DE OBRA BORRACHARIA' || cat === 'SERVICOS MAO DE OBRA BORRACHARIA';
+  });
+
+  if (!hasBorracharia) {
+    inventory = ensureServicesInInventory(inventory);
+    try {
+      localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(inventory));
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+    } catch (_) {}
+  }
+
   return inventory.filter(item => {
     const cat = (item.categoria || item.category || '').trim().toUpperCase();
     return cat === 'SERVIÇOS MÃO DE OBRA BORRACHARIA' || cat === 'SERVICOS MAO DE OBRA BORRACHARIA';
@@ -2800,14 +2813,21 @@ export const updateAppointmentFieldReturn = (
 // -------------------------------------------------------------
 // DOCUMENTOS DE ENTRADA (MÓDULO NOTAS & ENTRADAS MANUAIS)
 // -------------------------------------------------------------
-const STORAGE_KEY_DOCUMENTOS_ENTRADA = 'silagem_facil_documentos_entrada_v1';
+export const STORAGE_KEY_DOCUMENTOS_ENTRADA = 'colaca_silagem_documentos_entrada';
+const LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA = 'silagem_facil_documentos_entrada_v1';
 
 export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
-  return getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
+  const current = getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
+  if (current.length > 0) return current;
+  return getStoredList<DocumentoEntradaRecord>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
 };
 
 export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[]): void => {
   saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
+  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated', { detail: docs }));
+  }
 };
 
 export const saveLocalDocumentoEntrada = (doc: DocumentoEntradaRecord): void => {
@@ -2821,10 +2841,14 @@ export const deleteLocalDocumentoEntrada = (id: string): void => {
   saveStoredDocumentosEntrada(current.filter(d => d.id !== id));
 };
 
-const STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS = 'silagem_facil_documentos_entrada_itens_v1';
+export const STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS = 'colaca_silagem_documentos_entrada_itens';
+const LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS = 'silagem_facil_documentos_entrada_itens_v1';
 
 export const getStoredDocumentosEntradaItens = (documentoEntradaId?: string): DocumentoEntradaItem[] => {
-  const all = getStoredList<DocumentoEntradaItem>(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, []);
+  let all = getStoredList<DocumentoEntradaItem>(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, []);
+  if (all.length === 0) {
+    all = getStoredList<DocumentoEntradaItem>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, []);
+  }
   if (documentoEntradaId) {
     return all.filter(i => i.documento_entrada_id === documentoEntradaId);
   }
@@ -2833,6 +2857,10 @@ export const getStoredDocumentosEntradaItens = (documentoEntradaId?: string): Do
 
 export const saveStoredDocumentosEntradaItens = (items: DocumentoEntradaItem[]): void => {
   saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, items);
+  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, items);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_itens_updated', { detail: items }));
+  }
 };
 
 export const saveLocalDocumentoEntradaItem = (item: DocumentoEntradaItem): void => {

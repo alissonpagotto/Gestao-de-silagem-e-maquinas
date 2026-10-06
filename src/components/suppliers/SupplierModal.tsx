@@ -243,25 +243,23 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
       setFeedback(null);
       try {
         const res = await fetchCompanyByCnpj(digits);
-        if (res.success) {
-          if (res.corporateName) setName(res.corporateName);
-          if (res.tradeName) setTradeName(res.tradeName);
-          if (res.phone) setPhone(formatPhone(res.phone));
-          if (res.email) setEmail(res.email);
-          if (res.zipCode) setZipCode(formatCep(res.zipCode));
-          if (res.street) setAddress(`${res.street}${res.number ? ', ' + res.number : ''}`);
-          if (res.neighborhood) setNeighborhood(res.neighborhood);
-          if (res.city) setCity(res.city);
-          if (res.state) setState(res.state);
-          setFeedback({ type: 'success', message: `✅ Dados preenchidos via Receita: ${res.corporateName}` });
-        } else {
-          setFeedback({ type: 'error', message: res.message || 'CNPJ não encontrado na Receita.' });
+        if (res && res.success) {
+          if (res.corporateName && !name) setName(res.corporateName);
+          if (res.tradeName && !tradeName) setTradeName(res.tradeName);
+          if (res.phone && !phone) setPhone(formatPhone(res.phone));
+          if (res.email && !email) setEmail(res.email);
+          if (res.zipCode && !zipCode) setZipCode(formatCep(res.zipCode));
+          if (res.street && !address) setAddress(`${res.street}${res.number ? ', ' + res.number : ''}`);
+          if (res.neighborhood && !neighborhood) setNeighborhood(res.neighborhood);
+          if (res.city && !city) setCity(res.city);
+          if (res.state && !state) setState(res.state);
+          setFeedback({ type: 'success', message: `✅ Dados complementados: ${res.corporateName}` });
         }
       } catch {
-        setFeedback({ type: 'error', message: 'Erro ao consultar CNPJ na Receita Federal.' });
+        // Ignora silenciosamente erro de rede/CORS para prosseguir 100% offline com os dados manuais
       } finally {
         setIsLoadingCnpj(false);
-        setTimeout(() => setFeedback(null), 3500);
+        setTimeout(() => setFeedback(null), 3000);
       }
       return;
     }
