@@ -480,257 +480,265 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
         </div>
       </div>
 
-      {/* Modal: Cadastro / Edição de Atestado */}
+      {/* Modal: Cadastro / Edição de Atestado - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="crm-card bg-[#87AFE3] border border-blue-200/80 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
             
-            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0963cb] text-white">
-              <div className="flex items-center space-x-2">
-                <FileHeart className="w-4 h-4 text-pink-300" />
-                <h3 className="font-bold text-sm">
-                  {editingCert ? 'Editar Atestado Médico' : 'Cadastrar Novo Atestado'}
-                </h3>
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0 shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <FileHeart className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingCert ? 'EDITAR ATESTADO MÉDICO' : 'CADASTRAR NOVO ATESTADO'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Controle de atestados, declarações de horas e abonos legais
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-5 space-y-4 text-xs bg-[#b0d2ed]">
+            <form onSubmit={handleSaveModal} className="p-3 sm:p-4 space-y-2 text-xs bg-slate-50 dark:bg-stone-900 overflow-y-auto scrollbar-none flex-1 flex flex-col justify-between">
               
-              {/* Colaborador */}
-              <div>
-                <label className="block font-bold text-black mb-1">
-                  Colaborador / Funcionário <span className="text-rose-600">*</span>
-                </label>
-                <select
-                  value={selectedEmployeeId}
-                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-medium"
-                  required
-                >
-                  <option value="">Selecione um funcionário...</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.role}) - {emp.contractType || 'CLT'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Tipo de Documento */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                {/* Colaborador */}
                 <div>
-                  <label className="block font-bold text-black mb-1">
-                    Tipo de Atestado / Declaração <span className="text-rose-600">*</span>
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Colaborador / Funcionário <span className="text-rose-600">*</span>
                   </label>
                   <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as any)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-medium"
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 font-medium cursor-pointer"
                     required
                   >
-                    <option value="Atestado Médico">Atestado Médico</option>
-                    <option value="Atestado Odontológico">Atestado Odontológico</option>
-                    <option value="Declaração de Horas">Declaração de Comparecimento / Horas</option>
-                    <option value="Acompanhamento Familiar">Acompanhamento Familiar</option>
-                    <option value="Licença Maternidade/Paternidade">Licença Maternidade / Paternidade</option>
-                    <option value="Outro">Outro</option>
+                    <option value="">Selecione um funcionário...</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.role}) - {emp.contractType || 'CLT'}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Status de Homologação
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
-                  >
-                    <option value="homologado">Homologado (Abonar)</option>
-                    <option value="em_analise">Em Análise pela Coordenação</option>
-                    <option value="rejeitado">Rejeitado</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Card de Período e Duração */}
-              <div className="p-3.5 bg-white border border-stone-300 rounded-xl space-y-3 shadow-xs">
-                <span className="text-[11px] font-black uppercase text-black block tracking-wider">
-                  Período & Duração do Afastamento
-                </span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Tipo de Documento */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      Data Inicial <span className="text-rose-600">*</span>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Tipo de Atestado / Declaração <span className="text-rose-600">*</span>
                     </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => handleDateChange(e.target.value, endDate)}
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    <select
+                      value={type}
+                      onChange={(e) => setType(e.target.value as any)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 font-medium cursor-pointer"
                       required
-                    />
+                    >
+                      <option value="Atestado Médico">Atestado Médico</option>
+                      <option value="Atestado Odontológico">Atestado Odontológico</option>
+                      <option value="Declaração de Horas">Declaração de Comparecimento / Horas</option>
+                      <option value="Acompanhamento Familiar">Acompanhamento Familiar</option>
+                      <option value="Licença Maternidade/Paternidade">Licença Maternidade / Paternidade</option>
+                      <option value="Outro">Outro</option>
+                    </select>
                   </div>
 
-                  {type === 'Declaração de Horas' ? (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Status de Homologação
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                    >
+                      <option value="homologado">Homologado (Abonar)</option>
+                      <option value="em_analise">Em Análise pela Coordenação</option>
+                      <option value="rejeitado">Rejeitado</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Card de Período e Duração */}
+                <div className="p-2.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 block tracking-wider">
+                    PERÍODO & DURAÇÃO DO AFASTAMENTO
+                  </span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[11px] font-bold text-black mb-1">
-                        Qtd. de Horas Abonadas
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                        Data Inicial <span className="text-rose-600">*</span>
                       </label>
                       <input
-                        type="number"
-                        step="0.5"
-                        min="0.5"
-                        max="24"
-                        value={hoursCount || ''}
-                        onChange={(e) => setHoursCount(parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
-                        placeholder="Ex: 2.5"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-[11px] font-bold text-black mb-1">
-                        Qtd. de Dias Abonados <span className="text-rose-600">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={daysCount > 0 ? daysCount : ''}
-                        placeholder="Qtd. dias"
-                        onChange={(e) => handleDaysChange(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => handleDateChange(e.target.value, endDate)}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
                         required
                       />
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      Previsão de Retorno ao Trabalho
-                    </label>
-                    <input
-                      type="date"
-                      value={expectedReturnDate}
-                      onChange={(e) => setExpectedReturnDate(e.target.value)}
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
-                    />
-                  </div>
-                </div>
-              </div>
+                    {type === 'Declaração de Horas' ? (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                          Qtd. de Horas Abonadas
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.5"
+                          max="24"
+                          value={hoursCount || ''}
+                          onChange={(e) => setHoursCount(parseFloat(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                          placeholder="Ex: 2.5"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                          Qtd. de Dias Abonados <span className="text-rose-600">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={daysCount > 0 ? daysCount : ''}
+                          placeholder="Qtd. dias"
+                          onChange={(e) => handleDaysChange(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
+                          className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                          required
+                        />
+                      </div>
+                    )}
 
-              {/* Dados Médicos e CID */}
-              <div className="p-3.5 bg-white border border-stone-300 rounded-xl space-y-3 shadow-xs">
-                <span className="text-[11px] font-black uppercase text-black block tracking-wider">
-                  Dados do Emissor & CID
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      CID (Opcional/Sigilo)
-                    </label>
-                    <input
-                      type="text"
-                      value={cid}
-                      onChange={(e) => setCid(e.target.value)}
-                      placeholder="Ex: J06, M54.5"
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      Nome do Médico / Dentista
-                    </label>
-                    <input
-                      type="text"
-                      value={doctorName}
-                      onChange={(e) => setDoctorName(e.target.value)}
-                      placeholder="Ex: Dr. Roberto Silva"
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      CRM / CRO
-                    </label>
-                    <input
-                      type="text"
-                      value={crmCro}
-                      onChange={(e) => setCrmCro(e.target.value)}
-                      placeholder="Ex: 123456/SP"
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
-                    />
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                        Previsão de Retorno ao Trabalho
+                      </label>
+                      <input
+                        type="date"
+                        value={expectedReturnDate}
+                        onChange={(e) => setExpectedReturnDate(e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    Clínica / Hospital / Unidade de Saúde
-                  </label>
-                  <input
-                    type="text"
-                    value={clinic}
-                    onChange={(e) => setClinic(e.target.value)}
-                    placeholder="Ex: Santa Casa / UBS Central"
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
-                  />
-                </div>
-              </div>
+                {/* Dados Médicos e CID */}
+                <div className="p-2.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 block tracking-wider">
+                    DADOS DO EMISSOR & CID
+                  </span>
 
-              {/* Anexo & Observações */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Arquivo / Comprovante Anexo (Nome ou Referência)
-                  </label>
-                  <div className="flex items-center space-x-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                        CID (Opcional/Sigilo)
+                      </label>
+                      <input
+                        type="text"
+                        value={cid}
+                        onChange={(e) => setCid(e.target.value)}
+                        placeholder="Ex: J06, M54.5"
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold uppercase outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                        Nome do Médico / Dentista
+                      </label>
+                      <input
+                        type="text"
+                        value={doctorName}
+                        onChange={(e) => setDoctorName(e.target.value)}
+                        placeholder="Ex: Dr. Roberto Silva"
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                        CRM / CRO
+                      </label>
+                      <input
+                        type="text"
+                        value={crmCro}
+                        onChange={(e) => setCrmCro(e.target.value)}
+                        placeholder="Ex: 123456/SP"
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 mb-0.5">
+                      Clínica / Hospital / Unidade de Saúde
+                    </label>
+                    <input
+                      type="text"
+                      value={clinic}
+                      onChange={(e) => setClinic(e.target.value)}
+                      placeholder="Ex: Santa Casa / UBS Central"
+                      className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Anexo & Observações */}
+                <div className="space-y-1.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Arquivo / Comprovante Anexo (Nome ou Referência)
+                    </label>
                     <input
                       type="text"
                       value={attachmentName}
                       onChange={(e) => setAttachmentName(e.target.value)}
                       placeholder="Ex: atestado_medico_092026.pdf ou foto do documento"
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Observações Internas (RH)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] resize-none"
-                    placeholder="Anotações internas sobre entrega do documento..."
-                  />
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Observações Internas (RH)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 resize-none"
+                      placeholder="Anotações internas sobre entrega do documento..."
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Botões de Ação */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-black/15">
+              <div className="flex items-center justify-end space-x-2 pt-2.5 border-t border-slate-300 dark:border-stone-700 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition"
+                  className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-200 font-bold cursor-pointer transition text-xs shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold transition shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-rose-700 cursor-pointer text-xs"
                 >
                   Salvar Atestado
                 </button>

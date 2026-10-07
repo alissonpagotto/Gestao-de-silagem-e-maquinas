@@ -2430,36 +2430,43 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         </div>
       </div>
 
-      {/* Modal Lançamento / Edição de Folha - Formato Split Screen 50/50 */}
+      {/* Modal Lançamento / Edição de Folha - Formato Split Screen 50/50 - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
         <div 
           id="payroll-edit-modal-overlay" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-xs overflow-y-auto print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden print:hidden"
         >
-          <div className="bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-2xl w-[96vw] max-w-[1550px] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 h-[92vh] max-h-[92vh] flex flex-col print:hidden">
+          <div className="bg-stone-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[96vw] max-w-[1550px] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 h-[92vh] max-h-[92vh] flex flex-col print:hidden">
             
-            {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-            <div className="flex items-center justify-between px-4 py-2.5 bg-[#0963cb] text-white shrink-0 shadow-xs">
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                  <span>{editingPayroll ? 'Editar Folha de Pagamento' : 'Lançar Folha de Pagamento'}</span>
-                  <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-mono font-bold">
-                    {currentMonthRef}
-                  </span>
-                </h3>
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                    <span>{editingPayroll ? 'EDITAR FOLHA DE PAGAMENTO' : 'LANÇAR FOLHA DE PAGAMENTO'}</span>
+                    <span className="text-[10px] bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded-md font-mono font-bold">
+                      {currentMonthRef}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Apuração de proventos, comissões, deduções legais e espelho em tempo real
+                  </p>
+                </div>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="hidden md:inline-block text-[11px] font-bold text-blue-100 bg-white/10 px-2.5 py-1 rounded-lg">
+                <span className="hidden md:inline-block text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-white/70 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 px-2.5 py-1 rounded-lg shadow-2xs">
                   Split Screen • Lançamentos & Espelho do Holerite
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                   title="Fechar Modal"
                 >
-                  <X className="w-5 h-5 text-white" />
+                  <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
                 </button>
               </div>
             </div>
@@ -3355,7 +3362,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-4.5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold transition shadow-xs cursor-pointer text-xs"
+                    className="px-4.5 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 cursor-pointer text-xs"
                   >
                     Salvar Folha de Pagamento
                   </button>

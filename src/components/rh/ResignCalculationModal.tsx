@@ -805,43 +805,43 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+      <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Top Header do Modal */}
-        <div className="p-4 sm:p-5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
-              <Calculator className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
-                <span>{initialTermination ? 'Editar Cálculo Rescisório' : 'Nova Rescisão de Colaborador'}</span>
+      {/* Top Header do Modal - Moldura Metálica 3D Acetinada */}
+      <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 shrink-0 rounded-t-2xl shadow-xs">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+            <Calculator className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                <span>{initialTermination ? 'EDITAR CÁLCULO RESCISÓRIO' : 'NOVA RESCISÃO DE COLABORADOR'}</span>
                 {initialTermination?.status === 'rascunho' && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                     Rascunho em Andamento
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-slate-400">
-                {selectedEmployee 
-                  ? `Colaborador: ${selectedEmployee.name} (${selectedEmployee.role || 'Geral'})` 
-                  : 'Selecione o funcionário e configure os parâmetros da rescisão oficial CLT'}
-              </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition cursor-pointer"
-              title="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+              {selectedEmployee 
+                ? `Colaborador: ${selectedEmployee.name} (${selectedEmployee.role || 'Geral'})` 
+                : 'Selecione o funcionário e configure os parâmetros da rescisão oficial CLT'}
+            </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+          title="Fechar"
+        >
+          <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+        </button>
+      </div>
 
         {/* Corpo com Scroll: Grid de Formulário (8 col) e Painel Resumo (4 col) */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4">

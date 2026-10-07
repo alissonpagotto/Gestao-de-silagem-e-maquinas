@@ -3026,27 +3026,34 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
       </div>
 
-      {/* Modal Cadastro/Edição de Colaborador */}
+      {/* Modal Cadastro/Edição de Colaborador - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print">
-          <div className={`bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh] ${
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden overflow-y-hidden">
+          <div className={`bg-slate-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[94vh] my-auto ${
             roleSidePanelTarget ? 'max-w-6xl' : 'max-w-4xl'
           } transition-all duration-300`}>
             
-            {/* Header - Solid Blue Bar */}
-            <div className="px-5 py-3 bg-[#0963cb] text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                <UserSquare2 className="w-5 h-5 text-white" />
-                <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
-                  {editingEmployee ? 'Editar Cadastro de Funcionário' : 'Novo Cadastro de Funcionário'}
-                </h3>
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <UserSquare2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingEmployee ? 'EDITAR CADASTRO DE FUNCIONÁRIO' : 'NOVO CADASTRO DE FUNCIONÁRIO'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Dados pessoais, contratuais, níveis de acesso e remuneração
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="p-1 rounded-lg text-white hover:bg-white/20 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
@@ -3135,13 +3142,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             </div>
 
             <div className="flex-1 flex overflow-hidden relative">
-              <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 no-scrollbar bg-[#b0d2ed]">
+              <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-slate-50 dark:bg-stone-900 text-xs">
               
               {/* SECTION 1: DADOS BÁSICOS & FOTO */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2 pb-1.5 border-b border-black/15">
-                  <UserSquare2 className="w-4 h-4 text-black" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-black">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 pb-1 border-b border-slate-300 dark:border-stone-700">
+                  <UserSquare2 className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-stone-200">
                     1. Dados Básicos do Funcionário
                   </h4>
                 </div>
@@ -4182,30 +4189,30 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
 
               {/* Modal Footer */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-black/15">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-slate-300 dark:border-stone-700">
                 <button
                   type="button"
                   onClick={handlePrintCurrentModalEmployee}
-                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-lg border border-amber-400 text-amber-900 bg-amber-100 hover:bg-amber-200 text-xs font-bold transition cursor-pointer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-400 text-amber-900 bg-amber-50 hover:bg-amber-100 text-xs font-bold transition cursor-pointer shadow-2xs"
                 >
-                  <Printer className="w-4 h-4" />
+                  <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir cadastro do funcionário para assinatura</span>
                 </button>
 
-                <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="px-5 py-2 rounded-lg border border-stone-300 text-stone-700 bg-white hover:bg-stone-50 text-xs sm:text-sm font-semibold transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-6 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 min-w-[140px]"
+                    className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 min-w-[130px]"
                   >
-                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin text-white" />}
+                    {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />}
                     <span>{isSubmitting ? 'Salvando...' : (editingEmployee ? 'Salvar Alterações' : 'Cadastrar Colaborador')}</span>
                   </button>
                 </div>

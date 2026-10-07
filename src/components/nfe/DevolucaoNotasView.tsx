@@ -470,21 +470,22 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
 
       </div>
 
-      {/* Modal para Emissão de Nova Nota de Devolução */}
+      {/* Modal para Emissão de Nova Nota de Devolução - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-stone-950/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-3xl w-full border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-3xl w-full border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] my-auto">
             
-            <div className="px-5 py-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/60 flex items-center justify-between">
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold">
-                  <ArrowDownLeft className="w-4 h-4" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0 font-bold">
+                  <ArrowDownLeft className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-black text-stone-900 dark:text-stone-100 font-['Outfit']">
-                    Nova Nota de Devolução de Mercadorias / Peças
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    NOVA NOTA DE DEVOLUÇÃO DE MERCADORIAS / PEÇAS
                   </h3>
-                  <p className="text-[10px] text-stone-500">
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                     Preencha os dados da NF de origem e itens devolvidos
                   </p>
                 </div>
@@ -493,219 +494,221 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveNotaDevolucao} className="p-4 sm:p-5 overflow-y-auto space-y-3.5">
+            <form onSubmit={handleSaveNotaDevolucao} className="p-3 sm:p-4 overflow-y-auto scrollbar-none space-y-2.5 text-xs flex-1 flex flex-col justify-between">
               
-              {formError && (
-                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold flex items-center space-x-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
+              <div className="space-y-2.5">
+                {formError && (
+                  <div className="p-2 rounded-lg bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold flex items-center space-x-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
 
-              {/* Linha 1: Fornecedor & Data */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-8">
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Fornecedor / Destinatário <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={selectedSupplierId}
-                    onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500"
-                  >
-                    <option value="">Selecione o Fornecedor...</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.tradeName || s.name}</option>
-                    ))}
-                    <option value="outro">+ Outro (Digitar Nome)</option>
-                  </select>
-                  {selectedSupplierId === 'outro' && (
+                {/* Linha 1: Fornecedor & Data */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-8">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Fornecedor / Destinatário <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={selectedSupplierId}
+                      onChange={(e) => setSelectedSupplierId(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                    >
+                      <option value="">Selecione o Fornecedor...</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.id}>{s.tradeName || s.name}</option>
+                      ))}
+                      <option value="outro">+ Outro (Digitar Nome)</option>
+                    </select>
+                    {selectedSupplierId === 'outro' && (
+                      <input
+                        type="text"
+                        placeholder="Nome do Fornecedor..."
+                        value={customSupplier}
+                        onChange={(e) => setCustomSupplier(e.target.value)}
+                        className="mt-1 w-full px-2.5 py-1 text-xs rounded-lg border border-rose-300 outline-none"
+                      />
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Data da Devolução
+                    </label>
+                    <input
+                      type="date"
+                      value={issueDate}
+                      onChange={(e) => setIssueDate(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Linha 2: NF de Origem & Motivo */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-6">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      NF-e de Origem (Entrada) <span className="text-rose-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      placeholder="Nome do Fornecedor..."
-                      value={customSupplier}
-                      onChange={(e) => setCustomSupplier(e.target.value)}
-                      className="mt-1.5 w-full px-2.5 py-1 text-xs rounded-lg border border-rose-300 outline-none"
+                      placeholder="Ex: NF-e 048291"
+                      value={originInvoice}
+                      onChange={(e) => setOriginInvoice(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400"
+                      required
                     />
-                  )}
+                  </div>
+
+                  <div className="sm:col-span-6">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Motivo da Devolução <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value as any)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                    >
+                      <option value="Mercadoria com Defeito / Avaria">Mercadoria com Defeito / Avaria</option>
+                      <option value="Peça Incompatível com a Frota">Peça Incompatível com a Frota</option>
+                      <option value="Desacordo com Pedido de Compra">Desacordo com Pedido de Compra</option>
+                      <option value="Devolução em Garantia">Devolução em Garantia</option>
+                      <option value="Devolução de Vasilhame / Comodato">Devolução de Vasilhame / Comodato</option>
+                      <option value="Outro">Outro Motivo</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Data da Devolução
-                  </label>
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500"
-                  />
-                </div>
-              </div>
+                {/* Tabela de Itens Devolvidos */}
+                <div className="space-y-1 pt-1.5 border-t border-slate-200 dark:border-stone-800">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">
+                      Itens a Devolver
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddItem}
+                      className="text-[11px] font-bold text-rose-600 hover:text-rose-700 inline-flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                      <span>+ Adicionar Linha</span>
+                    </button>
+                  </div>
 
-              {/* Linha 2: NF de Origem & Motivo */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-6">
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    NF-e de Origem (Entrada) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: NF-e 048291"
-                    value={originInvoice}
-                    onChange={(e) => setOriginInvoice(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500"
-                    required
-                  />
-                </div>
-
-                <div className="sm:col-span-6">
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Motivo da Devolução <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value as any)}
-                    className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500"
-                  >
-                    <option value="Mercadoria com Defeito / Avaria">Mercadoria com Defeito / Avaria</option>
-                    <option value="Peça Incompatível com a Frota">Peça Incompatível com a Frota</option>
-                    <option value="Desacordo com Pedido de Compra">Desacordo com Pedido de Compra</option>
-                    <option value="Devolução em Garantia">Devolução em Garantia</option>
-                    <option value="Devolução de Vasilhame / Comodato">Devolução de Vasilhame / Comodato</option>
-                    <option value="Outro">Outro Motivo</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Tabela de Itens Devolvidos */}
-              <div className="space-y-1.5 pt-2 border-t border-stone-200 dark:border-stone-800">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
-                    Itens a Devolver
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 inline-flex items-center space-x-1 cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3 stroke-[2.5]" />
-                    <span>Adicionar Linha</span>
-                  </button>
-                </div>
-
-                <div className="border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-[10px] font-black uppercase">
-                      <tr>
-                        <th className="py-1.5 px-2">Descrição do Produto / Peça</th>
-                        <th className="py-1.5 px-2 w-20">Qtd</th>
-                        <th className="py-1.5 px-2 w-16">Un</th>
-                        <th className="py-1.5 px-2 w-28">Unitário (R$)</th>
-                        <th className="py-1.5 px-2 w-28 text-right">Total (R$)</th>
-                        <th className="py-1.5 px-1 w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                      {items.map((it) => (
-                        <tr key={it.id}>
-                          <td className="p-1">
-                            <input
-                              type="text"
-                              placeholder="Ex: Filtro de Combustível..."
-                              value={it.description}
-                              onChange={(e) => handleItemChange(it.id, 'description', e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded border border-stone-200 outline-none"
-                              required
-                            />
-                          </td>
-                          <td className="p-1">
-                            <input
-                              type="number"
-                              min="1"
-                              value={it.quantity}
-                              onChange={(e) => handleItemChange(it.id, 'quantity', e.target.value)}
-                              className="w-full px-1.5 py-1 text-xs rounded border border-stone-200 outline-none"
-                            />
-                          </td>
-                          <td className="p-1">
-                            <input
-                              type="text"
-                              value={it.unit}
-                              onChange={(e) => handleItemChange(it.id, 'unit', e.target.value)}
-                              className="w-full px-1 py-1 text-xs text-center rounded border border-stone-200 outline-none uppercase"
-                            />
-                          </td>
-                          <td className="p-1">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={it.unitPrice}
-                              onChange={(e) => handleItemChange(it.id, 'unitPrice', e.target.value)}
-                              className="w-full px-1.5 py-1 text-xs text-right rounded border border-stone-200 outline-none"
-                            />
-                          </td>
-                          <td className="p-1 text-right font-bold text-stone-900 pr-2">
-                            {formatCurrencyBRL(it.totalPrice)}
-                          </td>
-                          <td className="p-1 text-center">
-                            {items.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(it.id)}
-                                className="text-stone-400 hover:text-rose-600"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </td>
+                  <div className="border border-slate-300 dark:border-stone-700 rounded-lg overflow-hidden max-h-36 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-[10px] font-black uppercase sticky top-0">
+                        <tr>
+                          <th className="py-1 px-2">Descrição do Produto / Peça</th>
+                          <th className="py-1 px-2 w-20">Qtd</th>
+                          <th className="py-1 px-2 w-16">Un</th>
+                          <th className="py-1 px-2 w-28">Unitário (R$)</th>
+                          <th className="py-1 px-2 w-28 text-right">Total (R$)</th>
+                          <th className="py-1 px-1 w-8"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+                        {items.map((it) => (
+                          <tr key={it.id}>
+                            <td className="p-1">
+                              <input
+                                type="text"
+                                placeholder="Ex: Filtro de Combustível..."
+                                value={it.description}
+                                onChange={(e) => handleItemChange(it.id, 'description', e.target.value)}
+                                className="w-full px-2 py-0.5 text-xs rounded border border-slate-200 dark:border-stone-700 outline-none"
+                                required
+                              />
+                            </td>
+                            <td className="p-1">
+                              <input
+                                type="number"
+                                min="1"
+                                value={it.quantity}
+                                onChange={(e) => handleItemChange(it.id, 'quantity', e.target.value)}
+                                className="w-full px-1.5 py-0.5 text-xs rounded border border-slate-200 dark:border-stone-700 outline-none"
+                              />
+                            </td>
+                            <td className="p-1">
+                              <input
+                                type="text"
+                                value={it.unit}
+                                onChange={(e) => handleItemChange(it.id, 'unit', e.target.value)}
+                                className="w-full px-1 py-0.5 text-xs text-center rounded border border-slate-200 dark:border-stone-700 outline-none uppercase"
+                              />
+                            </td>
+                            <td className="p-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={it.unitPrice}
+                                onChange={(e) => handleItemChange(it.id, 'unitPrice', e.target.value)}
+                                className="w-full px-1.5 py-0.5 text-xs text-right rounded border border-slate-200 dark:border-stone-700 outline-none"
+                              />
+                            </td>
+                            <td className="p-1 text-right font-bold text-slate-900 dark:text-stone-100 pr-2">
+                              {formatCurrencyBRL(it.totalPrice)}
+                            </td>
+                            <td className="p-1 text-center">
+                              {items.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(it.id)}
+                                  className="text-stone-400 hover:text-rose-600 cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-end pt-0.5">
+                    <span className="text-xs font-black text-rose-700 dark:text-rose-400">
+                      Total da Devolução: {formatCurrencyBRL(totalCalculated)}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex justify-end pt-1">
-                  <span className="text-xs font-black text-rose-700">
-                    Total da Devolução: {formatCurrencyBRL(totalCalculated)}
-                  </span>
+                {/* Justificativa / Observações */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Justificativa / Dados Adicionais da Devolução
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Informações fiscais complementares..."
+                    className="w-full px-2.5 py-1 text-xs rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 resize-none"
+                  />
                 </div>
               </div>
 
-              {/* Justificativa / Observações */}
-              <div>
-                <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Justificativa / Dados Adicionais da Devolução
-                </label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Informações fiscais complementares..."
-                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 resize-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2">
+              <div className="pt-2.5 border-t border-slate-300 dark:border-stone-700 flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 text-stone-700 hover:bg-stone-100"
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-200 border border-slate-300 dark:border-stone-600 transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-black rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                  className="inline-flex items-center space-x-1.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-rose-700 transition cursor-pointer"
                 >
-                  <Save className="w-4 h-4" />
+                  <Save className="w-3.5 h-3.5" />
                   <span>Gravar Nota de Devolução</span>
                 </button>
               </div>

@@ -795,143 +795,157 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       </div>
       )}
 
-      {/* Driver Add/Edit Modal */}
+      {/* Driver Add/Edit Modal - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-zinc-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
-              <h3 className="text-base font-bold font-['Outfit'] text-white">
-                {editingDriver ? 'Editar Motorista' : 'Novo Motorista'}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col max-h-[92vh]">
+            
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                    {editingDriver ? 'EDITAR MOTORISTA' : 'NOVO MOTORISTA'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Controle de CNH, categorias, veículos vinculados e contatos
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer text-white"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                  Nome Completo <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Carlos Eduardo Ramos"
-                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-2 text-xs bg-white dark:bg-stone-900 flex-1 flex flex-col justify-between">
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Função / Cargo
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Nome Completo <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    placeholder="Ex: Motorista de Caminhão"
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex: Carlos Eduardo Ramos"
+                    className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Telefone / WhatsApp
-                  </label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(45) 99999-9999"
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Função / Cargo
+                    </label>
+                    <input
+                      type="text"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      placeholder="Ex: Motorista de Caminhão"
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Número CNH
-                  </label>
-                  <input
-                    type="text"
-                    value={cnhNumber}
-                    onChange={(e) => setCnhNumber(e.target.value)}
-                    placeholder="12345678900"
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
-                  />
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Telefone / WhatsApp
+                    </label>
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(45) 99999-9999"
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Número CNH
+                    </label>
+                    <input
+                      type="text"
+                      value={cnhNumber}
+                      onChange={(e) => setCnhNumber(e.target.value)}
+                      placeholder="12345678900"
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Categoria CNH
+                    </label>
+                    <select
+                      value={cnhCategory}
+                      onChange={(e) => setCnhCategory(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <option value="E">E (Pesados / Bitrem)</option>
+                      <option value="D">D (Ônibus / Vans)</option>
+                      <option value="C">C (Caminhões)</option>
+                      <option value="B">B (Carros / Apoio)</option>
+                      <option value="AB">AB</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Validade CNH
+                    </label>
+                    <input
+                      type="date"
+                      value={cnhExpiration}
+                      onChange={(e) => setCnhExpiration(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Categoria CNH
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Caminhão / Veículo Vinculado (Opcional)
                   </label>
                   <select
-                    value={cnhCategory}
-                    onChange={(e) => setCnhCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs cursor-pointer"
+                    value={assignedVehicle}
+                    onChange={(e) => setAssignedVehicle(e.target.value)}
+                    className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors shadow-2xs cursor-pointer"
                   >
-                    <option value="E">E (Pesados / Bitrem)</option>
-                    <option value="D">D (Ônibus / Vans)</option>
-                    <option value="C">C (Caminhões)</option>
-                    <option value="B">B (Carros / Apoio)</option>
-                    <option value="AB">AB</option>
+                    <option value="">Sem veículo titular fixo</option>
+                    {machineries.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} {m.model ? `- ${m.model}` : ''} {m.licensePlateOrSerial ? `(${m.licensePlateOrSerial})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                    Validade CNH
-                  </label>
-                  <input
-                    type="date"
-                    value={cnhExpiration}
-                    onChange={(e) => setCnhExpiration(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
-                  />
-                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                  Caminhão / Veículo Vinculado (Opcional)
-                </label>
-                <select
-                  value={assignedVehicle}
-                  onChange={(e) => setAssignedVehicle(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs cursor-pointer"
-                >
-                  <option value="">Sem veículo titular fixo</option>
-                  {machineries.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} {m.model ? `- ${m.model}` : ''} {m.licensePlateOrSerial ? `(${m.licensePlateOrSerial})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-4 border-t border-zinc-200 flex items-center justify-end space-x-3">
+              <div className="pt-2.5 border-t border-slate-300 dark:border-stone-700 flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={isSaving}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition active:scale-98 flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition active:scale-98 flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  <Save className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
+                  <Save className={`w-3.5 h-3.5 ${isSaving ? 'animate-spin' : ''}`} />
                   <span>{isSaving ? 'Gravando...' : 'Salvar Motorista'}</span>
                 </button>
               </div>

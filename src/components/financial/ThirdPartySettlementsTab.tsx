@@ -536,192 +536,213 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
         </div>
       </div>
 
-      {/* Modal Acerto de Terceiro */}
+      {/* Modal Acerto de Terceiro - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col my-auto">
             
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 bg-zinc-900 dark:bg-stone-800 text-white shrink-0">
-              <h3 className="text-base font-bold text-white tracking-tight">
-                {editingItem ? 'Editar Acerto de Terceiro' : 'Novo Acerto (Freteiro / Operador)'}
-              </h3>
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Truck className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingItem ? 'EDITAR ACERTO DE TERCEIRO' : 'NOVO ACERTO (FRETEIRO / OPERADOR)'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Fechamento de prestação de serviços, fretes de silagem e diárias
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-white hover:bg-white/20 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-5 space-y-3.5 bg-white dark:bg-stone-900 overflow-y-auto">
-              <div>
-                <label className="block text-xs font-bold text-black mb-1">
-                  Nome do Terceiro / Motorista / Empresa <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={thirdPartyName}
-                  onChange={(e) => setThirdPartyName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-2 text-xs bg-white dark:bg-stone-900 overflow-hidden flex-1 flex flex-col justify-between">
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Tipo de Terceiro
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                  >
-                    <option value="Freteiro / Caminhão">Freteiro / Caminhão</option>
-                    <option value="Operador Terceirizado">Operador Terceirizado</option>
-                    <option value="Aluguel de Máquina">Aluguel de Máquina</option>
-                    <option value="Prestador de Serviço">Prestador de Serviço</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Data do Fechamento
-                  </label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black mb-1">
-                  Descrição do Trabalho
-                </label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Toneladas
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={tons}
-                    onChange={(e) => setTons(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Viagens / Horas
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    value={trips || hours}
-                    onChange={(e) => {
-                      setTrips(e.target.value);
-                      setHours(e.target.value);
-                    }}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Valor Unitário (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={rate}
-                    onChange={(e) => setRate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-rose-700 mb-1">
-                    (-) Abatimento / Diesel (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={deductions}
-                    onChange={(e) => setDeductions(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-rose-300 rounded-xl bg-white text-rose-600 focus:ring-2 focus:ring-rose-500 outline-none font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Status do Pagamento
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
-                  >
-                    <option value="pendente">Pendente / A Pagar</option>
-                    <option value="parcial">Pago Parcialmente</option>
-                    <option value="pago">Totalmente Liquidado</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Placa / Máquina
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Nome do Terceiro / Motorista / Empresa <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="text"
-                    value={machineryPlateOrName}
-                    onChange={(e) => setMachineryPlateOrName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
+                    required
+                    value={thirdPartyName}
+                    onChange={(e) => setThirdPartyName(e.target.value)}
+                    placeholder="Ex: João da Silva / Transportadora Aliança"
+                    className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Tipo de Terceiro
+                    </label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as any)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none cursor-pointer"
+                    >
+                      <option value="Freteiro / Caminhão">Freteiro / Caminhão</option>
+                      <option value="Operador Terceirizado">Operador Terceirizado</option>
+                      <option value="Aluguel de Máquina">Aluguel de Máquina</option>
+                      <option value="Prestador de Serviço">Prestador de Serviço</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Data do Fechamento
+                    </label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    WhatsApp / Telefone
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Descrição do Trabalho
                   </label>
                   <input
                     type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#0963cb] outline-none"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex: Frete de silagem fazenda Boa Vista, 4 viagens..."
+                    className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
                   />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Toneladas
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={tons}
+                      onChange={(e) => setTons(e.target.value)}
+                      placeholder="0.0"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Viagens / Horas
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      value={trips || hours}
+                      onChange={(e) => {
+                        setTrips(e.target.value);
+                        setHours(e.target.value);
+                      }}
+                      placeholder="0"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Valor Unitário (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={rate}
+                      onChange={(e) => setRate(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-bold border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-0.5">
+                      (-) Abatimento / Diesel (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={deductions}
+                      onChange={(e) => setDeductions(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-bold border border-rose-300 dark:border-rose-900/50 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 focus:ring-1 focus:ring-rose-400 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Status do Pagamento
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none cursor-pointer"
+                    >
+                      <option value="pendente">Pendente / A Pagar</option>
+                      <option value="parcial">Pago Parcialmente</option>
+                      <option value="pago">Totalmente Liquidado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Placa / Máquina
+                    </label>
+                    <input
+                      type="text"
+                      value={machineryPlateOrName}
+                      onChange={(e) => setMachineryPlateOrName(e.target.value)}
+                      placeholder="Ex: ABC-1234 ou Trator JD 6110"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      WhatsApp / Telefone
+                    </label>
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs font-medium border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-3 border-t border-black/15">
+              {/* Rodapé com botões metálicos com filete de luz */}
+              <div className="flex justify-end items-center space-x-2 pt-2.5 border-t border-slate-300 dark:border-stone-700 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-white border border-stone-300 text-stone-700 hover:bg-stone-50 cursor-pointer transition"
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-200 border border-slate-300 dark:border-stone-600 transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[#0963cb] hover:bg-[#0852a8] text-white shadow-xs cursor-pointer transition"
+                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition cursor-pointer"
                 >
                   Salvar Acerto
                 </button>
