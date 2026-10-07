@@ -1844,10 +1844,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     <button
                       type="button"
                       onClick={handleAddLaborItem}
-                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Mecânico</span>
+                      <Plus className="w-3.5 h-3.5 text-slate-800 stroke-[2.2]" />
+                      <span>+ MECÂNICO</span>
                     </button>
                   </div>
 
@@ -1861,9 +1861,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                       <button
                         type="button"
                         onClick={handleAddLaborItem}
-                        className="mt-1 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+                        className="mt-1 px-3.5 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] transition cursor-pointer active:scale-95 uppercase tracking-wide"
                       >
-                        + Adicionar Mão de Obra
+                        <Plus className="w-3.5 h-3.5 inline mr-1 text-slate-800 stroke-[2.2]" />
+                        <span>+ ADICIONAR MÃO DE OBRA</span>
                       </button>
                     </div>
                   ) : (
@@ -2142,22 +2143,22 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     </div>
                   )}
 
-                  {/* Card de Consolidação / Rodapé Escuro da Mão de Obra */}
-                  <div className="mt-auto shrink-0 p-3 bg-zinc-900 rounded-xl border border-zinc-800 text-white flex items-center justify-between shadow-md">
+                  {/* Card de Consolidação / Rodapé Slim da Mão de Obra */}
+                  <div className="mt-auto shrink-0 p-3 bg-slate-100/90 rounded-xl border border-slate-300 text-slate-800 flex items-center justify-between shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.06)]">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-800 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700">
-                        <Clock className="w-4 h-4" />
+                      <div className="w-8 h-8 rounded-lg bg-white text-slate-700 flex items-center justify-center shrink-0 border border-slate-300 shadow-2xs">
+                        <Clock className="w-4 h-4 text-slate-600" />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-white block leading-tight">
+                        <span className="text-xs font-bold text-slate-800 block leading-tight uppercase tracking-wide">
                           Total Mão de Obra
                         </span>
                         <div className="flex items-center space-x-2 mt-0.5">
-                          <span className="text-[11px] text-zinc-400">
+                          <span className="text-[11px] font-medium text-slate-600">
                             {laborItems.length} {laborItems.length === 1 ? 'mecânico' : 'mecânicos'}
                           </span>
-                          <span className="text-zinc-600">•</span>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
+                          <span className="text-slate-400">•</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white text-slate-800 border border-slate-300 shadow-2xs">
                             {totalInternalHoursCalculated.toFixed(2).replace('.', ',')}h
                           </span>
                         </div>
@@ -2165,7 +2166,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     </div>
 
                     <div className="text-right">
-                      <span className="text-sm sm:text-base font-black text-white font-mono tracking-tight">
+                      <span className="text-sm sm:text-base font-black text-slate-800 font-mono tracking-tight">
                         {formatCurrencyBRL(totalInternalLaborCalculated)}
                       </span>
                     </div>
@@ -2218,10 +2219,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                       osPartSearchInputRef.current?.focus();
                       osPartSearchInputRef.current?.select();
                     }}
-                    className="inline-flex items-center space-x-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Adicionar Peça / Serviço</span>
+                    <Plus className="w-3.5 h-3.5 text-slate-800 stroke-[2.2]" />
+                    <span>+ ADICIONAR PEÇA / SERVIÇO</span>
                   </button>
                 </div>
               </div>
@@ -2558,37 +2559,37 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
               </div>
 
               {/* FAIXA HORIZONTAL COMPACTA DE RESUMO (Mão de Obra Avulsa, Resumo de Custos e Baixa no Estoque) */}
-              <div className="mt-auto shrink-0 bg-white border border-zinc-300 rounded-xl px-3.5 py-2.5 shadow-2xs">
+              <div className="mt-auto shrink-0 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 shadow-2xs">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                   {/* 1. Mão de Obra Avulsa / Terceira */}
                   <div className="flex items-center space-x-2">
-                    <label className="text-[11px] font-bold text-zinc-700 whitespace-nowrap">
+                    <label className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">
                       Mão de Obra Avulsa:
                     </label>
-                    <div className="inline-flex items-center bg-zinc-50 border border-zinc-300 rounded-md px-2 py-0.5 shadow-2xs focus-within:ring-2 focus-within:ring-zinc-700/20 focus-within:border-zinc-700">
-                      <span className="text-[11px] text-zinc-400 font-mono font-medium mr-1 select-none">R$</span>
+                    <div className="inline-flex items-center bg-slate-50 border border-slate-300 rounded-md px-2 py-0.5 shadow-2xs focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500">
+                      <span className="text-[11px] text-slate-400 font-mono font-medium mr-1 select-none">R$</span>
                       <input
                         type="text"
                         inputMode="decimal"
                         value={laborCost}
                         onChange={(e) => setLaborCost(e.target.value)}
                         placeholder="0,00"
-                        className="w-20 py-0.5 text-xs font-mono font-bold text-right bg-transparent text-zinc-900 focus:outline-none"
+                        className="w-20 py-0.5 text-xs font-mono font-bold text-right bg-transparent text-slate-800 focus:outline-none"
                         title="Custo adicional avulso de mão de obra (além da interna da Aba 1)"
                       />
                     </div>
                     {laborItems.length > 0 && (
-                      <span className="text-[10px] text-zinc-800 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-300 font-medium whitespace-nowrap">
-                        + R$ {totalInternalLaborCalculated.toFixed(2)} interna
+                      <span className="text-[10px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-medium whitespace-nowrap">
+                        + R$ {totalInternalLaborCalculated.toFixed(2).replace('.', ',')} interna
                       </span>
                     )}
                   </div>
 
                   {/* 2. Discriminação dos Subtotais */}
-                  <div className="hidden lg:flex items-center space-x-3 text-[11px] text-zinc-600 border-l border-r border-zinc-200 px-3">
-                    <div>
-                      <span>Peças Novas / Estoque: </span>
-                      <strong className="font-mono text-zinc-900">
+                  <div className="hidden lg:flex items-center space-x-3 text-[11px] border-l border-r border-slate-200 px-3">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-[11px] font-semibold text-slate-500">Peças Novas / Estoque:</span>
+                      <strong className="font-mono font-bold text-slate-800">
                         {formatCurrencyBRL(
                           partsItems
                             .filter(p => p.origin !== 'recuperada_externa')
@@ -2597,9 +2598,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                       </strong>
                     </div>
                     {totalRecoveredExternalCost > 0 && (
-                      <div>
-                        <span className="text-zinc-600">Recuperação / Torno: </span>
-                        <strong className="font-mono text-zinc-900">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-[11px] font-semibold text-slate-500">Recuperação / Torno:</span>
+                        <strong className="font-mono font-bold text-slate-800">
                           {formatCurrencyBRL(totalRecoveredExternalCost)}
                         </strong>
                       </div>
@@ -2608,10 +2609,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
                   {/* Custo Total Consolidado da OS */}
                   <div className="flex items-center space-x-2 ml-auto">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600 whitespace-nowrap">
-                      Custo Consolidado:
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                      CUSTO CONSOLIDADO:
                     </span>
-                    <span className="text-base font-black text-zinc-900 font-['Outfit'] font-mono">
+                    <span className="text-base font-black text-slate-800 font-['Outfit'] font-mono">
                       {formatCurrencyBRL(grandTotal)}
                     </span>
                   </div>
@@ -2627,26 +2628,28 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-150">
               
               {/* RESUMO CONSOLIDADO DA ORDEM DE SERVIÇO PARA FATURAMENTO */}
-              <div className="p-4 bg-zinc-900 text-white rounded-2xl border border-zinc-800 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
+              <div className="p-4 bg-slate-50 border border-slate-300 rounded-2xl shadow-sm text-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                   <div className="flex items-center space-x-2.5">
-                    <Receipt className="w-5 h-5 text-zinc-300" />
+                    <div className="w-8 h-8 rounded-lg bg-white text-slate-700 flex items-center justify-center border border-slate-300 shadow-2xs shrink-0">
+                      <Receipt className="w-4 h-4 text-slate-600" />
+                    </div>
                     <div>
-                      <h3 className="text-sm font-black text-white tracking-wide">
+                      <h3 className="text-sm font-black text-slate-800 tracking-wide uppercase font-['Outfit']">
                         Consolidado da Ordem de Serviço ({osNumber || 'Sem Número'})
                       </h3>
-                      <p className="text-[11px] text-zinc-400 font-medium">
+                      <p className="text-[11px] text-slate-500 font-medium">
                         Valores consolidados de peças, insumos e mão de obra prontos para faturamento
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <span className="text-[11px] text-zinc-400 font-bold">Status:</span>
+                    <span className="text-[11px] text-slate-500 font-bold uppercase">Status:</span>
                     <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
                       status === 'concluida'
-                        ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/70'
-                        : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                        : 'bg-white text-slate-700 border border-slate-300 shadow-2xs'
                     }`}>
                       {status === 'concluida' ? 'OS Concluída' : 'OS Em Andamento'}
                     </span>
@@ -2654,23 +2657,29 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
-                  <div className="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700 shadow-2xs">
-                    <span className="block text-[11px] text-zinc-400 font-semibold">Peças & Insumos ({partsItems.length} itens)</span>
-                    <span className="text-sm sm:text-base font-black text-white font-mono">
+                  <div className="p-3 bg-white rounded-xl border border-slate-300 shadow-2xs">
+                    <span className="block text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
+                      Peças & Insumos ({partsItems.length} itens)
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-slate-800 font-mono mt-0.5 block">
                       {formatCurrencyBRL(totalPartsCalculated)}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700 shadow-2xs">
-                    <span className="block text-[11px] text-zinc-400 font-semibold">Mão de Obra ({laborItems.length} mecânicos)</span>
-                    <span className="text-sm sm:text-base font-black text-white font-mono">
+                  <div className="p-3 bg-white rounded-xl border border-slate-300 shadow-2xs">
+                    <span className="block text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
+                      Mão de Obra ({laborItems.length} mecânicos)
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-slate-800 font-mono mt-0.5 block">
                       {formatCurrencyBRL(totalLaborCalculated)}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-zinc-950 text-white rounded-xl border border-zinc-700 shadow-xs">
-                    <span className="block text-[11px] text-zinc-300 font-semibold">Total a Faturar na OS</span>
-                    <span className="text-base sm:text-lg font-black text-emerald-400 font-mono">
+                  <div className="p-3 bg-white rounded-xl border border-slate-300 shadow-xs">
+                    <span className="block text-[11px] text-slate-600 font-bold uppercase tracking-wide">
+                      Total a Faturar na OS
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-slate-800 font-mono mt-0.5 block">
                       {formatCurrencyBRL(grandTotal)}
                     </span>
                   </div>
