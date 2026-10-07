@@ -1050,48 +1050,53 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   };
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}>
+    <div
+      className={`fixed inset-0 ${zIndexClass} bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150`}
+      onClick={onClose}
+    >
       <div 
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[65vh] min-h-[520px] max-h-[90vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header */}
-        <div className="px-5 py-3.5 bg-sky-700 text-white flex items-center justify-between shadow-sm shrink-0">
+        {/* ============================================================== */}
+        {/* CABEÇALHO 3D METÁLICO ACETINADO COM ACABAMENTO TRIDIMENSIONAL */}
+        {/* ============================================================== */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between shrink-0 rounded-t-2xl">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold">
-              <Barcode className="w-4 h-4 stroke-[2.2]" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Barcode className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-extrabold tracking-tight font-['Outfit']">
-                Impressão de Etiquetas de Gôndola / Almoxarifado
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                IMPRESSÃO DE ETIQUETAS DE GÔNDOLA / ALMOXARIFADO
               </h3>
-              <p className="text-[11px] text-sky-100">
-                {entryTitle ? `${entryTitle} • ` : ''}{itemsToPrint.length} produto(s) • Total de etiquetas geradas: {totalLabelsCount} • Formato: {currentPreset.badge}
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                {entryTitle ? `${entryTitle.toUpperCase()} • ` : ''}{itemsToPrint.length} PRODUTO(S) • TOTAL: {totalLabelsCount} ETIQUETAS • {currentPreset.badge.toUpperCase()}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
-        {/* Corpo do Modal */}
-        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+        {/* Corpo do Modal com Slim Design */}
+        <div className="p-3 sm:p-4 space-y-2.5 overflow-y-auto scrollbar-none flex-1 min-h-0">
           
           {/* Seletor Principal: Modelo e Tamanho da Etiqueta */}
-          <div className="p-3.5 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
               
               {/* Dropdown com os 12 modelos exatos */}
               <div className="md:col-span-8">
-                <label className="block text-[11px] font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider mb-1 flex items-center space-x-1.5">
-                  <LayoutGrid className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Modelo e Tamanho da Etiqueta</span>
+                <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center space-x-1.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                  <span>MODELO E TAMANHO DA ETIQUETA</span>
                 </label>
                 <select
                   value={labelSize}
@@ -1103,7 +1108,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                       setStartPosition(1);
                     }
                   }}
-                  className="w-full h-10 px-3 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer shadow-xs"
+                  className="w-full h-8 sm:h-8.5 px-2.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer shadow-2xs"
                 >
                   <optgroup label="1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)">
                     {A4_PRESETS.map((p) => (
@@ -1124,15 +1129,15 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
               {/* Quantidade Global de Cópias */}
               <div className="md:col-span-4">
-                <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1 flex items-center space-x-1">
-                  <Copy className="w-3 h-3 text-stone-500" />
-                  <span>Quantidade de Etiquetas</span>
+                <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center space-x-1">
+                  <Copy className="w-3 h-3 text-slate-500" />
+                  <span>QUANTIDADE DE ETIQUETAS</span>
                 </label>
                 <div className="flex items-center space-x-1.5">
                   <button
                     type="button"
                     onClick={() => handleApplyGlobalCopies(Math.max(1, defaultCopies - 1))}
-                    className="w-10 h-10 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-sm"
+                    className="w-8 h-8 rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-xs shadow-2xs"
                   >
                     -
                   </button>
@@ -1142,12 +1147,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     max="999"
                     value={defaultCopies}
                     onChange={(e) => handleApplyGlobalCopies(parseInt(e.target.value, 10) || 1)}
-                    className="w-full h-10 text-center font-mono font-black text-sm border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    className="w-full h-8 text-center font-mono font-black text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => handleApplyGlobalCopies(defaultCopies + 1)}
-                    className="w-10 h-10 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-sm"
+                    className="w-8 h-8 rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-xs shadow-2xs"
                   >
                     +
                   </button>
@@ -1157,24 +1162,24 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             </div>
 
             {/* Regra de Quantidade Padrão (Radio Buttons) */}
-            <div className="pt-2.5 border-t border-stone-200 dark:border-stone-700/60 space-y-2">
+            <div className="pt-2 border-t border-slate-200 dark:border-stone-700/60 space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-[11px] font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Copy className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Regra de Quantidade Padrão</span>
+                <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider flex items-center space-x-1.5">
+                  <Copy className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                  <span>REGRA DE QUANTIDADE PADRÃO</span>
                 </label>
                 <span className="text-[11px] font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-                  Total de etiquetas geradas: {totalLabelsCount}
+                  TOTAL GERADO: {totalLabelsCount} ETIQUETAS
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <label
                   onClick={() => handleSelectQuantityRule('single')}
-                  className={`flex items-center space-x-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                  className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition select-none ${
                     quantityRule === 'single'
                       ? 'bg-sky-50/90 dark:bg-sky-950/50 border-sky-500 text-sky-950 dark:text-sky-100 ring-1 ring-sky-500/50 font-bold'
-                      : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-sky-400 font-semibold'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:border-sky-400 font-semibold'
                   }`}
                 >
                   <input
@@ -1183,22 +1188,22 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     value="single"
                     checked={quantityRule === 'single'}
                     onChange={() => handleSelectQuantityRule('single')}
-                    className="w-4 h-4 text-sky-600 border-stone-300 focus:ring-sky-500 cursor-pointer shrink-0"
+                    className="w-3.5 h-3.5 text-sky-600 border-slate-300 focus:ring-sky-500 cursor-pointer shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="leading-tight">Uma etiqueta por produto</div>
-                    <div className="text-[10px] font-normal text-stone-500 dark:text-stone-400 mt-0.5">
-                      Define exatamente 1 etiqueta para cada produto da lista ({itemsToPrint.length} {itemsToPrint.length === 1 ? 'etiqueta' : 'etiquetas'})
+                    <div className="leading-tight text-[11px] font-bold uppercase">Uma etiqueta por produto</div>
+                    <div className="text-[10px] font-normal text-slate-500 dark:text-stone-400 mt-0.5">
+                      Define 1 etiqueta para cada item ({itemsToPrint.length} {itemsToPrint.length === 1 ? 'etiqueta' : 'etiquetas'})
                     </div>
                   </div>
                 </label>
 
                 <label
                   onClick={() => handleSelectQuantityRule('invoice')}
-                  className={`flex items-center space-x-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                  className={`flex items-center space-x-2 p-2 rounded-lg border text-xs cursor-pointer transition select-none ${
                     quantityRule === 'invoice'
                       ? 'bg-sky-50/90 dark:bg-sky-950/50 border-sky-500 text-sky-950 dark:text-sky-100 ring-1 ring-sky-500/50 font-bold'
-                      : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-sky-400 font-semibold'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:border-sky-400 font-semibold'
                   }`}
                 >
                   <input
@@ -1207,12 +1212,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     value="invoice"
                     checked={quantityRule === 'invoice'}
                     onChange={() => handleSelectQuantityRule('invoice')}
-                    className="w-4 h-4 text-sky-600 border-stone-300 focus:ring-sky-500 cursor-pointer shrink-0"
+                    className="w-3.5 h-3.5 text-sky-600 border-slate-300 focus:ring-sky-500 cursor-pointer shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="leading-tight">Quantidade da Nota Fiscal (Total de Unidades)</div>
-                    <div className="text-[10px] font-normal text-stone-500 dark:text-stone-400 mt-0.5">
-                      Preenche com a quantidade exata lançada na nota ({totalInvoiceUnitsCount} {totalInvoiceUnitsCount === 1 ? 'etiqueta' : 'etiquetas'})
+                    <div className="leading-tight text-[11px] font-bold uppercase">Quantidade da Nota Fiscal (Lote)</div>
+                    <div className="text-[10px] font-normal text-slate-500 dark:text-stone-400 mt-0.5">
+                      Quantidade exata lançada no lote ({totalInvoiceUnitsCount} {totalInvoiceUnitsCount === 1 ? 'unidade' : 'unidades'})
                     </div>
                   </div>
                 </label>
@@ -1221,19 +1226,19 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
             {/* Configurações Avançadas e Reaproveitamento para A4 */}
             {isA4 && (
-              <div className="pt-2.5 border-t border-stone-200 dark:border-stone-700/60 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              <div className="pt-2 border-t border-slate-200 dark:border-stone-700/60 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                 <div className="sm:col-span-7">
-                  <div className="flex items-center space-x-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-800 dark:text-stone-200 uppercase">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Reaproveitamento de Folhas A4</span>
                   </div>
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                    Defina em qual etiqueta da folha a impressão deve começar para reaproveitar folhas que já tiveram adesivos destacados.
+                  <p className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5">
+                    Defina em qual etiqueta da folha a impressão deve começar para reaproveitar folhas com adesivos já destacados.
                   </p>
                 </div>
 
                 <div className="sm:col-span-5 flex items-center justify-end space-x-2">
-                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-stone-300 whitespace-nowrap uppercase">
                     Iniciar na posição:
                   </label>
                   <div className="flex items-center space-x-1">
@@ -1248,16 +1253,16 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                           setStartPosition(Math.max(1, Math.min(val, totalSlotsPerSheet)));
                         }
                       }}
-                      className="w-16 h-8 text-center font-mono font-extrabold text-xs rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/40 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-14 h-7 text-center font-mono font-extrabold text-xs rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/40 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     />
-                    <span className="text-[11px] font-semibold text-stone-400 font-mono">
+                    <span className="text-[11px] font-semibold text-slate-400 font-mono">
                       / {totalSlotsPerSheet}
                     </span>
                     {startPosition > 1 && (
                       <button
                         type="button"
                         onClick={() => setStartPosition(1)}
-                        className="p-1.5 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950 transition cursor-pointer text-[10px] font-bold"
+                        className="p-1 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950 transition cursor-pointer text-[10px] font-bold uppercase"
                         title="Resetar para a 1ª posição"
                       >
                         Resetar
@@ -1269,71 +1274,71 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             )}
 
             {/* Alternância de Abas de Pré-visualização se for A4 */}
-            <div className="pt-2 border-t border-stone-200 dark:border-stone-700/60 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <div className="pt-2 border-t border-slate-200 dark:border-stone-700/60 flex items-center justify-between">
+              <div className="flex items-center space-x-1.5">
                 <button
                   type="button"
                   onClick={() => setPreviewTab('label')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase transition flex items-center space-x-1 cursor-pointer ${
                     previewTab === 'label'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'bg-stone-200/70 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-300'
+                      ? 'bg-sky-600 text-white shadow-2xs'
+                      : 'bg-slate-200/70 dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-300'
                   }`}
                 >
-                  <Eye className="w-3.5 h-3.5" />
+                  <Eye className="w-3 h-3" />
                   <span>Modelo da Etiqueta</span>
                 </button>
                 {isA4 && (
                   <button
                     type="button"
                     onClick={() => setPreviewTab('sheet')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase transition flex items-center space-x-1 cursor-pointer ${
                       previewTab === 'sheet'
-                        ? 'bg-sky-600 text-white shadow-xs'
-                        : 'bg-stone-200/70 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-300'
+                        ? 'bg-sky-600 text-white shadow-2xs'
+                        : 'bg-slate-200/70 dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-300'
                     }`}
                   >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span>Grade da Folha A4 ({currentPreset.columns}x{currentPreset.rows})</span>
+                    <LayoutGrid className="w-3 h-3" />
+                    <span>Grade Folha A4 ({currentPreset.columns}x{currentPreset.rows})</span>
                   </button>
                 )}
               </div>
 
               {/* Checkboxes de Elementos Visíveis */}
-              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold">
-                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+              <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
+                <label className="inline-flex items-center space-x-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showBarcode}
                     onChange={(e) => setShowBarcode(e.target.checked)}
-                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                    className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
                   />
                   <span>Código de Barras</span>
                 </label>
-                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                <label className="inline-flex items-center space-x-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showAddress}
                     onChange={(e) => setShowAddress(e.target.checked)}
-                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                    className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
                   />
                   <span>Endereço</span>
                 </label>
-                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                <label className="inline-flex items-center space-x-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showInternalCode}
                     onChange={(e) => setShowInternalCode(e.target.checked)}
-                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                    className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
                   />
                   <span>Código</span>
                 </label>
-                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                <label className="inline-flex items-center space-x-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showPrice}
                     onChange={(e) => setShowPrice(e.target.checked)}
-                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                    className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
                   />
                   <span>Preço</span>
                 </label>
@@ -1344,10 +1349,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
           {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4 Completa */}
           {previewTab === 'label' || !isA4 ? (
-            <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col items-center justify-center">
-              <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-stone-700 dark:text-stone-300">
-                <span>Total de etiquetas geradas: {flatLabelsList.length}</span>
-                <span className="text-[11px] font-mono text-sky-600 dark:text-sky-400">
+            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center justify-center">
+              <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-slate-700 dark:text-stone-300">
+                <span className="uppercase text-[10px] sm:text-[11px] font-black text-slate-600 dark:text-stone-400">Total de etiquetas geradas: {flatLabelsList.length}</span>
+                <span className="text-[11px] font-mono font-bold text-sky-600 dark:text-sky-400">
                   {itemsToPrint.length} produto(s) na lista
                 </span>
               </div>
@@ -1356,7 +1361,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 renderLiveLabelCard(previewProduct)
               ) : (
                 <div className="w-full space-y-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-h-[380px] overflow-y-auto p-1 place-items-center">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-h-[340px] overflow-y-auto scrollbar-none p-1 place-items-center">
                     {flatLabelsList.map((item, idx) =>
                       renderLiveLabelCard(item, `Etiqueta ${idx + 1} de ${flatLabelsList.length}`, `${item.id}_${idx}`)
                     )}
@@ -1364,26 +1369,26 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 </div>
               )}
 
-              <div className="text-[10px] text-stone-500 dark:text-stone-400 mt-2 font-mono">
+              <div className="text-[10px] text-slate-500 dark:text-stone-400 mt-2 font-mono">
                 Dimensões reais de corte: {currentPreset.widthMm}mm × {currentPreset.heightMm}mm ({currentPreset.name.split('(')[0].trim()})
               </div>
             </div>
           ) : (
             /* Visualização Interativa da Grade A4 com clique na posição inicial */
-            <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col items-center">
+            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center">
               <div className="w-full max-w-xl flex items-center justify-between text-xs mb-2">
-                <span className="font-bold text-stone-700 dark:text-stone-300 flex items-center space-x-1.5">
-                  <LayoutGrid className="w-3.5 h-3.5 text-sky-600" />
+                <span className="font-bold text-slate-700 dark:text-stone-300 flex items-center space-x-1.5 uppercase text-[10px] sm:text-[11px]">
+                  <LayoutGrid className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                   <span>Clique em qualquer posição para começar a impressão</span>
                 </span>
-                <span className="text-[11px] font-mono font-semibold text-stone-500">
+                <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-stone-400">
                   Folha A4: {currentPreset.columns} colunas × {currentPreset.rows} linhas ({totalSlotsPerSheet} un)
                 </span>
               </div>
 
               {/* Simulação da Folha A4 em Escala */}
               <div 
-                className="w-full max-w-xl bg-white dark:bg-stone-900 border-2 border-stone-400 dark:border-stone-700 rounded-xl p-3 shadow-md overflow-x-auto"
+                className="w-full max-w-xl bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl p-3 shadow-md overflow-x-auto"
               >
                 <div 
                   className="grid gap-1 select-none"
@@ -1452,37 +1457,37 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           {/* Seção 3: Lista de Produtos e Cópias */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
-                Quantidade de Cópias por Produto
+              <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider">
+                QUANTIDADE DE CÓPIAS POR PRODUTO
               </span>
               <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-                Total de etiquetas geradas: {totalLabelsCount} • {isA4 ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} folha(s) A4` : 'Rolo Contínuo'}
+                TOTAL: {totalLabelsCount} ETIQUETAS • {isA4 ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} FOLHA(S) A4` : 'ROLO CONTÍNUO'}
               </span>
             </div>
 
-            <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-stone-100 dark:divide-stone-800/80 max-h-44 overflow-y-auto bg-white dark:bg-stone-900">
+            <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden divide-y divide-slate-200 dark:divide-stone-800 max-h-40 overflow-y-auto scrollbar-none bg-white dark:bg-stone-900 shadow-2xs">
               {itemsToPrint.map(({ product: item, quantity = 1, invoiceQuantity }) => {
                 const notaQty = Math.max(1, Math.round(Number(invoiceQuantity ?? quantity) || 1));
                 const copies = getItemCopies(item.id, notaQty);
                 const address = resolveAddress(item);
 
                 return (
-                  <div key={item.id} className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-stone-50 dark:hover:bg-stone-800/40 transition">
+                  <div key={item.id} className="p-2 sm:p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-slate-50 dark:hover:bg-stone-800/40 transition">
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                      <div className="font-bold text-slate-900 dark:text-stone-100 uppercase truncate">
                         {item.nome_comercial || item.name}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">
-                        <span className="font-mono font-bold bg-stone-100 dark:bg-stone-800 px-1 rounded">
-                          Cód: {item.code || `PRD-${item.id.slice(-6)}`}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500 dark:text-stone-400 mt-0.5">
+                        <span className="font-mono font-bold bg-slate-100 dark:bg-stone-800 px-1 rounded border border-slate-200 dark:border-stone-700">
+                          CÓD: {item.code || `PRD-${item.id.slice(-6)}`}
                         </span>
                         <span>•</span>
                         <span className="font-mono text-sky-600 dark:text-sky-400 font-semibold">
-                          Gôndola: {address}
+                          GÔNDOLA: {address}
                         </span>
                         <span>•</span>
-                        <span className="font-mono text-stone-600 dark:text-stone-300 font-semibold">
-                          Qtd. Nota: {notaQty} {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
+                        <span className="font-mono text-slate-600 dark:text-stone-300 font-semibold">
+                          QTD NOTA: {notaQty} {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
                         </span>
                       </div>
                     </div>
@@ -1491,7 +1496,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setItemCopies(item.id, Math.max(1, copies - 1))}
-                        className="w-7 h-7 rounded border border-stone-300 dark:border-stone-700 flex items-center justify-center font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                        className="w-6 h-6 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700 shadow-2xs transition flex items-center justify-center font-bold cursor-pointer active:scale-95"
                       >
                         -
                       </button>
@@ -1501,12 +1506,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                         max="999"
                         value={copies}
                         onChange={(e) => setItemCopies(item.id, parseInt(e.target.value, 10) || 1)}
-                        className="w-12 h-7 text-center font-mono font-bold text-xs border border-stone-300 dark:border-stone-700 rounded bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                        className="w-12 h-6 text-center font-mono font-bold text-xs rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => setItemCopies(item.id, copies + 1)}
-                        className="w-7 h-7 rounded border border-stone-300 dark:border-stone-700 flex items-center justify-center font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                        className="w-6 h-6 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700 shadow-2xs transition flex items-center justify-center font-bold cursor-pointer active:scale-95"
                       >
                         +
                       </button>
@@ -1519,14 +1524,16 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
         </div>
 
-        {/* Footer com Botões */}
-        <div className="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/90 flex items-center justify-between shrink-0">
+        {/* ============================================================== */}
+        {/* RODAPÉ 3D METÁLICO ACETINADO COM GATILHO DE IMPRESSÃO          */}
+        {/* ============================================================== */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0 rounded-b-2xl">
           <div className="flex items-center space-x-2">
             {onBackToQueue && (
               <button
                 type="button"
                 onClick={onBackToQueue}
-                className="px-3.5 py-2 text-xs font-bold text-stone-700 dark:text-stone-200 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-xl transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 uppercase"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Voltar à Fila</span>
@@ -1535,7 +1542,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 rounded-xl transition cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95 uppercase"
             >
               Fechar
             </button>
@@ -1545,9 +1552,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             type="button"
             onClick={handlePrint}
             disabled={isPrinting}
-            className="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50"
+            className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none uppercase"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-3.5 h-3.5" />
             <span>{isPrinting ? 'Preparando Impressão...' : `Imprimir ${totalLabelsCount} Etiqueta(s)`}</span>
           </button>
         </div>
