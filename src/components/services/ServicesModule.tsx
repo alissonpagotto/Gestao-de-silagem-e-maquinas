@@ -422,7 +422,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           2. CABEÇALHO (HEADER) COMPACTO
           Título, subtítulo e botão de ação principal "+ Novo"
           ======================================================== */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b-[2px] border-b-[#ffffff] dark:border-b-stone-800 shadow-[inset_0_-2px_0px_0px_#8292a2] dark:shadow-[inset_0_-2px_0px_0px_#292524] pb-2">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Serviços'}
@@ -458,7 +458,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           ======================================================== */}
       <nav 
         aria-label="Abas de Serviços" 
-        className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border-[3px] border-[#8292a2] dark:border-stone-700 shadow-[inset_2px_2px_0px_0px_#556677,inset_-2px_-2px_0px_0px_#ffffff] dark:shadow-[inset_2px_2px_0px_0px_#1c1917,inset_-2px_-2px_0px_0px_#383533] overflow-x-auto scrollbar-none"
+        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-300 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.1)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
       >
         {allowedTabs.map((tab) => {
           const Icon = tab.icon;
