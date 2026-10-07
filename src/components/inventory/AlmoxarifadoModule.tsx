@@ -1956,9 +1956,6 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   Supabase Ativo
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
-                Controle de saídas de peças para manutenção, cautela de ferramentas com assinatura e inventário de caixas por veículo
-              </p>
             </div>
           </div>
 

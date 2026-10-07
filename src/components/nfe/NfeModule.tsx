@@ -5260,9 +5260,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Notas e Entradas
           </h2>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            Gestão unificada de notas fiscais (XML) e entradas manuais de mercadorias (romaneios, notas avulsas, cupons, nota de produtor)
-          </p>
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">

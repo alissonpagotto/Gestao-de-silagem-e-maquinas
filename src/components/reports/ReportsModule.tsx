@@ -253,9 +253,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 tracking-tight font-['Outfit']">
             Relatórios
           </h1>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            Visão consolidada de receitas, despesas e margem operacional
-          </p>
         </div>
 
         {/* Top-right Actions: Month Picker + Imprimir Geral */}

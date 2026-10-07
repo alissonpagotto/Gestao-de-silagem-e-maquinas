@@ -315,29 +315,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     id={`sidebar-nav-${item.id}`}
                     onClick={() => handleSelect(item.id)}
                     className={`
-                      w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
+                      w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider transition cursor-pointer group
                       ${
                         isRestricted
                           ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
                           : isActive
-                            ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
-                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
+                            ? 'bg-white text-slate-900 font-semibold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                            : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-800 hover:text-slate-900 dark:hover:text-white'
                       }
                     `}
                   >
-                    <div className="flex items-center space-x-3 truncate">
+                    <div className="flex items-center space-x-2.5 truncate">
                       <Icon 
                         className={`w-4 h-4 shrink-0 transition ${
                           isRestricted 
                             ? 'text-rose-500' 
-                            : isActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'
+                            : isActive ? 'text-slate-900 dark:text-white' : 'text-slate-600 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
                         }`} 
                       />
                       <span 
-                        className={`truncate ${
+                        className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
                           isRestricted
                             ? 'text-zinc-500 dark:text-stone-400'
-                            : isActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'
+                            : isActive ? 'text-slate-900 font-semibold dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
                         }`}
                       >
                         {item.label}
@@ -367,23 +367,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               onClick={() => handleSelect('configuracoes')}
               className={`
-                w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
+                w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider transition cursor-pointer group
                 ${
                   isEmpresaActive
-                    ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
-                    : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
+                    ? 'bg-white text-slate-900 font-semibold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                    : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-800 hover:text-slate-900 dark:hover:text-white'
                 }
               `}
             >
-              <div className="flex items-center space-x-3 truncate">
+              <div className="flex items-center space-x-2.5 truncate">
                 <Building 
                   className={`w-4 h-4 shrink-0 transition ${
-                    isEmpresaActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'
+                    isEmpresaActive ? 'text-slate-900 dark:text-white' : 'text-slate-600 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
                   }`} 
                 />
                 <span 
-                  className={`truncate ${
-                    isEmpresaActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'
+                  className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
+                    isEmpresaActive ? 'text-slate-900 font-semibold dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
                   }`}
                 >
                   Dados da Empresa

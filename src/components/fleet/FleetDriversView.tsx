@@ -400,9 +400,6 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 font-['Outfit'] leading-tight">
               Gestão de Motoristas & CNHs
             </h2>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400">
-              Controle de habilitações, vencimentos e caminhões titulares
-            </p>
           </div>
         </div>
 

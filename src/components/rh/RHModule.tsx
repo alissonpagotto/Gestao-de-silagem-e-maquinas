@@ -470,9 +470,6 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Recursos Humanos
           </h1>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            Quadro de funcionários, folha de pagamento, férias e afastamentos
-          </p>
         </div>
 
         {activeTab === 'funcionarios' && (

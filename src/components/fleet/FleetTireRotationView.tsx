@@ -1357,9 +1357,6 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                 Drag &amp; Drop Ativo
               </span>
             </div>
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              Arraste e solte pneus entre eixos, estoque, recapagem e descarte com o mouse.
-            </p>
           </div>
         </div>
 

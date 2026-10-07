@@ -73,7 +73,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-2">
         <div>
           <div className="flex items-center space-x-2">
             <Fuel className="w-5 h-5 text-[#cc1f2f]" />
@@ -81,9 +81,6 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
               Controle de Combustível & Abastecimentos
             </h2>
           </div>
-          <p className="text-xs text-[#110f0c] dark:text-stone-400 mt-0.5">
-            Registro detalhado de litros, diesel S10, Arla 32, horímetros e média de consumo por máquina
-          </p>
         </div>
 
         <button

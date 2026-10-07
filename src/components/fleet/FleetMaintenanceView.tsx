@@ -502,12 +502,12 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   };
 
   return (
-    <div className="w-full space-y-5 sm:space-y-6 animate-in fade-in duration-200">
+    <div className="w-full space-y-2.5 animate-in fade-in duration-200">
       
       {/* Conteúdo da Tela de Manutenção - Oculto na Impressão da OS */}
-      <div className="w-full space-y-5 sm:space-y-6 print:hidden">
+      <div className="w-full space-y-2.5 print:hidden">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-2">
         <div>
           <div className="flex items-center space-x-2">
             <Wrench style={{ color: '#823028' }} className="w-5 h-5 text-[#823028]" />
@@ -515,24 +515,19 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
               Gestão de Manutenções & Ordens de Serviço (OS)
             </h2>
           </div>
-          <p 
-            style={{ color: '#000000' }} 
-            className="text-xs text-[#000000] dark:text-stone-400 mt-0.5"
-          >
-            Controle de revisões preventivas, quebras na roça/estrada, baixa de estoque, cotações e faturamento NF-e
-          </p>
         </div>
 
         <div className="flex items-center space-x-2.5">
-          {/* Botão de Cotações da Roça */}
+          {/* Botão de Cotações da Roça com Gradiente Metálico 3D */}
           <button
+            type="button"
             onClick={() => setIsPurchaseModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-2 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
           >
-            <ShoppingCart className="w-3.5 h-3.5 text-amber-600" />
-            <span>Cotações & Compras</span>
+            <ShoppingCart className="w-3.5 h-3.5 text-slate-800 stroke-[2.2]" />
+            <span>COTAÇÕES & COMPRAS</span>
             {purchaseRequests.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-2xs">
                 {purchaseRequests.length}
               </span>
             )}
@@ -550,51 +545,51 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+      {/* KPI Cards - Compactados no padrão 3D Slim */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Total Investido em Manutenção
             </span>
-            <DollarSign className="w-4 h-4 text-indigo-600" />
+            <DollarSign className="w-3.5 h-3.5 text-indigo-600" />
           </div>
-          <div className="text-2xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-stone-900 dark:text-stone-100 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalCost)}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">{filteredLogs.length} ordens de serviço</p>
+          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">{filteredLogs.length} ordens de serviço</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Peças & Insumos
             </span>
-            <Layers className="w-4 h-4 text-sky-600" />
+            <Layers className="w-3.5 h-3.5 text-sky-600" />
           </div>
-          <div className="text-2xl font-black text-sky-700 dark:text-sky-400 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-sky-700 dark:text-sky-400 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalParts)}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">Filtros, facas, rolamentos, óleos</p>
+          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">Filtros, facas, rolamentos, óleos</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Mão de Obra
             </span>
-            <Wrench className="w-4 h-4 text-amber-600" />
+            <Wrench className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-amber-700 dark:text-amber-400 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalLabor)}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">Oficinas terceiras e mecânica</p>
+          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">Oficinas terceiras e mecânica</p>
         </div>
 
         {/* CARD REFORMA & ENTRESSAFRA */}
         <div 
           onClick={() => setFilterReformaOnly(prev => !prev)}
-          className={`p-4 rounded-xl bg-white dark:bg-stone-900 border shadow-xs transition cursor-pointer select-none ${
+          className={`py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border shadow-2xs transition cursor-pointer select-none ${
             filterReformaOnly
               ? 'border-purple-500 ring-2 ring-purple-600/30 dark:ring-purple-500/40 bg-purple-50/20 dark:bg-purple-950/20'
               : 'border-stone-200 dark:border-stone-800 hover:border-purple-300 dark:hover:border-purple-700'
@@ -602,37 +597,37 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           title={filterReformaOnly ? "Clique para desativar filtro de Reforma / Entressafra" : "Clique para filtrar manutenções de Reforma / Entressafra"}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               REFORMA & ENTRESSAFRA
             </span>
-            <Hammer className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <Hammer className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
           </div>
-          <div className="text-2xl font-black text-purple-700 dark:text-purple-400 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-purple-700 dark:text-purple-400 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalReforma)}
           </div>
           <div className="flex items-center justify-between mt-0.5">
-            <p className="text-xs text-stone-500 dark:text-stone-400">
+            <p className="text-[10px] text-stone-500 dark:text-stone-400">
               {reformaCount} {reformaCount === 1 ? 'máquina em reforma' : 'máquinas em reforma'}
             </p>
             {filterReformaOnly && (
-              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.5 rounded-md">
+              <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/60 px-1 py-0.2 rounded">
                 Filtrando
               </span>
             )}
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               OS Em Aberto
             </span>
-            <Clock className="w-4 h-4 text-rose-600" />
+            <Clock className="w-3.5 h-3.5 text-rose-600" />
           </div>
-          <div className={`text-2xl font-black mt-1 font-['Outfit'] ${pendingCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+          <div className={`text-xl font-black mt-0.5 font-['Outfit'] ${pendingCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
             {pendingCount}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">Veículos aguardando liberação</p>
+          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">Veículos aguardando liberação</p>
         </div>
       </div>
 
@@ -790,29 +785,29 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         )}
       </div>
 
-      {/* Maintenance Logs Table (Clean, Compact and Full-Width without Horizontal Scroll) */}
+      {/* Maintenance Logs Table (Clean, Compact, Slim Rows and Full-Width without Horizontal Scroll) */}
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs w-full">
-        <div className="w-full overflow-x-auto xl:overflow-x-visible scrollbar-none">
+        <div className="w-full overflow-x-auto xl:overflow-x-visible max-h-[calc(100vh-270px)] overflow-y-auto scrollbar-none">
           <table className="w-full text-left text-xs table-auto">
-            <thead className="bg-stone-50 dark:bg-stone-800/80 text-[10px] sm:text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800">
+            <thead className="bg-stone-50 dark:bg-stone-800/80 text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="py-2.5 px-2 whitespace-nowrap">Data & OS</th>
-                <th className="py-2.5 px-2">Veículo</th>
-                <th className="py-2.5 px-2 whitespace-nowrap">Local</th>
-                <th className="py-2.5 px-2">Executante</th>
-                <th className="py-2.5 px-2 whitespace-nowrap">Origem Peças</th>
-                <th className="py-2.5 px-2">Descrição do Serviço</th>
-                <th className="py-2.5 px-2 text-right whitespace-nowrap">Peças</th>
-                <th className="py-2.5 px-2 text-right whitespace-nowrap">M. Obra</th>
-                <th className="py-2.5 px-2 text-right whitespace-nowrap">Total</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Status</th>
-                <th className="py-2.5 px-2 text-right whitespace-nowrap">Ações</th>
+                <th className="py-1.5 px-2 whitespace-nowrap">Data & OS</th>
+                <th className="py-1.5 px-2">Veículo</th>
+                <th className="py-1.5 px-2 whitespace-nowrap">Local</th>
+                <th className="py-1.5 px-2">Executante</th>
+                <th className="py-1.5 px-2 whitespace-nowrap">Origem Peças</th>
+                <th className="py-1.5 px-2">Descrição do Serviço</th>
+                <th className="py-1.5 px-2 text-right whitespace-nowrap">Peças</th>
+                <th className="py-1.5 px-2 text-right whitespace-nowrap">M. Obra</th>
+                <th className="py-1.5 px-2 text-right whitespace-nowrap">Total</th>
+                <th className="py-1.5 px-2 text-center whitespace-nowrap">Status</th>
+                <th className="py-1.5 px-2 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-10 text-center text-stone-400">
+                  <td colSpan={11} className="py-8 text-center text-stone-400">
                     Nenhuma ordem de manutenção encontrada com os filtros selecionados.
                   </td>
                 </tr>
@@ -825,7 +820,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                     <tr key={log.id} className="hover:bg-stone-50/80 dark:hover:bg-stone-800/40 transition group">
                       
                       {/* Data & Nº OS */}
-                      <td className="py-2 px-2 whitespace-nowrap">
+                      <td className="py-1 px-2 whitespace-nowrap">
                         <div className="font-mono font-bold text-stone-800 dark:text-stone-200 text-xs">
                           {formatDateBR(log.date)}
                         </div>
@@ -835,7 +830,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                       </td>
 
                       {/* Veículo */}
-                      <td className="py-2 px-2 min-w-[120px] max-w-[180px]">
+                      <td className="py-1 px-2 min-w-[120px] max-w-[180px]">
                         <div className="font-bold text-stone-900 dark:text-stone-100 text-xs truncate" title={log.machineryPlateOrName}>
                           {log.machineryPlateOrName}
                         </div>
@@ -845,8 +840,8 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                       </td>
 
                       {/* Local (Badge Sutil com Cores do Requisito) */}
-                      <td className="py-2 px-2 whitespace-nowrap">
-                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${locBadge.badgeClass}`}>
+                      <td className="py-1 px-2 whitespace-nowrap">
+                        <span className={`inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${locBadge.badgeClass}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${locBadge.dotColor}`}></span>
                           <span>{locBadge.label}</span>
                         </span>
@@ -858,7 +853,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                       </td>
 
                       {/* Executante */}
-                      <td className="py-2 px-2 min-w-[110px] max-w-[140px]">
+                      <td className="py-1 px-2 min-w-[110px] max-w-[140px]">
                         <div className={`text-xs font-bold truncate ${execBadge.bg}`} title={execBadge.label}>
                           {execBadge.label}
                         </div>
@@ -868,7 +863,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                       </td>
 
                       {/* Origem das Peças */}
-                      <td className="py-2 px-2 whitespace-nowrap">
+                      <td className="py-1 px-2 whitespace-nowrap">
                         {getPartsOriginBadge(log.partsOriginSummary)}
                         {log.nfeLink?.nfeNumber && (
                           <span className="text-[9px] font-mono text-stone-400 block mt-0.5">
@@ -878,58 +873,58 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                       </td>
 
                       {/* Descrição */}
-                      <td className="py-2 px-2 text-stone-700 dark:text-stone-300 min-w-[120px] max-w-xs">
+                      <td className="py-1 px-2 text-stone-700 dark:text-stone-300 min-w-[120px] max-w-xs">
                         <p className="line-clamp-2 text-xs leading-snug" title={log.description}>
                           {log.description}
                         </p>
                       </td>
 
                       {/* Peças */}
-                      <td className="py-2 px-2 text-right font-mono text-xs text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                      <td className="py-1 px-2 text-right font-mono text-xs text-stone-600 dark:text-stone-400 whitespace-nowrap">
                         {formatCurrencyBRL(log.partsCost)}
                       </td>
 
                       {/* M. Obra */}
-                      <td className="py-2 px-2 text-right font-mono text-xs text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                      <td className="py-1 px-2 text-right font-mono text-xs text-stone-600 dark:text-stone-400 whitespace-nowrap">
                         {formatCurrencyBRL(log.laborCost)}
                       </td>
 
                       {/* Total */}
-                      <td className="py-2 px-2 text-right font-mono font-black text-xs text-stone-900 dark:text-stone-100 whitespace-nowrap">
+                      <td className="py-1 px-2 text-right font-mono font-black text-xs text-stone-900 dark:text-stone-100 whitespace-nowrap">
                         {formatCurrencyBRL(log.totalCost)}
                       </td>
 
-                      {/* Status */}
-                      <td className="py-2 px-2 text-center whitespace-nowrap">
+                      {/* Status - Badges minimalistas em tom pastel suave (Soft Cores) */}
+                      <td className="py-1 px-2 text-center whitespace-nowrap">
                         <select
                           value={log.status}
                           onChange={(e) => onUpdateStatus(log.id, e.target.value as any)}
-                          className={`text-[10px] sm:text-[11px] font-bold px-2 py-1 rounded-lg border cursor-pointer ${
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border cursor-pointer shadow-2xs focus:outline-none transition ${
                             log.status === 'concluida'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300'
+                              ? 'bg-emerald-50/80 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60'
                               : log.status === 'em_andamento'
-                              ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300'
+                              ? 'bg-amber-50/80 text-amber-800 border-amber-200/80 hover:bg-amber-100/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60'
                               : log.status === 'aguardando_pecas'
-                              ? 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/50 dark:text-purple-300'
-                              : 'bg-stone-50 text-stone-600 border-stone-200 dark:bg-stone-800 dark:text-stone-300'
+                              ? 'bg-purple-50/80 text-purple-800 border-purple-200/80 hover:bg-purple-100/60 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60'
+                              : 'bg-slate-100/80 text-slate-800 border-slate-200/80 hover:bg-slate-200/60 dark:bg-stone-800/60 dark:text-stone-300 dark:border-stone-700'
                           }`}
                         >
-                          <option value="concluida">✓ Concluída</option>
-                          <option value="em_andamento">⏳ Em Andamento</option>
-                          <option value="aguardando_pecas">📦 Aguardando Peças</option>
-                          <option value="agendada">📅 Agendada</option>
+                          <option value="concluida">CONCLUÍDA</option>
+                          <option value="em_andamento">EM ANDAMENTO</option>
+                          <option value="aguardando_pecas">AGUARDANDO PEÇAS</option>
+                          <option value="agendada">AGENDADA</option>
                         </select>
                       </td>
 
                       {/* Ações */}
-                      <td className="py-2 px-2 text-right whitespace-nowrap">
+                      <td className="py-1 px-2 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-1.5">
                           {/* Botão de Ação Rápida: Abrir itens */}
                           <button
                             type="button"
                             onClick={() => setViewingLog(log)}
                             title="Abrir itens / Visualizar detalhes da OS"
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 text-[11px] font-bold transition cursor-pointer shrink-0 active:scale-95 shadow-2xs"
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 text-[10px] font-bold transition cursor-pointer shrink-0 active:scale-95 shadow-2xs"
                           >
                             <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             <span>Abrir itens</span>
@@ -939,7 +934,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                             type="button"
                             onClick={() => onEditMaintenance(log)}
                             title="Editar OS"
-                            className="p-1.5 text-stone-400 hover:text-blue-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                            className="p-1 text-stone-400 hover:text-blue-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -948,7 +943,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                             type="button"
                             onClick={() => handleDeleteOrdem(log.id)}
                             title="Excluir OS"
-                            className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                            className="p-1 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

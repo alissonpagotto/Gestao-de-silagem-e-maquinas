@@ -427,13 +427,6 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Serviços'}
           </h1>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            {activeTab === 'agenda'
-              ? 'Planejamento logístico de campo, escala de frotas e controle de sobreposição de horários.'
-              : activeTab === 'formularios'
-              ? 'Blocos de lançamentos digitais para operadores de corte, tratoristas e transporte de silagem.'
-              : 'Gestão de cortes, colheitas, serviços e orçamentos agrícolas.'}
-          </p>
         </div>
 
         {/* Botão de Ação Principal com Relevo Acetinado 3D */}

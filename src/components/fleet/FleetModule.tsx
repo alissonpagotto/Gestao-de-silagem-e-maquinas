@@ -1049,7 +1049,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   };
 
   return (
-    <div id="fleet-management-module" className="w-full space-y-5 sm:space-y-6">
+    <div id="fleet-management-module" className="w-full space-y-3 sm:space-y-4">
       
       {/* 1. Modern Horizontal Sub-Tabs Bar Acetinado 3D */}
       <nav 

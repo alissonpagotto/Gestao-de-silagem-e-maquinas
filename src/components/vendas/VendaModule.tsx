@@ -242,9 +242,6 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Venda
           </h1>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            Gestão e controle de vendas agrícolas, fornecimento de silagem e contratos
-          </p>
         </div>
 
         {/* Barra de Navegação Superior Integrada de 3 Abas 3D Acetinadas */}

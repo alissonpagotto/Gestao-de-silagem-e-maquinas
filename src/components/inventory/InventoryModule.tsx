@@ -400,9 +400,6 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Controle de Estoque & Insumos de Silagem
           </h1>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            Monitoramento de diesel, lonas plásticas, inoculantes biológicos e peças sobressalentes
-          </p>
         </div>
 
         {/* Linha flex horizontal alinhada à esquerda logo abaixo do subtítulo */}

@@ -799,7 +799,7 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       )}
 
       {/* Top Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-2">
         <div>
           <div className="flex items-center space-x-2">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
@@ -809,9 +809,6 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
               Escalação & Montagem de Equipes de Campo
             </h2>
           </div>
-          <p className="text-xs text-[#0a0a09] dark:text-stone-400 mt-1">
-            Arraste os funcionários com o mouse para transferi-los entre as frentes de trabalho (Maq 02, Maq 03, etc.), crie ou edite equipes livremente.
-          </p>
         </div>
 
         <div className="flex items-center flex-wrap gap-2">

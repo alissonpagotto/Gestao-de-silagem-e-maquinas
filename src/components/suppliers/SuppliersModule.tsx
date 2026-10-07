@@ -188,9 +188,6 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Fornecedores
           </h1>
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
-            Cadastro e gestão de fornecedores de insumos, peças e serviços
-          </p>
         </div>
 
         {/* Botões e Ações com Moldura Acetinada 3D */}
