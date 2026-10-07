@@ -422,7 +422,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           2. CABEÇALHO (HEADER) COMPACTO
           Título, subtítulo e botão de ação principal "+ Novo"
           ======================================================== */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-zinc-300 dark:border-stone-800 pb-2">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b-2 border-slate-300 dark:border-stone-700 pb-2">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Serviços'}
@@ -458,7 +458,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           ======================================================== */}
       <nav 
         aria-label="Abas de Serviços" 
-        className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border border-zinc-400 dark:border-stone-700 overflow-x-auto scrollbar-none shadow-2xs"
+        className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border-2 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none shadow-2xs"
       >
         {allowedTabs.map((tab) => {
           const Icon = tab.icon;
