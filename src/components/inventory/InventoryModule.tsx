@@ -55,6 +55,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [showSpecialPrices, setShowSpecialPrices] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inventario' | 'relatorios'>('inventario');
 
   const [localInventory, setLocalInventory] = useState<InventoryItem[]>(inventory);
 
@@ -268,6 +269,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       .reduce((acc, curr) => acc + (Number(curr.quantidade_atual ?? curr.quantity) || 0), 0);
   }, [allItems]);
 
+  // Resumo por Categoria para a Aba de Relatórios de Insumos
+  const categorySummary = useMemo(() => {
+    const map = new Map<string, { count: number; totalQty: number; totalValue: number }>();
+    allItems.forEach((item) => {
+      const cat = item.categoria || item.category || 'Outros Insumos';
+      const qty = Number(item.quantidade_atual ?? item.quantity ?? 0);
+      const cost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
+      const val = qty * cost;
+      const cur = map.get(cat) || { count: 0, totalQty: 0, totalValue: 0 };
+      cur.count += 1;
+      cur.totalQty += qty;
+      cur.totalValue += val;
+      map.set(cat, cur);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[1].totalValue - a[1].totalValue);
+  }, [allItems]);
+
+  // Itens em Nível Crítico (Abaixo ou igual ao Estoque Mínimo)
+  const criticalItems = useMemo(() => {
+    return allItems.filter(item => (Number(item.quantidade_atual ?? item.quantity ?? 0)) <= (Number(item.minQuantity) || 0));
+  }, [allItems]);
+
   // Abrir Modal de Cadastro Limpo
   const handleOpenCreateModal = () => {
     setIsCreateModalOpen(true);
@@ -394,36 +417,70 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   return (
     <div id="inventory-module" className="w-full max-w-none space-y-4 sm:space-y-5">
       
-      {/* Header Padronizado 3D Slim */}
-      <header className="flex flex-col gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2.5">
+      {/* Header Padronizado 3D Slim com Barra de Abas Integrada */}
+      <header className="no-print flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-            Controle de Estoque & Insumos de Silagem
+            Estoque
           </h1>
         </div>
 
-        {/* Linha flex horizontal alinhada à esquerda logo abaixo do subtítulo */}
-        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+        {/* Barra de Abas Integrada 3D Acetinada */}
+        <nav 
+          aria-label="Abas de Estoque e Insumos"
+          className="flex items-center gap-1 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] rounded-xl overflow-x-auto scrollbar-none"
+        >
+          <button
+            type="button"
+            id="tab-inventario-geral"
+            onClick={() => setActiveTab('inventario')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
+              activeTab === 'inventario'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+            }`}
+          >
+            <Package className="w-3.5 h-3.5" />
+            <span>ABA: INVENTÁRIO GERAL</span>
+          </button>
+
+          <button
+            type="button"
+            id="tab-relatorios-insumos"
+            onClick={() => setActiveTab('relatorios')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
+              activeTab === 'relatorios'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>ABA: RELATÓRIOS DE INSUMOS</span>
+          </button>
+        </nav>
+
+        {/* Linha flex com Botões de Ação Padronizados 3D Slim Metálicos */}
+        <div className="flex flex-wrap items-center gap-2">
           {onOpenAlmoxarifado && (
             <button
               type="button"
               onClick={onOpenAlmoxarifado}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-stone-950 border border-amber-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
             >
               <Wrench className="w-3.5 h-3.5 stroke-[2.2]" />
-              <span>Gestão e Controle do Almoxarifado</span>
+              <span>Almoxarifado</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setIsPrintQueueModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white border border-slate-600/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5 text-sky-400" />
-            <span>Montar Fila de Impressão</span>
+            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <span>Fila de Etiquetas</span>
             {printQueue.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-sky-500 text-white text-[10px] font-black leading-none">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-700 text-white text-[10px] font-black leading-none">
                 {printQueue.reduce((acc, q) => acc + (q.quantity || 1), 0)}
               </span>
             )}
@@ -432,10 +489,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Cadastrar Novo Produto no Estoque</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ Novo Produto</span>
           </button>
         </div>
       </header>
@@ -444,10 +501,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
         <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400">
               Valor Total em Estoque
             </span>
-            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
+            <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
               {formatCurrencyBRL(totalInventoryValue)}
             </div>
             <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">{allItems.length} produtos cadastrados</p>
@@ -459,10 +516,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
         <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400">
               Alertas de Estoque Mínimo
             </span>
-            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
+            <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
               {lowStockCount}
             </div>
             <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">Itens em nível crítico</p>
@@ -474,10 +531,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
         <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400">
               Diesel em Tanque
             </span>
-            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
+            <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
               {totalDieselLitros.toLocaleString('pt-BR')} L
             </div>
             <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">Diesel S10 & S500 na Fazenda</p>
@@ -488,8 +545,11 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
       </div>
 
-      {/* Search & Toggle Preços Especiais */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+      {/* RENDERIZAÇÃO CONDICIONAL POR ABA: INVENTÁRIO GERAL vs RELATÓRIOS DE INSUMOS */}
+      {activeTab === 'inventario' ? (
+        <>
+          {/* Search & Toggle Preços Especiais */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -837,6 +897,146 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           </table>
         </div>
       </div>
+    </>
+  ) : (
+    /* ABA: RELATÓRIOS DE INSUMOS */
+    <div className="space-y-4 animate-fade-in">
+      {/* 1. Tabela de Breakdown por Categoria de Insumos */}
+      <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
+        <div className="px-4 py-2.5 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+            <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-stone-100 uppercase tracking-wider">
+              Distribuição & Valor Imobilizado por Categoria de Insumos
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-600 dark:text-stone-400 font-semibold">
+            {categorySummary.length} categorias cadastradas
+          </span>
+        </div>
+
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-zinc-100 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
+              <tr>
+                <th className="py-2 px-3">Categoria</th>
+                <th className="py-2 px-3 text-center">Itens Cadastrados</th>
+                <th className="py-2 px-3 text-right">Volume Físico Total</th>
+                <th className="py-2 px-3 text-right">Valor Imobilizado (R$)</th>
+                <th className="py-2 px-3 text-right">% do Estoque Total</th>
+                <th className="py-2 px-3 text-center w-36">Proporção Visual</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
+              {categorySummary.map(([catName, data]) => {
+                const percent = totalInventoryValue > 0 ? (data.totalValue / totalInventoryValue) * 100 : 0;
+                return (
+                  <tr key={catName} className="hover:bg-zinc-50 dark:hover:bg-stone-800/50 transition">
+                    <td className="py-2.5 px-3 font-bold text-zinc-900 dark:text-white flex items-center space-x-2">
+                      {getCategoryIcon(catName)}
+                      <span>{catName}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-zinc-700 dark:text-stone-300 font-medium">
+                      {data.count} {data.count === 1 ? 'item' : 'itens'}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-zinc-800 dark:text-stone-200 font-semibold font-mono">
+                      {data.totalQty.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-zinc-900 dark:text-white font-mono">
+                      {formatCurrencyBRL(data.totalValue)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-700 dark:text-stone-300 font-mono">
+                      {percent.toFixed(1)}%
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <div className="w-full bg-slate-200 dark:bg-stone-800 h-2 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-slate-700 dark:bg-sky-500 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, Math.max(3, percent))}%` }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 2. Tabela de Insumos Críticos / Alertas de Reposição */}
+      <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
+        <div className="px-4 py-2.5 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-amber-300 dark:border-stone-700 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-xs sm:text-sm font-black text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+              Insumos em Nível Crítico (Necessidade de Reposição Imediata)
+            </h3>
+          </div>
+          <span className="text-[11px] text-amber-800 dark:text-amber-400 font-bold">
+            {criticalItems.length} {criticalItems.length === 1 ? 'item crítico' : 'itens críticos'}
+          </span>
+        </div>
+
+        {criticalItems.length === 0 ? (
+          <div className="p-6 text-center text-zinc-500 dark:text-stone-400 text-xs font-semibold">
+            Nenhum insumo está abaixo do estoque mínimo. Todos os produtos possuem volume seguro.
+          </div>
+        ) : (
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-zinc-100 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
+                <tr>
+                  <th className="py-2 px-3">Insumo / Produto</th>
+                  <th className="py-2 px-3">Categoria</th>
+                  <th className="py-2 px-3 text-right">Qtd Atual</th>
+                  <th className="py-2 px-3 text-right">Estoque Mínimo</th>
+                  <th className="py-2 px-3 text-right">Déficit</th>
+                  <th className="py-2 px-3 text-right">Custo Unitário</th>
+                  <th className="py-2 px-3 text-right">Custo Estimado Reposição</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
+                {criticalItems.map((item) => {
+                  const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
+                  const min = Number(item.minQuantity || 0);
+                  const deficit = Math.max(0, min - cur);
+                  const unitCost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
+                  const estimatedReorderCost = deficit * unitCost;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition">
+                      <td className="py-2.5 px-3 font-bold text-zinc-900 dark:text-white">
+                        {item.nome_comercial || item.name}
+                      </td>
+                      <td className="py-2.5 px-3 text-zinc-600 dark:text-stone-400">
+                        {item.categoria || item.category}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-rose-600 dark:text-rose-400 font-mono">
+                        {cur} {item.unit}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-zinc-700 dark:text-stone-300 font-semibold font-mono">
+                        {min} {item.unit}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-amber-700 dark:text-amber-400 font-mono">
+                        -{deficit} {item.unit}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-zinc-800 dark:text-stone-200 font-mono">
+                        {formatCurrencyBRL(unitCost)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-zinc-900 dark:text-white font-mono">
+                        {formatCurrencyBRL(estimatedReorderCost)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )}
 
       {/* Modal: Cadastrar Novo Produto no Estoque */}
       {isCreateModalOpen && (

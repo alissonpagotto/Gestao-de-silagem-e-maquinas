@@ -10,7 +10,8 @@ import {
   TrendingUp,
   Scale,
   DollarSign,
-  FileCheck2
+  FileCheck2,
+  Calendar
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
@@ -44,6 +45,44 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
+
+  // Filtro por Período e Atalhos Rápidos (Gabarito Mestre de Relatórios)
+  const [quickPeriod, setQuickPeriod] = useState<'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses'>('mes_atual');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  
+  const [startDate, setStartDate] = useState(() => `${currentYear}-${pad(currentMonth + 1)}-01`);
+  const [endDate, setEndDate] = useState(() => {
+    const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+    return `${currentYear}-${pad(currentMonth + 1)}-${pad(lastDay)}`;
+  });
+
+  const handleQuickPeriodChange = (p: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses') => {
+    setQuickPeriod(p);
+    const today = new Date();
+    let startD = new Date();
+
+    if (p === 'mes_atual') {
+      startD = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endD = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      setStartDate(`${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-01`);
+      setEndDate(`${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}`);
+      return;
+    } else if (p === '1_mes') {
+      startD.setMonth(today.getMonth() - 1);
+    } else if (p === '3_meses') {
+      startD.setMonth(today.getMonth() - 3);
+    } else if (p === '6_meses') {
+      startD.setMonth(today.getMonth() - 6);
+    } else if (p === '12_meses') {
+      startD.setMonth(today.getMonth() - 12);
+    }
+
+    setStartDate(`${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-${pad(startD.getDate())}`);
+    setEndDate(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+  };
 
   // Modal State for "+ Nova Venda" & Edição
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,9 +172,20 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     });
   }, [localServices]);
 
+  // Vendas filtradas pelo período selecionado
+  const periodSales = useMemo(() => {
+    return salesRecords.filter((srv) => {
+      const srvDate = srv.startDate || srv.date || ((srv as any).createdAt ? (srv as any).createdAt.split('T')[0] : '');
+      if (!srvDate) return true;
+      if (startDate && srvDate < startDate) return false;
+      if (endDate && srvDate > endDate) return false;
+      return true;
+    });
+  }, [salesRecords, startDate, endDate]);
+
   // Vendas filtradas por busca e status
   const filteredSales = useMemo(() => {
-    return salesRecords.filter((srv) => {
+    return periodSales.filter((srv) => {
       // Filtro de status
       if (statusFilter !== 'todos' && srv.status !== statusFilter) {
         return false;
@@ -152,15 +202,15 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
 
       return true;
     });
-  }, [salesRecords, statusFilter, searchTerm]);
+  }, [periodSales, statusFilter, searchTerm]);
 
-  // Indicadores (KPIs)
+  // Indicadores (KPIs) com base no período selecionado
   const metrics = useMemo(() => {
     let totalRevenue = 0;
     let totalTons = 0;
     let completedCount = 0;
 
-    salesRecords.forEach((s) => {
+    periodSales.forEach((s) => {
       totalRevenue += s.totalAmount || 0;
       if (s.tonsEstimated) {
         totalTons += s.tonsEstimated;
@@ -172,16 +222,16 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
       }
     });
 
-    const averageTicket = salesRecords.length > 0 ? totalRevenue / salesRecords.length : 0;
+    const averageTicket = periodSales.length > 0 ? totalRevenue / periodSales.length : 0;
 
     return {
       totalRevenue,
       totalTons,
-      totalCount: salesRecords.length,
+      totalCount: periodSales.length,
       completedCount,
       averageTicket,
     };
-  }, [salesRecords]);
+  }, [periodSales]);
 
   // Abrir Modal para Nova Venda
   const handleOpenNew = () => {
@@ -295,13 +345,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           </button>
         </nav>
 
-        {/* Botão Nova Venda 3D Acetinado */}
+        {/* Botão Nova Venda 3D Acetinado Padrão Metálico */}
         <div className="flex items-center gap-2">
           <button
             id="btn-nova-venda"
             type="button"
             onClick={handleOpenNew}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Nova Venda</span>
@@ -319,6 +369,65 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
         />
       ) : (
         <>
+          {/* BARRA HORIZONTAL FINA DE FILTRAGEM POR PERÍODO (GABARITO MESTRE DE RELATÓRIOS) */}
+          <div className="crm-card bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl px-3 py-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.1)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] flex flex-wrap items-center justify-between gap-2 text-slate-800 dark:text-stone-100">
+            {/* Esquerda: Rótulo + Seleção por Data De / Até */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center space-x-1.5 text-slate-700 dark:text-stone-300">
+                <Calendar className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400" />
+                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
+                  FILTRAR POR PERÍODO:
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setQuickPeriod('' as any);
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                />
+                <span className="text-[11px] text-slate-600 dark:text-stone-400 font-bold">até</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setQuickPeriod('' as any);
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                />
+              </div>
+            </div>
+
+            {/* Direita: Sequência Contínua de Botões de Atalhos Rápidos */}
+            <div className="flex flex-wrap items-center gap-1">
+              {[
+                { id: 'mes_atual', label: 'Mês atual' },
+                { id: '1_mes', label: '1 mês' },
+                { id: '3_meses', label: '3 meses' },
+                { id: '6_meses', label: '6 meses' },
+                { id: '12_meses', label: '12 meses' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleQuickPeriodChange(item.id as any)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                    quickPeriod === item.id
+                      ? 'bg-slate-700 text-white dark:bg-stone-200 dark:text-stone-900 shadow-xs'
+                      : 'bg-white/90 dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-white border border-slate-300 dark:border-stone-700 shadow-2xs'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {activeTab === 'contratos' && (
             <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-stone-900 dark:to-stone-850 border border-emerald-300 dark:border-stone-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xs">
               <div className="flex items-center gap-2">
@@ -343,51 +452,51 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           )}
 
           {/* 2. CARDS DE INDICADORES (KPIS) SLIM */}
-      <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Total Faturado</span>
-            <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
-            {formatCurrencyBRL(metrics.totalRevenue)}
-          </div>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Todas as vendas registradas</span>
-        </div>
+          <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl px-3 py-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Total Faturado</span>
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                {formatCurrencyBRL(metrics.totalRevenue)}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block">Vendas no período</span>
+            </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Volume Total</span>
-            <Scale className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
-            {metrics.totalTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Ton</span>
-          </div>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Silagem comercializada</span>
-        </div>
+            <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl px-3 py-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Volume Total</span>
+                <Scale className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                {metrics.totalTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} <span className="text-xs font-semibold text-slate-600 dark:text-stone-400">Ton</span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block">Silagem comercializada</span>
+            </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Contratos / Pedidos</span>
-            <FileCheck2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-          </div>
-          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
-            {metrics.totalCount} <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">({metrics.completedCount} concl.)</span>
-          </div>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Volume de operações</span>
-        </div>
+            <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl px-3 py-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Contratos / Pedidos</span>
+                <FileCheck2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              </div>
+              <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                {metrics.totalCount} <span className="text-xs font-semibold text-slate-500 dark:text-stone-400">({metrics.completedCount} concl.)</span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block">Volume de operações</span>
+            </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Ticket Médio</span>
-            <TrendingUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
-            {formatCurrencyBRL(metrics.averageTicket)}
-          </div>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Média por venda</span>
-        </div>
-      </section>
+            <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl px-3 py-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Ticket Médio</span>
+                <TrendingUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                {formatCurrencyBRL(metrics.averageTicket)}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block">Média por venda</span>
+            </div>
+          </section>
 
       {/* 3. BARRA DE FILTROS */}
       <section 
@@ -488,9 +597,9 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                       <button
                         type="button"
                         onClick={handleOpenNew}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs font-bold rounded-lg border border-zinc-900 shadow-2xs transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 text-xs font-bold rounded-lg border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                         <span>Cadastrar Venda</span>
                       </button>
                     </div>
