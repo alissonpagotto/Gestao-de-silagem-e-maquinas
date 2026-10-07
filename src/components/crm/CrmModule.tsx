@@ -414,74 +414,89 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
           })}
         </div>
       ) : (
-        /* List View */
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs">
-          <table className="w-full text-left text-xs text-stone-700">
-            <thead className="bg-stone-50 text-stone-500 font-bold border-b border-stone-200 uppercase tracking-wider text-[10px]">
+        /* List View - Formato Linha Única Slim Estrita */
+        <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-2xs">
+          <table className="w-full text-left text-xs text-zinc-800 dark:text-stone-200">
+            <thead className="bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 font-bold border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="py-1.5 px-3">Produtor & Fazenda</th>
-                <th className="py-1.5 px-3">Cidade / UF</th>
-                <th className="py-1.5 px-3">Atividade / Rebanho</th>
-                <th className="py-1.5 px-3">Demanda Estimada</th>
-                <th className="py-1.5 px-3">Status</th>
-                <th className="py-1.5 px-3 text-right">Ações</th>
+                <th className="py-1 px-2.5">Produtor & Fazenda</th>
+                <th className="py-1 px-2.5">Cidade / UF</th>
+                <th className="py-1 px-2.5">Atividade / Rebanho</th>
+                <th className="py-1 px-2.5">Demanda Estimada</th>
+                <th className="py-1 px-2.5">Status</th>
+                <th className="py-1 px-2.5 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 font-medium">
+            <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-stone-400">
+                  <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-stone-500">
                     Nenhum cliente encontrado com os filtros atuais.
                   </td>
                 </tr>
               ) : (
                 filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-stone-50">
-                    <td className="py-1.5 px-3">
-                      <div className="font-bold text-stone-900 leading-snug">{client.nome || client.name}</div>
-                      <div className="text-[10px] text-stone-500">
-                        {client.fazenda || client.farmName}
-                        {client.stateRegistration ? ` • IE: ${client.stateRegistration}` : ''}
+                  <tr key={client.id} className="hover:bg-slate-100/70 dark:hover:bg-stone-800/50 transition">
+                    {/* Linha Única Estrita: Nome e Fazenda na mesma linha sem quebra */}
+                    <td className="py-1 px-2.5 align-middle">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                        <span className="font-bold text-xs text-zinc-900 dark:text-white truncate">
+                          {client.nome || client.name}
+                        </span>
+                        {(client.fazenda || client.farmName) && (
+                          <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium truncate">
+                            • {client.fazenda || client.farmName}
+                          </span>
+                        )}
+                        {client.stateRegistration && (
+                          <span className="text-[9.5px] px-1 py-0.2 rounded bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 border border-slate-200 dark:border-stone-700 shrink-0">
+                            IE: {client.stateRegistration}
+                          </span>
+                        )}
                       </div>
                     </td>
-                    <td className="py-1.5 px-3 whitespace-nowrap">
+                    <td className="py-1 px-2.5 whitespace-nowrap text-xs text-zinc-700 dark:text-stone-300 align-middle">
                       {client.city}/{client.state}
                     </td>
-                    <td className="py-1.5 px-3">
-                      <div className="flex items-center space-x-1.5">
+                    <td className="py-1 px-2.5 align-middle">
+                      <div className="flex items-center space-x-1.5 whitespace-nowrap">
                         {getCattleBadge(client.cattleType)}
-                        <span className="text-stone-500 text-[11px]">{client.headCount || 0} cab.</span>
+                        <span className="text-slate-500 dark:text-stone-400 text-[11px] font-medium">{client.headCount || 0} cab.</span>
                       </div>
                     </td>
-                    <td className="py-1.5 px-3 whitespace-nowrap">
-                      <strong className="text-emerald-700 font-bold">{client.monthlyDemandTons || 0} ton/mês</strong>
+                    <td className="py-1 px-2.5 whitespace-nowrap align-middle">
+                      <strong className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">{client.monthlyDemandTons || 0} ton/mês</strong>
                     </td>
-                    <td className="py-1.5 px-3 capitalize whitespace-nowrap">
-                      <span className="font-semibold text-stone-700 text-xs">{client.status.replace('_', ' ')}</span>
+                    <td className="py-1 px-2.5 capitalize whitespace-nowrap align-middle">
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border border-slate-300 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                        {client.status.replace('_', ' ')}
+                      </span>
                     </td>
-                    <td className="py-1.5 px-3 text-right whitespace-nowrap">
+                    <td className="py-1 px-2.5 text-right whitespace-nowrap align-middle">
                       <div className="flex items-center justify-end space-x-1">
                         {client.phone && (
                           <a
                             href={getWhatsAppLink(client)}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition cursor-pointer"
+                            className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded transition cursor-pointer"
                             title="Conversar no WhatsApp"
                           >
                             <MessageCircle className="w-3.5 h-3.5" />
                           </a>
                         )}
                         <button
+                          type="button"
                           onClick={() => onEditClient(client)}
-                          className="p-1 text-stone-600 hover:bg-stone-100 rounded transition cursor-pointer"
+                          className="p-1 text-slate-600 dark:text-stone-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded transition cursor-pointer"
                           title="Editar"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => onDeleteClient(client.id)}
-                          className="p-1 text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                          className="p-1 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
                           title="Excluir"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

@@ -3662,18 +3662,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           MODAL: REGISTRAR DEVOLUÇÃO DE FERRAMENTA (ABA 2)
          ===================================================================== */}
       {devolucaoTarget && (
-        <div className="no-print fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-stone-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
+        <div className="no-print fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl max-w-md w-full p-3.5 sm:p-4 shadow-2xl space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-stone-800">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
                     Registrar Devolução de Ferramenta
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-stone-400">
+                  <p className="text-[10px] text-zinc-500 dark:text-stone-400">
                     [{devolucaoTarget.codigo_ferramenta}] {devolucaoTarget.nome_ferramenta}
                   </p>
                 </div>
@@ -3681,24 +3681,24 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setDevolucaoTarget(null)}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmarDevolucao} className="space-y-4">
-              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-stone-800 text-xs space-y-1">
-                <div>
+            <form onSubmit={handleConfirmarDevolucao} className="space-y-2.5">
+              <div className="p-2 rounded-lg bg-slate-50 dark:bg-stone-800/60 text-xs space-y-0.5 border border-slate-200 dark:border-stone-700/60">
+                <div className="text-[11px]">
                   <strong>Retirado por:</strong> {devolucaoTarget.retirado_por}
                 </div>
-                <div>
+                <div className="text-[11px]">
                   <strong>Data da Retirada:</strong> {formatDateTimePtBr(devolucaoTarget.data_retirada)}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-300 uppercase tracking-wider mb-0.5">
                   Data e Hora da Devolução (Preenchido Automaticamente) *
                 </label>
                 <input
@@ -3706,12 +3706,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   value={devolucaoDataHora}
                   onChange={e => setDevolucaoDataHora(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white"
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-300 uppercase tracking-wider mb-0.5">
                   Conferido Por (Operador do Almoxarifado) *
                 </label>
                 <input
@@ -3722,22 +3722,22 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   onChange={e => setDevolucaoConferidoPor(e.target.value)}
                   required
                   placeholder="Nome de quem conferiu e recebeu a ferramenta"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-500 bg-white dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-500 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setDevolucaoTarget(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingDevolucao}
-                  className="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer disabled:opacity-50"
                 >
                   {isSavingDevolucao ? 'Salvando...' : 'Confirmar Devolução'}
                 </button>

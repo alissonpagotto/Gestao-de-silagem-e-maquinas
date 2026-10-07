@@ -180,191 +180,168 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
   };
 
   return (
-    <div id="suppliers-module" className="w-full max-w-none bg-white dark:bg-stone-900 rounded-2xl p-4 sm:p-6 shadow-xs space-y-4 text-zinc-900 dark:text-stone-100 border border-zinc-200 dark:border-stone-800">
+    <div id="suppliers-module" className="w-full max-w-none space-y-3 antialiased">
       
-      {/* 1. Cabeçalho: Título "Fornecedores" no topo esquerdo e Botão no topo direito */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-stone-800 pb-3">
+      {/* 1. Cabeçalho Padronizado 3D Slim */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-stone-100 tracking-tight font-['Outfit']">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Fornecedores
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-stone-400 font-medium mt-0.5">
+          </h1>
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Cadastro e gestão de fornecedores de insumos, peças e serviços
           </p>
         </div>
 
-        <button
-          type="button"
-          id="btn-cadastrar-fornecedor"
-          onClick={handleOpenNew}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>+ Cadastrar Fornecedor</span>
-        </button>
-      </div>
+        {/* Botões e Ações com Moldura Acetinada 3D */}
+        <div className="flex items-center gap-2">
+          <div 
+            aria-label="Abas e Controles de Fornecedores"
+            className="flex items-center gap-1.5 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)]"
+          >
+            <div className="px-2.5 py-1 text-xs font-bold bg-white text-zinc-900 dark:bg-stone-800 dark:text-white rounded-lg shadow-xs border border-zinc-400 dark:border-stone-600">
+              {filteredSuppliers.length} Cadastrado(s)
+            </div>
+            <button
+              type="button"
+              id="btn-cadastrar-fornecedor"
+              onClick={handleOpenNew}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>+ Novo Fornecedor</span>
+            </button>
+          </div>
+        </div>
+      </header>
 
-      {/* 2. Barra de Pesquisa Superior */}
+      {/* 2. Barra de Pesquisa Superior Slim */}
       <div className="relative">
-        <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="text"
           id="input-buscar-fornecedor"
           placeholder="Buscar fornecedor por razão social, CNPJ, categoria ou cidade..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-stone-800/70 text-zinc-900 dark:text-stone-100 placeholder:text-zinc-400 border border-zinc-200 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/10 focus:bg-white dark:focus:bg-stone-800 outline-none transition"
+          className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 placeholder:text-slate-400 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-medium focus:ring-2 focus:ring-zinc-900/10 outline-none transition"
         />
       </div>
 
-      {/* 3. Cabeçalho de Colunas para Desktop */}
-      <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider bg-zinc-100 dark:bg-stone-800/80 rounded-xl border border-zinc-200 dark:border-stone-700">
-        <div className="col-span-4">Nome / Razão Social</div>
-        <div className="col-span-3">CNPJ/CPF & IE</div>
-        <div className="col-span-2">Telefone</div>
-        <div className="col-span-2">Endereço / Cidade</div>
-        <div className="col-span-1 text-right">Ações</div>
-      </div>
-
-      {/* 4. Listagem Linear de Fornecedores */}
-      <div className="space-y-2.5 w-full">
-        {filteredSuppliers.length === 0 ? (
-          <div className="p-8 text-center bg-zinc-50 dark:bg-stone-800/40 rounded-xl border border-zinc-200 dark:border-stone-700 text-zinc-600 dark:text-stone-400">
-            <Building className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
-            <p className="text-sm font-bold text-zinc-800 dark:text-stone-200">Nenhum fornecedor encontrado</p>
-            <p className="text-xs text-zinc-500 dark:text-stone-400 font-medium mt-1">
-              Tente alterar os termos de busca ou clique no botão acima para cadastrar um novo fornecedor.
-            </p>
-          </div>
-        ) : (
-          filteredSuppliers.map((sup) => (
-            <div 
-              key={sup.id}
-              className="bg-white dark:bg-stone-800/60 border border-zinc-200 dark:border-stone-700/80 hover:border-zinc-300 dark:hover:border-stone-600 rounded-xl p-3 sm:p-4 shadow-2xs transition text-zinc-900 dark:text-stone-100"
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center">
-                
-                {/* Coluna 1: Nome / Razão Social com tag de Categoria ao lado */}
-                <div className="lg:col-span-4 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-zinc-900 dark:text-stone-100 text-sm sm:text-base truncate" title={sup.name}>
-                      {sup.name}
-                    </h3>
-                    <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-600 shrink-0">
-                      {sup.category}
-                    </span>
-                  </div>
-                  {sup.tradeName && sup.tradeName !== sup.name && (
-                    <p className="text-xs text-zinc-500 dark:text-stone-400 font-medium truncate mt-0.5" title={sup.tradeName}>
-                      Fantasia: {sup.tradeName}
-                    </p>
-                  )}
-                </div>
-
-                {/* Coluna 2: CNPJ/CPF & IE */}
-                <div className="lg:col-span-3 min-w-0">
-                  <div className="text-xs text-zinc-700 dark:text-stone-300 font-medium space-y-0.5">
-                    <div className="flex items-center space-x-1.5">
-                      <Building className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                      <span className="font-semibold text-zinc-900 dark:text-stone-100 truncate">
-                        {sup.cnpjOrCpf ? formatCpfCnpj(sup.cnpjOrCpf) : 'CNPJ/CPF não inf.'}
+      {/* 3. Tabela em Linha Única Slim Estrita */}
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-2xs">
+        <table className="w-full text-left text-xs text-zinc-800 dark:text-stone-200">
+          <thead className="bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 font-bold border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
+            <tr>
+              <th className="py-1 px-2.5">Fornecedor & Fantasia</th>
+              <th className="py-1 px-2.5">CNPJ / CPF & IE</th>
+              <th className="py-1 px-2.5">Contato / Telefone</th>
+              <th className="py-1 px-2.5">Cidade / UF</th>
+              <th className="py-1 px-2.5 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
+            {filteredSuppliers.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-slate-400 dark:text-stone-500">
+                  <Building className="w-6 h-6 text-slate-300 dark:text-stone-600 mx-auto mb-1" />
+                  <span>Nenhum fornecedor encontrado</span>
+                </td>
+              </tr>
+            ) : (
+              filteredSuppliers.map((sup) => (
+                <tr key={sup.id} className="hover:bg-slate-100/70 dark:hover:bg-stone-800/50 transition">
+                  {/* Coluna 1: Nome Principal + Fantasia + Tag em Linha Única Horizontal */}
+                  <td className="py-1 px-2.5 align-middle">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                      <span className="font-bold text-xs text-zinc-900 dark:text-white truncate" title={sup.name}>
+                        {sup.name}
+                      </span>
+                      {sup.tradeName && sup.tradeName !== sup.name && (
+                        <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium truncate" title={sup.tradeName}>
+                          • Fantasia: {sup.tradeName}
+                        </span>
+                      )}
+                      <span className="text-[9.5px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 border border-slate-200 dark:border-stone-700 shrink-0">
+                        {sup.category}
                       </span>
                     </div>
-                    {sup.stateRegistration ? (
-                      <div className="text-[11px] text-zinc-500 dark:text-stone-400 pl-5 font-normal truncate">
-                        IE: {formatIE(sup.stateRegistration)}
-                      </div>
-                    ) : (
-                      sup.municipalRegistration && (
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 pl-5 font-normal truncate">
-                          IM: {sup.municipalRegistration}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
+                  </td>
 
-                {/* Coluna 3: Telefone */}
-                <div className="lg:col-span-2 min-w-0">
-                  <div className="text-xs text-zinc-700 dark:text-stone-300 font-medium space-y-0.5">
-                    <div className="flex items-center space-x-1.5">
-                      <Phone className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                      <span className="font-semibold text-zinc-900 dark:text-stone-100 truncate">
-                        {sup.phone || 'Sem telefone'}
+                  {/* Coluna 2: CNPJ/CPF & IE */}
+                  <td className="py-1 px-2.5 align-middle whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-700 dark:text-stone-300">
+                      <span className="font-semibold text-zinc-900 dark:text-stone-100">
+                        {sup.cnpjOrCpf ? formatCpfCnpj(sup.cnpjOrCpf) : 'Não inf.'}
                       </span>
+                      {sup.stateRegistration ? (
+                        <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                          • IE: {formatIE(sup.stateRegistration)}
+                        </span>
+                      ) : (
+                        sup.municipalRegistration && (
+                          <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                            • IM: {sup.municipalRegistration}
+                          </span>
+                        )
+                      )}
                     </div>
-                    {sup.email && (
-                      <div className="text-[11px] text-zinc-500 dark:text-stone-400 pl-5 font-normal truncate" title={sup.email}>
-                        {sup.email}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  </td>
 
-                {/* Coluna 4: Endereço / Cidade */}
-                <div className="lg:col-span-2 min-w-0">
-                  <div className="text-xs text-zinc-700 dark:text-stone-300 font-medium space-y-0.5">
-                    <div className="flex items-center space-x-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                      <span className="font-semibold text-zinc-900 dark:text-stone-100 truncate">
-                        {sup.city ? `${sup.city}${sup.state ? `/${sup.state}` : ''}` : 'Cidade não inf.'}
-                      </span>
+                  {/* Coluna 3: Telefone & Email */}
+                  <td className="py-1 px-2.5 align-middle whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-700 dark:text-stone-300">
+                      <span>{sup.phone || 'Sem telefone'}</span>
+                      {sup.email && (
+                        <span className="text-[10px] text-slate-500 dark:text-stone-400 truncate max-w-[140px]" title={sup.email}>
+                          • {sup.email}
+                        </span>
+                      )}
                     </div>
-                    {sup.address && (
-                      <div className="text-[11px] text-zinc-500 dark:text-stone-400 pl-5 font-normal truncate" title={sup.address}>
-                        {sup.address}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  </td>
 
-                {/* Coluna 5: Ações */}
-                <div className="lg:col-span-1 flex items-center justify-start lg:justify-end gap-1.5 pt-2 lg:pt-0 border-t lg:border-t-0 border-zinc-200 dark:border-stone-700 shrink-0">
-                  {/* Ícone do WhatsApp */}
-                  {sup.phone && cleanDigits(sup.phone).length >= 10 ? (
-                    <a
-                      href={`https://wa.me/55${cleanDigits(sup.phone)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                      title="Conversar no WhatsApp"
-                    >
-                      <MessageCircle className="w-4 h-4 stroke-[2.2]" />
-                    </a>
-                  ) : (
-                    <span 
-                      className="p-1.5 text-zinc-400 dark:text-stone-600 cursor-not-allowed inline-flex items-center justify-center" 
-                      title="Sem telefone cadastrado para WhatsApp"
-                    >
-                      <MessageCircle className="w-4 h-4 opacity-40" />
-                    </span>
-                  )}
+                  {/* Coluna 4: Endereço / Cidade */}
+                  <td className="py-1 px-2.5 align-middle whitespace-nowrap text-xs text-zinc-700 dark:text-stone-300">
+                    {sup.city ? `${sup.city}${sup.state ? `/${sup.state}` : ''}` : 'Não inf.'}
+                  </td>
 
-                  {/* Lápis para Editar */}
-                  <button
-                    type="button"
-                    onClick={() => handleEdit(sup)}
-                    className="p-1.5 bg-white dark:bg-stone-700 hover:bg-zinc-100 dark:hover:bg-stone-600 text-zinc-700 dark:text-stone-200 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-stone-600 rounded-lg transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                    title="Editar fornecedor"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-
-                  {/* Lixeira para Excluir */}
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(sup.id)}
-                    className="p-1.5 bg-white dark:bg-stone-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-zinc-700 dark:text-stone-200 hover:text-rose-600 dark:hover:text-rose-400 border border-zinc-200 dark:border-stone-600 rounded-lg transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                    title="Excluir fornecedor"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-              </div>
-            </div>
-          ))
-        )}
+                  {/* Coluna 5: Ações */}
+                  <td className="py-1 px-2.5 text-right whitespace-nowrap align-middle">
+                    <div className="flex items-center justify-end space-x-1">
+                      {sup.phone && cleanDigits(sup.phone).length >= 10 && (
+                        <a
+                          href={`https://wa.me/55${cleanDigits(sup.phone)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded transition cursor-pointer"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(sup)}
+                        className="p-1 text-slate-600 dark:text-stone-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded transition cursor-pointer"
+                        title="Editar fornecedor"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(sup.id)}
+                        className="p-1 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                        title="Excluir fornecedor"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Modal Reutilizável de Cadastro / Edição de Fornecedor */}

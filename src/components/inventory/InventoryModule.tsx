@@ -379,23 +379,24 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   return (
     <div id="inventory-module" className="w-full max-w-none space-y-4 sm:space-y-5">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 dark:border-stone-800 pb-2">
+      {/* Header Padronizado 3D Slim */}
+      <header className="flex flex-col gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2.5">
         <div>
-          <h2 className="text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100 tracking-tight font-['Outfit']">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Controle de Estoque & Insumos de Silagem
-          </h2>
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+          </h1>
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Monitoramento de diesel, lonas plásticas, inoculantes biológicos e peças sobressalentes
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Linha flex horizontal alinhada à esquerda logo abaixo do subtítulo */}
+        <div className="flex flex-wrap items-center gap-2 mt-0.5">
           {onOpenAlmoxarifado && (
             <button
               type="button"
               onClick={onOpenAlmoxarifado}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-xs transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-stone-950 border border-amber-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
             >
               <Wrench className="w-3.5 h-3.5 stroke-[2.2]" />
               <span>Gestão e Controle do Almoxarifado</span>
@@ -405,7 +406,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           <button
             type="button"
             onClick={() => setIsPrintQueueModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-stone-800 hover:bg-stone-900 dark:bg-stone-800 dark:hover:bg-stone-700 text-white border border-stone-700 shadow-xs transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white border border-slate-600/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-sky-400" />
             <span>Montar Fila de Impressão</span>
@@ -417,59 +418,60 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Cadastrar Novo Produto no Estoque</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-zinc-900 dark:text-white">
+      {/* Summary Cards Compactos Slim */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400">
               Valor Total em Estoque
             </span>
-            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
+            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
               {formatCurrencyBRL(totalInventoryValue)}
             </div>
-            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">{allItems.length} produtos cadastrados</p>
+            <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">{allItems.length} produtos cadastrados</p>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
-            <Package className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-300 flex items-center justify-center shrink-0">
+            <Package className="w-3.5 h-3.5" />
           </div>
         </div>
 
-        <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-zinc-900 dark:text-white">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400">
               Alertas de Estoque Mínimo
             </span>
-            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
+            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
               {lowStockCount}
             </div>
-            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">Itens em nível crítico</p>
+            <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">Itens em nível crítico</p>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
-            <AlertTriangle className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-3.5 h-3.5" />
           </div>
         </div>
 
-        <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-zinc-900 dark:text-white">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400">
               Diesel em Tanque
             </span>
-            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
+            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
               {totalDieselLitros.toLocaleString('pt-BR')} L
             </div>
-            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">Diesel S10 & S500 na Fazenda</p>
+            <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">Diesel S10 & S500 na Fazenda</p>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
-            <Fuel className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+            <Fuel className="w-3.5 h-3.5" />
           </div>
         </div>
       </div>
