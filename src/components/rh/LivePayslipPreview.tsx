@@ -171,67 +171,68 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         </div>
 
         {/* DADOS DO COLABORADOR */}
-        <div className="relative border border-stone-300 rounded-lg p-2 bg-stone-50/80">
-          <div className={`grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 text-[11px] ${isPixPayment && pixQrCodeUrl ? 'pr-[85px]' : ''}`}>
-            <div className="col-span-2 sm:col-span-1">
-              <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Colaborador:</span>
-              <span className="font-bold text-stone-900 truncate block mt-0.5">
-                {employee?.name || 'Selecione um funcionário...'}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Cargo:</span>
-              <span className="font-semibold text-stone-800 truncate block mt-0.5">
-                {employee?.role || '--'}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">CPF:</span>
-              <span className="font-semibold text-stone-800 block mt-0.5">
-                {formatCPF(employee?.cpf)}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Admissão:</span>
-              <span className="font-semibold text-stone-800 block mt-0.5">
-                {formatEmployeeAdmissionDate(employee?.admissionDate)}
-                {admissionInfo?.isAdmittedInCompetenceMonth && (
-                  <span className="text-amber-800 font-extrabold ml-1">({admissionInfo.daysWorked}d)</span>
-                )}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Regime:</span>
-              <span className="font-semibold text-stone-800 block mt-0.5">
-                {employee?.contractType || 'CLT'}
-              </span>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Depósito:</span>
-              <span className="font-semibold text-stone-800 truncate block mt-0.5" title={formatEmployeeBankDeposit(employee)}>
-                {formatEmployeeBankDeposit(employee)}
-              </span>
+        <div className="border border-stone-300 rounded-lg p-2 bg-stone-50/80 flex flex-row items-stretch justify-between w-full gap-3 sm:gap-4 print:gap-3">
+          {/* Sub-bloco da Esquerda (85% da largura): Dados textuais do colaborador */}
+          <div className={`${isPixPayment && pixQrCodeUrl ? 'w-[85%] flex-1' : 'w-full'} min-w-0`}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 text-[11px]">
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Colaborador:</span>
+                <span className="font-bold text-stone-900 truncate block mt-0.5">
+                  {employee?.name || 'Selecione um funcionário...'}
+                </span>
+              </div>
+              <div>
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Cargo:</span>
+                <span className="font-semibold text-stone-800 truncate block mt-0.5">
+                  {employee?.role || '--'}
+                </span>
+              </div>
+              <div>
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">CPF:</span>
+                <span className="font-semibold text-stone-800 block mt-0.5">
+                  {formatCPF(employee?.cpf)}
+                </span>
+              </div>
+              <div>
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Admissão:</span>
+                <span className="font-semibold text-stone-800 block mt-0.5">
+                  {formatEmployeeAdmissionDate(employee?.admissionDate)}
+                  {admissionInfo?.isAdmittedInCompetenceMonth && (
+                    <span className="text-amber-800 font-extrabold ml-1">({admissionInfo.daysWorked}d)</span>
+                  )}
+                </span>
+              </div>
+              <div>
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Regime:</span>
+                <span className="font-semibold text-stone-800 block mt-0.5">
+                  {employee?.contractType || 'CLT'}
+                </span>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Depósito:</span>
+                <span className="font-semibold text-stone-800 truncate block mt-0.5" title={formatEmployeeBankDeposit(employee)}>
+                  {formatEmployeeBankDeposit(employee)}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* QR Code do PIX Dinâmico (Canto superior direito) */}
+          {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
           {isPixPayment && pixQrCodeUrl && (
             <div 
-              className="absolute top-1.5 right-1.5 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs z-10"
-              style={{ width: '78px' }}
+              className="w-[15%] min-w-[80px] max-w-[100px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs self-center"
             >
               <img
                 src={pixQrCodeUrl}
                 alt="QR Code PIX para Pagamento"
-                className="w-[70px] h-[70px] object-contain rounded-xs"
-                width="70"
-                height="70"
+                className="w-20 h-20 print:w-[72px] print:h-[72px] object-contain rounded-xs"
+                width="80"
+                height="80"
               />
               <span 
-                className="text-[8px] text-stone-500 font-semibold text-center block mt-0.5 leading-tight select-none"
-                style={{ fontSize: '8px', color: '#78716c' }}
+                className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-stone-600 text-center block mt-0.5 leading-tight select-none whitespace-nowrap"
               >
-                PIX para Pagamento
+                QR CODE PARA PAGAMENTO
               </span>
             </div>
           )}
