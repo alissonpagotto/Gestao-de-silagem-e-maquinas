@@ -6989,20 +6989,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           }}
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-[90vw] max-w-[90vw] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
+            className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[90vw] max-w-[90vw] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 1. Cabeçalho Principal com Título e Botão Fechar */}
-            <div className="px-5 py-3.5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/90 dark:bg-stone-800/60 shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                  <Package className="w-5 h-5 stroke-[2.5]" />
+            {/* 1. Cabeçalho Principal com Título e Botão Fechar - Moldura Metálica 3D Acetinada */}
+            <div className="px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
-                    Nova Entrada Manual
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                    NOVA ENTRADA MANUAL
                   </h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                     Fluxo inteligente em etapas com integração direta e atualização do estoque
                   </p>
                 </div>
@@ -7014,10 +7014,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
                 }}
                 disabled={isSavingManualEntry || isAddingItem}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition cursor-pointer disabled:opacity-50"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
                 title="Fechar formulário"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 

@@ -366,22 +366,22 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   if (!isOpen || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
       <div 
         id="receive-payment-modal-container"
-        className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-auto text-black flex flex-col max-h-[92vh]"
+        className="relative w-full max-w-2xl bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto text-slate-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
       >
-        {/* CABEÇALHO */}
-        <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+        {/* CABEÇALHO - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="p-2 rounded-xl bg-emerald-600 text-white shrink-0 shadow-xs">
-              <DollarSign className="w-5 h-5 stroke-[2.5]" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-black text-black leading-tight truncate font-['Outfit']">
-                Baixar / Quitar Conta a Receber
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 truncate">
+                BAIXAR / QUITAR CONTA A RECEBER
               </h2>
-              <p className="text-[11px] sm:text-xs text-black/75 font-semibold truncate">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium truncate">
                 {item.type} • {item.clientName}
               </p>
             </div>
@@ -389,15 +389,15 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-black hover:bg-slate-200 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar janela"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
         {/* CORPO DO FORMULÁRIO COM ROLAGEM */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+        <div className="p-3 sm:p-4 overflow-y-auto space-y-2.5 text-xs max-h-[80vh] scrollbar-none">
           
           {/* MENSAGEM DE ERRO OU SUCESSO */}
           {errorMessage && (

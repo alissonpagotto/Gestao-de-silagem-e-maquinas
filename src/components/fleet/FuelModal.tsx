@@ -944,20 +944,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-2.5 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-6xl w-full h-auto max-h-[94vh] shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col text-zinc-900 dark:text-zinc-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-2.5 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-6xl w-full h-auto max-h-[92vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden flex flex-col text-zinc-900 dark:text-zinc-100">
         
-        {/* Cabeçalho Equilibrado e Compacto */}
-        <div className="px-4 py-2.5 bg-[#e1e1e1] dark:bg-zinc-800/90 text-zinc-900 dark:text-zinc-100 flex items-center justify-between border-b border-zinc-300 dark:border-zinc-700/80 shrink-0">
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 shrink-0 rounded-t-2xl shadow-xs">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-2xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
               <Fuel className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white font-['Outfit'] leading-tight">
-                {editingLog ? 'Editar Abastecimento' : 'Novo Registro de Abastecimento'}
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                {editingLog ? 'EDITAR ABASTECIMENTO' : 'NOVO REGISTRO DE ABASTECIMENTO'}
               </h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-none mt-0.5">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                 Controle de combustível com cálculo de consumo em tempo real
               </p>
             </div>
@@ -965,9 +965,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           <button
             type="button"
             onClick={() => onClose()}
-            className="p-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white border border-zinc-200 dark:border-zinc-600 transition cursor-pointer pointer-events-auto"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
           >
-            <X className="w-4 h-4 pointer-events-none" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 

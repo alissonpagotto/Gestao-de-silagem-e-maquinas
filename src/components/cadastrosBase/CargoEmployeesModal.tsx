@@ -72,23 +72,23 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
   if (!isOpen || !cargo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
         
-        {/* Header - Barra Elegante */}
-        <div className="px-5 py-4 bg-[#0963cb] text-white flex items-center justify-between shrink-0 shadow-xs">
-          <div className="flex items-center space-x-3 min-w-0 pr-2">
-            <div className="p-2 rounded-xl bg-white/15 text-white shrink-0">
-              <Users className="w-5 h-5" />
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl shadow-xs">
+          <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Users className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-white truncate">
-                Colaboradores Vinculados ao Cargo
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 truncate">
+                COLABORADORES VINCULADOS AO CARGO
               </h3>
-              <div className="flex items-center gap-2 text-xs text-white/90 truncate mt-0.5">
-                <span className="font-bold underline decoration-white/40">{cargo.nome}</span>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-stone-400 truncate mt-0.5">
+                <span className="font-bold">{cargo.nome}</span>
                 <span>•</span>
-                <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase">
+                <span className="bg-slate-200 dark:bg-stone-800 text-slate-800 dark:text-stone-200 px-1.5 py-0.2 rounded text-[10px] font-bold uppercase border border-slate-300 dark:border-stone-700">
                   {cargo.setor || 'Geral'}
                 </span>
               </div>
@@ -98,23 +98,23 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer shrink-0"
             title="Fechar janela"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
         {/* Barra de Busca e Contador */}
-        <div className="p-3.5 bg-stone-50 dark:bg-stone-800/50 border-b border-zinc-200 dark:border-stone-800 shrink-0 space-y-2">
+        <div className="p-2.5 bg-slate-50 dark:bg-stone-800/50 border-b border-slate-300 dark:border-stone-700 shrink-0 space-y-1.5">
           <div className="relative">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar colaborador vinculado por nome ou documento..."
-              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0963cb]/30 focus:border-[#0963cb] shadow-2xs"
+              className="w-full pl-8 pr-8 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-slate-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-slate-400 shadow-2xs"
             />
             {searchTerm && (
               <button

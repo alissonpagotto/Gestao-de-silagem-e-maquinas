@@ -979,27 +979,31 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 6. MODAL DE NOVO / EDITAR LANÇAMENTO DE COMISSÃO */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-5 py-3.5 bg-gradient-to-r from-sky-700 to-sky-800 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-200 overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden">
+            {/* Modal Header - Moldura Metálica 3D Acetinada */}
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-2">
-                <Handshake className="w-5 h-5 text-sky-200" />
-                <h3 className="text-sm sm:text-base font-black uppercase tracking-wider">
-                  {editingItem ? 'Editar Acerto de Agenciador' : 'Novo Lançamento de Comissão / Repasse'}
-                </h3>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center text-slate-800 dark:text-stone-100 shrink-0 border border-slate-300 dark:border-stone-700 shadow-2xs">
+                  <Handshake className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingItem ? 'EDITAR ACERTO DE AGENCIADOR' : 'NOVO LANÇAMENTO DE COMISSÃO / REPASSE'}
+                  </h3>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveModal} className="p-5 overflow-y-auto space-y-4 text-xs">
+            <form onSubmit={handleSaveModal} className="p-3 sm:p-4 overflow-y-auto space-y-2.5 text-xs max-h-[80vh] scrollbar-none">
               {/* Seleção do Agenciador */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-black uppercase">

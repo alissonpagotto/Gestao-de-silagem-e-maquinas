@@ -553,18 +553,18 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         </div>
       </div>
 
-      {/* Modal Lançar / Editar Vale Refatorado */}
+      {/* Modal Lançar / Editar Vale Refatorado - Moldura Metálica 3D Acetinada */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className={`bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-full ${discountType === 'Parcelado' ? 'max-w-xl' : 'max-w-md'} shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 transition-all`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className={`bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full ${discountType === 'Parcelado' ? 'max-w-xl' : 'max-w-md'} shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 transition-all flex flex-col max-h-[92vh]`}>
             
-            {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0963cb] text-white">
+            {/* Header 3D Metálico Acetinado */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                  {editingAdvance ? 'Editar Adiantamento / Vale' : 'Lançar Adiantamento / Vale'}
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                  {editingAdvance ? 'EDITAR ADIANTAMENTO / VALE' : 'LANÇAR ADIANTAMENTO / VALE'}
                 </h3>
-                <p className="text-[11px] text-white/85 font-medium">
+                <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                   {discountType === 'Parcelado' 
                     ? `Parcelamento em ${installmentsCount}x com provisionamento automático`
                     : 'Lançamento em cota única para folha de pagamento'}
@@ -573,13 +573,13 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-5 space-y-3.5 text-xs bg-[#b0d2ed] max-h-[85vh] overflow-y-auto">
+            <form onSubmit={handleSaveModal} className="p-3 sm:p-4 space-y-2.5 text-xs bg-white dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
               
               {/* 1. Responsável pelo Lançamento (Auditoria RH) - Campo travado e preenchido automaticamente */}
               <div>

@@ -210,24 +210,22 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   return (
     <div 
       id="modal-baixa-pagamento"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto backdrop-blur-xs animate-in fade-in"
-      style={{ backgroundColor: 'rgba(9, 99, 203, 0.45)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in"
     >
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-stone-300 my-auto flex flex-col max-h-[94vh]">
-        {/* CABEÇALHO */}
+      <div className="w-full max-w-xl bg-white dark:bg-stone-900 rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden border border-slate-400 dark:border-stone-700 my-auto flex flex-col max-h-[92vh]">
+        {/* CABEÇALHO - Moldura Metálica 3D Acetinada */}
         <div 
-          className="px-5 py-4 flex items-center justify-between text-white shrink-0 shadow-sm"
-          style={{ backgroundColor: '#0963cb' }}
+          className="px-4 sm:px-5 py-2.5 flex items-center justify-between text-slate-800 dark:text-stone-100 shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl shadow-xs"
         >
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
-              <FileCheck2 className="w-5 h-5 stroke-[2.5]" />
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center text-slate-800 dark:text-stone-100 shrink-0 border border-slate-300 dark:border-stone-700 shadow-2xs">
+              <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-                Baixa de Conta a Pagar
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-1.5 leading-tight">
+                BAIXA DE CONTA A PAGAR
               </h3>
-              <p className="text-xs text-sky-100 font-medium">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium leading-tight">
                 Identificação de responsável, vencimento e débito em conta bancária
               </p>
             </div>
@@ -237,15 +235,15 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
             type="button"
             id="btn-fechar-modal-baixa"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar Modal"
           >
-            <X className="w-6 h-6" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
         {/* FORMULÁRIO */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-black">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 overflow-y-auto space-y-2.5 flex-1 text-slate-900 dark:text-stone-100 max-h-[80vh] scrollbar-none">
           
           {/* Alerta de Validação */}
           {errorMessage && (

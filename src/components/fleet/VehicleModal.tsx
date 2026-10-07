@@ -1540,34 +1540,34 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
       <div 
-        className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[94vh]"
+        className="bg-white dark:bg-stone-900 rounded-2xl max-w-5xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh]"
       >
         
-        {/* Header - Charcoal bg-zinc-800 with White Text */}
+        {/* Header - Moldura Metálica 3D Acetinada */}
         <div 
-          className="px-4 sm:px-5 py-2.5 bg-zinc-800 text-white flex items-center justify-between shrink-0 shadow-xs"
+          className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 shadow-xs rounded-t-2xl"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-zinc-700 text-white flex items-center justify-center shadow-xs shrink-0">
-              <Truck className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Truck className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <h3 
-                  className="text-sm sm:text-base font-bold text-white font-['Outfit'] tracking-tight"
+                  className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100"
                 >
-                  {editingVehicle ? 'Editar Veículo / Máquina' : 'Cadastrar Novo Veículo / Máquina'}
+                  {editingVehicle ? 'EDITAR VEÍCULO / MÁQUINA' : 'CADASTRAR NOVO VEÍCULO / MÁQUINA'}
                 </h3>
                 {persistentVehicleIdentifier && (
-                  <span className="text-xs font-black bg-zinc-700/90 text-amber-300 border border-zinc-600 px-2 py-0.5 rounded-md font-mono tracking-wide">
+                  <span className="text-[10px] font-black bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded-md font-mono tracking-wide">
                     {persistentVehicleIdentifier}
                   </span>
                 )}
               </div>
               <p 
-                className="text-[11px] text-zinc-300 line-clamp-1"
+                className="text-[11px] text-slate-600 dark:text-stone-400 font-medium"
               >
                 Gestão de dados cadastrais, dados de propriedade, pesos e controle de compra
               </p>
@@ -1576,10 +1576,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700/60 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             aria-label="Fechar"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 

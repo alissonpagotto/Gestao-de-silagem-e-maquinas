@@ -349,36 +349,46 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
         </div>
       </div>
 
-      {/* Modal Afastamento */}
+      {/* Modal Afastamento - Moldura Metálica 3D Acetinada */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
             
-            {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0963cb] text-white">
-              <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                {editingLeave ? 'Editar Registro de Afastamento' : 'Registrar Novo Afastamento / Atestado'}
-              </h3>
+            {/* Header 3D Metálico Acetinado */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Stethoscope className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingLeave ? 'EDITAR AFASTAMENTO / ATESTADO' : 'REGISTRAR NOVO AFASTAMENTO / ATESTADO'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Controle de atestados médicos, licenças e abonos de faltas
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-5 space-y-4 text-xs bg-[#b0d2ed]">
+            <form onSubmit={handleSaveModal} className="p-3 sm:p-4 space-y-2.5 text-xs bg-white dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
               
               {/* Colaborador */}
               <div>
-                <label className="block font-bold text-black mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Colaborador / Funcionário <span className="text-rose-600">*</span>
                 </label>
                 <select
                   value={selectedEmployeeId}
                   onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-medium"
+                  className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
                   required
                 >
                   <option value="">Selecione um colaborador...</option>
@@ -392,13 +402,13 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
               {/* Tipo de Afastamento */}
               <div>
-                <label className="block font-bold text-black mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Motivo / Tipo de Afastamento <span className="text-rose-600">*</span>
                 </label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as any)}
-                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
                   required
                 >
                   <option value="Atestado Médico">Atestado Médico (Geral)</option>
@@ -411,32 +421,32 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
               </div>
 
               {/* Datas */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="block font-bold text-black mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Data Início <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-black mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Previsão Retorno
                   </label>
                   <input
                     type="date"
                     value={expectedReturnDate}
                     onChange={(e) => setExpectedReturnDate(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-black mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Qtd. Dias
                   </label>
                   <input
@@ -445,91 +455,94 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     value={daysCount > 0 ? daysCount : ''}
                     placeholder="Qtd. dias"
                     onChange={(e) => setDaysCount(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
               </div>
 
               {/* CID & Médico */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block font-bold text-black mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Código CID (Opcional)
                   </label>
                   <input
                     type="text"
                     value={cid}
                     onChange={(e) => setCid(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black uppercase font-mono outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    placeholder="Ex: A09, J06..."
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs uppercase font-mono outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-black mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Médico / CRM (Opcional)
                   </label>
                   <input
                     type="text"
                     value={doctorName}
                     onChange={(e) => setDoctorName(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    placeholder="Ex: Dr. Roberto / CRM 12345"
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
               </div>
 
               {/* Status */}
               <div>
-                <label className="block font-bold text-black mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Situação do Afastamento
                 </label>
-                <div className="flex items-center space-x-3 mt-1">
-                  <label className="flex items-center space-x-1.5 cursor-pointer">
+                <div className="flex items-center space-x-3 mt-0.5">
+                  <label className="flex items-center space-x-1.5 cursor-pointer text-xs">
                     <input
                       type="radio"
                       name="status"
                       checked={status === 'ativo'}
                       onChange={() => setStatus('ativo')}
-                      className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
+                      className="text-slate-800 focus:ring-slate-400 accent-slate-800 cursor-pointer"
                     />
-                    <span className="font-bold text-rose-700">Afastado (Ativo)</span>
+                    <span className="font-bold text-rose-700 dark:text-rose-400">Afastado (Ativo)</span>
                   </label>
-                  <label className="flex items-center space-x-1.5 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 cursor-pointer text-xs">
                     <input
                       type="radio"
                       name="status"
                       checked={status === 'finalizado'}
                       onChange={() => setStatus('finalizado')}
-                      className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
+                      className="text-slate-800 focus:ring-slate-400 accent-slate-800 cursor-pointer"
                     />
-                    <span className="font-bold text-emerald-700">Retornou ao Trabalho (Finalizado)</span>
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400">Retornou ao Trabalho (Finalizado)</span>
                   </label>
                 </div>
               </div>
 
               {/* Observações */}
               <div>
-                <label className="block font-bold text-black mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Observações
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] resize-none"
+                  placeholder="Informações adicionais do afastamento..."
+                  className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 resize-none"
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-black/15">
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200 dark:border-stone-700">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition"
+                  className="px-3.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold transition shadow-xs cursor-pointer"
+                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold transition shadow-xs cursor-pointer border border-emerald-800"
                 >
                   Salvar Afastamento
                 </button>

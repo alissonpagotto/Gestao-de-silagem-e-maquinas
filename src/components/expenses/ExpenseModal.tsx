@@ -518,11 +518,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto">
-        <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+        <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
         
         {/* Header - Moldura Metálica 3D Acetinada */}
-        <div className="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 flex items-center justify-between shrink-0 rounded-t-2xl">
+        <div className="px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 flex items-center justify-between shrink-0 rounded-t-2xl">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
               <Receipt className="w-4 h-4 text-slate-700 dark:text-stone-200" />
@@ -546,19 +546,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto bg-white flex-1">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 max-h-[82vh] overflow-y-auto bg-white dark:bg-stone-900 flex-1 scrollbar-none">
           
           {/* Row 1: Categoria & Data */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">
                   CATEGORIA <span className="text-rose-600">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(true)}
-                  className="inline-flex items-center space-x-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 hover:text-black dark:hover:text-white px-2 py-0.5 rounded-md bg-white dark:bg-stone-800 hover:bg-zinc-50 transition cursor-pointer border border-zinc-200 dark:border-stone-700"
+                  className="inline-flex items-center space-x-1 text-[10px] font-bold text-slate-700 dark:text-stone-300 hover:text-black dark:hover:text-white px-2 py-0.5 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 transition cursor-pointer border border-slate-300 dark:border-stone-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                   title="Incluir, editar ou excluir categorias de despesas"
                 >
                   <Edit2 className="w-2.5 h-2.5" />
@@ -570,7 +570,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-9"
+                    className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                   >
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
@@ -578,21 +578,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(true)}
-                  className="w-9 h-9 shrink-0 rounded-xl bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
+                  className="w-7.5 h-7.5 shrink-0 rounded-lg bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white flex items-center justify-center transition border border-slate-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.25)] cursor-pointer"
                   title="Incluir nova categoria ou gerenciar existentes"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                 DATA <span className="text-rose-600">*</span>
               </label>
               <div className="relative">
@@ -601,38 +601,38 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   required
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
+                  className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
                 />
               </div>
             </div>
           </div>
 
           {/* Row 2: Tipo de Refeição (ou Descrição) & Valor Total */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {isAlimentacao ? (
               <div>
-                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                   TIPO DE REFEIÇÃO
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setMealType('cafe')}
-                    className={`py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`py-1 px-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${
                       mealType === 'cafe'
-                        ? 'bg-zinc-900 dark:bg-stone-700 text-white border-zinc-900 dark:border-stone-700 font-bold shadow-xs'
-                        : 'bg-white dark:bg-stone-800 border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50'
+                        ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
                     }`}
                   >
-                    Café da Manhã
+                    Café
                   </button>
                   <button
                     type="button"
                     onClick={() => setMealType('almoco')}
-                    className={`py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`py-1 px-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${
                       mealType === 'almoco'
-                        ? 'bg-zinc-900 dark:bg-stone-700 text-white border-zinc-900 dark:border-stone-700 font-bold shadow-xs'
-                        : 'bg-white dark:bg-stone-800 border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50'
+                        ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
                     }`}
                   >
                     Almoço
@@ -640,10 +640,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setMealType('janta')}
-                    className={`py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`py-1 px-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${
                       mealType === 'janta'
-                        ? 'bg-zinc-900 dark:bg-stone-700 text-white border-zinc-900 dark:border-stone-700 font-bold shadow-xs'
-                        : 'bg-white dark:bg-stone-800 border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50'
+                        ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
                     }`}
                   >
                     Janta
@@ -652,20 +652,20 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             ) : (
               <div>
-                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                   DESCRIÇÃO DA DESPESA
                 </label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
+                  className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                 VALOR TOTAL (R$) <span className="text-rose-600">*</span>
               </label>
               <input
@@ -675,15 +675,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
+                className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
           </div>
 
-          {/* Rateio por Funcionários e Equipes (Seleção Múltipla) - Fundo Branco */}
-          <div className="border border-stone-300 rounded-xl p-3.5 bg-white shadow-xs space-y-2.5">
+          {/* Rateio por Funcionários e Equipes (Seleção Múltipla) - Subcontainer 3D Slim */}
+          <div className="border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)] space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block text-[11px] font-bold text-black uppercase tracking-wider">
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider">
                 FUNCIONÁRIOS E EQUIPES NO RATEIO ({totalParticipantsCount} {totalParticipantsCount === 1 ? 'PESSOA' : 'PESSOAS'})
               </label>
               <div className="flex items-center space-x-2 text-[10px]">
@@ -691,7 +691,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setSelectedTargets(['todos'])}
-                    className="text-zinc-900 dark:text-stone-100 font-bold hover:underline cursor-pointer"
+                    className="text-slate-800 dark:text-stone-100 font-bold hover:underline cursor-pointer uppercase"
                   >
                     + Todos da Empresa
                   </button>
@@ -700,7 +700,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setSelectedTargets(['todos'])}
-                    className="text-stone-500 hover:text-stone-700 font-medium cursor-pointer"
+                    className="text-slate-500 hover:text-slate-700 font-medium cursor-pointer uppercase"
                   >
                     Limpar
                   </button>
@@ -709,7 +709,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             {/* Input / Dropdown de Adição com botão + Adicionar */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <div className="relative flex-1">
                 <select
                   value={targetToAdd}
@@ -719,7 +719,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       handleAddTarget(e.target.value);
                     }
                   }}
-                  className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688] appearance-none pr-8 cursor-pointer"
+                  className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8 cursor-pointer"
                 >
                   <option value="">+ Selecione para Adicionar ao Rateio...</option>
                   
@@ -777,10 +777,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleAddTarget()}
-                className="h-9 px-3.5 shrink-0 rounded-lg bg-[#156f33] hover:bg-[#0e5224] text-white flex items-center space-x-1.5 transition cursor-pointer shadow-2xs text-xs font-bold"
+                className="h-7 sm:h-7.5 px-3 shrink-0 rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white flex items-center space-x-1 border border-emerald-500/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] text-[11px] font-bold uppercase transition cursor-pointer"
                 title="Adicionar mais equipe ou funcionário ao rateio"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Adicionar</span>
               </button>
             </div>
@@ -930,12 +930,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Fornecedor */}
           <div ref={supplierContainerRef} className="relative">
-            <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
               FORNECEDOR
             </label>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={supplier}
@@ -944,7 +944,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     setIsSupplierDropdownOpen(true);
                   }}
                   onFocus={() => setIsSupplierDropdownOpen(true)}
-                  className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
+                  className="w-full pl-8 pr-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
                 />
               </div>
               <button
@@ -953,18 +953,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   setIsSupplierModalOpen(true);
                   setIsSupplierDropdownOpen(false);
                 }}
-                className="w-9 h-9 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-7.5 h-7.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-700 dark:text-stone-300 flex items-center justify-center transition cursor-pointer shrink-0 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                 title="Cadastrar Novo Fornecedor"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Dropdown Lista de Fornecedores */}
             {isSupplierDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
                 {filteredSuppliers.length > 0 ? (
-                  <div className="divide-y divide-zinc-100 dark:divide-stone-700">
+                  <div className="divide-y divide-slate-100 dark:divide-stone-700">
                     {filteredSuppliers.map((s) => (
                       <div
                         key={s.id}
@@ -972,19 +972,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                           setSupplier(s.name);
                           setIsSupplierDropdownOpen(false);
                         }}
-                        className="p-3 hover:bg-zinc-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group"
+                        className="p-2 sm:p-2.5 hover:bg-slate-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-zinc-900 dark:text-stone-100 text-xs sm:text-sm group-hover:text-black dark:group-hover:text-white">
+                          <span className="font-bold text-slate-900 dark:text-stone-100 text-xs group-hover:text-black dark:group-hover:text-white">
                             {s.name}
                           </span>
                           {s.category && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-stone-700 text-zinc-600 dark:text-stone-300 font-medium shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-medium shrink-0">
                               {s.category}
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
+                        <div className="text-[10px] text-slate-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
                           {s.cnpjOrCpf && <span>{s.cnpjOrCpf}</span>}
                           {s.tradeName && s.tradeName !== s.name && (
                             <span>· {s.tradeName}</span>
@@ -997,22 +997,22 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 text-xs text-zinc-500 dark:text-stone-400 text-center">
+                  <div className="p-2.5 text-xs text-slate-500 dark:text-stone-400 text-center">
                     Nenhum fornecedor cadastrado com esse termo.
                   </div>
                 )}
 
                 {/* Opção de Cadastrar Novo Fornecedor */}
-                <div className="border-t border-zinc-200 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800">
+                <div className="border-t border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800">
                   <button
                     type="button"
                     onClick={() => {
                       setIsSupplierModalOpen(true);
                       setIsSupplierDropdownOpen(false);
                     }}
-                    className="w-full p-2.5 sm:p-3 flex items-center space-x-2 text-zinc-800 dark:text-stone-200 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-700 text-xs sm:text-sm font-semibold transition cursor-pointer text-left"
+                    className="w-full p-2 flex items-center space-x-1.5 text-slate-800 dark:text-stone-200 hover:text-black dark:hover:text-white hover:bg-slate-100 dark:hover:bg-stone-700 text-xs font-semibold transition cursor-pointer text-left"
                   >
-                    <Plus className="w-4 h-4 text-zinc-800 dark:text-stone-200" />
+                    <Plus className="w-3.5 h-3.5 text-slate-800 dark:text-stone-200" />
                     <span>+ Cadastrar novo fornecedor</span>
                   </button>
                 </div>
@@ -1021,33 +1021,33 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
 
           {/* Status e Forma de Pagamento */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                 STATUS DO PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as ExpenseStatus)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-9"
+                  className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                 >
                   <option value="pago">Pago (Liquidado)</option>
                   <option value="pendente">A Pagar (Pendente)</option>
                 </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                 FORMA DE PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-9"
+                  className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                 >
                   <option value="pix">PIX</option>
                   <option value="dinheiro">Dinheiro em Espécie</option>
@@ -1057,32 +1057,32 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <option value="transferencia">Transferência Bancária (TED/DOC)</option>
                   <option value="cheque">Cheque</option>
                 </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
           </div>
 
           {/* Se o status for Pago: Identificar Responsável e Conta de Débito */}
           {status === 'pago' && (
-            <div className="p-3.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-200 dark:border-stone-700 rounded-xl space-y-3">
-              <div className="flex items-center space-x-2 text-zinc-800 dark:text-stone-200 font-bold text-xs">
-                <CheckCircle2 className="w-4 h-4 text-zinc-800 dark:text-stone-200" />
+            <div className="p-2.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 border border-slate-300 dark:border-stone-700 rounded-xl space-y-2 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)]">
+              <div className="flex items-center space-x-1.5 text-slate-800 dark:text-stone-200 font-bold text-[11px] uppercase tracking-wider">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Dados da Baixa / Liquidação do Pagamento</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* Quem realizou o pagamento */}
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
-                    Quem Realizou o Pagamento (Responsável) <span className="text-rose-600">*</span>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Responsável pelo Pagamento <span className="text-rose-600">*</span>
                   </label>
                   <div className="relative">
                     <select
                       value={paidByEmployeeId}
                       onChange={(e) => setPaidByEmployeeId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-8"
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                     >
-                      <option value="">-- Selecione o colaborador responsável --</option>
+                      <option value="">-- Selecione o colaborador --</option>
                       {activeEmployees.map((emp) => (
                         <option key={emp.id} value={emp.id}>
                           {emp.name} {emp.role ? `(${emp.role})` : ''}
@@ -1095,14 +1095,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
                 {/* De qual banco debitar */}
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
-                    Conta Bancária de Débito (Origem) <span className="text-rose-600">*</span>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Conta de Débito (Origem) <span className="text-rose-600">*</span>
                   </label>
                   <div className="relative">
                     <select
                       value={bankAccountId}
                       onChange={(e) => setBankAccountId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-8"
+                      className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                     >
                       <option value="">-- Selecione o Banco / Conta --</option>
                       {bankAccounts.map((acc) => (
@@ -1117,14 +1117,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Data Efetiva da Baixa
                 </label>
                 <input
                   type="date"
                   value={paymentDate || dueDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full sm:w-1/2 px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
+                  className="w-full sm:w-1/2 px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
                 />
               </div>
             </div>
@@ -1132,11 +1132,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Foto / Comprovante Upload Box */}
           <div>
-            <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
               FOTO / COMPROVANTE
             </label>
-            <label className="cursor-pointer border-2 border-dashed border-zinc-300 dark:border-stone-700 hover:border-zinc-500 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-center gap-2 text-zinc-600 dark:text-stone-400 hover:text-black dark:hover:text-white transition bg-white dark:bg-stone-800 shadow-xs">
-              <Camera className="w-4 h-4 text-stone-500" />
+            <label className="cursor-pointer border border-dashed border-slate-300 dark:border-stone-700 hover:border-slate-500 rounded-lg p-2 flex flex-col sm:flex-row items-center justify-center gap-2 text-slate-600 dark:text-stone-400 hover:text-black dark:hover:text-white transition bg-slate-50 dark:bg-stone-800">
+              <Camera className="w-3.5 h-3.5 text-slate-500" />
               <span className="text-xs font-medium">
                 {receiptName ? `Anexado: ${receiptName}` : 'Tirar foto ou selecionar imagem'}
               </span>
@@ -1151,29 +1151,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Observações */}
           <div>
-            <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
               OBSERVAÇÕES
             </label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20 resize-none"
+              className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 resize-none"
             />
           </div>
 
-          {/* Action Buttons - Standardized Footer */}
-          <div className="pt-3 border-t border-zinc-200 flex items-center justify-end space-x-3">
+          {/* Action Buttons - Standardized 3D Footer */}
+          <div className="pt-2.5 border-t border-slate-200 dark:border-stone-800 flex items-center justify-end space-x-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl bg-white border border-zinc-300 text-zinc-700 text-xs sm:text-sm font-semibold hover:bg-zinc-50 transition cursor-pointer"
+              className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+              className="px-5 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white text-xs font-bold uppercase border border-emerald-500/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer"
             >
               {editingExpense ? 'Atualizar Despesa' : 'Salvar Despesa'}
             </button>

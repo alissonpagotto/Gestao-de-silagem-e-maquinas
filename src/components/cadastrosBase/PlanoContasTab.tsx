@@ -531,33 +531,45 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Categoria */}
+      {/* Modal Categoria - Moldura Metálica 3D Acetinada */}
       {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-stone-800">
-              <h3 className="text-base font-extrabold text-zinc-900 dark:text-white">
-                {editingCat ? 'Editar Conta / Categoria' : 'Nova Conta no Plano'}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+            
+            {/* Header 3D Metálico Acetinado */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <FileSpreadsheet className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingCat ? 'EDITAR CONTA / CATEGORIA' : 'NOVA CONTA NO PLANO'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Estruturação de receitas, despesas e centros financeiros
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsCatModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
             {catError && (
-              <div className="mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-xs font-bold text-rose-700">
+              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300">
                 {catError}
               </div>
             )}
 
-            <form onSubmit={handleSaveCat} className="mt-4 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+            <form onSubmit={handleSaveCat} className="p-3 sm:p-4 space-y-2.5 text-xs bg-white dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
+              <div className="grid grid-cols-3 gap-2.5">
                 <div className="col-span-1">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Código <span className="text-rose-600">*</span>
                   </label>
                   <input
@@ -566,11 +578,11 @@ export const PlanoContasTab: React.FC = () => {
                     placeholder="Ex: 2.01"
                     value={catCodigo}
                     onChange={(e) => setCatCodigo(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Nome da Conta / Categoria <span className="text-rose-600">*</span>
                   </label>
                   <input
@@ -579,19 +591,19 @@ export const PlanoContasTab: React.FC = () => {
                     placeholder="Ex: Combustíveis, Salários..."
                     value={catNome}
                     onChange={(e) => setCatNome(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Classificação da Conta
                 </label>
                 <select
                   value={catTipo}
                   onChange={(e) => setCatTipo(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
                 >
                   <option value="despesa">Despesa Operacional / Administrativa</option>
                   <option value="receita">Receita Operacional / Venda / Serviços</option>
@@ -601,7 +613,7 @@ export const PlanoContasTab: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Descrição (Opcional)
                 </label>
                 <textarea
@@ -609,7 +621,7 @@ export const PlanoContasTab: React.FC = () => {
                   placeholder="Detalhamento do escopo desta conta..."
                   value={catDescricao}
                   onChange={(e) => setCatDescricao(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 resize-none"
                 />
               </div>
 
@@ -619,24 +631,24 @@ export const PlanoContasTab: React.FC = () => {
                   id="cat-ativo"
                   checked={catAtivo}
                   onChange={(e) => setCatAtivo(e.target.checked)}
-                  className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-zinc-300 dark:border-stone-700 cursor-pointer"
+                  className="w-4 h-4 rounded text-slate-800 focus:ring-slate-400 border-slate-300 dark:border-stone-700 cursor-pointer"
                 />
-                <label htmlFor="cat-ativo" className="text-xs font-bold text-zinc-800 dark:text-stone-200 cursor-pointer">
+                <label htmlFor="cat-ativo" className="text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
                   Conta Ativa no Sistema
                 </label>
               </div>
 
-              <div className="pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end space-x-2.5">
+              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => setIsCatModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 text-xs font-bold text-zinc-700 dark:text-stone-300 hover:bg-zinc-100"
+                  className="px-3.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-xs font-semibold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs"
+                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white text-xs font-bold shadow-xs cursor-pointer border border-teal-800"
                 >
                   {editingCat ? 'Salvar' : 'Cadastrar'}
                 </button>
@@ -646,33 +658,45 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Forma Pagamento */}
+      {/* Modal Forma Pagamento - Moldura Metálica 3D Acetinada */}
       {isFormaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-stone-800">
-              <h3 className="text-base font-extrabold text-zinc-900 dark:text-white">
-                {editingForma ? 'Editar Forma de Pagamento' : 'Nova Forma de Pagamento'}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+            
+            {/* Header 3D Metálico Acetinado */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    {editingForma ? 'EDITAR FORMA DE PAGAMENTO' : 'NOVA FORMA DE PAGAMENTO'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Modalidade de quitação, prazos médios e taxas financeiras
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsFormaModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
             {formaError && (
-              <div className="mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-xs font-bold text-rose-700">
+              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300">
                 {formaError}
               </div>
             )}
 
-            <form onSubmit={handleSaveForma} className="mt-4 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+            <form onSubmit={handleSaveForma} className="p-3 sm:p-4 space-y-2.5 text-xs bg-white dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
+              <div className="grid grid-cols-3 gap-2.5">
                 <div className="col-span-1">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Sigla / Cód. <span className="text-rose-600">*</span>
                   </label>
                   <input
@@ -681,11 +705,11 @@ export const PlanoContasTab: React.FC = () => {
                     placeholder="Ex: PIX, BOL"
                     value={formaCodigo}
                     onChange={(e) => setFormaCodigo(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 uppercase"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Nome da Modalidade <span className="text-rose-600">*</span>
                   </label>
                   <input
@@ -694,19 +718,19 @@ export const PlanoContasTab: React.FC = () => {
                     placeholder="Ex: Boleto Bancário 30DD"
                     value={formaNome}
                     onChange={(e) => setFormaNome(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Tipo Base
                 </label>
                 <select
                   value={formaTipo}
                   onChange={(e) => setFormaTipo(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
                 >
                   <option value="pix">PIX Instantâneo</option>
                   <option value="boleto">Boleto Bancário</option>
@@ -719,9 +743,9 @@ export const PlanoContasTab: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Prazo Médio (Dias)
                   </label>
                   <input
@@ -729,11 +753,11 @@ export const PlanoContasTab: React.FC = () => {
                     min="0"
                     value={formaPrazo}
                     onChange={(e) => setFormaPrazo(Number(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                     Taxa Estimada (%)
                   </label>
                   <input
@@ -742,7 +766,7 @@ export const PlanoContasTab: React.FC = () => {
                     min="0"
                     value={formaTaxa}
                     onChange={(e) => setFormaTaxa(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
               </div>
@@ -753,24 +777,24 @@ export const PlanoContasTab: React.FC = () => {
                   id="forma-ativo"
                   checked={formaAtivo}
                   onChange={(e) => setFormaAtivo(e.target.checked)}
-                  className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-zinc-300 dark:border-stone-700 cursor-pointer"
+                  className="w-4 h-4 rounded text-slate-800 focus:ring-slate-400 border-slate-300 dark:border-stone-700 cursor-pointer"
                 />
-                <label htmlFor="forma-ativo" className="text-xs font-bold text-zinc-800 dark:text-stone-200 cursor-pointer">
+                <label htmlFor="forma-ativo" className="text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
                   Forma de Pagamento Ativa
                 </label>
               </div>
 
-              <div className="pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end space-x-2.5">
+              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => setIsFormaModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 text-xs font-bold text-zinc-700 dark:text-stone-300 hover:bg-zinc-100"
+                  className="px-3.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-xs font-semibold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs"
+                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white text-xs font-bold shadow-xs cursor-pointer border border-teal-800"
                 >
                   {editingForma ? 'Salvar' : 'Cadastrar'}
                 </button>

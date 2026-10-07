@@ -10,7 +10,8 @@ import {
   Mail, 
   Copy, 
   Inbox,
-  ExternalLink 
+  ExternalLink,
+  UserCheck
 } from 'lucide-react';
 import { Client, ClientFormSubmission } from '../../types';
 import { 
@@ -448,14 +449,24 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto`}>
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:w-[90vw] max-w-6xl shadow-2xl border-t sm:border border-zinc-400 overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 max-h-[95vh] sm:max-h-[92vh] flex flex-col my-0 sm:my-auto">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden`}>
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:w-[90vw] max-w-6xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 overflow-hidden overflow-y-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 max-h-[95vh] sm:max-h-[92vh] flex flex-col my-0 sm:my-auto">
         
-        {/* Header */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 relative shrink-0">
-          <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
-            Cadastro Cliente
-          </h3>
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 text-slate-800 flex items-center justify-between relative shrink-0 rounded-t-2xl shadow-xs">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 text-slate-800 flex items-center justify-center border border-slate-300 shadow-2xs shrink-0">
+              <UserCheck className="w-4 h-4 text-slate-700" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800">
+                {editingClient ? 'EDITAR CLIENTE' : 'NOVO CLIENTE'}
+              </h3>
+              <p className="text-[11px] text-slate-600 font-medium">
+                Produtor rural, dados cadastrais, endereço e parâmetros comerciais
+              </p>
+            </div>
+          </div>
           
           <div className="flex items-center space-x-2">
             {/* Botão Enviar Ficha com Dropdown */}
@@ -463,12 +474,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsShareDropdownOpen(!isShareDropdownOpen)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-xs sm:text-sm font-semibold transition cursor-pointer border border-zinc-600 shadow-2xs"
+                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 text-[11px] font-bold transition cursor-pointer border border-slate-300 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                 title="Enviar link do formulário de cadastro em branco para o cliente"
               >
-                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                <span>Enviar Ficha</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${isShareDropdownOpen ? 'rotate-180' : ''}`} />
+                <Share2 className="w-3.5 h-3.5 text-slate-700" />
+                <span className="uppercase">Enviar Ficha</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-150 ${isShareDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Dropdown Menu */}
@@ -541,10 +552,10 @@ export const ClientModal: React.FC<ClientModalProps> = ({
             {/* Fechar Modal */}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 transition cursor-pointer"
               title="Fechar janela"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 text-slate-700" />
             </button>
           </div>
         </div>

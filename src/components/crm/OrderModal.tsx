@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X, ChevronDown, ShoppingCart } from 'lucide-react';
 import { SilageOrder, Client } from '../../types';
 
 interface OrderModalProps {
@@ -59,39 +59,44 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-zinc-300 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
         
-        {/* Header - Charcoal bg-zinc-800 with White Text */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
-          <div>
-            <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
-              Novo Pedido de Silagem
-            </h3>
-            <p className="text-xs text-zinc-300">
-              Venda de volumoso para nutrição animal
-            </p>
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <ShoppingCart className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                NOVO PEDIDO DE SILAGEM
+              </h3>
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                Venda de volumoso para nutrição animal e agendamento de entrega
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-white">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 max-h-[82vh] overflow-y-auto scrollbar-none flex-1 bg-white dark:bg-stone-900 text-xs">
           
           <div>
-            <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
               PRODUTOR RURAL / CLIENTE <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688] appearance-none pr-9"
+                className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-9 cursor-pointer"
               >
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -99,20 +104,20 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                 TIPO DE SILAGEM
               </label>
               <div className="relative">
                 <select
                   value={productType}
                   onChange={(e) => setProductType(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688] appearance-none pr-9"
+                  className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-9 cursor-pointer"
                 >
                   <option value="Milho Planta Inteira">Milho Planta Inteira</option>
                   <option value="Milho Grão Úmido">Milho Grão Úmido / Snaplage</option>
@@ -120,12 +125,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   <option value="Capiaçu">BRS Capiaçu</option>
                   <option value="Aveia / Azevém">Aveia / Azevém Pré-Secado</option>
                 </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                 DATA PREVISTA DE ENTREGA
               </label>
               <input
@@ -133,14 +138,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 required
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
+                className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 dark:bg-stone-800/40 p-2.5 rounded-xl border border-slate-200 dark:border-stone-700">
             <div>
-              <label className="block text-[11px] font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider mb-0.5">
                 VOLUME EM TONELADAS (TON)
               </label>
               <input
@@ -150,12 +155,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 value={tons}
                 onChange={(e) => setTons(e.target.value)}
                 placeholder="50"
-                className="w-full px-3 py-1.5 text-sm rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#009688]"
+                className="w-full px-2.5 py-1 sm:py-1.5 text-xs rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider mb-0.5">
                 PREÇO POR TONELADA (R$/TON)
               </label>
               <input
@@ -165,32 +170,32 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 value={pricePerTon}
                 onChange={(e) => setPricePerTon(e.target.value)}
                 placeholder="440.00"
-                className="w-full px-3 py-1.5 text-sm rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#009688]"
+                className="w-full px-2.5 py-1 sm:py-1.5 text-xs rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
           </div>
 
           {/* Total Preview */}
-          <div className="flex items-center justify-between p-3.5 bg-stone-900 text-white rounded-xl">
-            <span className="text-xs text-stone-300 font-bold">Valor Total do Pedido:</span>
-            <span className="text-lg font-extrabold text-emerald-400 font-mono">
+          <div className="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-100 rounded-xl border border-slate-200 dark:border-stone-700">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-stone-400 uppercase">Valor Total do Pedido:</span>
+            <span className="text-sm sm:text-base font-extrabold text-emerald-700 dark:text-emerald-400 font-mono">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAmount)}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                 MODALIDADE DE FRETE
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setFreightType('CIF')}
-                  className={`py-2 text-xs font-bold rounded-xl border text-center transition ${
+                  className={`py-1 text-xs font-bold rounded-lg border text-center transition cursor-pointer ${
                     freightType === 'CIF'
-                      ? 'bg-[#1b5e20] text-white border-[#1b5e20] shadow-xs'
-                      : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300'
+                      ? 'bg-gradient-to-b from-emerald-600 to-emerald-700 text-white border-emerald-700 shadow-2xs'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300'
                   }`}
                 >
                   CIF (Entregue)
@@ -198,10 +203,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setFreightType('FOB')}
-                  className={`py-2 text-xs font-bold rounded-xl border text-center transition ${
+                  className={`py-1 text-xs font-bold rounded-lg border text-center transition cursor-pointer ${
                     freightType === 'FOB'
-                      ? 'bg-[#1b5e20] text-white border-[#1b5e20] shadow-xs'
-                      : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300'
+                      ? 'bg-gradient-to-b from-emerald-600 to-emerald-700 text-white border-emerald-700 shadow-2xs'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300'
                   }`}
                 >
                   FOB (Retira)
@@ -210,14 +215,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                 STATUS DO PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={paymentStatus}
                   onChange={(e) => setPaymentStatus(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium focus:ring-2 focus:ring-[#009688] appearance-none pr-8"
+                  className="w-full px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:ring-1 focus:ring-slate-400 appearance-none pr-8 cursor-pointer"
                 >
                   <option value="pendente">Pendente / A Receber</option>
                   <option value="parcial">Entrada Paga (Parcial)</option>
@@ -229,7 +234,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
               OBSERVAÇÕES / LOCAL DE DESCARREGAMENTO
             </label>
             <textarea
@@ -237,22 +242,22 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ex: Entregar pela manhã na trincheira 2 da Fazenda Bela Vista."
-              className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium focus:ring-2 focus:ring-[#009688] resize-none"
+              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:ring-1 focus:ring-slate-400 resize-none"
             />
           </div>
 
-          {/* Footer - Standardized */}
-          <div className="pt-3 border-t border-zinc-200 flex justify-end space-x-3">
+          {/* Footer */}
+          <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex justify-end space-x-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl border border-zinc-300 text-zinc-700 text-xs sm:text-sm font-semibold hover:bg-zinc-100 transition cursor-pointer"
+              className="px-3.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+              className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold shadow-xs transition cursor-pointer border border-emerald-800"
             >
               Confirmar Pedido
             </button>

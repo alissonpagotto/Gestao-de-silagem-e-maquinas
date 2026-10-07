@@ -182,22 +182,22 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const defaultPdfFilename = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-stone-950/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] bg-zinc-950/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200">
       <div 
-        className={`bg-stone-100 dark:bg-stone-900 border-t sm:border border-stone-200 dark:border-stone-800 rounded-t-3xl sm:rounded-2xl w-full ${options.orientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'} shadow-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh] animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150`}
+        className={`bg-stone-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-t-3xl sm:rounded-2xl w-full ${options.orientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'} shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh] animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Top Actions Bar */}
-        <div className="bg-white dark:bg-stone-900 px-4 sm:px-5 py-3.5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+        {/* Modal Top Actions Bar - Moldura Metálica 3D Acetinada */}
+        <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between gap-3 shrink-0 flex-wrap sm:flex-nowrap rounded-t-2xl shadow-xs">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="p-2 rounded-xl bg-blue-500/10 text-[#0963cb] dark:text-blue-400 shrink-0">
-              <Printer className="w-5 h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Printer className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-extrabold text-stone-900 dark:text-stone-100 font-['Outfit'] truncate">
-                Visualização de Impressão Oficial
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 truncate">
+                VISUALIZAÇÃO DE IMPRESSÃO OFICIAL
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 truncate font-medium">
                 Documento formatado com o logotipo e dados cadastrais da empresa
               </p>
             </div>
@@ -401,42 +401,43 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       {/* Enhanced WhatsApp Sending Modal (PDF vs Text Mode) */}
       {isWhatsAppModalOpen && (
         <div 
-          className="fixed inset-0 z-[70] bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[70] bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-150"
           onClick={(e) => {
             e.stopPropagation();
             setIsWhatsAppModalOpen(false);
           }}
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden p-5 sm:p-6 space-y-4"
+            className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0 shadow-xs">
               <div className="flex items-center space-x-2.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-xs">
-                  <MessageCircle className="w-6 h-6 stroke-[2.5]" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h4 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100 font-['Outfit']">
-                    Enviar para o WhatsApp
+                  <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                    ENVIAR PARA O WHATSAPP
                   </h4>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                     Escolha como deseja enviar este documento
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsWhatsAppModalOpen(false)}
-                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
+            <div className="p-3 sm:p-4 space-y-2.5 overflow-y-auto scrollbar-none flex-1">
             {/* Notification alert */}
             {pdfSuccessMessage && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 text-xs font-semibold rounded-xl flex items-center space-x-2 animate-in fade-in duration-150">
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 text-xs font-semibold rounded-xl flex items-center space-x-2 animate-in fade-in duration-150">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                 <span>{pdfSuccessMessage}</span>
               </div>
@@ -610,6 +611,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
               </div>
             )}
 
+            </div>
           </div>
         </div>
       )}

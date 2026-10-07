@@ -851,36 +851,36 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         </div>
       </div>
 
-      {/* 1. Modal: Cadastro / Edição de Falta (Ampliado em max-w-5xl / ERP Corporativo) */}
+      {/* 1. Modal: Cadastro / Edição de Falta - Moldura Metálica 3D Acetinada */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="crm-card bg-[#87AFE3] border border-blue-200/80 rounded-2xl w-[92%] max-w-5xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[94%] max-w-5xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
             
-            {/* Header Corporativo ERP */}
-            <div className="flex items-center justify-between px-6 py-4 bg-[#0963cb] text-white">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/10 rounded-lg">
-                  <CalendarX2 className="w-5 h-5 text-pink-300" />
+            {/* Header 3D Metálico Acetinado */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0 shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <CalendarX2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">
-                    {editingAbsence ? 'Editar Falta / Ocorrência' : 'Registrar Falta / Ocorrência'}
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                    {editingAbsence ? 'EDITAR FALTA / OCORRÊNCIA' : 'REGISTRAR FALTA / OCORRÊNCIA'}
                   </h3>
-                  <p className="text-xs text-blue-100 font-medium">
-                    Lançamento corporativo com cálculo de horas fracionadas, proporcionalidade de admissão e reflexos na folha
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                    Cálculo de horas fracionadas, proporcionalidade de admissão e reflexos na folha
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-5 sm:p-6 space-y-4 text-xs bg-[#b0d2ed] max-h-[85vh] overflow-y-auto">
+            <form onSubmit={handleSaveModal} className="p-3 sm:p-4 space-y-2.5 text-xs bg-slate-100 dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
               
               {/* CARD 1: DADOS DO COLABORADOR, COMPETÊNCIA E SITUAÇÃO */}
               <div className="bg-white border border-stone-300 rounded-xl p-4 shadow-xs">

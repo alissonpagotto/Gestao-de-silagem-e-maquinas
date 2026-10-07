@@ -1064,28 +1064,28 @@ export const CargosPermissoesTab: React.FC = () => {
       {/*    (ACIONADO APENAS AO CLICAR EM '+ NOVO CARGO' OU 'EDITAR')              */}
       {/* ========================================================================= */}
       {isEditorOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150 overflow-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl w-[95vw] max-w-[95%] h-[92vh] max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[95vw] max-w-[95%] h-[92vh] max-h-[92vh] flex flex-col shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150">
             
-            {/* Header Amplo do Modal de 3 Colunas */}
-            <div className="px-4 sm:px-5 py-3.5 bg-zinc-50 dark:bg-stone-850 border-b border-zinc-200 dark:border-stone-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-3 min-w-0 pr-3">
-                <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs shrink-0">
-                  <Shield className="w-5 h-5 stroke-[2.4]" />
+            {/* Header - Moldura Metálica 3D Acetinada */}
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
+              <div className="flex items-center space-x-2.5 min-w-0 pr-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-black tracking-tight text-zinc-900 dark:text-white truncate">
-                      {isCreatingNew ? 'Cadastrar Novo Cargo' : `Editar Cargo: ${nome || selectedCargo?.nome}`}
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 truncate">
+                      {isCreatingNew ? 'CADASTRAR NOVO CARGO' : `EDITAR CARGO: ${nome || selectedCargo?.nome}`}
                     </h3>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase shrink-0 ${
-                      isCreatingNew ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300' : 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950/80 dark:text-indigo-300'
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 border ${
+                      isCreatingNew ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300' : 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/80 dark:text-indigo-300'
                     }`}>
                       {isCreatingNew ? 'Novo Cadastro' : 'Edição Dinâmica'}
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-500 dark:text-stone-400 truncate">
-                    Painel integrado de 3 seções: seleção rápida A-Z, dados e chaves centrais, e refinamento granular de telas.
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 truncate">
+                    Painel integrado de 3 seções: seleção rápida A-Z, dados e chaves centrais, e refinamento granular de telas
                   </p>
                 </div>
               </div>
@@ -1094,10 +1094,10 @@ export const CargosPermissoesTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOpenCreateModal}
-                  className={`hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                  className={`hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border shadow-xs ${
                     isCreatingNew 
-                      ? 'bg-amber-600 text-white border-amber-600' 
-                      : 'bg-white dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-zinc-300 dark:border-stone-700 hover:bg-zinc-100'
+                      ? 'bg-gradient-to-b from-amber-500 to-amber-600 text-white border-amber-700' 
+                      : 'bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border-slate-300'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1108,10 +1108,10 @@ export const CargosPermissoesTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCloseEditor}
-                  className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-stone-800 transition cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                   title="Sair e retornar para a Tabela Geral"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
                 </button>
               </div>
             </div>

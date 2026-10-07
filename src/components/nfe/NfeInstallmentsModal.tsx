@@ -406,21 +406,21 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
       />
 
       <div 
-        className="w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-stone-800 bg-zinc-100 dark:bg-stone-900 my-auto flex flex-col max-h-[92vh]"
+        className="w-full max-w-6xl rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden border border-slate-400 dark:border-stone-700 bg-slate-100 dark:bg-stone-900 my-auto flex flex-col max-h-[92vh]"
       >
-        {/* 1. TÍTULO DO CABEÇALHO */}
+        {/* 1. TÍTULO DO CABEÇALHO - Moldura Metálica 3D Acetinada */}
         <div 
-          className="px-5 py-4 flex items-center justify-between shrink-0 bg-zinc-900 dark:bg-stone-800 text-white shadow-xs"
+          className="px-4 sm:px-5 py-2.5 flex items-center justify-between shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl shadow-xs"
         >
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shadow-inner text-white">
-              <Receipt className="w-5 h-5" />
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs text-slate-800 dark:text-stone-100">
+              <Receipt className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
-                {customTitle || 'Parcelas Geradas com Base no XML'}
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-1.5">
+                {customTitle || 'PARCELAS GERADAS COM BASE NO XML'}
               </h2>
-              <p className="text-xs text-zinc-300 font-medium">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                 {customSubtitle || `NF-e Nº ${invoiceNumber} • Fornecedor: ${supplierName}`}
               </p>
             </div>
@@ -430,10 +430,10 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
             type="button"
             id="btn-fechar-janela-2-parcelas"
             onClick={onClose}
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar Janela de Parcelas"
           >
-            <X className="w-6 h-6" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 

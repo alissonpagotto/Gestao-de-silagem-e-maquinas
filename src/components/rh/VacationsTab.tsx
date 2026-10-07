@@ -2752,44 +2752,44 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       {/* ========================================================================= */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/75 backdrop-blur-xs overflow-y-hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden"
           style={{ overflowY: 'hidden' }}
         >
           <div
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col"
+            className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-4xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col"
             style={{ overflowY: 'hidden' }}
           >
-            {/* 1. CABEÇALHO COMPACTO DO MODAL */}
-            <div className="flex items-center justify-between px-4 py-2.5 bg-[#0963cb] text-white shrink-0">
+            {/* 1. CABEÇALHO COMPACTO DO MODAL - Moldura Metálica 3D Acetinada */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="p-1.5 rounded-lg bg-white/15 text-white">
-                  <Palmtree className="w-4 h-4 text-white" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Palmtree className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-black tracking-tight text-white uppercase font-['Outfit']">
-                      Programação e Cálculo de Férias
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                      PROGRAMAÇÃO E CÁLCULO DE FÉRIAS
                     </h3>
-                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-100 border border-emerald-400/30">
-                      <Wifi className="w-2.5 h-2.5 text-emerald-300" />
+                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-400/40">
+                      <Wifi className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-300" />
                       <span>Tempo Real</span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-white/80 font-medium">
+                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                     Planejamento trabalhista oficial, apuração de proventos CLT e retenções legais
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-2.5">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border shadow-xs ${
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-2xs ${
                   status === 'em_gozo'
-                    ? 'bg-emerald-500 text-white border-emerald-400'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                     : status === 'concluido'
-                    ? 'bg-slate-700 text-white border-slate-600'
+                    ? 'bg-slate-200 text-slate-800 border-slate-300'
                     : status === 'cancelado'
-                    ? 'bg-rose-600 text-white border-rose-500'
-                    : 'bg-white text-[#0963cb] border-blue-200'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : 'bg-white text-slate-800 border-slate-300'
                 }`}>
                   {status === 'em_gozo' ? 'Gozo' : status === 'concluido' ? 'Concluído' : status === 'cancelado' ? 'Cancelado' : 'Agendado'}
                 </span>
@@ -2797,10 +2797,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 <button
                   type="button"
                   onClick={handleCloseProgrammingModal}
-                  className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                   title="Fechar"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
                 </button>
               </div>
             </div>

@@ -10,7 +10,8 @@ import {
   Mail,
   Copy,
   Inbox,
-  ExternalLink
+  ExternalLink,
+  Building2
 } from 'lucide-react';
 import { Supplier, SupplierFormSubmission } from '../../types';
 import { 
@@ -385,14 +386,24 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto`}>
-      <div className="bg-zinc-100 rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-300 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden`}>
+      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl w-[90vw] max-w-6xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col max-h-[92vh]">
         
-        {/* Header - Charcoal bg-zinc-800 with White Text */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 relative">
-          <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
-            Cadastro Fornecedor
-          </h3>
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 relative rounded-t-2xl shrink-0 shadow-xs">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Building2 className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                {editingSupplier ? 'EDITAR FORNECEDOR' : 'CADASTRO DE FORNECEDOR'}
+              </h3>
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                Pessoa jurídica ou física, dados fiscais, bancários e contato
+              </p>
+            </div>
+          </div>
           
           <div className="flex items-center space-x-2">
             {/* Botão Enviar Ficha em Branco com Dropdown */}
@@ -400,12 +411,12 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsShareDropdownOpen(!isShareDropdownOpen)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold transition cursor-pointer border border-white/20 shadow-2xs"
+                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-[11px] font-bold transition cursor-pointer border border-slate-300 dark:border-stone-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
                 title="Enviar link do formulário de cadastro em branco para o fornecedor"
               >
-                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                <span>Enviar Ficha em Branco</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${isShareDropdownOpen ? 'rotate-180' : ''}`} />
+                <Share2 className="w-3.5 h-3.5 text-slate-700 dark:text-stone-200" />
+                <span className="uppercase">Enviar Ficha em Branco</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-150 ${isShareDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Dropdown Menu */}
@@ -479,10 +490,10 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               title="Fechar janela"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </button>
           </div>
         </div>
@@ -507,7 +518,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-zinc-100 dark:bg-stone-900 max-h-[92vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 bg-zinc-100 dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
           
           {/* Card 1: Dados Principais & Fiscais */}
           <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">

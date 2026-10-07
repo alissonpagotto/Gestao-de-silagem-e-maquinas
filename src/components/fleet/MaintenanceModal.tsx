@@ -1199,43 +1199,43 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-0 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overflow-y-hidden">
       <div 
-        className="bg-white dark:bg-stone-900 w-[95%] max-w-[95%] h-screen max-h-screen flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden border-x sm:border border-zinc-700 mx-auto"
+        className="bg-white dark:bg-stone-900 w-[95%] max-w-[95%] max-h-[94vh] flex flex-col rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] animate-in fade-in zoom-in-95 duration-150 overflow-hidden border border-slate-400 dark:border-stone-700 mx-auto"
         role="dialog"
         aria-modal="true"
       >
-        {/* Header Superior em Cinza Escuro Charcoal (bg-zinc-800) */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-zinc-700 bg-zinc-800 text-white shrink-0">
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl shadow-xs">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-zinc-700/80 text-white flex items-center justify-center border border-zinc-600">
-              <Wrench className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Wrench className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-sm sm:text-base font-bold text-white font-['Outfit']">
-                  {editingLog ? `Editar OS: ${editingLog.osNumber || editingLog.id}` : 'Nova Ordem de Serviço (OS)'}
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                  {editingLog ? `EDITAR OS: ${editingLog.osNumber || editingLog.id}` : 'NOVA ORDEM DE SERVIÇO (OS)'}
                 </h3>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-zinc-900 text-zinc-100 border border-zinc-700">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-200 text-slate-800 border border-slate-300">
                   {osNumber}
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-300 font-medium">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
                 Manutenção na Roça, Estrada ou Oficina • Baixa de Estoque • NF-e • Contas a Pagar
               </p>
             </div>
           </div>
           {/* Canto superior direito: Seletor Global de Status da OS + Botão Fechar */}
           <div className="flex items-center space-x-2.5 sm:space-x-3">
-            <div className="flex items-center space-x-1.5 bg-zinc-900/80 px-2 py-1 rounded-lg border border-zinc-700 shadow-2xs">
-              <span className="text-[10.5px] font-bold text-zinc-300 uppercase tracking-wider whitespace-nowrap hidden sm:inline">
+            <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-stone-800 px-2 py-0.5 rounded-lg border border-slate-300 dark:border-stone-700 shadow-2xs">
+              <span className="text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider whitespace-nowrap hidden sm:inline">
                 Status:
               </span>
               <select
                 id="maintenance-status-select"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className={`px-2 py-0.5 border rounded-md text-xs font-bold transition-all duration-150 cursor-pointer focus:ring-2 focus:ring-white/30 focus:outline-hidden shadow-xs ${getStatusSelectStyle(status)}`}
+                className={`px-2 py-0.5 border rounded-md text-xs font-bold transition-all duration-150 cursor-pointer focus:ring-1 focus:ring-slate-400 focus:outline-hidden shadow-xs ${getStatusSelectStyle(status)}`}
                 title="Status da Ordem de Serviço (Fixo em todas as abas)"
               >
                 <option value="em_andamento" className="bg-white text-amber-950 font-bold">⏳ Em Andamento</option>
@@ -1248,10 +1248,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 text-zinc-300 hover:text-white rounded-lg hover:bg-zinc-700/60 transition cursor-pointer"
+              className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               title="Fechar janela"
             >
-              <X className="w-4 h-4 text-white" />
+              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </button>
           </div>
         </div>
