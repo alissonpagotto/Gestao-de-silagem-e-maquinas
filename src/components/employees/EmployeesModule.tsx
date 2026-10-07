@@ -117,6 +117,7 @@ const DEFAULT_CONTRACT_TYPES = [
 
 // 1. Opções padrão para "Local de Recebimento" (Dropdown/Select editável)
 const DEFAULT_PAYMENT_LOCATIONS = [
+  'PIX',
   'Conta pessoal',
   'Conta de terceiro',
 ];
@@ -825,7 +826,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [cnhUpgradeCategory, setCnhUpgradeCategory] = useState<string>('A');
 
   // Financial / Payment Info
-  const [paymentLocation, setPaymentLocation] = useState<string>('');
+  const [paymentLocation, setPaymentLocation] = useState<string>('PIX');
+  const [pixKeyType, setPixKeyType] = useState<string>('CPF');
+  const [employeePixKey, setEmployeePixKey] = useState<string>('');
   const [bankPixKey, setBankPixKey] = useState<string>('');
   const [bankAgency, setBankAgency] = useState<string>('');
   const [bankAccount, setBankAccount] = useState<string>('');
@@ -1419,7 +1422,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCnhExpiration('');
     setCnhUpgradeDT(false);
     setCnhUpgradeCategory('A');
-    setPaymentLocation('');
+    setPaymentLocation('PIX');
+    setPixKeyType('CPF');
+    setEmployeePixKey('');
     setBankPixKey('');
     setBankAgency('');
     setBankAccount('');
@@ -1548,14 +1553,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCnhUpgradeDT(Boolean(emp.cnhUpgradeDT));
     setCnhUpgradeCategory(emp.cnhUpgradeCategory || 'A');
 
+    const rawLoc = (emp as any).local_recebimento || emp.paymentLocation || '';
     setPaymentLocation(
-      normalizeStandardOption((emp as any).local_recebimento || emp.paymentLocation || '', DEFAULT_PAYMENT_LOCATIONS)
+      normalizeStandardOption(rawLoc, DEFAULT_PAYMENT_LOCATIONS) || (rawLoc.trim() ? rawLoc.trim() : 'PIX')
     );
     setBankPixKey(
       normalizeStandardOption((emp as any).banco_chave_pix || emp.bankPixKey || '', DEFAULT_DEPOSIT_BANKS)
     );
     setBankAgency(((emp as any).agencia || emp.bankAgency || '').toUpperCase());
-    setBankAccount(((emp as any).conta_corrente || emp.bankAccount || '').trim());
+    const rawAccount = ((emp as any).conta_corrente || emp.bankAccount || '').trim();
+    setBankAccount(rawAccount);
+
+    const directKey = (emp.chavePix || (emp as any).chave_pix || emp.pixKey || (emp as any).pix_key || '').trim();
+    setEmployeePixKey((directKey || rawAccount).toUpperCase());
+    setPixKeyType(((emp as any).pixKeyType || (emp as any).tipo_chave_pix || 'CPF').toUpperCase());
 
     setAsoFile(null);
     setContratoFile(null);
@@ -1676,8 +1687,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
       paymentLocation: paymentLocation.trim() ? normalizeStandardOption(paymentLocation.trim(), DEFAULT_PAYMENT_LOCATIONS) : undefined,
       bankPixKey: bankPixKey.trim() ? normalizeStandardOption(bankPixKey.trim(), DEFAULT_DEPOSIT_BANKS) : undefined,
-      bankAgency: bankAgency.trim() ? bankAgency.trim().toUpperCase() : undefined,
-      bankAccount: bankAccount.trim() ? bankAccount.trim() : undefined,
+      chavePix: (paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? (employeePixKey.trim().toUpperCase() || undefined) : undefined,
+      pixKey: (paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? (employeePixKey.trim().toUpperCase() || undefined) : undefined,
+      pixKeyType: (paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? pixKeyType.toUpperCase() : undefined,
+      bankAgency: (paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? undefined : (bankAgency.trim() ? bankAgency.trim().toUpperCase() : undefined),
+      bankAccount: (paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? (employeePixKey.trim().toUpperCase() || undefined) : (bankAccount.trim() ? bankAccount.trim() : undefined),
       admissionExamDoc: admissionExamDoc || undefined,
       experienceContractDoc: experienceContractDoc || undefined,
       generalDocs: generalDocs || undefined,
@@ -1980,16 +1994,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       ]);
 
       // 3. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO DE PAGAMENTO:
-      // Mapear e incluir no payload de salvamento as 4 caixas de texto da seção 3:
-      // 'local_recebimento', 'banco_chave_pix', 'agencia' e 'conta_corrente'.
+      const isPixSelected = paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX');
       const cleanLocalRecebimento = paymentLocation && paymentLocation.trim()
         ? normalizeStandardOption(paymentLocation.trim(), DEFAULT_PAYMENT_LOCATIONS)
-        : null;
+        : 'PIX';
       const cleanBancoChavePix = bankPixKey && bankPixKey.trim()
         ? normalizeStandardOption(bankPixKey.trim(), DEFAULT_DEPOSIT_BANKS)
         : null;
-      const cleanAgencia = bankAgency && bankAgency.trim() ? bankAgency.trim().toUpperCase() : null;
-      const cleanContaCorrente = bankAccount && bankAccount.trim() ? bankAccount.trim() : null;
+      const cleanPixKey = isPixSelected && employeePixKey && employeePixKey.trim() ? employeePixKey.trim().toUpperCase() : null;
+      const cleanAgencia = !isPixSelected && bankAgency && bankAgency.trim() ? bankAgency.trim().toUpperCase() : null;
+      const cleanContaCorrente = isPixSelected ? cleanPixKey : (bankAccount && bankAccount.trim() ? bankAccount.trim().toUpperCase() : null);
 
       const activeRoles: string[] = [];
       if (role1.trim()) activeRoles.push(role1.trim());
@@ -2077,9 +2091,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         cnhUpgradeDT,
         cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
         
-        // 2. Seção 3 - Rosa
+        // 2. Seção 3 - Informações de Pagamento / Recebimento
         local_recebimento: cleanLocalRecebimento || undefined,
         paymentLocation: cleanLocalRecebimento || undefined,
+        chavePix: cleanPixKey || undefined,
+        chave_pix: cleanPixKey || undefined,
+        pixKey: cleanPixKey || undefined,
+        pixKeyType: isPixSelected ? pixKeyType.toUpperCase() : undefined,
+        tipo_chave_pix: isPixSelected ? pixKeyType.toUpperCase() : undefined,
         banco_chave_pix: cleanBancoChavePix || undefined,
         bankPixKey: cleanBancoChavePix || undefined,
         agencia: cleanAgencia || undefined,
@@ -3875,7 +3894,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       id="employee-payment-location"
                       label="Local de Recebimento"
                       value={paymentLocation}
-                      onChange={setPaymentLocation}
+                      onChange={(val) => {
+                        setPaymentLocation(val);
+                        if (val.toUpperCase().includes('PIX')) {
+                          setBankAgency('');
+                        }
+                      }}
                       options={DEFAULT_PAYMENT_LOCATIONS}
                       placeholder="Selecione ou digite..."
                     />
@@ -3884,7 +3908,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   <div>
                     <EditableComboboxField
                       id="employee-deposit-account-bank"
-                      label="Conta de Depósito"
+                      label={(paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? "Banco / Instituição (Opcional)" : "Conta de Depósito"}
                       value={bankPixKey}
                       onChange={setBankPixKey}
                       options={DEFAULT_DEPOSIT_BANKS}
@@ -3892,65 +3916,121 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-black mb-1">
-                      Agência (Ag.)
-                    </label>
-                    <input
-                      type="text"
-                      value={bankAgency}
-                      onChange={(e) => setBankAgency(e.target.value.toUpperCase())}
-                      placeholder="Ex: 0001-9"
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1 gap-1">
-                      <label className="block text-xs font-bold text-black truncate">
-                        Conta Corrente (C.C.) / Chave Pix
-                      </label>
-                      {detectedAccountOrPix.type !== 'empty' && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 bg-white/80 text-[#0963cb] border border-[#0963cb]/30 rounded shrink-0">
-                          {detectedAccountOrPix.label}
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="text"
-                      value={bankAccount}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        // Se contiver '@' (e-mail), preserva minúsculas; caso contrário permite números, letras e símbolos de C.C. e Pix
-                        if (raw.includes('@')) {
-                          setBankAccount(raw.trim());
-                        } else {
-                          setBankAccount(raw);
-                        }
-                      }}
-                      placeholder="C.C., CPF, E-mail, Celular ou Chave Aleatória"
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                    />
-                    {detectedAccountOrPix.canQuickFormat11Digits && (
-                      <div className="flex flex-wrap items-center gap-1 mt-1">
-                        <span className="text-[10px] text-black/70 font-semibold">Formatar como:</span>
-                        <button
-                          type="button"
-                          onClick={() => setBankAccount(formatCpfCnpj(bankAccount.replace(/\D/g, '')))}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-white hover:bg-sky-50 text-[#0963cb] border border-stone-300 font-bold cursor-pointer transition"
+                  {(paymentLocation.trim().toUpperCase() === 'PIX' || paymentLocation.trim().toUpperCase().includes('PIX')) ? (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-black mb-1 uppercase tracking-tight">
+                          Tipo de Chave
+                        </label>
+                        <select
+                          id="employee-pix-key-type"
+                          value={pixKeyType}
+                          onChange={(e) => {
+                            const newType = e.target.value.toUpperCase();
+                            setPixKeyType(newType);
+                            if (newType === 'CPF' && (!employeePixKey || employeePixKey.trim() === '') && cpf) {
+                              setEmployeePixKey(cpf.toUpperCase());
+                              setBankAccount(cpf.toUpperCase());
+                            } else if (newType === 'CELULAR' && (!employeePixKey || employeePixKey.trim() === '') && phone) {
+                              setEmployeePixKey(phone.toUpperCase());
+                              setBankAccount(phone.toUpperCase());
+                            }
+                          }}
+                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
                         >
-                          CPF
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBankAccount(formatPhone(bankAccount.replace(/\D/g, '')))}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-white hover:bg-sky-50 text-[#0963cb] border border-stone-300 font-bold cursor-pointer transition"
-                        >
-                          Celular
-                        </button>
+                          <option value="CPF">CPF</option>
+                          <option value="CELULAR">CELULAR</option>
+                          <option value="E-MAIL">E-MAIL</option>
+                          <option value="CHAVE ALEATÓRIA">CHAVE ALEATÓRIA</option>
+                        </select>
                       </div>
-                    )}
-                  </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1 gap-1">
+                          <label className="block text-xs font-bold text-black truncate uppercase tracking-tight">
+                            CHAVE PIX DO COLABORADOR *
+                          </label>
+                          {pixKeyType === 'CPF' && cpf && employeePixKey !== cpf.toUpperCase() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmployeePixKey(cpf.toUpperCase());
+                                setBankAccount(cpf.toUpperCase());
+                              }}
+                              className="text-[9px] font-bold text-[#0963cb] hover:underline cursor-pointer uppercase shrink-0"
+                            >
+                              USAR CPF
+                            </button>
+                          )}
+                          {pixKeyType === 'CELULAR' && phone && employeePixKey !== phone.toUpperCase() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmployeePixKey(phone.toUpperCase());
+                                setBankAccount(phone.toUpperCase());
+                              }}
+                              className="text-[9px] font-bold text-[#0963cb] hover:underline cursor-pointer uppercase shrink-0"
+                            >
+                              USAR CELULAR
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          id="employee-pix-key-input"
+                          type="text"
+                          value={employeePixKey}
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase();
+                            setEmployeePixKey(val);
+                            setBankAccount(val);
+                          }}
+                          placeholder={
+                            pixKeyType === 'CPF' ? 'EX: 000.000.000-00 OU 11 DÍGITOS' :
+                            pixKeyType === 'CELULAR' ? 'EX: (27) 99999-8888 OU +55...' :
+                            pixKeyType === 'E-MAIL' ? 'EX: COLABORADOR@GMAIL.COM' :
+                            'EX: 12345678-ABCD-...'
+                          }
+                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
+                          required
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-black mb-1 uppercase">
+                          Agência (Ag.)
+                        </label>
+                        <input
+                          type="text"
+                          value={bankAgency}
+                          onChange={(e) => setBankAgency(e.target.value.toUpperCase())}
+                          placeholder="EX: 0001-9"
+                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1 gap-1">
+                          <label className="block text-xs font-bold text-black truncate uppercase">
+                            Conta Corrente (C.C.)
+                          </label>
+                          {detectedAccountOrPix.type !== 'empty' && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-white/80 text-[#0963cb] border border-[#0963cb]/30 rounded shrink-0">
+                              {detectedAccountOrPix.label}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={bankAccount}
+                          onChange={(e) => setBankAccount(e.target.value.toUpperCase())}
+                          placeholder="EX: 00000-0"
+                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

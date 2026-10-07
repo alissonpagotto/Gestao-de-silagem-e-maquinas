@@ -84,16 +84,88 @@ export function findEmployeeFromStorage(idOrNameOrCpf?: string): Employee | null
 }
 
 /**
+ * Normaliza a chave PIX estritamente conforme o padrão oficial do BACEN para iniciação de pagamento:
+ * - CPF: exatamente 11 dígitos numéricos (sem pontos e traços)
+ * - CNPJ: exatamente 14 dígitos numéricos (sem pontos, barras e traços)
+ * - Celular: formato internacional com DDI +55 e DDD (ex: +5527999998888)
+ * - E-mail: minúsculas e sem espaços
+ * - Chave Aleatória: trimmed
+ */
+export function normalizePixKeyForBacen(key: string, keyType?: string): string {
+  if (!key) return '';
+  const raw = key.trim();
+
+  // Se já for payload BR Code completo
+  if (raw.startsWith('000201')) return raw;
+
+  // Se for email
+  if (raw.includes('@') || keyType?.toUpperCase().includes('MAIL')) {
+    return raw.trim().toLowerCase();
+  }
+
+  // Se for chave aleatória UUID
+  if (/^[0-9a-fA-F-]{32,36}$/.test(raw) || keyType?.toUpperCase().includes('ALEAT')) {
+    return raw.trim();
+  }
+
+  const digits = raw.replace(/\D/g, '');
+
+  // Se o tipo for explicitamente Celular/Telefone
+  if (
+    keyType?.toUpperCase().includes('CEL') ||
+    keyType?.toUpperCase().includes('TEL') ||
+    keyType?.toUpperCase().includes('FONE')
+  ) {
+    if (raw.startsWith('+55')) {
+      return `+55${raw.slice(3).replace(/\D/g, '')}`;
+    }
+    if (digits.length === 10 || digits.length === 11) {
+      return `+55${digits}`;
+    }
+    if (digits.length === 12 || digits.length === 13) {
+      return `+${digits}`;
+    }
+  }
+
+  // Se o tipo for explicitamente CPF
+  if (keyType?.toUpperCase().includes('CPF')) {
+    return digits.slice(0, 11);
+  }
+
+  // Detecção automática quando não há keyType:
+  if (digits.length === 11) {
+    // Se tiver formatação típica de celular ou começar com '+'
+    if (raw.includes('(') || raw.includes('+') || (raw.startsWith('9') && !raw.includes('.'))) {
+      return `+55${digits}`;
+    }
+    // Caso padrão para 11 dígitos numéricos: CPF
+    return digits;
+  }
+
+  if (digits.length === 10) {
+    // Telefone fixo com DDD
+    return `+55${digits}`;
+  }
+
+  if (digits.length === 14) {
+    // CNPJ
+    return digits;
+  }
+
+  return raw;
+}
+
+/**
  * Extrai a chave PIX do colaborador (lê o campo de Chave Pix / E-mail / Celular / Aleatória / CPF)
  */
 export function getEmployeePixKey(emp?: Partial<Employee> | null): string {
   if (!emp) return '';
 
-  // 1. Chave explícita em propriedades adicionais
+  // 1. Chave explícita em propriedades chavePix / pixKey
   const directPix = (
-    (emp as any).pixKey ||
-    (emp as any).chavePix ||
+    emp.chavePix ||
     (emp as any).chave_pix ||
+    emp.pixKey ||
     (emp as any).pix_key ||
     ''
   ).trim();
@@ -102,10 +174,10 @@ export function getEmployeePixKey(emp?: Partial<Employee> | null): string {
     return directPix.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
   }
 
-  // 2. Campo bankAccount (onde o usuário digita no input "Conta Corrente (C.C.) / Chave Pix" / "Chave Pix: E-mail")
+  // 2. Campo bankAccount (onde o usuário digita no input "Conta Corrente (C.C.) / Chave Pix")
   const bankAccount = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
   if (bankAccount) {
-    // Se for e-mail (ex: agrocontrolemaquinas@gmail.com)
+    // Se for e-mail
     if (bankAccount.includes('@')) {
       return bankAccount.replace(/^pix[:\s-]*/i, '').trim();
     }
@@ -117,12 +189,12 @@ export function getEmployeePixKey(emp?: Partial<Employee> | null): string {
     if (/pix/i.test(bankAccount)) {
       return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
     }
-    // Se tiver telefone (com DDD) ou CPF/CNPJ
+    // Se tiver telefone ou CPF/CNPJ
     const digits = bankAccount.replace(/\D/g, '');
     if (digits.length === 11 || digits.length === 14 || /^\+?55\d{10,11}$/.test(digits)) {
       return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
     }
-    // Qualquer texto digitado no campo de conta que não seja apenas placeholder "00000-0"
+    // Qualquer texto que não seja apenas placeholder "00000-0"
     if (bankAccount !== '00000-0' && bankAccount !== '0000-0' && bankAccount !== '000-0' && !/^\d{4,6}-\d$/.test(bankAccount)) {
       return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
     }
@@ -140,17 +212,16 @@ export function getEmployeePixKey(emp?: Partial<Employee> | null): string {
     return bankPixKey.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
   }
 
-  // 4. Se o usuário preencheu o banco (ex: Nubank) e digitou a conta/chave em bankAccount
-  if (bankAccount && bankAccount !== '00000-0' && bankAccount !== '0000-0') {
-    return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
-  }
-
-  // 5. Se Forma de Recebimento ou Local de Recebimento contiver "PIX", fallback para o CPF do colaborador
+  // 4. Se Forma de Recebimento ou Local de Recebimento contiver "PIX", fallback para o CPF ou Celular do colaborador
   const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').toLowerCase();
   if (paymentLoc.includes('pix') || bankPixKey.toLowerCase().includes('pix')) {
     if (emp.cpf) {
       const cleanCpf = emp.cpf.replace(/\D/g, '');
       if (cleanCpf.length === 11) return cleanCpf;
+    }
+    if (emp.phone) {
+      const cleanPhone = emp.phone.replace(/\D/g, '');
+      if (cleanPhone.length >= 10) return cleanPhone;
     }
   }
 
@@ -167,26 +238,66 @@ export function hasEmployeePixPayment(emp?: Partial<Employee> | null): boolean {
 }
 
 /**
- * Gera a string do PIX Copia e Cola no padrão oficial BACEN (EMV QRCPS-MPM)
+ * Gera a string do PIX Copia e Cola no padrão oficial BACEN (EMV QRCPS-MPM).
+ * Suporta assinatura por objeto ou argumentos posicionais para compatibilidade ampla.
  */
-export function generatePixPayload(params: {
-  pixKey: string;
-  amount?: number;
-  merchantName?: string;
-  merchantCity?: string;
-  txId?: string;
-}): string {
-  const { pixKey, amount, merchantName = 'COLACA SILAGEM', merchantCity = 'COLATINA', txId = '***' } = params;
+export function generatePixPayload(
+  paramsOrKey: {
+    pixKey: string;
+    amount?: number;
+    merchantName?: string;
+    receiverName?: string;
+    beneficiaryName?: string;
+    merchantCity?: string;
+    city?: string;
+    txId?: string;
+    keyType?: string;
+  } | string,
+  amountArg?: number,
+  receiverNameArg?: string,
+  cityArg?: string,
+  txIdArg?: string
+): string {
+  let pixKey = '';
+  let amount: number | undefined;
+  let beneficiary = 'COLABORADOR';
+  let city = 'BRASIL';
+  let txId = '***';
+  let keyType: string | undefined;
 
-  // Se a chave já for um payload BR Code completo
-  if (pixKey.startsWith('000201')) {
-    return pixKey;
+  if (typeof paramsOrKey === 'object' && paramsOrKey !== null) {
+    pixKey = paramsOrKey.pixKey || '';
+    amount = paramsOrKey.amount;
+    beneficiary = paramsOrKey.beneficiaryName || paramsOrKey.receiverName || paramsOrKey.merchantName || 'COLABORADOR';
+    city = paramsOrKey.city || paramsOrKey.merchantCity || 'BRASIL';
+    txId = paramsOrKey.txId || '***';
+    keyType = paramsOrKey.keyType;
+  } else if (typeof paramsOrKey === 'string') {
+    pixKey = paramsOrKey;
+    amount = amountArg;
+    beneficiary = receiverNameArg || 'COLABORADOR';
+    city = cityArg || 'BRASIL';
+    txId = txIdArg || '***';
   }
 
-  const cleanKey = pixKey.trim();
-  const cleanName = sanitizePixText(merchantName, 25) || 'RECEBEDOR';
-  const cleanCity = sanitizePixText(merchantCity, 15) || 'CIDADE';
+  const trimmedKey = (pixKey || '').trim();
+  if (!trimmedKey) return '';
+
+  // Se a chave já for um payload BR Code completo
+  if (trimmedKey.startsWith('000201')) {
+    return trimmedKey;
+  }
+
+  const cleanKey = normalizePixKeyForBacen(trimmedKey, keyType);
+  const cleanName = sanitizePixText(beneficiary, 25) || 'COLABORADOR';
+  const cleanCity = sanitizePixText(city, 15) || 'BRASIL';
   const cleanTxId = sanitizePixText(txId, 25) || '***';
+
+  // 00: Payload Format Indicator (01)
+  const payloadFormat = emv('00', '01');
+
+  // 01: Point of Initiation Method -> 12 (dinâmico com valor pré-definido) se amount > 0, ou 11
+  const pointOfInit = emv('01', amount !== undefined && amount > 0 ? '12' : '11');
 
   // 26: Merchant Account Information
   const gui = emv('00', 'br.gov.bcb.pix');
@@ -208,7 +319,7 @@ export function generatePixPayload(params: {
   // 58: Country Code (BR)
   const country = emv('58', 'BR');
 
-  // 59: Merchant Name
+  // 59: Merchant Name (Beneficiário)
   const nameTag = emv('59', cleanName);
 
   // 60: Merchant City
@@ -218,13 +329,10 @@ export function generatePixPayload(params: {
   const txTag = emv('05', cleanTxId);
   const addData = emv('62', txTag);
 
-  // 00: Payload Format Indicator (01)
-  const payloadFormat = emv('00', '01');
-
   // Montagem do payload sem CRC (ID 63 com tamanho 04)
-  const rawPayload = payloadFormat + accountInfo + mcc + currency + amountTag + country + nameTag + cityTag + addData + '6304';
+  const rawPayload = payloadFormat + pointOfInit + accountInfo + mcc + currency + amountTag + country + nameTag + cityTag + addData + '6304';
 
-  // Adiciona o CRC16 final
+  // Adiciona o CRC16 final calculado pelo algoritmo oficial Bacen
   const crc = crc16Ccitt(rawPayload);
   return rawPayload + crc;
 }

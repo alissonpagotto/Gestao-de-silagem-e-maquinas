@@ -20,23 +20,22 @@ export const PixQrCodeBlock: React.FC<PixQrCodeBlockProps> = ({
 }) => {
   const cleanPixKey = (pixKey || '').trim();
 
-  // Se não houver chave PIX cadastrada, o espaço permanece totalmente limpo e em branco
-  if (!cleanPixKey) {
-    return null;
-  }
-
   // Gera o payload oficial do Banco Central
   const payload = useMemo(() => {
+    if (!cleanPixKey) return '';
     return generatePixPayload(cleanPixKey, amount, receiverName, city);
   }, [cleanPixKey, amount, receiverName, city]);
 
-  const [qrUrl, setQrUrl] = useState<string>(() => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(payload)}`;
-  });
+  const [qrUrl, setQrUrl] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
-    if (!payload) return;
+    if (!payload) {
+      setQrUrl('');
+      return;
+    }
+
+    setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(payload)}`);
 
     generateQrCodeDataUrl(payload).then((dataUrl) => {
       if (isMounted && dataUrl) {
@@ -48,6 +47,11 @@ export const PixQrCodeBlock: React.FC<PixQrCodeBlockProps> = ({
       isMounted = false;
     };
   }, [payload]);
+
+  // Se não houver chave PIX cadastrada, o espaço permanece totalmente limpo e em branco
+  if (!cleanPixKey) {
+    return null;
+  }
 
   return (
     <div

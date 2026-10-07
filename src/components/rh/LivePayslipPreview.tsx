@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Building2, FileText, CheckCircle2 } from 'lucide-react';
 import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
+import { generateQrCodeDataUrl } from './pixQrCodeHelper';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -103,14 +104,37 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const resolvedEmp = employee || findEmployeeFromStorage(employee?.id || employee?.name);
   const pixKey = getEmployeePixKey(resolvedEmp);
   const isPixPayment = Boolean(pixKey);
+  const employeeBeneficiaryName = resolvedEmp?.name || employee?.name || 'COLABORADOR';
   const pixPayload = isPixPayment ? generatePixPayload({
     pixKey,
     amount: calculatedModalNet,
-    merchantName: tradeName || 'COLACA SILAGEM',
-    merchantCity: companyProfile?.city || 'COLATINA',
+    merchantName: employeeBeneficiaryName,
+    receiverName: employeeBeneficiaryName,
+    beneficiaryName: employeeBeneficiaryName,
+    merchantCity: resolvedEmp?.city || companyProfile?.city || 'BRASIL',
     txId: currentMonthRef.replace('/', '') || 'HOLERITE',
+    keyType: resolvedEmp?.pixKeyType,
   }) : '';
-  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 180) : '';
+
+  const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string>(() => {
+    return pixPayload ? getPixQrCodeUrl(pixPayload, 180) : '';
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!pixPayload) {
+      setPixQrCodeUrl('');
+      return;
+    }
+    generateQrCodeDataUrl(pixPayload).then((dataUrl) => {
+      if (isMounted && dataUrl) {
+        setPixQrCodeUrl(dataUrl);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [pixPayload]);
 
   return (
     <div className="w-full flex flex-col items-center">

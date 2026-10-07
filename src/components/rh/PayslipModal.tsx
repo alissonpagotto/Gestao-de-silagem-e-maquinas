@@ -7,6 +7,7 @@ import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, 
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
+import { generateQrCodeDataUrl } from './pixQrCodeHelper';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -157,7 +158,48 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
     });
   }, [absences, payroll?.employeeId, payroll?.referenceMonth]);
 
-  // Safe early exit AFTER all hooks are called
+  // Cálculos financeiros e PIX (declarados no topo para respeitar as Regras de Hooks do React)
+  const totalEarnings = payroll ? (payroll.baseSalary + (payroll.overtimeAmount || 0) + (payroll.bonusAmount || 0) + (payroll.commissionAmount || 0)) : 0;
+  const activeSindical = payroll ? ((payroll as any).sindicalEnabled !== false ? ((payroll as any).sindicalDiscount || (payroll as any).taxaSindical || 0) : 0) : 0;
+  const totalDiscounts = payroll ? ((payroll.inssDiscount || 0) + (payroll.irrfDiscount || 0) + activeSindical + (payroll.advancesDiscount || 0) + (payroll.otherDiscounts || 0)) : 0;
+  const netSalaryAmount = Math.max(0, totalEarnings - totalDiscounts);
+
+  // Verificação dinâmica de PIX para renderização do QR Code oficial (ativação por chave preenchida)
+  const resolvedEmp = payroll ? (employee || findEmployeeFromStorage(payroll.employeeId || payroll.employeeName)) : null;
+  const pixKey = getEmployeePixKey(resolvedEmp);
+  const isPixPayment = Boolean(pixKey);
+  const employeeBeneficiaryName = resolvedEmp?.name || payroll?.employeeName || 'COLABORADOR';
+  const pixPayload = (isPixPayment && payroll) ? generatePixPayload({
+    pixKey,
+    amount: netSalaryAmount,
+    merchantName: employeeBeneficiaryName,
+    receiverName: employeeBeneficiaryName,
+    beneficiaryName: employeeBeneficiaryName,
+    merchantCity: resolvedEmp?.city || companyProfile?.city || 'BRASIL',
+    txId: (payroll.referenceMonth || '').replace('/', '') || 'HOLERITE',
+    keyType: resolvedEmp?.pixKeyType,
+  }) : '';
+
+  const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string>('');
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!pixPayload) {
+      setPixQrCodeUrl('');
+      return;
+    }
+    setPixQrCodeUrl(getPixQrCodeUrl(pixPayload, 180));
+    generateQrCodeDataUrl(pixPayload).then((dataUrl) => {
+      if (isMounted && dataUrl) {
+        setPixQrCodeUrl(dataUrl);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [pixPayload]);
+
+  // Safe early exit AFTER ALL hooks are called unconditionally
   if (!isOpen || !payroll) return null;
 
   const handleDownloadPDF = async () => {
@@ -257,24 +299,6 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
       setIsGeneratingPdf(false);
     }
   };
-
-  const totalEarnings = payroll.baseSalary + (payroll.overtimeAmount || 0) + (payroll.bonusAmount || 0) + (payroll.commissionAmount || 0);
-  const activeSindical = (payroll as any).sindicalEnabled !== false ? ((payroll as any).sindicalDiscount || (payroll as any).taxaSindical || 0) : 0;
-  const totalDiscounts = (payroll.inssDiscount || 0) + (payroll.irrfDiscount || 0) + activeSindical + (payroll.advancesDiscount || 0) + (payroll.otherDiscounts || 0);
-  const netSalaryAmount = Math.max(0, totalEarnings - totalDiscounts);
-
-  // Verificação dinâmica de PIX para renderização do QR Code oficial (ativação por chave preenchida)
-  const resolvedEmp = employee || findEmployeeFromStorage(payroll.employeeId || payroll.employeeName);
-  const pixKey = getEmployeePixKey(resolvedEmp);
-  const isPixPayment = Boolean(pixKey);
-  const pixPayload = isPixPayment ? generatePixPayload({
-    pixKey,
-    amount: netSalaryAmount,
-    merchantName: tradeName || 'COLACA SILAGEM',
-    merchantCity: companyProfile?.city || 'COLATINA',
-    txId: (payroll.referenceMonth || '').replace('/', '') || 'HOLERITE',
-  }) : '';
-  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 180) : '';
 
   // Verifica se há qualquer lançamento detalhado ou observação para exibir a seção de conferência
   const hasDetailedBreakdown = 

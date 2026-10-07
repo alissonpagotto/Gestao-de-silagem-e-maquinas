@@ -616,23 +616,47 @@ export const formatEmployeeAdmissionDate = (dateStr?: string | null): string => 
 
 /**
  * Formata as informações bancárias cadastradas do colaborador:
- * Padrão: "[Nome_Banco] Ag: [0000] Cc: [00000-0]"
+ * Se for PIX ou possuir chave Pix:
+ * "FORMA DE RECEBIMENTO: PIX | CHAVE: [CHAVE_DO_FUNCIONÁRIO]"
+ * Se for tradicional:
+ * "FORMA DE RECEBIMENTO: CONTA BANCÁRIA | BANCO: [BANCO] | AG: [0000] | CC: [00000-0]"
  */
 export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): string => {
-  if (!emp) return 'Banco Não Informado Ag: 0000 Cc: 00000-0';
+  if (!emp) return 'FORMA DE RECEBIMENTO: NÃO INFORMADA';
 
-  let bankName = (emp.paymentLocation || '').trim();
-  if (!bankName && emp.bankPixKey && !emp.bankPixKey.includes('@') && !/^\d{11}$/.test(emp.bankPixKey.replace(/\D/g, ''))) {
-    bankName = emp.bankPixKey.trim();
+  const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').trim().toUpperCase();
+  const directPix = (emp.chavePix || (emp as any).chave_pix || emp.pixKey || (emp as any).pix_key || '').trim();
+  const rawAccount = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
+  const bankPixKey = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim().toUpperCase();
+
+  const isPix =
+    paymentLoc === 'PIX' ||
+    paymentLoc.includes('PIX') ||
+    Boolean(directPix) ||
+    rawAccount.includes('@') ||
+    /^[0-9a-fA-F-]{32,36}$/.test(rawAccount) ||
+    bankPixKey.includes('PIX');
+
+  if (isPix) {
+    let chave = directPix || rawAccount;
+    if (!chave || chave === '00000-0' || chave === '000-0') {
+      if (emp.cpf) {
+        chave = emp.cpf;
+      } else if (emp.phone) {
+        chave = emp.phone;
+      } else {
+        chave = 'NÃO INFORMADA';
+      }
+    }
+    return `FORMA DE RECEBIMENTO: PIX | CHAVE: ${chave.toUpperCase()}`;
   }
-  if (!bankName) {
-    bankName = 'Banco do Brasil';
-  }
 
-  const agency = (emp.bankAgency || '').trim() || '0000';
-  const account = (emp.bankAccount || '').trim() || '00000-0';
+  // Se não for PIX, exibe conta bancária tradicional formatada e em caixa alta
+  const bankName = (bankPixKey || paymentLoc || 'BANCO DO BRASIL').trim().toUpperCase();
+  const agency = (emp.bankAgency || (emp as any).agencia || '0000').trim().toUpperCase();
+  const account = (rawAccount || '00000-0').toUpperCase();
 
-  return `${bankName} Ag: ${agency} Cc: ${account}`;
+  return `FORMA DE RECEBIMENTO: CONTA BANCÁRIA | BANCO: ${bankName} | AG: ${agency} | CC: ${account}`;
 };
 
 /**

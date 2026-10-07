@@ -268,20 +268,20 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
           <tr>
             <td className="label-cell">Local de Recebimento:</td>
             <td className="value-cell" colSpan={3} style={{ fontWeight: 'bold' }}>
-              {employee.paymentLocation || 'Sede da Empresa / Matriz'}
+              {employee.paymentLocation || 'PIX'}
             </td>
           </tr>
           <tr>
-            <td className="label-cell">Banco / Chave PIX:</td>
+            <td className="label-cell">Chave PIX / Banco:</td>
             <td className="value-cell" colSpan={3} style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>
-              {employee.bankPixKey || 'Não informada'}
+              {employee.chavePix ? `PIX: ${employee.chavePix.toUpperCase()}${employee.pixKeyType ? ` (${employee.pixKeyType.toUpperCase()})` : ''}` : (employee.bankPixKey || 'Não informada')}
             </td>
           </tr>
           <tr>
             <td className="label-cell">Agência (Ag.):</td>
-            <td className="value-cell">{employee.bankAgency || 'Não informada'}</td>
-            <td className="label-cell">Conta Corrente (C.C.):</td>
-            <td className="value-cell">{employee.bankAccount || 'Não informada'}</td>
+            <td className="value-cell">{employee.bankAgency || (employee.chavePix ? 'N/A (PIX)' : 'Não informada')}</td>
+            <td className="label-cell">Conta / Chave:</td>
+            <td className="value-cell">{employee.chavePix || employee.bankAccount || 'Não informada'}</td>
           </tr>
           <tr>
             <td className="label-cell">Salário Base (R$):</td>

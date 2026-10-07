@@ -561,6 +561,8 @@ export interface Employee {
   foto_url?: string; // Alias banco Supabase (foto_url)
   avatar_url?: string; // Alias banco Supabase (avatar_url)
   phone: string;
+  city?: string; // Cidade de residência
+  cidade?: string; // Alias banco Supabase
   baseSalary?: number; // Salário Base (R$)
   contractType?: 'Registrado (CLT)' | 'Diarista / Safrista' | 'PJ / Prestador de Serviço' | 'Autônomo' | 'Comissionado' | string;
   regime_contratacao?: string; // Alias banco Supabase (regime_contratacao)
@@ -598,11 +600,16 @@ export interface Employee {
   // Informações Financeiras / Pagamento
   paymentLocation?: string; // Local de Recebimento
   local_recebimento?: string; // Coluna banco Supabase: local_recebimento
+  chavePix?: string; // Chave Pix do Colaborador
+  chave_pix?: string; // Alias banco Supabase
+  pixKey?: string; // Alias genérico
+  pixKeyType?: 'CPF' | 'CELULAR' | 'E-MAIL' | 'CHAVE ALEATÓRIA' | string; // Tipo da Chave Pix
+  tipo_chave_pix?: string; // Alias banco Supabase
   bankPixKey?: string; // Banco / Chave PIX
   banco_chave_pix?: string; // Coluna banco Supabase: banco_chave_pix
   bankAgency?: string; // Agência (Ag.)
   agencia?: string; // Coluna banco Supabase: agencia
-  bankAccount?: string; // Conta Corrente (C.C.)
+  bankAccount?: string; // Conta Corrente (C.C.) / Chave Pix
   conta_corrente?: string; // Coluna banco Supabase: conta_corrente
 
   // Anexos de Retorno e Documentos

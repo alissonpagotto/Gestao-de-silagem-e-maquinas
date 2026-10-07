@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { Employee } from '../../types';
 import { getStoredEmployees } from '../../lib/storage';
+import { normalizePixKeyForBacen } from './pixUtils';
 
 /**
  * Utilitário de cálculo CRC-16 (padrão CCITT-FALSE / Polinômio 0x1021)
@@ -37,8 +38,12 @@ export function generatePixPayload(
   city = 'BRASIL',
   txid = '***'
 ): string {
-  const cleanKey = (pixKey || '').trim();
-  if (!cleanKey) return '';
+  const trimmed = (pixKey || '').trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('000201')) return trimmed;
+
+  const cleanKey = normalizePixKeyForBacen(trimmed);
 
   // GUI br.gov.bcb.pix + chave
   const gui = emvField('00', 'br.gov.bcb.pix');
@@ -63,7 +68,7 @@ export function generatePixPayload(
     .substring(0, 15) || 'BRASIL';
 
   const payloadFormat = emvField('00', '01');
-  const pointOfInit = emvField('01', '12'); // 12 = dinâmico / valor pré-definido
+  const pointOfInit = emvField('01', amount > 0 ? '12' : '11');
   const merchantCategory = emvField('52', '0000');
   const currency = emvField('53', '986'); // 986 = Real Brasileiro (BRL)
   const amountStr = amount > 0 ? emvField('54', amount.toFixed(2)) : '';
@@ -79,21 +84,36 @@ export function generatePixPayload(
 
 /**
  * Busca resiliente de chave Pix de um colaborador:
- * 1. Prioriza 'bankAccount' (onde é digitado o valor do input "Chave Pix: E-mail" ou chave pix geral)
- * 2. Verifica 'bankPixKey' (caso tenha sido preenchido com chave pix)
- * 3. Faz busca cruzada no LocalStorage em 'colaca_silagem_funcionarios' e 'silagem_facil_clean_v1_employees'
+ * 1. Prioriza 'chavePix' e 'pixKey' explícitos
+ * 2. Verifica 'bankAccount' (onde é digitado o valor do input "Chave Pix: E-mail" ou chave pix geral)
+ * 3. Verifica 'bankPixKey' (caso tenha sido preenchido com chave pix)
+ * 4. Faz busca cruzada no LocalStorage em 'colaca_silagem_funcionarios' e 'silagem_facil_clean_v1_employees'
  */
 export function extractPixKeyFromEmployee(emp?: Partial<Employee> | null): string {
   if (!emp) return '';
 
-  // 1. Campo bankAccount (onde fica o input "Conta Corrente (C.C.) / Chave Pix: E-mail")
-  const account = (emp.bankAccount || '').trim();
+  // 1. Chave explícita
+  if (emp.chavePix && typeof emp.chavePix === 'string' && emp.chavePix.trim()) {
+    return emp.chavePix.trim();
+  }
+  if ((emp as any).chave_pix && typeof (emp as any).chave_pix === 'string' && (emp as any).chave_pix.trim()) {
+    return (emp as any).chave_pix.trim();
+  }
+  if (emp.pixKey && typeof emp.pixKey === 'string' && emp.pixKey.trim()) {
+    return emp.pixKey.trim();
+  }
+  if ((emp as any).pix_key && typeof (emp as any).pix_key === 'string' && (emp as any).pix_key.trim()) {
+    return (emp as any).pix_key.trim();
+  }
+
+  // 2. Campo bankAccount (onde fica o input "Conta Corrente (C.C.) / Chave Pix: E-mail")
+  const account = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
   if (account && account !== '00000-0' && account !== '-' && account.toLowerCase() !== 'não informada') {
     return account;
   }
 
-  // 2. Campo bankPixKey (pode conter a chave quando preenchido como chave pix em vez de apenas banco)
-  const bankPix = (emp.bankPixKey || '').trim();
+  // 3. Campo bankPixKey (pode conter a chave quando preenchido como chave pix em vez de apenas banco)
+  const bankPix = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim();
   if (bankPix) {
     if (
       bankPix.includes('@') ||
@@ -105,10 +125,17 @@ export function extractPixKeyFromEmployee(emp?: Partial<Employee> | null): strin
     }
   }
 
-  // 3. Campo genérico pixKey
-  if ((emp as any).pixKey && typeof (emp as any).pixKey === 'string') {
-    const k = (emp as any).pixKey.trim();
-    if (k) return k;
+  // 4. Se Local de Recebimento contiver PIX, fallback para CPF ou Telefone
+  const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').toLowerCase();
+  if (paymentLoc.includes('pix')) {
+    if (emp.cpf) {
+      const cleanCpf = emp.cpf.replace(/\D/g, '');
+      if (cleanCpf.length === 11) return cleanCpf;
+    }
+    if (emp.phone) {
+      const cleanPhone = emp.phone.replace(/\D/g, '');
+      if (cleanPhone.length >= 10) return cleanPhone;
+    }
   }
 
   return '';
