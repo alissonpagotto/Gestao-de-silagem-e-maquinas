@@ -450,8 +450,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
           {/* Dados Cadastrais do Empregado Enriquecidos (Bloco Compacto e Alinhado) */}
           <div className="border border-stone-300 dark:border-stone-700 rounded-lg p-2 sm:p-2.5 print:p-1.5 my-1 sm:my-1.5 print:my-0.5 bg-stone-50/50 dark:bg-stone-800/30 flex flex-row items-stretch justify-between w-full gap-3 sm:gap-4 print:gap-3">
-            {/* Sub-bloco da Esquerda (85% da largura): Dados textuais do colaborador */}
-            <div className={`${isPixPayment && pixQrCodeUrl ? 'w-[85%] flex-1' : 'w-full'} min-w-0`}>
+            {/* Sub-bloco da Esquerda: Dados textuais do colaborador */}
+            <div className="flex-1 min-w-0">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1 sm:gap-y-1.5 print:gap-y-0.5 print:gap-x-2 text-xs">
                 <div className="col-span-2 sm:col-span-2 lg:col-span-2">
                   <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Colaborador:</span>
@@ -492,21 +492,19 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
               </div>
             </div>
 
-            {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
+            {/* Sub-bloco da Direita: Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
             {isPixPayment && pixPayload && (
               <div 
-                className="w-[15%] min-w-[88px] max-w-[115px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs print:border-black self-center text-center"
+                className="flex flex-col items-center justify-center p-2 border border-slate-200 rounded bg-white shrink-0 self-center"
               >
-                <div className="w-20 h-20 print:w-[70px] print:h-[70px] flex items-center justify-center">
-                  <QRCode
-                    value={pixPayload}
-                    size={80}
-                    alt="QR CODE PIX PARA PAGAMENTO"
-                    className="w-full h-full object-contain rounded-xs block mx-auto"
-                  />
-                </div>
+                <QRCode
+                  value={pixPayload}
+                  size={90}
+                  alt="QR CODE PIX PARA PAGAMENTO"
+                  className="mx-auto"
+                />
                 <span 
-                  className="text-[9px] print:text-[8px] font-bold uppercase text-slate-500 dark:text-slate-400 text-center block mt-1 leading-tight tracking-tight select-none max-w-full"
+                  className="text-[9px] font-bold text-slate-500 uppercase tracking-tight text-center mt-1.5 w-full block"
                 >
                   QR CODE PIX PARA PAGAMENTO
                 </span>

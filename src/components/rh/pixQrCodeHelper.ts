@@ -43,7 +43,7 @@ function emvField(id: string, value: string): string {
  */
 export function buildOfficialPixBrCode(
   rawPixKey: string,
-  liquidoApurado: number,
+  liquidoCalculado: number,
   nomeCompletoFuncionario = 'COLABORADOR'
 ): string {
   const trimmed = (rawPixKey || '').trim();
@@ -51,56 +51,60 @@ export function buildOfficialPixBrCode(
 
   if (trimmed.startsWith('000201')) return trimmed;
 
-  // Higienização da Chave: remove parênteses, traços, pontos ou espaços, deixando apenas dígitos puros
-  let chaveLimpa = trimmed.replace(/[\s().-]/g, '').trim();
-  const digitsOnly = chaveLimpa.replace(/\D/g, '');
-  if (digitsOnly.length > 0 && !chaveLimpa.includes('@')) {
-    chaveLimpa = digitsOnly;
+  // Higienização da Chave: dígitos puros para CPF, telefone, CNPJ
+  let chaveLimpa = trimmed.replace(/\D/g, '');
+  if (!chaveLimpa && trimmed.includes('@')) {
+    chaveLimpa = trimmed.toLowerCase();
+  } else if (!chaveLimpa) {
+    chaveLimpa = trimmed.replace(/[\s().-]/g, '');
   }
 
-  // Bloco Base Inicial: "00020126"
-  const blocoBase = '00020126';
+  const chaveLen = chaveLimpa.length;
+  const tag26Len = (22 + chaveLen).toString().padStart(2, '0');
+  const chaveLenStr = chaveLen.toString().padStart(2, '0');
 
-  // Merchant Account (Chave Pix): "580014br.gov.bcb.pix01" + comprimento_da_chave + chaveLimpa
-  const compChave = String(chaveLimpa.length).padStart(2, '0');
-  const merchantAccount = `580014br.gov.bcb.pix01${compChave}${chaveLimpa}`;
+  // Bloco 00 (Payload Format Indicator): "000201"
+  const b00 = '000201';
 
-  // Código de Categoria (Merchant Category Code): "52040000"
-  const codCategoria = '52040000';
+  // Bloco 26 (Merchant Account Information - Chave Pix): "26" + (22 + chaveLimpa.length) + "0014br.gov.bcb.pix01" + chaveLimpa.length + chaveLimpa
+  const b26 = `26${tag26Len}0014br.gov.bcb.pix01${chaveLenStr}${chaveLimpa}`;
 
-  // Moeda (Currency Real): "5303986"
-  const moeda = '5303986';
+  // Bloco 52 (Merchant Category Code): "52040000"
+  const b52 = '52040000';
 
-  // Valor Líquido Dinâmico: "54" + comprimento_do_valor + liquidoApurado
-  const valorStr = Number(liquidoApurado || 0).toFixed(2);
-  const compValor = String(valorStr.length).padStart(2, '0');
-  const valorBloco = `54${compValor}${valorStr}`;
+  // Bloco 53 (Transaction Currency - Real): "5303986"
+  const b53 = '5303986';
 
-  // País (Country Code): "5802BR"
-  const pais = '5802BR';
+  // Bloco 54 (Transaction Amount - Valor Líquido): "54" + length + valStr
+  const valStr = Number(liquidoCalculado || 0).toFixed(2);
+  const valLenStr = valStr.length.toString().padStart(2, '0');
+  const b54 = `54${valLenStr}${valStr}`;
 
-  // Nome do Funcionário: "59" + comprimento_do_nome + nomeCompletoFuncionario (CAIXA ALTA e sem acentos)
-  const nomeLimpo = (nomeCompletoFuncionario || 'COLABORADOR')
+  // Bloco 58 (Country Code): "5802BR"
+  const b58 = '5802BR';
+
+  // Bloco 59 (Merchant Name - Nome do Funcionário): "59" + length + nome
+  const nomeSanitized = (nomeCompletoFuncionario || 'COLABORADOR')
+    .toUpperCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9\s]/g, '')
+    .replace(/[^A-Z0-9 ]/g, '')
     .trim()
     .slice(0, 25) || 'COLABORADOR';
-  const compNome = String(nomeLimpo.length).padStart(2, '0');
-  const nomeBloco = `59${compNome}${nomeLimpo}`;
+  const nomeLenStr = nomeSanitized.length.toString().padStart(2, '0');
+  const b59 = `59${nomeLenStr}${nomeSanitized}`;
 
-  // Cidade do Beneficiário: "6009DOIS VIZINHOS"
-  const cidade = '6009DOIS VIZINHOS';
+  // Bloco 60 (Merchant City): "6009DOIS VIZINHOS"
+  const b60 = '6009DOIS VIZINHOS';
 
-  // Campo Adicional (TxID padrão): "62070503***"
-  const campoAdicional = '62070503***';
+  // Bloco 62 (Additional Data Field Template - TxID): "62070503***"
+  const b62 = '62070503***';
 
-  // Cálculo do Checksum CRC16
-  const payloadSemCrc = `${blocoBase}${merchantAccount}${codCategoria}${moeda}${valorBloco}${pais}${nomeBloco}${cidade}${campoAdicional}6304`;
-  const checksum = crc16(payloadSemCrc);
+  // Bloco 63 (CRC16 Checksum): "6304" + 4 caracteres hexadecimais
+  const rawPayload = `${b00}${b26}${b52}${b53}${b54}${b58}${b59}${b60}${b62}6304`;
+  const checksum = crc16(rawPayload);
 
-  return `${payloadSemCrc}${checksum}`;
+  return `${rawPayload}${checksum}`;
 }
 
 /**

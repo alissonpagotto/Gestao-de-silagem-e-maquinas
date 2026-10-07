@@ -81,14 +81,12 @@ export const PixQrCodeBlock: React.FC<PixQrCodeBlockProps> = ({
 
   return (
     <div
-      className={`pix-qrcode-container flex flex-col items-center justify-center shrink-0 text-center select-none ${className}`}
+      className={`pix-qrcode-container flex flex-col items-center justify-center p-2 border border-slate-200 rounded bg-white shrink-0 text-center select-none ${className}`}
       data-testid="pix-qrcode-block"
-      style={{ minWidth: '80px', maxWidth: '100px' }}
+      style={{ minWidth: '95px', maxWidth: '120px' }}
     >
-      <div className="w-[80px] h-[80px] bg-white border border-black/30 rounded-xs p-0.5 shadow-2xs flex items-center justify-center">
-        <QRCode value={payload} size={80} alt={effectiveLabel} />
-      </div>
-      <span className="text-[9px] font-bold text-slate-500 leading-tight mt-1 text-center block max-w-[95px] uppercase">
+      <QRCode value={payload} size={90} className="mx-auto" alt={effectiveLabel} />
+      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight text-center mt-1.5 w-full block">
         {effectiveLabel}
       </span>
     </div>
