@@ -353,7 +353,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[65vh] min-h-[520px] max-h-[90vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[95vh] max-h-[95vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ============================================================== */}
@@ -568,7 +568,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
           {/* ============================================================== */}
           {/* 3. GRADE CENTRAL DE ITENS ADICIONADOS À FILA DE IMPRESSÃO       */}
           {/* ============================================================== */}
-          <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs flex-1 flex flex-col min-h-0">
+          <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs flex-1 max-h-[calc(100vh-210px)] overflow-y-auto scrollbar-none flex flex-col min-h-0">
             <div className="overflow-x-auto overflow-y-auto scrollbar-none flex-1 min-h-0">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-100 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-10">

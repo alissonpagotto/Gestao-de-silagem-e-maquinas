@@ -1055,7 +1055,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[65vh] min-h-[520px] max-h-[90vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[95vh] max-h-[95vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ============================================================== */}
@@ -1349,8 +1349,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
           {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4 Completa */}
           {previewTab === 'label' || !isA4 ? (
-            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center justify-center">
-              <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-slate-700 dark:text-stone-300">
+            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center justify-between min-h-[380px] h-[62vh] max-h-[65vh] overflow-hidden">
+              <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-slate-700 dark:text-stone-300 shrink-0">
                 <span className="uppercase text-[10px] sm:text-[11px] font-black text-slate-600 dark:text-stone-400">Total de etiquetas geradas: {flatLabelsList.length}</span>
                 <span className="text-[11px] font-mono font-bold text-sky-600 dark:text-sky-400">
                   {itemsToPrint.length} produto(s) na lista
@@ -1358,10 +1358,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
 
               {flatLabelsList.length === 1 && previewProduct ? (
-                renderLiveLabelCard(previewProduct)
+                <div className="flex-1 w-full flex items-center justify-center overflow-y-auto scrollbar-none p-2 min-h-0">
+                  {renderLiveLabelCard(previewProduct)}
+                </div>
               ) : (
-                <div className="w-full space-y-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-h-[340px] overflow-y-auto scrollbar-none p-1 place-items-center">
+                <div className="w-full flex-1 overflow-y-auto scrollbar-none p-1 min-h-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full p-1 place-items-center">
                     {flatLabelsList.map((item, idx) =>
                       renderLiveLabelCard(item, `Etiqueta ${idx + 1} de ${flatLabelsList.length}`, `${item.id}_${idx}`)
                     )}
@@ -1369,14 +1371,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 </div>
               )}
 
-              <div className="text-[10px] text-slate-500 dark:text-stone-400 mt-2 font-mono">
+              <div className="text-[10px] text-slate-500 dark:text-stone-400 mt-2 font-mono shrink-0">
                 Dimensões reais de corte: {currentPreset.widthMm}mm × {currentPreset.heightMm}mm ({currentPreset.name.split('(')[0].trim()})
               </div>
             </div>
           ) : (
             /* Visualização Interativa da Grade A4 com clique na posição inicial */
-            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center">
-              <div className="w-full max-w-xl flex items-center justify-between text-xs mb-2">
+            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center min-h-[380px] h-[62vh] max-h-[65vh] overflow-hidden">
+              <div className="w-full max-w-xl flex items-center justify-between text-xs mb-2 shrink-0">
                 <span className="font-bold text-slate-700 dark:text-stone-300 flex items-center space-x-1.5 uppercase text-[10px] sm:text-[11px]">
                   <LayoutGrid className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                   <span>Clique em qualquer posição para começar a impressão</span>
@@ -1388,7 +1390,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
               {/* Simulação da Folha A4 em Escala */}
               <div 
-                className="w-full max-w-xl bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl p-3 shadow-md overflow-x-auto"
+                className="w-full max-w-xl flex-1 bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl p-3 shadow-md overflow-y-auto scrollbar-none min-h-0"
               >
                 <div 
                   className="grid gap-1 select-none"
