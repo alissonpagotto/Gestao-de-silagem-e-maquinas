@@ -7,7 +7,7 @@ import { normalizePixKeyForBacen } from './pixUtils';
  * Utilitário de cálculo CRC-16 (padrão CCITT-FALSE / Polinômio 0x1021)
  * Utilizado para autenticar a integridade do payload do Banco Central (PIX EMV).
  */
-function crc16(data: string): string {
+export function crc16(data: string): string {
   let crc = 0xffff;
   for (let i = 0; i < data.length; i++) {
     crc ^= data.charCodeAt(i) << 8;
@@ -28,6 +28,82 @@ function emvField(id: string, value: string): string {
 }
 
 /**
+ * Compilação do algoritmo oficial PIX BR Code (Padrão Banco Central Bacen - Mandatório nas 3 telas):
+ * - Higienização da Chave: dígitos puros
+ * - Bloco Base Inicial: "00020126"
+ * - Merchant Account: "580014br.gov.bcb.pix01" + comprimento_da_chave + chaveLimpa
+ * - Código de Categoria: "52040000"
+ * - Moeda: "5303986"
+ * - Valor Líquido Dinâmico: "54" + comprimento_do_valor + liquidoApurado (separador ponto)
+ * - País: "5802BR"
+ * - Nome do Funcionário: "59" + comprimento_do_nome + nomeCompletoFuncionario (CAIXA ALTA e sem acentos)
+ * - Cidade do Beneficiário: "6009DOIS VIZINHOS"
+ * - Campo Adicional (TxID padrão): "62070503***"
+ * - Cálculo do Checksum CRC16: "6304" + 4 caracteres hexadecimais do cálculo CRC16
+ */
+export function buildOfficialPixBrCode(
+  rawPixKey: string,
+  liquidoApurado: number,
+  nomeCompletoFuncionario = 'COLABORADOR'
+): string {
+  const trimmed = (rawPixKey || '').trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('000201')) return trimmed;
+
+  // Higienização da Chave: remove parênteses, traços, pontos ou espaços, deixando apenas dígitos puros
+  let chaveLimpa = trimmed.replace(/[\s().-]/g, '').trim();
+  const digitsOnly = chaveLimpa.replace(/\D/g, '');
+  if (digitsOnly.length >= 10 && !chaveLimpa.includes('@')) {
+    chaveLimpa = digitsOnly;
+  }
+
+  // Bloco Base Inicial: "00020126"
+  const blocoBase = '00020126';
+
+  // Merchant Account (Chave Pix): "580014br.gov.bcb.pix01" + comprimento_da_chave + chaveLimpa
+  const compChave = String(chaveLimpa.length).padStart(2, '0');
+  const merchantAccount = `580014br.gov.bcb.pix01${compChave}${chaveLimpa}`;
+
+  // Código de Categoria (Merchant Category Code): "52040000"
+  const codCategoria = '52040000';
+
+  // Moeda (Currency Real): "5303986"
+  const moeda = '5303986';
+
+  // Valor Líquido Dinâmico: "54" + comprimento_do_valor + liquidoApurado
+  const valorStr = Number(liquidoApurado || 0).toFixed(2);
+  const compValor = String(valorStr.length).padStart(2, '0');
+  const valorBloco = `54${compValor}${valorStr}`;
+
+  // País (Country Code): "5802BR"
+  const pais = '5802BR';
+
+  // Nome do Funcionário: "59" + comprimento_do_nome + nomeCompletoFuncionario (CAIXA ALTA e sem acentos)
+  const nomeLimpo = (nomeCompletoFuncionario || 'COLABORADOR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, '')
+    .trim()
+    .slice(0, 25) || 'COLABORADOR';
+  const compNome = String(nomeLimpo.length).padStart(2, '0');
+  const nomeBloco = `59${compNome}${nomeLimpo}`;
+
+  // Cidade do Beneficiário: "6009DOIS VIZINHOS"
+  const cidade = '6009DOIS VIZINHOS';
+
+  // Campo Adicional (TxID padrão): "62070503***"
+  const campoAdicional = '62070503***';
+
+  // Cálculo do Checksum CRC16
+  const payloadSemCrc = `${blocoBase}${merchantAccount}${codCategoria}${moeda}${valorBloco}${pais}${nomeBloco}${cidade}${campoAdicional}6304`;
+  const checksum = crc16(payloadSemCrc);
+
+  return `${payloadSemCrc}${checksum}`;
+}
+
+/**
  * Gera a string oficial do Pix no padrão BR Code (EMVCo) do Banco Central do Brasil.
  * Permite leitura nativa em qualquer aplicativo bancário (Nubank, Banco do Brasil, Sicredi, Itaú, etc.).
  */
@@ -35,51 +111,10 @@ export function generatePixPayload(
   pixKey: string,
   amount: number,
   receiverName = 'COLABORADOR',
-  city = 'BRASIL',
-  txid = '***'
+  _city = 'DOIS VIZINHOS',
+  _txid = '***'
 ): string {
-  const trimmed = (pixKey || '').trim();
-  if (!trimmed) return '';
-
-  if (trimmed.startsWith('000201')) return trimmed;
-
-  const cleanKey = normalizePixKeyForBacen(trimmed);
-
-  // GUI br.gov.bcb.pix + chave
-  const gui = emvField('00', 'br.gov.bcb.pix');
-  const pixKeyField = emvField('01', cleanKey);
-  const merchantAccountInfo = emvField('26', `${gui}${pixKeyField}`);
-
-  // Normalização sem acentos do Nome e Cidade
-  const cleanName = (receiverName || 'COLABORADOR')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9\s]/g, '')
-    .trim()
-    .substring(0, 25) || 'COLABORADOR';
-
-  const cleanCity = (city || 'BRASIL')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9\s]/g, '')
-    .trim()
-    .substring(0, 15) || 'BRASIL';
-
-  const payloadFormat = emvField('00', '01');
-  const pointOfInit = emvField('01', amount > 0 ? '12' : '11');
-  const merchantCategory = emvField('52', '0000');
-  const currency = emvField('53', '986'); // 986 = Real Brasileiro (BRL)
-  const amountStr = amount > 0 ? emvField('54', amount.toFixed(2)) : '';
-  const country = emvField('58', 'BR');
-  const merchantNameField = emvField('59', cleanName);
-  const merchantCityField = emvField('60', cleanCity);
-  const additionalData = emvField('62', emvField('05', txid || '***'));
-
-  const rawPayload = `${payloadFormat}${pointOfInit}${merchantAccountInfo}${merchantCategory}${currency}${amountStr}${country}${merchantNameField}${merchantCityField}${additionalData}6304`;
-  const checksum = crc16(rawPayload);
-  return `${rawPayload}${checksum}`;
+  return buildOfficialPixBrCode(pixKey, amount, receiverName);
 }
 
 /**

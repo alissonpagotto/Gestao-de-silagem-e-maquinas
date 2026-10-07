@@ -7,7 +7,7 @@ import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, 
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
-import { generateQrCodeDataUrl } from './pixQrCodeHelper';
+import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -169,16 +169,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   const pixKey = getEmployeePixKey(resolvedEmp);
   const isPixPayment = Boolean(pixKey);
   const employeeBeneficiaryName = resolvedEmp?.name || payroll?.employeeName || 'COLABORADOR';
-  const pixPayload = (isPixPayment && payroll) ? generatePixPayload({
+  const pixPayload = (isPixPayment && payroll) ? buildOfficialPixBrCode(
     pixKey,
-    amount: netSalaryAmount,
-    merchantName: employeeBeneficiaryName,
-    receiverName: employeeBeneficiaryName,
-    beneficiaryName: employeeBeneficiaryName,
-    merchantCity: resolvedEmp?.city || companyProfile?.city || 'BRASIL',
-    txId: (payroll.referenceMonth || '').replace('/', '') || 'HOLERITE',
-    keyType: resolvedEmp?.pixKeyType,
-  }) : '';
+    netSalaryAmount,
+    employeeBeneficiaryName
+  ) : '';
 
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string>('');
 
@@ -488,7 +483,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </span>
                 </div>
                 <div className="col-span-2 sm:col-span-3 lg:col-span-2">
-                  <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight uppercase">DEPÓSITO:</span>
+                  <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight uppercase">DEPÓSITO / FORMA DE PAGAMENTO:</span>
                   <span className="font-bold text-stone-800 dark:text-stone-200 text-[10px] sm:text-[11px] print:text-[9px] truncate block leading-tight uppercase" title={formatEmployeeBankDeposit(employee)}>
                     {formatEmployeeBankDeposit(employee)}
                   </span>

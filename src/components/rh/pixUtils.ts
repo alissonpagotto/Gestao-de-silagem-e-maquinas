@@ -238,6 +238,82 @@ export function hasEmployeePixPayment(emp?: Partial<Employee> | null): boolean {
 }
 
 /**
+ * Compilação do algoritmo oficial PIX BR Code (Padrão Banco Central Bacen - Mandatório nas 3 telas):
+ * - Higienização da Chave: dígitos puros
+ * - Bloco Base Inicial: "00020126"
+ * - Merchant Account: "580014br.gov.bcb.pix01" + comprimento_da_chave + chaveLimpa
+ * - Código de Categoria: "52040000"
+ * - Moeda: "5303986"
+ * - Valor Líquido Dinâmico: "54" + comprimento_do_valor + liquidoApurado (separador ponto)
+ * - País: "5802BR"
+ * - Nome do Funcionário: "59" + comprimento_do_nome + nomeCompletoFuncionario (CAIXA ALTA e sem acentos)
+ * - Cidade do Beneficiário: "6009DOIS VIZINHOS"
+ * - Campo Adicional (TxID padrão): "62070503***"
+ * - Cálculo do Checksum CRC16: "6304" + 4 caracteres hexadecimais do cálculo CRC16
+ */
+export function buildOfficialPixBrCode(
+  rawPixKey: string,
+  liquidoApurado: number,
+  nomeCompletoFuncionario = 'COLABORADOR'
+): string {
+  const trimmed = (rawPixKey || '').trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('000201')) return trimmed;
+
+  // Higienização da Chave: remove parênteses, traços, pontos ou espaços, deixando apenas dígitos puros
+  let chaveLimpa = trimmed.replace(/[\s().-]/g, '').trim();
+  const digitsOnly = chaveLimpa.replace(/\D/g, '');
+  if (digitsOnly.length >= 10 && !chaveLimpa.includes('@')) {
+    chaveLimpa = digitsOnly;
+  }
+
+  // Bloco Base Inicial: "00020126"
+  const blocoBase = '00020126';
+
+  // Merchant Account (Chave Pix): "580014br.gov.bcb.pix01" + comprimento_da_chave + chaveLimpa
+  const compChave = String(chaveLimpa.length).padStart(2, '0');
+  const merchantAccount = `580014br.gov.bcb.pix01${compChave}${chaveLimpa}`;
+
+  // Código de Categoria (Merchant Category Code): "52040000"
+  const codCategoria = '52040000';
+
+  // Moeda (Currency Real): "5303986"
+  const moeda = '5303986';
+
+  // Valor Líquido Dinâmico: "54" + comprimento_do_valor + liquidoApurado
+  const valorStr = Number(liquidoApurado || 0).toFixed(2);
+  const compValor = String(valorStr.length).padStart(2, '0');
+  const valorBloco = `54${compValor}${valorStr}`;
+
+  // País (Country Code): "5802BR"
+  const pais = '5802BR';
+
+  // Nome do Funcionário: "59" + comprimento_do_nome + nomeCompletoFuncionario (CAIXA ALTA e sem acentos)
+  const nomeLimpo = (nomeCompletoFuncionario || 'COLABORADOR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, '')
+    .trim()
+    .slice(0, 25) || 'COLABORADOR';
+  const compNome = String(nomeLimpo.length).padStart(2, '0');
+  const nomeBloco = `59${compNome}${nomeLimpo}`;
+
+  // Cidade do Beneficiário: "6009DOIS VIZINHOS"
+  const cidade = '6009DOIS VIZINHOS';
+
+  // Campo Adicional (TxID padrão): "62070503***"
+  const campoAdicional = '62070503***';
+
+  // Cálculo do Checksum CRC16
+  const payloadSemCrc = `${blocoBase}${merchantAccount}${codCategoria}${moeda}${valorBloco}${pais}${nomeBloco}${cidade}${campoAdicional}6304`;
+  const checksum = crc16Ccitt(payloadSemCrc);
+
+  return `${payloadSemCrc}${checksum}`;
+}
+
+/**
  * Gera a string do PIX Copia e Cola no padrão oficial BACEN (EMV QRCPS-MPM).
  * Suporta assinatura por objeto ou argumentos posicionais para compatibilidade ampla.
  */
@@ -255,86 +331,24 @@ export function generatePixPayload(
   } | string,
   amountArg?: number,
   receiverNameArg?: string,
-  cityArg?: string,
-  txIdArg?: string
+  _cityArg?: string,
+  _txIdArg?: string
 ): string {
   let pixKey = '';
-  let amount: number | undefined;
+  let amount = 0;
   let beneficiary = 'COLABORADOR';
-  let city = 'BRASIL';
-  let txId = '***';
-  let keyType: string | undefined;
 
   if (typeof paramsOrKey === 'object' && paramsOrKey !== null) {
     pixKey = paramsOrKey.pixKey || '';
-    amount = paramsOrKey.amount;
+    amount = Number(paramsOrKey.amount || 0);
     beneficiary = paramsOrKey.beneficiaryName || paramsOrKey.receiverName || paramsOrKey.merchantName || 'COLABORADOR';
-    city = paramsOrKey.city || paramsOrKey.merchantCity || 'BRASIL';
-    txId = paramsOrKey.txId || '***';
-    keyType = paramsOrKey.keyType;
   } else if (typeof paramsOrKey === 'string') {
     pixKey = paramsOrKey;
-    amount = amountArg;
+    amount = Number(amountArg || 0);
     beneficiary = receiverNameArg || 'COLABORADOR';
-    city = cityArg || 'BRASIL';
-    txId = txIdArg || '***';
   }
 
-  const trimmedKey = (pixKey || '').trim();
-  if (!trimmedKey) return '';
-
-  // Se a chave já for um payload BR Code completo
-  if (trimmedKey.startsWith('000201')) {
-    return trimmedKey;
-  }
-
-  const cleanKey = normalizePixKeyForBacen(trimmedKey, keyType);
-  const cleanName = sanitizePixText(beneficiary, 25) || 'COLABORADOR';
-  const cleanCity = sanitizePixText(city, 15) || 'BRASIL';
-  const cleanTxId = sanitizePixText(txId, 25) || '***';
-
-  // 00: Payload Format Indicator (01)
-  const payloadFormat = emv('00', '01');
-
-  // 01: Point of Initiation Method -> 12 (dinâmico com valor pré-definido) se amount > 0, ou 11
-  const pointOfInit = emv('01', amount !== undefined && amount > 0 ? '12' : '11');
-
-  // 26: Merchant Account Information
-  const gui = emv('00', 'br.gov.bcb.pix');
-  const keyTag = emv('01', cleanKey);
-  const accountInfo = emv('26', gui + keyTag);
-
-  // 52: Merchant Category Code (0000)
-  const mcc = emv('52', '0000');
-
-  // 53: Transaction Currency (986 = BRL)
-  const currency = emv('53', '986');
-
-  // 54: Transaction Amount
-  let amountTag = '';
-  if (amount !== undefined && amount > 0) {
-    amountTag = emv('54', amount.toFixed(2));
-  }
-
-  // 58: Country Code (BR)
-  const country = emv('58', 'BR');
-
-  // 59: Merchant Name (Beneficiário)
-  const nameTag = emv('59', cleanName);
-
-  // 60: Merchant City
-  const cityTag = emv('60', cleanCity);
-
-  // 62: Additional Data Field (TxID)
-  const txTag = emv('05', cleanTxId);
-  const addData = emv('62', txTag);
-
-  // Montagem do payload sem CRC (ID 63 com tamanho 04)
-  const rawPayload = payloadFormat + pointOfInit + accountInfo + mcc + currency + amountTag + country + nameTag + cityTag + addData + '6304';
-
-  // Adiciona o CRC16 final calculado pelo algoritmo oficial Bacen
-  const crc = crc16Ccitt(rawPayload);
-  return rawPayload + crc;
+  return buildOfficialPixBrCode(pixKey, amount, beneficiary);
 }
 
 /**

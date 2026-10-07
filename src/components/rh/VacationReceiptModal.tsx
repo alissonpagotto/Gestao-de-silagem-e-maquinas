@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { X, Printer, Palmtree, Wifi } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
 import { formatDateBR, getStoredCompanyProfile, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
+import { formatEmployeeBankDeposit } from './payrollHelpers';
 import { PixQrCodeBlock } from './PixQrCodeBlock';
 import { resolveEmployeePixKey } from './pixQrCodeHelper';
 import { getEmployeePixKey, findEmployeeFromStorage } from './pixUtils';
@@ -1007,6 +1008,12 @@ export function VacationReceiptModal({
                     <span className="block text-[9px] font-bold text-stone-500 uppercase">Gozo ({daysCount}d):</span>
                     <span className="font-black text-blue-900 text-[10px]">{periodGozo}</span>
                   </div>
+                  <div className="sm:col-span-6 border-t border-stone-200 pt-1 flex items-center justify-between text-[10px]">
+                    <span className="text-[9px] font-bold text-stone-500 uppercase">DEPÓSITO / FORMA DE PAGAMENTO:</span>
+                    <span className="font-bold text-stone-900 uppercase">
+                      {formatEmployeeBankDeposit(resolvedEmp || employee)}
+                    </span>
+                  </div>
                 </div>
 
                 {pixKey ? (
@@ -1014,7 +1021,7 @@ export function VacationReceiptModal({
                     <PixQrCodeBlock
                       pixKey={pixKey}
                       amount={valorLiquido}
-                      label="PIX para Adiantamento de Férias"
+                      label="QR CODE PIX PARA PAGAMENTO"
                       receiverName={employeeName}
                       city={issueCity}
                     />

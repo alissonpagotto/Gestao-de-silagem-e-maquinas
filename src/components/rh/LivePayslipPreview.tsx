@@ -4,7 +4,7 @@ import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem }
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
-import { generateQrCodeDataUrl } from './pixQrCodeHelper';
+import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -105,16 +105,11 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const pixKey = getEmployeePixKey(resolvedEmp);
   const isPixPayment = Boolean(pixKey);
   const employeeBeneficiaryName = resolvedEmp?.name || employee?.name || 'COLABORADOR';
-  const pixPayload = isPixPayment ? generatePixPayload({
+  const pixPayload = isPixPayment ? buildOfficialPixBrCode(
     pixKey,
-    amount: calculatedModalNet,
-    merchantName: employeeBeneficiaryName,
-    receiverName: employeeBeneficiaryName,
-    beneficiaryName: employeeBeneficiaryName,
-    merchantCity: resolvedEmp?.city || companyProfile?.city || 'BRASIL',
-    txId: currentMonthRef.replace('/', '') || 'HOLERITE',
-    keyType: resolvedEmp?.pixKeyType,
-  }) : '';
+    calculatedModalNet,
+    employeeBeneficiaryName
+  ) : '';
 
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string>(() => {
     return pixPayload ? getPixQrCodeUrl(pixPayload, 180) : '';
@@ -233,7 +228,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 </span>
               </div>
               <div className="col-span-2 sm:col-span-3">
-                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">DEPÓSITO:</span>
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">DEPÓSITO / FORMA DE PAGAMENTO:</span>
                 <span className="font-semibold text-stone-800 truncate block mt-0.5 uppercase text-[10px]" title={formatEmployeeBankDeposit(employee)}>
                   {formatEmployeeBankDeposit(employee)}
                 </span>
