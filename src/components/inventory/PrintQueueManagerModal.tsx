@@ -224,44 +224,44 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-4xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header do Modal */}
-        <div className="px-5 py-4 bg-stone-900 dark:bg-stone-950 text-white flex items-center justify-between border-b border-stone-800 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-600/20 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
-              <Printer className="w-5 h-5" />
+        {/* Header 3D Metálico Acetinado */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between shrink-0 rounded-t-2xl">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Printer className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-extrabold tracking-tight font-['Outfit'] text-white">
-                Gerenciador de Fila de Impressão
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                GERENCIADOR DE FILA DE IMPRESSÃO
               </h3>
-              <p className="text-[11px] text-stone-400">
-                Pesquise produtos em <span className="font-mono text-sky-400">estoque_produtos</span>, defina a quantidade de etiquetas por peça e avance para a impressão em lote
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                Pesquise produtos em <span className="font-mono text-sky-600 dark:text-sky-400">estoque_produtos</span>, defina a quantidade de etiquetas e avance para a impressão em lote
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
-        {/* Corpo do Modal */}
-        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+        {/* Corpo do Modal - Blindagem Slim sem Rolagem Geral */}
+        <div className="p-3 sm:p-4 space-y-3 overflow-hidden flex-1 flex flex-col min-h-0">
           
           {/* Barra de Busca Rápida conectada à tabela 'public.estoque_produtos' */}
-          <div ref={searchContainerRef} className="relative">
-            <label className="block text-[11px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1.5 flex items-center justify-between">
+          <div ref={searchContainerRef} className="relative shrink-0">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-stone-300 mb-1 flex items-center justify-between">
               <span className="flex items-center space-x-1.5">
                 <Search className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 <span>Adicionar Produto à Fila de Impressão (Busca por Nome ou Código)</span>
@@ -275,14 +275,14 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
             </label>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onFocus={() => setIsDropdownOpen(true)}
                 onChange={(e) => {
-                  setSearchQuery(e.target.value);
+                  setSearchQuery(e.target.value.toUpperCase());
                   setIsDropdownOpen(true);
                 }}
                 onKeyDown={(e) => {
@@ -293,8 +293,8 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                     setIsDropdownOpen(false);
                   }
                 }}
-                placeholder="Digite o nome do produto, código interno ou código de barras para adicionar à fila..."
-                className="w-full pl-10 pr-24 py-2.5 bg-stone-50 dark:bg-stone-800/90 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-medium text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:bg-white dark:focus:bg-stone-800 focus:ring-2 focus:ring-sky-500 outline-none transition shadow-2xs"
+                placeholder="DIGITE O NOME DO PRODUTO, CÓDIGO INTERNO OU CÓDIGO DE BARRAS..."
+                className="w-full pl-9 pr-24 py-1.5 bg-slate-50 dark:bg-stone-800/90 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-stone-100 placeholder:text-slate-400 focus:bg-white dark:focus:bg-stone-800 focus:ring-2 focus:ring-sky-500 outline-none transition shadow-2xs uppercase"
               />
               {searchQuery ? (
                 <button
@@ -303,7 +303,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 py-0.5 rounded bg-stone-200/70 dark:bg-stone-700 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10.5px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-stone-200 px-2 py-0.5 rounded bg-slate-200/80 dark:bg-stone-700 cursor-pointer"
                 >
                   Limpar
                 </button>
@@ -311,7 +311,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsDropdownOpen((prev) => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2.5 py-1 rounded-lg hover:bg-sky-100 transition cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10.5px] font-bold text-slate-700 dark:text-stone-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] px-2 py-0.5 rounded-lg transition cursor-pointer"
                 >
                   {isDropdownOpen ? 'Ocultar Lista' : 'Ver Produtos'}
                 </button>
@@ -320,9 +320,9 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
             {/* Dropdown de Resultados da Busca Rápida */}
             {isDropdownOpen && (
-              <div className="absolute left-0 right-0 mt-1.5 z-30 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
+              <div className="absolute left-0 right-0 mt-1 z-30 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
                 {searchResults.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  <div className="p-3 text-center text-xs text-slate-500 dark:text-stone-400 font-medium">
                     Nenhum produto encontrado em <span className="font-mono">public.estoque_produtos</span> para "{searchQuery}".
                   </div>
                 ) : (
@@ -338,11 +338,11 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => handleSelectProduct(item)}
-                        className="w-full px-3.5 py-2.5 text-left hover:bg-sky-50/80 dark:hover:bg-sky-950/40 transition flex items-center justify-between gap-3 cursor-pointer group"
+                        className="w-full px-3 py-2 text-left hover:bg-sky-50/80 dark:hover:bg-sky-950/40 transition flex items-center justify-between gap-3 cursor-pointer group"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-2">
-                            <span className="font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100 truncate group-hover:text-sky-700 dark:group-hover:text-sky-300">
+                            <span className="font-bold text-xs text-slate-900 dark:text-stone-100 truncate group-hover:text-sky-700 dark:group-hover:text-sky-300">
                               {displayName}
                             </span>
                             {inQueueItem && (
@@ -352,8 +352,8 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                            <span className="font-mono font-bold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded">
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-slate-500 dark:text-stone-400 mt-0.5">
+                            <span className="font-mono font-bold text-slate-700 dark:text-stone-300 bg-slate-100 dark:bg-stone-800 px-1.5 py-0.2 rounded">
                               CÓD: {internalCode}
                             </span>
                             <span className="inline-flex items-center space-x-1 font-mono font-semibold text-sky-700 dark:text-sky-400">
@@ -361,7 +361,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                               <span>{formattedAddr}</span>
                             </span>
                             {salePrice > 0 && (
-                              <span className="font-mono font-bold text-stone-700 dark:text-stone-300">
+                              <span className="font-mono font-bold text-slate-700 dark:text-stone-300">
                                 {formatCurrencyBRL(salePrice)} / {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
                               </span>
                             )}
@@ -369,8 +369,8 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                         </div>
 
                         <div className="shrink-0">
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-sky-600 group-hover:bg-sky-700 text-white text-xs font-bold shadow-2xs transition">
-                            <Plus className="w-3.5 h-3.5" />
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] text-xs font-bold transition active:scale-95">
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Adicionar</span>
                           </span>
                         </div>
@@ -383,13 +383,13 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
           </div>
 
           {/* Cabeçalho da Tabela de Listagem da Fila */}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-between pt-0.5 shrink-0">
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200">
-                Lista de Impressão ({totalProductsInQueue} {totalProductsInQueue === 1 ? 'item adicionado' : 'itens adicionados'})
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-stone-200">
+                Lista de Impressão ({totalProductsInQueue} {totalProductsInQueue === 1 ? 'item' : 'itens'})
               </span>
               {totalLabelsToPrint > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-mono text-[11px] font-black">
+                <span className="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-mono text-[10.5px] font-bold">
                   Total: {totalLabelsToPrint} {totalLabelsToPrint === 1 ? 'etiqueta' : 'etiquetas'}
                 </span>
               )}
@@ -407,39 +407,39 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
             )}
           </div>
 
-          {/* Tabela de Itens Adicionados na Fila de Impressão */}
-          <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs">
+          {/* Tabela de Itens Adicionados na Fila de Impressão - Rolagem Estrita Apenas Interna */}
+          <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs max-h-[240px] sm:max-h-[280px] overflow-y-auto scrollbar-none flex-1">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-stone-100 dark:bg-stone-800/90 border-b border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
+                <thead className="bg-slate-100 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-10">
                   <tr>
-                    <th className="py-2.5 px-3.5 w-[42%]">
-                      ITEM (NOME DO PRODUTO & CÓDIGO INTERNO)
+                    <th className="py-2 px-3 w-[42%]">
+                      ITEM (PRODUTO & CÓDIGO)
                     </th>
-                    <th className="py-2.5 px-3 w-[26%]">
-                      LOCALIZAÇÃO (ENDEREÇO FORMATADO)
+                    <th className="py-2 px-3 w-[26%]">
+                      LOCALIZAÇÃO (ENDEREÇO)
                     </th>
-                    <th className="py-2.5 px-3 text-center w-[22%]">
-                      QUANTIDADE DE ETIQUETAS
+                    <th className="py-2 px-3 text-center w-[22%]">
+                      QUANTIDADE
                     </th>
-                    <th className="py-2.5 px-3.5 text-right w-[10%]">
+                    <th className="py-2 px-3 text-right w-[10%]">
                       AÇÕES
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-200/70 dark:divide-stone-800">
+                <tbody className="divide-y divide-slate-200/70 dark:divide-stone-800">
                   {queue.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-10 px-4 text-center">
-                        <div className="max-w-sm mx-auto space-y-2">
-                          <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-400 flex items-center justify-center mx-auto">
-                            <Barcode className="w-5 h-5" />
+                      <td colSpan={4} className="py-8 px-4 text-center">
+                        <div className="max-w-sm mx-auto space-y-1.5">
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-stone-800 text-slate-400 flex items-center justify-center mx-auto">
+                            <Barcode className="w-4.5 h-4.5" />
                           </div>
-                          <p className="text-xs sm:text-sm font-bold text-stone-700 dark:text-stone-300">
+                          <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-stone-300">
                             Sua fila de impressão está vazia
                           </p>
-                          <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
-                            Use a barra de busca rápida acima para pesquisar produtos por <strong>nome</strong> ou <strong>código</strong> e adicioná-los imediatamente a esta lista.
+                          <p className="text-[11px] text-slate-500 dark:text-stone-400 leading-relaxed">
+                            Use a busca rápida acima para pesquisar produtos por <strong>nome</strong> ou <strong>código</strong> e adicioná-los à lista.
                           </p>
                         </div>
                       </td>
@@ -453,19 +453,19 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                       return (
                         <tr
                           key={item.id}
-                          className="hover:bg-stone-50/80 dark:hover:bg-stone-800/40 transition"
+                          className="hover:bg-slate-50/80 dark:hover:bg-stone-800/40 transition"
                         >
                           {/* 1. Item (Nome do produto e código interno) */}
-                          <td className="py-2.5 px-3.5 align-middle">
-                            <div className="font-bold text-stone-900 dark:text-stone-100 text-xs sm:text-sm leading-snug">
+                          <td className="py-2 px-3 align-middle">
+                            <div className="font-bold text-slate-900 dark:text-stone-100 text-xs leading-snug">
                               {displayName}
                             </div>
-                            <div className="flex items-center space-x-2 mt-0.5">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-mono text-[10.5px] font-bold">
+                            <div className="flex items-center space-x-1.5 mt-0.5">
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 font-mono text-[10px] font-bold">
                                 CÓD: {internalCode}
                               </span>
                               {(item.brand || item.marca) && (
-                                <span className="text-[10.5px] font-semibold text-stone-500 dark:text-stone-400">
+                                <span className="text-[10px] font-semibold text-slate-500 dark:text-stone-400">
                                   • {item.brand || item.marca}
                                 </span>
                               )}
@@ -473,27 +473,24 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                           </td>
 
                           {/* 2. Localização (Endereço formatado para conferência) */}
-                          <td className="py-2.5 px-3 align-middle">
-                            <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200/80 dark:border-sky-800/70 text-sky-900 dark:text-sky-200 font-mono font-black text-xs">
-                              <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <td className="py-2 px-3 align-middle">
+                            <div className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200/80 dark:border-sky-800/70 text-sky-900 dark:text-sky-200 font-mono font-bold text-[11px]">
+                              <MapPin className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
                               <span>{formattedAddress}</span>
-                            </div>
-                            <div className="text-[9.5px] font-semibold text-stone-400 dark:text-stone-500 mt-0.5 font-mono pl-1">
-                              SETOR.RUA.EST.NÍV.BOX
                             </div>
                           </td>
 
                           {/* 3. Quantidade de Etiquetas (Input number com botões - e +) */}
-                          <td className="py-2.5 px-3 align-middle">
-                            <div className="flex items-center justify-center space-x-1.5">
+                          <td className="py-2 px-3 align-middle">
+                            <div className="flex items-center justify-center space-x-1">
                               <button
                                 type="button"
                                 onClick={() => handleUpdateQuantity(item.id, quantity - 1)}
                                 disabled={quantity <= 1}
-                                className="w-7 h-7 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40 transition flex items-center justify-center font-bold cursor-pointer"
+                                className="w-6 h-6 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700 shadow-2xs disabled:opacity-40 transition flex items-center justify-center font-bold cursor-pointer active:scale-95"
                                 title="Diminuir quantidade"
                               >
-                                <Minus className="w-3.5 h-3.5" />
+                                <Minus className="w-3 h-3" />
                               </button>
                               <input
                                 type="number"
@@ -503,28 +500,28 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                                 onChange={(e) =>
                                   handleUpdateQuantity(item.id, parseInt(e.target.value, 10) || 1)
                                 }
-                                className="w-14 h-7 text-center font-mono font-black text-xs sm:text-sm rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 outline-none"
+                                className="w-12 h-6 text-center font-mono font-bold text-xs rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleUpdateQuantity(item.id, quantity + 1)}
-                                className="w-7 h-7 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 transition flex items-center justify-center font-bold cursor-pointer"
+                                className="w-6 h-6 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700 shadow-2xs transition flex items-center justify-center font-bold cursor-pointer active:scale-95"
                                 title="Aumentar quantidade"
                               >
-                                <Plus className="w-3.5 h-3.5" />
+                                <Plus className="w-3 h-3" />
                               </button>
                             </div>
                           </td>
 
                           {/* 4. Ações (Botão com ícone de LIXEIRA vermelha) */}
-                          <td className="py-2.5 px-3.5 text-right align-middle">
+                          <td className="py-2 px-3 text-right align-middle">
                             <button
                               type="button"
                               onClick={() => handleRemoveFromQueue(item.id)}
-                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 bg-rose-50/70 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/80 border border-rose-200/60 dark:border-rose-800/50 transition cursor-pointer inline-flex items-center justify-center"
+                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 border border-rose-300/80 dark:border-rose-800/60 shadow-2xs transition cursor-pointer active:scale-95 inline-flex items-center justify-center"
                               title="Remover item da fila de impressão"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </td>
                         </tr>
@@ -538,23 +535,23 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
         </div>
 
-        {/* Rodapé do Modal com Gatilho de Impressão Final */}
-        <div className="px-5 py-3.5 bg-stone-50 dark:bg-stone-950/90 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div className="text-xs text-stone-600 dark:text-stone-400 font-medium">
+        {/* Rodapé 3D Metálico Acetinado com Gatilho de Impressão Final */}
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0 rounded-b-2xl">
+          <div className="text-xs text-slate-600 dark:text-stone-400 font-medium">
             {queue.length > 0 ? (
               <span>
-                Pronto para gerar <strong className="text-stone-900 dark:text-white font-mono">{totalLabelsToPrint}</strong> {totalLabelsToPrint === 1 ? 'etiqueta' : 'etiquetas'} de <strong className="text-stone-900 dark:text-white font-mono">{totalProductsInQueue}</strong> {totalProductsInQueue === 1 ? 'produto' : 'produtos'}.
+                Pronto para gerar <strong className="text-slate-900 dark:text-white font-mono">{totalLabelsToPrint}</strong> {totalLabelsToPrint === 1 ? 'etiqueta' : 'etiquetas'} de <strong className="text-slate-900 dark:text-white font-mono">{totalProductsInQueue}</strong> {totalProductsInQueue === 1 ? 'produto' : 'produtos'}.
               </span>
             ) : (
               <span>Selecione ao menos 1 produto na busca acima para avançar.</span>
             )}
           </div>
 
-          <div className="flex items-center justify-end space-x-2.5">
+          <div className="flex items-center justify-end space-x-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-200/60 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95"
             >
               Cancelar
             </button>
@@ -563,11 +560,11 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
               type="button"
               disabled={queue.length === 0}
               onClick={() => onAdvanceToPrint(queue)}
-              className="px-5 py-2.5 text-xs sm:text-sm font-extrabold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 disabled:opacity-40 disabled:pointer-events-none rounded-xl shadow-md transition flex items-center space-x-2 cursor-pointer active:scale-98"
+              className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-3.5 h-3.5" />
               <span>Avançar para Impressão</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
