@@ -16,6 +16,7 @@ import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../..
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal } from '../services/ServiceFormModal';
+import { PdvView } from './PdvView';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 
@@ -47,6 +48,9 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   // Modal State for "+ Nova Venda" & Edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
+
+  // Tab State: Dashboard, PDV ou Contratos
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pdv' | 'contratos'>('dashboard');
 
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
 
@@ -230,10 +234,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   return (
     <div 
       id="venda-module-root"
-      className="w-full max-w-none space-y-3.5 antialiased"
+      className={`w-full max-w-none space-y-2.5 antialiased ${activeTab === 'pdv' ? 'h-[calc(100vh-130px)] flex flex-col overflow-hidden' : ''}`}
     >
-      {/* 1. CABEÇALHO PADRONIZADO 3D SLIM */}
-      <header className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
+      {/* 1. CABEÇALHO PADRONIZADO 3D SLIM COM BARRA DE NAVEGAÇÃO DE ABAS */}
+      <header className="no-print flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Venda
@@ -242,6 +246,57 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
             Gestão e controle de vendas agrícolas, fornecimento de silagem e contratos
           </p>
         </div>
+
+        {/* Barra de Navegação Superior Integrada de 3 Abas 3D Acetinadas */}
+        <nav 
+          aria-label="Abas de Venda e PDV"
+          className="flex items-center gap-1 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] rounded-xl overflow-x-auto scrollbar-none"
+        >
+          <button
+            type="button"
+            id="tab-dashboard-vendas"
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
+              activeTab === 'dashboard'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>DASHBOARD VENDAS</span>
+          </button>
+
+          <button
+            type="button"
+            id="tab-pdv-frente-caixa"
+            onClick={() => setActiveTab('pdv')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
+              activeTab === 'pdv'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+            }`}
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            <span>PDV (FRENTE DE CAIXA)</span>
+          </button>
+
+          <button
+            type="button"
+            id="tab-nova-venda-contratos"
+            onClick={() => {
+              setActiveTab('contratos');
+              handleOpenNew();
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
+              activeTab === 'contratos'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+            }`}
+          >
+            <FileCheck2 className="w-3.5 h-3.5" />
+            <span>NOVA VENDA (CONTRATOS)</span>
+          </button>
+        </nav>
 
         {/* Botão Nova Venda 3D Acetinado */}
         <div className="flex items-center gap-2">
@@ -257,7 +312,40 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
         </div>
       </header>
 
-      {/* 2. CARDS DE INDICADORES (KPIS) SLIM */}
+      {/* RENDERIZAÇÃO CONDICIONAL: PDV vs DASHBOARD / CONTRATOS */}
+      {activeTab === 'pdv' ? (
+        <PdvView
+          clients={clients}
+          companyProfile={companyProfile}
+          onSaveService={handleSaveService}
+          salesCount={salesRecords.length}
+        />
+      ) : (
+        <>
+          {activeTab === 'contratos' && (
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-stone-900 dark:to-stone-850 border border-emerald-300 dark:border-stone-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <span className="text-xs font-bold text-zinc-900 dark:text-white block">
+                    Gestão Comercial de Contratos e Fechamentos de Silagem
+                  </span>
+                  <span className="text-[11px] text-zinc-600 dark:text-stone-400">
+                    Formulário padrão de fechamento comercial de silagem, medição por área/toneladas e logística.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenNew}
+                className="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs cursor-pointer shrink-0"
+              >
+                + Abrir Formulário de Contrato
+              </button>
+            </div>
+          )}
+
+          {/* 2. CARDS DE INDICADORES (KPIS) SLIM */}
       <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
           <div className="flex items-center justify-between">
@@ -520,6 +608,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           </table>
         </div>
       </section>
+      </>
+      )}
 
       {/* 5. MODAL DE CADASTRO / EDIÇÃO */}
       <ServiceFormModal
