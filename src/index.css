@@ -893,8 +893,11 @@ html:not(.dark) #root {
 }
 
 html:not(.dark) main#crm-main-content,
-html:not(.dark) div#root > div > div > main#crm-main-content {
-  background-color: #cdcdcd !important;
+html:not(.dark) div#root > div > div > main#crm-main-content,
+html:not(.dark) #desktop-outer-frame-container #desktop-window-mother-frame main#crm-main-content,
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
+  background-color: #e0e6f1 !important;
   color: #18181b;
 }
 
@@ -902,7 +905,7 @@ html.dark main#crm-main-content {
   background-color: #0c0a09 !important;
 }
 
-/* 2. Janela de Categorias (Menu Principal / Sidebar Esquerda) */
+/* 2. Janela de Categorias (Menu Principal / Sidebar Esquerda) no Modo Claro (Light) */
 html:not(.dark) aside#main-sidebar,
 html:not(.dark) aside#main-sidebar > div,
 html:not(.dark) aside#main-sidebar > div:nth-of-type(1),
@@ -910,19 +913,25 @@ html:not(.dark) aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(1),
 html:not(.dark) aside#main-sidebar > div:nth-of-type(1) > nav:nth-of-type(1),
 html:not(.dark) aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(2),
 html:not(.dark) aside#main-sidebar > div:nth-of-type(2),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(3),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(3) > div,
 html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(1),
 html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1) > nav:nth-of-type(1),
 html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(2),
 html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1),
 html:not(.dark) div#root > div > aside#main-sidebar,
 html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(2),
-html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1),
-html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2),
-html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1),
-html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1),
-html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(2) {
-  background-color: #d0d0d0 !important;
-  border-color: #a8a8a8 !important;
+html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(3),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(2),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(3),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) {
+  background-color: #edf4ff !important;
+  border-color: #cbd9eb !important;
 }
 
 /* 3. Cards de Indicadores e Painéis Globais (.crm-card) */
