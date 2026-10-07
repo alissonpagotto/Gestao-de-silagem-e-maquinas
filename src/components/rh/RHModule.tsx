@@ -475,7 +475,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           </p>
         </div>
 
-        {activeTab === 'funcionarios' ? (
+        {activeTab === 'funcionarios' && (
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {/* Botão Imprimir Lista reposicionado */}
             <button
@@ -498,15 +498,6 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <span>Novo Cadastro</span>
             </button>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setActiveTab('funcionarios')}
-            className="self-start sm:self-auto inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-slate-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] text-xs font-bold transition cursor-pointer"
-          >
-            <UserSquare2 className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
-            <span>Cadastros & CNH</span>
-          </button>
         )}
       </header>
 
