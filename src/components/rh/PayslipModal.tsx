@@ -433,9 +433,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             {/* Sub-bloco da Esquerda (85% da largura): Dados textuais do colaborador */}
             <div className={`${isPixPayment && pixQrCodeUrl ? 'w-[85%] flex-1' : 'w-full'} min-w-0`}>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1 sm:gap-y-1.5 print:gap-y-0.5 print:gap-x-2 text-xs">
-                <div>
+                <div className="col-span-2 sm:col-span-2 lg:col-span-2">
                   <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Colaborador:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight truncate">{payroll.employeeName}</span>
+                  <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight">{payroll.employeeName}</span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Função / Cargo:</span>
@@ -463,7 +463,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     {employee?.contractType || 'CLT'}
                   </span>
                 </div>
-                <div className="sm:col-span-3 lg:col-span-2">
+                <div className="col-span-2 sm:col-span-3 lg:col-span-2">
                   <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Banco para Depósito:</span>
                   <span className="font-bold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs print:text-[9.5px] truncate block leading-tight" title={formatEmployeeBankDeposit(employee)}>
                     {formatEmployeeBankDeposit(employee)}
@@ -475,7 +475,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
             {isPixPayment && pixQrCodeUrl && (
               <div 
-                className="w-[15%] min-w-[84px] max-w-[110px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs print:border-black self-center"
+                className="w-[15%] min-w-[88px] max-w-[115px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs print:border-black self-center"
               >
                 <img
                   src={pixQrCodeUrl}
@@ -486,9 +486,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   crossOrigin="anonymous"
                 />
                 <span 
-                  className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-stone-600 dark:text-stone-400 text-center block mt-0.5 leading-tight select-none whitespace-nowrap"
+                  className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-slate-500 dark:text-stone-400 text-center block mt-0.5 leading-tight select-none"
                 >
-                  QR CODE PARA PAGAMENTO
+                  QR CODE PIX PARA PAGAMENTO
                 </span>
               </div>
             )}

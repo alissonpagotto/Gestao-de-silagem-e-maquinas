@@ -175,9 +175,9 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
           {/* Sub-bloco da Esquerda (85% da largura): Dados textuais do colaborador */}
           <div className={`${isPixPayment && pixQrCodeUrl ? 'w-[85%] flex-1' : 'w-full'} min-w-0`}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 text-[11px]">
-              <div className="col-span-2 sm:col-span-1">
+              <div className="col-span-2 sm:col-span-2">
                 <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Colaborador:</span>
-                <span className="font-bold text-stone-900 truncate block mt-0.5">
+                <span className="font-bold text-stone-900 block mt-0.5">
                   {employee?.name || 'Selecione um funcionário...'}
                 </span>
               </div>
@@ -208,7 +208,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                   {employee?.contractType || 'CLT'}
                 </span>
               </div>
-              <div className="col-span-2 sm:col-span-1">
+              <div className="col-span-2 sm:col-span-3">
                 <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Depósito:</span>
                 <span className="font-semibold text-stone-800 truncate block mt-0.5" title={formatEmployeeBankDeposit(employee)}>
                   {formatEmployeeBankDeposit(employee)}
@@ -220,7 +220,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
           {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
           {isPixPayment && pixQrCodeUrl && (
             <div 
-              className="w-[15%] min-w-[80px] max-w-[100px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs self-center"
+              className="w-[15%] min-w-[88px] max-w-[110px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs self-center"
             >
               <img
                 src={pixQrCodeUrl}
@@ -230,9 +230,9 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 height="80"
               />
               <span 
-                className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-stone-600 text-center block mt-0.5 leading-tight select-none whitespace-nowrap"
+                className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-slate-500 text-center block mt-0.5 leading-tight select-none"
               >
-                QR CODE PARA PAGAMENTO
+                QR CODE PIX PARA PAGAMENTO
               </span>
             </div>
           )}
