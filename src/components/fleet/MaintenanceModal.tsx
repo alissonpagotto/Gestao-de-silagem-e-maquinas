@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   Wrench, 
@@ -17,6 +17,7 @@ import {
   Package, 
   ShoppingCart, 
   Search,
+  Barcode,
   CheckCircle2, 
   HelpCircle,
   Clock,
@@ -345,6 +346,30 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const [autocompleteIndex, setAutocompleteIndex] = useState<number | null>(null);
   const [unitCostRawInputs, setUnitCostRawInputs] = useState<Record<string, string>>({});
 
+  // --- BARRA HORIZONTAL RÁPIDA DE ENTRADA (LÓGICA PDV NA SEÇÃO DE PEÇAS DA OS) ---
+  const [osPartInputQtde, setOsPartInputQtde] = useState<string>('1');
+  const [osPartSearchQuery, setOsPartSearchQuery] = useState<string>('');
+  const [osPartSelectedProduct, setOsPartSelectedProduct] = useState<InventoryItem | null>(null);
+  const [osPartInputUnitCost, setOsPartInputUnitCost] = useState<string>('');
+  const [isOsPartDropdownOpen, setIsOsPartDropdownOpen] = useState<boolean>(false);
+  const [osPartHighlightedIndex, setOsPartHighlightedIndex] = useState<number>(0);
+  const osPartSearchContainerRef = useRef<HTMLDivElement>(null);
+  const osPartSearchInputRef = useRef<HTMLInputElement>(null);
+  const osPartQtyInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        osPartSearchContainerRef.current &&
+        !osPartSearchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsOsPartDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // --- MÃO DE OBRA (LISTA DINÂMICA DE MECÂNICOS & AVULSO) ---
   const [laborItems, setLaborItems] = useState<MaintenanceLaborItem[]>([]);
   const [laborCost, setLaborCost] = useState('');
@@ -414,6 +439,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         setUsePartsItemList(true);
       }
       setUnitCostRawInputs({});
+      setOsPartInputQtde('1');
+      setOsPartSearchQuery('');
+      setOsPartSelectedProduct(null);
+      setOsPartInputUnitCost('');
+      setIsOsPartDropdownOpen(false);
 
       // Mão de Obra
       if (editingLog.laborItems && editingLog.laborItems.length > 0) {
@@ -505,6 +535,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       setPartsCostManual('');
       setUsePartsItemList(true);
       setUnitCostRawInputs({});
+      setOsPartInputQtde('1');
+      setOsPartSearchQuery('');
+      setOsPartSelectedProduct(null);
+      setOsPartInputUnitCost('');
+      setIsOsPartDropdownOpen(false);
       setLaborItems([]);
       setLaborCost('');
       setNextServiceDue('');
@@ -847,6 +882,104 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       });
     }
     setActiveSearchRowIndex(null);
+  };
+
+  // --- LÓGICA PDV HORIZONTAL NA SEÇÃO DE PEÇAS DA OS (INTEGRADA A 'colaca_silagem_estoque_produtos') ---
+  const osPartSearchResults = useMemo(() => {
+    if (!osPartSearchQuery.trim()) return [];
+    const q = osPartSearchQuery.toLowerCase().trim();
+    // Prioriza busca dinâmica integrada à tabela do estoque
+    return allInventoryList.filter(item => {
+      const anyItem = item as any;
+      const name = String(item.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || anyItem.codigo || '').toLowerCase();
+      const barcode = String(item.barcode || anyItem.codigo_barras || '').toLowerCase();
+      const cat = String(item.categoria || item.category || anyItem.tipo_item || '').toLowerCase();
+      return name.includes(q) || code.includes(q) || barcode.includes(q) || cat.includes(q);
+    }).slice(0, 10);
+  }, [osPartSearchQuery, allInventoryList]);
+
+  const handleSelectOsPartSuggestion = (item: InventoryItem) => {
+    setOsPartSelectedProduct(item);
+    setOsPartSearchQuery(String(item.nome_comercial || item.name || '').toUpperCase());
+    const priceVal = getPriceForProductByRule(item, defaultPriceType);
+    setOsPartInputUnitCost(priceVal > 0 ? priceVal.toFixed(2).replace('.', ',') : '0,00');
+    setIsOsPartDropdownOpen(false);
+  };
+
+  const handleInsertOsPart = () => {
+    const rawDesc = osPartSearchQuery.trim();
+    if (!rawDesc && !osPartSelectedProduct) return;
+
+    const qty = Math.max(0.01, parseCleanPriceNumber(osPartInputQtde) || 1);
+    const unitCost = parseCleanPriceNumber(osPartInputUnitCost);
+
+    // Se o usuário digitou ou deu Enter direto, busca correspondência inteligente por código ou nome
+    const resolvedProduct = osPartSelectedProduct || allInventoryList.find(inv => {
+      const anyInv = inv as any;
+      const q = rawDesc.toLowerCase();
+      return (inv.code && String(inv.code).toLowerCase() === q) ||
+             (anyInv.codigo && String(anyInv.codigo).toLowerCase() === q) ||
+             (inv.barcode && String(inv.barcode).toLowerCase() === q) ||
+             (anyInv.codigo_barras && String(anyInv.codigo_barras).toLowerCase() === q) ||
+             (inv.name && String(inv.name).toLowerCase() === q) ||
+             (inv.nome_comercial && String(inv.nome_comercial).toLowerCase() === q);
+    });
+
+    const finalDescription = resolvedProduct
+      ? String(resolvedProduct.nome_comercial || resolvedProduct.name || rawDesc).trim().toUpperCase()
+      : rawDesc.toUpperCase();
+
+    const finalUnit = resolvedProduct?.unit || resolvedProduct?.unidade_medida || 'un';
+    const totalCost = Math.round(qty * unitCost * 100) / 100;
+
+    const newItem: MaintenancePartItem = {
+      id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      inventoryItemId: resolvedProduct?.id,
+      description: finalDescription,
+      origin: 'almoxarifado_interno',
+      quantity: qty,
+      unit: finalUnit,
+      unitCost: unitCost,
+      totalCost: totalCost,
+      stockDeducted: false,
+    };
+
+    setUsePartsItemList(true);
+    setPartsItems(prev => [...prev, newItem]);
+
+    // Limpa campos superiores para a próxima busca
+    setOsPartInputQtde('1');
+    setOsPartSearchQuery('');
+    setOsPartSelectedProduct(null);
+    setOsPartInputUnitCost('');
+    setIsOsPartDropdownOpen(false);
+    osPartSearchInputRef.current?.focus();
+  };
+
+  const resolvePartDisplayCode = (item: MaintenancePartItem, index: number) => {
+    const stockItem = item.inventoryItemId 
+      ? allInventoryList.find(inv => inv.id === item.inventoryItemId) 
+      : allInventoryList.find(inv => 
+          (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
+          (inv.code !== undefined && inv.code !== null && item.description && String(inv.code).trim().toLowerCase() === String(item.description).trim().toLowerCase())
+        );
+    return stockItem?.code || (stockItem as any)?.codigo || (item.inventoryItemId ? item.inventoryItemId.slice(0, 8).toUpperCase() : `#${String(index + 1).padStart(3, '0')}`);
+  };
+
+  const resolvePartCategory = (item: MaintenancePartItem) => {
+    const stockItem = item.inventoryItemId 
+      ? allInventoryList.find(inv => inv.id === item.inventoryItemId) 
+      : allInventoryList.find(inv => 
+          (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
+          (inv.code !== undefined && inv.code !== null && item.description && String(inv.code).trim().toLowerCase() === String(item.description).trim().toLowerCase())
+        );
+    if (stockItem) {
+      return String(stockItem.categoria || stockItem.category || stockItem.tipo_item || 'ESTOQUE').toUpperCase();
+    }
+    if (item.origin === 'recuperada_externa') return 'SERVIÇO EXTERNO';
+    if (item.origin === 'externo_compra') return 'COMPRA NOVA';
+    return 'PEÇAS & SERVIÇOS';
   };
 
   const handleRemovePartItem = (index: number) => {
@@ -2081,7 +2214,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={handleAddPartItem}
+                    onClick={() => {
+                      osPartSearchInputRef.current?.focus();
+                      osPartSearchInputRef.current?.select();
+                    }}
                     className="inline-flex items-center space-x-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -2090,316 +2226,282 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                 </div>
               </div>
 
-              {/* Tabela / Grid de Peças Horizontal Compacta (Padrão ERP Clássico) */}
-              {partsItems.length === 0 ? (
-                <div className="p-8 text-center border-2 border-dashed border-zinc-300 bg-white rounded-xl space-y-3">
-                  <Package className="w-8 h-8 mx-auto text-zinc-400" />
-                  <p className="text-xs text-zinc-600 font-medium">
-                    Nenhum produto ou serviço lançado nesta Ordem de Serviço.
-                  </p>
-                  <div className="flex justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleAddPartItem}
-                      className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
-                    >
-                      + Adicionar Produto / Peça (Linha)
-                    </button>
+              {/* ============================================================== */}
+              {/* 1. CONJUNTO DE INPUTS DE ENTRADA SUPERIOR (LÓGICA PDV HORIZONTAL) */}
+              {/* ============================================================== */}
+              <div className="bg-slate-50 dark:bg-stone-800/60 p-2.5 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  
+                  {/* Input [ QTDE * ] */}
+                  <div className="col-span-3 sm:col-span-1">
+                    <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 text-center">
+                      QTDE *
+                    </label>
+                    <input
+                      ref={osPartQtyInputRef}
+                      type="text"
+                      inputMode="decimal"
+                      value={osPartInputQtde}
+                      onChange={(e) => setOsPartInputQtde(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleInsertOsPart();
+                        }
+                      }}
+                      className="w-full text-center px-1.5 py-1.5 rounded-xl border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-slate-900 dark:text-white shadow-2xs focus:ring-2 focus:ring-sky-500 outline-none transition"
+                      placeholder="1"
+                    />
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col border border-zinc-300 rounded-xl overflow-hidden bg-white shadow-2xs min-h-[440px]">
-                  <div className="flex-1 overflow-x-auto overflow-y-auto">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[840px]">
-                      <colgroup>
-                        <col className="w-[8%]" />
-                        <col className="w-[34%]" />
-                        <col className="w-[18%]" />
-                        <col className="w-[18%]" />
-                        <col className="w-[9%]" />
-                        <col className="w-[9%]" />
-                        <col className="w-[4%]" />
-                      </colgroup>
-                      <thead>
-                        <tr className="bg-zinc-100 border-b border-zinc-300 text-[10px] font-bold text-zinc-700 uppercase tracking-wider select-none sticky top-0 z-10">
-                          <th className="py-2.5 px-3">NUM. (ID)</th>
-                          <th className="py-2.5 px-3">DESCRIÇÃO</th>
-                          <th className="py-2.5 px-3">ORIGEM</th>
-                          <th className="py-2.5 px-3">VALOR UNITÁRIO</th>
-                          <th className="py-2.5 px-3 text-center">QTDE</th>
-                          <th className="py-2.5 px-3 text-right">TOTAL</th>
-                          <th className="py-2.5 px-2 text-center"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200 text-xs">
-                        {partsItems.map((item, index) => {
-                          const stockItem = item.inventoryItemId 
-                            ? allInventoryList.find(inv => inv.id === item.inventoryItemId) 
-                            : allInventoryList.find(inv => 
-                                (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
-                                (inv.code !== undefined && inv.code !== null && item.description && String(inv.code).trim().toLowerCase() === String(item.description).trim().toLowerCase())
-                              ) || null;
-                          const displayCode = stockItem?.code || (item.inventoryItemId ? item.inventoryItemId.slice(0, 8).toUpperCase() : `#${String(index + 1).padStart(3, '0')}`);
 
-                          // Opções de preços sincronizadas com o Estoque e Margens Comerciais
-                          const baseUnitCost = (stockItem?.unitCost !== undefined && stockItem.unitCost > 0)
-                            ? stockItem.unitCost
-                            : (item.unitCost || 0);
+                  {/* Input [ 🔍 PESQUISAR PRODUTO / PEÇA / SERVIÇO ] */}
+                  <div ref={osPartSearchContainerRef} className="col-span-9 sm:col-span-6 relative">
+                    <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center justify-between">
+                      <span className="flex items-center space-x-1.5">
+                        <Search className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                        <span>PESQUISAR PRODUTO / PEÇA / SERVIÇO</span>
+                      </span>
+                    </label>
 
-                          const costPriceVal = baseUnitCost;
+                    <div className="relative">
+                      <input
+                        ref={osPartSearchInputRef}
+                        type="text"
+                        value={osPartSearchQuery}
+                        onFocus={() => {
+                          if (osPartSearchQuery.trim().length > 0 || osPartSearchResults.length > 0) {
+                            setIsOsPartDropdownOpen(true);
+                          }
+                        }}
+                        onClick={() => {
+                          if (osPartSearchResults.length > 0) {
+                            setIsOsPartDropdownOpen(true);
+                          }
+                        }}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setOsPartSearchQuery(val);
+                          setOsPartSelectedProduct(null);
+                          setIsOsPartDropdownOpen(true);
+                          setOsPartHighlightedIndex(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setIsOsPartDropdownOpen(true);
+                            setOsPartHighlightedIndex((prev) => Math.min(osPartSearchResults.length - 1, prev + 1));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setOsPartHighlightedIndex((prev) => Math.max(0, prev - 1));
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            setIsOsPartDropdownOpen(false);
+                            if (isOsPartDropdownOpen && osPartSearchResults.length > 0 && osPartHighlightedIndex >= 0 && osPartSearchResults[osPartHighlightedIndex]) {
+                              handleSelectOsPartSuggestion(osPartSearchResults[osPartHighlightedIndex]);
+                            } else {
+                              handleInsertOsPart();
+                            }
+                          } else if (e.key === 'Escape') {
+                            setIsOsPartDropdownOpen(false);
+                          }
+                        }}
+                        placeholder="DIGITE O NOME, CÓDIGO OU CÓDIGO DE BARRAS..."
+                        className="w-full pl-3 pr-9 py-1.5 rounded-xl border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-slate-900 dark:text-white uppercase shadow-2xs focus:ring-2 focus:ring-sky-500 outline-none transition placeholder:normal-case placeholder:font-medium placeholder:text-slate-400"
+                      />
+                      <Barcode className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
 
-                          const profitMarginVal = stockItem?.profitMargin ?? 30;
-                          const salePriceVal = (stockItem?.salePrice !== undefined && stockItem.salePrice > 0)
-                            ? stockItem.salePrice
-                            : (baseUnitCost > 0 ? Math.round(baseUnitCost * (1 + profitMarginVal / 100) * 100) / 100 : 0);
-
-                          const wholesaleMarginVal = stockItem?.wholesaleMargin ?? 15;
-                          const wholesalePriceVal = (stockItem?.wholesalePrice !== undefined && stockItem.wholesalePrice > 0)
-                            ? stockItem.wholesalePrice
-                            : (baseUnitCost > 0 ? Math.round(baseUnitCost * (1 + wholesaleMarginVal / 100) * 100) / 100 : 0);
-
-                          const promoMarginVal = stockItem?.promoMargin ?? 10;
-                          const promoPriceVal = (stockItem?.promoPrice !== undefined && stockItem.promoPrice > 0)
-                            ? stockItem.promoPrice
-                            : (baseUnitCost > 0 ? Math.round(baseUnitCost * (1 + promoMarginVal / 100) * 100) / 100 : 0);
-
-                          const rowPriceOptions = [
-                            {
-                              key: 'custo',
-                              name: 'Valor de Custo',
-                              detail: stockItem?.unitCost ? 'Custo padrão do estoque' : 'Custo base cadastrado',
-                              value: costPriceVal,
-                              badge: 'Custo',
-                              badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-300',
-                            },
-                            {
-                              key: 'venda',
-                              name: 'Preço Final / Venda',
-                              detail: stockItem?.salePrice ? `Margem: +${profitMarginVal}% (tabela fixa)` : `Margem padrão: +${profitMarginVal}%`,
-                              value: salePriceVal,
-                              badge: 'Venda Final',
-                              badgeClass: 'bg-zinc-200 text-zinc-800 border-zinc-300',
-                            },
-                            {
-                              key: 'atacado',
-                              name: 'Preço de Atacado',
-                              detail: stockItem?.wholesalePrice ? `Margem: +${wholesaleMarginVal}% (atacado)` : `Margem atacado: +${wholesaleMarginVal}%`,
-                              value: wholesalePriceVal,
-                              badge: 'Atacado',
-                              badgeClass: 'bg-zinc-100 text-zinc-800 border-zinc-300',
-                            },
-                            {
-                              key: 'promocional',
-                              name: 'Preço Promocional',
-                              detail: stockItem?.promoPrice ? `Margem: +${promoMarginVal}% (promocional)` : `Margem promo: +${promoMarginVal}%`,
-                              value: promoPriceVal,
-                              badge: 'Promocional',
-                              badgeClass: 'bg-zinc-100 text-zinc-800 border-zinc-300',
-                            },
-                          ];
-
-                          // Itens correspondentes para autocomplete rápido inline
-                          const autocompleteMatches = (autocompleteIndex === index && item.description.trim().length >= 2)
-                            ? allInventoryList.filter(inv => 
-                                String(inv.name || '').toLowerCase().includes(item.description.toLowerCase()) ||
-                                (inv.code !== undefined && inv.code !== null && String(inv.code).toLowerCase().includes(item.description.toLowerCase()))
-                              ).slice(0, 6)
-                            : [];
+                    {/* Dropdown 100% Oculto por padrão, abrindo só ao focar/digitar */}
+                    {isOsPartDropdownOpen && osPartSearchResults.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800 scrollbar-none">
+                        {osPartSearchResults.map((prod, idx) => {
+                          const displayName = String(prod.nome_comercial || prod.name || '').toUpperCase();
+                          const internalCode = prod.code || (prod as any).codigo || prod.id.slice(0, 6).toUpperCase();
+                          const catName = String(prod.categoria || prod.category || prod.tipo_item || 'ESTOQUE').toUpperCase();
+                          const salePrice = Number(prod.salePrice ?? prod.preco_venda_varejo ?? getPriceForProductByRule(prod, defaultPriceType) ?? prod.unitCost ?? 0);
+                          const isHighlighted = idx === osPartHighlightedIndex;
 
                           return (
-                            <tr 
-                              key={item.id || index}
-                              data-baixado={item.stockDeducted ? "true" : "false"}
-                              className={`item-row transition-colors hover:bg-zinc-50 ${
-                                item.stockDeducted ? 'item-salvo' : 'item-pendente-baixa'
-                              } bg-white`}
+                            <button
+                              key={prod.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSelectOsPartSuggestion(prod);
+                              }}
+                              className={`w-full px-3 py-2 text-left transition flex items-center justify-between gap-2.5 cursor-pointer ${
+                                isHighlighted
+                                  ? 'bg-sky-100 dark:bg-sky-950/60'
+                                  : 'hover:bg-sky-50/80 dark:hover:bg-sky-950/30'
+                              }`}
                             >
-                              {/* 1. Num. (ID) */}
-                              <td className="py-2 px-3 align-middle font-mono text-[11px] font-semibold text-zinc-600 whitespace-nowrap">
-                                <div className="flex items-center space-x-1.5">
-                                  <span className="bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-300 text-zinc-800 font-bold">
-                                    {displayCode}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-bold text-xs text-slate-900 dark:text-stone-100 truncate">
+                                    {displayName}
                                   </span>
-                                  {item.stockDeducted ? (
-                                    <span 
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300"
-                                      title="Item baixado no almoxarifado"
-                                    >
-                                      Baixado
-                                    </span>
-                                  ) : (
-                                    <span 
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-300"
-                                      title="Item novo - baixa pendente ao salvar"
-                                    >
-                                      Novo
-                                    </span>
-                                  )}
                                 </div>
-                              </td>
-
-                              {/* 2. Descrição (com Autocomplete, Busca Rápida e Botão de Lupa Modal F4/Enter) */}
-                              <td className="py-2 px-3 align-middle relative">
-                                <div className="space-y-1">
-                                  <div className="relative flex items-center">
-                                    <input
-                                      type="text"
-                                      value={item.description}
-                                      onChange={(e) => {
-                                        handleUpdatePartItem(index, { description: e.target.value });
-                                        setAutocompleteIndex(index);
-                                      }}
-                                      onFocus={() => setAutocompleteIndex(index)}
-                                      onBlur={() => {
-                                        // Fechar autocomplete com atraso para permitir clique nos itens
-                                        setTimeout(() => {
-                                          if (autocompleteIndex === index) {
-                                            setAutocompleteIndex(null);
-                                          }
-                                        }, 250);
-
-                                        // Reconhecimento inteligente se digitado código ou nome exato do estoque
-                                        const text = item.description.trim().toLowerCase();
-                                        if (text && (item.origin === 'almoxarifado_interno' || !item.origin)) {
-                                          const matched = allInventoryList.find(inv => 
-                                            (inv.code !== undefined && inv.code !== null && String(inv.code).trim().toLowerCase() === text) ||
-                                            (inv.name && String(inv.name).trim().toLowerCase() === text)
-                                          );
-                                          if (matched && (!item.inventoryItemId || item.unitCost === 0)) {
-                                            handleUpdatePartItem(index, {
-                                              inventoryItemId: matched.id,
-                                              description: matched.name,
-                                              unit: matched.unit || 'un',
-                                              unitCost: getPriceForProductByRule(matched, defaultPriceType),
-                                              origin: 'almoxarifado_interno'
-                                            });
-                                          }
-                                        }
-                                      }}
-                                      onKeyDown={(e) => {
-                                        // Tecla F4 ou Enter com campo vazio abre a busca avançada por modal
-                                        if (e.key === 'F4' || (e.key === 'Enter' && !item.description.trim())) {
-                                          e.preventDefault();
-                                          handleOpenProductSearch(index, item.description);
-                                        }
-                                      }}
-                                      placeholder="Digite o código ou nome da peça (F4 busca modal)..."
-                                      className="w-full pl-2.5 pr-8 py-1.5 text-xs rounded-lg border border-zinc-300 bg-white text-zinc-900 font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 placeholder:text-zinc-400"
-                                    />
-                                    {/* Botão de Lupa para abrir Modal de Busca Avançada */}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenProductSearch(index, item.description)}
-                                      className="absolute right-1 p-1 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded transition cursor-pointer"
-                                      title="Abrir Consulta Avançada de Produtos (F4)"
-                                    >
-                                      <Search className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-
-                                  {/* Pop-up de Autocomplete Inteligente ao digitar */}
-                                  {autocompleteMatches.length > 0 && (
-                                    <div className="absolute left-3 right-3 top-9 z-50 bg-white rounded-lg shadow-xl border border-zinc-300 divide-y divide-zinc-200 overflow-hidden">
-                                      <div className="px-2.5 py-1.5 bg-zinc-100 text-[10px] font-bold text-zinc-700 uppercase tracking-wider flex justify-between items-center">
-                                        <span>Sugestões Rápidas do Estoque</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleOpenProductSearch(index, item.description)}
-                                          className="text-zinc-900 font-bold hover:underline cursor-pointer"
-                                        >
-                                          Ver todas (F4) →
-                                        </button>
-                                      </div>
-                                      {autocompleteMatches.map((match) => (
-                                        <div
-                                          key={match.id}
-                                          onMouseDown={() => {
-                                            handleUpdatePartItem(index, {
-                                              inventoryItemId: match.id,
-                                              description: match.name,
-                                              unit: match.unit || 'un',
-                                              unitCost: getPriceForProductByRule(match, defaultPriceType),
-                                              origin: 'almoxarifado_interno',
-                                            });
-                                            setAutocompleteIndex(null);
-                                          }}
-                                          className="px-2.5 py-1.5 text-xs hover:bg-zinc-100 cursor-pointer flex items-center justify-between transition-colors"
-                                        >
-                                          <div className="truncate pr-2">
-                                            <span className="font-mono text-[10px] font-bold text-zinc-500 mr-1.5">
-                                              [{match.code || match.id.slice(0, 6).toUpperCase()}]
-                                            </span>
-                                            <span className="font-medium text-zinc-900">
-                                              {match.name}
-                                            </span>
-                                          </div>
-                                          <div className="text-right whitespace-nowrap pl-2">
-                                            <span className="font-mono font-bold text-zinc-900">
-                                              {formatCurrencyBRL(getPriceForProductByRule(match, defaultPriceType))}
-                                            </span>
-                                            <span className="text-[10px] text-zinc-400 ml-1.5 font-mono">
-                                              ({match.quantity} {match.unit})
-                                            </span>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-
-                              {/* 3. Origem (Coluna Oficial Integrada na Linha) */}
-                              <td className="py-2 px-3 align-middle">
-                                <div className="space-y-1">
-                                  <select
-                                    value={item.origin || 'almoxarifado_interno'}
-                                    onChange={(e) => handleUpdatePartItem(index, { origin: e.target.value as any })}
-                                    className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border border-zinc-300 bg-white text-zinc-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-2xs"
-                                  >
-                                    <option value="almoxarifado_interno">Estoque Interno</option>
-                                    <option value="externo_compra">Compra Nova</option>
-                                    <option value="recuperada_externa">Torno / Recuperada</option>
-                                  </select>
-
-                                  {item.origin === 'externo_compra' && (
-                                    <input
-                                      type="text"
-                                      placeholder="Fornecedor..."
-                                      value={item.supplierName || ''}
-                                      onChange={(e) => handleUpdatePartItem(index, { supplierName: e.target.value })}
-                                      className="w-full text-[10px] px-2 py-0.5 rounded border border-zinc-300 bg-white text-zinc-800 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-400"
-                                      title="Fornecedor ou Autopeça"
-                                    />
-                                  )}
-
-                                  {item.origin === 'recuperada_externa' && (
-                                    <input
-                                      type="text"
-                                      placeholder="Oficina / Torno..."
-                                      value={item.serviceProvider || item.supplierName || ''}
-                                      onChange={(e) => handleUpdatePartItem(index, { 
-                                        serviceProvider: e.target.value,
-                                        supplierName: e.target.value
-                                      })}
-                                      className="w-full text-[10px] px-2 py-0.5 rounded border border-zinc-300 bg-white text-zinc-800 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-400"
-                                      title="Tornearia ou oficina externa"
-                                    />
-                                  )}
-
-                                  {item.origin === 'almoxarifado_interno' && stockItem && (
-                                    <span className="text-[10px] text-zinc-600 font-mono font-medium block truncate">
-                                      Saldo: {stockItem.quantity} {stockItem.unit}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-
-                              {/* 4. Valor Unitário (Input Unificado com Edição Manual e Seta Dropdown Embutida para Tabela de Preços) */}
-                              <td className="py-2 px-3 align-middle">
-                                <div className="relative flex items-center rounded-lg border border-zinc-300 bg-white shadow-2xs focus-within:ring-2 focus-within:ring-zinc-700/20 focus-within:border-zinc-700 transition-colors">
-                                  <span className="text-[11px] text-zinc-400 pl-2 mr-0.5 font-mono font-medium select-none shrink-0">
-                                    R$
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500 dark:text-stone-400 mt-0.5">
+                                  <span className="font-mono font-bold text-slate-700 dark:text-stone-300 bg-slate-100 dark:bg-stone-800 px-1.5 py-0.2 rounded">
+                                    CÓD: {internalCode}
                                   </span>
+                                  <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 font-semibold text-slate-600 dark:text-stone-300 uppercase text-[9px]">
+                                    <Tag className="w-2.5 h-2.5 text-slate-400" />
+                                    <span>{catName}</span>
+                                  </span>
+                                  {prod.quantity !== undefined && (
+                                    <span className="text-[10px] text-slate-500 font-mono">
+                                      Saldo: {prod.quantity} {prod.unit || 'un'}
+                                    </span>
+                                  )}
+                                  {salePrice > 0 && (
+                                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                                      {formatCurrencyBRL(salePrice)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0 uppercase bg-sky-50 dark:bg-sky-950/50 px-2 py-1 rounded-md border border-sky-200 dark:border-sky-800">
+                                Selecionar
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Input [ PREÇO UNITÁRIO (R$) ] */}
+                  <div className="col-span-6 sm:col-span-2">
+                    <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1">
+                      PREÇO UNITÁRIO (R$)
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-2.5 text-[11px] font-mono font-bold text-slate-400 pointer-events-none select-none">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={osPartInputUnitCost}
+                        onChange={(e) => setOsPartInputUnitCost(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleInsertOsPart();
+                          }
+                        }}
+                        placeholder="0,00"
+                        className="w-full pl-8 pr-2.5 py-1.5 rounded-xl border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-mono font-bold text-slate-900 dark:text-white shadow-2xs focus:ring-2 focus:ring-sky-500 outline-none transition text-right"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Botão [ + ADICIONAR ITEM (ENTER) ] */}
+                  <div className="col-span-6 sm:col-span-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOsPartDropdownOpen(false);
+                        handleInsertOsPart();
+                      }}
+                      className="w-full h-[33px] inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold text-white uppercase rounded-xl bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer active:scale-95 shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>+ ADICIONAR ITEM (ENTER)</span>
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ============================================================== */}
+              {/* 2. GRADE CENTRAL DE ITENS LANÇADOS NA OS (SLIM BLUE/WHITE)      */}
+              {/* ============================================================== */}
+              {partsItems.length === 0 ? (
+                <div className="p-10 text-center border-2 border-dashed border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 rounded-xl space-y-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-stone-800 text-slate-400 flex items-center justify-center mx-auto shadow-2xs">
+                    <Package className="w-5 h-5 text-slate-500 dark:text-stone-400" />
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-600 dark:text-stone-300">
+                    NENHUM PRODUTO OU SERVIÇO LANÇADO NESTA ORDEM DE SERVIÇO. BUSQUE E INSIRA OS ITENS ACIMA.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs min-h-[300px] max-h-[440px]">
+                  <div className="flex-1 overflow-x-auto overflow-y-auto scrollbar-none">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2.5 px-3 w-[12%] whitespace-nowrap">CÓDIGO/ID</th>
+                          <th className="py-2.5 px-3 w-[36%]">DESCRIÇÃO DO PRODUTO/PEÇA</th>
+                          <th className="py-2.5 px-3 w-[16%] whitespace-nowrap">CATEGORIA</th>
+                          <th className="py-2.5 px-3 text-center w-[10%] whitespace-nowrap">QTDE</th>
+                          <th className="py-2.5 px-3 text-right w-[12%] whitespace-nowrap">VALOR UNITÁRIO (R$)</th>
+                          <th className="py-2.5 px-3 text-right w-[10%] whitespace-nowrap">VALOR TOTAL (R$)</th>
+                          <th className="py-2.5 px-2 text-center w-[4%] whitespace-nowrap">AÇÃO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/70 dark:divide-stone-800">
+                        {partsItems.map((item, index) => {
+                          const displayCode = resolvePartDisplayCode(item, index);
+                          const categoryName = resolvePartCategory(item);
+
+                          return (
+                            <tr
+                              key={item.id || index}
+                              className="hover:bg-sky-50/40 dark:hover:bg-stone-800/40 transition"
+                            >
+                              {/* [CÓDIGO/ID] */}
+                              <td className="py-2 px-3 align-middle whitespace-nowrap">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-200 font-mono text-[11px] font-bold border border-slate-200 dark:border-stone-700">
+                                  {displayCode}
+                                </span>
+                              </td>
+
+                              {/* [DESCRIÇÃO DO PRODUTO/PEÇA] */}
+                              <td className="py-2 px-3 align-middle">
+                                <div className="font-bold text-slate-900 dark:text-stone-100 text-xs leading-snug break-words">
+                                  {item.description.toUpperCase()}
+                                </div>
+                                {item.unit && (
+                                  <span className="text-[10px] text-slate-500 dark:text-stone-400 font-mono uppercase">
+                                    ({item.unit})
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* [CATEGORIA] */}
+                              <td className="py-2 px-3 align-middle whitespace-nowrap">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300 font-bold text-[10px] border border-sky-200 dark:border-sky-800 uppercase tracking-wide">
+                                  <Tag className="w-2.5 h-2.5 mr-1 text-sky-600 dark:text-sky-400" />
+                                  {categoryName}
+                                </span>
+                              </td>
+
+                              {/* [QTDE] */}
+                              <td className="py-2 px-3 align-middle text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center space-x-1">
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={item.quantity === 0 ? '' : item.quantity}
+                                    onChange={(e) => {
+                                      const parsed = parseCleanPriceNumber(e.target.value);
+                                      handleUpdatePartItem(index, { quantity: parsed });
+                                    }}
+                                    placeholder="1"
+                                    className="w-14 px-1.5 py-1 text-xs font-mono font-bold text-center rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-sky-500 shadow-2xs"
+                                  />
+                                </div>
+                              </td>
+
+                              {/* [VALOR UNITÁRIO (R$)] */}
+                              <td className="py-2 px-3 align-middle text-right whitespace-nowrap">
+                                <div className="relative inline-flex items-center justify-end">
+                                  <span className="text-[10px] text-slate-400 mr-1 font-mono select-none">R$</span>
                                   <input
                                     type="text"
                                     inputMode="decimal"
@@ -2422,78 +2524,25 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                       });
                                     }}
                                     placeholder="0,00"
-                                    title="Digite o valor unitário manualmente ou use a seta ao lado para escolher na tabela de preços"
-                                    className="w-full min-w-0 text-xs font-mono text-right bg-transparent text-zinc-900 font-bold focus:outline-none py-1.5 pr-1.5"
+                                    className="w-24 text-right px-2 py-1 text-xs font-mono font-bold rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-sky-500 shadow-2xs"
                                   />
-
-                                  {/* Botão de seta embutido nativamente no canto direito para seleção da Tabela de Preços */}
-                                  <div
-                                    className="relative shrink-0 flex items-center justify-center border-l border-zinc-200 bg-zinc-50 hover:bg-zinc-100 transition-colors rounded-r-lg px-2 py-1.5 cursor-pointer group"
-                                    title="Tabela de Preços (Custo, Venda, Atacado, Promocional)"
-                                  >
-                                    <ChevronDown className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-800 pointer-events-none transition-colors" />
-                                    <select
-                                      value=""
-                                      onChange={(e) => {
-                                        const selectedKey = e.target.value;
-                                        const matchedOpt = rowPriceOptions.find(opt => opt.key === selectedKey);
-                                        if (matchedOpt) {
-                                          setUnitCostRawInputs(prev => {
-                                            const copy = { ...prev };
-                                            delete copy[item.id];
-                                            return copy;
-                                          });
-                                          handleUpdatePartItem(index, { unitCost: matchedOpt.value });
-                                        }
-                                      }}
-                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs"
-                                      title="Selecione um preço na Tabela de Preços"
-                                    >
-                                      <option value="" disabled>Selecione da Tabela de Preços...</option>
-                                      {rowPriceOptions.map(opt => (
-                                        <option key={opt.key} value={opt.key}>
-                                          {opt.name}: {formatCurrencyBRL(opt.value)}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
                                 </div>
                               </td>
 
-                              {/* 5. Qtde */}
-                              <td className="py-2 px-3 align-middle text-center">
-                                <div className="flex items-center justify-center space-x-1">
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={item.quantity === 0 ? '' : item.quantity}
-                                    onChange={(e) => {
-                                      const parsed = parseCleanPriceNumber(e.target.value);
-                                      handleUpdatePartItem(index, { quantity: parsed });
-                                    }}
-                                    placeholder="1"
-                                    className="w-16 px-1.5 py-1 text-xs font-mono font-bold text-center rounded-lg border border-zinc-300 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
-                                  />
-                                  <span className="text-[11px] font-medium text-zinc-500 uppercase">
-                                    {item.unit || 'un'}
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* 6. Total (Obrigatoriamente alinhado à direita para leitura financeira) */}
-                              <td className="py-2 px-3 align-middle text-right font-mono">
-                                <span className="text-xs font-bold text-zinc-900 whitespace-nowrap">
-                                  {formatCurrencyBRL(item.totalCost || 0)}
+                              {/* [VALOR TOTAL (R$)] */}
+                              <td className="py-2 px-3 align-middle text-right whitespace-nowrap font-mono">
+                                <span className="text-xs font-black text-slate-900 dark:text-stone-100">
+                                  {formatCurrencyBRL(item.totalCost || (item.quantity * item.unitCost))}
                                 </span>
                               </td>
 
-                              {/* 7. Ações (Exclusão rápida) */}
-                              <td className="py-2 px-2 align-middle text-center">
+                              {/* [AÇÃO] */}
+                              <td className="py-2 px-2 align-middle text-center whitespace-nowrap">
                                 <button
                                   type="button"
                                   onClick={() => handleRemovePartItem(index)}
-                                  className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
-                                  title="Excluir item da lista"
+                                  className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-300/80 transition cursor-pointer active:scale-95 inline-flex items-center justify-center shadow-2xs"
+                                  title="Remover peça da OS"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
