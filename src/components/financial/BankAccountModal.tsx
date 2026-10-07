@@ -640,21 +640,21 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-xs animate-in fade-in"
     >
       <div 
-        className="w-full max-w-5xl xl:max-w-6xl rounded-2xl shadow-2xl overflow-hidden scrollbar-none border border-zinc-200 dark:border-stone-800 bg-zinc-100 dark:bg-stone-900 my-auto flex flex-col max-h-[96vh]"
+        className="w-full max-w-5xl xl:max-w-6xl rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] bg-slate-100 dark:bg-stone-900 my-auto flex flex-col max-h-[96vh] overflow-hidden"
       >
-        {/* CABEÇALHO */}
+        {/* CABEÇALHO - Moldura Metálica 3D Acetinada */}
         <div 
-          className="px-4 sm:px-5 py-2 flex items-center justify-between shrink-0 bg-[#454545] dark:bg-slate-900 text-white shadow-xs"
+          className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shadow-xs"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
-              <Landmark className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Landmark className="w-3.5 h-3.5 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1.5 leading-tight">
-                {editingAccount ? 'Editar Conta Bancária' : 'Nova Conta Bancária / Caixa'}
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-1.5 leading-tight">
+                {editingAccount ? 'EDITAR CONTA BANCÁRIA' : 'NOVA CONTA BANCÁRIA / CAIXA'}
               </h3>
-              <p className="text-[10px] text-slate-300 font-medium leading-tight">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium leading-tight">
                 Gestão de contas correntes, cooperativas de crédito, caixas e cartões corporativos
               </p>
             </div>
@@ -664,10 +664,10 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             type="button"
             id="btn-fechar-modal-conta"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
             title="Fechar Modal"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
@@ -1531,13 +1531,13 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
           </div>
 
           {/* RODAPÉ DO MODAL: Ações e Resumo Geral */}
-          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-stone-800 bg-[#dcd8d8] dark:bg-stone-900 shrink-0">
-            <div className="hidden sm:flex items-center space-x-3 text-xs text-zinc-500 dark:text-stone-400 font-medium">
-              <span>Saldo: <strong className={numericBalance < 0 ? 'text-rose-600 font-bold' : 'text-zinc-900 dark:text-stone-100 font-bold'}>{formatCurrencyBRL(numericBalance)}</strong></span>
+          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-slate-300 dark:border-stone-800 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-b-2xl shrink-0">
+            <div className="hidden sm:flex items-center space-x-3 text-xs text-slate-600 dark:text-stone-400 font-medium">
+              <span>Saldo: <strong className={numericBalance < 0 ? 'text-rose-600 font-bold' : 'text-slate-900 dark:text-stone-100 font-bold'}>{formatCurrencyBRL(numericBalance)}</strong></span>
               <span>•</span>
               <span>Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrencyBRL(totalAvailable)}</strong></span>
               <span>•</span>
-              <span>Cartões: <strong className="text-zinc-900 dark:text-stone-100 font-bold">{corporateCards.length}</strong></span>
+              <span>Cartões: <strong className="text-slate-900 dark:text-stone-100 font-bold">{corporateCards.length}</strong></span>
             </div>
 
             <div className="flex items-center justify-end gap-2 ml-auto">
@@ -1555,7 +1555,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 type="button"
                 id="btn-sair-modal-conta"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-gray-300 dark:border-stone-700 text-gray-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-50 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[34px]"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[32px]"
                 title="Fechar janela"
               >
                 Sair
@@ -1565,7 +1565,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 type="button"
                 id="btn-cancelar-modal-conta"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[34px]"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[32px]"
               >
                 Cancelar
               </button>
@@ -1573,7 +1573,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               <button
                 type="submit"
                 id="btn-salvar-conta-bancaria"
-                className="px-5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[34px]"
+                className="px-5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white shadow-sm border border-emerald-500/50 cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[32px]"
               >
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                 <span>Salvar Alterações</span>

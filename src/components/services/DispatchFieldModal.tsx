@@ -213,23 +213,23 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
       id="modal-dispatch-field"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
     >
-      <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-2xl w-full border border-stone-200 dark:border-stone-800 overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
         
-        {/* Cabeçalho do Modal */}
-        <div className="bg-stone-900 text-white p-3.5 sm:p-4 flex items-center justify-between border-b border-stone-800">
+        {/* Cabeçalho do Modal - Moldura Metálica 3D Acetinada */}
+        <div className="border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 p-3.5 sm:p-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/40">
-              <MessageSquare className="w-4 h-4" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <MessageSquare className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight flex items-center gap-2">
-                <span>Disparar Escala para a Equipe de Campo</span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-black">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                <span>DISPARAR ESCALA PARA A EQUIPE DE CAMPO</span>
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
                   {appointment.appointmentNumber}
                 </span>
               </h3>
-              <p className="text-[11px] text-stone-300">
-                Cliente: <strong className="text-white">{appointment.clientName}</strong> • {locationText}
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
+                Cliente: <strong className="text-slate-800 dark:text-stone-200 font-semibold">{appointment.clientName}</strong> • {locationText}
               </p>
             </div>
           </div>
@@ -237,21 +237,21 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
-        {/* Abas Internas: 1. Disparo WhatsApp / 2. Retorno & Importação de Campo */}
-        <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 px-3 pt-2 gap-2">
+        {/* Abas Internas - 3D Metálico Acetinado */}
+        <div className="flex border-b border-slate-300 dark:border-stone-800 bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-900 dark:to-stone-950 p-1.5 gap-1.5">
           <button
             type="button"
             onClick={() => setActiveTab('disparo')}
-            className={`px-3 py-2 text-xs font-bold rounded-t-lg transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'disparo'
-                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-stone-900'
-                : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
             }`}
           >
             <Send className="w-3.5 h-3.5" />
@@ -261,10 +261,10 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('retorno')}
-            className={`px-3 py-2 text-xs font-bold rounded-t-lg transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'retorno'
-                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-stone-900'
-                : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
             }`}
           >
             <FileCheck2 className="w-3.5 h-3.5" />
@@ -551,14 +551,14 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-3.5 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+                    className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 border border-slate-400 dark:border-stone-600 rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] transition cursor-pointer"
                   >
                     Fechar
                   </button>
 
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    className="px-4 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white rounded-lg text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition flex items-center gap-1.5 cursor-pointer"
                   >
                     {isSavedFeedback ? (
                       <>

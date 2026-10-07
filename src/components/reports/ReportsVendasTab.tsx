@@ -29,12 +29,13 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
-      const matchDate = o.deliveryDate >= startDate && o.deliveryDate <= endDate;
-      const matchSearch = 
-        o.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (o.farmName && o.farmName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (o.orderNumber && o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+    const term = (searchTerm || '').toLowerCase().trim();
+    return (orders || []).filter(o => {
+      const matchDate = o?.deliveryDate ? (o.deliveryDate >= startDate && o.deliveryDate <= endDate) : false;
+      const matchSearch = !term ||
+        Boolean(o.clientName?.toLowerCase().includes(term)) ||
+        Boolean(o.farmName?.toLowerCase().includes(term)) ||
+        Boolean(o.orderNumber?.toLowerCase().includes(term));
       const matchProduct = productFilter === 'todos' || o.productType === productFilter;
       return matchDate && matchSearch && matchProduct && o.status !== 'cancelado';
     });

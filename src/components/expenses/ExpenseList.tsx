@@ -42,9 +42,9 @@ interface ExpenseListProps {
 }
 
 export const ExpenseList: React.FC<ExpenseListProps> = ({
-  expenses,
-  categories,
-  costCenters,
+  expenses = [],
+  categories = [],
+  costCenters = [],
   employees = [],
   teams = [],
   companyProfile,
@@ -68,16 +68,19 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   // Filter logic
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((exp) => {
+    const term = (searchTerm || '').toLowerCase().trim();
+    return (expenses || []).filter((exp) => {
+      if (!exp) return false;
+
       // Search term
-      const matchesSearch = 
-        exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exp.supplier?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exp.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exp.categoryName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exp.machineryName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exp.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exp.teamName?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = !term ||
+        Boolean(exp.description?.toLowerCase().includes(term)) ||
+        Boolean(exp.supplier?.toLowerCase().includes(term)) ||
+        Boolean(exp.invoiceNumber?.toLowerCase().includes(term)) ||
+        Boolean(exp.categoryName?.toLowerCase().includes(term)) ||
+        Boolean(exp.machineryName?.toLowerCase().includes(term)) ||
+        Boolean(exp.employeeName?.toLowerCase().includes(term)) ||
+        Boolean(exp.teamName?.toLowerCase().includes(term));
 
       if (!matchesSearch) return false;
 
@@ -98,19 +101,19 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
       return true;
     }).sort((a, b) => {
-      const dateA = (a.dueDate || '').trim();
-      const dateB = (b.dueDate || '').trim();
+      const dateA = (a?.dueDate || '').trim();
+      const dateB = (b?.dueDate || '').trim();
 
       if (sortBy === 'date_asc') {
         if (dateA !== dateB) return dateA.localeCompare(dateB);
-        return (a.description || '').localeCompare(b.description || '');
+        return (a?.description || '').localeCompare(b?.description || '');
       }
       if (sortBy === 'date_desc') {
         if (dateA !== dateB) return dateB.localeCompare(dateA);
-        return (b.description || '').localeCompare(a.description || '');
+        return (b?.description || '').localeCompare(a?.description || '');
       }
-      if (sortBy === 'amount_desc') return b.amount - a.amount;
-      if (sortBy === 'amount_asc') return a.amount - b.amount;
+      if (sortBy === 'amount_desc') return (b?.amount || 0) - (a?.amount || 0);
+      if (sortBy === 'amount_asc') return (a?.amount || 0) - (b?.amount || 0);
       return 0;
     });
   }, [expenses, searchTerm, selectedStatus, selectedCategory, selectedCostCenter, sortBy]);
@@ -135,18 +138,18 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
     const rows = filteredExpenses.map((exp) => [
       exp.id,
-      `"${exp.description.replace(/"/g, '""')}"`,
-      exp.amount.toFixed(2),
-      `"${exp.categoryName}"`,
-      exp.status,
-      exp.dueDate,
+      `"${(exp.description || '').replace(/"/g, '""')}"`,
+      (exp.amount || 0).toFixed(2),
+      `"${exp.categoryName || ''}"`,
+      exp.status || '',
+      exp.dueDate || '',
       exp.paymentDate || '',
-      exp.paymentMethod,
+      exp.paymentMethod || '',
       `"${(exp.supplier || '').replace(/"/g, '""')}"`,
       `"${(exp.machineryName || '').replace(/"/g, '""')}"`,
       `"${(exp.costCenterName || '').replace(/"/g, '""')}"`,
       `"${exp.invoiceNumber || ''}"`,
-      `"${(exp.notes || '').replace(/"/g, '""')}"`,
+      `"${(exp.notes || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + 
@@ -540,7 +543,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                       {formatCurrencyBRL(exp.amount)}
                     </div>
                     <div className="text-[9px] text-black/75 dark:text-stone-400 uppercase font-black">
-                      {exp.paymentMethod.replace('_', ' ')}
+                      {exp.paymentMethod ? exp.paymentMethod.replace('_', ' ') : ''}
                     </div>
                     {exp.bankAccountName && (
                       <div className="text-[9px] text-blue-900 dark:text-blue-300 font-bold truncate max-w-[120px]" title={exp.bankAccountName}>

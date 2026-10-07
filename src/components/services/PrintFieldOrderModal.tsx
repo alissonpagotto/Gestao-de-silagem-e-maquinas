@@ -162,22 +162,22 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
     >
       <div 
         id="printable-field-order-container"
-        className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
+        className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
       >
-        {/* Barra de Ações Superior (Não impressa) */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/60 rounded-t-2xl print:hidden">
+        {/* Barra de Ações Superior (Não impressa) - Moldura Metálica 3D Acetinada */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 rounded-t-2xl print:hidden">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
-              <Calendar className="w-5 h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Calendar className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                <span>Ordem de Campo da Agenda</span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                <span>ORDEM DE CAMPO DA AGENDA</span>
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
                   {appointment.appointmentNumber}
                 </span>
               </h2>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
                 Via única A4 para escala de equipe, roteiro logístico e frotas em campo.
               </p>
             </div>
@@ -188,27 +188,27 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
               type="button"
               onClick={handleExportPdf}
               disabled={isGeneratingPdf}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 text-stone-700 dark:text-stone-200 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-600 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] transition cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-stone-500" />
+              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
               <span>{isGeneratingPdf ? 'Gerando...' : 'Baixar PDF'}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5 text-white" />
               <span>Imprimir Ordem de Campo (A4)</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ml-1 cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors ml-1 cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </button>
           </div>
         </div>

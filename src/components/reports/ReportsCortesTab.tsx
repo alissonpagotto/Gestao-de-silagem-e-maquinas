@@ -34,14 +34,16 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
 
   // Filtered Services (Cortes / Colheita de Silagem)
   const filteredServices = useMemo(() => {
-    return services.filter(s => {
-      const matchDate = s.startDate >= startDate && s.startDate <= endDate;
-      const matchSearch = 
-        s.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.farmName && s.farmName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (s.machineryAssigned && s.machineryAssigned.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (s.serviceType && s.serviceType.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchType = filterType === 'todos' || s.serviceType.toLowerCase().includes(filterType.toLowerCase());
+    const term = (searchTerm || '').toLowerCase().trim();
+    const fType = (filterType || '').toLowerCase().trim();
+    return (services || []).filter(s => {
+      const matchDate = s?.startDate ? (s.startDate >= startDate && s.startDate <= endDate) : false;
+      const matchSearch = !term ||
+        Boolean(s.clientName?.toLowerCase().includes(term)) ||
+        Boolean(s.farmName?.toLowerCase().includes(term)) ||
+        Boolean(s.machineryAssigned?.toLowerCase().includes(term)) ||
+        Boolean(s.serviceType?.toLowerCase().includes(term));
+      const matchType = fType === 'todos' || Boolean(s.serviceType?.toLowerCase().includes(fType));
       return matchDate && matchSearch && matchType;
     });
   }, [services, startDate, endDate, searchTerm, filterType]);

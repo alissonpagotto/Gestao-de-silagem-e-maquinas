@@ -122,15 +122,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
   // General Consolidated Print HTML
   const generalPrintHtml = useMemo(() => {
-    const periodOrders = orders.filter(o => o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
-    const periodServices = services.filter(s => s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
-    const periodExpenses = expenses.filter(e => e.dueDate >= startDate && e.dueDate <= endDate);
-    const periodFuel = fuelLogs.filter(f => f.date >= startDate && f.date <= endDate);
+    const periodOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
+    const periodServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
+    const periodExpenses = (expenses || []).filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate);
+    const periodFuel = (fuelLogs || []).filter(f => f?.date && f.date >= startDate && f.date <= endDate);
 
-    const ordersRev = periodOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const servicesRev = periodServices.reduce((sum, s) => sum + s.totalAmount, 0);
+    const ordersRev = periodOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const servicesRev = periodServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
     const totalRev = ordersRev + servicesRev;
-    const totalExp = periodExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExp = periodExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const net = totalRev - totalExp;
 
     const totalTonsSilage = periodOrders.reduce((sum, o) => sum + (o.tons || 0), 0);
@@ -203,13 +203,13 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   }, [orders, services, expenses, fuelLogs, startDate, endDate]);
 
   const generalWhatsAppText = useMemo(() => {
-    const periodOrders = orders.filter(o => o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
-    const periodServices = services.filter(s => s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
-    const periodExpenses = expenses.filter(e => e.dueDate >= startDate && e.dueDate <= endDate);
-    const ordersRev = periodOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const servicesRev = periodServices.reduce((sum, s) => sum + s.totalAmount, 0);
+    const periodOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
+    const periodServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
+    const periodExpenses = (expenses || []).filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate);
+    const ordersRev = periodOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const servicesRev = periodServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
     const totalRev = ordersRev + servicesRev;
-    const totalExp = periodExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExp = periodExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const net = totalRev - totalExp;
 
     return `📊 *${companyProfile?.tradeName?.toUpperCase() || 'SILAGEM FÁCIL PRO'}*\n` +

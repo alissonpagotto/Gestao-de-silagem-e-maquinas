@@ -2343,7 +2343,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       >
         <div 
           id="printable-service-order-modal"
-          className="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-400 dark:border-zinc-700 flex flex-col max-h-[94vh] overflow-hidden overflow-x-hidden my-auto"
+          className="relative w-full max-w-4xl bg-white dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex flex-col max-h-[92vh] overflow-hidden overflow-x-hidden my-auto"
         >
           {/* Badge para Cupom Térmico (Visível apenas em impressão 80mm) */}
           <div className="hidden print:block thermal-receipt-badge text-center">
@@ -2360,23 +2360,26 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             />
           </div>
           
-          {/* CABEÇALHO DO MODAL (COMPACTO) */}
+          {/* CABEÇALHO DO MODAL (MOLDURA METÁLICA 3D ACETINADA) */}
           <div 
-            className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-zinc-700 bg-zinc-800 text-white shrink-0 w-full print:hidden"
+            className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 shrink-0 w-full rounded-t-2xl print:hidden"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-700 text-white flex items-center justify-center shadow-2xs shrink-0">
-                <HeaderIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                <HeaderIcon className={`w-4 h-4 text-slate-700 dark:text-stone-200`} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
-                    {modalTitle}
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                    <span>{modalTitle.toUpperCase()}</span>
+                    {numero && (
+                      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
+                        OS #{numero}
+                      </span>
+                    )}
                   </h3>
                 </div>
-                <p 
-                  className="text-[11px] text-zinc-300"
-                >
+                <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
                   Preencha os dados operacionais, frotas e fechamento DRE
                 </p>
               </div>
@@ -2385,9 +2388,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-700 transition cursor-pointer print:hidden"
+              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-pointer print:hidden"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
             </button>
           </div>
 
@@ -2415,25 +2418,30 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* 1. DADOS DE IDENTIFICAÇÃO E CLIENTE */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3">
+            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
+              <div className="border-b border-slate-200 dark:border-slate-800 pb-1.5">
+                <span className="text-xs font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide">
+                  1. DADOS DE IDENTIFICAÇÃO E CLIENTE
+                </span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-2.5">
                 
                 {/* Número do Serviço */}
                 <div className="sm:col-span-3">
-                  <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
                     Número
                   </label>
                   <input
                     type="text"
                     value={numero}
                     onChange={(e) => setNumero(e.target.value)}
-                    className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm text-slate-800 dark:text-slate-100 font-mono font-bold cursor-default select-all focus:outline-none"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-slate-100 font-mono font-bold cursor-default select-all focus:outline-none"
                   />
                 </div>
 
                 {/* Cliente / Produtor com Botão + Novo */}
                 <div className="sm:col-span-5">
-                  <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1 flex items-center justify-between">
                     <span>Cliente / Produtor *</span>
                     <button
                       type="button"
@@ -2451,7 +2459,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
                         placeholder="Selecione ou digite o Produtor..."
-                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors"
+                        className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                       />
                       {clients.length > 0 && (
                         <select
@@ -2478,7 +2486,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsQuickClientOpen(true)}
-                      className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 transition cursor-pointer shrink-0"
+                      className="p-1 sm:p-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 transition cursor-pointer shrink-0"
                       title="Cadastrar Novo Produtor Rural / Pecuarista (Completo)"
                     >
                       <UserPlus className="w-4 h-4" />
@@ -2488,7 +2496,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                 {/* Fazenda / Local */}
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
                     Fazenda / Propriedade
                   </label>
                   <input
@@ -2496,34 +2504,34 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     value={farmName}
                     onChange={(e) => setFarmName(e.target.value)}
                     placeholder="Ex: Fazenda Boa Esperança"
-                    className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                   />
                 </div>
               </div>
 
               {/* Datas da Operação / Manutenção */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800">
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
                     Data da Abertura / Manutenção *
                   </label>
                   <input
                     type="date"
                     value={serviceDate}
                     onChange={(e) => setServiceDate(e.target.value)}
-                    className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-2xs transition-colors"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
                     Previsão de Término / Conclusão (Data)
                   </label>
                   <input
                     type="date"
                     value={completionDate}
                     onChange={(e) => setCompletionDate(e.target.value)}
-                    className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-2xs transition-colors"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                   />
                 </div>
               </div>
@@ -3336,8 +3344,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     Área & Produção (Valor Base)
                   </span>
 
-                  {/* Toggle Hectares / Alqueires / Hora */}
-                  <div className="inline-flex rounded-lg p-0.5 bg-gray-200 dark:bg-slate-700 self-start sm:self-auto text-xs">
+                  {/* Toggle Hectares / Alqueires / Hora - 3D Metálico Acetinado */}
+                  <div className="inline-flex rounded-lg p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] self-start sm:self-auto text-xs gap-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -3359,10 +3367,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           applyForageOperatorCommission(op, 'hectares');
                         }
                       }}
-                      className={`px-2.5 py-0.5 sm:py-1 font-semibold rounded-md transition cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                         unidadeArea === 'hectares'
-                          ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                          : 'text-gray-600 dark:text-slate-300 hover:text-gray-900'
+                          ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                          : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                       }`}
                     >
                       Por Hectare (ha)
@@ -3370,10 +3378,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setUnidadeArea('alqueires')}
-                      className={`px-2.5 py-0.5 sm:py-1 font-semibold rounded-md transition cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                         unidadeArea === 'alqueires'
-                          ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                          : 'text-gray-600 dark:text-slate-300 hover:text-gray-900'
+                          ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                          : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                       }`}
                     >
                       Por Alqueire (alq)
@@ -3387,10 +3395,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           applyForageOperatorCommission(op, 'hora');
                         }
                       }}
-                      className={`px-2.5 py-0.5 sm:py-1 font-semibold rounded-md transition cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                         unidadeArea === 'hora'
-                          ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                          : 'text-gray-600 dark:text-slate-300 hover:text-gray-900'
+                          ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                          : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                       }`}
                     >
                       Por Hora (h)
@@ -3819,8 +3827,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             Comissão do Operador da Forrageira (Independente)
                           </span>
 
-                          {/* Botões de Alternância (Toggles): 4 Opções de Comissão da Forrageira */}
-                          <div className="inline-flex rounded-lg p-0.5 bg-zinc-200 self-start sm:self-auto text-xs">
+                          {/* Botões de Alternância (Toggles): 4 Opções de Comissão da Forrageira - 3D Metálico Acetinado */}
+                          <div className="inline-flex rounded-lg p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] self-start sm:self-auto text-xs gap-1 flex-wrap">
                             <button
                               type="button"
                               onClick={() => {
@@ -3836,10 +3844,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                   setQtdBaseComissaoForrageira(defaultBase);
                                 }
                               }}
-                              className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
+                              className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                                 modoComissaoForrageira === 'livre'
-                                  ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                                  : 'text-zinc-700 hover:text-zinc-900'
+                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
                               Digitar (livre)
@@ -3847,10 +3855,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setModoComissaoForrageira('tambor')}
-                              className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
+                              className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                                 modoComissaoForrageira === 'tambor'
-                                  ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                                  : 'text-zinc-700 hover:text-zinc-900'
+                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
                               Por Hora (tambor)
@@ -3858,10 +3866,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setModoComissaoForrageira('motor')}
-                              className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
+                              className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                                 modoComissaoForrageira === 'motor'
-                                  ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                                  : 'text-zinc-700 hover:text-zinc-900'
+                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
                               Por Hora (Motor)
@@ -3869,10 +3877,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setModoComissaoForrageira('area')}
-                              className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
+                              className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
                                 modoComissaoForrageira === 'area'
-                                  ? 'bg-zinc-800 text-white shadow-xs font-bold'
-                                  : 'text-zinc-700 hover:text-zinc-900'
+                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
                               Por Área ({unidadeArea === 'alqueires' ? 'alq' : 'ha'})
@@ -4144,9 +4152,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
           </div>
 
-          {/* RODAPÉ DO MODAL (AÇÕES COMPACTAS) */}
+          {/* RODAPÉ DO MODAL (AÇÕES COMPACTAS 3D METÁLICAS) */}
           <div 
-            className="w-full max-w-full flex flex-wrap items-center justify-end gap-2 sm:gap-2.5 px-4 sm:px-5 py-2.5 sm:py-3 border-t border-zinc-300 bg-white shrink-0 print:hidden overflow-hidden"
+            className="w-full max-w-full flex flex-wrap items-center justify-end gap-2 sm:gap-2.5 px-4 sm:px-5 py-2.5 sm:py-3 border-t border-slate-300 dark:border-stone-800 bg-white dark:bg-stone-900 rounded-b-2xl shrink-0 print:hidden overflow-hidden"
           >
             {/* BOTÃO 1: Imprimir Via Cliente */}
             <button
@@ -4156,10 +4164,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 setPrintPreviewPaperFormat('thermal_80mm');
                 setShowPrintPreview(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-400 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold rounded-lg shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-400 dark:border-stone-600 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] transition cursor-pointer"
               title="Abrir prévia e impressão da Via Cliente (Cupom 80mm pré-ativado, comissões ocultas)"
             >
-              <Printer className="w-3.5 h-3.5 text-zinc-600" />
+              <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
               <span>Imprimir Via Cliente</span>
             </button>
 
@@ -4171,21 +4179,21 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 setPrintPreviewPaperFormat('a4');
                 setShowPrintPreview(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-400 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold rounded-lg shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-400 dark:border-stone-600 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] transition cursor-pointer"
               title="Abrir prévia e impressão da Via Completa (Folha A4 pré-ativada, com DRE e comissões)"
             >
-              <PrinterCheck className="w-3.5 h-3.5 text-zinc-600" />
+              <PrinterCheck className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
               <span>Imprimir Via Completa</span>
             </button>
 
-            {/* BOTÃO SAIR (Substituindo Cancelar conforme solicitado) */}
+            {/* BOTÃO SAIR */}
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-400 rounded-lg transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 border border-slate-400 dark:border-stone-600 rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] transition cursor-pointer"
               title="Fechar o formulário e voltar à tela anterior"
             >
-              <LogOut className="w-4 h-4 text-zinc-500" />
+              <LogOut className="w-4 h-4 text-slate-500 dark:text-stone-400" />
               <span>Sair</span>
             </button>
 
@@ -4198,11 +4206,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 sm:py-2 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs sm:text-sm font-bold rounded-lg shadow-sm border border-zinc-900 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition cursor-pointer"
               title="Salvar alterações no pedido sem fechar a janela"
             >
               <Check className="w-4 h-4 stroke-[2.5]" />
-              <span>{savedOrder || editRecord ? '✓ Salvar Alterações' : '✓ Salvar Pedido'}</span>
+              <span>{savedOrder || editRecord ? '✓ ✓ Salvar Alterações' : '✓ ✓ Salvar Pedido'}</span>
             </button>
           </div>
 

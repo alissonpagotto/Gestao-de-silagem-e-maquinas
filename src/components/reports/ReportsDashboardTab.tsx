@@ -58,38 +58,38 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
   const currentMonthEnd = getLastDayOfMonth(selectedYear, new Date().getMonth());
 
   const currentMonthEntradas = useMemo(() => {
-    const ordersRev = orders
-      .filter(o => o.deliveryDate >= currentMonthStart && o.deliveryDate <= currentMonthEnd && o.status !== 'cancelado')
-      .reduce((sum, o) => sum + o.totalAmount, 0);
-    const servicesRev = services
-      .filter(s => s.startDate >= currentMonthStart && s.startDate <= currentMonthEnd && s.status !== 'cancelado')
-      .reduce((sum, s) => sum + s.totalAmount, 0);
+    const ordersRev = (orders || [])
+      .filter(o => o?.deliveryDate && o.deliveryDate >= currentMonthStart && o.deliveryDate <= currentMonthEnd && o.status !== 'cancelado')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const servicesRev = (services || [])
+      .filter(s => s?.startDate && s.startDate >= currentMonthStart && s.startDate <= currentMonthEnd && s.status !== 'cancelado')
+      .reduce((sum, s) => sum + (s.totalAmount || 0), 0);
     return ordersRev + servicesRev;
   }, [orders, services, currentMonthStart, currentMonthEnd]);
 
   const currentMonthSaidas = useMemo(() => {
-    return expenses
-      .filter(e => e.dueDate >= currentMonthStart && e.dueDate <= currentMonthEnd)
-      .reduce((sum, e) => sum + e.amount, 0);
+    return (expenses || [])
+      .filter(e => e?.dueDate && e.dueDate >= currentMonthStart && e.dueDate <= currentMonthEnd)
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
   }, [expenses, currentMonthStart, currentMonthEnd]);
 
   const currentMonthSaldo = currentMonthEntradas - currentMonthSaidas;
 
   // Filtered Period Data (Row 2)
   const periodEntradas = useMemo(() => {
-    const ordersRev = orders
-      .filter(o => o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado')
-      .reduce((sum, o) => sum + o.totalAmount, 0);
-    const servicesRev = services
-      .filter(s => s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado')
-      .reduce((sum, s) => sum + s.totalAmount, 0);
+    const ordersRev = (orders || [])
+      .filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const servicesRev = (services || [])
+      .filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado')
+      .reduce((sum, s) => sum + (s.totalAmount || 0), 0);
     return ordersRev + servicesRev;
   }, [orders, services, startDate, endDate]);
 
   const periodSaidas = useMemo(() => {
-    return expenses
-      .filter(e => e.dueDate >= startDate && e.dueDate <= endDate)
-      .reduce((sum, e) => sum + e.amount, 0);
+    return (expenses || [])
+      .filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate)
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
   }, [expenses, startDate, endDate]);
 
   const periodSaldo = periodEntradas - periodSaidas;
@@ -113,28 +113,30 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
       monthMap.set(key, { label, entradas: 0, saidas: 0 });
     }
 
-    orders.forEach(o => {
-      if (o.status !== 'cancelado') {
+    (orders || []).forEach(o => {
+      if (o && o.status !== 'cancelado' && typeof o.deliveryDate === 'string' && o.deliveryDate.length >= 7) {
         const key = o.deliveryDate.slice(0, 7);
         if (monthMap.has(key)) {
-          monthMap.get(key)!.entradas += o.totalAmount;
+          monthMap.get(key)!.entradas += (o.totalAmount || 0);
         }
       }
     });
 
-    services.forEach(s => {
-      if (s.status !== 'cancelado') {
+    (services || []).forEach(s => {
+      if (s && s.status !== 'cancelado' && typeof s.startDate === 'string' && s.startDate.length >= 7) {
         const key = s.startDate.slice(0, 7);
         if (monthMap.has(key)) {
-          monthMap.get(key)!.entradas += s.totalAmount;
+          monthMap.get(key)!.entradas += (s.totalAmount || 0);
         }
       }
     });
 
-    expenses.forEach(e => {
-      const key = e.dueDate.slice(0, 7);
-      if (monthMap.has(key)) {
-        monthMap.get(key)!.saidas += e.amount;
+    (expenses || []).forEach(e => {
+      if (e && typeof e.dueDate === 'string' && e.dueDate.length >= 7) {
+        const key = e.dueDate.slice(0, 7);
+        if (monthMap.has(key)) {
+          monthMap.get(key)!.saidas += (e.amount || 0);
+        }
       }
     });
 
@@ -144,11 +146,11 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
   // Top Expense Categories in the period
   const topCategories = useMemo(() => {
     const map = new Map<string, number>();
-    expenses
-      .filter(e => e.dueDate >= startDate && e.dueDate <= endDate)
+    (expenses || [])
+      .filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate)
       .forEach(e => {
         const cat = e.categoryName || 'Outras Despesas';
-        map.set(cat, (map.get(cat) || 0) + e.amount);
+        map.set(cat, (map.get(cat) || 0) + (e.amount || 0));
       });
     
     const sorted = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);

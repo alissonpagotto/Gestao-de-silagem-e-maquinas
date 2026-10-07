@@ -342,14 +342,14 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
           <button
             type="button"
             onClick={onAddTruck}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition cursor-pointer"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Adicionar frota/caminhão</span>
           </button>
         </div>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-3">
           {trucks.map((truck, idx) => {
             // Regra de exclusão de duplicidade: lista apenas caminhões disponíveis ou o selecionado neste card
             const caminhoesParaEsteCard = todosCaminhoes.filter(
@@ -371,8 +371,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
             return (
               <div
                 key={truck.id}
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-4 shadow-sm space-y-3 w-full max-w-full overflow-hidden"
-                style={idx === 1 ? { backgroundColor: '#66a2e6' } : undefined}
+                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5 w-full max-w-full overflow-hidden"
               >
                 {/* Cabeçalho do Card: Exibe primordialmente a PLACA do veículo no título + Botão Excluir */}
                 <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-2.5">

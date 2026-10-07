@@ -34,26 +34,26 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
   onOpenPrintModal,
 }) => {
   // Period filter
-  const filteredOrders = orders.filter(o => o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
-  const filteredServices = services.filter(s => s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
-  const filteredExpenses = expenses.filter(e => e.dueDate >= startDate && e.dueDate <= endDate);
+  const filteredOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
+  const filteredServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
+  const filteredExpenses = (expenses || []).filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate);
 
   // Totals
-  const ordersRevenue = filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const servicesRevenue = filteredServices.reduce((sum, s) => sum + s.totalAmount, 0);
+  const ordersRevenue = filteredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const servicesRevenue = filteredServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
   const grossRevenue = ordersRevenue + servicesRevenue;
 
   // Categories breakdown
-  const fuelExpense = filteredExpenses.filter(e => e.categoryId === 'cat_combustivel' || e.categoryName.toLowerCase().includes('combust') || e.categoryName.toLowerCase().includes('diesel')).reduce((sum, e) => sum + e.amount, 0);
-  const maintenanceExpense = filteredExpenses.filter(e => e.categoryId === 'cat_manutencao' || e.categoryName.toLowerCase().includes('manuten') || e.categoryName.toLowerCase().includes('peça')).reduce((sum, e) => sum + e.amount, 0);
-  const inputsExpense = filteredExpenses.filter(e => e.categoryId === 'cat_insumos' || e.categoryName.toLowerCase().includes('insumo') || e.categoryName.toLowerCase().includes('sement') || e.categoryName.toLowerCase().includes('inocul')).reduce((sum, e) => sum + e.amount, 0);
-  const laborExpense = filteredExpenses.filter(e => e.categoryId === 'cat_mao_de_obra' || e.categoryName.toLowerCase().includes('mão') || e.categoryName.toLowerCase().includes('salár') || e.categoryName.toLowerCase().includes('diária')).reduce((sum, e) => sum + e.amount, 0);
-  const packagingExpense = filteredExpenses.filter(e => e.categoryId === 'cat_lona_embalagem' || e.categoryName.toLowerCase().includes('lona') || e.categoryName.toLowerCase().includes('embalag')).reduce((sum, e) => sum + e.amount, 0);
-  const freightExpense = filteredExpenses.filter(e => e.categoryId === 'cat_frete' || e.categoryName.toLowerCase().includes('frete') || e.categoryName.toLowerCase().includes('transp')).reduce((sum, e) => sum + e.amount, 0);
+  const fuelExpense = filteredExpenses.filter(e => e.categoryId === 'cat_combustivel' || e.categoryName?.toLowerCase().includes('combust') || e.categoryName?.toLowerCase().includes('diesel')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const maintenanceExpense = filteredExpenses.filter(e => e.categoryId === 'cat_manutencao' || e.categoryName?.toLowerCase().includes('manuten') || e.categoryName?.toLowerCase().includes('peça')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const inputsExpense = filteredExpenses.filter(e => e.categoryId === 'cat_insumos' || e.categoryName?.toLowerCase().includes('insumo') || e.categoryName?.toLowerCase().includes('sement') || e.categoryName?.toLowerCase().includes('inocul')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const laborExpense = filteredExpenses.filter(e => e.categoryId === 'cat_mao_de_obra' || e.categoryName?.toLowerCase().includes('mão') || e.categoryName?.toLowerCase().includes('salár') || e.categoryName?.toLowerCase().includes('diária')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const packagingExpense = filteredExpenses.filter(e => e.categoryId === 'cat_lona_embalagem' || e.categoryName?.toLowerCase().includes('lona') || e.categoryName?.toLowerCase().includes('embalag')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const freightExpense = filteredExpenses.filter(e => e.categoryId === 'cat_frete' || e.categoryName?.toLowerCase().includes('frete') || e.categoryName?.toLowerCase().includes('transp')).reduce((sum, e) => sum + (e.amount || 0), 0);
   
   const categorizedSum = fuelExpense + maintenanceExpense + inputsExpense + laborExpense + packagingExpense + freightExpense;
-  const otherExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0) - categorizedSum;
-  const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const otherExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0) - categorizedSum;
+  const totalExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   const netResult = grossRevenue - totalExpenses;
   const marginPercent = grossRevenue > 0 ? (netResult / grossRevenue) * 100 : 0;

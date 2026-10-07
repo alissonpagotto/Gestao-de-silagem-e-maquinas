@@ -63,22 +63,22 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4">
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+      <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
         
-        {/* Cabeçalho do Modal */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-[#2e65aa] text-white border-b border-blue-700">
+        {/* Cabeçalho do Modal - Moldura Metálica 3D Acetinada */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 rounded-t-2xl">
           <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-white/15 rounded-lg">
-              <ForageHarvesterIcon className="w-6 h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <ForageHarvesterIcon className="w-5 h-4 text-slate-700 dark:text-stone-200" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-extrabold flex items-center gap-2">
-                <span>Vincular Veículo da Frota</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-white/20 text-white font-mono">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                <span>VINCULAR VEÍCULO DA FROTA</span>
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
                   {columnName}
                 </span>
               </h3>
-              <p className="text-[11px] text-blue-100">
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
                 Selecione a máquina principal que operará nesta coluna da agenda.
               </p>
             </div>
@@ -86,14 +86,14 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
         {/* Barra de Busca e Filtros de Categoria */}
-        <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 border-b border-stone-200 dark:border-stone-800 space-y-2.5">
+        <div className="p-3.5 bg-slate-50 dark:bg-stone-800/40 border-b border-slate-300 dark:border-stone-800 space-y-2.5">
           <div className="relative">
             <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -101,7 +101,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por prefixo (ex: FORR 05), modelo, placa ou nome..."
-              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#2e65aa]"
+              className="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
               autoFocus
             />
             {searchTerm && (
@@ -119,10 +119,10 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             <button
               type="button"
               onClick={() => setSelectedCategory('todas')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer ${
                 selectedCategory === 'todas'
-                  ? 'bg-[#2e65aa] text-white shadow-2xs'
-                  : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
               }`}
             >
               Todas ({allAvailableVehicles.length})
@@ -130,37 +130,37 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             <button
               type="button"
               onClick={() => setSelectedCategory('forrageira')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
+              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
                 selectedCategory === 'forrageira'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <Scissors className="w-3 h-3" />
+              <Scissors className="w-3 h-3 text-slate-600" />
               <span>Forrageiras / Ensiladeiras</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedCategory('trator')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
+              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
                 selectedCategory === 'trator'
-                  ? 'bg-amber-700 text-white shadow-2xs'
-                  : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-amber-800 dark:text-amber-300 hover:bg-amber-50'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <Tractor className="w-3 h-3" />
+              <Tractor className="w-3 h-3 text-slate-600" />
               <span>Tratores</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedCategory('caminhao')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
+              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
                 selectedCategory === 'caminhao'
-                  ? 'bg-blue-700 text-white shadow-2xs'
-                  : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-blue-800 dark:text-blue-300 hover:bg-blue-50'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <Truck className="w-3 h-3" />
+              <Truck className="w-3 h-3 text-slate-600" />
               <span>Caminhões</span>
             </button>
           </div>

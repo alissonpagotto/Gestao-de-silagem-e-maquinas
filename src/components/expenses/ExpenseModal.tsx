@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Edit2,
   CheckCircle2,
+  Receipt,
 } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount } from '../../types';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
@@ -189,11 +190,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   }, []);
 
   const filteredSuppliers = suppliers.filter((s) => {
-    if (!supplier.trim()) return true;
-    const q = supplier.toLowerCase().trim();
+    if (!supplier || !supplier.trim()) return true;
+    const q = (supplier || '').toLowerCase().trim();
     const cleanQ = q.replace(/\D/g, '');
     return (
-      s.name.toLowerCase().includes(q) ||
+      (s.name && s.name.toLowerCase().includes(q)) ||
       (s.tradeName && s.tradeName.toLowerCase().includes(q)) ||
       (s.category && s.category.toLowerCase().includes(q)) ||
       (cleanQ.length > 0 && s.cnpjOrCpf && s.cnpjOrCpf.replace(/\D/g, '').includes(cleanQ))
@@ -340,10 +341,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const linkedMachIdSet = new Set<string>();
 
   resolvedUniqueEmployees.forEach((emp) => {
+    const empName = (emp?.name || '').toLowerCase();
     const m = machineries.find(
       (mach) =>
         mach.assignedDriverIds?.includes(emp.id) ||
-        mach.operatorOrDriver?.toLowerCase().includes(emp.name.toLowerCase())
+        (empName && mach.operatorOrDriver?.toLowerCase().includes(empName))
     );
     if (m && !linkedMachIdSet.has(m.id)) {
       linkedMachIdSet.add(m.id);
@@ -516,20 +518,30 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto">
-        <div className="bg-white border-t sm:border border-zinc-300 rounded-t-3xl sm:rounded-2xl max-w-2xl w-full my-0 sm:my-6 shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 max-h-[92vh] sm:max-h-none flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto">
+        <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
         
-        {/* Header - Charcoal bg-zinc-800 with White Text */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 shrink-0">
-          <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
-            {editingExpense ? 'Editar Despesa' : 'Nova Despesa'}
-          </h2>
+        {/* Header - Moldura Metálica 3D Acetinada */}
+        <div className="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 flex items-center justify-between shrink-0 rounded-t-2xl">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+              <Receipt className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            </div>
+            <div>
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                {editingExpense ? 'EDITAR DESPESA' : 'NOVA DESPESA'}
+              </h2>
+              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
+                Lançamento financeiro, rateio e centro de custo
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
           </button>
         </div>
 
@@ -744,10 +756,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     <optgroup label={`FUNCIONÁRIOS CADASTRADOS (${activeEmployees.length})`}>
                       {activeEmployees.map((emp) => {
                         const empTeam = teams.find((t) => t.id === emp.teamId);
+                        const empName = (emp?.name || '').toLowerCase();
                         const empMach = machineries.find(
                           (m) =>
                             m.assignedDriverIds?.includes(emp.id) ||
-                            m.operatorOrDriver?.toLowerCase().includes(emp.name.toLowerCase())
+                            (empName && m.operatorOrDriver?.toLowerCase().includes(empName))
                         );
                         return (
                           <option key={emp.id} value={emp.id}>
