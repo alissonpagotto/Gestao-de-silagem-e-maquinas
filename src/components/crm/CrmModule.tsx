@@ -203,13 +203,13 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
     <div className="w-full max-w-none space-y-4">
       
       {/* Top Banner / Summary */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-slate-400 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="crm-card bg-white dark:bg-stone-900 p-2 sm:p-2.5 rounded-xl border border-slate-300 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 text-zinc-900 dark:text-white">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="text-sm font-black text-black dark:text-stone-100 tracking-tight font-['Outfit']">
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-stone-100 tracking-tight">
               Carteira de Clientes
             </h2>
-            <span className="px-2 py-0.5 rounded-full bg-white/80 dark:bg-stone-800 text-black dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[10px] font-black">
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[10px] font-bold">
               {filteredClients.filter(c => c.status === 'cliente_ativo').length} Clientes ativos
             </span>
           </div>
@@ -217,20 +217,29 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
 
         <div className="flex items-center space-x-2">
           
-          {/* Switch Kanban / List */}
-          <div className="bg-white/70 dark:bg-stone-800 p-0.5 rounded-xl border border-slate-300 dark:border-stone-700 flex items-center text-xs font-bold text-black dark:text-stone-300">
+          {/* Switch Kanban / List - Moldura Acetinada 3D */}
+          <div 
+            aria-label="Abas de Visualização de Clientes"
+            className="flex items-center gap-1 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] text-xs"
+          >
             <button
+              type="button"
               onClick={() => setViewMode('kanban')}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                viewMode === 'kanban' ? 'bg-sky-600 text-white shadow-2xs font-bold' : 'hover:text-black font-semibold'
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                viewMode === 'kanban' 
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600' 
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               Funil Kanban
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('list')}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                viewMode === 'list' ? 'bg-sky-600 text-white shadow-2xs font-bold' : 'hover:text-black font-semibold'
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                viewMode === 'list' 
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600' 
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               Lista
@@ -238,11 +247,12 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onNewClient}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-black text-white bg-emerald-700 hover:bg-emerald-600 rounded-xl transition shadow-xs active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Novo Cliente</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ Novo Cliente</span>
           </button>
 
         </div>

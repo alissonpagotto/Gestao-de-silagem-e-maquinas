@@ -436,13 +436,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           </p>
         </div>
 
-        {/* Botão de Ação Principal em Cinza Grafite Escuro */}
+        {/* Botão de Ação Principal com Relevo Acetinado 3D */}
         {activeTab !== 'agenda' && activeTab !== 'formularios' && (
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleOpenNew}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs font-bold rounded-lg border border-zinc-900 shadow-xs transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:ring-offset-1"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white text-xs font-bold rounded-lg border border-slate-600/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.15)] transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:ring-offset-1"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>{tabConfig.newButtonLabel || '+ Novo'}</span>
@@ -453,12 +453,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
       {/* ========================================================
           3. MENU DE ABAS (TABS) DE NAVEGAÇÃO
-          Barra com fundo cinza gelo suave (bg-zinc-200), abas inativas em cinza escuro
+          Barra com fundo moldura acetinada 3D
           e aba ativa com fundo branco sólido e contorno nítido
           ======================================================== */}
       <nav 
         aria-label="Abas de Serviços" 
-        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-300 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.1)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
       >
         {allowedTabs.map((tab) => {
           const Icon = tab.icon;

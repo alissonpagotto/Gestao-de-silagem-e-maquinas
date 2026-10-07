@@ -675,37 +675,40 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   return (
     <div id="financial-module" className="w-full max-w-none space-y-4 sm:space-y-5">
       
-      {/* 1. Header Padronizado (Clean / Light) */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-stone-200/80 dark:border-stone-800 pb-2 sm:pb-2.5">
+      {/* 1. Header Padronizado 3D Slim */}
+      <header className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#000000] dark:text-white tracking-tight">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Financeiro
           </h1>
-          <p className="text-xs text-[#000000] dark:text-stone-300 font-medium">
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Contas a pagar, a receber e fluxo de caixa
           </p>
         </div>
-      </div>
+      </header>
 
-      {/* 2. Top Navigation Tabs Bar */}
-      <div className="crm-card bg-white dark:bg-stone-900 rounded-xl border border-zinc-200 dark:border-stone-800 p-1.5 shadow-xs flex items-center overflow-x-auto gap-1.5 scrollbar-none text-zinc-900 dark:text-white">
+      {/* 2. Top Navigation Tabs Bar - Moldura Acetinada 3D */}
+      <nav 
+        aria-label="Abas do Financeiro" 
+        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+      >
         
         {/* Aba Consolidado */}
         {hasFinanceiroSubPermission('dre') ? (
           <button
             type="button"
             onClick={() => setActiveTab('consolidado')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'consolidado'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-100 dark:hover:bg-slate-700 hover:text-zinc-900 dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             <span>Consolidado</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>Consolidado (Bloqueado)</span>
           </div>
@@ -716,17 +719,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('despesas')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'despesas'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-100 dark:hover:bg-slate-700 hover:text-zinc-900 dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <DollarSign className="w-3.5 h-3.5" />
             <span>Despesas</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>Despesas (Bloqueado)</span>
           </div>
@@ -737,17 +740,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('contas')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'contas'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black dark:text-stone-300 hover:bg-black/10 dark:hover:bg-slate-700 hover:text-black dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <BarChart2 className="w-3.5 h-3.5" />
             <span>Contas Bancárias</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>Contas (Bloqueado)</span>
           </div>
@@ -758,17 +761,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('a_pagar')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'a_pagar'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black dark:text-stone-300 hover:bg-black/10 dark:hover:bg-slate-700 hover:text-black dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <ArrowDownLeft className="w-3.5 h-3.5" />
             <span>A Pagar</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>A Pagar (Bloqueado)</span>
           </div>
@@ -779,17 +782,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('a_receber')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'a_receber'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black dark:text-stone-300 hover:bg-black/10 dark:hover:bg-slate-700 hover:text-black dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
             <span>A Receber</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>A Receber (Bloqueado)</span>
           </div>
@@ -800,17 +803,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('acertos')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'acertos'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black dark:text-stone-300 hover:bg-black/10 dark:hover:bg-slate-700 hover:text-black dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <Truck className="w-3.5 h-3.5" />
             <span>Acertos Terceiros</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>Acertos (Bloqueado)</span>
           </div>
@@ -821,17 +824,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('acertos_agenciadores')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'acertos_agenciadores'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black dark:text-stone-300 hover:bg-black/10 dark:hover:bg-slate-700 hover:text-black dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <Handshake className="w-3.5 h-3.5" />
             <span>Acertos Agenciadores</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>Agenciadores (Bloqueado)</span>
           </div>
@@ -842,23 +845,23 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('exportar')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === 'exportar'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black dark:text-stone-300 hover:bg-black/10 dark:hover:bg-slate-700 hover:text-black dark:hover:text-white'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Exportar</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-100 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
             <Lock className="w-3 h-3 text-zinc-400" />
             <span>Exportar (Bloqueado)</span>
           </div>
         )}
 
-      </div>
+      </nav>
 
       {/* ABA: Consolidado */}
       {activeTab === 'consolidado' && (

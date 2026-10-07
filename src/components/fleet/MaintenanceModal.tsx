@@ -1257,22 +1257,25 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         </div>
 
         {/* Subtabs de Navegação do Formulário (3 Abas Unificadas - Barra em Cinza Gelo bg-zinc-200) */}
-        <div className="flex items-center border-b border-zinc-300 px-5 py-1.5 bg-zinc-200 overflow-x-auto gap-2 shrink-0">
+        <div 
+          aria-label="Abas de Manutenção"
+          className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto shrink-0"
+        >
           <button
             type="button"
             id="tab-diagnostico-equipe-local"
             onClick={() => setActiveTab('geral')}
-            className={`py-2 px-3.5 text-xs font-bold transition rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
+            className={`py-1.5 px-3 text-xs font-bold transition rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'geral'
-                ? 'bg-zinc-900 text-white shadow-xs border border-zinc-900'
-                : 'bg-transparent text-zinc-700 hover:text-zinc-950 hover:bg-zinc-300/70 border border-transparent'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <Wrench className="w-3.5 h-3.5" />
             <span>1. Diagnóstico, Equipe & Local</span>
             {laborItems.length > 0 && (
               <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                activeTab === 'geral' ? 'bg-zinc-800 text-zinc-200 border border-zinc-700' : 'bg-zinc-300 text-zinc-800'
+                activeTab === 'geral' ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200' : 'bg-zinc-300 text-zinc-800 dark:bg-stone-700 dark:text-stone-300'
               }`}>
                 {laborItems.length} {laborItems.length === 1 ? 'mecânico' : 'mecânicos'}
               </span>
@@ -1283,17 +1286,17 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             type="button"
             id="tab-pecas-estoque"
             onClick={() => setActiveTab('pecas')}
-            className={`py-2 px-3.5 text-xs font-bold transition rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
+            className={`py-1.5 px-3 text-xs font-bold transition rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'pecas'
-                ? 'bg-zinc-900 text-white shadow-xs border border-zinc-900'
-                : 'bg-transparent text-zinc-700 hover:text-zinc-950 hover:bg-zinc-300/70 border border-transparent'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <Package className="w-3.5 h-3.5" />
             <span>2. Peças & Estoque</span>
             {partsItems.length > 0 && (
               <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                activeTab === 'pecas' ? 'bg-zinc-800 text-zinc-200 border border-zinc-700' : 'bg-zinc-300 text-zinc-800'
+                activeTab === 'pecas' ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200' : 'bg-zinc-300 text-zinc-800 dark:bg-stone-700 dark:text-stone-300'
               }`}>
                 {partsItems.length}
               </span>
@@ -1304,10 +1307,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             type="button"
             id="tab-nfe-financeiro"
             onClick={() => setActiveTab('fiscal_financeiro')}
-            className={`py-2 px-3.5 text-xs font-bold transition rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
+            className={`py-1.5 px-3 text-xs font-bold transition rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'fiscal_financeiro'
-                ? 'bg-zinc-900 text-white shadow-xs border border-zinc-900'
-                : 'bg-transparent text-zinc-700 hover:text-zinc-950 hover:bg-zinc-300/70 border border-transparent'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />

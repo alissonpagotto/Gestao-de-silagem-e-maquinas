@@ -646,15 +646,19 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
         </div>
 
         {/* --- TABS NAVIGATION --- */}
-        <div className="px-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-2 overflow-x-auto bg-stone-50/50 dark:bg-stone-850/50">
-          <div className="flex space-x-1 py-2">
+        <div className="px-3 sm:px-4 py-1.5 border-b border-slate-300 dark:border-stone-800 flex items-center justify-between gap-2 overflow-x-auto bg-stone-100/70 dark:bg-stone-900/50">
+          <div 
+            aria-label="Abas do Histórico do Veículo"
+            className="flex items-center gap-1.5 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+          >
             
             <button
+              type="button"
               onClick={() => setActiveTab('pedidos')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'pedidos'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -662,11 +666,12 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('dre')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'dre'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <Receipt className="w-3.5 h-3.5" />
@@ -674,11 +679,12 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('combustivel')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'combustivel'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <Fuel className="w-3.5 h-3.5" />
@@ -686,11 +692,12 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('manutencoes')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'manutencoes'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <Wrench className="w-3.5 h-3.5" />
@@ -698,11 +705,12 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('motoristas')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'motoristas'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <Users className="w-3.5 h-3.5" />

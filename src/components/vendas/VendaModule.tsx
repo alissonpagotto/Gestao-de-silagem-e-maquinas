@@ -232,75 +232,75 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
       id="venda-module-root"
       className="w-full max-w-none space-y-3.5 antialiased"
     >
-      {/* 1. CABEÇALHO PADRONIZADO (Clean / Light) */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-stone-200/80 dark:border-stone-800 pb-2 sm:pb-2.5">
+      {/* 1. CABEÇALHO PADRONIZADO 3D SLIM */}
+      <header className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#000000] dark:text-white tracking-tight">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Venda
           </h1>
-          <p className="text-xs text-[#000000] dark:text-stone-300 font-medium">
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Gestão e controle de vendas agrícolas, fornecimento de silagem e contratos
           </p>
         </div>
 
-        {/* Botão Nova Venda */}
+        {/* Botão Nova Venda 3D Acetinado */}
         <div className="flex items-center gap-2">
           <button
             id="btn-nova-venda"
             type="button"
             onClick={handleOpenNew}
-            className="inline-flex items-center space-x-2 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Nova Venda</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* 2. CARDS DE INDICADORES (KPIS) */}
-      <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+      {/* 2. CARDS DE INDICADORES (KPIS) SLIM */}
+      <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Total Faturado</span>
-            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Total Faturado</span>
+            <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-1.5">
+          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
             {formatCurrencyBRL(metrics.totalRevenue)}
           </div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Todas as vendas registradas</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Todas as vendas registradas</span>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Volume Total</span>
-            <Scale className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Volume Total</span>
+            <Scale className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-1.5">
+          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
             {metrics.totalTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Ton</span>
           </div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Silagem comercializada</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Silagem comercializada</span>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Contratos / Pedidos</span>
-            <FileCheck2 className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Contratos / Pedidos</span>
+            <FileCheck2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-1.5">
+          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
             {metrics.totalCount} <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">({metrics.completedCount} concl.)</span>
           </div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Volume de operações</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Volume de operações</span>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Ticket Médio</span>
-            <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Ticket Médio</span>
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-1.5">
+          <div className="text-base sm:text-lg font-black text-black dark:text-white mt-1">
             {formatCurrencyBRL(metrics.averageTicket)}
           </div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Média por venda</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Média por venda</span>
         </div>
       </section>
 

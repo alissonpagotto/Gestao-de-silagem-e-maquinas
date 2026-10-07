@@ -464,13 +464,13 @@ export const RHModule: React.FC<RHModuleProps> = ({
   return (
     <div className="w-full max-w-none space-y-3 sm:space-y-4">
       
-      {/* Top Header com Título, Subtítulo e Botões de Ação */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/20 pb-2 sm:pb-2.5">
+      {/* Top Header com Título, Subtítulo e Botões de Ação 3D Slim */}
+      <header className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#000000] tracking-tight">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Recursos Humanos
           </h1>
-          <p className="text-xs text-[#000000] font-medium">
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Quadro de funcionários, folha de pagamento, férias e afastamentos
           </p>
         </div>
@@ -482,9 +482,9 @@ export const RHModule: React.FC<RHModuleProps> = ({
               type="button"
               onClick={() => setExternalPrintEmployeesTrigger(prev => prev + 1)}
               title="Imprimir relatório completo de funcionários e operadores com logotipo e dados cadastrais"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold text-black bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition shadow-xs active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-slate-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] transition active:scale-95 cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-black" />
+              <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
               <span>Imprimir Lista</span>
             </button>
 
@@ -492,9 +492,9 @@ export const RHModule: React.FC<RHModuleProps> = ({
             <button
               type="button"
               onClick={() => setExternalNewEmployeeTrigger(prev => prev + 1)}
-              className="inline-flex items-center space-x-2 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Novo Cadastro</span>
             </button>
           </div>
@@ -502,34 +502,37 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('funcionarios')}
-            className="self-start sm:self-auto inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-blue-200/80 dark:border-stone-800 bg-[#87AFE3] dark:bg-stone-900 text-black dark:text-white hover:bg-blue-200/60 dark:hover:bg-stone-800 text-xs font-bold transition shadow-xs cursor-pointer"
+            className="self-start sm:self-auto inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-slate-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] text-xs font-bold transition cursor-pointer"
           >
-            <UserSquare2 className="w-3.5 h-3.5 text-black dark:text-sky-400" />
+            <UserSquare2 className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
             <span>Cadastros & CNH</span>
           </button>
         )}
-      </div>
+      </header>
 
-      {/* Navegação por Abas - Mais compacta */}
-      <div className="no-print crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-xl border border-blue-200/80 dark:border-stone-800 p-1 sm:p-1.5 flex items-center space-x-1 sm:space-x-1.5 overflow-x-auto shadow-xs">
+      {/* Navegação por Abas - Moldura Acetinada 3D */}
+      <nav 
+        aria-label="Abas do RH"
+        className="no-print flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+      >
         
         {/* Aba 1: Dashboard */}
         {hasRhSubPermission('dashboard') ? (
           <button
             type="button"
             onClick={() => handleTabChange('dashboard')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'dashboard'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
             <span>Dashboard</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Dashboard (Bloqueado)</span>
           </div>
         )}
@@ -539,18 +542,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('funcionarios')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'funcionarios'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <UserSquare2 className="w-3.5 h-3.5" />
             <span>Funcionários</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Funcionários (Bloqueado)</span>
           </div>
         )}
@@ -560,18 +563,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('folha')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'folha'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Folha de Pagamento</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Folha (Bloqueado)</span>
           </div>
         )}
@@ -581,18 +584,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('ferias')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'ferias'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>Férias</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Férias (Bloqueado)</span>
           </div>
         )}
@@ -602,18 +605,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('afastamentos')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'afastamentos'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <AlertCircle className="w-3.5 h-3.5" />
             <span>Afastamentos</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Afastamentos (Bloqueado)</span>
           </div>
         )}
@@ -623,18 +626,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('adiantamentos')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'adiantamentos'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <DollarSign className="w-3.5 h-3.5" />
             <span>Adiantamentos</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Adiantamentos (Bloqueado)</span>
           </div>
         )}
@@ -644,18 +647,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('atestados')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'atestados'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <FileHeart className="w-3.5 h-3.5" />
             <span>Atestados</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Atestados (Bloqueado)</span>
           </div>
         )}
@@ -665,18 +668,18 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('faltas')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'faltas'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <CalendarX2 className="w-3.5 h-3.5" />
             <span>Faltas</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Faltas (Bloqueado)</span>
           </div>
         )}
@@ -686,23 +689,23 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <button
             type="button"
             onClick={() => handleTabChange('rescisao')}
-            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'rescisao'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
             }`}
           >
             <UserX className="w-3.5 h-3.5" />
             <span>Rescisão</span>
           </button>
         ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-slate-500" />
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-zinc-400" />
             <span>Rescisão (Bloqueado)</span>
           </div>
         )}
 
-      </div>
+      </nav>
 
       {/* Renderização do Conteúdo de Cada Aba */}
       {activeTab === 'dashboard' && (

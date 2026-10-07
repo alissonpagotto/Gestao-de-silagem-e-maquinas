@@ -1589,14 +1589,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         >
           {/* Central Tabs & Persistent Plate Tag */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="grid grid-cols-2 gap-1.5 w-full sm:w-auto bg-zinc-200/80 p-1 rounded-xl shadow-xs">
+            <div 
+              aria-label="Abas do Veículo"
+              className="grid grid-cols-2 gap-1 w-full sm:w-auto p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)]"
+            >
               <button
                 type="button"
                 onClick={() => setActiveTab('dados')}
                 className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
                   activeTab === 'dados'
-                    ? 'bg-zinc-800 text-white shadow-xs'
-                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                    : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
                 }`}
               >
                 <Car className="w-3.5 h-3.5" />
@@ -1607,8 +1610,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 onClick={() => setActiveTab('historico')}
                 className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
                   activeTab === 'historico'
-                    ? 'bg-zinc-800 text-white shadow-xs'
-                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                    : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />

@@ -1985,17 +1985,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           </div>
         </div>
 
-        {/* Linha 2 Integrada: Botões de Alternância das Abas + Pílulas Horizontais Compactas de Resumo */}
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 mt-2 pt-2 border-t border-zinc-100 dark:border-stone-800">
-          {/* Botões de Navegação das 3 Abas */}
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* Linha 2 Integrada: Botões de Alternância das Abas com Moldura Acetinada 3D */}
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 mt-2 pt-2 border-t border-slate-300 dark:border-stone-800">
+          {/* Botões de Navegação das 3 Abas com Moldura Acetinada 3D */}
+          <nav 
+            aria-label="Abas do Almoxarifado"
+            className="flex flex-wrap items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+          >
             <button
               type="button"
               onClick={() => setActiveTab('retirada_pecas')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'retirada_pecas'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
-                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <PackageMinus className="w-3.5 h-3.5" />
@@ -2005,10 +2008,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('cautela_ferramentas')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'cautela_ferramentas'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
-                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -2023,16 +2026,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('caixa_veiculo')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'caixa_veiculo'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
-                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <ClipboardCheck className="w-3.5 h-3.5" />
               <span>3. Caixa de Ferramentas Fixa por Veículo</span>
             </button>
-          </div>
+          </nav>
 
           {/* 3 Cartões/Pílulas de Resumo Horizontais Ultra-Compactos */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">

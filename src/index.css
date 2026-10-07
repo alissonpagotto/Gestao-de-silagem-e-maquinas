@@ -949,6 +949,118 @@ html.dark .crm-card {
   color: #ffffff !important;
 }
 
+/* ==========================================================================
+   UNIFICAÇÃO GRÁFICA GLOBAL: MOLDURA ACETINADA 3D & COMPONENTES SLIM
+   ========================================================================= */
+
+/* 1. Moldura Acetinada 3D para Container de Abas, Pastas e Categorias */
+.tab-container-3d,
+.nav-tabs-3d,
+nav[aria-label*="Abas"],
+div[aria-label*="Abas"] {
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9, #cbd5e1) !important;
+  border: 1px solid #94a3b8 !important;
+  box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.9), inset -1px -1px 0px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 0.75rem !important;
+}
+
+html.dark .tab-container-3d,
+html.dark .nav-tabs-3d,
+html.dark nav[aria-label*="Abas"],
+html.dark div[aria-label*="Abas"] {
+  background: linear-gradient(to bottom, #1c1917, #292524, #1c1917) !important;
+  border-color: #44403c !important;
+  box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.08), inset -1px -1px 0px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Header Compacto com Filete de Luz Inferior */
+.section-header-3d {
+  border-bottom: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 0px 0px rgba(255, 255, 255, 0.8) !important;
+  padding-bottom: 0.5rem !important;
+}
+
+html.dark .section-header-3d {
+  border-bottom: 1px solid #292524 !important;
+  box-shadow: 0 1px 0px 0px rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 2. Botões de Ação Tridimensionais com Gradiente e Borda de 1px com Luz Interna */
+.btn-action-3d-dark,
+button.btn-action-primary,
+header button:has(svg.lucide-plus):not([class*="from-"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-blue"]):not([class*="bg-amber"]) {
+  background: linear-gradient(to bottom, #334155, #1e293b, #0f172a) !important;
+  border: 1px solid #475569 !important;
+  box-shadow: inset 0 1px 0px rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+  color: #ffffff !important;
+}
+
+.btn-action-3d-dark:hover,
+button.btn-action-primary:hover,
+header button:has(svg.lucide-plus):not([class*="from-"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-blue"]):not([class*="bg-amber"]):hover {
+  background: linear-gradient(to bottom, #475569, #334155, #1e293b) !important;
+}
+
+.btn-action-3d-emerald,
+button.btn-action-success {
+  background: linear-gradient(to bottom, #10b981, #059669, #047857) !important;
+  border: 1px solid #34d399 !important;
+  box-shadow: inset 0 1px 0px rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+  color: #ffffff !important;
+}
+.btn-action-3d-emerald:hover,
+button.btn-action-success:hover {
+  background: linear-gradient(to bottom, #34d399, #10b981, #059669) !important;
+}
+
+.btn-action-3d-sky,
+button.btn-action-info {
+  background: linear-gradient(to bottom, #0ea5e9, #0284c7, #0369a1) !important;
+  border: 1px solid #38bdf8 !important;
+  box-shadow: inset 0 1px 0px rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+  color: #ffffff !important;
+}
+.btn-action-3d-sky:hover,
+button.btn-action-info:hover {
+  background: linear-gradient(to bottom, #38bdf8, #0ea5e9, #0284c7) !important;
+}
+
+.btn-action-3d-light {
+  background: linear-gradient(to bottom, #ffffff, #f8fafc, #f1f5f9) !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: inset 0 1px 0px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important;
+}
+.btn-action-3d-light:hover {
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9, #e2e8f0) !important;
+}
+html.dark .btn-action-3d-light {
+  background: linear-gradient(to bottom, #292524, #1c1917, #1c1917) !important;
+  border-color: #44403c !important;
+  box-shadow: inset 0 1px 0px rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  color: #e7e5e4 !important;
+}
+
+/* 3. Escala Tipográfica Micro e Corporativa (Slim Typography) */
+label:not(.text-inherit):not(.sr-only) {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #475569 !important; /* text-slate-600 */
+}
+html.dark label:not(.text-inherit):not(.sr-only) {
+  color: #a8a29e !important; /* text-stone-400 */
+}
+
+/* Achatar verticalmente inputs em modais e formulários para economizar espaço */
+form input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.h-auto),
+form select:not(.h-auto),
+.form-input-slim {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.75rem !important; /* text-xs */
+  line-height: 1rem !important;
+}
+
 html:not(.dark) .crm-card-title,
 html:not(.dark) .crm-card h1,
 html:not(.dark) .crm-card h2,

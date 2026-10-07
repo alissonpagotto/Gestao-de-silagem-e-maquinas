@@ -5254,27 +5254,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   return (
     <div id="nfe-module" className="w-full max-w-none space-y-4">
       
-      {/* 1. Header Unificado com Título, Contador e Botões Importar XML e Nova Entrada Manual */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/15 dark:border-stone-800 pb-2.5">
+      {/* 1. Header Unificado 3D Slim com Título, Contador e Botões Importar XML e Nova Entrada Manual */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
-          <h2 className="text-sm sm:text-base font-black text-black dark:text-white tracking-tight font-['Outfit']">
+          <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Notas e Entradas
           </h2>
-          <p className="text-[11px] sm:text-xs font-bold text-black mt-0.5">
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Gestão unificada de notas fiscais (XML) e entradas manuais de mercadorias (romaneios, notas avulsas, cupons, nota de produtor)
           </p>
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
-          <div className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-[11px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 shadow-2xs">
-            Notas e Entradas ({unifiedEntries.length})
+          <div className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-stone-800 text-[10px] sm:text-[11px] font-bold text-zinc-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 shadow-2xs">
+            {unifiedEntries.length} registro(s)
           </div>
 
           <button
             type="button"
             id="btn-importar-xml-topo"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white text-xs font-bold rounded-lg shadow-2xs hover:shadow-xs transition cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white text-xs font-bold rounded-lg border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
             title="Selecionar arquivo XML de NF-e para importar"
           >
             <Upload className="w-3.5 h-3.5" />
@@ -5292,25 +5292,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             type="button"
             id="btn-nova-entrada-manual-topo"
             onClick={handleOpenManualEntryModal}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-2xs hover:shadow-xs transition cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-bold rounded-lg border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
             title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Nota avulsa, Cupom sem valor fiscal, Nota de Produtor, Outros)"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Nova Entrada Manual</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* 2. Barra de Navegação Superior com Abas Adicionais (Requisito 3 - Print 2) */}
-      <div className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-850 rounded-xl border border-stone-200 dark:border-stone-800">
+      {/* 2. Barra de Navegação Superior com Abas Adicionais - Moldura Acetinada 3D */}
+      <nav 
+        aria-label="Abas de Notas e Entradas"
+        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+      >
         <button
           type="button"
           id="tab-fiscal-notas-entradas"
           onClick={() => setActiveFiscalSubTab('notas')}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
             activeFiscalSubTab === 'notas'
-              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs ring-1 ring-stone-300 dark:ring-stone-600'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+              : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
           }`}
         >
           <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
@@ -5324,10 +5327,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           type="button"
           id="tab-fiscal-pedidos-reforma"
           onClick={() => setActiveFiscalSubTab('pedidos_reforma')}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
             activeFiscalSubTab === 'pedidos_reforma'
-              ? 'bg-white dark:bg-stone-700 text-amber-700 dark:text-amber-300 shadow-xs ring-1 ring-amber-400/60'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+              : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
           }`}
         >
           <Wrench className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -5346,10 +5349,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           type="button"
           id="tab-fiscal-notas-devolucao"
           onClick={() => setActiveFiscalSubTab('devolucao')}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
             activeFiscalSubTab === 'devolucao'
-              ? 'bg-white dark:bg-stone-700 text-rose-700 dark:text-rose-300 shadow-xs ring-1 ring-rose-400/60'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+              : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
           }`}
         >
           <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
@@ -5358,7 +5361,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             {devolucaoCount}
           </span>
         </button>
-      </div>
+      </nav>
 
       {/* Renderização Condicional das Sub-Abas do Módulo */}
       {activeFiscalSubTab === 'pedidos_reforma' ? (

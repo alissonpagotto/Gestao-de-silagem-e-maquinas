@@ -219,28 +219,35 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
           </button>
         </div>
 
-        {/* Tab switch */}
-        <div className="flex border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 px-5 pt-3 gap-2">
-          <button
-            onClick={() => setActiveTab('categories')}
-            className={`px-4 py-2 text-xs font-bold rounded-t-xl border-b-2 transition ${
-              activeTab === 'categories'
-                ? 'border-[#009688] text-[#009688] bg-white dark:bg-stone-900 shadow-2xs'
-                : 'border-transparent text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-            }`}
+        {/* Tab switch - Moldura Acetinada 3D */}
+        <div className="p-2 sm:px-5 border-b border-slate-300 dark:border-stone-800 bg-stone-100/70 dark:bg-stone-900/50">
+          <div 
+            aria-label="Abas de Categorias e Centros de Custo"
+            className="flex items-center gap-1.5 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)]"
           >
-            Categorias de Despesas ({categories.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('costCenters')}
-            className={`px-4 py-2 text-xs font-bold rounded-t-xl border-b-2 transition ${
-              activeTab === 'costCenters'
-                ? 'border-[#009688] text-[#009688] bg-white dark:bg-stone-900 shadow-2xs'
-                : 'border-transparent text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-            }`}
-          >
-            Centros de Custo & Talhões ({costCenters.length})
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('categories')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer select-none ${
+                activeTab === 'categories'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+              }`}
+            >
+              Categorias de Despesas ({categories.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('costCenters')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer select-none ${
+                activeTab === 'costCenters'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
+              }`}
+            >
+              Centros de Custo & Talhões ({costCenters.length})
+            </button>
+          </div>
         </div>
 
         {/* Content */}

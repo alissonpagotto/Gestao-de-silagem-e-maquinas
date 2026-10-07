@@ -247,13 +247,13 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   return (
     <div className="w-full max-w-none space-y-4 sm:space-y-5 animate-fade-in">
       
-      {/* 1. Header do Módulo (Conforme Print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* 1. Header do Módulo 3D Slim */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 tracking-tight font-['Outfit']">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 tracking-tight font-['Outfit']">
             Relatórios
           </h1>
-          <p className="text-xs text-black dark:text-stone-400 font-bold">
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             Visão consolidada de receitas, despesas e margem operacional
           </p>
         </div>
@@ -266,7 +266,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <select
               value={selectedMonth}
               onChange={(e) => handleMonthChange(Number(e.target.value))}
-              className="appearance-none pl-3 pr-8 py-2 text-xs font-semibold rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-[#009688] shadow-2xs cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs cursor-pointer"
             >
               {monthsList.map((m, idx) => (
                 <option key={m} value={idx}>
@@ -277,21 +277,24 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <CalendarIcon className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Botão Imprimir Geral (Borda azul clara/sky conforme print) */}
+          {/* Botão Imprimir Geral 3D Acetinado */}
           <button
             type="button"
             onClick={() => handleOpenPrintModal()}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-sky-400 dark:border-sky-700 text-sky-700 dark:text-sky-300 bg-white dark:bg-stone-900 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition shadow-2xs cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-slate-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] transition cursor-pointer"
           >
-            <Printer className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
             <span>Imprimir Geral</span>
           </button>
 
         </div>
-      </div>
+      </header>
 
-      {/* 2. Barra de Navegação de Abas (Sub-tabs) */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-lg border border-slate-400 dark:border-stone-800 p-1.5 shadow-sm flex items-center gap-1.5 overflow-x-auto scrollbar-none text-black dark:text-white">
+      {/* 2. Barra de Navegação de Abas (Sub-tabs) - Moldura Acetinada 3D */}
+      <nav 
+        aria-label="Abas de Relatórios"
+        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+      >
         {navSubTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
@@ -301,11 +304,11 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               type="button"
               onClick={() => setActiveSubTab(tab.id as any)}
               className={`
-                inline-flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition cursor-pointer
+                inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer
                 ${
                   isActive
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-black dark:text-stone-400 hover:text-black dark:hover:text-stone-200 hover:bg-black/10 dark:hover:bg-stone-800'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
+                    : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
                 }
               `}
             >
@@ -314,7 +317,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* 3. Conteúdo da Aba Ativa */}
       {activeSubTab === 'dashboard' && (
