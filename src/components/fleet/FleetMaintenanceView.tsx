@@ -540,11 +540,12 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
           {/* Botão Nova OS */}
           <button
+            type="button"
             onClick={onOpenNewMaintenance}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-[#8da7eb] hover:bg-[#7292e7] text-slate-950 border border-[#7292e7] text-xs font-black rounded-xl shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
           >
-            <Plus className="w-4 h-4 text-slate-950" />
-            <span>Nova Ordem de Manutenção</span>
+            <Plus className="w-4 h-4 text-slate-800 stroke-[2.2]" />
+            <span>NOVA ORDEM DE MANUTENÇÃO</span>
           </button>
         </div>
       </div>
