@@ -5,6 +5,7 @@ import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
+import { QRCode } from './PixQrCodeBlock';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -229,25 +230,24 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               </div>
               <div className="col-span-2 sm:col-span-3">
                 <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">DEPÓSITO / FORMA DE PAGAMENTO:</span>
-                <span className="font-semibold text-stone-800 truncate block mt-0.5 uppercase text-[10px]" title={formatEmployeeBankDeposit(employee)}>
-                  {formatEmployeeBankDeposit(employee)}
+                <span className="font-semibold text-stone-800 truncate block mt-0.5 uppercase text-[10px]" title={formatEmployeeBankDeposit(resolvedEmp || employee)}>
+                  {formatEmployeeBankDeposit(resolvedEmp || employee)}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
-          {isPixPayment && pixQrCodeUrl && (
+          {isPixPayment && pixPayload && (
             <div 
               className="w-[15%] min-w-[88px] max-w-[110px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs self-center text-center"
             >
               <div className="w-20 h-20 print:w-[70px] print:h-[70px] flex items-center justify-center">
-                <img
-                  src={pixQrCodeUrl}
-                  alt="QR Code PIX para Pagamento"
+                <QRCode
+                  value={pixPayload}
+                  size={80}
+                  alt="QR CODE PIX PARA PAGAMENTO"
                   className="w-full h-full object-contain rounded-xs block mx-auto"
-                  width="80"
-                  height="80"
                 />
               </div>
               <span 

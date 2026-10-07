@@ -54,7 +54,7 @@ export function buildOfficialPixBrCode(
   // Higienização da Chave: remove parênteses, traços, pontos ou espaços, deixando apenas dígitos puros
   let chaveLimpa = trimmed.replace(/[\s().-]/g, '').trim();
   const digitsOnly = chaveLimpa.replace(/\D/g, '');
-  if (digitsOnly.length >= 10 && !chaveLimpa.includes('@')) {
+  if (digitsOnly.length > 0 && !chaveLimpa.includes('@')) {
     chaveLimpa = digitsOnly;
   }
 

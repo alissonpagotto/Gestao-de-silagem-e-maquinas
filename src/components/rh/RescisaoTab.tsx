@@ -59,7 +59,8 @@ import {
   formatMoneyBRL, 
   formatCPF, 
   formatEmployeeAdmissionDate,
-  findEmployeeLinkedMachinery
+  findEmployeeLinkedMachinery,
+  formatEmployeeBankDeposit
 } from './payrollHelpers';
 import { PixQrCodeBlock } from './PixQrCodeBlock';
 import { resolveEmployeePixKey } from './pixQrCodeHelper';
@@ -1192,6 +1193,13 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     <span className="font-semibold text-black print:text-[9.5px]">{getReasonLabel(viewingTRCT.reason)}</span>
                   </div>
                 </div>
+
+                <div className="pt-1 border-t border-black print:pt-0.5 flex items-center justify-between text-[10px] print:text-[9px]">
+                  <span className="font-bold text-slate-600 print:text-black uppercase">DEPÓSITO / FORMA DE PAGAMENTO:</span>
+                  <span className="font-bold text-black uppercase">
+                    {formatEmployeeBankDeposit(findEmployeeFromStorage(viewingTRCT.employeeId || viewingTRCT.employeeName) || employees.find(e => e.id === viewingTRCT.employeeId || e.name === viewingTRCT.employeeName) || (viewingTRCT as any))}
+                  </span>
+                </div>
               </div>
 
               {/* Tabela de Verbas Rescisórias (Proventos) */}
@@ -1364,7 +1372,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     <PixQrCodeBlock
                       pixKey={trctPixKey}
                       amount={viewingTRCT.calculation?.netTotal || 0}
-                      label="PIX para Verbas Rescisórias"
+                      label="QR CODE PIX PARA PAGAMENTO"
                       receiverName={viewingTRCT.employeeName}
                       city={companyProfile?.city || 'Brasil'}
                     />

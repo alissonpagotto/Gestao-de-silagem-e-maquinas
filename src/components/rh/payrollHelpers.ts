@@ -627,6 +627,7 @@ export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): strin
   const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').trim().toUpperCase();
   const directPix = (emp.chavePix || (emp as any).chave_pix || emp.pixKey || (emp as any).pix_key || '').trim();
   const rawAccount = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
+  const rawAgency = (emp.bankAgency || (emp as any).agencia || '').trim();
   const bankPixKey = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim().toUpperCase();
 
   const isPix =
@@ -638,6 +639,8 @@ export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): strin
 
   if (isPix) {
     let chave = directPix || rawAccount;
+    chave = chave.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+
     if (!chave || chave === '00000-0' || chave === '000-0') {
       if (emp.cpf) {
         chave = emp.cpf;
@@ -647,18 +650,39 @@ export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): strin
         chave = 'NÃO INFORMADA';
       }
     }
+
+    // Se for CPF, telefone ou CNPJ numérico, mantém apenas dígitos puros
+    const digitsOnly = chave.replace(/\D/g, '');
+    if (digitsOnly.length >= 10 && !chave.includes('@')) {
+      chave = digitsOnly;
+    }
+
     return `PIX - CHAVE: ${chave.toUpperCase()}`;
   }
 
   // Se o colaborador recebe por CONTA BANCÁRIA: "[BANCO] AG: [AGÊNCIA] CC: [CONTA]"
-  let bankName = bankPixKey;
+  let bankName = bankPixKey
+    .replace(/^FORMA DE RECEBIMENTO:\s*/i, '')
+    .replace(/^CONTA BANCÁRIA\s*\|\s*/i, '')
+    .replace(/^BANCO:\s*/i, '')
+    .trim();
+
   if (!bankName || bankName === 'CONTA PESSOAL' || bankName === 'CONTA DE TERCEIRO') {
-    bankName = (paymentLoc !== 'CONTA PESSOAL' && paymentLoc !== 'CONTA DE TERCEIRO' && paymentLoc) ? paymentLoc : 'BANCO';
+    let cleanPaymentLoc = paymentLoc
+      .replace(/^FORMA DE RECEBIMENTO:\s*/i, '')
+      .replace(/^CONTA BANCÁRIA\s*\|\s*/i, '')
+      .replace(/^BANCO:\s*/i, '')
+      .trim();
+
+    bankName = (cleanPaymentLoc && cleanPaymentLoc !== 'CONTA PESSOAL' && cleanPaymentLoc !== 'CONTA DE TERCEIRO')
+      ? cleanPaymentLoc
+      : 'BANCO';
   }
-  const agency = (emp.bankAgency || (emp as any).agencia || '0000').trim().toUpperCase();
+
+  const agency = (rawAgency || '0000').toUpperCase();
   const account = (rawAccount || '00000-0').toUpperCase();
 
-  return `${bankName} AG: ${agency} CC: ${account}`;
+  return `${bankName} AG: ${agency} CC: ${account}`.toUpperCase();
 };
 
 /**

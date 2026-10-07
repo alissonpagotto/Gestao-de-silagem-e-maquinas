@@ -8,6 +8,7 @@ import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
+import { QRCode } from './PixQrCodeBlock';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -484,26 +485,24 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                 </div>
                 <div className="col-span-2 sm:col-span-3 lg:col-span-2">
                   <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight uppercase">DEPÓSITO / FORMA DE PAGAMENTO:</span>
-                  <span className="font-bold text-stone-800 dark:text-stone-200 text-[10px] sm:text-[11px] print:text-[9px] truncate block leading-tight uppercase" title={formatEmployeeBankDeposit(employee)}>
-                    {formatEmployeeBankDeposit(employee)}
+                  <span className="font-bold text-stone-800 dark:text-stone-200 text-[10px] sm:text-[11px] print:text-[9px] truncate block leading-tight uppercase" title={formatEmployeeBankDeposit(resolvedEmp || employee)}>
+                    {formatEmployeeBankDeposit(resolvedEmp || employee)}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
-            {isPixPayment && pixQrCodeUrl && (
+            {isPixPayment && pixPayload && (
               <div 
                 className="w-[15%] min-w-[88px] max-w-[115px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs print:border-black self-center text-center"
               >
                 <div className="w-20 h-20 print:w-[70px] print:h-[70px] flex items-center justify-center">
-                  <img
-                    src={pixQrCodeUrl}
-                    alt="QR Code PIX para Pagamento"
+                  <QRCode
+                    value={pixPayload}
+                    size={80}
+                    alt="QR CODE PIX PARA PAGAMENTO"
                     className="w-full h-full object-contain rounded-xs block mx-auto"
-                    width="80"
-                    height="80"
-                    crossOrigin="anonymous"
                   />
                 </div>
                 <span 
