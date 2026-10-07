@@ -142,10 +142,25 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const [labelPrintItem, setLabelPrintItem] = useState<InventoryItem | null>(null);
   const [promptNewLabelItem, setPromptNewLabelItem] = useState<InventoryItem | null>(null);
 
-  // Estado da Fila de Impressão Manual em Lote
+  // Estado da Fila de Impressão Manual em Lote (Persistência em colaca_silagem_fila_impressao_atual)
   const [isPrintQueueModalOpen, setIsPrintQueueModalOpen] = useState(false);
-  const [printQueue, setPrintQueue] = useState<LabelProductItem[]>([]);
+  const [printQueue, setPrintQueue] = useState<LabelProductItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('colaca_silagem_fila_impressao_atual');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [batchPrintItems, setBatchPrintItems] = useState<LabelProductItem[] | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('colaca_silagem_fila_impressao_atual', JSON.stringify(printQueue));
+    } catch (e) {
+      console.warn('Erro ao salvar colaca_silagem_fila_impressao_atual:', e);
+    }
+  }, [printQueue]);
 
   // Logs para histórico
   const maintenanceLogs = useMemo<MaintenanceLog[]>(() => {

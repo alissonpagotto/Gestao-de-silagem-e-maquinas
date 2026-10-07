@@ -7,16 +7,18 @@ import {
   Plus,
   Minus,
   MapPin,
-  Package,
   ArrowRight,
   Barcode,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Tag
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { searchEstoqueProdutos } from '../../lib/supabaseService';
 import { formatCurrencyBRL } from '../../lib/storage';
 import { LabelProductItem } from './ProductLabelPrintModal';
+
+export const PRINT_QUEUE_STORAGE_KEY = 'colaca_silagem_fila_impressao_atual';
 
 interface PrintQueueManagerModalProps {
   isOpen: boolean;
@@ -35,14 +37,47 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
   onChangeQueue,
   onAdvanceToPrint,
 }) => {
+  // Inputs da barra superior estilo PDV Frente de Caixa
+  const [inputQtde, setInputQtde] = useState('1');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+
+  // Estados de busca remota e controle de sugestões
   const [remoteProducts, setRemoteProducts] = useState<InventoryItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Controle para evitar reabertura involuntária do dropdown em focos programáticos
+  const isProgrammaticFocusRef = useRef(false);
+
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
 
-  // Resolve o endereço formatado para conferência (ex: 04.10.45.03.01)
+  // Foco programático seguro (não dispara abertura do dropdown)
+  const focusSearchInputSafely = () => {
+    isProgrammaticFocusRef.current = true;
+    setIsDropdownOpen(false);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+      setIsDropdownOpen(false);
+      setTimeout(() => {
+        isProgrammaticFocusRef.current = false;
+      }, 120);
+    }, 50);
+  };
+
+  // Resolve a categoria em caixa alta
+  const resolveCategory = (item: InventoryItem): string => {
+    const cat = item.category || item.categoria || item.tipo_item;
+    if (cat && typeof cat === 'string' && cat.trim()) {
+      return cat.trim().toUpperCase();
+    }
+    return 'GERAL';
+  };
+
+  // Resolve o endereço formatado para conferência
   const resolveFormattedAddress = (item: InventoryItem): string => {
     if (item.endereco_formatado && item.endereco_formatado.trim()) {
       return item.endereco_formatado.trim();
@@ -78,20 +113,53 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
     return `ID:${String(item.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
   };
 
-  // Foca na barra de busca rápida ao abrir o modal
+  // Carrega produtos da chave 'colaca_silagem_estoque_produtos' no LocalStorage
+  const storageStockProducts = useMemo<InventoryItem[]>(() => {
+    if (!isOpen) return [];
+    try {
+      const raw = localStorage.getItem('colaca_silagem_estoque_produtos');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (err) {
+      console.warn('Erro ao ler colaca_silagem_estoque_produtos no PrintQueueManagerModal:', err);
+    }
+    return [];
+  }, [isOpen]);
+
+  // Restaura fila salva na chave 'colaca_silagem_fila_impressao_atual' ao abrir se estiver vazia
+  useEffect(() => {
+    if (isOpen && queue.length === 0) {
+      try {
+        const saved = localStorage.getItem(PRINT_QUEUE_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            onChangeQueue(parsed);
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao restaurar colaca_silagem_fila_impressao_atual:', e);
+      }
+    }
+  }, [isOpen, queue.length, onChangeQueue]);
+
+  // Abertura do modal: nasce OBRIGATORIAMENTE FECHADO e OCULTO
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 80);
-    } else {
+      setInputQtde('1');
+      setSearchQuery('');
+      setSelectedProduct(null);
       setIsDropdownOpen(false);
+      setHighlightedIndex(0);
+      focusSearchInputSafely();
     }
   }, [isOpen]);
 
   // Busca conectada à tabela 'public.estoque_produtos'
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !searchQuery.trim()) return;
     let isCancelled = false;
 
     const fetchFromEstoqueProdutos = async () => {
@@ -131,93 +199,150 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Lista combinada e filtrada por nome ou código (conectada a public.estoque_produtos + estado atual)
-  const searchResults = useMemo(() => {
+  // Lista unificada: LocalStorage ('colaca_silagem_estoque_produtos') + localInventory + remoteProducts
+  const allStockProducts = useMemo(() => {
     const map = new Map<string, InventoryItem>();
 
-    // Prioriza dados sincronizados de public.estoque_produtos e enriquece com dados locais se necessário
-    remoteProducts.forEach((item) => {
+    // 1. Produtos do LocalStorage oficial
+    storageStockProducts.forEach((item) => {
       map.set(item.id, item);
     });
-    localInventory.forEach((localItem) => {
-      const existing = map.get(localItem.id);
-      if (existing) {
-        map.set(localItem.id, {
-          ...localItem,
-          ...existing,
-          endereco_formatado: existing.endereco_formatado || localItem.endereco_formatado,
-          estoque_setor: existing.estoque_setor || localItem.estoque_setor,
-          estoque_rua: existing.estoque_rua || localItem.estoque_rua,
-          estoque_estante: existing.estoque_estante || localItem.estoque_estante,
-          estoque_nivel: existing.estoque_nivel || localItem.estoque_nivel,
-          estoque_box: existing.estoque_box || localItem.estoque_box,
-          salePrice: existing.salePrice || localItem.salePrice,
-          preco_venda_varejo: existing.preco_venda_varejo || localItem.preco_venda_varejo,
-        });
+
+    // 2. Inventário local passado por prop
+    localInventory.forEach((item) => {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
       } else {
-        map.set(localItem.id, localItem);
+        const current = map.get(item.id)!;
+        map.set(item.id, { ...item, ...current });
       }
     });
 
-    const all = Array.from(map.values());
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return all.slice(0, 30);
+    // 3. Resultados remotos do Supabase
+    remoteProducts.forEach((item) => {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      } else {
+        const current = map.get(item.id)!;
+        map.set(item.id, { ...current, ...item });
+      }
+    });
 
-    return all
+    return Array.from(map.values());
+  }, [storageStockProducts, localInventory, remoteProducts]);
+
+  // Resultados filtrados da busca por Nome, Código interno ou Código de Barras
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allStockProducts.slice(0, 15);
+
+    return allStockProducts
       .filter((item) => {
         const name = String(item.nome_comercial || item.name || '').toLowerCase();
         const code = String(item.code ?? item.codigo_produto ?? '').toLowerCase();
         const barcode = String(item.barcode ?? item.codigo_barras ?? '').toLowerCase();
         const address = resolveFormattedAddress(item).toLowerCase();
+        const category = resolveCategory(item).toLowerCase();
         return (
           name.includes(q) ||
           code.includes(q) ||
           barcode.includes(q) ||
-          address.includes(q)
+          address.includes(q) ||
+          category.includes(q)
         );
       })
-      .slice(0, 30);
-  }, [remoteProducts, localInventory, searchQuery]);
+      .slice(0, 25);
+  }, [allStockProducts, searchQuery]);
 
-  if (!isOpen) return null;
-
-  // Ao selecionar um produto na busca, adiciona imediatamente na tabela de listagem abaixo
-  const handleSelectProduct = (product: InventoryItem) => {
+  // Atualiza a fila e persiste imediatamente em 'colaca_silagem_fila_impressao_atual'
+  const persistQueueUpdate = (updater: (prev: LabelProductItem[]) => LabelProductItem[]) => {
     onChangeQueue((prev) => {
-      const existingIdx = prev.findIndex((entry) => entry.product.id === product.id);
+      const next = updater(prev);
+      try {
+        localStorage.setItem(PRINT_QUEUE_STORAGE_KEY, JSON.stringify(next));
+      } catch (err) {
+        console.warn('Erro ao persistir fila no LocalStorage:', err);
+      }
+      return next;
+    });
+  };
+
+  // Ação de Inserir Item (+ INSERIR / ENTER)
+  const handleInsertItem = () => {
+    setIsDropdownOpen(false); // Fechamento imediato obrigatório
+    const parsedQty = Math.max(1, Math.min(999, parseInt(inputQtde, 10) || 1));
+    let productToInsert: InventoryItem | null = selectedProduct;
+
+    // Se nenhum produto foi clicado explicitamente, tenta o primeiro resultado da busca ou o match exato de código
+    if (!productToInsert && searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const exactMatch = allStockProducts.find((p) => {
+        const code = String(p.code ?? p.codigo_produto ?? '').toLowerCase();
+        const barcode = String(p.barcode ?? p.codigo_barras ?? '').toLowerCase();
+        return code === q || barcode === q;
+      });
+      productToInsert = exactMatch || (searchResults.length > 0 ? searchResults[0] : null);
+    }
+
+    if (!productToInsert) {
+      focusSearchInputSafely();
+      return;
+    }
+
+    const targetProduct = productToInsert;
+
+    persistQueueUpdate((prev) => {
+      const existingIdx = prev.findIndex((entry) => entry.product.id === targetProduct.id);
       if (existingIdx >= 0) {
         return prev.map((entry, idx) =>
           idx === existingIdx
-            ? { ...entry, product, quantity: (entry.quantity || 1) + 1 }
+            ? { ...entry, product: targetProduct, quantity: (entry.quantity || 1) + parsedQty }
             : entry
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product: targetProduct, quantity: parsedQty }];
     });
+
+    // Limpa os campos para o próximo item e refoca na busca com segurança
     setSearchQuery('');
+    setSelectedProduct(null);
+    setInputQtde('1');
     setIsDropdownOpen(false);
-    searchInputRef.current?.focus();
+    setHighlightedIndex(0);
+
+    focusSearchInputSafely();
   };
 
-  // Atualiza a quantidade de etiquetas de um item específico
+  // Seleciona produto nas sugestões do autocomplete
+  const handleSelectSuggestion = (product: InventoryItem) => {
+    setSelectedProduct(product);
+    setSearchQuery(String(product.nome_comercial || product.name || '').toUpperCase());
+    setIsDropdownOpen(false);
+    qtyInputRef.current?.focus();
+    qtyInputRef.current?.select();
+  };
+
+  // Atualização direta da quantidade editável na célula da tabela
   const handleUpdateQuantity = (productId: string, newQty: number) => {
     const validQty = Math.max(1, Math.min(999, isNaN(newQty) ? 1 : newQty));
-    onChangeQueue((prev) =>
+    persistQueueUpdate((prev) =>
       prev.map((entry) =>
         entry.product.id === productId ? { ...entry, quantity: validQty } : entry
       )
     );
   };
 
-  // Remove um item da fila de impressão
+  // Remoção de item individual da fila
   const handleRemoveFromQueue = (productId: string) => {
-    onChangeQueue((prev) => prev.filter((entry) => entry.product.id !== productId));
+    persistQueueUpdate((prev) => prev.filter((entry) => entry.product.id !== productId));
   };
 
-  // Limpa toda a fila
+  // Limpeza total da fila
   const handleClearQueue = () => {
-    onChangeQueue([]);
+    persistQueueUpdate(() => []);
   };
+
+  if (!isOpen) return null;
 
   const totalProductsInQueue = queue.length;
   const totalLabelsToPrint = queue.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
@@ -228,10 +353,12 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-4xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[90vw] max-w-[90vw] h-[60vh] min-h-[500px] max-h-[92vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header 3D Metálico Acetinado */}
+        {/* ============================================================== */}
+        {/* 1. CABEÇALHO 3D METÁLICO ACETINADO COM ACABAMENTO TRIDIMENSIONAL */}
+        {/* ============================================================== */}
         <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between shrink-0 rounded-t-2xl">
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
@@ -242,7 +369,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                 GERENCIADOR DE FILA DE IMPRESSÃO
               </h3>
               <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
-                Pesquise produtos em <span className="font-mono text-sky-600 dark:text-sky-400">estoque_produtos</span>, defina a quantidade de etiquetas e avance para a impressão em lote
+                Insira produtos na fila de impressão com a mesma agilidade e precisão do PDV Frente de Caixa
               </p>
             </div>
           </div>
@@ -256,198 +383,222 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
           </button>
         </div>
 
-        {/* Corpo do Modal - Blindagem Slim sem Rolagem Geral */}
+        {/* ============================================================== */}
+        {/* CORPO DO MODAL - BLINDAGEM SLIM DESIGN (ZERO ROLAGEM GERAL)     */}
+        {/* ============================================================== */}
         <div className="p-3 sm:p-4 space-y-3 overflow-hidden flex-1 flex flex-col min-h-0">
           
-          {/* Barra de Busca Rápida conectada à tabela 'public.estoque_produtos' */}
-          <div ref={searchContainerRef} className="relative shrink-0">
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-stone-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center space-x-1.5">
-                <Search className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                <span>Adicionar Produto à Fila de Impressão (Busca por Nome ou Código)</span>
-              </span>
-              {isSearching && (
-                <span className="inline-flex items-center space-x-1 text-[10px] font-semibold text-sky-600 dark:text-sky-400">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Consultando estoque_produtos...</span>
-                </span>
-              )}
-            </label>
+          {/* ============================================================== */}
+          {/* 2. CONJUNTO DE INPUTS DE ENTRADA SUPERIOR (IGUAL AO PDV)       */}
+          {/* ============================================================== */}
+          <div className="bg-slate-50 dark:bg-stone-800/60 p-2.5 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+            <div className="grid grid-cols-12 gap-2 items-end">
+              
+              {/* Input 'QTDE ETIQUETAS' */}
+              <div className="col-span-3 sm:col-span-2">
+                <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1">
+                  QTDE ETIQUETAS
+                </label>
+                <input
+                  ref={qtyInputRef}
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={inputQtde}
+                  onChange={(e) => setInputQtde(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleInsertItem();
+                    }
+                  }}
+                  className="w-full text-center px-2 py-1.5 rounded-xl border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-slate-900 dark:text-white shadow-2xs focus:ring-2 focus:ring-sky-500 outline-none transition"
+                  placeholder="1"
+                />
+              </div>
 
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onFocus={() => setIsDropdownOpen(true)}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value.toUpperCase());
-                  setIsDropdownOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchResults.length > 0) {
-                    e.preventDefault();
-                    handleSelectProduct(searchResults[0]);
-                  } else if (e.key === 'Escape') {
-                    setIsDropdownOpen(false);
-                  }
-                }}
-                placeholder="DIGITE O NOME DO PRODUTO, CÓDIGO INTERNO OU CÓDIGO DE BARRAS..."
-                className="w-full pl-9 pr-24 py-1.5 bg-slate-50 dark:bg-stone-800/90 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-stone-100 placeholder:text-slate-400 focus:bg-white dark:focus:bg-stone-800 focus:ring-2 focus:ring-sky-500 outline-none transition shadow-2xs uppercase"
-              />
-              {searchQuery ? (
+              {/* Input 'PESQUISAR PRODUTO' (Combobox / Autocomplete) */}
+              <div ref={searchContainerRef} className="col-span-6 sm:col-span-7 relative">
+                <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <Search className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                    <span>PESQUISAR PRODUTO</span>
+                  </span>
+                  {isSearching && (
+                    <span className="inline-flex items-center space-x-1 text-[10px] font-semibold text-sky-600 dark:text-sky-400">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Buscando...</span>
+                    </span>
+                  )}
+                </label>
+
+                <div className="relative">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onFocus={() => {
+                      // A lista SÓ aparece quando o usuário clica ativamente (não em foco programático)
+                      if (!isProgrammaticFocusRef.current && (searchQuery.trim().length > 0 || searchResults.length > 0)) {
+                        setIsDropdownOpen(true);
+                      }
+                    }}
+                    onClick={() => {
+                      // Clique explícito dentro do campo
+                      if (searchResults.length > 0) {
+                        setIsDropdownOpen(true);
+                      }
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setSearchQuery(val);
+                      setSelectedProduct(null);
+                      setIsDropdownOpen(true);
+                      setHighlightedIndex(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setIsDropdownOpen(true);
+                        setHighlightedIndex((prev) => Math.min(searchResults.length - 1, prev + 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) => Math.max(0, prev - 1));
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setIsDropdownOpen(false); // Fechamento imediato obrigatório
+                        if (isDropdownOpen && searchResults.length > 0 && highlightedIndex >= 0) {
+                          handleSelectSuggestion(searchResults[highlightedIndex]);
+                        } else {
+                          handleInsertItem();
+                        }
+                      } else if (e.key === 'Escape') {
+                        setIsDropdownOpen(false);
+                      }
+                    }}
+                    placeholder="DIGITE O NOME, CÓDIGO OU CÓDIGO DE BARRAS..."
+                    className="w-full pl-3 pr-10 py-1.5 rounded-xl border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-slate-900 dark:text-white uppercase shadow-2xs focus:ring-2 focus:ring-sky-500 outline-none transition placeholder:normal-case placeholder:font-medium placeholder:text-slate-400"
+                  />
+                  <Barcode className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* Dropdown de Sugestões do Autocomplete / Combobox */}
+                {isDropdownOpen && searchResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800 scrollbar-none">
+                    {searchResults.map((item, idx) => {
+                      const displayName = String(item.nome_comercial || item.name || '').toUpperCase();
+                      const internalCode = resolveInternalCode(item);
+                      const catName = resolveCategory(item);
+                      const inQueueItem = queue.find((q) => q.product.id === item.id);
+                      const salePrice = Number(item.salePrice ?? item.preco_venda_varejo ?? item.unitCost ?? 0);
+                      const isHighlighted = idx === highlightedIndex;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsDropdownOpen(false); // Fechamento imediato obrigatório
+                            handleSelectSuggestion(item);
+                          }}
+                          className={`w-full px-3 py-2 text-left transition flex items-center justify-between gap-2.5 cursor-pointer ${
+                            isHighlighted
+                              ? 'bg-sky-100 dark:bg-sky-950/60'
+                              : 'hover:bg-sky-50/80 dark:hover:bg-sky-950/30'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-bold text-xs text-slate-900 dark:text-stone-100 truncate">
+                                {displayName}
+                              </span>
+                              {inQueueItem && (
+                                <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-[10px] font-black shrink-0">
+                                  <CheckCircle2 className="w-2.5 h-2.5" />
+                                  <span>{inQueueItem.quantity}x na fila</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-slate-500 dark:text-stone-400 mt-0.5">
+                              <span className="font-mono font-bold text-slate-700 dark:text-stone-300 bg-slate-100 dark:bg-stone-800 px-1.5 py-0.2 rounded">
+                                CÓD: {internalCode}
+                              </span>
+                              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 font-semibold text-slate-600 dark:text-stone-300 uppercase text-[9.5px]">
+                                <Tag className="w-2.5 h-2.5 text-slate-400" />
+                                <span>{catName}</span>
+                              </span>
+                              {salePrice > 0 && (
+                                <span className="font-mono font-bold text-slate-700 dark:text-stone-300">
+                                  {formatCurrencyBRL(salePrice)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0 uppercase bg-sky-50 dark:bg-sky-950/50 px-2 py-1 rounded-md border border-sky-200 dark:border-sky-800">
+                            Selecionar
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Botão '+ INSERIR (ENTER)' com gradiente azul e filete de luz interna */}
+              <div className="col-span-3 sm:col-span-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setSearchQuery('');
-                    searchInputRef.current?.focus();
+                    setIsDropdownOpen(false); // Fechamento imediato obrigatório
+                    handleInsertItem();
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10.5px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-stone-200 px-2 py-0.5 rounded bg-slate-200/80 dark:bg-stone-700 cursor-pointer"
+                  className="w-full h-[33px] inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold text-white uppercase rounded-xl bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer active:scale-95 shrink-0"
                 >
-                  Limpar
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>+ INSERIR (ENTER)</span>
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsDropdownOpen((prev) => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10.5px] font-bold text-slate-700 dark:text-stone-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] px-2 py-0.5 rounded-lg transition cursor-pointer"
-                >
-                  {isDropdownOpen ? 'Ocultar Lista' : 'Ver Produtos'}
-                </button>
-              )}
-            </div>
-
-            {/* Dropdown de Resultados da Busca Rápida */}
-            {isDropdownOpen && (
-              <div className="absolute left-0 right-0 mt-1 z-30 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
-                {searchResults.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-slate-500 dark:text-stone-400 font-medium">
-                    Nenhum produto encontrado em <span className="font-mono">public.estoque_produtos</span> para "{searchQuery}".
-                  </div>
-                ) : (
-                  searchResults.map((item) => {
-                    const displayName = item.nome_comercial || item.name;
-                    const internalCode = resolveInternalCode(item);
-                    const formattedAddr = resolveFormattedAddress(item);
-                    const inQueueItem = queue.find((q) => q.product.id === item.id);
-                    const salePrice = Number(item.salePrice ?? item.preco_venda_varejo ?? item.unitCost ?? 0);
-
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleSelectProduct(item)}
-                        className="w-full px-3 py-2 text-left hover:bg-sky-50/80 dark:hover:bg-sky-950/40 transition flex items-center justify-between gap-3 cursor-pointer group"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-bold text-xs text-slate-900 dark:text-stone-100 truncate group-hover:text-sky-700 dark:group-hover:text-sky-300">
-                              {displayName}
-                            </span>
-                            {inQueueItem && (
-                              <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-[10px] font-black shrink-0">
-                                <CheckCircle2 className="w-2.5 h-2.5" />
-                                <span>Na fila ({inQueueItem.quantity}x)</span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-slate-500 dark:text-stone-400 mt-0.5">
-                            <span className="font-mono font-bold text-slate-700 dark:text-stone-300 bg-slate-100 dark:bg-stone-800 px-1.5 py-0.2 rounded">
-                              CÓD: {internalCode}
-                            </span>
-                            <span className="inline-flex items-center space-x-1 font-mono font-semibold text-sky-700 dark:text-sky-400">
-                              <MapPin className="w-3 h-3" />
-                              <span>{formattedAddr}</span>
-                            </span>
-                            {salePrice > 0 && (
-                              <span className="font-mono font-bold text-slate-700 dark:text-stone-300">
-                                {formatCurrencyBRL(salePrice)} / {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="shrink-0">
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] text-xs font-bold transition active:scale-95">
-                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Adicionar</span>
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
               </div>
-            )}
-          </div>
 
-          {/* Cabeçalho da Tabela de Listagem da Fila */}
-          <div className="flex items-center justify-between pt-0.5 shrink-0">
-            <div className="flex items-center space-x-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-stone-200">
-                Lista de Impressão ({totalProductsInQueue} {totalProductsInQueue === 1 ? 'item' : 'itens'})
-              </span>
-              {totalLabelsToPrint > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-mono text-[10.5px] font-bold">
-                  Total: {totalLabelsToPrint} {totalLabelsToPrint === 1 ? 'etiqueta' : 'etiquetas'}
-                </span>
-              )}
             </div>
-
-            {queue.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearQueue}
-                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline cursor-pointer flex items-center space-x-1"
-              >
-                <Trash2 className="w-3 h-3" />
-                <span>Limpar Fila</span>
-              </button>
-            )}
           </div>
 
-          {/* Tabela de Itens Adicionados na Fila de Impressão - Rolagem Estrita Apenas Interna */}
-          <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs max-h-[240px] sm:max-h-[280px] overflow-y-auto scrollbar-none flex-1">
-            <div className="overflow-x-auto">
+          {/* ============================================================== */}
+          {/* 3. GRADE CENTRAL DE ITENS ADICIONADOS À FILA DE IMPRESSÃO       */}
+          {/* ============================================================== */}
+          <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs flex-1 flex flex-col min-h-0">
+            <div className="overflow-x-auto overflow-y-auto scrollbar-none flex-1 max-h-[300px]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-100 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-10">
                   <tr>
-                    <th className="py-2 px-3 w-[42%]">
-                      ITEM (PRODUTO & CÓDIGO)
-                    </th>
-                    <th className="py-2 px-3 w-[26%]">
-                      LOCALIZAÇÃO (ENDEREÇO)
-                    </th>
-                    <th className="py-2 px-3 text-center w-[22%]">
-                      QUANTIDADE
-                    </th>
-                    <th className="py-2 px-3 text-right w-[10%]">
-                      AÇÕES
-                    </th>
+                    <th className="py-2.5 px-3 w-[12%] whitespace-nowrap">CÓDIGO</th>
+                    <th className="py-2.5 px-3 w-[54%]">DESCRIÇÃO DO PRODUTO</th>
+                    <th className="py-2.5 px-3 w-[16%] whitespace-nowrap">CATEGORIA</th>
+                    <th className="py-2.5 px-3 text-center w-[10%] whitespace-nowrap">QTD ETIQUETAS</th>
+                    <th className="py-2.5 px-3 text-right w-[8%] whitespace-nowrap">AÇÃO</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 dark:divide-stone-800">
                   {queue.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 px-4 text-center">
-                        <div className="max-w-sm mx-auto space-y-1.5">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-stone-800 text-slate-400 flex items-center justify-center mx-auto">
-                            <Barcode className="w-4.5 h-4.5" />
+                      <td colSpan={5} className="py-16 px-4 text-center">
+                        <div className="max-w-md mx-auto space-y-2">
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-stone-800 text-slate-400 flex items-center justify-center mx-auto shadow-2xs">
+                            <Barcode className="w-5 h-5 text-slate-500 dark:text-stone-400" />
                           </div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-stone-300">
-                            Sua fila de impressão está vazia
-                          </p>
-                          <p className="text-[11px] text-slate-500 dark:text-stone-400 leading-relaxed">
-                            Use a busca rápida acima para pesquisar produtos por <strong>nome</strong> ou <strong>código</strong> e adicioná-los à lista.
+                          <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-600 dark:text-stone-300">
+                            FILA DE IMPRESSÃO VAZIA. BUSQUE E INSIRA PRODUTOS ACIMA.
                           </p>
                         </div>
                       </td>
                     </tr>
                   ) : (
                     queue.map(({ product: item, quantity = 1 }) => {
-                      const displayName = item.nome_comercial || item.name;
+                      const displayName = String(item.nome_comercial || item.name || '').toUpperCase();
                       const internalCode = resolveInternalCode(item);
+                      const category = resolveCategory(item);
                       const formattedAddress = resolveFormattedAddress(item);
 
                       return (
@@ -455,33 +606,42 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                           key={item.id}
                           className="hover:bg-slate-50/80 dark:hover:bg-stone-800/40 transition"
                         >
-                          {/* 1. Item (Nome do produto e código interno) */}
+                          {/* [CÓDIGO] */}
+                          <td className="py-2 px-3 align-middle whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-200 font-mono text-[11px] font-bold border border-slate-200 dark:border-stone-700">
+                              {internalCode}
+                            </span>
+                          </td>
+
+                          {/* [DESCRIÇÃO DO PRODUTO] */}
                           <td className="py-2 px-3 align-middle">
-                            <div className="font-bold text-slate-900 dark:text-stone-100 text-xs leading-snug">
+                            <div className="font-bold text-slate-900 dark:text-stone-100 text-xs sm:text-[13px] leading-snug break-words">
                               {displayName}
                             </div>
-                            <div className="flex items-center space-x-1.5 mt-0.5">
-                              <span className="inline-flex items-center px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 font-mono text-[10px] font-bold">
-                                CÓD: {internalCode}
-                              </span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                              {formattedAddress && formattedAddress !== '00.00.00.00.00' && (
+                                <span className="inline-flex items-center space-x-1 text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400">
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  <span>{formattedAddress}</span>
+                                </span>
+                              )}
                               {(item.brand || item.marca) && (
-                                <span className="text-[10px] font-semibold text-slate-500 dark:text-stone-400">
-                                  • {item.brand || item.marca}
+                                <span className="text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                                  • {String(item.brand || item.marca)}
                                 </span>
                               )}
                             </div>
                           </td>
 
-                          {/* 2. Localização (Endereço formatado para conferência) */}
-                          <td className="py-2 px-3 align-middle">
-                            <div className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200/80 dark:border-sky-800/70 text-sky-900 dark:text-sky-200 font-mono font-bold text-[11px]">
-                              <MapPin className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
-                              <span>{formattedAddress}</span>
-                            </div>
+                          {/* [CATEGORIA] */}
+                          <td className="py-2 px-3 align-middle whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-stone-800 dark:text-stone-300 border border-slate-200 dark:border-stone-700 uppercase">
+                              {category}
+                            </span>
                           </td>
 
-                          {/* 3. Quantidade de Etiquetas (Input number com botões - e +) */}
-                          <td className="py-2 px-3 align-middle">
+                          {/* [QTD ETIQUETAS (Editável na célula)] */}
+                          <td className="py-2 px-3 align-middle whitespace-nowrap">
                             <div className="flex items-center justify-center space-x-1">
                               <button
                                 type="button"
@@ -513,7 +673,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
                             </div>
                           </td>
 
-                          {/* 4. Ações (Botão com ícone de LIXEIRA vermelha) */}
+                          {/* [AÇÃO (Ícone de Lixeira para remover da fila)] */}
                           <td className="py-2 px-3 text-right align-middle">
                             <button
                               type="button"
@@ -535,15 +695,24 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
         </div>
 
-        {/* Rodapé 3D Metálico Acetinado com Gatilho de Impressão Final */}
+        {/* ============================================================== */}
+        {/* 4. RODAPÉ 3D METÁLICO ACETINADO COM GATILHO DE IMPRESSÃO       */}
+        {/* ============================================================== */}
         <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0 rounded-b-2xl">
-          <div className="text-xs text-slate-600 dark:text-stone-400 font-medium">
-            {queue.length > 0 ? (
-              <span>
-                Pronto para gerar <strong className="text-slate-900 dark:text-white font-mono">{totalLabelsToPrint}</strong> {totalLabelsToPrint === 1 ? 'etiqueta' : 'etiquetas'} de <strong className="text-slate-900 dark:text-white font-mono">{totalProductsInQueue}</strong> {totalProductsInQueue === 1 ? 'produto' : 'produtos'}.
-              </span>
-            ) : (
-              <span>Selecione ao menos 1 produto na busca acima para avançar.</span>
+          <div className="flex items-center space-x-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-stone-300">
+              FILA: <strong className="text-slate-900 dark:text-white font-mono">{totalProductsInQueue}</strong> {totalProductsInQueue === 1 ? 'PRODUTO' : 'PRODUTOS'} | TOTAL: <strong className="text-sky-600 dark:text-sky-400 font-mono">{totalLabelsToPrint}</strong> {totalLabelsToPrint === 1 ? 'ETIQUETA' : 'ETIQUETAS'}
+            </span>
+
+            {queue.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearQueue}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline cursor-pointer flex items-center space-x-1"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>LIMPAR FILA</span>
+              </button>
             )}
           </div>
 
@@ -553,7 +722,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
               onClick={onClose}
               className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95"
             >
-              Cancelar
+              CANCELAR
             </button>
 
             <button
@@ -563,7 +732,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
               className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Avançar para Impressão</span>
+              <span>AVANÇAR PARA IMPRESSÃO</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
