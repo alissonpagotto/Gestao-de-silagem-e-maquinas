@@ -15,9 +15,9 @@ export const QRCode: React.FC<{
   size?: number;
   alt?: string;
   className?: string;
-}> = ({ value, size = 80, alt = 'QR CODE PIX PARA PAGAMENTO', className = '' }) => {
+}> = ({ value, size = 70, alt = 'QR CODE PIX PARA PAGAMENTO', className = '' }) => {
   const [dataUrl, setDataUrl] = useState<string>(() =>
-    value ? `https://api.qrserver.com/v1/create-qr-code/?size=${size * 2}x${size * 2}&data=${encodeURIComponent(value)}` : ''
+    value ? `https://api.qrserver.com/v1/create-qr-code/?size=${size * 3}x${size * 3}&margin=1&data=${encodeURIComponent(value)}` : ''
   );
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export const QRCode: React.FC<{
       return;
     }
 
-    setDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=${size * 2}x${size * 2}&data=${encodeURIComponent(value)}`);
+    setDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=${size * 3}x${size * 3}&margin=1&data=${encodeURIComponent(value)}`);
 
     generateQrCodeDataUrl(value).then((url) => {
       if (isMounted && url) {
@@ -43,16 +43,21 @@ export const QRCode: React.FC<{
   if (!value || !dataUrl) return null;
 
   return (
-    <img
-      src={dataUrl}
-      alt={alt}
-      width={size}
-      height={size}
-      className={`w-full h-full object-contain block ${className}`}
-      loading="eager"
-      crossOrigin="anonymous"
-      data-qr-value={value}
-    />
+    <div
+      style={{ width: `${size}px`, height: `${size}px` }}
+      className={`flex items-center justify-center shrink-0 ${className}`}
+    >
+      <img
+        src={dataUrl}
+        alt={alt}
+        width={size}
+        height={size}
+        className="w-full h-full object-contain block"
+        loading="eager"
+        crossOrigin="anonymous"
+        data-qr-value={value}
+      />
+    </div>
   );
 };
 
@@ -81,11 +86,11 @@ export const PixQrCodeBlock: React.FC<PixQrCodeBlockProps> = ({
 
   return (
     <div
-      className={`pix-qrcode-container flex flex-col items-center justify-center p-2 border border-slate-200 rounded bg-white shrink-0 text-center select-none ${className}`}
+      className={`pix-qrcode-container flex flex-col items-center justify-center p-1.5 border border-slate-200 rounded bg-white shrink-0 text-center select-none ${className}`}
       data-testid="pix-qrcode-block"
-      style={{ minWidth: '95px', maxWidth: '120px' }}
+      style={{ minWidth: '85px', maxWidth: '105px' }}
     >
-      <QRCode value={payload} size={90} className="mx-auto" alt={effectiveLabel} />
+      <QRCode value={payload} size={70} className="mx-auto" alt={effectiveLabel} />
       <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight text-center mt-1.5 w-full block">
         {effectiveLabel}
       </span>

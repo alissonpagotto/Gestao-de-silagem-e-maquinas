@@ -256,65 +256,40 @@ export function buildOfficialPixBrCode(
   liquidoCalculado: number,
   nomeCompletoFuncionario = 'COLABORADOR'
 ): string {
-  const trimmed = (rawPixKey || '').trim();
+  if (!rawPixKey) return '';
+  const trimmed = rawPixKey.trim();
   if (!trimmed) return '';
 
   if (trimmed.startsWith('000201')) return trimmed;
 
-  // Higienização da Chave: dígitos puros para CPF, telefone, CNPJ
-  let chaveLimpa = trimmed.replace(/\D/g, '');
-  if (!chaveLimpa && trimmed.includes('@')) {
-    chaveLimpa = trimmed.toLowerCase();
-  } else if (!chaveLimpa) {
-    chaveLimpa = trimmed.replace(/[\s().-]/g, '');
-  }
+  const cleanKey = normalizePixKeyForBacen(trimmed);
+  if (!cleanKey) return '';
 
-  const chaveLen = chaveLimpa.length;
-  const tag26Len = (22 + chaveLen).toString().padStart(2, '0');
-  const chaveLenStr = chaveLen.toString().padStart(2, '0');
-
-  // Bloco 00 (Payload Format Indicator): "000201"
-  const b00 = '000201';
-
-  // Bloco 26 (Merchant Account Information - Chave Pix): "26" + (22 + chaveLimpa.length) + "0014br.gov.bcb.pix01" + chaveLimpa.length + chaveLimpa
-  const b26 = `26${tag26Len}0014br.gov.bcb.pix01${chaveLenStr}${chaveLimpa}`;
-
-  // Bloco 52 (Merchant Category Code): "52040000"
-  const b52 = '52040000';
-
-  // Bloco 53 (Transaction Currency - Real): "5303986"
-  const b53 = '5303986';
-
-  // Bloco 54 (Transaction Amount - Valor Líquido): "54" + length + valStr
-  const valStr = Number(liquidoCalculado || 0).toFixed(2);
-  const valLenStr = valStr.length.toString().padStart(2, '0');
-  const b54 = `54${valLenStr}${valStr}`;
-
-  // Bloco 58 (Country Code): "5802BR"
-  const b58 = '5802BR';
-
-  // Bloco 59 (Merchant Name - Nome do Funcionário): "59" + length + nome
-  const nomeSanitized = (nomeCompletoFuncionario || 'COLABORADOR')
-    .toUpperCase()
+  const cleanName = (nomeCompletoFuncionario || 'COLABORADOR')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
     .replace(/[^A-Z0-9 ]/g, '')
     .trim()
     .slice(0, 25) || 'COLABORADOR';
-  const nomeLenStr = nomeSanitized.length.toString().padStart(2, '0');
-  const b59 = `59${nomeLenStr}${nomeSanitized}`;
 
-  // Bloco 60 (Merchant City): "6009DOIS VIZINHOS"
-  const b60 = '6009DOIS VIZINHOS';
+  const merchantAccount = emv('00', 'br.gov.bcb.pix') + emv('01', cleanKey);
+  const valorStr = Number(liquidoCalculado || 0).toFixed(2);
 
-  // Bloco 62 (Additional Data Field Template - TxID): "62070503***"
-  const b62 = '62070503***';
+  const payloadSemCrc =
+    emv('00', '01') +
+    emv('26', merchantAccount) +
+    emv('52', '0000') +
+    emv('53', '986') +
+    emv('54', valorStr) +
+    emv('58', 'BR') +
+    emv('59', cleanName) +
+    emv('60', 'DOIS VIZINHOS') +
+    emv('62', emv('05', '***')) +
+    '6304';
 
-  // Bloco 63 (CRC16 Checksum): "6304" + 4 caracteres hexadecimais
-  const rawPayload = `${b00}${b26}${b52}${b53}${b54}${b58}${b59}${b60}${b62}6304`;
-  const checksum = crc16Ccitt(rawPayload);
-
-  return `${rawPayload}${checksum}`;
+  const checksum = crc16Ccitt(payloadSemCrc);
+  return `${payloadSemCrc}${checksum}`;
 }
 
 /**

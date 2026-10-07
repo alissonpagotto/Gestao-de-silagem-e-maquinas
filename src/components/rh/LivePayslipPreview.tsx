@@ -239,8 +239,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
 
           {/* Sub-bloco da Direita: Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
           {isPixPayment && pixPayload && (
-            <div className="flex flex-col items-center justify-center p-2 border border-slate-200 rounded bg-white shrink-0 self-center">
-              <QRCode value={pixPayload} size={90} className="mx-auto" />
+            <div className="flex flex-col items-center justify-center p-1.5 border border-slate-200 rounded bg-white shrink-0 self-center">
+              <QRCode value={pixPayload} size={70} className="mx-auto" />
               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight text-center mt-1.5 w-full block">
                 QR CODE PIX PARA PAGAMENTO
               </span>

@@ -495,11 +495,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             {/* Sub-bloco da Direita: Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
             {isPixPayment && pixPayload && (
               <div 
-                className="flex flex-col items-center justify-center p-2 border border-slate-200 rounded bg-white shrink-0 self-center"
+                className="flex flex-col items-center justify-center p-1.5 border border-slate-200 rounded bg-white shrink-0 self-center"
               >
                 <QRCode
                   value={pixPayload}
-                  size={90}
+                  size={70}
                   alt="QR CODE PIX PARA PAGAMENTO"
                   className="mx-auto"
                 />
