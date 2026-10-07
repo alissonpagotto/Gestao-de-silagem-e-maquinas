@@ -3005,12 +3005,12 @@ export default function App() {
             {/* Botão [ Supabase ] Slim Minimalista */}
             <SupabaseStatusControl dropdownPosition="down" variant="titlebar" />
 
-            <span className="text-slate-300 dark:text-stone-700 text-xs select-none">|</span>
+            <span className="text-slate-400 dark:text-stone-600 text-[10px] select-none">|</span>
 
             {/* Bloco de Perfil do Usuário Slim Horizontal */}
-            <div className="flex items-center space-x-1.5 px-0.5 py-0.5 rounded text-xs font-semibold text-slate-800 dark:text-stone-200">
-              {/* Foto / Avatar redondo (compacto w-5 h-5 sm:w-5.5 sm:h-5.5) */}
-              <div className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
+            <div className="flex items-center space-x-1.5 px-0.5 py-0.5 rounded text-[10px] sm:text-[10.5px] font-medium text-slate-700 dark:text-stone-300">
+              {/* Foto / Avatar redondo (compacto w-4.5 h-4.5 sm:w-5 sm:h-5) */}
+              <div className="relative w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
                 {activeSession?.photoUrl ? (
                   <img 
                     src={activeSession.photoUrl} 
@@ -3019,37 +3019,37 @@ export default function App() {
                   />
                 ) : activeSession?.type === 'admin' ? (
                   <div className="w-full h-full bg-slate-800 text-white flex items-center justify-center">
-                    <Shield className="w-3 h-3 text-emerald-400" />
+                    <Shield className="w-2.5 h-2.5 text-emerald-400" />
                   </div>
                 ) : (
-                  <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-black">
+                  <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-[8px] font-black">
                     {activeSession?.name?.charAt(0) || 'U'}
                   </div>
                 )}
                 <span className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full border border-white dark:border-stone-800 ${activeSession?.type === 'admin' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
               </div>
 
-              {/* Nome: ADMINISTRADOR GERAL - text-xs font-semibold */}
-              <span className="text-xs font-semibold text-slate-800 dark:text-stone-200 tracking-tight whitespace-nowrap hidden sm:inline">
+              {/* Nome: ADMINISTRADOR GERAL - text-[10px] sm:text-[10.5px] font-medium text-slate-700 dark:text-stone-300 */}
+              <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 dark:text-stone-300 tracking-tight whitespace-nowrap hidden sm:inline">
                 {activeSession?.type === 'admin' ? 'ADMINISTRADOR GERAL' : (activeSession?.cargoNome || activeSession?.name || 'ADMINISTRADOR GERAL').toUpperCase()}
               </span>
 
-              {/* Botão Trocar - text-xs font-semibold */}
+              {/* Botão Trocar - text-[10px] sm:text-[10.5px] font-medium */}
               <button
                 type="button"
                 onClick={() => setIsSessionModalOpen(true)}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline transition cursor-pointer px-1 py-0.5"
+                className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 dark:text-stone-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition cursor-pointer px-0.5 py-0.5"
                 title="Simular outro Cargo ou Usuário"
               >
                 Trocar
               </button>
 
-              {/* Separador e Botão Sair - text-xs font-semibold */}
-              <span className="text-slate-400 dark:text-stone-600 text-xs select-none">•</span>
+              {/* Separador e Botão Sair - text-[10px] sm:text-[10.5px] font-medium */}
+              <span className="text-slate-400 dark:text-stone-600 text-[10px] select-none">•</span>
               <button
                 type="button"
                 onClick={handleCloseWindowLogout}
-                className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline transition cursor-pointer px-1 py-0.5"
+                className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 dark:text-stone-300 hover:text-rose-600 dark:hover:text-rose-400 hover:underline transition cursor-pointer px-0.5 py-0.5"
                 title="Encerrar Sessão e Sair do Sistema"
               >
                 Sair
@@ -3057,7 +3057,7 @@ export default function App() {
             </div>
 
             {/* Separador sutil */}
-            <div className="h-3.5 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
+            <div className="h-3 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
 
             {/* Trio Clássico de Mini-Botões de Controle da Janela Desktop */}
             <div className="flex items-center space-x-0.5 shrink-0 -mr-1">
