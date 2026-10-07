@@ -2950,13 +2950,13 @@ export default function App() {
         className={`flex-1 w-full h-full min-h-0 flex flex-col ${
           isWindowMaximized 
             ? 'rounded-none border-0 shadow-none' 
-            : 'rounded-lg border-2 border-[#8090a0] dark:border-stone-600 shadow-[inset_1px_1px_0px_#ffffff,inset_-1px_-1px_0px_#b0c0d0,0_15px_30px_-5px_rgba(0,0,0,0.2)] dark:shadow-[inset_1px_1px_0px_#44403c,inset_-1px_-1px_0px_#1c1917,0_15px_30px_-5px_rgba(0,0,0,0.6)]'
+            : 'rounded-lg border-[5px] border-[#8a9aa8] dark:border-stone-700 shadow-[inset_2px_2px_0px_#ffffff,inset_-2px_-2px_0px_#708090,2px_2px_10px_rgba(0,0,0,0.35)] dark:shadow-[inset_2px_2px_0px_#57534e,inset_-2px_-2px_0px_#1c1917,2px_2px_12px_rgba(0,0,0,0.6)]'
         } bg-zinc-100 dark:bg-stone-950 overflow-hidden relative transition-all duration-150 ${isWindowMinimized ? 'max-h-[64px] flex-none' : ''}`}
       >
         {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
         <header
           id="desktop-window-titlebar"
-          className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b-2 border-slate-300 dark:border-stone-700 px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
+          className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b-[2px] border-b-[#ffffff] dark:border-b-stone-800 shadow-[inset_0_-2px_0px_0px_#8292a2] dark:shadow-[inset_0_-2px_0px_0px_#292524] px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
         >
           {/* Lado Esquerdo: Ícone + Título, Versão, Build e Status de Assinatura contínuos da Esquerda para a Direita */}
           <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">

@@ -218,7 +218,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside 
         id="main-sidebar"
         className={`
-          no-print absolute inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r-2 border-slate-300 dark:border-stone-700 flex flex-col transition-transform duration-300 ease-in-out h-full max-h-full overflow-hidden
+          no-print absolute inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r-[2px] border-r-[#ffffff] dark:border-r-stone-800 shadow-[inset_-2px_0_0px_0px_#8292a2] dark:shadow-[inset_-2px_0_0px_0px_#292524] flex flex-col transition-transform duration-300 ease-in-out h-full max-h-full overflow-hidden
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -226,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="shrink-0 bg-zinc-200 dark:bg-stone-900">
           
           {/* Brand Header */}
-          <div className="p-4 sm:p-5 border-b-2 border-slate-300 dark:border-stone-700 flex items-center space-x-3 cursor-pointer bg-zinc-200/90 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
+          <div className="p-4 sm:p-5 border-b-[2px] border-b-[#ffffff] dark:border-b-stone-800 shadow-[inset_0_-2px_0px_0px_#8292a2] dark:shadow-[inset_0_-2px_0px_0px_#292524] flex items-center space-x-3 cursor-pointer bg-zinc-200/90 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
             {companyProfile?.logoUrl && !logoError ? (
               <div className="w-10 h-10 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                 <img 
@@ -358,7 +358,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA):
             Container fixado no rodapé absoluto da barra lateral com Dados da Empresa */}
-        <div className="mt-auto pt-2.5 border-t-2 border-slate-300 dark:border-stone-700 bg-zinc-200/90 dark:bg-stone-900 p-3 space-y-2 shrink-0">
+        <div className="mt-auto pt-2.5 border-t-[2px] border-t-[#8292a2] dark:border-t-stone-700 shadow-[inset_0_2px_0px_0px_#ffffff] dark:shadow-[inset_0_2px_0px_0px_#383533] bg-zinc-200/90 dark:bg-stone-900 p-3 space-y-2 shrink-0">
           
           {/* Botão Fixo: Dados da Empresa (se não estiver restrito/oculto para o cargo) */}
           {!isEmpresaRestricted && (
