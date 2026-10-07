@@ -616,13 +616,13 @@ export const formatEmployeeAdmissionDate = (dateStr?: string | null): string => 
 
 /**
  * Formata as informações bancárias cadastradas do colaborador:
- * Se for PIX ou possuir chave Pix:
- * "FORMA DE RECEBIMENTO: PIX | CHAVE: [CHAVE_DO_FUNCIONÁRIO]"
- * Se for tradicional:
- * "FORMA DE RECEBIMENTO: CONTA BANCÁRIA | BANCO: [BANCO] | AG: [0000] | CC: [00000-0]"
+ * SE o colaborador recebe por PIX:
+ * "PIX - CHAVE: [CHAVE_DO_FUNCIONÁRIO]"
+ * SE o colaborador recebe por CONTA BANCÁRIA:
+ * "[BANCO] AG: [AGÊNCIA] CC: [CONTA]"
  */
 export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): string => {
-  if (!emp) return 'FORMA DE RECEBIMENTO: NÃO INFORMADA';
+  if (!emp) return 'NÃO INFORMADO';
 
   const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').trim().toUpperCase();
   const directPix = (emp.chavePix || (emp as any).chave_pix || emp.pixKey || (emp as any).pix_key || '').trim();
@@ -634,8 +634,7 @@ export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): strin
     paymentLoc.includes('PIX') ||
     Boolean(directPix) ||
     rawAccount.includes('@') ||
-    /^[0-9a-fA-F-]{32,36}$/.test(rawAccount) ||
-    bankPixKey.includes('PIX');
+    /^[0-9a-fA-F-]{32,36}$/.test(rawAccount);
 
   if (isPix) {
     let chave = directPix || rawAccount;
@@ -648,15 +647,18 @@ export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): strin
         chave = 'NÃO INFORMADA';
       }
     }
-    return `FORMA DE RECEBIMENTO: PIX | CHAVE: ${chave.toUpperCase()}`;
+    return `PIX - CHAVE: ${chave.toUpperCase()}`;
   }
 
-  // Se não for PIX, exibe conta bancária tradicional formatada e em caixa alta
-  const bankName = (bankPixKey || paymentLoc || 'BANCO DO BRASIL').trim().toUpperCase();
+  // Se o colaborador recebe por CONTA BANCÁRIA: "[BANCO] AG: [AGÊNCIA] CC: [CONTA]"
+  let bankName = bankPixKey;
+  if (!bankName || bankName === 'CONTA PESSOAL' || bankName === 'CONTA DE TERCEIRO') {
+    bankName = (paymentLoc !== 'CONTA PESSOAL' && paymentLoc !== 'CONTA DE TERCEIRO' && paymentLoc) ? paymentLoc : 'BANCO';
+  }
   const agency = (emp.bankAgency || (emp as any).agencia || '0000').trim().toUpperCase();
   const account = (rawAccount || '00000-0').toUpperCase();
 
-  return `FORMA DE RECEBIMENTO: CONTA BANCÁRIA | BANCO: ${bankName} | AG: ${agency} | CC: ${account}`;
+  return `${bankName} AG: ${agency} CC: ${account}`;
 };
 
 /**

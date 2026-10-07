@@ -488,8 +488,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </span>
                 </div>
                 <div className="col-span-2 sm:col-span-3 lg:col-span-2">
-                  <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Banco para Depósito:</span>
-                  <span className="font-bold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs print:text-[9.5px] truncate block leading-tight" title={formatEmployeeBankDeposit(employee)}>
+                  <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight uppercase">DEPÓSITO:</span>
+                  <span className="font-bold text-stone-800 dark:text-stone-200 text-[10px] sm:text-[11px] print:text-[9px] truncate block leading-tight uppercase" title={formatEmployeeBankDeposit(employee)}>
                     {formatEmployeeBankDeposit(employee)}
                   </span>
                 </div>
@@ -499,18 +499,20 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
             {isPixPayment && pixQrCodeUrl && (
               <div 
-                className="w-[15%] min-w-[88px] max-w-[115px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs print:border-black self-center"
+                className="w-[15%] min-w-[88px] max-w-[115px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs print:border-black self-center text-center"
               >
-                <img
-                  src={pixQrCodeUrl}
-                  alt="QR Code PIX para Pagamento"
-                  className="w-20 h-20 print:w-[72px] print:h-[72px] object-contain rounded-xs"
-                  width="80"
-                  height="80"
-                  crossOrigin="anonymous"
-                />
+                <div className="w-20 h-20 print:w-[70px] print:h-[70px] flex items-center justify-center">
+                  <img
+                    src={pixQrCodeUrl}
+                    alt="QR Code PIX para Pagamento"
+                    className="w-full h-full object-contain rounded-xs block mx-auto"
+                    width="80"
+                    height="80"
+                    crossOrigin="anonymous"
+                  />
+                </div>
                 <span 
-                  className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-slate-500 dark:text-stone-400 text-center block mt-0.5 leading-tight select-none"
+                  className="text-[9px] print:text-[8px] font-bold uppercase text-slate-500 dark:text-slate-400 text-center block mt-1 leading-tight tracking-tight select-none max-w-full"
                 >
                   QR CODE PIX PARA PAGAMENTO
                 </span>

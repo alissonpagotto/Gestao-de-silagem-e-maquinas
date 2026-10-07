@@ -233,8 +233,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 </span>
               </div>
               <div className="col-span-2 sm:col-span-3">
-                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Depósito:</span>
-                <span className="font-semibold text-stone-800 truncate block mt-0.5" title={formatEmployeeBankDeposit(employee)}>
+                <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">DEPÓSITO:</span>
+                <span className="font-semibold text-stone-800 truncate block mt-0.5 uppercase text-[10px]" title={formatEmployeeBankDeposit(employee)}>
                   {formatEmployeeBankDeposit(employee)}
                 </span>
               </div>
@@ -244,17 +244,19 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
           {/* Sub-bloco da Direita (15% da largura): Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
           {isPixPayment && pixQrCodeUrl && (
             <div 
-              className="w-[15%] min-w-[88px] max-w-[110px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs self-center"
+              className="w-[15%] min-w-[88px] max-w-[110px] shrink-0 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs self-center text-center"
             >
-              <img
-                src={pixQrCodeUrl}
-                alt="QR Code PIX para Pagamento"
-                className="w-20 h-20 print:w-[72px] print:h-[72px] object-contain rounded-xs"
-                width="80"
-                height="80"
-              />
+              <div className="w-20 h-20 print:w-[70px] print:h-[70px] flex items-center justify-center">
+                <img
+                  src={pixQrCodeUrl}
+                  alt="QR Code PIX para Pagamento"
+                  className="w-full h-full object-contain rounded-xs block mx-auto"
+                  width="80"
+                  height="80"
+                />
+              </div>
               <span 
-                className="text-[9px] print:text-[8px] font-bold uppercase tracking-tight text-slate-500 text-center block mt-0.5 leading-tight select-none"
+                className="text-[9px] print:text-[8px] font-bold uppercase text-slate-500 text-center block mt-1 leading-tight tracking-tight select-none max-w-full"
               >
                 QR CODE PIX PARA PAGAMENTO
               </span>

@@ -69,7 +69,7 @@ export const PixQrCodeBlock: React.FC<PixQrCodeBlockProps> = ({
           loading="eager"
         />
       </div>
-      <span className="text-[8.5px] sm:text-[9px] font-black text-black leading-tight mt-1 text-center block max-w-[95px] uppercase">
+      <span className="text-[9px] font-bold text-slate-500 leading-tight mt-1 text-center block max-w-[95px] uppercase">
         {label}
       </span>
     </div>

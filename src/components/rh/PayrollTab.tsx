@@ -2533,9 +2533,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
                           <div className="p-1 bg-stone-50 dark:bg-stone-900 rounded border border-stone-200 dark:border-stone-700">
                             <span className="text-[8px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
-                              Forma de Recebimento:
+                              Recebimento:
                             </span>
-                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[10px] block mt-0.5 truncate" title={formatEmployeeBankDeposit(selectedEmployee)}>
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[10px] block mt-0.5 truncate uppercase" title={formatEmployeeBankDeposit(selectedEmployee)}>
                               {formatEmployeeBankDeposit(selectedEmployee)}
                             </span>
                           </div>
