@@ -408,6 +408,17 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         if (m.id === editingVehicle.id) {
           const merged = { ...m, ...vehicleData } as Machinery;
 
+          if (vehicleData.categoriaVeiculo) {
+            merged.categoriaVeiculo = vehicleData.categoriaVeiculo;
+            merged.categoria = vehicleData.categoriaVeiculo;
+            merged.categoryType = vehicleData.categoriaVeiculo;
+          }
+          if (vehicleData.categoria) {
+            merged.categoria = vehicleData.categoria;
+            merged.categoriaVeiculo = vehicleData.categoria;
+            merged.categoryType = vehicleData.categoria;
+          }
+
           // Se o usuário desativou o reboque (switch NÃO), limpa estritamente todos os dados de vínculo
           if (!vehicleData.hasCoupledTrailer) {
             merged.hasCoupledTrailer = false;
@@ -480,7 +491,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         name: vehicleData.name || vehicleData.model || 'Novo Veículo',
         model: vehicleData.model || 'Modelo',
         brand: vehicleData.brand || 'Agrícola',
-        categoryType: vehicleData.categoryType || vehicleData.tipo || 'Caminhão',
+        categoryType: vehicleData.categoryType || vehicleData.categoriaVeiculo || vehicleData.categoria || vehicleData.tipo || 'Caminhão',
+        categoriaVeiculo: vehicleData.categoriaVeiculo || vehicleData.categoria || vehicleData.categoryType || vehicleData.tipo || 'Caminhão',
+        categoria: vehicleData.categoria || vehicleData.categoriaVeiculo || vehicleData.categoryType || vehicleData.tipo || 'Caminhão',
         tipo: vehicleData.tipo || vehicleData.categoryType || 'Caminhão',
         companyId: vehicleData.companyId || (vehicleData as any).company_id || getActiveCompanyId(),
         company_id: (vehicleData as any).company_id || vehicleData.companyId || getActiveCompanyId(),

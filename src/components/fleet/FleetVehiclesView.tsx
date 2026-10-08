@@ -10,7 +10,7 @@ import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
-import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile, getStoredMachineries } from '../../lib/storage';
+import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile, getStoredMachineries, getStoredEmployees } from '../../lib/storage';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -142,7 +142,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     let label = 'NÃO DEFINIDO';
 
     if (directCat && typeof directCat === 'string' && directCat.trim()) {
-      label = directCat.trim().toUpperCase();
+      const trimmed = directCat.trim();
+      const isAkt = Boolean(
+        (vehicle.licensePlateOrSerial && vehicle.licensePlateOrSerial.toUpperCase().includes('AKT')) ||
+        (vehicle.model && vehicle.model.toUpperCase().includes('AKT'))
+      );
+      if (isAkt && trimmed.toUpperCase().includes('CAÇAMBA')) {
+        label = 'TRAÇÃO CAMINHÃO TRATOR (CAVALO)';
+      } else {
+        label = trimmed.toUpperCase();
+      }
     } else {
       const rawCategory = (
         vehicle.categoryType ||
@@ -609,47 +618,59 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       <div className="bg-white dark:bg-stone-900 p-4 sm:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
         
         {/* Top bar: Search + Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-xl">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-            <input
-              type="text"
-              placeholder="Buscar por placa, modelo, nº de série, titular, CPF/CNPJ, tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/60 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white dark:focus:bg-stone-800 shadow-inner"
-            />
+          {/* Lado Esquerdo: Search Input + Botão "+ CADASTRAR VEÍCULO" adjacente contínuo (conforme gabarito verde) */}
+          <div className="flex flex-1 items-center gap-2 max-w-2xl min-w-0">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Buscar por placa, modelo, nº de série, titular, CPF/CNPJ, tipo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/60 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white dark:focus:bg-stone-800 shadow-inner"
+              />
+            </div>
+
+            {/* 1. Botão "+ CADASTRAR VEÍCULO" Realocado: Adjacente contínuo ao término do Search (3D Metálico) */}
+            <button
+              onClick={onOpenNewVehicle}
+              title="Cadastrar Novo Veículo ou Máquina na Frota"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4 text-slate-700 dark:text-stone-300 stroke-[2.5]" />
+              <span>+ CADASTRAR VEÍCULO</span>
+            </button>
           </div>
 
-          {/* Action Buttons: Imprimir Lista, Sincronizar Leituras, Cadastrar */}
-          <div className="flex items-center flex-wrap gap-2 sm:gap-2.5">
+          {/* Lado Direito: Imprimir Lista, Sincronizar Leituras, View Toggle */}
+          <div className="flex items-center flex-wrap gap-2 shrink-0">
             
-            {/* Botão Imprimir Lista de Veículos */}
+            {/* Botão Imprimir Lista de Veículos (3D Metálico) */}
             <button
               onClick={handleOpenPrint}
               title="Visualizar e Imprimir Lista Completa da Frota em A4"
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs sm:text-sm font-semibold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Printer className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+              <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
               <span>IMPRIMIR LISTA</span>
             </button>
 
-            {/* Botão Sincronizar Odômetro & Horímetro */}
+            {/* Botão Sincronizar Odômetro & Horímetro (3D Metálico) */}
             <button
               onClick={handleSyncMeters}
               disabled={isSyncing}
               title="Sincronizar Odômetro & Horímetro com os últimos abastecimentos e manutenções"
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs sm:text-sm font-semibold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
             >
-              <RefreshCw className={`w-4 h-4 text-slate-700 dark:text-stone-300 ${isSyncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-700 dark:text-stone-300 ${isSyncing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">SINCRONIZAR LEITURAS</span>
               <span className="sm:hidden">SINCRONIZAR</span>
             </button>
 
             {/* View toggle (Tabela / Cards) */}
-            <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-1 rounded-xl border border-stone-200 dark:border-stone-700">
+            <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-0.5 rounded-xl border border-stone-200 dark:border-stone-700">
               <button
                 onClick={() => setViewMode('table')}
                 className={`p-1.5 rounded-lg transition cursor-pointer ${
@@ -659,7 +680,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 }`}
                 title="Visualização em Tabela"
               >
-                <TableIcon className="w-4 h-4" />
+                <TableIcon className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setViewMode('grid')}
@@ -670,18 +691,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 }`}
                 title="Visualização em Cards"
               >
-                <LayoutGrid className="w-4 h-4" />
+                <LayoutGrid className="w-3.5 h-3.5" />
               </button>
             </div>
-
-            {/* Cadastrar Veículo */}
-            <button
-              onClick={onOpenNewVehicle}
-              className="px-4 py-2 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs sm:text-sm font-semibold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer ml-auto active:scale-95"
-            >
-              <Plus className="w-4 h-4 text-slate-700 dark:text-stone-300" />
-              <span>+ CADASTRAR VEÍCULO</span>
-            </button>
 
           </div>
 
@@ -813,6 +825,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     const totalFuel = getVehicleTotalFuel(vehicle.id);
                     const totalMaint = getVehicleTotalMaintenance(vehicle.id);
                     const totalCost = totalFuel + totalMaint;
+                    const employeePool = (employees && employees.length > 0) ? employees : getStoredEmployees();
                     let driversList = vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0
                       ? vehicle.assignedDrivers
                       : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()).filter(Boolean) : []);
@@ -821,7 +834,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         ? vehicle.assignedDriverIds
                         : [((vehicle as any).driver_id || (vehicle as any).user_id)];
                       const resolved = candidateIds
-                        .map(id => employees.find(e => e.id === id || toValidUUID(e.id) === toValidUUID(id))?.name)
+                        .map(id => employeePool.find(e => e.id === id || String(e.id) === String(id) || toValidUUID(e.id) === toValidUUID(id))?.name)
                         .filter(Boolean) as string[];
                       if (resolved.length > 0) {
                         driversList = resolved;
@@ -1037,14 +1050,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                               {driversList.map((drv, idx) => (
                                 <span
                                   key={idx}
-                                  className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 rounded break-words"
+                                  className="inline-flex items-center text-xs font-bold px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 rounded uppercase break-words"
                                 >
-                                  👤 {drv}
+                                  👤 {drv.toUpperCase()}
                                 </span>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-stone-500 dark:text-stone-400 text-xs italic">Sem motorista fixo</span>
+                            <span className="text-stone-400 dark:text-stone-500 text-xs italic uppercase">SEM MOTORISTA FIXO</span>
                           )}
                         </td>
 

@@ -44,6 +44,7 @@ import {
   saveStoredVehicleOwnershipRegimes,
   getStoredCompanyProfile,
   getStoredMachineries,
+  getStoredEmployees,
   getActiveCompanyId
 } from '../../lib/storage';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
@@ -562,7 +563,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const formattedBrand = brand.trim() ? brand.trim().toUpperCase().replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim() : '';
     const formattedName = (formattedBrand ? `${formattedBrand} ${formattedModel}` : formattedModel).trim();
 
-    const selectedEmpObjects = activeEmployees.filter(emp => selectedDriverIds.includes(emp.id));
+    const selectedEmpObjects = rhEmployees.filter(emp => selectedDriverIds.includes(emp.id));
     const assignedNames = selectedEmpObjects.map(emp => emp.name);
     const compiledDriverString = assignedNames.join(', ');
 
@@ -610,6 +611,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       modelo: formattedModel,
       brand: formattedBrand,
       categoryType: finalCategoryType,
+      categoriaVeiculo: finalCategoryType,
+      categoria: finalCategoryType,
       tipo: finalCategoryType,
       tipo_modelo: computedTipoModelo,
       year: year ? parseInt(year, 10) : undefined,
@@ -686,7 +689,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const currentVehicle = buildCurrentVehicleSnapshot();
     const company = getStoredCompanyProfile();
 
-    const selectedEmpObjects = activeEmployees.filter(emp => selectedDriverIds.includes(emp.id));
+    const selectedEmpObjects = rhEmployees.filter(emp => selectedDriverIds.includes(emp.id));
     const assignedNames = selectedEmpObjects.map(emp => emp.name);
 
     const vehicleTitle = currentVehicle.fleetNumber 
@@ -951,17 +954,18 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setLicensingLastLaunchDate(editingVehicle.licensingLastLaunchDate || '');
       
       // Drivers
+      const poolOfEmployees = getStoredEmployees().length > 0 ? getStoredEmployees() : (employees || []);
       if (editingVehicle.assignedDriverIds && editingVehicle.assignedDriverIds.length > 0) {
         setSelectedDriverIds(editingVehicle.assignedDriverIds);
       } else if (editingVehicle.operatorOrDriver) {
         const existingNames = editingVehicle.operatorOrDriver.split(',').map(s => s.trim().toLowerCase());
-        const matchedIds = employees
-          .filter(emp => existingNames.includes(emp.name.toLowerCase()))
+        const matchedIds = poolOfEmployees
+          .filter(emp => existingNames.includes(emp.name.toLowerCase().trim()))
           .map(emp => emp.id);
-        setSelectedDriverIds(matchedIds);
+        setSelectedDriverIds(matchedIds.length > 0 ? matchedIds : (editingVehicle.assignedDriverIds || []));
       } else if ((editingVehicle as any).user_id || (editingVehicle as any).driver_id) {
         const uid = (editingVehicle as any).user_id || (editingVehicle as any).driver_id;
-        const matched = employees.find(emp => emp.id === uid || toValidUUID(emp.id) === toValidUUID(uid));
+        const matched = poolOfEmployees.find(emp => emp.id === uid || toValidUUID(emp.id) === toValidUUID(uid));
         if (matched) {
           setSelectedDriverIds([matched.id]);
         } else {
@@ -1061,10 +1065,56 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     }
   }, [editingVehicle, isOpen, employees, expenses]);
 
+  // Colaboradores do RH conectados reativamente ao LocalStorage (chave 'colaca_silagem_funcionarios')
+  const [rhEmployees, setRhEmployees] = useState<Employee[]>(() => {
+    const fromStorage = getStoredEmployees();
+    return fromStorage && fromStorage.length > 0 ? fromStorage : (employees || []);
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      const fromStorage = getStoredEmployees();
+      if (fromStorage && fromStorage.length > 0) {
+        setRhEmployees(fromStorage);
+      } else if (employees && employees.length > 0) {
+        setRhEmployees(employees);
+      }
+    }
+  }, [isOpen, employees]);
+
+  // Filtro de Segurança Estrito: APENAS colaboradores ativos cujo cargo/função contenha estritamente os termos "MOTORISTA", "OPERADOR DE TRATOR" ou "OPERADOR DE MÁQUINA"
+  const eligibleDrivers = useMemo(() => {
+    return rhEmployees.filter(emp => {
+      if (!emp) return false;
+      const statusStr = String(emp.status || '').trim().toLowerCase();
+      if (statusStr === 'inativo' || statusStr === 'excluido' || emp.active === false) {
+        return false;
+      }
+      const rolesList: string[] = [];
+      if (emp.role) rolesList.push(String(emp.role));
+      if ((emp as any).cargo) rolesList.push(String((emp as any).cargo));
+      if ((emp as any).funcao) rolesList.push(String((emp as any).funcao));
+      if ((emp as any).cargo_nome) rolesList.push(String((emp as any).cargo_nome));
+      if ((emp as any).cargo_setor) rolesList.push(String((emp as any).cargo_setor));
+      if (Array.isArray(emp.roles)) {
+        emp.roles.forEach((r: any) => rolesList.push(String(r)));
+      }
+      const combined = rolesList.join(' ').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const isMotorista = combined.includes('MOTORISTA');
+      const isOperadorTrator = combined.includes('OPERADOR DE TRATOR') || combined.includes('TRATORISTA');
+      const isOperadorMaquina = 
+        combined.includes('OPERADOR DE MAQUINA') || 
+        combined.includes('OPERADOR DE MAQUINAS') ||
+        combined.includes('OPERADOR DE FORRAGEIRA') ||
+        combined.includes('OPERADOR DE ENSILADEIRA');
+      return isMotorista || isOperadorTrator || isOperadorMaquina;
+    });
+  }, [rhEmployees]);
+
   // Active employees available for driver/operator assignment
   const activeEmployees = useMemo(() => {
-    return employees.filter(e => e.status !== 'inativo');
-  }, [employees]);
+    return eligibleDrivers;
+  }, [eligibleDrivers]);
 
   // Filtered employees by search
   const filteredEmployeeSuggestions = useMemo(() => {
@@ -1314,7 +1364,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const formattedName = (formattedBrand ? `${formattedBrand} ${formattedModel}` : formattedModel).trim();
 
     // Compile driver names
-    const selectedEmpObjects = activeEmployees.filter(emp => selectedDriverIds.includes(emp.id));
+    const selectedEmpObjects = rhEmployees.filter(emp => selectedDriverIds.includes(emp.id));
     const assignedNames = selectedEmpObjects.map(emp => emp.name);
     const compiledDriverString = assignedNames.join(', ');
 
@@ -1906,6 +1956,95 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     <option value="parado">Parado / Sinistro / Aguardando Peças</option>
                   </select>
                 </div>
+              </div>
+
+              {/* ATRIBUIÇÃO DINÂMICA DE MOTORISTA / OPERADOR (VÍNCULO REATIVO COM O RH) */}
+              <div className="pt-2 border-t border-zinc-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-zinc-700 flex items-center space-x-1.5 uppercase">
+                    <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Motorista / Operador Fixo (Vínculo com RH)</span>
+                  </label>
+                  <span className="text-[10px] font-semibold text-zinc-500">
+                    {selectedDriverIds.length === 0 ? 'Nenhum condutor fixo' : `${selectedDriverIds.length} condutor(es) atribuído(s)`}
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={selectedDriverIds.length === 1 ? selectedDriverIds[0] : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setSelectedDriverIds([]);
+                      } else {
+                        handleToggleDriver(val);
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-xs cursor-pointer"
+                  >
+                    <option value="">
+                      {eligibleDrivers.length === 0
+                        ? 'Nenhum motorista ou operador ativo cadastrado no RH'
+                        : selectedDriverIds.length === 0
+                        ? '-- Selecionar Motorista / Operador do RH --'
+                        : selectedDriverIds.length === 1
+                        ? '-- Selecionar ou Trocar Motorista do RH --'
+                        : `+ Adicionar outro motorista (${selectedDriverIds.length} já vinculados)...`}
+                    </option>
+                    {eligibleDrivers.map((emp) => {
+                      const isSelected = selectedDriverIds.includes(emp.id);
+                      const roleDisplay = emp.role || (emp as any).cargo || (emp as any).funcao || 'Motorista';
+                      return (
+                        <option key={emp.id} value={emp.id}>
+                          {isSelected ? '✓ ' : ''}{emp.name.toUpperCase()} — {String(roleDisplay).toUpperCase()}{isSelected ? ' (VINCULADO)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Badges dos Condutores Fixos Vinculados (Suporte a múltiplos condutores para turnos alternados) */}
+                {selectedDriverIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 items-center p-1.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-800/60">
+                    <span className="text-[10px] font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mr-1">
+                      Condutores Fixos:
+                    </span>
+                    {selectedDriverIds.map((id) => {
+                      const emp = rhEmployees.find(e => e.id === id) || { id, name: id, role: 'Motorista' };
+                      const roleText = (emp as any).role || (emp as any).cargo || (emp as any).funcao || 'Condutor';
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center space-x-1.5 py-0.5 px-2 rounded-md bg-white dark:bg-stone-900 border border-blue-300 dark:border-blue-700 text-blue-950 dark:text-blue-200 text-xs font-bold shadow-2xs"
+                        >
+                          <span className="text-xs">👤</span>
+                          <span className="uppercase">{emp.name}</span>
+                          <span className="text-[10px] font-normal text-blue-700 dark:text-blue-400">
+                            ({String(roleText).toUpperCase()})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDriver(id)}
+                            className="hover:bg-rose-100 dark:hover:bg-rose-950/60 text-zinc-400 hover:text-rose-600 rounded-full p-0.5 transition cursor-pointer ml-1"
+                            title={`Remover condutor ${emp.name}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                    {selectedDriverIds.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDriverIds([])}
+                        className="text-[10px] text-zinc-500 hover:text-rose-600 underline cursor-pointer ml-auto"
+                      >
+                        Desvincular Todos
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* BLOCO CONDICIONAL: DETALHAMENTO DO REBOQUE (quando Categoria = Reboque) */}

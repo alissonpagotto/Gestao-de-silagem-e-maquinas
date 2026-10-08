@@ -438,7 +438,10 @@ export function saveStoredOrders(orders: SilageOrder[]): void {
 
 export function getStoredMachineries(): Machinery[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.MACHINERIES);
+    let raw = localStorage.getItem('colaca_silagem_frotas_veiculos');
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEYS.MACHINERIES);
+    }
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -449,18 +452,42 @@ export function getStoredMachineries(): Machinery[] {
       const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61'].includes(m.id);
       return !isMockId;
     }).map(m => {
-      // Normalização reativa de categoria vinda do LocalStorage (garante TRAÇÃO CAMINHÃO TRATOR e JAGUAR 860)
-      if (!m.categoriaVeiculo) {
+      // Normalização reativa de categoria vinda do LocalStorage (garante TRAÇÃO CAMINHÃO TRATOR para AKT e JAGUAR 860)
+      const isAkt = Boolean(
+        m.compositionType === 'cavalo' ||
+        (m.licensePlateOrSerial && String(m.licensePlateOrSerial).toUpperCase().includes('AKT')) ||
+        (m.model && String(m.model).toUpperCase().includes('AKT'))
+      );
+      const isJaguar = Boolean(
+        (m.model && String(m.model).toUpperCase().includes('JAGUAR')) ||
+        (m.name && String(m.name).toUpperCase().includes('JAGUAR')) ||
+        m.categoryType === 'forrageira' ||
+        m.tipo === 'forrageira'
+      );
+
+      if (isAkt) {
+        const currentCatStr = String(m.categoriaVeiculo || m.categoria || '').toUpperCase();
+        if (!m.categoriaVeiculo || currentCatStr.includes('CAÇAMBA') || currentCatStr === 'CAMINHÃO' || currentCatStr === 'VEÍCULO') {
+          m.categoriaVeiculo = 'Tração Caminhão Trator (Cavalo)';
+          m.categoria = 'Tração Caminhão Trator (Cavalo)';
+          m.categoryType = 'Tração Caminhão Trator (Cavalo)';
+          needsResave = true;
+        }
+      } else if (isJaguar) {
+        const currentCatStr = String(m.categoriaVeiculo || m.categoria || '').toUpperCase();
+        if (!m.categoriaVeiculo || currentCatStr === 'CAMINHÃO' || currentCatStr === 'VEÍCULO') {
+          m.categoriaVeiculo = 'Ensiladeira Autopropelida';
+          m.categoria = 'Ensiladeira Autopropelida';
+          m.categoryType = 'Ensiladeira Autopropelida';
+          needsResave = true;
+        }
+      } else if (!m.categoriaVeiculo) {
         if (m.categoria) {
           m.categoriaVeiculo = m.categoria;
           needsResave = true;
-        } else if (m.compositionType === 'cavalo' || (m.licensePlateOrSerial && String(m.licensePlateOrSerial).toUpperCase().includes('AKT')) || (m.model && String(m.model).toUpperCase().includes('AKT'))) {
-          m.categoriaVeiculo = 'Tração Caminhão Trator (Cavalo)';
-          m.categoria = 'Tração Caminhão Trator (Cavalo)';
-          needsResave = true;
-        } else if ((m.model && String(m.model).toUpperCase().includes('JAGUAR')) || (m.name && String(m.name).toUpperCase().includes('JAGUAR')) || m.categoryType === 'forrageira' || m.tipo === 'forrageira') {
-          m.categoriaVeiculo = 'Ensiladeira Autopropelida';
-          m.categoria = 'Ensiladeira Autopropelida';
+        } else if (m.categoryType) {
+          m.categoriaVeiculo = m.categoryType;
+          m.categoria = m.categoryType;
           needsResave = true;
         }
       }
@@ -471,7 +498,9 @@ export function getStoredMachineries(): Machinery[] {
       return m;
     });
     if (cleaned.length !== parsed.length || needsResave) {
-      localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(cleaned));
+      const json = JSON.stringify(cleaned);
+      localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
+      localStorage.setItem('colaca_silagem_frotas_veiculos', json);
     }
     return cleaned;
   } catch (e) {
@@ -482,7 +511,9 @@ export function getStoredMachineries(): Machinery[] {
 export function saveStoredMachineries(machines: Machinery[]): void {
   if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(machines));
+    const json = JSON.stringify(machines);
+    localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
+    localStorage.setItem('colaca_silagem_frotas_veiculos', json);
   } catch (e) {
     console.error('Failed to save machineries', e);
   }
@@ -524,9 +555,9 @@ export function saveStoredSeasons(seasons: CropSeason[]): void {
 
 export function getStoredEmployees(): Employee[] {
   try {
-    let raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    let raw = localStorage.getItem('colaca_silagem_funcionarios');
     if (!raw) {
-      raw = localStorage.getItem('colaca_silagem_funcionarios');
+      raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     }
     if (!raw) return INITIAL_EMPLOYEES;
     const parsed: Employee[] = JSON.parse(raw);
