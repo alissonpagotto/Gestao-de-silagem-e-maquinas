@@ -348,71 +348,83 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* 1. ATIVAR ROLAGEM EXCLUSIVA NA LISTA DE MENUS (NAV): */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-3 py-1 space-y-1">
-          <nav className="space-y-1">
-            {middleNavItems.map((item) => {
-              const Icon = item.icon;
-              const isRestricted = isModuleRestricted(item.id);
+        {/* 1. ATIVAR ROLAGEM EXCLUSIVA NA LISTA DE MENUS COM MOLDURA MÃE METÁLICA 3D: */}
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-2.5 py-1.5">
+          {/* MOLDURA MÃE TRIDIMENSIONAL ÚNICA (PLACA METÁLICA EM RELEVO) */}
+          <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-800/90 dark:to-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg p-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.4)]">
+            <nav className="flex flex-col">
+              {middleNavItems.map((item, index) => {
+                const Icon = item.icon;
+                const isRestricted = isModuleRestricted(item.id);
 
-              const isCadastrosBaseActive = 
-                item.id === 'cadastros_base' && 
-                (activeTab === 'cadastros_base' || activeTab.startsWith('cadastros_base_') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab));
+                const isCadastrosBaseActive = 
+                  item.id === 'cadastros_base' && 
+                  (activeTab === 'cadastros_base' || activeTab.startsWith('cadastros_base_') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab));
 
-              const isActive = 
-                isCadastrosBaseActive ||
-                activeTab === item.id ||
-                (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
-                (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
-                (item.id === 'financeiro' && activeTab === 'despesas') ||
-                (item.id === 'frotas' && ['veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
-                (item.id === 'rh' && activeTab === 'funcionarios');
+                const isActive = 
+                  isCadastrosBaseActive ||
+                  activeTab === item.id ||
+                  (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
+                  (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
+                  (item.id === 'financeiro' && activeTab === 'despesas') ||
+                  (item.id === 'frotas' && ['veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
+                  (item.id === 'rh' && (activeTab === 'funcionarios' || activeTab === 'rh'));
 
-              return (
-                <div key={item.id} className="space-y-0.5">
-                  <button
-                    id={`sidebar-nav-${item.id}`}
-                    onClick={() => handleSelect(item.id)}
-                    className={`
-                      w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider transition cursor-pointer group
-                      ${
-                        isRestricted
-                          ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
-                          : isActive
-                            ? 'bg-white text-slate-900 font-semibold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
-                            : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-800 hover:text-slate-900 dark:hover:text-white'
-                      }
-                    `}
+                const isLast = index === middleNavItems.length - 1;
+
+                return (
+                  <div 
+                    key={item.id} 
+                    className={`py-0.5 ${!isLast ? 'border-b border-slate-300/60 dark:border-stone-700/60' : ''}`}
                   >
-                    <div className="flex items-center space-x-2.5 truncate">
-                      <Icon 
-                        className={`w-4 h-4 shrink-0 transition ${
-                          isRestricted 
-                            ? 'text-rose-500' 
-                            : isActive ? 'text-slate-900 dark:text-white' : 'text-slate-600 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
-                        }`} 
-                      />
-                      <span 
-                        className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
+                    <button
+                      id={`sidebar-nav-${item.id}`}
+                      onClick={() => handleSelect(item.id)}
+                      className={`
+                        w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
+                        ${
                           isRestricted
-                            ? 'text-zinc-500 dark:text-stone-400'
-                            : isActive ? 'text-slate-900 font-semibold dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </div>
+                            ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
+                            : isActive
+                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                              : 'text-slate-800 dark:text-stone-300 hover:bg-white/40 dark:hover:bg-stone-700/40 hover:text-slate-900 dark:hover:text-white'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center space-x-2.5 truncate">
+                        <Icon 
+                          className={`w-4 h-4 shrink-0 transition ${
+                            isRestricted 
+                              ? 'text-rose-500' 
+                              : isActive 
+                                ? 'text-slate-900 dark:text-white' 
+                                : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
+                          }`} 
+                        />
+                        <span 
+                          className={`truncate text-[11px] font-bold uppercase tracking-wider ${
+                            isRestricted
+                              ? 'text-zinc-500 dark:text-stone-400'
+                              : isActive 
+                                ? 'text-slate-900 font-bold dark:text-white' 
+                                : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-200 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
 
-                    {isRestricted && (
-                      <span title="Acesso Bloqueado para este Cargo">
-                        <Lock className="w-3.5 h-3.5 text-rose-500" />
-                      </span>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </nav>
+                      {isRestricted && (
+                        <span title="Acesso Bloqueado para este Cargo">
+                          <Lock className="w-3.5 h-3.5 text-rose-500" />
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
         </div>
 
         {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA):

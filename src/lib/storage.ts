@@ -581,12 +581,20 @@ export function getStoredEmployees(): Employee[] {
     });
 
     const cleaned = filtered.map(emp => {
+      let updatedEmp = { ...emp };
       const p = emp.photoUrl || (emp as any).foto_url;
       if (p && (p.includes('wix_mp.com') || p.includes('wix_mp') || p.includes('static.wixstatic.com') || (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p)))) {
         modified = true;
-        return { ...emp, photoUrl: undefined, foto_url: undefined };
+        updatedEmp = { ...updatedEmp, photoUrl: undefined, foto_url: undefined };
       }
-      return emp;
+      if (!updatedEmp.admissionDate && !(updatedEmp as any).data_admissao) {
+        const initMatch = INITIAL_EMPLOYEES.find(ie => ie.id === updatedEmp.id || (ie.name && updatedEmp.name && ie.name.trim().toUpperCase() === updatedEmp.name.trim().toUpperCase()));
+        if (initMatch?.admissionDate) {
+          updatedEmp.admissionDate = initMatch.admissionDate;
+          modified = true;
+        }
+      }
+      return updatedEmp;
     });
     if (modified || cleaned.length !== parsed.length) {
       const cleanJson = JSON.stringify(cleaned);

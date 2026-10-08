@@ -2819,14 +2819,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                           {row.periodStatus === 'vencido' && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0">
                               <AlertCircle className="w-3 h-3 shrink-0" />
-                              <span>Vencido</span>
+                              <span>VENCIDO</span>
                               {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
                             </span>
                           )}
                           {row.periodStatus === 'proximo' && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs shrink-0">
                               <AlertTriangle className="w-3 h-3 shrink-0" />
-                              <span>Próximo</span>
+                              <span>PRÓXIMO</span>
                               {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
                             </span>
                           )}
@@ -2839,7 +2839,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                           {row.periodStatus === 'quitado' && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shadow-2xs shrink-0">
                               <CheckCircle2 className="w-3 h-3 shrink-0" />
-                              <span>Quitado</span>
+                              <span>QUITADO</span>
                             </span>
                           )}
                           {vac && row.periodStatus !== 'quitado' && ((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
