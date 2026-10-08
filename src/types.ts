@@ -1383,6 +1383,7 @@ export interface PayrollRecord {
   totalFaltas?: number; // Total isolado exclusivo de faltas e atrasos integrados (Rubrica 201)
   totalFaltasRef?: string; // Quantidade acumulada de faltas (ex: '3d' ou '24h') (Rubrica 201)
   deductionItems?: PayrollDeductionItem[];
+  customVerbaOverrides?: Record<string, { codigo: string; descricao: string }>;
   netSalary: number;
   status: 'pendente' | 'pago' | 'integrado' | 'lancado' | string;
   paymentDate?: string;

@@ -75,6 +75,7 @@ import {
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 import { LivePayslipPreview } from './LivePayslipPreview';
+import { getVerbaForDeduction, getStoredVerbasRH, updateVerbaInStorage } from './verbasRH';
 
 // ==========================================
 // COMPONENTE DE INPUT MONETÁRIO BRL (R$ 0.000,00)
@@ -679,6 +680,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [commissionItems, setCommissionItems] = useState<PayrollCommissionItem[]>([]);
   const [deductionItems, setDeductionItems] = useState<PayrollDeductionItem[]>([]);
 
+  // Overrides de verbas (Cód e Descrição) editados diretamente pelo usuário
+  const [customVerbaOverrides, setCustomVerbaOverrides] = useState<Record<string, { codigo: string; descricao: string }>>({});
+
+  const handleUpdateVerba = (rowKey: string, codigo: string, descricao: string) => {
+    setCustomVerbaOverrides(prev => ({
+      ...prev,
+      [rowKey]: { codigo, descricao },
+    }));
+  };
+
   // Mini-form para inclusão / edição de comissão manual
   const [isAddingCommission, setIsAddingCommission] = useState(false);
   const [editingCommItemId, setEditingCommItemId] = useState<string | null>(null);
@@ -970,10 +981,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
         : '';
       const reason = adv.reason ? `: ${adv.reason}` : '';
+      const verba = getVerbaForDeduction('Vale / Adiantamento', adv.reason);
       generatedDeductItems.push({
         id: `ded_adv_${adv.id || idx}`,
         type: 'Vale / Adiantamento',
         description: `${parcelLabel}Vale Adiantamento${reason}`,
+        verbaCode: verba.codigo,
+        verbaDescription: verba.descricao,
         date: formatDateBR(adv.date),
         amount: Number(adv.amount) || 0,
         isManual: false,
@@ -985,10 +999,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
         ? Number(abs.discountAmount)
         : Math.round((((activeSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
+      const verba = getVerbaForDeduction('Falta / Atraso', abs.reason);
       generatedDeductItems.push({
         id: `ded_abs_${abs.id || idx}`,
         type: 'Falta / Atraso',
         description: abs.reason || `Falta (${abs.daysCount || 1}d)`,
+        verbaCode: verba.codigo,
+        verbaDescription: verba.descricao,
         date: formatDateBR(abs.date),
         amount: itemDiscount,
         isManual: false,
@@ -997,10 +1014,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     });
 
     if (forceContractualSalary && admData.isAdmittedInCompetenceMonth) {
+      const verba = getVerbaForDeduction('Falta / Atraso', 'Dias anteriores à admissão');
       generatedDeductItems.push({
         id: `ded_pre_adm_${Date.now()}`,
         type: 'Falta / Atraso',
         description: `Dias anteriores à admissão (${admData.unworkedDays} dias)`,
+        verbaCode: verba.codigo,
+        verbaDescription: verba.descricao,
         date: formatEmployeeAdmissionDate(admData.admissionDate),
         amount: admData.unworkedDeductionAmount,
         isManual: false,
@@ -1245,10 +1265,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
             : '';
           const reason = adv.reason ? `: ${adv.reason}` : '';
+          const verba = getVerbaForDeduction('Vale / Adiantamento', adv.reason);
           loadedDeductItems.push({
             id: `ded_adv_${adv.id || idx}`,
             type: 'Vale / Adiantamento',
             description: `${parcelLabel}Vale Adiantamento${reason}`,
+            verbaCode: verba.codigo,
+            verbaDescription: verba.descricao,
             date: formatDateBR(adv.date),
             amount: Number(adv.amount) || 0,
             isManual: false,
@@ -1260,10 +1283,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
             ? Number(abs.discountAmount)
             : Math.round((((payroll.baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
+          const verba = getVerbaForDeduction('Falta / Atraso', abs.reason);
           loadedDeductItems.push({
             id: `ded_abs_${abs.id || idx}`,
             type: 'Falta / Atraso',
             description: abs.reason || `Falta (${abs.daysCount || 1}d)`,
+            verbaCode: verba.codigo,
+            verbaDescription: verba.descricao,
             date: formatDateBR(abs.date),
             amount: itemDiscount,
             isManual: false,
@@ -1302,6 +1328,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setAliquotaSindicatoStr(finalAliqSind.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 
       setDeductionItems(loadedDeductItems);
+
+      // Carregar customVerbaOverrides salvas na folha
+      const loadedOverrides = payroll.customVerbaOverrides || payroll.payload?.customVerbaOverrides || {};
+      setCustomVerbaOverrides(loadedOverrides);
     } else {
       setEditingPayroll(null);
       setCommissionsInfo(null);
@@ -1310,6 +1340,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setSyncedAbsences([]);
       setCommissionItems([]);
       setDeductionItems([]);
+      setCustomVerbaOverrides({});
       // Selecionar primeiro funcionário ativo NÃO terceirizado
       const firstActive = employees.find(e => e.status === 'ativo' && !isThirdPartyDriver(e) && !isBrokerEmployee(e));
       if (firstActive) {
@@ -1414,6 +1445,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       return;
     }
 
+    const verba = getVerbaForDeduction(newDeductType, newDeductDesc);
+
     if (editingDeductItemId) {
       setDeductionItems(prev => prev.map(it => {
         if (it.id === editingDeductItemId) {
@@ -1421,6 +1454,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             ...it,
             type: newDeductType,
             description: newDeductDesc.trim() || newDeductType,
+            verbaCode: verba.codigo,
+            verbaDescription: verba.descricao,
             date: newDeductDate.trim() || formatDateBR(new Date().toISOString().split('T')[0]),
             amount: newDeductAmount,
           };
@@ -1432,6 +1467,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         id: `ded_man_${Date.now()}`,
         type: newDeductType,
         description: newDeductDesc.trim() || newDeductType,
+        verbaCode: verba.codigo,
+        verbaDescription: verba.descricao,
         date: newDeductDate.trim() || formatDateBR(new Date().toISOString().split('T')[0]),
         amount: newDeductAmount,
         isManual: true,
@@ -1533,6 +1570,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       advancesDiscount: totalAdv,
       otherDiscounts: totalOth,
       deductionItems: cleanDeductionsList,
+      customVerbaOverrides,
       netSalary,
       status: payrollStatus,
       notes,
@@ -1553,6 +1591,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         faixaIrrf: calculatedFaixaIrrf,
         commissionItems,
         deductionItems: cleanDeductionsList,
+        customVerbaOverrides,
         sindicalDiscount: activeSindical,
         sindicalEnabled,
         taxaSindical: activeSindical,
@@ -3178,20 +3217,32 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               deductionItems.map((item) => (
                                 <tr key={item.id} className="hover:bg-rose-50/40 transition">
                                   <td className="py-1 px-1.5 font-medium text-stone-900">
-                                    <div className="flex items-center space-x-1">
-                                      <span className={`px-1 py-0.2 rounded text-[7px] font-bold shrink-0 ${
-                                        item.type === 'Vale / Adiantamento'
-                                          ? 'bg-rose-100 text-rose-800'
-                                          : item.type === 'Falta / Atraso'
-                                          ? 'bg-amber-100 text-amber-800'
-                                          : 'bg-purple-100 text-purple-800'
-                                      }`}>
-                                        {item.type}
-                                      </span>
-                                      <span className="truncate max-w-[130px] text-stone-800 font-semibold text-[9px]" title={item.description}>
-                                        {item.description || item.type}
-                                      </span>
-                                    </div>
+                                    {(() => {
+                                      const isFalta = item.type === 'Falta / Atraso' || item.description?.toLowerCase().includes('falta') || item.description?.toLowerCase().includes('dias anteriores');
+                                      const verba = getVerbaForDeduction(item.type, item.description);
+                                      const effectiveCode = item.verbaCode || verba.codigo;
+                                      const effectiveDesc = isFalta ? verba.descricao : (item.verbaDescription || item.description || item.type);
+
+                                      return (
+                                        <div className="flex items-center space-x-1">
+                                          <span className={`px-1 py-0.2 rounded text-[7px] font-bold font-mono shrink-0 ${
+                                            isFalta
+                                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                              : item.type === 'Vale / Adiantamento'
+                                              ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                              : 'bg-purple-100 text-purple-800 border border-purple-300'
+                                          }`}>
+                                            CÓD {effectiveCode}
+                                          </span>
+                                          <span 
+                                            className="truncate max-w-[135px] text-stone-900 font-bold text-[8.5px] uppercase" 
+                                            title={isFalta ? `CÓD ${effectiveCode} - ${effectiveDesc} • ${item.description || ''}` : `${item.description || item.type}`}
+                                          >
+                                            {isFalta ? `501 - ${effectiveDesc}` : (item.description || item.type)}
+                                          </span>
+                                        </div>
+                                      );
+                                    })()}
                                   </td>
                                   <td className="py-1 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
                                     {item.date || '-'}
@@ -3317,6 +3368,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     calculatedModalNet={calculatedModalNet}
                     baseCalculoInssFgts={baseCalculoInssFgts}
                     baseSalaryContratual={baseSalaryContratual}
+                    customVerbaOverrides={customVerbaOverrides}
+                    onUpdateVerba={handleUpdateVerba}
                   />
                 </div>
 

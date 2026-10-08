@@ -6,6 +6,7 @@ import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getF
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 import { QRCode } from './PixQrCodeBlock';
+import { getStoredVerbasRH, updateVerbaInStorage, findVerbaByCodigo } from './verbasRH';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -42,6 +43,8 @@ interface LivePayslipPreviewProps {
   calculatedModalNet: number;
   baseCalculoInssFgts: number;
   baseSalaryContratual: number;
+  customVerbaOverrides?: Record<string, { codigo: string; descricao: string }>;
+  onUpdateVerba?: (rowKey: string, codigo: string, descricao: string) => void;
 }
 
 export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
@@ -71,6 +74,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   calculatedModalNet,
   baseCalculoInssFgts,
   baseSalaryContratual,
+  customVerbaOverrides = {},
+  onUpdateVerba,
 }) => {
   const tradeName =
     companyProfile?.tradeName ||
@@ -85,16 +90,176 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
   const activeSindical = sindicalEnabled ? (sindicalDiscount || 0) : 0;
 
-  // Separação de vales vs outros descontos para as linhas do holerite
-  const valesList = deductionItems.filter(d => d.type === 'Vale / Adiantamento');
-  const valesTotal = valesList.length > 0 
-    ? valesList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
-    : (advancesDiscount || 0);
+  // Estado para edição direta e reativa nas células (Cód e Descrição)
+  const [editingCell, setEditingCell] = useState<{ rowKey: string; field: 'codigo' | 'descricao' } | null>(null);
+  const [cellDraft, setCellDraft] = useState<string>('');
 
-  const outrosList = deductionItems.filter(d => d.type !== 'Vale / Adiantamento');
-  const outrosTotal = outrosList.length > 0
-    ? outrosList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
-    : (otherDiscounts || 0);
+  // 1. Apuração Inteligente das Faltas (Falta é Falta -> Rubrica 501 - FALTAS INTEGRADAS (DIAS))
+  const faltasList = deductionItems.filter(
+    (d) =>
+      d.verbaCode === '501' ||
+      d.type === 'Falta / Atraso' ||
+      d.description?.toLowerCase().includes('falta') ||
+      d.description?.toLowerCase().includes('dias anteriores')
+  );
+  const faltasTotal = faltasList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+
+  // Calcula referência de faltas (dias acumulados)
+  const faltasRef = (() => {
+    if (faltasList.length === 0) return '0d';
+    let totalDias = 0;
+    faltasList.forEach((it) => {
+      const match = it.description?.match(/(\d+)\s*(d|dia|dias)/i);
+      if (match) {
+        totalDias += parseInt(match[1], 10);
+      } else {
+        totalDias += 1;
+      }
+    });
+    return `${totalDias}d`;
+  })();
+
+  // 2. Apuração dos Vales / Adiantamentos (Rubrica 502 / 110)
+  const valesList = deductionItems.filter(
+    (d) =>
+      !faltasList.includes(d) &&
+      (d.verbaCode === '502' ||
+        d.verbaCode === '110' ||
+        d.type === 'Vale / Adiantamento' ||
+        d.description?.toLowerCase().includes('vale') ||
+        d.description?.toLowerCase().includes('adiantamento'))
+  );
+  const valesTotal =
+    valesList.length > 0
+      ? valesList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
+      : advancesDiscount || 0;
+
+  // 3. Apuração de Equipamentos / Avarias / Peças (Rubrica 503)
+  const avariasList = deductionItems.filter(
+    (d) =>
+      !faltasList.includes(d) &&
+      !valesList.includes(d) &&
+      (d.verbaCode === '503' ||
+        d.type === 'Peças / Oficina' ||
+        d.type?.toLowerCase().includes('avaria') ||
+        d.type?.toLowerCase().includes('equipamento') ||
+        d.description?.toLowerCase().includes('peça') ||
+        d.description?.toLowerCase().includes('peca') ||
+        d.description?.toLowerCase().includes('avaria') ||
+        d.description?.toLowerCase().includes('equipamento'))
+  );
+  const avariasTotal = avariasList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+
+  // 4. Outros Descontos manuais isolados (não agrupados nos anteriores)
+  const outrosList = deductionItems.filter(
+    (d) =>
+      !faltasList.includes(d) &&
+      !valesList.includes(d) &&
+      !avariasList.includes(d) &&
+      !d.type?.toLowerCase().includes('sindicat') &&
+      !d.description?.toLowerCase().includes('sindicat')
+  );
+
+  // Helper para resolver Código e Descrição (respeitando overrides do colaborador ou dicionário do LocalStorage)
+  const resolveVerba = (rowKey: string, defaultCod: string, defaultDesc: string) => {
+    if (customVerbaOverrides[rowKey]) {
+      return customVerbaOverrides[rowKey];
+    }
+    const fromStorage = findVerbaByCodigo(defaultCod);
+    if (fromStorage) {
+      return { codigo: fromStorage.codigo, descricao: fromStorage.descricao };
+    }
+    return { codigo: defaultCod, descricao: defaultDesc };
+  };
+
+  const handleStartEdit = (rowKey: string, field: 'codigo' | 'descricao', currentValue: string) => {
+    setEditingCell({ rowKey, field });
+    setCellDraft(currentValue);
+  };
+
+  const handleCommitEdit = (
+    rowKey: string,
+    field: 'codigo' | 'descricao',
+    value: string,
+    defaultCod: string,
+    defaultDesc: string
+  ) => {
+    const current = resolveVerba(rowKey, defaultCod, defaultDesc);
+    const clean = value.trim().toUpperCase();
+    const nextCod = field === 'codigo' ? (clean || current.codigo) : current.codigo;
+    const nextDesc = field === 'descricao' ? (clean || current.descricao) : current.descricao;
+
+    // Dispara a gravação reativa no fechamento atual da folha do colaborador
+    onUpdateVerba?.(rowKey, nextCod, nextDesc);
+
+    // Também atualiza o dicionário no LocalStorage para persistência global
+    updateVerbaInStorage(nextCod, nextDesc);
+
+    setEditingCell(null);
+  };
+
+  // Renderizador compacto de células Cód e Descrição com suporte a clique e duplo clique
+  const renderEditableCells = (rowKey: string, defaultCod: string, defaultDesc: string) => {
+    const verba = resolveVerba(rowKey, defaultCod, defaultDesc);
+    const isEditingCod = editingCell?.rowKey === rowKey && editingCell?.field === 'codigo';
+    const isEditingDesc = editingCell?.rowKey === rowKey && editingCell?.field === 'descricao';
+
+    return (
+      <>
+        {isEditingCod ? (
+          <td className="py-0.5 px-1 w-12 align-middle">
+            <input
+              type="text"
+              autoFocus
+              value={cellDraft}
+              onChange={(e) => setCellDraft(e.target.value.toUpperCase())}
+              onBlur={() => handleCommitEdit(rowKey, 'codigo', cellDraft, defaultCod, defaultDesc)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCommitEdit(rowKey, 'codigo', cellDraft, defaultCod, defaultDesc);
+                if (e.key === 'Escape') setEditingCell(null);
+              }}
+              className="w-12 h-5 px-1 py-0 text-[9.5px] font-mono font-bold uppercase text-stone-900 bg-white border border-[#0963cb] rounded shadow-inner outline-none ring-1 ring-[#0963cb]"
+            />
+          </td>
+        ) : (
+          <td
+            onClick={() => handleStartEdit(rowKey, 'codigo', verba.codigo)}
+            onDoubleClick={() => handleStartEdit(rowKey, 'codigo', verba.codigo)}
+            className="py-1 px-2 text-stone-500 font-mono text-[9.5px] cursor-pointer hover:bg-blue-50/80 hover:text-[#0963cb] hover:outline-dashed hover:outline-1 hover:outline-blue-400 rounded transition select-none group/cell relative"
+            title="Clique ou duplo clique para editar o código"
+          >
+            <span className="font-bold group-hover/cell:underline">{verba.codigo}</span>
+          </td>
+        )}
+
+        {isEditingDesc ? (
+          <td className="py-0.5 px-1 align-middle">
+            <input
+              type="text"
+              autoFocus
+              value={cellDraft}
+              onChange={(e) => setCellDraft(e.target.value.toUpperCase())}
+              onBlur={() => handleCommitEdit(rowKey, 'descricao', cellDraft, defaultCod, defaultDesc)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCommitEdit(rowKey, 'descricao', cellDraft, defaultCod, defaultDesc);
+                if (e.key === 'Escape') setEditingCell(null);
+              }}
+              className="w-full h-5 px-1.5 py-0 text-[9.5px] font-bold uppercase text-stone-900 bg-white border border-[#0963cb] rounded shadow-inner outline-none ring-1 ring-[#0963cb]"
+            />
+          </td>
+        ) : (
+          <td
+            onClick={() => handleStartEdit(rowKey, 'descricao', verba.descricao)}
+            onDoubleClick={() => handleStartEdit(rowKey, 'descricao', verba.descricao)}
+            className="py-1 px-2 font-semibold text-stone-900 text-[10px] uppercase cursor-pointer hover:bg-blue-50/80 hover:text-[#0963cb] hover:outline-dashed hover:outline-1 hover:outline-blue-400 rounded transition select-none group/cell relative"
+            title="Clique ou duplo clique para editar a descrição da verba"
+          >
+            <span className="group-hover/cell:underline">{verba.descricao}</span>
+          </td>
+        )}
+      </>
+    );
+  };
 
   const baseCalculo = baseCalculoInssFgts || baseSalaryContratual || baseSalary || 0;
   const fgtsMes = Math.round((baseCalculo * 0.08) * 100) / 100;
@@ -250,10 +415,14 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
 
         {/* CENTRO: QUADRO OFICIAL DE VERBAS */}
         <div className="border border-stone-300 rounded-lg overflow-hidden">
+          <div className="bg-stone-50 border-b border-stone-200 px-2 py-0.5 flex items-center justify-between text-[8px] text-stone-500 font-bold uppercase tracking-wider">
+            <span>Quadro Oficial de Verbas • Edição Direta Destravada</span>
+            <span>(Clique ou dê duplo clique nas células Cód / Descrição para editar)</span>
+          </div>
           <table className="w-full text-[10.5px]">
             <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[9px] border-b border-stone-300">
               <tr>
-                <th className="py-1.5 px-2 text-left w-10">Cód</th>
+                <th className="py-1.5 px-2 text-left w-12">Cód</th>
                 <th className="py-1.5 px-2 text-left">Descrição da Verba</th>
                 <th className="py-1.5 px-1.5 text-center w-14">Ref.</th>
                 <th className="py-1.5 px-2 text-right w-24">Proventos</th>
@@ -263,8 +432,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
             <tbody className="divide-y divide-stone-200">
               {/* Salário Base */}
               <tr>
-                <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">001</td>
-                <td className="py-1 px-2 font-semibold text-stone-900">Salário Base Mensal</td>
+                {renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
                 <td className="py-1 px-1.5 text-center text-stone-600 font-medium text-[9.5px]">
                   {admissionInfo?.isAdmittedInCompetenceMonth ? `${admissionInfo.daysWorked}d` : '30d'}
                 </td>
@@ -277,8 +445,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               {/* Horas Extras */}
               {overtimeAmount > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">012</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Horas Extras / Adicional Safra</td>
+                  {renderEditableCells('horas_extras', '012', 'HORAS EXTRAS / ADICIONAL SAFRA & COLHEITA')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px]">--</td>
                   <td className="py-1 px-2 text-right font-bold text-emerald-700 font-['Outfit']">
                     {formatCurrencyBRL(overtimeAmount)}
@@ -290,8 +457,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               {/* Bônus */}
               {bonusAmount > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">024</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Insalubridade / Bônus</td>
+                  {renderEditableCells('bonus', '024', 'INSALUBRIDADE / BÔNUS PRODUTIVIDADE')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px]">--</td>
                   <td className="py-1 px-2 text-right font-bold text-emerald-700 font-['Outfit']">
                     {formatCurrencyBRL(bonusAmount)}
@@ -303,10 +469,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               {/* Comissões de Silagem */}
               {activeCommissionTotal > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">035</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">
-                    Comissões Variáveis de Silagem
-                  </td>
+                  {renderEditableCells('comissao', '035', 'COMISSÕES VARIÁVEIS DE SILAGEM / PRODUÇÃO')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px]">
                     {commissionItems.length > 0 ? `${commissionItems.length} OS` : '--'}
                   </td>
@@ -320,8 +483,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               {/* INSS */}
               {activeInss > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">101</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Desconto Previdência (INSS)</td>
+                  {renderEditableCells('inss', '101', 'DESCONTO PREVIDÊNCIA SOCIAL (INSS)')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px] font-bold">
                     {aliquotaInssStr ? `${aliquotaInssStr}%` : 'Oficial'}
                   </td>
@@ -335,8 +497,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               {/* IRRF */}
               {activeIrrf > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">102</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Retenção Imposto Renda (IRRF)</td>
+                  {renderEditableCells('irrf', '102', 'RETENÇÃO IMPOSTO DE RENDA (IRRF)')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px] font-bold">
                     {aliquotaIrrfStr ? `${aliquotaIrrfStr}%` : 'Oficial'}
                   </td>
@@ -347,11 +508,10 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 </tr>
               )}
 
-              {/* Taxa Sindical */}
+              {/* Taxa Sindical / Contribuição Sindical */}
               {activeSindical > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">103</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Taxa Assistencial Sindicato</td>
+                  {renderEditableCells('sindicato', '504', 'DESCONTO CONTRIBUIÇÃO SINDICAL')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px] font-bold">
                     {aliquotaSindicatoStr ? `${aliquotaSindicatoStr}%` : '1,0%'}
                   </td>
@@ -362,11 +522,24 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 </tr>
               )}
 
-              {/* Vales / Adiantamentos */}
+              {/* Faltas Integradas (Falta é Falta -> 501) */}
+              {faltasTotal > 0 && (
+                <tr>
+                  {renderEditableCells('faltas', '501', 'FALTAS INTEGRADAS (DIAS)')}
+                  <td className="py-1 px-1.5 text-center text-amber-900 font-bold text-[9.5px]">
+                    {faltasRef}
+                  </td>
+                  <td className="py-1 px-2 text-right text-stone-300">-</td>
+                  <td className="py-1 px-2 text-right font-bold text-rose-700 font-['Outfit']">
+                    {formatCurrencyBRL(faltasTotal)}
+                  </td>
+                </tr>
+              )}
+
+              {/* Vales / Adiantamentos (Rubrica 502) */}
               {valesTotal > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">110</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Adiantamento Salarial / Vales</td>
+                  {renderEditableCells('vales', '502', 'ADIANTAMENTO DE SALÁRIO (VALE)')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px]">
                     {valesList.length > 0 ? `${valesList.length} vales` : 'Vales'}
                   </td>
@@ -377,20 +550,36 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 </tr>
               )}
 
-              {/* Outros Descontos / Faltas */}
-              {outrosTotal > 0 && (
+              {/* Equipamentos / Avarias / Peças (Rubrica 503) */}
+              {avariasTotal > 0 && (
                 <tr>
-                  <td className="py-1 px-2 text-stone-400 font-mono text-[9.5px]">120</td>
-                  <td className="py-1 px-2 font-semibold text-stone-900">Faltas / Peças / Descontos</td>
+                  {renderEditableCells('avarias', '503', 'DESCONTO DE EQUIPAMENTOS / AVARIAS')}
                   <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px]">
-                    {outrosList.length > 0 ? `${outrosList.length} itens` : '--'}
+                    {avariasList.length > 0 ? `${avariasList.length} itens` : '--'}
                   </td>
                   <td className="py-1 px-2 text-right text-stone-300">-</td>
                   <td className="py-1 px-2 text-right font-bold text-rose-700 font-['Outfit']">
-                    {formatCurrencyBRL(outrosTotal)}
+                    {formatCurrencyBRL(avariasTotal)}
                   </td>
                 </tr>
               )}
+
+              {/* Outros Descontos Isolados */}
+              {outrosList.map((it) => {
+                const rowKey = `ded_${it.id}`;
+                const defCod = it.verbaCode || '503';
+                const defDesc = it.verbaDescription || it.description?.toUpperCase() || 'DESCONTO DIVERSO';
+                return (
+                  <tr key={it.id}>
+                    {renderEditableCells(rowKey, defCod, defDesc)}
+                    <td className="py-1 px-1.5 text-center text-stone-600 text-[9.5px]">--</td>
+                    <td className="py-1 px-2 text-right text-stone-300">-</td>
+                    <td className="py-1 px-2 text-right font-bold text-rose-700 font-['Outfit']">
+                      {formatCurrencyBRL(it.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
 
             {/* Totais do Quadro de Verbas */}

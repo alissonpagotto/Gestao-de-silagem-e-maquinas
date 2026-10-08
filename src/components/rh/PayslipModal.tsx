@@ -2,13 +2,14 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { X, Printer, Download, CheckCircle2, User, Building, Calendar, DollarSign, FileText, CreditCard, CalendarX, AlertCircle, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
-import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, ServiceOrder } from '../../types';
+import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, ServiceOrder, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 import { QRCode } from './PixQrCodeBlock';
+import { getStoredVerbasRH, updateVerbaInStorage, findVerbaByCodigo, getVerbaForDeduction } from './verbasRH';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -178,6 +179,18 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string>('');
 
+  // Overrides de Verbas e edição direta destravada nas células
+  const [localVerbaOverrides, setLocalVerbaOverrides] = useState<Record<string, { codigo: string; descricao: string }>>({});
+  const [editingCell, setEditingCell] = useState<{ rowKey: string; field: 'codigo' | 'descricao' } | null>(null);
+  const [cellDraft, setCellDraft] = useState<string>('');
+
+  useEffect(() => {
+    if (payroll) {
+      const ov = (payroll as any)?.customVerbaOverrides || (payroll as any)?.payload?.customVerbaOverrides || {};
+      setLocalVerbaOverrides(ov);
+    }
+  }, [payroll]);
+
   useEffect(() => {
     let isMounted = true;
     if (!pixPayload) {
@@ -197,6 +210,171 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
   // Safe early exit AFTER ALL hooks are called unconditionally
   if (!isOpen || !payroll) return null;
+
+  const resolveVerba = (rowKey: string, defaultCod: string, defaultDesc: string) => {
+    if (localVerbaOverrides[rowKey]) return localVerbaOverrides[rowKey];
+    const fromStorage = findVerbaByCodigo(defaultCod);
+    if (fromStorage) return { codigo: fromStorage.codigo, descricao: fromStorage.descricao };
+    return { codigo: defaultCod, descricao: defaultDesc };
+  };
+
+  const handleStartEdit = (rowKey: string, field: 'codigo' | 'descricao', currentValue: string) => {
+    setEditingCell({ rowKey, field });
+    setCellDraft(currentValue);
+  };
+
+  const handleCommitEdit = (rowKey: string, field: 'codigo' | 'descricao', value: string, defaultCod: string, defaultDesc: string) => {
+    const current = resolveVerba(rowKey, defaultCod, defaultDesc);
+    const clean = value.trim().toUpperCase();
+    const nextCod = field === 'codigo' ? (clean || current.codigo) : current.codigo;
+    const nextDesc = field === 'descricao' ? (clean || current.descricao) : current.descricao;
+    setLocalVerbaOverrides(prev => ({
+      ...prev,
+      [rowKey]: { codigo: nextCod, descricao: nextDesc }
+    }));
+    updateVerbaInStorage(nextCod, nextDesc);
+
+    // Persiste também no LocalStorage da folha
+    try {
+      const raw = localStorage.getItem('colaca_silagem_rh_folhas');
+      if (raw && payroll) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const updated = list.map((p: any) => {
+            if (p.id === payroll.id) {
+              const prevOv = p.customVerbaOverrides || p.payload?.customVerbaOverrides || {};
+              const nextOv = { ...prevOv, [rowKey]: { codigo: nextCod, descricao: nextDesc } };
+              return {
+                ...p,
+                customVerbaOverrides: nextOv,
+                payload: { ...(p.payload || {}), customVerbaOverrides: nextOv }
+              };
+            }
+            return p;
+          });
+          localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(updated));
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao persistir override em folha:', e);
+    }
+    setEditingCell(null);
+  };
+
+  const renderEditableCells = (rowKey: string, defaultCod: string, defaultDesc: string) => {
+    const verba = resolveVerba(rowKey, defaultCod, defaultDesc);
+    const isEditingCod = editingCell?.rowKey === rowKey && editingCell?.field === 'codigo';
+    const isEditingDesc = editingCell?.rowKey === rowKey && editingCell?.field === 'descricao';
+
+    return (
+      <>
+        {isEditingCod ? (
+          <td className="py-1 px-1.5 w-12 align-middle">
+            <input
+              type="text"
+              autoFocus
+              value={cellDraft}
+              onChange={(e) => setCellDraft(e.target.value.toUpperCase())}
+              onBlur={() => handleCommitEdit(rowKey, 'codigo', cellDraft, defaultCod, defaultDesc)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCommitEdit(rowKey, 'codigo', cellDraft, defaultCod, defaultDesc);
+                if (e.key === 'Escape') setEditingCell(null);
+              }}
+              className="w-12 h-5 px-1 py-0 text-[10px] font-mono font-bold uppercase text-stone-900 bg-white border border-[#0963cb] rounded outline-none ring-1 ring-[#0963cb]"
+            />
+          </td>
+        ) : (
+          <td
+            onClick={() => handleStartEdit(rowKey, 'codigo', verba.codigo)}
+            onDoubleClick={() => handleStartEdit(rowKey, 'codigo', verba.codigo)}
+            className="py-2 px-3 text-stone-500 font-mono text-[10.5px] cursor-pointer hover:bg-blue-50/80 hover:text-[#0963cb] hover:outline-dashed hover:outline-1 hover:outline-blue-400 rounded transition select-none group/cell"
+            title="Clique ou duplo clique para editar o código"
+          >
+            <span className="font-bold group-hover/cell:underline">{verba.codigo}</span>
+          </td>
+        )}
+
+        {isEditingDesc ? (
+          <td className="py-1 px-1.5 align-middle">
+            <input
+              type="text"
+              autoFocus
+              value={cellDraft}
+              onChange={(e) => setCellDraft(e.target.value.toUpperCase())}
+              onBlur={() => handleCommitEdit(rowKey, 'descricao', cellDraft, defaultCod, defaultDesc)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCommitEdit(rowKey, 'descricao', cellDraft, defaultCod, defaultDesc);
+                if (e.key === 'Escape') setEditingCell(null);
+              }}
+              className="w-full h-5 px-1.5 py-0 text-[10px] font-bold uppercase text-stone-900 bg-white border border-[#0963cb] rounded outline-none ring-1 ring-[#0963cb]"
+            />
+          </td>
+        ) : (
+          <td
+            onClick={() => handleStartEdit(rowKey, 'descricao', verba.descricao)}
+            onDoubleClick={() => handleStartEdit(rowKey, 'descricao', verba.descricao)}
+            className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200 text-[11px] uppercase cursor-pointer hover:bg-blue-50/80 hover:text-[#0963cb] hover:outline-dashed hover:outline-1 hover:outline-blue-400 rounded transition select-none group/cell"
+            title="Clique ou duplo clique para editar a descrição da verba"
+          >
+            <span className="group-hover/cell:underline">{verba.descricao}</span>
+          </td>
+        )}
+      </>
+    );
+  };
+
+  // Apuração detalhada das deduções da folha
+  const allDeductions: PayrollDeductionItem[] = Array.isArray(payroll.deductionItems) && payroll.deductionItems.length > 0
+    ? payroll.deductionItems
+    : (Array.isArray(payroll.payload?.deductionItems) && payroll.payload.deductionItems.length > 0 ? payroll.payload.deductionItems : []);
+
+  // Faltas (Rubrica 501 - FALTAS INTEGRADAS (DIAS))
+  const faltasFromItems = allDeductions.filter(d => 
+    d.verbaCode === '501' || d.type === 'Falta / Atraso' || d.description?.toLowerCase().includes('falta') || d.description?.toLowerCase().includes('dias anteriores')
+  );
+  const faltasItemsAmount = faltasFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+  const faltasAbsencesAmount = resolvedAbsences.reduce((sum, a) => {
+    if (a.discountAmount !== undefined && a.discountAmount > 0) return sum + Number(a.discountAmount);
+    const daily = (payroll.baseSalary || 3500) / 30;
+    return sum + Math.round((daily * (a.daysCount || 1)) * 100) / 100;
+  }, 0);
+  const totalFaltasAmount = faltasItemsAmount > 0 ? faltasItemsAmount : (payroll.totalFaltas || faltasAbsencesAmount || 0);
+
+  const totalFaltasDays = (() => {
+    if (faltasFromItems.length > 0) {
+      let d = 0;
+      faltasFromItems.forEach(it => {
+        const m = it.description?.match(/(\d+)\s*(d|dia|dias)/i);
+        if (m) d += parseInt(m[1], 10);
+        else d += 1;
+      });
+      return `${d}d`;
+    }
+    if (resolvedAbsences.length > 0) {
+      const sumDays = resolvedAbsences.reduce((acc, a) => acc + (a.daysCount || 1), 0);
+      return `${sumDays}d`;
+    }
+    return payroll.totalFaltasRef || 'Faltas';
+  })();
+
+  // Vales / Adiantamentos (Rubrica 502)
+  const valesFromItems = allDeductions.filter(d => 
+    !faltasFromItems.includes(d) &&
+    (d.verbaCode === '502' || d.verbaCode === '110' || d.type === 'Vale / Adiantamento' || d.description?.toLowerCase().includes('vale') || d.description?.toLowerCase().includes('adiantamento'))
+  );
+  const valesItemsAmount = valesFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+  const totalValesAmount = valesItemsAmount > 0 ? valesItemsAmount : (payroll.advancesDiscount || resolvedAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0));
+
+  // Equipamentos / Avarias (Rubrica 503)
+  const avariasFromItems = allDeductions.filter(d => 
+    !faltasFromItems.includes(d) &&
+    !valesFromItems.includes(d) &&
+    (d.verbaCode === '503' || d.type === 'Peças / Oficina' || d.type?.toLowerCase().includes('avaria') || d.type?.toLowerCase().includes('equipamento') || d.description?.toLowerCase().includes('peça') || d.description?.toLowerCase().includes('peca') || d.description?.toLowerCase().includes('avaria') || d.description?.toLowerCase().includes('equipamento'))
+  );
+  const totalAvariasAmount = avariasFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+
+  // Outros Descontos residuais
+  const residualOtherDiscounts = Math.max(0, (payroll.otherDiscounts || 0) - totalFaltasAmount - totalAvariasAmount);
 
   const handleDownloadPDF = async () => {
     if (!payroll) return;
@@ -525,9 +703,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200 dark:divide-stone-800">
+                {/* Salário Base Mensal */}
                 <tr>
-                  <td className="py-2 px-3 text-stone-400">001</td>
-                  <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">Salário Base Mensal</td>
+                  {renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
                   <td className="py-2 px-3 text-center text-stone-500">30d</td>
                   <td className="py-2 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                     {formatCurrencyBRL(payroll.baseSalary)}
@@ -535,12 +713,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   <td className="py-2 px-3 text-right text-stone-400">-</td>
                 </tr>
 
+                {/* Horas Extras */}
                 {payroll.overtimeAmount > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">012</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Horas Extras / Adicional Safra & Colheita
-                    </td>
+                    {renderEditableCells('horas_extras', '012', 'HORAS EXTRAS / ADICIONAL SAFRA & COLHEITA')}
                     <td className="py-2 px-3 text-center text-stone-500">{payroll.overtimeHours ? `${payroll.overtimeHours}h` : '--'}</td>
                     <td className="py-2 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                       {formatCurrencyBRL(payroll.overtimeAmount)}
@@ -549,12 +725,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </tr>
                 )}
 
+                {/* Bônus / Insalubridade */}
                 {payroll.bonusAmount > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">024</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Insalubridade / Bônus Produtividade
-                    </td>
+                    {renderEditableCells('bonus', '024', 'INSALUBRIDADE / BÔNUS PRODUTIVIDADE')}
                     <td className="py-2 px-3 text-center text-stone-500">--</td>
                     <td className="py-2 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                       {formatCurrencyBRL(payroll.bonusAmount)}
@@ -563,12 +737,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </tr>
                 )}
 
+                {/* Comissões Variáveis */}
                 {(payroll.commissionAmount || 0) > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">035</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Comissões Variáveis de Silagem / Produção
-                    </td>
+                    {renderEditableCells('comissao', '035', 'COMISSÕES VARIÁVEIS DE SILAGEM / PRODUÇÃO')}
                     <td className="py-2 px-3 text-center text-stone-500">--</td>
                     <td className="py-2 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                       {formatCurrencyBRL(payroll.commissionAmount || 0)}
@@ -577,12 +749,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </tr>
                 )}
 
+                {/* INSS */}
                 {payroll.inssDiscount > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">101</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Desconto Previdência Social (INSS)
-                    </td>
+                    {renderEditableCells('inss', '101', 'DESCONTO PREVIDÊNCIA SOCIAL (INSS)')}
                     <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
                       {payroll.aliquotaInss ?? payroll.aliquota_inss ?? (payroll as any).payload?.aliquotaInss ?? (payroll as any).payload?.aliquota_inss
                         ? `${(payroll.aliquotaInss ?? payroll.aliquota_inss ?? (payroll as any).payload?.aliquotaInss ?? (payroll as any).payload?.aliquota_inss).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
@@ -595,12 +765,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </tr>
                 )}
 
+                {/* IRRF */}
                 {(payroll.irrfDiscount || 0) > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">102</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Retenção Imposto de Renda (IRRF)
-                    </td>
+                    {renderEditableCells('irrf', '102', 'RETENÇÃO IMPOSTO DE RENDA (IRRF)')}
                     <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
                       {payroll.aliquotaIrrf ?? payroll.aliquota_irrf ?? (payroll as any).payload?.aliquotaIrrf ?? (payroll as any).payload?.aliquota_irrf
                         ? `${(payroll.aliquotaIrrf ?? payroll.aliquota_irrf ?? (payroll as any).payload?.aliquotaIrrf ?? (payroll as any).payload?.aliquota_irrf).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
@@ -613,12 +781,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </tr>
                 )}
 
+                {/* Taxa Sindical / Contribuição Sindical */}
                 {activeSindical > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">103</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Taxa Assistencial Sindicato
-                    </td>
+                    {renderEditableCells('sindicato', '504', 'DESCONTO CONTRIBUIÇÃO SINDICAL')}
                     <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
                       {payroll.aliquotaSindicato ?? payroll.aliquota_sindicato ?? (payroll as any).payload?.aliquotaSindicato ?? (payroll as any).payload?.aliquota_sindicato
                         ? `${(payroll.aliquotaSindicato ?? payroll.aliquota_sindicato ?? (payroll as any).payload?.aliquotaSindicato ?? (payroll as any).payload?.aliquota_sindicato).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
@@ -631,30 +797,54 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                   </tr>
                 )}
 
-                {payroll.advancesDiscount > 0 && (
+                {/* FALTAS: Falta é Falta (Rubrica 501 - FALTAS INTEGRADAS (DIAS)) */}
+                {totalFaltasAmount > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">110</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Adiantamento Salarial / Vales do Mês
+                    {renderEditableCells('faltas', '501', 'FALTAS INTEGRADAS (DIAS)')}
+                    <td className="py-2 px-3 text-center font-bold text-amber-900 dark:text-amber-400">
+                      {totalFaltasDays}
                     </td>
-                    <td className="py-2 px-3 text-center text-stone-500">Vales</td>
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
-                      {formatCurrencyBRL(payroll.advancesDiscount)}
+                      {formatCurrencyBRL(totalFaltasAmount)}
                     </td>
                   </tr>
                 )}
 
-                {payroll.otherDiscounts > 0 && (
+                {/* VALES: Adiantamento Salarial / Vales do Mês (Rubrica 502) */}
+                {totalValesAmount > 0 && (
                   <tr>
-                    <td className="py-2 px-3 text-stone-400">120</td>
-                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
-                      Outros Descontos / Faltas / Farmácia
+                    {renderEditableCells('vales', '502', 'ADIANTAMENTO DE SALÁRIO (VALE)')}
+                    <td className="py-2 px-3 text-center text-stone-500">Vales</td>
+                    <td className="py-2 px-3 text-right text-stone-400">-</td>
+                    <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
+                      {formatCurrencyBRL(totalValesAmount)}
                     </td>
+                  </tr>
+                )}
+
+                {/* AVARIAS: Equipamentos / Avarias / Peças (Rubrica 503) */}
+                {totalAvariasAmount > 0 && (
+                  <tr>
+                    {renderEditableCells('avarias', '503', 'DESCONTO DE EQUIPAMENTOS / AVARIAS')}
+                    <td className="py-2 px-3 text-center text-stone-500">
+                      {avariasFromItems.length > 0 ? `${avariasFromItems.length} itens` : '--'}
+                    </td>
+                    <td className="py-2 px-3 text-right text-stone-400">-</td>
+                    <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
+                      {formatCurrencyBRL(totalAvariasAmount)}
+                    </td>
+                  </tr>
+                )}
+
+                {/* Outros Descontos residuais se houver */}
+                {residualOtherDiscounts > 0 && (
+                  <tr>
+                    {renderEditableCells('outros_descontos', '503', 'DESCONTO DIVERSO')}
                     <td className="py-2 px-3 text-center text-stone-500">--</td>
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
-                      {formatCurrencyBRL(payroll.otherDiscounts)}
+                      {formatCurrencyBRL(residualOtherDiscounts)}
                     </td>
                   </tr>
                 )}
