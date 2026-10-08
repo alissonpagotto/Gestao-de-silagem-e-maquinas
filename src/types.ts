@@ -1332,6 +1332,8 @@ export interface PayrollDeductionItem {
   id: string;
   type: string; // 'Vale / Adiantamento' | 'Falta / Atraso' | 'Peças / Oficina' | 'Combustível' | 'Outro Desconto' | string
   description?: string;
+  verbaCode?: string; // Código oficial da verba de RH (ex: '501', '502', etc.)
+  verbaDescription?: string; // Descrição oficial da verba de RH
   date?: string;
   amount: number;
   isManual?: boolean;
