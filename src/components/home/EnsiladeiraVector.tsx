@@ -2,27 +2,30 @@ import React from 'react';
 
 interface EnsiladeiraVectorProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'hero' | 'custom';
 }
 
 export const EnsiladeiraVector: React.FC<EnsiladeiraVectorProps> = ({ 
   className = '',
   size = 'md' 
 }) => {
-  const sizeClasses = {
+  const sizeClasses: Record<string, string> = {
     sm: 'w-16 h-10',
     md: 'w-28 h-18 sm:w-36 sm:h-22',
     lg: 'w-44 h-28 sm:w-56 sm:h-34',
-    xl: 'w-64 h-40'
+    xl: 'w-56 h-36 sm:w-64 sm:h-42',
+    '2xl': 'w-64 h-44 sm:w-80 sm:h-52',
+    hero: 'w-48 h-48 sm:w-56 sm:h-56',
+    custom: ''
   };
 
   return (
-    <div className={`relative inline-flex items-center justify-center select-none ${sizeClasses[size]} ${className}`}>
+    <div className={`relative inline-flex items-center justify-center select-none ${sizeClasses[size] || ''} ${className}`}>
       <svg
         viewBox="0 0 340 210"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-full drop-shadow-md overflow-visible"
+        className="w-full h-full max-h-full max-w-full drop-shadow-md overflow-visible object-contain"
       >
         <defs>
           {/* Degradês de Pintura Verde Agro (John Deere / Claas Metallic Green) */}

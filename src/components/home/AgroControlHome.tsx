@@ -134,18 +134,22 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       {/* 2. CENTRO PRINCIPAL: LOGOTIPO OFICIAL DA ENSILADEIRA COM CIFRÃO E GRID COMERCIAL */}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-6xl min-h-0 my-auto py-1">
         
-        {/* LOGOTIPO CENTRAL: ENSILADEIRA AUTOMOTRIZ VERDE COM O CIFRÃO ($) NA LATERAL (PRINT 3) */}
-        <div className="flex flex-col items-center justify-center text-center shrink-0">
-          <div className="transition-transform hover:scale-105 duration-200 cursor-pointer" onClick={() => onNavigate('dashboard')} title="Visão Executiva do AgroControl">
-            <EnsiladeiraVector size="lg" className="h-16 sm:h-20 md:h-24 w-auto drop-shadow-md" />
+        {/* LOGOTIPO CENTRAL EXPANDIDO 100%: ENSILADEIRA AUTOMOTRIZ VERDE COM CIFRÃO ($) */}
+        <div className="flex flex-col items-center justify-center text-center shrink-0 mb-1 sm:mb-2">
+          <div 
+            className="w-48 sm:w-56 md:w-64 max-h-[160px] sm:max-h-[190px] flex items-center justify-center transition-transform hover:scale-105 duration-200 cursor-pointer" 
+            onClick={() => onNavigate('dashboard')} 
+            title="Visão Executiva do AgroControl"
+          >
+            <EnsiladeiraVector size="custom" className="w-full h-auto max-h-[155px] sm:max-h-[185px] drop-shadow-lg" />
           </div>
 
-          <h1 className="text-slate-800 dark:text-slate-100 font-extrabold text-2xl sm:text-3xl tracking-tight uppercase [text-shadow:_0_1px_0_rgba(255,255,255,0.95)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.1)] leading-none mt-1">
-            AGROCONTROL
+          <h1 className="text-slate-800 dark:text-slate-100 font-black text-4xl sm:text-5xl tracking-tight [text-shadow:_0_1px_0_rgba(255,255,255,0.95)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.1)] leading-none mt-2.5 sm:mt-3 select-none">
+            AgroControl
           </h1>
 
-          <p className="text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase mt-1">
-            GESTÃO DE SILAGEM E VEÍCULOS
+          <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-1 select-none">
+            GESTÃO DE SILAGEM E MÁQUINAS
           </p>
         </div>
 
