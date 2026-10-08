@@ -2841,7 +2841,7 @@ export default function App() {
   const activeCorporateName = useMemo(() => {
     const raw = companyProfile?.corporateName || companyProfile?.companyName;
     if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'silagem fácil') {
-      return 'COLACA SILAGEM LTDA';
+      return 'COLAÇA SILAGEM LTDA';
     }
     return raw.trim().toUpperCase();
   }, [companyProfile]);
@@ -2850,7 +2850,7 @@ export default function App() {
   const activeTradeName = useMemo(() => {
     const raw = companyProfile?.tradeName || companyProfile?.activitySector;
     if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil') {
-      return 'GESTÃO AGRÍCOLA';
+      return 'COLAÇA SILAGEM';
     }
     return raw.trim().toUpperCase();
   }, [companyProfile]);
@@ -2985,8 +2985,8 @@ export default function App() {
           id="desktop-window-titlebar"
           className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 shadow-[0_1px_0px_0px_rgba(255,255,255,0.9)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
         >
-          {/* Lado Esquerdo: Sequência Oficial de Informações em Linha Única (Gabarito Verde) */}
-          <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[10.5px] xl:text-[11px] font-semibold text-slate-600 dark:text-stone-300 truncate">
+          {/* Lado Esquerdo: Linha Única Direta e Enxuta (Gabarito Simplificado) */}
+          <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[11px] font-semibold text-slate-600 dark:text-stone-300 truncate">
             {/* Botão de menu mobile */}
             <button
               type="button"
@@ -3000,66 +3000,12 @@ export default function App() {
               C
             </div>
             
-            {/* ITEM 1: NOME DO SISTEMA */}
+            {/* Linha Única Direta com Destaque Discreto em *ASSINATURA ATIVA */}
             <span className="whitespace-nowrap shrink-0">
-              GESTÃO DE SILAGEM E VEÍCULOS
-            </span>
-
-            {/* Separador */}
-            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
-
-            {/* ITEM 2: VERSÃO DO SISTEMA */}
-            <span className="whitespace-nowrap shrink-0">
-              VERSÃO DO SISTEMA: 1.0.3
-            </span>
-
-            {/* Separador */}
-            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
-
-            {/* ITEM 3: DATA DO DIA */}
-            <span className="whitespace-nowrap shrink-0">
-              DATA DO DIA: {currentFormattedDate}
-            </span>
-
-            {/* Separador */}
-            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
-
-            {/* ITEM 4: RAZÃO SOCIAL DO ASSINANTE */}
-            <span className="whitespace-nowrap shrink-0">
-              RAZÃO SOCIAL: {activeCorporateName}
-            </span>
-
-            {/* Separador */}
-            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
-
-            {/* ITEM 5: NOME FANTASIA DO ASSINANTE */}
-            <span className="whitespace-nowrap shrink-0">
-              NOME FANTASIA: {activeTradeName}
-            </span>
-
-            {/* Separador */}
-            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
-
-            {/* ITEM 6: STATUS DA ASSINATURA */}
-            {isSubscriptionExpiringSoon ? (
-              <span 
-                className="text-red-600 dark:text-red-400 font-extrabold animate-pulse whitespace-nowrap shrink-0"
-                title={`Atenção: Assinatura a vencer em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'}.`}
-              >
-                ● ASSINATURA A VENCER ({daysUntilDue} {daysUntilDue === 1 ? 'DIA' : 'DIAS'}) - {subscriptionPlanDisplayName}
+              GESTAO DE SILAGEM E VEICULOS - VERSÃO:1.0.3 - {currentFormattedDate} - {activeCorporateName} - {activeTradeName} -{' '}
+              <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                *ASSINATURA ATIVA
               </span>
-            ) : (
-              <span className="text-slate-600 dark:text-stone-300 whitespace-nowrap shrink-0">
-                ● ASSINATURA ATIVA - {subscriptionPlanDisplayName}
-              </span>
-            )}
-
-            {/* Separador */}
-            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
-
-            {/* ITEM 6 (CONTINUAÇÃO): INDICADOR DE MODO */}
-            <span className="text-slate-600 dark:text-stone-300 whitespace-nowrap shrink-0">
-              ⚡ SILAGEM FÁCIL PRO - MODO COMPLETO
             </span>
           </div>
 

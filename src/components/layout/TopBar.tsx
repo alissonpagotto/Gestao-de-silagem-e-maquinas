@@ -47,7 +47,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   const activeCorporateName = useMemo(() => {
     const raw = companyProfile?.corporateName || companyProfile?.companyName;
     if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'silagem fácil') {
-      return 'COLACA SILAGEM LTDA';
+      return 'COLAÇA SILAGEM LTDA';
     }
     return raw.trim().toUpperCase();
   }, [companyProfile]);
@@ -55,15 +55,15 @@ export const TopBar: React.FC<TopBarProps> = ({
   const activeTradeName = useMemo(() => {
     const raw = companyProfile?.tradeName || companyProfile?.activitySector;
     if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil') {
-      return 'GESTÃO AGRÍCOLA';
+      return 'COLAÇA SILAGEM';
     }
     return raw.trim().toUpperCase();
   }, [companyProfile]);
 
   return (
     <div id="top-bar-container" className="no-print sticky top-0 z-30 shadow-xs">
-      {/* Top Banner: Sequência oficial da esquerda para a direita */}
-      <div className={`border-b px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs transition-colors font-mono uppercase text-[10.5px] xl:text-[11px] font-semibold tracking-tight ${
+      {/* Top Banner: Sequência oficial simplificada em linha única */}
+      <div className={`border-b px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs transition-colors font-mono uppercase text-[11px] font-semibold tracking-tight ${
         isTrial 
           ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300'
           : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300'
@@ -82,30 +82,11 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Menu className="w-4 h-4" />
           </button>
           
-          <span className="whitespace-nowrap shrink-0">GESTÃO DE SILAGEM E VEÍCULOS</span>
-          <span className="text-slate-400 select-none shrink-0">-</span>
-          <span className="whitespace-nowrap shrink-0">VERSÃO DO SISTEMA: 1.0.3</span>
-          <span className="text-slate-400 select-none shrink-0">-</span>
-          <span className="whitespace-nowrap shrink-0">DATA DO DIA: {currentFormattedDate}</span>
-          <span className="text-slate-400 select-none shrink-0">-</span>
-          <span className="whitespace-nowrap shrink-0">RAZÃO SOCIAL: {activeCorporateName}</span>
-          <span className="text-slate-400 select-none shrink-0">-</span>
-          <span className="whitespace-nowrap shrink-0">NOME FANTASIA: {activeTradeName}</span>
-          <span className="text-slate-400 select-none shrink-0">-</span>
-
-          {isTrial ? (
-            <span className="whitespace-nowrap shrink-0">
-              ● ASSINATURA A VENCER ({days} {days === 1 ? 'DIA' : 'DIAS'}) - {planDisplay}
-            </span>
-          ) : (
-            <span className="whitespace-nowrap shrink-0">
-              ● ASSINATURA ATIVA - {planDisplay}
-            </span>
-          )}
-
-          <span className="text-slate-400 select-none shrink-0">-</span>
           <span className="whitespace-nowrap shrink-0">
-            ⚡ SILAGEM FÁCIL PRO - MODO COMPLETO
+            GESTAO DE SILAGEM E VEICULOS - VERSÃO:1.0.3 - {currentFormattedDate} - {activeCorporateName} - {activeTradeName} -{' '}
+            <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+              *ASSINATURA ATIVA
+            </span>
           </span>
         </div>
 

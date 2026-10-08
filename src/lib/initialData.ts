@@ -21,8 +21,8 @@ import {
 export const DEFAULT_FORAGE_HARVESTER_LOGO = '';
 
 export const INITIAL_COMPANY_PROFILE: CompanyProfile = {
-  corporateName: 'COLACA SILAGEM LTDA',
-  tradeName: 'GESTÃO AGRÍCOLA',
+  corporateName: 'COLAÇA SILAGEM LTDA',
+  tradeName: 'COLAÇA SILAGEM',
   cnpjCpf: '',
   stateRegistration: '',
   phone: '',
