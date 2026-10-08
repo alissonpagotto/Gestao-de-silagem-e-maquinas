@@ -34,7 +34,7 @@ export const INITIAL_COMPANY_PROFILE: CompanyProfile = {
   neighborhood: '',
   city: '',
   state: 'PR',
-  activitySector: 'GESTÃO AGRÍCOLA',
+  activitySector: 'Prestação de serviço de Silagem',
   logoUrl: '',
 };
 

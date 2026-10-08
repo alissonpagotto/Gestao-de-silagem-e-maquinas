@@ -1552,6 +1552,9 @@ export function getStoredCompanyProfile(): CompanyProfile {
     ) {
       profile.logoUrl = '';
     }
+    if (!profile.activitySector || profile.activitySector === 'GESTÃO AGRÍCOLA') {
+      profile.activitySector = 'Prestação de serviço de Silagem';
+    }
     return profile;
   } catch (e) {
     return INITIAL_COMPANY_PROFILE;
@@ -1715,6 +1718,9 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
 export function saveStoredCompanyProfile(profile: CompanyProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILE, JSON.stringify(profile));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profile }));
+    }
   } catch (e) {
     console.error('Failed to save company profile', e);
   }

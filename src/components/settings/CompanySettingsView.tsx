@@ -41,6 +41,7 @@ import {
   fetchCompanyByCnpj 
 } from '../../lib/formatters';
 import { saveCloudCompanyProfile, fetchCloudCompanyProfile } from '../../lib/supabaseService';
+import { getStoredCompanyProfile, saveStoredCompanyProfile } from '../../lib/storage';
 
 interface CompanySettingsViewProps {
   companyProfile: CompanyProfile;
@@ -150,10 +151,28 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (field: keyof CompanyProfile, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      if (field === 'activitySector') {
+        try {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', {
+              detail: { activitySector: value }
+            }));
+          }
+          const stored = getStoredCompanyProfile();
+          if (stored) {
+            saveStoredCompanyProfile({ ...stored, activitySector: value });
+          }
+        } catch (e) {
+          console.warn('Erro ao sincronizar setor em tempo real:', e);
+        }
+      }
+      return updated;
+    });
   };
 
   // CNPJ / CPF with auto-mask and auto-lookup
@@ -364,40 +383,43 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
               type="button"
               id="btn-settings-organize-menu"
               onClick={onOpenReorderMenu}
-              className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs font-semibold border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
               title="Personalizar Ordem do Menu Lateral"
             >
-              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
-              <span>Organizar Menu</span>
+              <ArrowUpDown className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+              <span>ORGANIZAR MENU</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setIsTestPrintOpen(true)}
-            className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs font-semibold border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+            title="Testar Impressão de Relatórios e Comprovantes"
           >
-            <Printer className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Testar Impressão</span>
+            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <span>TESTAR IMPRESSÃO</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsPasswordModalOpen(true)}
-            className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs font-semibold border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+            title="Alterar Senha de Acesso"
           >
-            <KeyRound className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>Senha</span>
+            <KeyRound className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <span>SENHA</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleSave()}
             disabled={isSavingCloud}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-550 text-white rounded-xl text-xs font-bold uppercase border border-emerald-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.4)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            title="Salvar Alterações da Empresa"
           >
-            <Save className="w-3.5 h-3.5" />
-            <span>{isSavingCloud ? 'Salvando...' : 'Salvar Alterações'}</span>
+            <Save className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            <span>{isSavingCloud ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}</span>
           </button>
         </div>
       </div>
@@ -565,9 +587,9 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={formData.activitySector || 'GESTÃO AGRÍCOLA & PRESTAÇÃO DE SERVIÇOS DE SILAGEM'}
+                  value={formData.activitySector !== undefined ? formData.activitySector : 'Prestação de serviço de Silagem'}
                   onChange={(e) => handleChange('activitySector', e.target.value)}
-                  placeholder="Ex: Gestão Agrícola & Produção de Silagem"
+                  placeholder="Ex: Prestação de serviço de Silagem"
                   className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>

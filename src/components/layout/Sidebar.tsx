@@ -17,6 +17,7 @@ import {
   getActiveUserSession, 
   ModulePermissionKey 
 } from '../../lib/cadastrosBaseStorage';
+import { getStoredCompanyProfile } from '../../lib/storage';
 
 export interface SidebarProps {
   activeTab: string;
@@ -43,6 +44,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
 }) => {
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+
+  // Setor / Ramo de Atividade dinâmico espelhado do módulo 'Dados da Empresa'
+  const [activitySector, setActivitySector] = useState<string>(() => {
+    return (
+      companyProfile?.activitySector ||
+      getStoredCompanyProfile()?.activitySector ||
+      'PRESTAÇÃO DE SERVIÇO DE SILAGEM'
+    );
+  });
+
+  useEffect(() => {
+    if (companyProfile?.activitySector) {
+      setActivitySector(companyProfile.activitySector);
+    }
+  }, [companyProfile?.activitySector]);
+
+  useEffect(() => {
+    const handleLiveCompanySync = (e: any) => {
+      const sector = e.detail?.activitySector;
+      if (typeof sector === 'string') {
+        setActivitySector(sector);
+      }
+    };
+    const handleStorageCompanySync = () => {
+      try {
+        const stored = getStoredCompanyProfile();
+        if (stored?.activitySector) {
+          setActivitySector(stored.activitySector);
+        }
+      } catch (err) {}
+    };
+
+    window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
+    window.addEventListener('storage', handleStorageCompanySync);
+    return () => {
+      window.removeEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
+      window.removeEventListener('storage', handleStorageCompanySync);
+    };
+  }, []);
 
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
     if (propMenuOrder && propMenuOrder.length > 0) {
@@ -244,10 +284,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
             <div className="min-w-0">
               <h2 className="text-base font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']">
-                {companyProfile?.tradeName || 'Silagem Fácil'}
+                {companyProfile?.tradeName || 'COLAÇA SILAGEM'}
               </h2>
-              <p className="text-[10px] font-black text-zinc-600 dark:text-stone-400 tracking-wider uppercase">
-                GESTÃO AGRÍCOLA
+              <p 
+                className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[170px]"
+                title={(activitySector || companyProfile?.activitySector || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM').trim().toUpperCase()}
+              >
+                {(activitySector || companyProfile?.activitySector || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM').trim().toUpperCase()}
               </p>
             </div>
           </div>
