@@ -135,20 +135,20 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       </div>
 
       {/* =========================================================================
-          FAIXA 2: MIOLO CENTRAL (GRADE DE CARDS AZUIS)
+          FAIXA 2: MIOLO CENTRAL (GRADE DE CARDS AZUIS SLIM & HARMONIOSA)
           Grade contínua horizontal contendo os 5 blocos de cards azuis de 
           monitoramento comercial ('CONTAS A RECEBER', 'CONTAS A PAGAR', 'CLIENTES', 
-          'PRODUTOS', 'OUTROS') com alinhamento perfeito e paddings Slim (py-1)
+          'PRODUTOS', 'OUTROS') em escala slim elegante e compacta
          ========================================================================= */}
-      <div className="w-full max-w-7xl mx-auto shrink-0 my-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-2.5">
+      <div className="w-full max-w-7xl mx-auto shrink-0 my-auto py-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
           
           {/* SEÇÃO 1: CONTAS A RECEBER */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
+          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('financeiro')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[10.5px] uppercase tracking-wide py-1 px-2.5 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs"
+              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
             >
               <div className="flex items-center space-x-1.5 truncate">
                 <TrendingUp className="w-3.5 h-3.5 text-blue-200 shrink-0" />
@@ -157,17 +157,17 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
             </div>
 
-            {/* Itens Internos Compactos */}
-            <div className="p-1.5 space-y-1">
+            {/* Itens Internos com Escala Slim Equilibrada */}
+            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   DÉBITOS VENCIDOS
                 </span>
-                <span className="bg-rose-600 text-white font-black text-[10.5px] px-1.5 py-0.2 rounded shadow-2xs min-w-[20px] text-center shrink-0">
+                <span className="bg-rose-600 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
                   {indicators.receberVencidos}
                 </span>
               </button>
@@ -175,12 +175,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   DÉB. VENCENDO HOJE
                 </span>
-                <span className="bg-amber-500 text-white font-black text-[10.5px] px-1.5 py-0.2 rounded shadow-2xs min-w-[20px] text-center shrink-0">
+                <span className="bg-amber-500 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
                   {indicators.receberHoje}
                 </span>
               </button>
@@ -188,12 +188,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   CHEQUES VENCENDO HOJE
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.receberCheques}
                 </span>
               </button>
@@ -201,11 +201,11 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 2: CONTAS A PAGAR */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
+          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('financeiro')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[10.5px] uppercase tracking-wide py-1 px-2.5 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs"
+              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
             >
               <div className="flex items-center space-x-1.5 truncate">
                 <Wallet className="w-3.5 h-3.5 text-blue-200 shrink-0" />
@@ -214,17 +214,17 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
             </div>
 
-            {/* Itens Internos Compactos */}
-            <div className="p-1.5 space-y-1">
+            {/* Itens Internos com Escala Slim Equilibrada */}
+            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   DÉBITOS VENCIDOS
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.pagarVencidos}
                 </span>
               </button>
@@ -232,12 +232,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   DÉB. VENCENDO HOJE
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.pagarHoje}
                 </span>
               </button>
@@ -245,12 +245,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   CHEQUES VENCENDO HOJE
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.pagarCheques}
                 </span>
               </button>
@@ -258,11 +258,11 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 3: CLIENTES */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
+          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('clientes')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[10.5px] uppercase tracking-wide py-1 px-2.5 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs"
+              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
             >
               <div className="flex items-center space-x-1.5 truncate">
                 <Users className="w-3.5 h-3.5 text-blue-200 shrink-0" />
@@ -271,17 +271,17 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
             </div>
 
-            {/* Itens Internos Compactos */}
-            <div className="p-1.5 space-y-1">
+            {/* Itens Internos com Escala Slim Equilibrada */}
+            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
               <button
                 type="button"
                 onClick={() => onNavigate('clientes')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   CLIENTES AUSENTES
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.clientesAusentes}
                 </span>
               </button>
@@ -289,12 +289,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('clientes')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   CLIENTES BLOQUEADOS
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.clientesBloqueados}
                 </span>
               </button>
@@ -302,12 +302,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('clientes')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   ANIVERSARIANTES
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.clientesAniversariantes}
                 </span>
               </button>
@@ -315,11 +315,11 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 4: PRODUTOS */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
+          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('almoxarifado')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[10.5px] uppercase tracking-wide py-1 px-2.5 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs"
+              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
             >
               <div className="flex items-center space-x-1.5 truncate">
                 <Package className="w-3.5 h-3.5 text-blue-200 shrink-0" />
@@ -328,17 +328,17 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
             </div>
 
-            {/* Itens Internos Compactos */}
-            <div className="p-1.5 space-y-1">
+            {/* Itens Internos com Escala Slim Equilibrada */}
+            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
               <button
                 type="button"
                 onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   ESTOQUE BAIXO
                 </span>
-                <span className="bg-amber-500 text-white font-black text-[10.5px] px-1.5 py-0.2 rounded shadow-2xs min-w-[20px] text-center shrink-0">
+                <span className="bg-amber-500 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
                   {indicators.produtosEstoqueBaixo}
                 </span>
               </button>
@@ -346,12 +346,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   PROD. VENCENDO HOJE
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.produtosVencendoHoje}
                 </span>
               </button>
@@ -359,12 +359,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   SUG. DE CICLO DE VIDA
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.produtosCicloVida}
                 </span>
               </button>
@@ -372,11 +372,11 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 5: OUTROS */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95 sm:col-span-2 lg:col-span-1">
+          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95 sm:col-span-2 lg:col-span-1">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('fiscal')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[10.5px] uppercase tracking-wide py-1 px-2.5 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs"
+              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
             >
               <div className="flex items-center space-x-1.5 truncate">
                 <Layers className="w-3.5 h-3.5 text-blue-200 shrink-0" />
@@ -385,17 +385,17 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
             </div>
 
-            {/* Itens Internos Compactos */}
-            <div className="p-1.5 space-y-1">
+            {/* Itens Internos com Escala Slim Equilibrada */}
+            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
               <button
                 type="button"
                 onClick={() => onNavigate('servicos')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   ENTREGAS
                 </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[10.5px] px-1.5 py-0.2 rounded min-w-[20px] text-center shrink-0">
+                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
                   {indicators.outrosEntregas}
                 </span>
               </button>
@@ -403,12 +403,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   PRODUTOS SEM VENDAS
                 </span>
-                <span className="bg-blue-600 text-white font-black text-[10.5px] px-1.5 py-0.2 rounded shadow-2xs min-w-[20px] text-center shrink-0">
+                <span className="bg-blue-600 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
                   {indicators.outrosSemVendas}
                 </span>
               </button>
@@ -416,12 +416,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   COBRANÇAS PREVISTAS
                 </span>
-                <span className="bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-black text-[10px] px-1.5 py-0.2 rounded border border-blue-300 dark:border-blue-800 shrink-0">
+                <span className="bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-black text-[10px] px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800 shrink-0">
                   {formattedCobrancasPrevistas}
                 </span>
               </button>
@@ -429,13 +429,13 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('fiscal')}
-                className="w-full flex items-center justify-between px-2 py-1 rounded bg-emerald-50/80 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-300 transition cursor-pointer text-left active:scale-98"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-emerald-50/80 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-300 transition cursor-pointer text-left active:scale-98"
               >
-                <span className="text-[10px] sm:text-[10.5px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase truncate flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase truncate flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   MONITOR FISCAL
                 </span>
-                <span className="bg-emerald-600 text-white font-black text-[9.5px] px-1.5 py-0.2 rounded shadow-2xs shrink-0 tracking-wider">
+                <span className="bg-emerald-600 text-white font-black text-[10px] px-2 py-0.5 rounded shadow-2xs shrink-0 tracking-wider">
                   {indicators.monitorFiscalStatus}
                 </span>
               </button>
@@ -451,10 +451,10 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           à barra de rodapé cinza do sistema: imagem oficial da ensiladeira 3D 
           em tamanho reduzido/elegante + nome 'AgroControl' + subtítulo oficial.
          ========================================================================= */}
-      <div className="w-full max-w-7xl mx-auto shrink-0 mt-auto flex flex-col items-center select-none pt-2">
+      <div className="w-full max-w-7xl mx-auto shrink-0 mt-auto flex flex-col items-center select-none pt-1 pb-1">
         {/* Bloco Master AgroControl Achatado e Próximo ao Rodapé */}
         <div 
-          className="flex items-center justify-center gap-3 py-1 cursor-pointer transition-transform hover:scale-[1.02] duration-150"
+          className="flex items-center justify-center gap-3 py-0.5 cursor-pointer transition-transform hover:scale-[1.02] duration-150"
           onClick={() => onNavigate('dashboard')}
           title="Visão Executiva do AgroControl"
         >
@@ -464,12 +464,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <img 
                 src="/src/assets/images/agrocontrol_3d_master_1791471290539.jpg"
                 alt="AgroControl"
-                className="h-11 sm:h-13 w-auto object-contain rounded-lg drop-shadow-sm transition-all"
+                className="h-10 sm:h-12 w-auto object-contain rounded-lg drop-shadow-sm transition-all"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
               />
             ) : (
-              <EnsiladeiraVector size="sm" className="h-10 sm:h-12 w-auto drop-shadow-sm" />
+              <EnsiladeiraVector size="sm" className="h-10 sm:h-11 w-auto drop-shadow-sm" />
             )}
           </div>
 
@@ -482,13 +482,6 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               GESTÃO DE SILAGEM E MÁQUINAS
             </p>
           </div>
-        </div>
-
-        {/* Linha Fina de Rodapé do Sistema */}
-        <div className="w-full border-t border-slate-300/70 dark:border-stone-800 pt-1 mt-1 text-center">
-          <p className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-tight">
-            SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
-          </p>
         </div>
       </div>
 

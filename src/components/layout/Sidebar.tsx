@@ -488,13 +488,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </button>
           )}
-
-          {/* Assinatura de Governança Micro de Marca */}
-          <div className="pt-2 text-center select-none pointer-events-none">
-            <p className="text-[9px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-tight">
-              SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
-            </p>
-          </div>
         </div>
 
       </aside>
