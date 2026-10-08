@@ -348,12 +348,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* 1. ATIVAR ROLAGEM EXCLUSIVA NA LISTA DE MENUS COM MOLDURA MÃE METÁLICA 3D: */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-2.5 py-1.5">
-          {/* MOLDURA MÃE TRIDIMENSIONAL ÚNICA (PLACA METÁLICA EM RELEVO) */}
-          <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-800/90 dark:to-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg p-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.4)]">
-            <nav className="flex flex-col">
-              {middleNavItems.map((item, index) => {
+        {/* 1. EXPANDIR A MOLDURA MÃE 3D PARA 100% DA ALTURA DA BARRA LATERAL (RETÂNGULO VERDE): */}
+        <div className="flex-1 min-h-0 flex flex-col px-2.5 py-1 overflow-hidden">
+          {/* MOLDURA MÃE TRIDIMENSIONAL ÚNICA EXPANDIDA (FICHÁRIO METÁLICO EM RELEVO) */}
+          <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-800/90 dark:to-stone-900 border-2 border-slate-400/90 dark:border-stone-700 rounded-lg p-1 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.4)] overflow-hidden">
+            {/* Topo do Container: 13 Categorias Ativas */}
+            <nav className="flex flex-col shrink-0">
+              {middleNavItems.map((item) => {
                 const Icon = item.icon;
                 const isRestricted = isModuleRestricted(item.id);
 
@@ -370,12 +371,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   (item.id === 'frotas' && ['veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
                   (item.id === 'rh' && (activeTab === 'funcionarios' || activeTab === 'rh'));
 
-                const isLast = index === middleNavItems.length - 1;
-
                 return (
                   <div 
                     key={item.id} 
-                    className={`py-0.5 ${!isLast ? 'border-b border-slate-300/60 dark:border-stone-700/60' : ''}`}
+                    className="py-0.5 border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
                   >
                     <button
                       id={`sidebar-nav-${item.id}`}
@@ -424,12 +423,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 );
               })}
             </nav>
+
+            {/* Base do Container (Sobra de Espaço): Linhas de Pastas Vazias do Fichário de Aço */}
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden select-none pointer-events-none" aria-hidden="true">
+              {Array.from({ length: 24 }).map((_, idx) => (
+                <div
+                  key={`empty-folder-line-${idx}`}
+                  className="py-0.5 border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
+                >
+                  <div className="w-full flex items-center px-2.5 py-1.5 h-[27px] rounded-md" />
+                </div>
+              ))}
+            </div>
+
           </div>
         </div>
 
         {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA):
             Container fixado no rodapé absoluto da barra lateral com Dados da Empresa */}
-        <div className="mt-auto pt-2.5 border-t border-slate-300 dark:border-stone-800 shadow-[0_-1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_-1px_0px_0px_rgba(255,255,255,0.05)] bg-zinc-200/90 dark:bg-stone-900 p-3 space-y-2 shrink-0">
+        <div className="mt-auto pt-2 border-t border-slate-300 dark:border-stone-800 shadow-[0_-1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_-1px_0px_0px_rgba(255,255,255,0.05)] bg-zinc-200/90 dark:bg-stone-900 p-2 shrink-0">
           
           {/* Botão Fixo: Dados da Empresa (se não estiver restrito/oculto para o cargo) */}
           {!isEmpresaRestricted && (
@@ -438,23 +450,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               onClick={() => handleSelect('configuracoes')}
               className={`
-                w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider transition cursor-pointer group
+                w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
                 ${
                   isEmpresaActive
-                    ? 'bg-white text-slate-900 font-semibold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
-                    : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-800 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                    : 'text-slate-800 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-800 hover:text-slate-900 dark:hover:text-white'
                 }
               `}
             >
               <div className="flex items-center space-x-2.5 truncate">
                 <Building 
                   className={`w-4 h-4 shrink-0 transition ${
-                    isEmpresaActive ? 'text-slate-900 dark:text-white' : 'text-slate-600 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
+                    isEmpresaActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
                   }`} 
                 />
                 <span 
-                  className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
-                    isEmpresaActive ? 'text-slate-900 font-semibold dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
+                  className={`truncate text-[11px] font-bold uppercase tracking-wider ${
+                    isEmpresaActive ? 'text-slate-900 font-bold dark:text-white' : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
                   }`}
                 >
                   Dados da Empresa
