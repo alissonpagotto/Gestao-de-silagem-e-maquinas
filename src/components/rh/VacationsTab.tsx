@@ -80,6 +80,20 @@ function formatBRL(val?: number): string {
 }
 
 /**
+ * Retorna as iniciais do colaborador em texto puro para renderização local sem requisições de rede
+ */
+const getColabInitials = (fullName?: string): string => {
+  if (!fullName) return 'RH';
+  const clean = fullName.trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'RH';
+  if (parts.length === 1) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+/**
  * Converte texto digitado em número decimal flexível (padrão PT-BR ou numérico direto)
  */
 function parseFlexibleCurrency(val: string | number | undefined | null): number {
@@ -2192,10 +2206,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-2.5 max-w-full overflow-hidden">
       
       {/* Top Header & Actions */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         <div className="flex items-center space-x-2">
           <div className="p-2 rounded-lg bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
             <Calendar className="w-5 h-5" />
@@ -2211,23 +2225,25 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Botão "Relatório de Programação" (3D Metálico Cinza com Luz Interna) */}
           <button
             type="button"
             onClick={handleOpenVacationScheduleReport}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-[#1e293b] hover:bg-[#0f172a] text-white dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-100 border border-slate-700/80 font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 font-semibold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
             title="Relatório de Programação de Férias (Padrão Contábil Oficial)"
           >
-            <Printer className="w-3.5 h-3.5 text-blue-300" />
-            <span>Relatório de Programação</span>
+            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <span>RELATÓRIO DE PROGRAMAÇÃO</span>
           </button>
 
+          {/* Botão "+ Programar Férias" (3D Gradiente Verde Acetinado com Relevo) */}
           <button
             type="button"
             onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 border border-emerald-600/80 dark:border-emerald-500 text-white font-bold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Programar Férias</span>
+            <Plus className="w-3.5 h-3.5 text-emerald-100 stroke-[2.5]" />
+            <span>+ PROGRAMAR FÉRIAS</span>
           </button>
         </div>
       </div>
@@ -2493,12 +2509,12 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-stone-700">
               <tr>
-                <th className="py-3 px-4">Colaborador</th>
-                <th className="py-3 px-4">Período Aquisitivo</th>
-                <th className="py-3 px-4 text-center">Dias de Direito</th>
-                <th className="py-3 px-4 text-center">Status do Período</th>
-                <th className="py-3 px-4">Limite para Gozo</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                <th className="py-1.5 px-3">Colaborador</th>
+                <th className="py-1.5 px-3">Período Aquisitivo</th>
+                <th className="py-1.5 px-3 text-center">Dias de Direito</th>
+                <th className="py-1.5 px-3 text-center">Status do Período</th>
+                <th className="py-1.5 px-3">Limite para Gozo</th>
+                <th className="py-1.5 px-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
@@ -2507,227 +2523,207 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   const vac = row.vacationRecord;
                   return (
                     <tr key={row.rowKey} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
-                      {/* 1. Colaborador (Nome e Cargo) */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center space-x-3">
-                          <EmployeeAvatar
-                            photoUrl={row.employee.photoUrl || (row.employee as any).foto_url}
-                            name={row.employee.name}
-                            size="sm"
-                            className="shrink-0 rounded-xl"
-                          />
-                          <div>
-                            <div className="font-bold text-black dark:text-white uppercase text-xs sm:text-sm">
+                      {/* 1. Colaborador (Linha Única Compacta: Avatar Local + Nome + Cargo + Adm + DRE) */}
+                      <td className="py-1 px-3 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-[10px] shrink-0 select-none">
+                            {getColabInitials(row.employee.name)}
+                          </div>
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="font-bold text-black dark:text-white uppercase text-xs truncate max-w-[170px] sm:max-w-[210px]" title={row.employee.name}>
                               {row.employee.name}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-900 border border-sky-200/70">
-                                {row.roleLabel}
-                              </span>
-                              {row.employee.admissionDate && (
-                                <span className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
-                                  Adm: {formatDateBR(row.employee.admissionDate)}
-                                </span>
-                              )}
-                              {row.linkedMachinery && (
-                                <span
-                                  className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
-                                  title="Veículo fixo vinculado para rateio automático do Valor Bruto no DRE"
-                                >
-                                  <Truck className="w-3 h-3 shrink-0 text-amber-600" />
-                                  <span>
-                                    DRE: {row.linkedMachinery.name || row.linkedMachinery.model}
-                                  </span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 2. Período Aquisitivo (Início e Fim) */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="inline-flex items-center space-x-1.5 font-mono font-bold text-xs text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-stone-700">
-                          <Calendar className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                          <span>
-                            {formatDateBR(row.acquisitionStart)} a {formatDateBR(row.acquisitionEnd)}
-                          </span>
-                        </div>
-                        {vac && (
-                          <div className="flex items-center flex-wrap gap-1.5 mt-1">
-                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
-                              Gozo programado: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
                             </span>
-                            {row.isProgramado && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
-                                Programado
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-sky-50 dark:bg-sky-950/50 text-sky-900 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800 shrink-0">
+                              {row.roleLabel}
+                            </span>
+                            {row.employee.admissionDate && (
+                              <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium shrink-0">
+                                Adm: {formatDateBR(row.employee.admissionDate)}
                               </span>
                             )}
-                            {row.isEmGozo && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                Em Gozo
-                              </span>
-                            )}
-                            {/* 2. ALINHAMENTO DE VARIÁVEIS NA LISTAGEM: Badge verde puxando rigorosamente a propriedade 'valor_liquido_pago' */}
-                            {((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
-                                Líquido: {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
+                            {row.linkedMachinery && (
+                              <span
+                                className="inline-flex items-center space-x-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0"
+                                title={`Veículo fixo DRE: ${row.linkedMachinery.name || row.linkedMachinery.model}`}
+                              >
+                                <Truck className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                                <span>{row.linkedMachinery.name || row.linkedMachinery.model}</span>
                               </span>
                             )}
                           </div>
-                        )}
+                        </div>
                       </td>
 
-                      {/* 3. Dias de Direito (Padrão 30 dias, reduzido por faltas CLT) */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="inline-flex flex-col items-center">
+                      {/* 2. Período Aquisitivo (Linha Única: Datas + Gozo Programado + Badges + Líquido) */}
+                      <td className="py-1 px-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <div className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-stone-700 shrink-0">
+                            <Calendar className="w-3 h-3 text-[#0963cb] shrink-0" />
+                            <span>
+                              {formatDateBR(row.acquisitionStart)} a {formatDateBR(row.acquisitionEnd)}
+                            </span>
+                          </div>
+                          {vac && (
+                            <>
+                              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold shrink-0">
+                                Gozo: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
+                              </span>
+                              {row.isProgramado && (
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                                  Programado
+                                </span>
+                              )}
+                              {row.isEmGozo && (
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                                  Em Gozo
+                                </span>
+                              )}
+                              {((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                                  Líq: {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 3. Dias de Direito (Linha Única) */}
+                      <td className="py-1 px-3 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5 justify-center whitespace-nowrap">
                           <span
-                            className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
+                            className={`text-[11px] font-black px-1.5 py-0.5 rounded-full border ${
                               row.rightDays < 30
-                                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                : 'bg-slate-100 text-slate-900 border-slate-300'
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                                : 'bg-slate-100 dark:bg-stone-800 text-slate-900 dark:text-stone-100 border-slate-300 dark:border-stone-700'
                             }`}
                           >
                             {vac ? `${vac.daysCount} dias` : `${row.rightDays} dias`}
                           </span>
                           {row.unjustifiedAbsencesCount > 0 ? (
-                            <span className="text-[10px] text-rose-600 font-bold mt-0.5">
-                              {row.unjustifiedAbsencesCount} falta(s) no período
+                            <span className="text-[10px] text-rose-600 font-bold shrink-0">
+                              ({row.unjustifiedAbsencesCount} falta{row.unjustifiedAbsencesCount > 1 ? 's' : ''})
                             </span>
                           ) : vac && vac.sellDaysCount > 0 ? (
-                            <span className="text-[10px] text-amber-800 font-bold mt-0.5">
-                              + {vac.sellDaysCount} dias abono
+                            <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold shrink-0">
+                              (+{vac.sellDaysCount}d abono)
                             </span>
                           ) : (
-                            <span className="text-[10px] text-slate-500 font-medium mt-0.5">
-                              Direito integral CLT
+                            <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                              CLT
                             </span>
                           )}
                         </div>
                       </td>
 
-                      {/* 4. Status do Período ("Vencido" vermelho, "Próximo a Vencer" amarelo/laranja, "Quitado" verde) */}
-                      <td className="py-3.5 px-4 text-center">
-                        {row.periodStatus === 'vencido' && (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-rose-600 text-white shadow-2xs">
-                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {/* 4. Status do Período (Linha Única) */}
+                      <td className="py-1 px-3 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 justify-center whitespace-nowrap">
+                          {row.periodStatus === 'vencido' && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0">
+                              <AlertCircle className="w-3 h-3 shrink-0" />
                               <span>Vencido</span>
+                              {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
                             </span>
-                            {row.monthsLabel && (
-                              <span className="text-[10px] font-bold text-rose-700 mt-0.5">
-                                {row.monthsLabel} acumulados
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {row.periodStatus === 'proximo' && (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs">
-                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                              <span>Próximo a Vencer</span>
+                          )}
+                          {row.periodStatus === 'proximo' && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs shrink-0">
+                              <AlertTriangle className="w-3 h-3 shrink-0" />
+                              <span>Próximo</span>
+                              {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
                             </span>
-                            {row.monthsLabel && (
-                              <span className="text-[10px] font-bold text-amber-800 mt-0.5">
-                                {row.monthsLabel} acumulados
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {row.periodStatus === 'quitado' && (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-emerald-600 text-white shadow-2xs">
-                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                              <span>Quitado / Regular</span>
+                          )}
+                          {row.periodStatus === 'quitado' && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shadow-2xs shrink-0">
+                              <CheckCircle2 className="w-3 h-3 shrink-0" />
+                              <span>Quitado</span>
                             </span>
-                            <span className="text-[10px] font-semibold text-emerald-700 mt-0.5">
-                              {vac ? formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? vac.totalAmount) : 'Período em dia'}
+                          )}
+                          {vac && row.periodStatus !== 'quitado' && ((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                              {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
                             </span>
-                          </div>
-                        )}
-                        {vac && row.periodStatus !== 'quitado' && ((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
-                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 mt-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
-                          </span>
-                        )}
+                          )}
+                        </div>
                       </td>
 
-                      {/* 5. Limite para Gozo (Fim do período aquisitivo + 11 meses) */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div
-                          className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
+                      {/* 5. Limite para Gozo (Linha Única) */}
+                      <td className="py-1 px-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded border font-mono text-[11px] font-bold ${
                             row.periodStatus === 'vencido'
-                              ? 'bg-rose-50 text-rose-900 border-rose-300'
+                              ? 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
                               : row.periodStatus === 'proximo'
-                                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                : 'bg-emerald-50/70 text-emerald-900 border-emerald-200'
+                                ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                                : 'bg-emerald-50/70 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                           }`}
+                          title="Limite concessivo (+11 meses CLT)"
                         >
-                          <span>{formatDateBR(row.concessiveLimit)}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                          Limite concessivo (+11 meses)
-                        </div>
+                          {formatDateBR(row.concessiveLimit)}
+                        </span>
                       </td>
 
-                      {/* 6. Ações: Efetivar Gozo (Programados), Retorno de Férias (Em Gozo), Programar/Editar e Imprimir Recibo */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                          {/* Rotina 2: BOTÃO "EFETIVAR GOZO" para registros Programados */}
+                      {/* 6. Ações (Botões Horizontais Achatados de Perfil Baixo com Mini-Ícones) */}
+                      <td className="py-1 px-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+                          {/* Botão "Efetivar Gozo" (quando programado) */}
                           {row.isProgramado && vac && (
                             <button
                               type="button"
                               onClick={() => handleEfetivarGozo(row)}
-                              className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-2xs transition cursor-pointer active:scale-95"
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                               title="Efetivar Gozo de Férias agora, lançar Líquido no Contas a Pagar e Bruto no DRE do Veículo"
                             >
-                              <PlayCircle className="w-3.5 h-3.5 shrink-0" />
-                              <span>Efetivar Gozo</span>
+                              <PlayCircle className="w-3 h-3 shrink-0" />
+                              <span>Efetivar</span>
                             </button>
                           )}
 
-                          {/* Rotina 3: BOTÃO "RETORNO DE FÉRIAS" (Confirmar Retorno) para funcionários Em Gozo */}
+                          {/* Botão "Retorno" (quando em gozo) */}
                           {row.isEmGozo && (
                             <button
                               type="button"
                               onClick={() => handleConfirmarRetorno(row)}
-                              className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-2xs transition cursor-pointer active:scale-95"
-                              title="Confirmar Retorno de Férias: muda status para Quitado/Regular, arquiva no histórico e avança período aquisitivo no Supabase"
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
+                              title="Confirmar Retorno de Férias"
                             >
-                              <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-                              <span>Confirmar Retorno</span>
+                              <RotateCcw className="w-3 h-3 shrink-0" />
+                              <span>Retorno</span>
                             </button>
                           )}
 
+                          {/* Botão "Programar/Editar" */}
                           <button
                             type="button"
                             onClick={() => handleOpenModalForRow(row)}
-                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-[#0963cb] hover:bg-[#0852a8] text-white text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                             title="Programar/Editar Férias"
                           >
-                            <Calendar className="w-3.5 h-3.5 shrink-0" />
-                            <span>Programar/Editar</span>
+                            <Calendar className="w-3 h-3 shrink-0" />
+                            <span>Programar</span>
                           </button>
 
+                          {/* Botão "Imprimir Recibo" */}
                           <button
                             type="button"
                             onClick={() => handlePrintReceiptForRow(row)}
-                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-stone-950 text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                             title="Imprimir Aviso/Recibo de Férias"
                             aria-label="Imprimir Aviso/Recibo de Férias"
                           >
-                            <Printer className="w-3.5 h-3.5 shrink-0" />
-                            <span>Imprimir Recibo</span>
+                            <Printer className="w-3 h-3 shrink-0" />
+                            <span>Recibo</span>
                           </button>
 
+                          {/* Botão Excluir */}
                           {vac && (
                             <button
                               type="button"
                               onClick={() => handleDelete(vac.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer shrink-0"
                               title="Excluir programação salva"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
@@ -2737,7 +2733,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-semibold">
+                  <td colSpan={6} className="py-4 text-center text-slate-500 text-xs font-semibold">
                     Nenhum período aquisitivo encontrado para o filtro selecionado.
                   </td>
                 </tr>
