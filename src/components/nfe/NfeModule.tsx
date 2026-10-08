@@ -6986,21 +6986,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           }}
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[90vw] max-w-[90vw] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
+            className="w-full max-w-[560px] mx-auto bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 1. Cabeçalho Principal com Título e Botão Fechar - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+            {/* 1. Cabeçalho Principal MDI Tridimensional Acetinado */}
+            <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between text-slate-800 shrink-0 rounded-t-xl">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Package className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
                     NOVA ENTRADA MANUAL
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
-                    Fluxo inteligente em etapas com integração direta e atualização do estoque
+                  <p className="text-[10px] text-slate-600 dark:text-stone-400 font-semibold uppercase tracking-tight">
+                    FLUXO EM ETAPAS COM INTEGRAÇÃO DIRETA AO ESTOQUE
                   </p>
                 </div>
               </div>
@@ -7011,7 +7011,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
                 }}
                 disabled={isSavingManualEntry || isAddingItem}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
+                className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
                 title="Fechar formulário"
               >
                 <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
@@ -7019,37 +7019,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
 
             {/* 2. Barra Visual de Progresso do Stepper Slim Minimalista */}
-            <div className="px-6 py-2 bg-stone-100/90 dark:bg-stone-800/90 border-b border-stone-200 dark:border-stone-800 flex items-center justify-center shrink-0">
-              <div className="flex items-center space-x-4 sm:space-x-8 w-full max-w-3xl">
+            <div className="px-4 py-1.5 bg-slate-100/90 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 flex items-center justify-center shrink-0">
+              <div className="flex items-center space-x-3 w-full">
                 {/* Passo 1 */}
                 <button
                   type="button"
                   onClick={() => {
                     if (manualEntryStep === 2) setManualEntryStep(1);
                   }}
-                  className={`flex items-center space-x-2 text-left transition select-none ${
+                  className={`flex items-center space-x-1.5 text-left transition select-none uppercase ${
                     manualEntryStep === 1 
                       ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
-                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer'
+                      : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-100 cursor-pointer'
                   }`}
                 >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition ${
                     manualEntryStep === 1
-                      ? 'bg-emerald-600 text-white shadow-xs'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
                       : currentManualDoc || manualDocItems.length > 0
                       ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                      : 'bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+                      : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300'
                   }`}>
-                    {manualEntryStep === 2 ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : '1'}
+                    {manualEntryStep === 2 ? <Check className="w-3 h-3 stroke-[3]" /> : '1'}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold">1. Dados do Documento</span>
-                    <span className="text-[10px] text-stone-400 font-normal hidden sm:inline">(Fornecedor & Cabeçalho)</span>
-                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wide">1. DADOS DO DOCUMENTO</span>
                 </button>
 
                 {/* Linha divisória fina */}
-                <div className="flex-1 h-0.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                <div className="flex-1 h-0.5 bg-slate-200 dark:bg-stone-700 rounded-full overflow-hidden">
                   <div className={`h-full bg-emerald-500 transition-all duration-300 ${manualEntryStep === 2 ? 'w-full' : 'w-0'}`} />
                 </div>
 
@@ -7062,60 +7059,57 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     }
                   }}
                   disabled={!currentManualDoc && !manualSupplier.trim()}
-                  className={`flex items-center space-x-2 text-left transition select-none ${
+                  className={`flex items-center space-x-1.5 text-left transition select-none uppercase ${
                     manualEntryStep === 2 
                       ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
                       : (currentManualDoc || manualSupplier.trim())
-                      ? 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer'
-                      : 'text-stone-400 cursor-not-allowed opacity-60'
+                      ? 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-100 cursor-pointer'
+                      : 'text-slate-400 cursor-not-allowed opacity-60'
                   }`}
                 >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition ${
                     manualEntryStep === 2
-                      ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-500/20'
-                      : 'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400'
+                      ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-500/20'
+                      : 'bg-slate-200 dark:bg-stone-700 text-slate-500 dark:text-stone-400'
                   }`}>
                     2
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold">2. Inserção de Produtos</span>
-                    <span className="text-[10px] text-stone-400 font-normal hidden sm:inline">(Itens & Saldo de Estoque)</span>
-                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wide">2. PRODUTOS / ITENS</span>
                 </button>
               </div>
             </div>
 
             {/* 3. Corpo do Modal (Passo 1 ou Passo 2) */}
-            <div className="p-4 sm:p-5 overflow-y-auto scrollbar-none flex-1 space-y-4">
+            <div className="p-3.5 sm:p-4 overflow-y-auto scrollbar-none flex-1 space-y-3">
               
               {/* =============================================================== */}
               {/* PASSO 1: DADOS DO DOCUMENTO (FORNECEDOR E CABEÇALHO) */}
               {/* =============================================================== */}
               {manualEntryStep === 1 && (
-                <form onSubmit={handleAdvanceToStep2} className="space-y-4">
+                <form onSubmit={handleAdvanceToStep2} className="space-y-2.5">
                   {manualFormError && (
-                    <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold animate-in fade-in">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{manualFormError}</span>
+                    <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-lg flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold uppercase animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{manualFormError.toUpperCase()}</span>
                     </div>
                   )}
 
                   {/* 1. Fornecedor com Autocomplete e Botão Rápido de Cadastro */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
-                        Fornecedor / Produtor <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                        FORNECEDOR / PRODUTOR <span className="text-rose-500">*</span>
                       </label>
                       {manualSupplier.trim() && (
-                        <span className="text-[11px] font-semibold text-stone-500">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
                           {isSupplierExisting ? (
                             <span className="text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Fornecedor cadastrado</span>
+                              <Check className="w-3 h-3 stroke-[3]" />
+                              <span>CADASTRADO</span>
                             </span>
                           ) : (
                             <span className="text-amber-600 dark:text-amber-400">
-                              Novo fornecedor
+                              NOVO FORNECEDOR
                             </span>
                           )}
                         </span>
@@ -7130,45 +7124,45 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         value={manualSupplier}
                         onChange={(e) => setManualSupplier(e.target.value)}
                         required
-                        placeholder="Digite o nome do fornecedor ou produtor..."
-                        className="w-full px-3.5 py-2.5 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                        placeholder="DIGITE O NOME DO FORNECEDOR OU PRODUTOR..."
+                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs"
                       />
                       <datalist id="suppliers-datalist-step1">
                         {localSuppliers.map((s) => (
-                          <option key={s.id} value={s.name} />
+                          <option key={s.id} value={s.name.toUpperCase()} />
                         ))}
                       </datalist>
                     </div>
 
-                    {/* Botão Rápido de Cadastrar Fornecedor se não existir no sistema */}
+                    {/* Linha Compacta de Alerta de Fornecedor Não Encontrado */}
                     {!isSupplierExisting && manualSupplier.trim().length >= 2 && (
-                      <div className="mt-2.5 p-2.5 sm:p-3 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in">
-                        <div className="flex items-center space-x-2 text-xs text-emerald-900 dark:text-emerald-200">
-                          <UserPlus className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span>
-                            Fornecedor <strong>"{manualSupplier.trim()}"</strong> não encontrado no cadastro.
+                      <div className="mt-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-md flex items-center justify-between gap-2 animate-in fade-in text-xs uppercase">
+                        <div className="flex items-center space-x-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-200 truncate">
+                          <UserPlus className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span className="truncate">
+                            FORNECEDOR <strong className="font-black">"{manualSupplier.trim().toUpperCase()}"</strong> NÃO ENCONTRADO
                           </span>
                         </div>
                         <button
                           type="button"
                           id="btn-cadastrar-fornecedor-rapido"
                           onClick={() => handleOpenQuickSupplierModal(manualSupplier)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-2xs shrink-0"
-                          title="Cadastrar dados completos do fornecedor sem perder a entrada"
+                          className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center space-x-1 shadow-2xs shrink-0"
+                          title="Cadastrar fornecedor"
                         >
-                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>+ Cadastrar Fornecedor {manualSupplier.trim()}</span>
+                          <Plus className="w-3 h-3 stroke-[3]" />
+                          <span>+ CADASTRAR</span>
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* 2. Grid com Data de Emissão, Data de Vencimento e Tipo de Documento */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  {/* 2. Grid com Data de Emissão e Vencimento em 2 Colunas */}
+                  <div className="grid grid-cols-2 gap-2">
                     {/* Data de Emissão */}
                     <div>
-                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                        Data do Documento <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                        DATA DO DOCUMENTO <span className="text-rose-500">*</span>
                       </label>
                       <input
                         id="manual-date-input"
@@ -7179,17 +7173,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           setManualDueDate(calculateDefaultDueDate(e.target.value));
                         }}
                         required
-                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs"
                       />
                     </div>
 
-                    {/* Vencimento (Contas a Pagar) */}
+                    {/* Vencimento (Financeiro) */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
-                          Vencimento (Financeiro) <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                          VENCIMENTO <span className="text-rose-500">*</span>
                         </label>
-                        <span className="text-[10px] text-stone-400 font-medium">30 dias padrão</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">30 DIAS</span>
                       </div>
                       <input
                         id="manual-due-date-input"
@@ -7197,73 +7191,73 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         value={manualDueDate}
                         onChange={(e) => setManualDueDate(e.target.value)}
                         required
-                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs"
                       />
-                    </div>
-
-                    {/* Tipo de Documento */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
-                          Tipo de Documento <span className="text-rose-500">*</span>
-                        </label>
-                        <button
-                          type="button"
-                          id="btn-gerenciar-tipos-doc-topo"
-                          onClick={() => setIsManageDocTypesModalOpen(true)}
-                          className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer"
-                          title="Gerenciar tipos de documento"
-                        >
-                          <Settings className="w-3 h-3" />
-                          <span>Gerenciar</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          id="manual-type-select"
-                          value={manualDocumentType}
-                          onChange={(e) => {
-                            if (e.target.value === '__manage__') {
-                              setIsManageDocTypesModalOpen(true);
-                            } else {
-                              setManualDocumentType(e.target.value as TipoDocumentoEntrada);
-                            }
-                          }}
-                          className="flex-1 px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs cursor-pointer"
-                        >
-                          {manualDocTypes.map((tipo) => (
-                            <option key={tipo} value={tipo}>{tipo}</option>
-                          ))}
-                          <option disabled value="">──────────</option>
-                          <option value="__manage__" className="text-emerald-600 font-bold">⚙️ Gerenciar tipos...</option>
-                        </select>
-
-                        <button
-                          type="button"
-                          id="btn-gerenciar-tipos-doc-engrenagem"
-                          onClick={() => setIsManageDocTypesModalOpen(true)}
-                          className="p-2 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer shrink-0"
-                          title="Gerenciar tipos de documento (adicionar, editar ou excluir)"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </button>
-                      </div>
                     </div>
                   </div>
 
-                  {/* 3. Valor Total (Formato BRL R$ #.##0,00) */}
+                  {/* 3. Tipo de Documento */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
-                        Valor Total do Documento <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                        TIPO DE DOCUMENTO <span className="text-rose-500">*</span>
                       </label>
-                      <span className="text-[10px] text-stone-500">
-                        Padrão Comercial: R$ #.##0,00
+                      <button
+                        type="button"
+                        id="btn-gerenciar-tipos-doc-topo"
+                        onClick={() => setIsManageDocTypesModalOpen(true)}
+                        className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline uppercase cursor-pointer"
+                        title="Gerenciar tipos de documento"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>GERENCIAR</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        id="manual-type-select"
+                        value={manualDocumentType}
+                        onChange={(e) => {
+                          if (e.target.value === '__manage__') {
+                            setIsManageDocTypesModalOpen(true);
+                          } else {
+                            setManualDocumentType(e.target.value as TipoDocumentoEntrada);
+                          }
+                        }}
+                        className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs cursor-pointer"
+                      >
+                        {manualDocTypes.map((tipo) => (
+                          <option key={tipo} value={tipo} className="uppercase">{tipo.toUpperCase()}</option>
+                        ))}
+                        <option disabled value="">──────────</option>
+                        <option value="__manage__" className="text-emerald-600 font-bold uppercase">⚙️ GERENCIAR TIPOS...</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        id="btn-gerenciar-tipos-doc-engrenagem"
+                        onClick={() => setIsManageDocTypesModalOpen(true)}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-600 dark:text-stone-300 border border-slate-300 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                        title="Gerenciar tipos de documento"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4. Valor Total do Documento (Formato BRL R$ #.##0,00) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                        VALOR TOTAL DO DOCUMENTO <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">
+                        PADRÃO R$ #.##0,00
                       </span>
                     </div>
-                    <div className="relative rounded-xl shadow-2xs">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500 font-bold text-xs sm:text-sm">
+                    <div className="relative rounded-lg shadow-2xs">
+                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500 font-extrabold text-xs">
                         R$
                       </div>
                       <input
@@ -7274,36 +7268,36 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         onChange={handleManualAmountChange}
                         required
                         placeholder="0,00"
-                        className="w-full pl-10 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                        className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase"
                       />
                     </div>
                   </div>
 
-                  {/* 4. Observações */}
+                  {/* 5. Observações */}
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Observações
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                      OBSERVAÇÕES
                     </label>
                     <textarea
                       id="manual-notes-input"
                       value={manualNotes}
                       onChange={(e) => setManualNotes(e.target.value)}
                       rows={2}
-                      placeholder="Informações adicionais, número de pesagem, placa, romaneio, etc..."
-                      className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-medium text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs resize-none"
+                      placeholder="INFORMAÇÕES ADICIONAIS, PESAGEM, PLACA, ROMANEIO..."
+                      className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-medium text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs resize-none"
                     />
                   </div>
 
-                  {/* Rodapé do Passo 1 */}
-                  <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                  {/* 6. Rodapé do Passo 1 */}
+                  <div className="pt-2.5 border-t border-slate-200 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
                     <button
                       type="button"
                       id="btn-cancelar-entrada-manual-step1"
                       onClick={() => setIsManualEntryModalOpen(false)}
                       disabled={isSavingManualEntry}
-                      className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+                      className="px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer disabled:opacity-50 uppercase"
                     >
-                      Cancelar
+                      CANCELAR
                     </button>
 
                     <div className="flex items-center space-x-2">
@@ -7312,28 +7306,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         id="btn-salvar-rascunho-step1"
                         onClick={handleSaveManualEntryAsDraft}
                         disabled={isSavingManualEntry}
-                        className="px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
+                        className="px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-300 dark:border-stone-700 rounded-lg transition cursor-pointer flex items-center space-x-1 shadow-2xs disabled:opacity-50 uppercase"
                         title="Salvar cabeçalho como Rascunho"
                       >
-                        <Save className="w-3.5 h-3.5 text-stone-500" />
-                        <span>Salvar como Rascunho</span>
+                        <Save className="w-3.5 h-3.5 text-slate-500" />
+                        <span>RASCUNHO</span>
                       </button>
 
                       <button
                         type="submit"
                         id="btn-avancar-passo2-entrada"
                         disabled={isSavingManualEntry}
-                        className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                        className="px-3.5 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 uppercase"
                       >
                         {isSavingManualEntry ? (
                           <>
-                            <Clock className="w-4 h-4 animate-spin" />
-                            <span>Gravando Documento...</span>
+                            <Clock className="w-3.5 h-3.5 animate-spin" />
+                            <span>GRAVANDO...</span>
                           </>
                         ) : (
                           <>
-                            <span>Avançar para Inserção de Produtos</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <span>AVANÇAR PARA PRODUTOS</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
                           </>
                         )}
                       </button>
