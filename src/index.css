@@ -1359,5 +1359,69 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
   height: 0 !important;
 }
 
+/* ==========================================================================
+   ISOLAMENTO DE IMPRESSÃO - ORDEM DE ENVIO DE PNEUS PARA REFORMA (A4 PORTRAIT)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 10mm 15mm 10mm;
+  }
+
+  body.printing-tire-reform-order,
+  body.printing-tire-reform-order html {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.printing-tire-reform-order aside,
+  body.printing-tire-reform-order nav,
+  body.printing-tire-reform-order header,
+  body.printing-tire-reform-order footer,
+  body.printing-tire-reform-order .sidebar,
+  body.printing-tire-reform-order .topbar,
+  body.printing-tire-reform-order .ai-studio-sidebar,
+  body.printing-tire-reform-order .no-print,
+  body.printing-tire-reform-order button,
+  body.printing-tire-reform-order #btn-sair-ordem-reforma,
+  body.printing-tire-reform-order #btn-salvar-ordem-reforma,
+  body.printing-tire-reform-order #btn-efetivar-retorno-modal,
+  body.printing-tire-reform-order #btn-editar-pedido-reforma,
+  body.printing-tire-reform-order #btn-imprimir-pedido-reforma-modal {
+    display: none !important;
+  }
+
+  body.printing-tire-reform-order .fixed.inset-0 {
+    display: none !important;
+    position: static !important;
+    background: transparent !important;
+  }
+
+  body.printing-tire-reform-order #printable-tire-reform-order,
+  body.printing-tire-reform-order #area-impressao-ordem {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  body.printing-tire-reform-order #printable-tire-reform-order *,
+  body.printing-tire-reform-order #area-impressao-ordem * {
+    visibility: visible !important;
+  }
+}
+
+
 
 

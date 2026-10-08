@@ -443,6 +443,19 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [orderSavedToast, setOrderSavedToast] = useState<boolean>(false);
+  const [orderForPrint, setOrderForPrint] = useState<TireReformOrder | null>(null);
+  const [popupBlockedWarning, setPopupBlockedWarning] = useState<boolean>(false);
+
+  // Limpeza de estado após impressão da página
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setOrderForPrint(null);
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
 
   const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
 
@@ -925,297 +938,62 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     }, 4000);
   };
 
-  // Impressão da Ficha A4 com Logotipo, Assinatura e Total em R$
-  const handlePrintOrder = (orderToPrint: TireReformOrder) => {
-    const totalOrderValue = orderToPrint.totalValor !== undefined && orderToPrint.totalValor !== null
-      ? orderToPrint.totalValor
-      : orderToPrint.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+  // Impressão da Ficha A4 com Logotipo, Assinatura e Total em R$ (Bypass de Sandbox/Iframe)
+  const handlePrint = (orderToPrint?: TireReformOrder) => {
+    const targetOrder = orderToPrint || selectedOrderForView || orderForPrint;
+    if (targetOrder) {
+      setOrderForPrint(targetOrder);
+    }
+    setPopupBlockedWarning(false);
 
-    const printHtml = `
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="utf-8" />
-        <title>Ordem de Envio de Pneus para Reforma - ${orderToPrint.orderNumber}</title>
-        <style>
-          @page {
-            size: A4 portrait;
-            margin: 10mm 12mm;
-          }
-          * {
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: #111827;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            font-size: 9.5pt;
-            line-height: 1.25;
-          }
-          .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 2px solid #0f172a;
-            padding-bottom: 6px;
-            margin-bottom: 10px;
-          }
-          .company-logo {
-            font-size: 16pt;
-            font-weight: 900;
-            color: #0369a1;
-            letter-spacing: -0.5px;
-          }
-          .company-sub {
-            font-size: 8pt;
-            color: #4b5563;
-            font-weight: 600;
-          }
-          .order-badge {
-            text-align: right;
-          }
-          .order-number {
-            font-size: 13pt;
-            font-weight: 900;
-            color: #d97706;
-          }
-          .order-date {
-            font-size: 8pt;
-            color: #6b7280;
-          }
-          .title-section {
-            background-color: #f1f5f9;
-            border: 1px solid #cbd5e1;
-            padding: 6px 10px;
-            border-radius: 6px;
-            text-align: center;
-            font-size: 11pt;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 10px;
-          }
-          .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 10px;
-          }
-          .info-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 6px 8px;
-            background: #fafafa;
-          }
-          .info-title {
-            font-size: 7.5pt;
-            font-weight: 800;
-            text-transform: uppercase;
-            color: #64748b;
-            margin-bottom: 2px;
-          }
-          .info-val {
-            font-size: 9pt;
-            font-weight: 700;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-            page-break-inside: auto;
-          }
-          tr {
-            page-break-inside: avoid;
-          }
-          th {
-            background: #0f172a;
-            color: #ffffff;
-            font-size: 7.5pt;
-            font-weight: 800;
-            text-transform: uppercase;
-            padding: 5px 6px;
-            text-align: left;
-            border: 1px solid #0f172a;
-          }
-          td {
-            padding: 4px 6px;
-            border: 1px solid #cbd5e1;
-            font-size: 8pt;
-          }
-          tr:nth-child(even) {
-            background-color: #f8fafc;
-          }
-          .signatures {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-top: 20px;
-            padding-top: 10px;
-            page-break-inside: avoid;
-          }
-          .signature-line {
-            border-top: 1px solid #000;
-            text-align: center;
-            padding-top: 4px;
-            font-size: 8pt;
-          }
-          .footer-note {
-            margin-top: 12px;
-            font-size: 7pt;
-            color: #94a3b8;
-            text-align: center;
-            border-top: 1px dashed #cbd5e1;
-            padding-top: 5px;
-          }
-          @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="company-logo">${company.tradeName || 'COLACA SILAGEM'}</div>
-            <div class="company-sub">Gestão Integrada de Frotas, Logística & Suprimentos</div>
-            ${company.cnpj ? `<div class="company-sub">CNPJ: ${company.cnpj}</div>` : ''}
-          </div>
-          <div class="order-badge">
-            <div class="order-number">${orderToPrint.orderNumber}</div>
-            <div class="order-date">Emissão: ${formatDateBR(orderToPrint.createdAt)}</div>
-            <div class="order-date" style="font-weight: bold; color: #d97706;">Status: ${orderToPrint.status}</div>
-          </div>
-        </div>
+    // Timeout para sincronização com o ciclo de renderização do React e DOM de #area-impressao-ordem
+    setTimeout(() => {
+      try {
+        const areaElement = document.getElementById('area-impressao-ordem');
+        const printContent = areaElement ? areaElement.innerHTML : '';
+        const printWindow = window.open('', '_blank');
 
-        <div class="title-section">
-          ORDEM DE ENVIO DE PNEUS PARA REFORMA
-        </div>
-
-        <div class="info-grid">
-          <div class="info-card">
-            <div class="info-title">Destinatário / Recapadora</div>
-            <div class="info-val">${orderToPrint.supplierName}</div>
-            ${orderToPrint.supplierCnpj ? `<div style="font-size: 8pt; color: #4b5563;">CNPJ: ${orderToPrint.supplierCnpj}</div>` : ''}
-            ${orderToPrint.supplierPhone ? `<div style="font-size: 8pt; color: #4b5563;">Tel: ${orderToPrint.supplierPhone}</div>` : ''}
-          </div>
-          <div class="info-card">
-            <div class="info-title">Responsável pelo Transporte / Motorista</div>
-            <div class="info-val">${orderToPrint.driverName || 'Motorista da Frota'}</div>
-            ${orderToPrint.expectedReturnDate ? `<div style="font-size: 8pt; color: #4b5563;">Previsão de Retorno: ${formatDateBR(orderToPrint.expectedReturnDate)}</div>` : ''}
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 32px; text-align: center;">Item</th>
-              <th style="width: 85px;">Nº de Fogo</th>
-              <th>Marca / Modelo</th>
-              <th style="width: 105px;">Medida</th>
-              <th style="width: 95px;">Veículo Origem</th>
-              <th>Problema Relatado / Observação</th>
-              <th style="width: 165px;">Serviço a Fazer</th>
-              <th style="width: 100px; text-align: right;">Valor Unitário (R$)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${orderToPrint.tires.map((t, idx) => `
-              <tr>
-                <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-                <td style="font-family: monospace; font-weight: 900; font-size: 9.5pt;">${t.fireNumber}</td>
-                <td>${t.brand} ${t.model || ''}</td>
-                <td style="font-family: monospace; font-weight: bold;">${t.size || '295/80 R 22.5'}</td>
-                <td>${t.vehiclePlate || t.vehicleName || 'Frota Geral'}</td>
-                <td style="font-size: 8pt; color: #1e293b; font-weight: 600;">${(t.motivo_reforma || t.notes || 'REFORMA').toUpperCase()}</td>
-                <td style="font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: uppercase;">${normalizeStockServiceName(t.servico || DEFAULT_STOCK_SERVICES[0]).toUpperCase()}</td>
-                <td style="text-align: right; font-family: monospace; font-weight: 900; font-size: 9pt; white-space: nowrap;">
-                  ${t.valorUnitario !== undefined && t.valorUnitario !== null && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="background: #fffbeb; font-weight: 800; border-top: 2px solid #0f172a;">
-              <td colspan="5" style="padding: 6px 8px; font-size: 8pt; text-transform: uppercase; border: 1px solid #cbd5e1;">
-                QUANTIDADE TOTAL DE PNEUS ENVIADOS: <strong style="font-size: 8.5pt; color: #0f172a;">${orderToPrint.totalTires} PNEU(S)</strong>
-              </td>
-              <td colspan="2" style="text-align: right; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; font-weight: 900; color: #78350f; border: 1px solid #cbd5e1;">
-                TOTAL EM R$:
-              </td>
-              <td style="text-align: right; padding: 6px 8px; font-size: 9.5pt; font-family: monospace; font-weight: 900; color: #0f172a; white-space: nowrap; border: 1px solid #cbd5e1;">
-                R$ ${formatCurrencyPtBr(totalOrderValue)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-
-        ${orderToPrint.notes ? `
-          <div style="font-size: 8pt; color: #4b5563; margin-bottom: 12px; padding: 5px 8px; border-left: 3px solid #cbd5e1; background: #f8fafc;">
-            <strong>Observações do Pedido:</strong> ${orderToPrint.notes}
-          </div>
-        ` : ''}
-
-        <div class="signatures">
-          <div>
-            <div class="signature-line">
-              <strong>${orderToPrint.driverName || 'Motorista / Entregador'}</strong><br/>
-              Assinatura do Motorista / Entregador • Data: ___/___/______
-            </div>
-          </div>
-          <div>
-            <div class="signature-line">
-              <strong>${orderToPrint.supplierName}</strong><br/>
-              Recepção (Nome Legível / Carimbo)
-            </div>
-          </div>
-        </div>
-
-        <div class="footer-note">
-          Via de remessa para recapadora. Imagem de documento gerada eletronicamente pelo sistema Colaca Silagem.
-        </div>
-      </body>
-      </html>
-    `;
-
-    // 1. Tenta abrir em nova janela via window.open (conforme requisito)
-    try {
-      const printWin = window.open('', '_blank');
-      if (printWin) {
-        printWin.document.write(printHtml);
-        printWin.document.close();
-        printWin.focus();
-        setTimeout(() => {
-          printWin.print();
-        }, 300);
-        return;
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <meta charset="utf-8" />
+                <title>ORDEM DE REFORMA - COLAÇA SILAGEM</title>
+                <script src="https://tailwindcss.com"></script>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <style>
+                  @media print { 
+                    body { margin: 0; } 
+                    @page { size: A4 portrait; margin: 12mm 10mm; } 
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                  }
+                  body {
+                    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    text-transform: uppercase;
+                  }
+                </style>
+              </head>
+              <body class="bg-white p-6 uppercase" onload="window.print();">
+                ${printContent || ''}
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        } else {
+          // Bloqueador de pop-ups ativo no navegador
+          setPopupBlockedWarning(true);
+        }
+      } catch (err) {
+        console.warn('FALHA AO ABRIR JANELA DE IMPRESSÃO:', err);
+        setPopupBlockedWarning(true);
       }
-    } catch (e) {
-      console.warn('Popup bloqueado, utilizando fallback de iframe:', e);
-    }
-
-    // 2. Fallback resiliente via iframe invisível para contornar restrições de sandbox
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(printHtml);
-      doc.close();
-      iframe.contentWindow?.focus();
-      setTimeout(() => {
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1500);
-      }, 300);
-    }
+    }, 120);
   };
+
+  const handlePrintOrder = handlePrint;
+
+  // Ordem ativa para a folha de impressão A4
+  const activeOrderForPrint = orderForPrint || selectedOrderForView || (orders.length > 0 ? orders[0] : null);
 
   // Filtragem da lista histórica de ordens
   const filteredOrders = useMemo(() => {
@@ -1229,8 +1007,28 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   }, [orders, searchTerm]);
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full relative">
+      {/* Container de tela interativo - Ocultado estritamente na impressão */}
+      <div className="w-full space-y-4 print:hidden">
       
+      {/* Alerta de Pop-up Bloqueado */}
+      {popupBlockedWarning && (
+        <div className="p-3.5 bg-amber-500/10 dark:bg-amber-500/20 border-2 border-amber-500 rounded-xl flex items-center justify-between space-x-3 text-amber-950 dark:text-amber-200 text-xs font-black tracking-wide animate-in fade-in shadow-xs uppercase">
+          <div className="flex items-center space-x-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <span>ATENÇÃO: ATIVE AS JANELAS POP-UP PARA ESTE SITE PARA IMPRIMIR</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPopupBlockedWarning(false)}
+            className="p-1 hover:bg-amber-500/20 rounded-lg text-amber-800 dark:text-amber-200 transition cursor-pointer"
+            title="FECHAR AVISO"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Alertas */}
       {successMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center space-x-2 text-emerald-800 dark:text-emerald-200 text-xs font-bold animate-in fade-in">
@@ -1777,7 +1575,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
       {/* Modal de Visualização da Ordem de Envio de Reforma */}
       {selectedOrderForView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in print:hidden">
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95">
             
             {/* Header do Modal */}
@@ -1809,6 +1607,24 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Alerta de Pop-up Bloqueado dentro do Modal */}
+            {popupBlockedWarning && (
+              <div className="mx-4 mt-3 p-3 bg-amber-500/10 dark:bg-amber-500/20 border-2 border-amber-500 rounded-xl flex items-center justify-between space-x-2 text-amber-950 dark:text-amber-200 text-xs font-black tracking-wide animate-in fade-in uppercase">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>ATENÇÃO: ATIVE AS JANELAS POP-UP PARA ESTE SITE PARA IMPRIMIR</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPopupBlockedWarning(false)}
+                  className="p-1 hover:bg-amber-500/20 rounded-lg text-amber-800 dark:text-amber-200"
+                  title="FECHAR AVISO"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Informações da Ordem */}
             <div className="p-4 space-y-3 overflow-y-auto flex-1">
@@ -2024,6 +1840,275 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
         </div>
       )}
 
+      </div>
+
+      {/* =========================================================================
+          ESTILOS DEDICADOS PARA IMPRESSÃO EM FOLHA A4 RETRATO (@media print)
+          ========================================================================= */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 15mm 10mm 15mm 10mm;
+          }
+
+          html, body {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #111827 !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          aside,
+          nav,
+          header,
+          footer,
+          .sidebar,
+          .navbar,
+          .topbar,
+          .ai-studio-sidebar,
+          .no-print,
+          button,
+          #btn-sair-ordem-reforma,
+          #btn-salvar-ordem-reforma,
+          #btn-efetivar-retorno-modal,
+          #btn-editar-pedido-reforma,
+          #btn-imprimir-pedido-reforma-modal {
+            display: none !important;
+          }
+
+          .fixed.inset-0 {
+            display: none !important;
+            position: static !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+          }
+
+          #printable-tire-reform-order,
+          #area-impressao-ordem {
+            display: block !important;
+            visibility: visible !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+          }
+
+          #printable-tire-reform-order *,
+          #area-impressao-ordem * {
+            visibility: visible !important;
+          }
+        }
+      `}</style>
+
+      {/* =========================================================================
+          FOLHA A4 PROFISSIONAL DE IMPRESSÃO - ORDEM DE ENVIO DE PNEUS PARA REFORMA
+          Identificador padronizado: area-impressao-ordem (Strings 100% em UPPERCASE)
+          ========================================================================= */}
+      {activeOrderForPrint && (
+        <div id="area-impressao-ordem" className="hidden print:block w-full bg-white text-stone-900 font-sans p-0 m-0 uppercase">
+          
+          {/* CABEÇALHO CORPORATIVO */}
+          <div className="border-b-2 border-stone-800 pb-3 mb-4">
+            <div className="flex items-start justify-between gap-4">
+              {/* Logotipo & Dados da Empresa Emitente */}
+              <div className="flex items-center space-x-3.5">
+                {company.logoUrl ? (
+                  <div className="w-16 h-16 max-w-[70px] max-h-[70px] border border-stone-300 rounded-lg p-1 flex items-center justify-center shrink-0 bg-white">
+                    <img
+                      src={company.logoUrl}
+                      alt={(company.tradeName || 'LOGO').toUpperCase()}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-stone-100 border border-stone-300 flex items-center justify-center text-stone-700 shrink-0">
+                    <Building2 className="w-7 h-7 stroke-[2]" />
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-lg font-black text-stone-950 uppercase tracking-tight">
+                    {(company.tradeName || 'COLAÇA SILAGEM LTDA').toUpperCase()}
+                  </h1>
+                  {company.corporateName && company.corporateName !== company.tradeName && (
+                    <p className="text-[11px] font-semibold text-stone-700 uppercase">
+                      {company.corporateName.toUpperCase()}
+                    </p>
+                  )}
+                  <div className="text-[10px] text-stone-500 font-medium space-x-1.5 mt-0.5 uppercase">
+                    {company.cnpj && <span>CNPJ: <strong className="font-mono text-stone-700">{company.cnpj}</strong></span>}
+                    {company.phone && <span>• TEL: {company.phone}</span>}
+                    {(company.city || company.state) && (
+                      <span>• {[company.city, company.state].filter(Boolean).join(' / ').toUpperCase()}</span>
+                    )}
+                  </div>
+                  {company.address && (
+                    <div className="text-[10px] text-stone-400 mt-0.5 uppercase">
+                      {company.address.toUpperCase()}{company.number ? `, Nº ${company.number}` : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Título da Ordem & Número do Pedido */}
+              <div className="text-right border-l-2 border-stone-300 pl-4 shrink-0">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
+                  ORDEM DE ENVIO DE PNEUS PARA REFORMA
+                </span>
+                <div className="text-xl font-mono font-black text-stone-950 tracking-tight mt-0.5">
+                  {activeOrderForPrint.orderNumber.toUpperCase()}
+                </div>
+                <div className="text-[11px] text-stone-600 mt-1 uppercase">
+                  <span>DATA DE EMISSÃO: <strong className="text-stone-950">{formatDateBR(activeOrderForPrint.createdAt)}</strong></span>
+                </div>
+                {activeOrderForPrint.expectedReturnDate && (
+                  <div className="text-[11px] text-stone-600 uppercase">
+                    <span>PREVISÃO DE RETORNO: <strong className="text-amber-800">{formatDateBR(activeOrderForPrint.expectedReturnDate)}</strong></span>
+                  </div>
+                )}
+                <div className="text-[10px] text-stone-500 mt-0.5 uppercase">
+                  STATUS: <strong className="uppercase font-bold text-stone-800">{activeOrderForPrint.status.toUpperCase()}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DADOS DO DESTINATÁRIO (RECAPADORA) & TRANSPORTE */}
+          <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
+            {/* Destinatário / Recapadora */}
+            <div className="border border-stone-300 rounded-lg p-2.5 bg-stone-50/70">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 block mb-1">
+                DESTINATÁRIO / RECAPADORA
+              </span>
+              <div className="text-sm font-black text-stone-950 uppercase">
+                {activeOrderForPrint.supplierName.toUpperCase()}
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-1 text-[11px] text-stone-700">
+                <div>
+                  <span className="text-stone-500 text-[10px] block uppercase">CNPJ / CPF:</span>
+                  <strong className="font-mono">{activeOrderForPrint.supplierCnpj || '-'}</strong>
+                </div>
+                <div>
+                  <span className="text-stone-500 text-[10px] block uppercase">TELEFONE / CONTATO:</span>
+                  <strong>{activeOrderForPrint.supplierPhone || '-'}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Transporte & Logística */}
+            <div className="border border-stone-300 rounded-lg p-2.5 bg-stone-50/70">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 block mb-1">
+                TRANSPORTE & LOGÍSTICA
+              </span>
+              <div className="text-xs text-stone-800">
+                <span className="text-stone-500 text-[10px] block uppercase">MOTORISTA RESPONSÁVEL:</span>
+                <strong className="text-stone-950 uppercase font-black">
+                  {(activeOrderForPrint.driverName || 'MOTORISTA DA FROTA').toUpperCase()}
+                </strong>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-1 text-[11px] text-stone-700">
+                <div>
+                  <span className="text-stone-500 text-[10px] block uppercase">PREVISÃO DE RETORNO:</span>
+                  <strong>{formatDateBR(activeOrderForPrint.expectedReturnDate) || 'A COMBINAR'}</strong>
+                </div>
+                <div>
+                  <span className="text-stone-500 text-[10px] block uppercase">FINALIDADE:</span>
+                  <strong className="uppercase">RECAPAGEM / REFORMA</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TABELA DE PNEUS ENVIADOS */}
+          <div className="border border-stone-400 rounded-lg overflow-hidden mb-4">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-stone-200 text-stone-900 font-black uppercase text-[10px] border-b-2 border-stone-400">
+                <tr>
+                  <th className="py-1.5 px-2 text-center w-8 border-r border-stone-300">#</th>
+                  <th className="py-1.5 px-2 w-24 border-r border-stone-300">Nº DE FOGO</th>
+                  <th className="py-1.5 px-2 border-r border-stone-300">MARCA / MODELO</th>
+                  <th className="py-1.5 px-2 w-24 border-r border-stone-300">MEDIDA</th>
+                  <th className="py-1.5 px-2 w-24 border-r border-stone-300">VEÍCULO ORIGEM</th>
+                  <th className="py-1.5 px-2 border-r border-stone-300">MOTIVO / PROBLEMA</th>
+                  <th className="py-1.5 px-2 w-36 border-r border-stone-300">SERVIÇO SOLICITADO</th>
+                  <th className="py-1.5 px-2 w-28 text-right">VALOR UNITÁRIO</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-300 text-[11px]">
+                {activeOrderForPrint.tires.map((t, idx) => (
+                  <tr key={t.id || idx}>
+                    <td className="py-1.5 px-2 text-center font-bold text-stone-500 border-r border-stone-300">{idx + 1}</td>
+                    <td className="py-1.5 px-2 font-mono font-black text-stone-950 border-r border-stone-300">{t.fireNumber.toUpperCase()}</td>
+                    <td className="py-1.5 px-2 font-bold text-stone-900 border-r border-stone-300 uppercase">{t.brand.toUpperCase()} {(t.model || '').toUpperCase()}</td>
+                    <td className="py-1.5 px-2 font-mono text-stone-700 border-r border-stone-300 uppercase">{t.size ? t.size.toUpperCase() : '295/80 R 22.5'}</td>
+                    <td className="py-1.5 px-2 text-stone-800 border-r border-stone-300 uppercase">{(t.vehiclePlate || t.vehicleName || 'ESTOQUE').toUpperCase()}</td>
+                    <td className="py-1.5 px-2 text-stone-700 border-r border-stone-300 uppercase text-[10px]">{(t.motivo_reforma || t.notes || 'DESGASTE / RECAPAGEM').toUpperCase()}</td>
+                    <td className="py-1.5 px-2 font-bold text-stone-950 border-r border-stone-300 uppercase text-[10px]">{(t.servico || 'RECAPAGEM / REFORMA').toUpperCase()}</td>
+                    <td className="py-1.5 px-2 text-right font-mono font-bold text-stone-950">R$ {formatCurrencyPtBr(t.valorUnitario || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-stone-100 border-t-2 border-stone-400 font-black text-xs">
+                <tr>
+                  <td colSpan={5} className="py-2 px-2.5 uppercase text-stone-800 border-r border-stone-300">
+                    QUANTIDADE TOTAL: <strong className="text-stone-950">{activeOrderForPrint.totalTires} PNEU(S)</strong>
+                  </td>
+                  <td colSpan={2} className="py-2 px-2.5 text-right uppercase text-stone-800 border-r border-stone-300 font-bold">
+                    VALOR TOTAL DO PEDIDO:
+                  </td>
+                  <td className="py-2 px-2.5 text-right font-mono font-black text-sm text-stone-950">
+                    R$ {formatCurrencyPtBr(activeOrderForPrint.totalValor !== undefined ? activeOrderForPrint.totalValor : activeOrderForPrint.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* OBSERVAÇÕES DA ORDEM */}
+          {activeOrderForPrint.notes && (
+            <div className="mb-4 p-2.5 border border-stone-300 rounded-lg bg-stone-50/60 text-xs">
+              <span className="text-[10px] font-black uppercase text-stone-500 block mb-0.5">
+                OBSERVAÇÕES / INSTRUÇÕES ESPECIAIS:
+              </span>
+              <p className="text-stone-800 uppercase font-medium">{activeOrderForPrint.notes.toUpperCase()}</p>
+            </div>
+          )}
+
+          {/* BLOCO DE ASSINATURAS */}
+          <div className="mt-8 pt-4 border-t border-stone-300 break-inside-avoid">
+            <div className="grid grid-cols-2 gap-8 text-center text-xs">
+              <div>
+                <div className="border-t-2 border-stone-800 pt-2 mx-6">
+                  <div className="font-black text-stone-950 uppercase">RESPONSÁVEL PELO ENVIO / FROTA</div>
+                  <div className="text-[11px] text-stone-600 mt-1 uppercase">ASSINATURA E DATA: ____/____/________</div>
+                </div>
+              </div>
+              <div>
+                <div className="border-t-2 border-stone-800 pt-2 mx-6">
+                  <div className="font-black text-stone-950 uppercase">RECEBIDO POR (RECAPADORA)</div>
+                  <div className="text-[11px] text-stone-600 mt-1 uppercase">NOME LEGÍVEL / ASSINATURA / DATA: ____/____/________</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé institucional */}
+            <div className="mt-6 pt-2 border-t border-stone-200 flex items-center justify-between text-[9px] text-stone-400 uppercase">
+              <span>DOCUMENTO GERADO AUTOMATICAMENTE PELO SISTEMA AGROCONTROL • COLAÇA SILAGEM</span>
+              <span>EMISSÃO: {new Date().toLocaleDateString('pt-BR')} ÀS {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • FOLHA 1 DE 1</span>
+            </div>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 };
