@@ -7,10 +7,7 @@ import {
   Layers, 
   ShieldCheck, 
   ChevronRight,
-  TrendingUp,
-  FileCheck2,
-  Calendar,
-  AlertCircle
+  TrendingUp
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
 import { EnsiladeiraVector } from './EnsiladeiraVector';
@@ -105,43 +102,83 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
     }).format(indicators.outrosCobrancasPrevistas);
   }, [indicators.outrosCobrancasPrevistas]);
 
-  // Razão Social & Nome Fantasia resolvidos
-  const activeTradeName = useMemo(() => {
-    const raw = companyProfile?.tradeName || companyProfile?.activitySector;
-    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil') {
-      return 'COLAÇA SILAGEM';
+  // Razão Social & Nome do Assinante
+  const corporateName = useMemo(() => {
+    return 'COLAÇA SILAGEM LTDA';
+  }, []);
+
+  const businessSubtitle = useMemo(() => {
+    const custom = companyProfile?.activitySector;
+    if (custom && custom.trim() !== '' && !custom.toLowerCase().includes('gestão de silagem') && !custom.toLowerCase().includes('silagem fácil')) {
+      return custom.toUpperCase();
     }
-    return raw.trim().toUpperCase();
+    return 'SERVIÇOS DE SILAGEM • LOCAÇÃO E PRESTAÇÃO DE SERVIÇOS AGRÍCOLAS';
   }, [companyProfile]);
 
   return (
     <div 
       id="agrocontrol-home-root"
-      className="w-full h-full max-h-full flex flex-col justify-between items-center py-2 px-2.5 sm:px-4 lg:px-6 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-900 dark:to-stone-950 overflow-hidden select-none"
+      className="flex flex-col h-full justify-between p-4 overflow-hidden select-none bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-900 dark:to-stone-950"
     >
       
-      {/* 1. TOPO DISCRETO: STATUS OPERACIONAL & ASSINATURA */}
-      <div className="w-full max-w-6xl flex items-center justify-between text-xs text-slate-500 dark:text-stone-400 font-semibold border-b border-slate-300/70 dark:border-stone-800 pb-1.5 shrink-0">
-        <div className="flex items-center space-x-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="uppercase text-[10px] tracking-wider font-extrabold text-slate-700 dark:text-stone-300">
-            AMBIENTE OPERACIONAL ATIVO
-          </span>
-        </div>
-        <div className="uppercase text-[10px] tracking-wider font-bold text-slate-600 dark:text-stone-300">
-          ASSINANTE: <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">{activeTradeName}</span> • GESTÃO AGRÍCOLA
+      {/* =========================================================================
+          FAIXA 1: TOPO NOBRE (OCUPAR 40% DA ALTURA DA PÁGINA)
+          Dedicada exclusivamente para a identidade do assinante (COLAÇA SILAGEM LTDA)
+          e reservando espaço nobre para a futura inserção da logomarca oficial do cliente
+         ========================================================================= */}
+      <div className="h-[40%] flex flex-col items-center justify-center text-center shrink-0 w-full max-w-5xl mx-auto px-4">
+        {/* Espaço reservado para a Logomarca Oficial do Assinante */}
+        {companyProfile?.logoUrl ? (
+          <div className="mb-3 max-h-24 sm:max-h-28 flex items-center justify-center">
+            <img 
+              src={companyProfile.logoUrl} 
+              alt={corporateName}
+              className="max-h-20 sm:max-h-24 w-auto object-contain drop-shadow-sm"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        ) : (
+          /* Emblema refinado do Assinante (CS) reservando a identidade oficial */
+          <div className="mb-2 sm:mb-3 flex items-center justify-center">
+            <div 
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-800 dark:via-stone-850 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_1px_1px_2px_rgba(255,255,255,0.9),inset_-1px_-1px_2px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center transition-transform hover:scale-105"
+              title="Espaço Reservado para Logomarca Oficial do Assinante"
+            >
+              <span className="text-emerald-700 dark:text-emerald-400 font-black text-xl sm:text-2xl tracking-tight drop-shadow-[0_1px_1px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)] font-['Outfit']">
+                CS
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Título Oficial: COLAÇA SILAGEM LTDA em fonte extra-negrito expandida */}
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-slate-800 dark:text-slate-100 tracking-tight font-['Outfit'] leading-tight drop-shadow-xs">
+          {corporateName}
+        </h1>
+
+        {/* Subtítulo descritivo em letras verdes corporativas */}
+        <p className="text-xs sm:text-sm md:text-base font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-1.5 sm:mt-2">
+          {businessSubtitle}
+        </p>
+
+        {/* Badge discreto de assinatura operacional ativa */}
+        <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-slate-200/60 dark:bg-stone-800/80 border border-slate-300/60 dark:border-stone-700/60 text-[10px] font-bold text-slate-600 dark:text-stone-300">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>ASSINATURA OPERACIONAL ATIVA</span>
         </div>
       </div>
 
-      {/* 2. CENTRO PRINCIPAL: GRADE DE CARDS AZUIS NO TOPO E LOGO MASTER 3D NA BASE */}
-      <div className="flex-1 flex flex-col items-center justify-between w-full max-w-6xl min-h-0 my-auto py-1 gap-3 sm:gap-4 overflow-hidden">
-        
-        {/* TOPO ABSOLUTO: GRID DE DASHBOARDS COMERCIAIS E FISCAIS (PRINT 2) */}
-        {/* BLOCOS AZUIS HORIZONTAIS E PARALELOS EM CAIXA ALTA */}
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-2.5 shrink-0">
+      {/* =========================================================================
+          FAIXA 2: MIOLO CENTRAL (GRADE DE CARDS AZUIS)
+          Grade contínua horizontal contendo os 5 blocos de cards azuis de 
+          monitoramento comercial ('CONTAS A RECEBER', 'CONTAS A PAGAR', 'CLIENTES', 
+          'PRODUTOS', 'OUTROS') com alinhamento perfeito e paddings Slim (py-1)
+         ========================================================================= */}
+      <div className="w-full max-w-7xl mx-auto shrink-0 my-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-2.5">
           
           {/* SEÇÃO 1: CONTAS A RECEBER */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/90 dark:bg-stone-850/90">
+          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('financeiro')}
@@ -198,7 +235,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 2: CONTAS A PAGAR */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/90 dark:bg-stone-850/90">
+          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('financeiro')}
@@ -255,7 +292,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 3: CLIENTES */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/90 dark:bg-stone-850/90">
+          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('clientes')}
@@ -312,7 +349,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 4: PRODUTOS */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/90 dark:bg-stone-850/90">
+          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('almoxarifado')}
@@ -369,7 +406,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
           {/* SEÇÃO 5: OUTROS */}
-          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/90 dark:bg-stone-850/90 sm:col-span-2 lg:col-span-1">
+          <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95 sm:col-span-2 lg:col-span-1">
             {/* Cabeçalho da Seção */}
             <div 
               onClick={() => onNavigate('fiscal')}
@@ -440,46 +477,53 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           </div>
 
         </div>
+      </div>
 
-        {/* BASE: CONJUNTO MASTER DO LOGOTIPO AGROCONTROL 3D (PRINT 1 & RETÂNGULO ROSA DA BASE) */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center my-auto shrink-0 min-h-0 py-1">
-          {/* Nova Imagem Master Oficial da Ensiladeira 3D com tubo expelindo grãos e saco de moedas de R$ (Print 1) */}
-          <div 
-            className="relative max-w-sm sm:max-w-md md:max-w-lg max-h-[175px] sm:max-h-[210px] flex items-center justify-center transition-transform hover:scale-[1.02] duration-200 cursor-pointer"
-            onClick={() => onNavigate('dashboard')}
-            title="Visão Executiva do AgroControl"
-          >
+      {/* =========================================================================
+          FAIXA 3: BASE DA TELA (LOGO AGROCONTROL BEM PRÓXIMA AO RODAPÉ)
+          Conjunto oficial da marca 'AgroControl' fixo e achatado bem colado 
+          à barra de rodapé cinza do sistema: imagem oficial da ensiladeira 3D 
+          em tamanho reduzido/elegante + nome 'AgroControl' + subtítulo oficial.
+         ========================================================================= */}
+      <div className="w-full max-w-7xl mx-auto shrink-0 mt-auto flex flex-col items-center select-none pt-2">
+        {/* Bloco Master AgroControl Achatado e Próximo ao Rodapé */}
+        <div 
+          className="flex items-center justify-center gap-3 py-1 cursor-pointer transition-transform hover:scale-[1.02] duration-150"
+          onClick={() => onNavigate('dashboard')}
+          title="Visão Executiva do AgroControl"
+        >
+          {/* Imagem Oficial da Ensiladeira 3D (reduzida e sem caixas beges) */}
+          <div className="shrink-0 flex items-center justify-center">
             {!imgError ? (
               <img 
                 src="/src/assets/images/agrocontrol_3d_master_1791471290539.jpg"
-                alt="AgroControl - Ensiladeira Automotriz 3D"
-                className="max-h-[155px] sm:max-h-[190px] md:max-h-[205px] w-auto object-contain rounded-xl shadow-md border border-amber-200/50 dark:border-stone-700 bg-amber-50/20"
+                alt="AgroControl"
+                className="h-11 sm:h-13 w-auto object-contain rounded-lg drop-shadow-sm transition-all"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
               />
             ) : (
-              <EnsiladeiraVector size="lg" className="h-28 sm:h-36 w-auto drop-shadow-md" />
+              <EnsiladeiraVector size="sm" className="h-10 sm:h-12 w-auto drop-shadow-sm" />
             )}
           </div>
 
-          {/* Nome da Marca: AgroControl (CamelCase, apenas A e C maiúsculos) */}
-          <h1 className="text-slate-800 dark:text-slate-100 font-black text-3xl tracking-tight [text-shadow:_0_1px_0_rgba(255,255,255,0.95)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.1)] leading-none mt-2 select-none">
-            AgroControl
-          </h1>
-
-          {/* Subtítulo: GESTÃO DE SILAGEM E MÁQUINAS em caixa alta micro e verde-corporativo */}
-          <p className="text-emerald-600 dark:text-emerald-400 font-bold text-xs tracking-widest uppercase mt-1 select-none">
-            GESTÃO DE SILAGEM E MÁQUINAS
-          </p>
+          {/* Nome da Marca: AgroControl (CamelCase exata) e Subtítulo */}
+          <div className="flex flex-col text-left justify-center">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none [text-shadow:_0_1px_0_rgba(255,255,255,0.9)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.05)]">
+              AgroControl
+            </h2>
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-0.5 leading-tight">
+              GESTÃO DE SILAGEM E MÁQUINAS
+            </p>
+          </div>
         </div>
 
-      </div>
-
-      {/* 4. RODAPÉ DE GOVERNANÇA E VERSÃO DO SISTEMA (SLIM, ZERO ROLAGEM) */}
-      <div className="w-full max-w-6xl border-t border-slate-300/70 dark:border-stone-800 pt-1 text-center shrink-0">
-        <p className="text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-tight">
-          SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
-        </p>
+        {/* Linha Fina de Rodapé do Sistema */}
+        <div className="w-full border-t border-slate-300/70 dark:border-stone-800 pt-1 mt-1 text-center">
+          <p className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-tight">
+            SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+          </p>
+        </div>
       </div>
 
     </div>
