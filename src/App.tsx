@@ -105,6 +105,7 @@ import { useConfirm } from './context/ConfirmContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { SupabaseStatusControl } from './components/layout/SupabaseStatusControl';
 import { MainDashboard } from './components/dashboard/MainDashboard';
+import { AgroControlHome } from './components/home/AgroControlHome';
 
 import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu } from 'lucide-react';
 import { UserSessionModal } from './components/cadastrosBase/UserSessionModal';
@@ -1450,6 +1451,9 @@ export default function App() {
       }
       const rawPath = (window.location.pathname || '').replace(/^\//, '').toLowerCase().trim();
       const pathSegment = rawPath.split('/')[0];
+      if (pathSegment === 'home' || pathSegment === 'agrocontrol') {
+        return 'home';
+      }
       if (['frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(pathSegment)) {
         return pathSegment === 'frota' ? 'frotas' : pathSegment;
       }
@@ -1468,7 +1472,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    return 'dashboard';
+    return 'home';
   };
 
   const [activeTab, setActiveTab] = useState<string>(getResolvedActiveTab);
@@ -3218,6 +3222,14 @@ export default function App() {
             />
           ) : (
             <>
+              {/* TAB 0: Tela Inicial de Boas-Vindas AGROCONTROL */}
+              {activeTab === 'home' && (
+                <AgroControlHome
+                  onNavigate={(tab) => setActiveTab(tab)}
+                  companyProfile={companyProfile}
+                />
+              )}
+
               {/* TAB 1: Main Dashboard (Matching Screenshot) */}
               {activeTab === 'dashboard' && (
             <MainDashboard
@@ -3591,7 +3603,7 @@ export default function App() {
           )}
 
           {/* Fallback Visual Seguro para MainDashboard se a aba não for reconhecida */}
-          {!['dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
+          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
             <MainDashboard
               expenses={expenses}
               clients={clients}

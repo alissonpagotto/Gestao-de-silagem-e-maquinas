@@ -1279,6 +1279,11 @@ export function VacationReceiptModal({
                   <span className="text-[9px] text-stone-600">Empregado(a) • CPF: {employeeCpf}</span>
                 </div>
               </div>
+
+              {/* Assinatura de Governança Micro de Marca */}
+              <div className="pt-2 mt-3 border-t border-stone-200 text-center text-[9px] text-stone-500 uppercase tracking-tight font-semibold">
+                SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+              </div>
             </div>
           </div>
         </div>

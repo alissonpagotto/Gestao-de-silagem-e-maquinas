@@ -401,7 +401,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         // Injetar o HTML limpo da tabela e disparar o print por lá
-        printWindow.document.write('<html><head><title>COLAÇA SILAGEM - RELATÓRIO DE MOTORISTAS</title>');
+        printWindow.document.write('<html><head><title>AGROCONTROL - RELATÓRIO DE MOTORISTAS</title>');
         printWindow.document.write(`
           <style>
             @page { size: A4 portrait; margin: 8mm; }
@@ -783,6 +783,11 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             </div>
           </div>
         )}
+
+        {/* Rodapé Corporativo Exclusivo para Impressão */}
+        <div className="hidden print:block mt-6 pt-3 border-t-2 border-black text-center text-[10px] text-gray-700 uppercase font-semibold">
+          SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+        </div>
       </div>
 
       {/* Drivers Cards Grid View */}

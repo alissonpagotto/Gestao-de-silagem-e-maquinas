@@ -92,7 +92,7 @@ export const PrintReportFooter: React.FC<PrintReportFooterProps> = ({
       {/* Linha de Metadados e Institucional */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-1 text-[10px] sm:text-[11px] font-medium leading-tight">
         <div className="text-left font-semibold text-stone-600 print:text-black">
-          {customInstitutionalText || 'Relatório gerado automaticamente por: Silagem Fácil ERP - Gestão Integrada de Silagem & Frotas Agrícolas'}
+          {customInstitutionalText || 'SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3'}
         </div>
 
         <div className="text-right flex items-center gap-2 text-stone-500 print:text-stone-700 text-[10px] shrink-0">

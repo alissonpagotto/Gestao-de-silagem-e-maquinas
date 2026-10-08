@@ -691,7 +691,7 @@ export function generateVacationScheduleReportHtml({
     <!-- Rodapé da Folha -->
     <div class="footer-grid">
       <div class="footer-left">
-        Sistema licenciado para A. S. DE AGUIAR - CONTABILIDADE
+        SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
       </div>
       <div class="footer-right">
         Total de empregados: ${totalEmployeesCount}

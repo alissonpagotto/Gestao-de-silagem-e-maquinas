@@ -282,7 +282,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="shrink-0 bg-zinc-200 dark:bg-stone-900">
           
           {/* Brand Header */}
-          <div className="p-4 sm:p-5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex items-center space-x-3 cursor-pointer bg-zinc-200/90 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
+          <div className="p-3.5 sm:p-4 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex items-center space-x-3 cursor-pointer bg-slate-100/80 dark:bg-stone-900" onClick={() => handleSelect('home')}>
             {companyProfile?.logoUrl && !logoError ? (
               <div className="w-10 h-10 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                 <img 
@@ -299,21 +299,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']">
-                {companyProfile?.tradeName || 'COLAÇA SILAGEM'}
+              <h2 className="text-base font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title="COLAÇA SILAGEM L.">
+                {companyProfile?.tradeName ? (companyProfile.tradeName.toUpperCase().includes('COLAÇA') ? 'COLAÇA SILAGEM L.' : companyProfile.tradeName) : 'COLAÇA SILAGEM L.'}
               </h2>
               <p 
                 className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[170px]"
-                title={dadosEmpresa?.ramoAtividade?.toUpperCase() || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM'}
+                title={dadosEmpresa?.ramoAtividade?.toUpperCase() || 'GESTÃO AGRÍCOLA'}
               >
-                {dadosEmpresa?.ramoAtividade?.toUpperCase() || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM'}
+                {dadosEmpresa?.ramoAtividade?.toUpperCase().includes('PRESTAÇÃO') ? 'GESTÃO AGRÍCOLA' : (dadosEmpresa?.ramoAtividade?.toUpperCase() || 'GESTÃO AGRÍCOLA')}
               </p>
             </div>
           </div>
 
-          {/* Navigation Section Header: Título MENU PRINCIPAL com os botões rápidos */}
-          <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider">
-            <span className="shrink-0">MENU PRINCIPAL</span>
+          {/* Navigation Section Header: Título MENU PRINCIPAL com botão interativo Home */}
+          <div className="px-3 pt-2.5 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
+            <button
+              type="button"
+              id="sidebar-nav-home-trigger"
+              onClick={() => handleSelect('home')}
+              title="Ir para a Tela Inicial (AGROCONTROL)"
+              className="shrink-0 text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider hover:bg-slate-200/90 dark:hover:bg-white/15 cursor-pointer rounded p-1 transition-all select-none"
+            >
+              MENU PRINCIPAL
+            </button>
 
             <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
               {/* Notificações / Sininho */}
@@ -474,6 +482,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </button>
           )}
+
+          {/* Assinatura de Governança Micro de Marca */}
+          <div className="pt-2 text-center select-none pointer-events-none">
+            <p className="text-[9px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-tight">
+              SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+            </p>
+          </div>
         </div>
 
       </aside>
