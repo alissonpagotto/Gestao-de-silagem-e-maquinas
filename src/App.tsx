@@ -3006,7 +3006,7 @@ export default function App() {
             
             {/* Linha Única Direta com Destaque Discreto em *ASSINATURA ATIVA */}
             <span className="whitespace-nowrap shrink-0">
-              GESTAO DE SILAGEM E VEICULOS - VERSÃO:1.0.3 - {currentFormattedDate} - {activeCorporateName} - {activeTradeName} -{' '}
+              AGROCONTROL - VERSÃO:1.0.3 - {currentFormattedDate} - {activeCorporateName} - {activeTradeName} -{' '}
               <span className="text-emerald-700 dark:text-emerald-400 font-bold">
                 *ASSINATURA ATIVA
               </span>

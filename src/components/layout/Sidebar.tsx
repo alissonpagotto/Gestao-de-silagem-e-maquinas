@@ -18,6 +18,7 @@ import {
   ModulePermissionKey 
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredCompanyProfile } from '../../lib/storage';
+import { EnsiladeiraVector } from '../home/EnsiladeiraVector';
 
 export interface SidebarProps {
   activeTab: string;
@@ -294,8 +295,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-zinc-800 dark:bg-emerald-600 flex items-center justify-center text-white shadow-xs shrink-0">
-                <Sprout className="w-6 h-6 stroke-[2.5]" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-700 p-0.5 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+                <EnsiladeiraVector size="sm" className="w-8 h-8" />
               </div>
             )}
             <div className="min-w-0">
