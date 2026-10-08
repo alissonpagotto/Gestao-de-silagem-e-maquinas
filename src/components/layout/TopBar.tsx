@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   AlertTriangle, 
   Menu,
   Sparkles
 } from 'lucide-react';
+import { getStoredCompanyProfile } from '../../lib/storage';
 
 interface TopBarProps {
   activeTab?: string;
@@ -29,24 +30,49 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const isTrial = subscriptionStatus === 'trial';
   const days = trialDaysRemaining !== null && trialDaysRemaining !== undefined ? trialDaysRemaining : 7;
-  const planDisplay = subscriptionPlanName && subscriptionPlanName !== 'Silagem Fácil Pro'
+  const planDisplay = (subscriptionPlanName && subscriptionPlanName !== 'Silagem Fácil Pro'
     ? subscriptionPlanName
-    : 'Produtor Essencial';
+    : 'PRODUTOR ESSENCIAL').toUpperCase();
+
+  const companyProfile = useMemo(() => getStoredCompanyProfile(), []);
+
+  const currentFormattedDate = useMemo(() => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  }, []);
+
+  const activeCorporateName = useMemo(() => {
+    const raw = companyProfile?.corporateName || companyProfile?.companyName;
+    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'silagem fácil') {
+      return 'COLACA SILAGEM LTDA';
+    }
+    return raw.trim().toUpperCase();
+  }, [companyProfile]);
+
+  const activeTradeName = useMemo(() => {
+    const raw = companyProfile?.tradeName || companyProfile?.activitySector;
+    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil') {
+      return 'GESTÃO AGRÍCOLA';
+    }
+    return raw.trim().toUpperCase();
+  }, [companyProfile]);
 
   return (
     <div id="top-bar-container" className="no-print sticky top-0 z-30 shadow-xs">
-      
-      {/* Top Banner: Período de Teste ou Assinatura Ativa com botão de menu mobile */}
-      <div className={`border-b px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs transition-colors ${
+      {/* Top Banner: Sequência oficial da esquerda para a direita */}
+      <div className={`border-b px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs transition-colors font-mono uppercase text-[10.5px] xl:text-[11px] font-semibold tracking-tight ${
         isTrial 
           ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300'
           : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300'
       }`}>
-        <div className="flex items-center space-x-2 truncate">
+        <div className="flex items-center space-x-1.5 truncate min-w-0">
           {/* Mobile menu trigger */}
           <button
             onClick={onOpenMobileMenu}
-            className={`lg:hidden p-1 rounded-md transition cursor-pointer ${
+            className={`lg:hidden p-1 rounded-md transition cursor-pointer shrink-0 ${
               isTrial
                 ? 'text-rose-700 dark:text-rose-300 hover:bg-rose-200/50 dark:hover:bg-rose-900/50'
                 : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/50 dark:hover:bg-emerald-900/50'
@@ -56,36 +82,40 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Menu className="w-4 h-4" />
           </button>
           
+          <span className="whitespace-nowrap shrink-0">GESTÃO DE SILAGEM E VEÍCULOS</span>
+          <span className="text-slate-400 select-none shrink-0">-</span>
+          <span className="whitespace-nowrap shrink-0">VERSÃO DO SISTEMA: 1.0.3</span>
+          <span className="text-slate-400 select-none shrink-0">-</span>
+          <span className="whitespace-nowrap shrink-0">DATA DO DIA: {currentFormattedDate}</span>
+          <span className="text-slate-400 select-none shrink-0">-</span>
+          <span className="whitespace-nowrap shrink-0">RAZÃO SOCIAL: {activeCorporateName}</span>
+          <span className="text-slate-400 select-none shrink-0">-</span>
+          <span className="whitespace-nowrap shrink-0">NOME FANTASIA: {activeTradeName}</span>
+          <span className="text-slate-400 select-none shrink-0">-</span>
+
           {isTrial ? (
-            <>
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              <span className="font-semibold truncate">
-                Período de teste ({planDisplay}) — restam {days} {days === 1 ? 'dia' : 'dias'}.
-              </span>
-              <button 
-                onClick={onOpenTrialInfo}
-                className="underline font-bold hover:text-rose-900 dark:hover:text-rose-100 transition cursor-pointer"
-              >
-                Ativar agora
-              </button>
-            </>
+            <span className="whitespace-nowrap shrink-0">
+              ● ASSINATURA A VENCER ({days} {days === 1 ? 'DIA' : 'DIAS'}) - {planDisplay}
+            </span>
           ) : (
-            <>
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
-              <span className="font-semibold truncate">
-                Assinatura Ativa — {planDisplay}
-              </span>
-            </>
+            <span className="whitespace-nowrap shrink-0">
+              ● ASSINATURA ATIVA - {planDisplay}
+            </span>
           )}
+
+          <span className="text-slate-400 select-none shrink-0">-</span>
+          <span className="whitespace-nowrap shrink-0">
+            ⚡ SILAGEM FÁCIL PRO - MODO COMPLETO
+          </span>
         </div>
-        <div className={`hidden sm:flex items-center space-x-2 text-[11px] ${
+
+        <div className={`hidden sm:flex items-center space-x-2 text-[11px] shrink-0 ${
           isTrial ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
         }`}>
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>Silagem Fácil Pro • Modo Completo</span>
+          <span>PRO</span>
         </div>
       </div>
-
     </div>
   );
 };

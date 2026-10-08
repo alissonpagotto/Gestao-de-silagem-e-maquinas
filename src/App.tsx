@@ -2828,6 +2828,33 @@ export default function App() {
     return p.toUpperCase();
   }, [subscriptionCheck?.planName, companyProfile?.planName, activeSubscriber?.planName]);
 
+  // Data atual dinâmica obtida do sistema operacional do computador (Padrão Nacional Brasileiro: DD/MM/AAAA)
+  const currentFormattedDate = useMemo(() => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  }, []);
+
+  // Razão Social capturada no banco local da empresa
+  const activeCorporateName = useMemo(() => {
+    const raw = companyProfile?.corporateName || companyProfile?.companyName;
+    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'silagem fácil') {
+      return 'COLACA SILAGEM LTDA';
+    }
+    return raw.trim().toUpperCase();
+  }, [companyProfile]);
+
+  // Nome Fantasia ativo capturado da empresa
+  const activeTradeName = useMemo(() => {
+    const raw = companyProfile?.tradeName || companyProfile?.activitySector;
+    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil') {
+      return 'GESTÃO AGRÍCOLA';
+    }
+    return raw.trim().toUpperCase();
+  }, [companyProfile]);
+
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {
     return (
@@ -2958,8 +2985,8 @@ export default function App() {
           id="desktop-window-titlebar"
           className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 shadow-[0_1px_0px_0px_rgba(255,255,255,0.9)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
         >
-          {/* Lado Esquerdo: Ícone + Título, Versão, Build e Status de Assinatura contínuos da Esquerda para a Direita */}
-          <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">
+          {/* Lado Esquerdo: Sequência Oficial de Informações em Linha Única (Gabarito Verde) */}
+          <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[10.5px] xl:text-[11px] font-semibold text-slate-600 dark:text-stone-300 truncate">
             {/* Botão de menu mobile */}
             <button
               type="button"
@@ -2973,15 +3000,47 @@ export default function App() {
               C
             </div>
             
-            {/* Título & Versão & Build */}
-            <span className="truncate">
-              SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 1.0.3 - BUILD: 06/10/2026
+            {/* ITEM 1: NOME DO SISTEMA */}
+            <span className="whitespace-nowrap shrink-0">
+              GESTÃO DE SILAGEM E VEÍCULOS
             </span>
 
             {/* Separador */}
             <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
 
-            {/* Status da Assinatura (Mesmo tamanho de fonte, mesma cor cinza discreta; se ≤ 6 dias, apenas o texto fica vermelho) */}
+            {/* ITEM 2: VERSÃO DO SISTEMA */}
+            <span className="whitespace-nowrap shrink-0">
+              VERSÃO DO SISTEMA: 1.0.3
+            </span>
+
+            {/* Separador */}
+            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
+
+            {/* ITEM 3: DATA DO DIA */}
+            <span className="whitespace-nowrap shrink-0">
+              DATA DO DIA: {currentFormattedDate}
+            </span>
+
+            {/* Separador */}
+            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
+
+            {/* ITEM 4: RAZÃO SOCIAL DO ASSINANTE */}
+            <span className="whitespace-nowrap shrink-0">
+              RAZÃO SOCIAL: {activeCorporateName}
+            </span>
+
+            {/* Separador */}
+            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
+
+            {/* ITEM 5: NOME FANTASIA DO ASSINANTE */}
+            <span className="whitespace-nowrap shrink-0">
+              NOME FANTASIA: {activeTradeName}
+            </span>
+
+            {/* Separador */}
+            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
+
+            {/* ITEM 6: STATUS DA ASSINATURA */}
             {isSubscriptionExpiringSoon ? (
               <span 
                 className="text-red-600 dark:text-red-400 font-extrabold animate-pulse whitespace-nowrap shrink-0"
@@ -2990,7 +3049,7 @@ export default function App() {
                 ● ASSINATURA A VENCER ({daysUntilDue} {daysUntilDue === 1 ? 'DIA' : 'DIAS'}) - {subscriptionPlanDisplayName}
               </span>
             ) : (
-              <span className="text-slate-700 dark:text-stone-300 whitespace-nowrap shrink-0">
+              <span className="text-slate-600 dark:text-stone-300 whitespace-nowrap shrink-0">
                 ● ASSINATURA ATIVA - {subscriptionPlanDisplayName}
               </span>
             )}
@@ -2998,9 +3057,9 @@ export default function App() {
             {/* Separador */}
             <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
 
-            {/* Modalidade / Versão do Sistema */}
-            <span className="text-slate-700 dark:text-stone-300 whitespace-nowrap shrink-0">
-              ⚡ SILAGEM FÁCIL PRO • MODO COMPLETO
+            {/* ITEM 6 (CONTINUAÇÃO): INDICADOR DE MODO */}
+            <span className="text-slate-600 dark:text-stone-300 whitespace-nowrap shrink-0">
+              ⚡ SILAGEM FÁCIL PRO - MODO COMPLETO
             </span>
           </div>
 
