@@ -113,7 +113,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       {/* =========================================================================
           FAIXA 1: TOPO NOBRE (OCUPAR 40% DA ALTURA DA PÁGINA)
           Centralização absoluta do escudo/logotipo oficial do assinante (COLAÇA SILAGEM)
-          ampliado em escala máxima (w-[420px] max-w-[90vw] h-auto) para preenchimento
+          ampliado em escala máxima (w-[580px] max-w-[95vw] h-auto) para preenchimento
           completo dos 40% do topo da tela, sem poluição de textos
          ========================================================================= */}
       <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-6xl mx-auto px-4 overflow-hidden">
@@ -122,14 +122,14 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
             <img 
               src={companyProfile.logoUrl} 
               alt="COLAÇA SILAGEM"
-              className="w-[420px] max-w-[90vw] h-auto max-h-[96%] object-contain mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
+              className="w-[580px] max-w-[95vw] h-auto max-h-[96%] object-contain mb-2 sm:mb-3 mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
               referrerPolicy="no-referrer"
               onError={() => setClientLogoError(true)}
             />
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center py-1 px-2">
-            <ColacaSilagemEmblem className="w-[420px] max-w-[90vw] h-auto max-h-[96%] mx-auto block drop-shadow-md transition-transform hover:scale-[1.01] duration-150" />
+            <ColacaSilagemEmblem className="w-[580px] max-w-[95vw] h-auto max-h-[96%] mb-2 sm:mb-3 mx-auto block drop-shadow-md transition-transform hover:scale-[1.01] duration-150" />
           </div>
         )}
       </div>

@@ -5,7 +5,7 @@ interface ColacaSilagemEmblemProps {
 }
 
 export const ColacaSilagemEmblem: React.FC<ColacaSilagemEmblemProps> = ({ 
-  className = 'w-[420px] max-w-[90vw] h-auto mx-auto block' 
+  className = 'w-[580px] max-w-[95vw] h-auto mb-2 sm:mb-3 mx-auto block' 
 }) => {
   return (
     <svg 
