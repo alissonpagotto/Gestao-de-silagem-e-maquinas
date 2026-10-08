@@ -18,7 +18,6 @@ import {
   ModulePermissionKey 
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredCompanyProfile } from '../../lib/storage';
-import { EnsiladeiraVector } from '../home/EnsiladeiraVector';
 
 export interface SidebarProps {
   activeTab: string;
@@ -295,19 +294,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-700 p-0.5 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
-                <EnsiladeiraVector size="sm" className="w-8 h-8" />
+              /* Badge circular de branding do assinante (COLAÇA SILAGEM - CS) com gradiente metálico e luz interna 3D */
+              <div 
+                className="w-10 h-10 rounded-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-750 dark:via-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_1px_rgba(255,255,255,0.9),inset_-1px_-1px_1px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center shrink-0 select-none transition-transform hover:scale-105"
+                title="Colaça Silagem (CS)"
+              >
+                <span className="text-emerald-700 dark:text-emerald-400 font-black text-xs tracking-tight drop-shadow-[0_1px_0px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_0px_rgba(0,0,0,0.5)]">
+                  CS
+                </span>
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title="COLAÇA SILAGEM L.">
-                {companyProfile?.tradeName ? (companyProfile.tradeName.toUpperCase().includes('COLAÇA') ? 'COLAÇA SILAGEM L.' : companyProfile.tradeName) : 'COLAÇA SILAGEM L.'}
+              <h2 className="text-sm font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title="COLAÇA SILAGEM LTDA">
+                {companyProfile?.tradeName ? (companyProfile.tradeName.toUpperCase().includes('COLAÇA') ? 'COLAÇA SILAGEM LTDA' : companyProfile.tradeName) : 'COLAÇA SILAGEM LTDA'}
               </h2>
               <p 
-                className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[170px]"
-                title={dadosEmpresa?.ramoAtividade?.toUpperCase() || 'GESTÃO AGRÍCOLA'}
+                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[170px]"
+                title="SERVIÇOS DE SILAGEM"
               >
-                {dadosEmpresa?.ramoAtividade?.toUpperCase().includes('PRESTAÇÃO') ? 'GESTÃO AGRÍCOLA' : (dadosEmpresa?.ramoAtividade?.toUpperCase() || 'GESTÃO AGRÍCOLA')}
+                {dadosEmpresa?.ramoAtividade?.toUpperCase().includes('PRESTAÇÃO') || dadosEmpresa?.ramoAtividade?.toUpperCase().includes('GESTÃO') ? 'SERVIÇOS DE SILAGEM' : (dadosEmpresa?.ramoAtividade?.toUpperCase() || 'SERVIÇOS DE SILAGEM')}
               </p>
             </div>
           </div>

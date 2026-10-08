@@ -62,6 +62,8 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   onNavigate,
   companyProfile,
 }) => {
+  const [imgError, setImgError] = useState(false);
+
   // Leitura reativa dos indicadores do painel comercial no LocalStorage
   const [indicators, setIndicators] = useState<IndicatorValues>(() => {
     try {
@@ -131,31 +133,12 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
         </div>
       </div>
 
-      {/* 2. CENTRO PRINCIPAL: LOGOTIPO OFICIAL DA ENSILADEIRA COM CIFRÃO E GRID COMERCIAL */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-6xl min-h-0 my-auto py-1">
+      {/* 2. CENTRO PRINCIPAL: GRADE DE CARDS AZUIS NO TOPO E LOGO MASTER 3D NA BASE */}
+      <div className="flex-1 flex flex-col items-center justify-between w-full max-w-6xl min-h-0 my-auto py-1 gap-3 sm:gap-4 overflow-hidden">
         
-        {/* LOGOTIPO CENTRAL EXPANDIDO 100%: ENSILADEIRA AUTOMOTRIZ VERDE COM CIFRÃO ($) */}
-        <div className="flex flex-col items-center justify-center text-center shrink-0 mb-1 sm:mb-2">
-          <div 
-            className="w-48 sm:w-56 md:w-64 max-h-[160px] sm:max-h-[190px] flex items-center justify-center transition-transform hover:scale-105 duration-200 cursor-pointer" 
-            onClick={() => onNavigate('dashboard')} 
-            title="Visão Executiva do AgroControl"
-          >
-            <EnsiladeiraVector size="custom" className="w-full h-auto max-h-[155px] sm:max-h-[185px] drop-shadow-lg" />
-          </div>
-
-          <h1 className="text-slate-800 dark:text-slate-100 font-black text-4xl sm:text-5xl tracking-tight [text-shadow:_0_1px_0_rgba(255,255,255,0.95)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.1)] leading-none mt-2.5 sm:mt-3 select-none">
-            AgroControl
-          </h1>
-
-          <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-1 select-none">
-            GESTÃO DE SILAGEM E MÁQUINAS
-          </p>
-        </div>
-
-        {/* 3. GRID DE DASHBOARDS COMERCIAIS E FISCAIS DA HOME (PRINT 2) */}
+        {/* TOPO ABSOLUTO: GRID DE DASHBOARDS COMERCIAIS E FISCAIS (PRINT 2) */}
         {/* BLOCOS AZUIS HORIZONTAIS E PARALELOS EM CAIXA ALTA */}
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-2.5 mt-3 sm:mt-4 shrink-0">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-2.5 shrink-0">
           
           {/* SEÇÃO 1: CONTAS A RECEBER */}
           <div className="flex flex-col rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/90 dark:bg-stone-850/90">
@@ -456,6 +439,38 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
             </div>
           </div>
 
+        </div>
+
+        {/* BASE: CONJUNTO MASTER DO LOGOTIPO AGROCONTROL 3D (PRINT 1 & RETÂNGULO ROSA DA BASE) */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center my-auto shrink-0 min-h-0 py-1">
+          {/* Nova Imagem Master Oficial da Ensiladeira 3D com tubo expelindo grãos e saco de moedas de R$ (Print 1) */}
+          <div 
+            className="relative max-w-sm sm:max-w-md md:max-w-lg max-h-[175px] sm:max-h-[210px] flex items-center justify-center transition-transform hover:scale-[1.02] duration-200 cursor-pointer"
+            onClick={() => onNavigate('dashboard')}
+            title="Visão Executiva do AgroControl"
+          >
+            {!imgError ? (
+              <img 
+                src="/src/assets/images/agrocontrol_3d_master_1791471290539.jpg"
+                alt="AgroControl - Ensiladeira Automotriz 3D"
+                className="max-h-[155px] sm:max-h-[190px] md:max-h-[205px] w-auto object-contain rounded-xl shadow-md border border-amber-200/50 dark:border-stone-700 bg-amber-50/20"
+                referrerPolicy="no-referrer"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <EnsiladeiraVector size="lg" className="h-28 sm:h-36 w-auto drop-shadow-md" />
+            )}
+          </div>
+
+          {/* Nome da Marca: AgroControl (CamelCase, apenas A e C maiúsculos) */}
+          <h1 className="text-slate-800 dark:text-slate-100 font-black text-3xl tracking-tight [text-shadow:_0_1px_0_rgba(255,255,255,0.95)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.1)] leading-none mt-2 select-none">
+            AgroControl
+          </h1>
+
+          {/* Subtítulo: GESTÃO DE SILAGEM E MÁQUINAS em caixa alta micro e verde-corporativo */}
+          <p className="text-emerald-600 dark:text-emerald-400 font-bold text-xs tracking-widest uppercase mt-1 select-none">
+            GESTÃO DE SILAGEM E MÁQUINAS
+          </p>
         </div>
 
       </div>
