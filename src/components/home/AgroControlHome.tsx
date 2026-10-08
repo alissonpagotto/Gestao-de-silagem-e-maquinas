@@ -462,7 +462,8 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
               <img 
                 src="/src/assets/images/ensiladeira_moedas_1791492311961.jpg"
                 alt="AgroControl - Ensiladeira com Moedas de Ouro"
-                className="w-44 h-auto mx-auto block object-contain drop-shadow-sm transition-all"
+                className="w-44 h-auto mx-auto block object-contain mix-blend-multiply drop-shadow-sm transition-all"
+                style={{ mixBlendMode: 'multiply' }}
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
               />
