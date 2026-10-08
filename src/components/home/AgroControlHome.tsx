@@ -446,42 +446,40 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       </div>
 
       {/* =========================================================================
-          FAIXA 3: BASE DA TELA (LOGO AGROCONTROL BEM PRÓXIMA AO RODAPÉ)
-          Conjunto oficial da marca 'AgroControl' fixo e achatado bem colado 
-          à barra de rodapé cinza do sistema: imagem oficial da ensiladeira 3D 
-          em tamanho reduzido/elegante + nome 'AgroControl' + subtítulo oficial.
+          FAIXA 3: BASE DA TELA (BLOCO DA MARCA AGROCONTROL OFICIAL 100% CENTRALIZADO)
+          Fluxo vertical perfeitamente centralizado: Imagem oficial da ensiladeira 
+          com saco de moedas acima, seguida de 'AgroControl' e 'GESTÃO DE SILAGEM E MÁQUINAS'
          ========================================================================= */}
-      <div className="w-full max-w-7xl mx-auto shrink-0 mt-auto flex flex-col items-center select-none pt-1 pb-1">
-        {/* Bloco Master AgroControl Achatado e Próximo ao Rodapé */}
+      <div className="flex flex-col items-center justify-center text-center mt-auto pb-2 w-full select-none">
         <div 
-          className="flex items-center justify-center gap-3 py-0.5 cursor-pointer transition-transform hover:scale-[1.02] duration-150"
+          className="flex flex-col items-center justify-center text-center cursor-pointer transition-transform hover:scale-[1.01] duration-150"
           onClick={() => onNavigate('dashboard')}
           title="Visão Executiva do AgroControl"
         >
-          {/* Imagem Oficial da Ensiladeira 3D (reduzida e sem caixas beges) */}
-          <div className="shrink-0 flex items-center justify-center">
+          {/* 1. Imagem Oficial Fiel: Ensiladeira com Saco de Moedas (Print 2) */}
+          <div className="shrink-0 mb-1">
             {!imgError ? (
               <img 
-                src="/src/assets/images/agrocontrol_3d_master_1791471290539.jpg"
-                alt="AgroControl"
-                className="h-10 sm:h-12 w-auto object-contain rounded-lg drop-shadow-sm transition-all"
+                src="/src/assets/images/ensiladeira_moedas_1791492311961.jpg"
+                alt="AgroControl - Ensiladeira com Moedas de Ouro"
+                className="w-44 h-auto mx-auto block object-contain drop-shadow-sm transition-all"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
               />
             ) : (
-              <EnsiladeiraVector size="sm" className="h-10 sm:h-11 w-auto drop-shadow-sm" />
+              <EnsiladeiraVector size="lg" className="w-44 h-auto drop-shadow-sm mx-auto block" />
             )}
           </div>
 
-          {/* Nome da Marca: AgroControl (CamelCase exata) e Subtítulo */}
-          <div className="flex flex-col text-left justify-center">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none [text-shadow:_0_1px_0_rgba(255,255,255,0.9)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.05)]">
-              AgroControl
-            </h2>
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-0.5 leading-tight">
-              GESTÃO DE SILAGEM E MÁQUINAS
-            </p>
-          </div>
+          {/* 2. Alinhamento do Nome Comercial: AgroControl (CamelCase exata) */}
+          <h2 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight leading-tight [text-shadow:_0_1px_0_rgba(255,255,255,0.9)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.05)]">
+            AgroControl
+          </h2>
+
+          {/* 3. Alinhamento da Descrição de Especialidade 100% Caixa Alta */}
+          <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-0.5 leading-tight">
+            GESTÃO DE SILAGEM E MÁQUINAS
+          </p>
         </div>
       </div>
 
