@@ -151,35 +151,35 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (field: keyof CompanyProfile, value: string) => {
-    setFormData(prev => {
-      const updated = {
-        ...prev,
-        [field]: value
-      };
-      if (field === 'activitySector') {
-        try {
-          if (typeof window !== 'undefined') {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    if (field === 'activitySector') {
+      try {
+        if (typeof window !== 'undefined') {
+          const existingRaw = localStorage.getItem('dadosEmpresa');
+          const existing = existingRaw ? JSON.parse(existingRaw) : {};
+          localStorage.setItem('dadosEmpresa', JSON.stringify({
+            ...existing,
+            ramoAtividade: value,
+            activitySector: value
+          }));
+          queueMicrotask(() => {
             window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', {
               detail: { activitySector: value, ramoAtividade: value }
             }));
-            const existingRaw = localStorage.getItem('dadosEmpresa');
-            const existing = existingRaw ? JSON.parse(existingRaw) : {};
-            localStorage.setItem('dadosEmpresa', JSON.stringify({
-              ...existing,
-              ramoAtividade: value,
-              activitySector: value
-            }));
-          }
-          const stored = getStoredCompanyProfile();
-          if (stored) {
-            saveStoredCompanyProfile({ ...stored, activitySector: value, ramoAtividade: value } as any);
-          }
-        } catch (e) {
-          console.warn('Erro ao sincronizar setor em tempo real:', e);
+          });
         }
+        const stored = getStoredCompanyProfile();
+        if (stored) {
+          saveStoredCompanyProfile({ ...stored, activitySector: value, ramoAtividade: value } as any);
+        }
+      } catch (e) {
+        console.warn('Erro ao sincronizar setor em tempo real:', e);
       }
-      return updated;
-    });
+    }
   };
 
   // CNPJ / CPF with auto-mask and auto-lookup
