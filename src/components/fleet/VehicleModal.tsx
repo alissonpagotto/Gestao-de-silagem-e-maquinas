@@ -767,7 +767,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         outro: 'Outro Equipamento',
         veiculo: 'Caminhão (Basculante / Graneleiro)'
       };
-      const rawEditCat = String(editingVehicle.categoryType || editingVehicle.tipo || (editingVehicle as any).type || '').trim();
+      const rawEditCat = String(
+        (editingVehicle as any).categoriaVeiculo ||
+        (editingVehicle as any).categoria ||
+        editingVehicle.categoryType ||
+        editingVehicle.tipo ||
+        (editingVehicle as any).type ||
+        ''
+      ).trim();
       const mappedEditCat = categoryMap[rawEditCat.toLowerCase()] || rawEditCat;
       const safeEditCat = mappedEditCat && mappedEditCat.toLowerCase() !== 'veiculo' ? mappedEditCat : (categoriesList[0] || 'Ensiladeira Autopropelida');
       setCategoryType(safeEditCat);
@@ -1398,6 +1405,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       numero_frota: cleanFleetNumberInt,
       fleet_number: cleanFleetNumberInt,
       categoryType: finalCategoryType,
+      categoriaVeiculo: finalCategoryType,
+      categoria: finalCategoryType,
       tipo: finalCategoryType,
       tipo_modelo: computedTipoModelo,
       status: status || 'disponivel',
@@ -1641,17 +1650,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             )}
           </div>
 
-          {/* Action Buttons: Imprimir Cadastro & Imprimir Histórico */}
+          {/* Action Buttons: Imprimir Cadastro & Imprimir Histórico (3D Slim) */}
           <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={handlePrintCadastro}
               title="Imprimir Ficha Cadastral do Veículo"
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all flex items-center space-x-1.5 border border-slate-400 dark:border-stone-600 cursor-pointer text-slate-800 dark:text-stone-200 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 hover:bg-slate-200 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.05)] active:scale-95"
             >
-              <Printer className="w-3.5 h-3.5 text-zinc-700" />
-              <span className="font-bold whitespace-nowrap">
-                Imprimir Cadastro
+              <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+              <span className="font-semibold whitespace-nowrap">
+                IMPRIMIR CADASTRO
               </span>
             </button>
 
@@ -1659,11 +1668,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               type="button"
               onClick={handlePrintHistorico}
               title="Imprimir Relatório de Histórico, Consumo e DRE"
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all flex items-center space-x-1.5 border border-slate-400 dark:border-stone-600 cursor-pointer text-slate-800 dark:text-stone-200 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 hover:bg-slate-200 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.05)] active:scale-95"
             >
-              <Printer className="w-3.5 h-3.5 text-zinc-700" />
-              <span className="font-bold whitespace-nowrap">
-                Imprimir Histórico
+              <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+              <span className="font-semibold whitespace-nowrap">
+                IMPRIMIR HISTÓRICO
               </span>
             </button>
           </div>

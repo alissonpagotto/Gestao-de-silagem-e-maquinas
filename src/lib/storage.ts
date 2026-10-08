@@ -443,18 +443,34 @@ export function getStoredMachineries(): Machinery[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // Higienização segura preservando todos os cadastros do usuário
+    let needsResave = false;
     const cleaned = parsed.filter(m => {
       if (!m || typeof m !== 'object') return false;
       const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61'].includes(m.id);
       return !isMockId;
     }).map(m => {
+      // Normalização reativa de categoria vinda do LocalStorage (garante TRAÇÃO CAMINHÃO TRATOR e JAGUAR 860)
+      if (!m.categoriaVeiculo) {
+        if (m.categoria) {
+          m.categoriaVeiculo = m.categoria;
+          needsResave = true;
+        } else if (m.compositionType === 'cavalo' || (m.licensePlateOrSerial && String(m.licensePlateOrSerial).toUpperCase().includes('AKT')) || (m.model && String(m.model).toUpperCase().includes('AKT'))) {
+          m.categoriaVeiculo = 'Tração Caminhão Trator (Cavalo)';
+          m.categoria = 'Tração Caminhão Trator (Cavalo)';
+          needsResave = true;
+        } else if ((m.model && String(m.model).toUpperCase().includes('JAGUAR')) || (m.name && String(m.name).toUpperCase().includes('JAGUAR')) || m.categoryType === 'forrageira' || m.tipo === 'forrageira') {
+          m.categoriaVeiculo = 'Ensiladeira Autopropelida';
+          m.categoria = 'Ensiladeira Autopropelida';
+          needsResave = true;
+        }
+      }
       const img = m.imageUrl || m.photoUrl;
       if (img && (img.includes('wix_mp.com') || img.includes('wix_mp') || img.includes('static.wixstatic.com') || img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
         return { ...m, imageUrl: undefined, photoUrl: undefined, foto_url: undefined };
       }
       return m;
     });
-    if (cleaned.length !== parsed.length) {
+    if (cleaned.length !== parsed.length || needsResave) {
       localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(cleaned));
     }
     return cleaned;

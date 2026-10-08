@@ -224,6 +224,8 @@ export interface Machinery {
   reaisNotes?: string;
   accumulatedCost?: number; // Acumulado R$
   categoryType?: 'caminhao' | 'ensiladeira' | 'forrageira' | 'trator' | 'onibus' | 'utilitario' | 'reboque' | 'outro' | string;
+  categoriaVeiculo?: string; // Categoria do Veículo no padrão direto (ex: 'TRAÇÃO CAMINHÃO TRATOR (CAVALO)')
+  categoria?: string; // Categoria do Veículo (compatibilidade)
   fuelCapacityLiters?: number;
   tank_capacity?: number; // Volume do tanque de combustível (L)
   tankCapacity?: number; // Alias para volume do tanque (L)
