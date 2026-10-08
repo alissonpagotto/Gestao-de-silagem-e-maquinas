@@ -113,23 +113,23 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       {/* =========================================================================
           FAIXA 1: TOPO NOBRE (OCUPAR 40% DA ALTURA DA PÁGINA)
           Centralização absoluta do escudo/logotipo oficial do assinante (COLAÇA SILAGEM)
-          expandido de forma massiva para preencher com imponência o retângulo superior,
-          livre de poluição de letreiros ou badges de status (dados presentes no MDI)
+          ampliado em escala máxima (w-[420px] max-w-[90vw] h-auto) para preenchimento
+          completo dos 40% do topo da tela, sem poluição de textos
          ========================================================================= */}
-      <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-5xl mx-auto px-4 overflow-hidden">
+      <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-6xl mx-auto px-4 overflow-hidden">
         {companyProfile?.logoUrl && !clientLogoError ? (
-          <div className="w-full h-full flex items-center justify-center py-2 px-4">
+          <div className="w-full h-full flex items-center justify-center py-1 px-2">
             <img 
               src={companyProfile.logoUrl} 
               alt="COLAÇA SILAGEM"
-              className="max-h-[90%] w-auto max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl object-contain mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
+              className="w-[420px] max-w-[90vw] h-auto max-h-[96%] object-contain mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
               referrerPolicy="no-referrer"
               onError={() => setClientLogoError(true)}
             />
           </div>
         ) : (
-          <div className="w-full h-full flex items-center justify-center py-2 px-4">
-            <ColacaSilagemEmblem className="w-80 sm:w-96 md:w-[28rem] max-w-md md:max-w-xl max-h-[90%] h-auto mx-auto block drop-shadow-md transition-transform hover:scale-[1.01] duration-150" />
+          <div className="w-full h-full flex items-center justify-center py-1 px-2">
+            <ColacaSilagemEmblem className="w-[420px] max-w-[90vw] h-auto max-h-[96%] mx-auto block drop-shadow-md transition-transform hover:scale-[1.01] duration-150" />
           </div>
         )}
       </div>
