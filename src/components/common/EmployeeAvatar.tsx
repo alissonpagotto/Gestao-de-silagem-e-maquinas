@@ -14,7 +14,11 @@ export function isBrokenAvatarUrl(url?: string | null): boolean {
     trimmed === 'undefined' ||
     trimmed.includes('wix_mp.com') ||
     trimmed.includes('wix_mp') ||
-    trimmed.includes('static.wixstatic.com')
+    trimmed.includes('static.wixstatic.com') ||
+    trimmed.includes('supabase.co') ||
+    trimmed.includes('supabase.in') ||
+    trimmed.includes('supabase.net') ||
+    trimmed.includes('/storage/v1/object/public')
   ) {
     return true;
   }

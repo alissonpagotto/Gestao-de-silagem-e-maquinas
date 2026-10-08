@@ -33,7 +33,16 @@ import {
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { useConfirm } from '../../context/ConfirmContext';
-import { EmployeeAvatar } from '../common/EmployeeAvatar';
+const getDriverInitials = (fullName?: string): string => {
+  if (!fullName) return 'MO';
+  const clean = fullName.trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'MO';
+  if (parts.length === 1) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
 
 export interface FleetDriversViewProps {
   employees: Employee[];
@@ -387,11 +396,37 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      // Forçar abertura em nova janela limpa caso o iframe principal esteja em sandbox estrito
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        // Injetar o HTML limpo da tabela e disparar o print por lá
+        printWindow.document.write('<html><head><title>COLAÇA SILAGEM - RELATÓRIO DE MOTORISTAS</title>');
+        printWindow.document.write(`
+          <style>
+            @page { size: A4 portrait; margin: 8mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #000; margin: 0; padding: 12px; background: #fff; }
+            .print-header-area { display: block !important; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+            th, td { border: 1px solid #d1d5db; padding: 4px 6px; text-align: left; }
+            th { background-color: #f3f4f6; font-weight: 800; text-transform: uppercase; font-size: 10px; }
+            .no-print, .print\\:hidden { display: none !important; }
+          </style>
+        `);
+        printWindow.document.write('</head><body>' + (document.getElementById('area-tabela-motoristas')?.innerHTML || '') + '</body></html>');
+        printWindow.document.close();
+        printWindow.print();
+      } else {
+        // Fallback clássico caso pop-ups estejam bloqueados
+        window.print();
+      }
+    } catch (e) {
+      window.print();
+    }
   };
 
   return (
-    <div id="drivers-report-container" className="space-y-3 animate-in fade-in duration-200 w-full print:m-0 print:p-0">
+    <div className="space-y-3 animate-in fade-in duration-200">
       
       {/* Compact Top Bar: Title + Interactive CNH Stat Badges */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 bg-white dark:bg-stone-900 p-2.5 sm:p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs no-print print:hidden">
@@ -482,7 +517,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           <button
             type="button"
             id="btn-imprimir-lista-motoristas"
-            onClick={() => window.print()}
+            onClick={handlePrint}
             title="Visualizar e Imprimir Lista de Motoristas em Folha A4"
             className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
           >
@@ -532,288 +567,223 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         </div>
       </div>
 
-      {/* Header exclusivo para impressão em papel A4 */}
-      <div className="hidden print:block mb-3 border-b-2 border-black pb-2 text-black w-full">
-        <div className="flex items-center justify-between w-full">
-          <div>
-            <h1 className="text-sm font-black uppercase tracking-wider text-black">
-              {companyProfile?.tradeName || companyProfile?.corporateName || 'COLAÇA SILAGEM'} — RELATÓRIO DE MOTORISTAS & CNH
-            </h1>
-            <p className="text-[10px] text-gray-700">
-              Gestão de Frotas & Transporte • Emissão: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+      {/* Area de Impressão e Tabela de Motoristas */}
+      <div id="area-tabela-motoristas">
+        {/* Header exclusivo para impressão em papel A4 */}
+        <div className="hidden print:block print-header-area mb-4 border-b-2 border-black pb-2 text-black">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-black uppercase tracking-wider">
+                {companyProfile?.tradeName || companyProfile?.corporateName || 'COLAÇA SILAGEM'} — RELATÓRIO DE MOTORISTAS & CNH
+              </h1>
+              <p className="text-[11px] text-gray-700">
+                Gestão de Frotas & Transporte • Emissão: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            <div className="text-right text-[11px]">
+              <p className="font-bold">Total Listado: {driversList.length} motorista(s)</p>
+              <p className="text-gray-700">Em dia: {cnhReport.valid.length} | Vencendo: {cnhReport.expiringSoon.length} | Vencidas: {cnhReport.expired.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 8mm;
+            }
+            body, html {
+              background: #ffffff !important;
+              color: #000000 !important;
+              overflow: visible !important;
+            }
+            aside, nav, header, #main-sidebar, #top-bar-container, #fleet-subtabs-nav, .no-print, .print\\:hidden {
+              display: none !important;
+            }
+            #crm-main-content, main, #fleet-management-module {
+              padding: 0 !important;
+              margin: 0 !important;
+              overflow: visible !important;
+              max-height: none !important;
+            }
+            table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              font-size: 11px !important;
+            }
+            th, td {
+              border: 1px solid #d1d5db !important;
+              padding: 4px 6px !important;
+              color: #000000 !important;
+            }
+            th {
+              background-color: #f3f4f6 !important;
+              font-weight: 800 !important;
+            }
+          }
+        `}</style>
+
+        {/* Empty State */}
+        {driversList.length === 0 && (
+          <div className="bg-white rounded-2xl border border-zinc-300 p-12 text-center shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-700 flex items-center justify-center mx-auto mb-3 border border-zinc-300">
+              <UserCheck className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+              Nenhum motorista encontrado
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
+              Não há motoristas cadastrados que correspondam aos filtros ou termo de busca aplicados.
             </p>
           </div>
-          <div className="text-right text-[10px]">
-            <p className="font-bold text-black">Total Listado: {driversList.length} motorista(s)</p>
-            <p className="text-gray-700">Em dia: {cnhReport.valid.length} | Vencendo: {cnhReport.expiringSoon.length} | Vencidas: {cnhReport.expired.length}</p>
-          </div>
-        </div>
-      </div>
+        )}
 
-      <style>{`
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm 10mm 10mm 10mm;
-          }
-          *, *::before, *::after {
-            box-sizing: border-box !important;
-          }
-          body, html {
-            background: #ffffff !important;
-            color: #000000 !important;
-            overflow: visible !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          aside, nav, header, #main-sidebar, #top-bar-container, #fleet-subtabs-nav, .no-print, .print\\:hidden {
-            display: none !important;
-          }
-          #main-layout-container, #main-layout-content, #crm-main-content, main, #fleet-management-module, #drivers-report-container {
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: visible !important;
-            max-height: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            border: none !important;
-            box-shadow: none !important;
-          }
-          #drivers-table-wrapper {
-            width: 100% !important;
-            max-width: 100% !important;
-            border: 1px solid #94a3b8 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            overflow: visible !important;
-          }
-          table {
-            width: 100% !important;
-            max-width: 100% !important;
-            table-layout: auto !important;
-            border-collapse: collapse !important;
-            font-size: 10px !important;
-          }
-          thead {
-            display: table-header-group !important;
-          }
-          tr {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-          th, td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 4px 6px !important;
-            color: #000000 !important;
-            font-size: 10px !important;
-            line-height: 1.25 !important;
-          }
-          th {
-            background-color: #f1f5f9 !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            font-size: 10px !important;
-            color: #334155 !important;
-          }
-          /* Garantir cores legíveis e nítidas no papel */
-          .print-badge-cnh-valid {
-            color: #15803d !important;
-            background: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            font-size: 10px !important;
-            font-weight: 700 !important;
-          }
-          .print-badge-cnh-warning {
-            color: #b45309 !important;
-            background: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            font-size: 10px !important;
-            font-weight: 700 !important;
-          }
-          .print-badge-cnh-danger {
-            color: #b91c1c !important;
-            background: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            font-size: 10px !important;
-            font-weight: 700 !important;
-          }
-        }
-      `}</style>
+        {/* Drivers Table / List View */}
+        {driversList.length > 0 && (
+          <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' ? 'block' : 'hidden print:block'}`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50/75 dark:bg-stone-800/40 text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-2 px-3">Motorista / Cargo</th>
+                    <th className="py-2 px-3">CNH & Categoria</th>
+                    <th className="py-2 px-3">Validade CNH</th>
+                    <th className="py-2 px-3">Veículo Habitual</th>
+                    <th className="py-2 px-3">Contato / WhatsApp</th>
+                    <th className="py-2 px-3 text-center">Status</th>
+                    <th className="py-2 px-3 text-right no-print print:hidden">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
+                  {driversList.map((driver) => {
+                    const isExpired = cnhReport.expired.some(e => e.id === driver.id);
+                    const isExpiring = cnhReport.expiringSoon.some(e => e.id === driver.id);
+                    const dName = String(driver.name || '').trim().toLowerCase();
+                    const assignedTruck = machineries.find(m => (m.operatorOrDriver || '').trim().toLowerCase() === dName);
 
-      {/* Empty State */}
-      {driversList.length === 0 && (
-        <div className="bg-white rounded-2xl border border-zinc-300 p-12 text-center shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-700 flex items-center justify-center mx-auto mb-3 border border-zinc-300">
-            <UserCheck className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
-            Nenhum motorista encontrado
-          </h3>
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
-            Não há motoristas cadastrados que correspondam aos filtros ou termo de busca aplicados.
-          </p>
-        </div>
-      )}
-
-      {/* Drivers Table / List View */}
-      {driversList.length > 0 && (
-        <div 
-          id="drivers-table-wrapper"
-          className={`bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden print:border-none print:shadow-none print:rounded-none ${viewMode === 'table' ? 'block' : 'hidden print:block'}`}
-        >
-          <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full text-left border-collapse text-xs print:text-[10px]">
-              <thead>
-                <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50/75 dark:bg-stone-800/40 text-stone-700 dark:text-stone-300 font-bold uppercase tracking-wider text-[10px] print:bg-slate-100 print:text-slate-700">
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-[10px] font-bold text-slate-700 uppercase">MOTORISTA / CARGO</th>
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-[10px] font-bold text-slate-700 uppercase whitespace-nowrap">CNH & CATEGORIA</th>
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-[10px] font-bold text-slate-700 uppercase whitespace-nowrap">VALIDADE CNH</th>
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-[10px] font-bold text-slate-700 uppercase">VEÍCULO HABITUAL</th>
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-[10px] font-bold text-slate-700 uppercase whitespace-nowrap">CONTATO / WHATSAPP</th>
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-center text-[10px] font-bold text-slate-700 uppercase whitespace-nowrap">STATUS</th>
-                  <th className="py-3 px-3 print:py-1 print:px-1.5 text-right no-print print:hidden text-[10px] font-bold text-slate-700 uppercase">AÇÕES</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 print:divide-slate-200 font-medium text-[10px] sm:text-xs">
-                {driversList.map((driver) => {
-                  const isExpired = cnhReport.expired.some(e => e.id === driver.id);
-                  const isExpiring = cnhReport.expiringSoon.some(e => e.id === driver.id);
-                  const dName = String(driver.name || '').trim().toLowerCase();
-                  const assignedTruck = machineries.find(m => (m.operatorOrDriver || '').trim().toLowerCase() === dName);
-
-                  return (
-                    <tr
-                      key={driver.id}
-                      className="hover:bg-stone-50/80 dark:hover:bg-stone-800/30 transition group print:hover:bg-transparent"
-                    >
-                      {/* Motorista / Cargo */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 align-middle">
-                        <div className="flex items-center space-x-2 print:space-x-1.5">
-                          <span className="no-print print:hidden">
-                            <EmployeeAvatar
-                              photoUrl={driver.photoUrl}
-                              name={driver.name}
-                              size="sm"
-                              showInitials
-                              className="bg-zinc-800 text-white border-zinc-700 w-7 h-7 text-[10px]"
-                            />
-                          </span>
-                          <div className="min-w-0">
-                            <div className="font-bold text-zinc-900 dark:text-zinc-100 text-xs print:text-[10px] print:text-black leading-tight">
-                              {driver.name}
+                    return (
+                      <tr
+                        key={driver.id}
+                        className="hover:bg-stone-50/80 dark:hover:bg-stone-800/30 transition group"
+                      >
+                        {/* Motorista / Cargo */}
+                        <td className="py-1 px-3">
+                          <div className="flex items-center space-x-2.5">
+                            <div className="bg-zinc-800 text-white flex items-center justify-center font-bold rounded-full w-8 h-8 text-xs shrink-0 select-none">
+                              {getDriverInitials(driver.name)}
                             </div>
-                            <div className="text-[10px] text-zinc-600 dark:text-zinc-400 print:text-[9px] print:text-zinc-700 font-medium leading-tight">
-                              {driver.role || 'Motorista'}
+                            <div className="min-w-0">
+                              <div className="font-bold text-zinc-900 dark:text-zinc-100 text-xs truncate">
+                                {driver.name}
+                              </div>
+                              <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-tight">
+                                {driver.role || 'Motorista'}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* CNH & Categoria */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 whitespace-nowrap align-middle">
-                        <div className="flex items-center space-x-1.5 print:space-x-1 text-xs print:text-[10px]">
-                          <span className="font-mono text-zinc-800 dark:text-zinc-200 print:text-black">
-                            {driver.cnhNumber || 'Não informada'}
-                          </span>
-                          <span className="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-800 border border-zinc-200 font-extrabold text-[9px] print:text-[9px] print:border-slate-300">
-                            Cat. {driver.cnhCategory || 'E'}
-                          </span>
-                        </div>
-                      </td>
+                        {/* CNH & Categoria */}
+                        <td className="py-1 px-3 whitespace-nowrap">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-mono text-zinc-800 dark:text-zinc-200 text-xs">
+                              {driver.cnhNumber || 'Não informada'}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-stone-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-stone-700 font-extrabold text-[10px]">
+                              Cat. {driver.cnhCategory || 'E'}
+                            </span>
+                          </div>
+                        </td>
 
-                      {/* Validade CNH */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 whitespace-nowrap align-middle">
-                        <div className="flex items-center space-x-1 text-xs print:text-[10px]">
-                          {isExpired ? (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 font-bold text-[11px] print:text-[10px] border border-rose-200 dark:border-rose-800/60 print:border-none print:p-0 print:text-rose-700">
-                              <AlertCircle className="w-3 h-3 text-rose-600 print:hidden" />
-                              <span>{formatDateBR(driver.cnhExpiration)} (Vencida)</span>
-                            </span>
-                          ) : isExpiring ? (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 font-bold text-[11px] print:text-[10px] border border-amber-200 dark:border-amber-800/60 print:border-none print:p-0 print:text-amber-700">
-                              <AlertTriangle className="w-3 h-3 text-amber-600 print:hidden" />
-                              <span>{formatDateBR(driver.cnhExpiration)} (Vence logo)</span>
-                            </span>
+                        {/* Validade CNH */}
+                        <td className="py-1 px-3 whitespace-nowrap">
+                          <div className="flex items-center space-x-1.5">
+                            {isExpired ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 font-bold text-[11px] border border-rose-200 dark:border-rose-800/60">
+                                <AlertCircle className="w-3 h-3 text-rose-600" />
+                                <span>{formatDateBR(driver.cnhExpiration)} (Vencida)</span>
+                              </span>
+                            ) : isExpiring ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 font-bold text-[11px] border border-amber-200 dark:border-amber-800/60">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                <span>{formatDateBR(driver.cnhExpiration)} (Vence logo)</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 font-bold text-[11px] border border-emerald-200 dark:border-emerald-800/60">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>{formatDateBR(driver.cnhExpiration)}</span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Veículo Habitual */}
+                        <td className="py-1 px-3 whitespace-nowrap">
+                          {assignedTruck ? (
+                            <div className="flex items-center space-x-1.5 text-sky-700 dark:text-sky-400 font-bold text-xs">
+                              <Truck className="w-3.5 h-3.5 shrink-0" />
+                              <span>{assignedTruck.licensePlateOrSerial || assignedTruck.model}</span>
+                            </div>
                           ) : (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 font-bold text-[11px] print:text-[10px] border border-emerald-200 dark:border-emerald-800/60 print:border-none print:p-0 print:text-emerald-700">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" />
-                              <span>{formatDateBR(driver.cnhExpiration)}</span>
-                            </span>
+                            <span className="text-stone-400 italic text-xs">Livre / Rotativo</span>
                           )}
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Veículo Habitual */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 whitespace-nowrap align-middle">
-                        {assignedTruck ? (
-                          <div className="flex items-center space-x-1 text-sky-700 dark:text-sky-400 print:text-black font-bold text-xs print:text-[10px]">
-                            <Truck className="w-3 h-3 shrink-0 print:hidden" />
-                            <span>{assignedTruck.licensePlateOrSerial || assignedTruck.model}</span>
-                          </div>
-                        ) : (
-                          <span className="text-stone-400 print:text-zinc-500 italic text-[11px] print:text-[10px]">Livre / Rotativo</span>
-                        )}
-                      </td>
-
-                      {/* Contato / WhatsApp */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 whitespace-nowrap align-middle">
-                        {driver.phone ? (
-                          <div className="text-xs print:text-[10px] font-bold text-zinc-800 dark:text-zinc-200 print:text-black">
+                        {/* Contato / WhatsApp */}
+                        <td className="py-1 px-3 whitespace-nowrap">
+                          {driver.phone ? (
                             <a
                               href={`https://wa.me/55${driver.phone.replace(/\D/g, '')}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition print:bg-transparent print:p-0 print:text-black"
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition"
                             >
-                              <MessageSquare className="w-3 h-3 print:hidden" />
+                              <MessageSquare className="w-3 h-3" />
                               <span>{driver.phone}</span>
                             </a>
+                          ) : (
+                            <span className="text-stone-400 italic text-xs">Sem telefone</span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-1 px-3 text-center whitespace-nowrap">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                            driver.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:border-emerald-800' : 'bg-stone-100 text-stone-600'
+                          }`}>
+                            {driver.status}
+                          </span>
+                        </td>
+
+                        {/* Ações */}
+                        <td className="py-1 px-3 text-right whitespace-nowrap no-print print:hidden">
+                          <div className="flex items-center justify-end space-x-1">
+                            <button
+                              onClick={() => openEditDriverModal(driver)}
+                              className="p-1 text-stone-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-lg transition cursor-pointer"
+                              title="Editar Motorista"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(driver.id)}
+                              className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-lg transition cursor-pointer"
+                              title="Remover Motorista"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        ) : (
-                          <span className="text-stone-400 print:text-zinc-500 italic text-[11px] print:text-[10px]">Sem telefone</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 text-center whitespace-nowrap align-middle">
-                        <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[9px] print:text-[9px] font-extrabold uppercase ${
-                          driver.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:border-emerald-800 print:bg-transparent print:border-none print:text-emerald-800' : 'bg-stone-100 text-stone-600 print:bg-transparent print:border-none print:text-stone-700'
-                        }`}>
-                          {driver.status}
-                        </span>
-                      </td>
-
-                      {/* Ações */}
-                      <td className="py-2.5 px-3 print:py-1 print:px-1.5 text-right whitespace-nowrap no-print print:hidden align-middle">
-                        <div className="flex items-center justify-end space-x-1">
-                          <button
-                            onClick={() => openEditDriverModal(driver)}
-                            className="p-1 text-stone-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-lg transition cursor-pointer"
-                            title="Editar Motorista"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(driver.id)}
-                            className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-lg transition cursor-pointer"
-                            title="Remover Motorista"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Drivers Cards Grid View */}
       {driversList.length > 0 && viewMode === 'grid' && (
@@ -838,19 +808,15 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               <div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <EmployeeAvatar
-                      photoUrl={driver.photoUrl}
-                      name={driver.name}
-                      size="md"
-                      showInitials
-                      className="bg-zinc-800 text-white border-zinc-700"
-                    />
+                    <div className="bg-zinc-800 text-white flex items-center justify-center font-bold rounded-full w-8 h-8 text-xs shrink-0 select-none">
+                      {getDriverInitials(driver.name)}
+                    </div>
                     <div>
-                      <h4 className="text-sm font-bold text-zinc-900">
+                      <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                         {driver.name}
                       </h4>
-                      <p className="text-xs text-zinc-600 font-medium">
-                        {driver.role}
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                        {driver.role || 'Motorista'}
                       </p>
                     </div>
                   </div>
