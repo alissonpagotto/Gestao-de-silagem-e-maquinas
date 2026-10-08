@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
 import { EnsiladeiraVector } from './EnsiladeiraVector';
+import { ColacaSilagemEmblem } from './ColacaSilagemEmblem';
 
 export interface AgroControlHomeProps {
   onNavigate: (tab: string) => void;
@@ -60,6 +61,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   companyProfile,
 }) => {
   const [imgError, setImgError] = useState(false);
+  const [clientLogoError, setClientLogoError] = useState(false);
 
   // Leitura reativa dos indicadores do painel comercial no LocalStorage
   const [indicators, setIndicators] = useState<IndicatorValues>(() => {
@@ -102,19 +104,6 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
     }).format(indicators.outrosCobrancasPrevistas);
   }, [indicators.outrosCobrancasPrevistas]);
 
-  // Razão Social & Nome do Assinante
-  const corporateName = useMemo(() => {
-    return 'COLAÇA SILAGEM LTDA';
-  }, []);
-
-  const businessSubtitle = useMemo(() => {
-    const custom = companyProfile?.activitySector;
-    if (custom && custom.trim() !== '' && !custom.toLowerCase().includes('gestão de silagem') && !custom.toLowerCase().includes('silagem fácil')) {
-      return custom.toUpperCase();
-    }
-    return 'SERVIÇOS DE SILAGEM • LOCAÇÃO E PRESTAÇÃO DE SERVIÇOS AGRÍCOLAS';
-  }, [companyProfile]);
-
   return (
     <div 
       id="agrocontrol-home-root"
@@ -123,49 +112,26 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       
       {/* =========================================================================
           FAIXA 1: TOPO NOBRE (OCUPAR 40% DA ALTURA DA PÁGINA)
-          Dedicada exclusivamente para a identidade do assinante (COLAÇA SILAGEM LTDA)
-          e reservando espaço nobre para a futura inserção da logomarca oficial do cliente
+          Centralização absoluta do escudo/logotipo oficial do assinante (COLAÇA SILAGEM)
+          expandido de forma massiva para preencher com imponência o retângulo superior,
+          livre de poluição de letreiros ou badges de status (dados presentes no MDI)
          ========================================================================= */}
-      <div className="h-[40%] flex flex-col items-center justify-center text-center shrink-0 w-full max-w-5xl mx-auto px-4">
-        {/* Espaço reservado para a Logomarca Oficial do Assinante */}
-        {companyProfile?.logoUrl ? (
-          <div className="mb-3 max-h-24 sm:max-h-28 flex items-center justify-center">
+      <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-5xl mx-auto px-4 overflow-hidden">
+        {companyProfile?.logoUrl && !clientLogoError ? (
+          <div className="w-full h-full flex items-center justify-center py-2 px-4">
             <img 
               src={companyProfile.logoUrl} 
-              alt={corporateName}
-              className="max-h-20 sm:max-h-24 w-auto object-contain drop-shadow-sm"
+              alt="COLAÇA SILAGEM"
+              className="max-h-[90%] w-auto max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl object-contain mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
               referrerPolicy="no-referrer"
+              onError={() => setClientLogoError(true)}
             />
           </div>
         ) : (
-          /* Emblema refinado do Assinante (CS) reservando a identidade oficial */
-          <div className="mb-2 sm:mb-3 flex items-center justify-center">
-            <div 
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-800 dark:via-stone-850 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_1px_1px_2px_rgba(255,255,255,0.9),inset_-1px_-1px_2px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center transition-transform hover:scale-105"
-              title="Espaço Reservado para Logomarca Oficial do Assinante"
-            >
-              <span className="text-emerald-700 dark:text-emerald-400 font-black text-xl sm:text-2xl tracking-tight drop-shadow-[0_1px_1px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)] font-['Outfit']">
-                CS
-              </span>
-            </div>
+          <div className="w-full h-full flex items-center justify-center py-2 px-4">
+            <ColacaSilagemEmblem className="w-80 sm:w-96 md:w-[28rem] max-w-md md:max-w-xl max-h-[90%] h-auto mx-auto block drop-shadow-md transition-transform hover:scale-[1.01] duration-150" />
           </div>
         )}
-
-        {/* Título Oficial: COLAÇA SILAGEM LTDA em fonte extra-negrito expandida */}
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-slate-800 dark:text-slate-100 tracking-tight font-['Outfit'] leading-tight drop-shadow-xs">
-          {corporateName}
-        </h1>
-
-        {/* Subtítulo descritivo em letras verdes corporativas */}
-        <p className="text-xs sm:text-sm md:text-base font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-1.5 sm:mt-2">
-          {businessSubtitle}
-        </p>
-
-        {/* Badge discreto de assinatura operacional ativa */}
-        <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-slate-200/60 dark:bg-stone-800/80 border border-slate-300/60 dark:border-stone-700/60 text-[10px] font-bold text-slate-600 dark:text-stone-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>ASSINATURA OPERACIONAL ATIVA</span>
-        </div>
       </div>
 
       {/* =========================================================================
