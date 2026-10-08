@@ -14,7 +14,7 @@ import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, get
 import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 
-interface FleetVehiclesViewProps {
+export interface FleetVehiclesViewProps {
   machineries: Machinery[];
   fuelLogs: FuelLog[];
   maintenanceLogs: MaintenanceLog[];

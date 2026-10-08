@@ -35,7 +35,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useConfirm } from '../../context/ConfirmContext';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
 
-interface FleetDriversViewProps {
+export interface FleetDriversViewProps {
   employees: Employee[];
   machineries: Machinery[];
   onSaveEmployees: (employees: Employee[]) => void;
