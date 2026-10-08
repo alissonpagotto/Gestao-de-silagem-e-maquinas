@@ -369,13 +369,41 @@ export function evaluateEmployeeVacationAlert(
 
   // Regra 2: FÉRIAS VENCIDAS (> 12 meses sem registro de gozo de férias)
   if (today >= twelveMonthsDate || monthsAccumulated > 12 || hasExplicitExpiredRecord) {
+    let overdueMonthsText = monthsText;
+    if (today > vestingEndEndObj) {
+      let odMonths = 0;
+      let odCursor = new Date(vestingEndEndObj.getTime());
+      while (true) {
+        const tYear = vestingEndEndObj.getFullYear() + Math.floor((vestingEndEndObj.getMonth() + odMonths + 1) / 12);
+        const tMonth = (vestingEndEndObj.getMonth() + odMonths + 1) % 12;
+        const maxD = new Date(tYear, tMonth + 1, 0).getDate();
+        const tDay = Math.min(vestingEndEndObj.getDate(), maxD);
+        const nextM = new Date(tYear, tMonth, tDay, 12, 0, 0);
+        if (nextM <= today) {
+          odMonths++;
+          odCursor = nextM;
+        } else {
+          break;
+        }
+      }
+      const msDiff = today.getTime() - odCursor.getTime();
+      const odDays = Math.max(0, Math.round(msDiff / (1000 * 60 * 60 * 24)));
+      if (odMonths > 0 && odDays > 0) {
+        overdueMonthsText = `${odMonths} ${odMonths === 1 ? 'MÊS' : 'MESES'} E ${odDays} ${odDays === 1 ? 'DIA' : 'DIAS'}`;
+      } else if (odMonths > 0) {
+        overdueMonthsText = `${odMonths} ${odMonths === 1 ? 'MÊS' : 'MESES'}`;
+      } else if (odDays > 0) {
+        overdueMonthsText = `${odDays} ${odDays === 1 ? 'DIA' : 'DIAS'}`;
+      }
+    }
+
     return {
       level: 'expired',
       badgeText: 'FÉRIAS VENCIDAS',
       title: 'ALERTA CRÍTICO: FÉRIAS VENCIDAS (PERÍODO CONCESSIVO LIMITE)',
-      description: `O período aquisitivo (${formatDateBR(vestingStartStr)} a ${formatDateBR(vestingEndStr)}) ultrapassou 12 meses (${monthsText} acumulados) sem registro de gozo de férias. A empresa entrou no período concessivo limite (data limite: ${formatDateBR(concessiveLimitStr)}).`,
+      description: `O período aquisitivo (${formatDateBR(vestingStartStr)} a ${formatDateBR(vestingEndStr)}) está vencido há ${overdueMonthsText.toLowerCase()} sem registro de gozo de férias. Data limite para gozo: ${formatDateBR(concessiveLimitStr)}.`,
       monthsAccumulated: Math.max(monthsAccumulated, 12.1),
-      monthsLabel: monthsText,
+      monthsLabel: overdueMonthsText,
       vestingStart: vestingStartStr,
       vestingEnd: vestingEndStr,
       concessiveLimit: concessiveLimitStr,

@@ -555,6 +555,71 @@ function calculateCltRightDays(
 }
 
 /**
+ * Calcula estritamente o tempo de atraso de férias vencidas a partir da DATA FINAL DO PERÍODO AQUISITIVO
+ * até a data atual de referência.
+ * Exemplo Alisson: Data Final do Período: 28/02/2026 | Data Atual: 08/10/2026 -> "7 MESES E 10 DIAS"
+ */
+export function calculateOverdueTimeFromPeriodEnd(
+  periodEndIso: string,
+  referenceDate: Date = new Date()
+): { months: number; days: number; label: string } {
+  if (!periodEndIso) {
+    return { months: 0, days: 0, label: '' };
+  }
+
+  const cleanEnd = formatIsoDateOnly(periodEndIso) || periodEndIso;
+  let endDate: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanEnd)) {
+    const [y, m, d] = cleanEnd.split('-').map(Number);
+    endDate = new Date(y, m - 1, d, 12, 0, 0);
+  } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanEnd)) {
+    const [d, m, y] = cleanEnd.split('/').map(Number);
+    endDate = new Date(y, m - 1, d, 12, 0, 0);
+  } else {
+    return { months: 0, days: 0, label: '' };
+  }
+
+  const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate(), 12, 0, 0);
+  if (today <= endDate) {
+    return { months: 0, days: 0, label: '' };
+  }
+
+  let months = 0;
+  let cursor = new Date(endDate.getTime());
+
+  while (true) {
+    const targetYear = endDate.getFullYear() + Math.floor((endDate.getMonth() + months + 1) / 12);
+    const targetMonth = (endDate.getMonth() + months + 1) % 12;
+    const maxDays = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const targetDay = Math.min(endDate.getDate(), maxDays);
+    const nextMonth = new Date(targetYear, targetMonth, targetDay, 12, 0, 0);
+
+    if (nextMonth <= today) {
+      months++;
+      cursor = nextMonth;
+    } else {
+      break;
+    }
+  }
+
+  const msDiff = today.getTime() - cursor.getTime();
+  const days = Math.max(0, Math.round(msDiff / (1000 * 60 * 60 * 24)));
+
+  let label = '';
+  if (months > 0 && days > 0) {
+    label = `${months} ${months === 1 ? 'MÊS' : 'MESES'} E ${days} ${days === 1 ? 'DIA' : 'DIAS'}`;
+  } else if (months > 0) {
+    label = `${months} ${months === 1 ? 'MÊS' : 'MESES'}`;
+  } else if (days > 0) {
+    label = `${days} ${days === 1 ? 'DIA' : 'DIAS'}`;
+  } else {
+    label = '1 DIA';
+  }
+
+  return { months, days, label };
+}
+
+/**
  * Motor Dinâmico de Cálculo de Férias da CLT (Passos A e B):
  * - PASSO A (Períodos Aquisitivos Totais): Varre o histórico de anos trabalhados desde a admissão até a data atual para segmentar os períodos de 12 meses.
  * - PASSO B (Cálculo do Período Atual / Proporcional): Identifica o início do período corrente, conta meses completos (frações >= 14 dias contam como mês integral na CLT) e multiplica por 2.5 para obter a quantidade exata de Férias Proporcionais Acumuladas.
@@ -585,6 +650,7 @@ export interface DynamicCltVacationResult {
   diasDireitoLabel: string;
   statusPeriodo: 'vencido' | 'proximo' | 'proporcional' | 'quitado';
   statusPeriodoLabel: string;
+  overdueLabel: string;
 }
 
 export function calculateDynamicCltVacation(
@@ -721,6 +787,13 @@ export function calculateDynamicCltVacation(
     concessiveLimit = targetCycle.concessiveLimitIso;
   }
 
+  // Cálculo estrito do tempo de atraso de férias vencidas a partir da data de término do período
+  let overdueLabel = '';
+  if (hasExpiredPeriod && activePeriodEnd) {
+    const od = calculateOverdueTimeFromPeriodEnd(activePeriodEnd, referenceDate);
+    overdueLabel = od.label;
+  }
+
   return {
     completedCycles,
     currentCycle: {
@@ -738,6 +811,7 @@ export function calculateDynamicCltVacation(
     diasDireitoLabel,
     statusPeriodo,
     statusPeriodoLabel,
+    overdueLabel,
   };
 }
 
@@ -755,6 +829,7 @@ export interface VacationManagementRow {
   isEmGozo: boolean;
   isQuitadoRegular: boolean;
   monthsLabel: string;
+  overdueLabel: string;
   vacationRecord: VacationRecord | null;
   linkedMachinery: Machinery | null;
   expiredDays: number;
@@ -1157,6 +1232,17 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         };
       }
 
+      // Cálculo dinâmico do tempo de atraso de férias vencidas a partir da DATA FINAL DO PERÍODO AQUISITIVO (acqEnd)
+      const overdueTime = calculateOverdueTimeFromPeriodEnd(acqEnd);
+      let calculatedMonthsLabel = '';
+      if (periodStatus === 'vencido') {
+        calculatedMonthsLabel = overdueTime.label || alertInfo.monthsLabel?.toUpperCase() || '';
+      } else if (periodStatus === 'proporcional') {
+        calculatedMonthsLabel = `${cltCalc.proportionalMonths}M ACUMULADOS`;
+      } else if (periodStatus === 'proximo') {
+        calculatedMonthsLabel = alertInfo.monthsLabel ? alertInfo.monthsLabel.toUpperCase() : '';
+      }
+
       return {
         rowKey: matchingRecord?.id ? toValidUUID(matchingRecord.id) : empUuid,
         employee: {
@@ -1175,7 +1261,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         isProgramado,
         isEmGozo,
         isQuitadoRegular,
-        monthsLabel: cltCalc.statusPeriodo === 'proporcional' ? `${cltCalc.proportionalMonths}m acumulados` : alertInfo.monthsLabel,
+        monthsLabel: calculatedMonthsLabel,
+        overdueLabel: overdueTime.label,
         vacationRecord: dynamicVacationRecord,
         linkedMachinery,
         expiredDays: cltCalc.expiredDays,
@@ -2817,10 +2904,12 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       <td className="py-1 px-3 text-center whitespace-nowrap">
                         <div className="inline-flex items-center gap-1 justify-center whitespace-nowrap">
                           {row.periodStatus === 'vencido' && (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0">
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
                               <AlertCircle className="w-3 h-3 shrink-0" />
                               <span>VENCIDO</span>
-                              {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
+                              {(row.overdueLabel || row.monthsLabel) && (
+                                <span className="font-normal opacity-90">({row.overdueLabel || row.monthsLabel})</span>
+                              )}
                             </span>
                           )}
                           {row.periodStatus === 'proximo' && (
