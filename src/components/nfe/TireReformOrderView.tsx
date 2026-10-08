@@ -764,8 +764,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
       setEditingOrder(null);
       setIsCreatingNewOrder(false);
-      setSelectedOrderForView(updatedOrder);
-      setSuccessMessage(`Pedido ${editingOrder.orderNumber} atualizado com sucesso! Total: R$ ${formatCurrencyPtBr(totalValor)}`);
+      setSelectedOrderForView(null);
+      setSuccessMessage(`PEDIDO ${editingOrder.orderNumber} ATUALIZADO COM SUCESSO! TOTAL: R$ ${formatCurrencyPtBr(totalValor)}`);
       setErrorMessage('');
 
       if (onOrderSaved) {
@@ -1365,10 +1365,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 id="btn-salvar-pedido-reforma"
                 onClick={handleSaveOrder}
                 disabled={pendingTires.length === 0}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-black rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-md transition cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-black rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-md transition cursor-pointer disabled:opacity-50 uppercase"
               >
                 <Save className="w-4 h-4" />
-                <span>{editingOrder ? 'Salvar Alterações' : 'Salvar Pedido de Reforma'}</span>
+                <span>{editingOrder ? 'SALVAR ALTERAÇÕES' : 'SALVAR PEDIDO DE REFORMA'}</span>
               </button>
 
             </div>
@@ -1460,40 +1460,40 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
 
                       return (
-                        <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition">
-                          <td className="py-2.5 px-3 font-mono font-black text-amber-700 dark:text-amber-400">
+                        <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition uppercase">
+                          <td className="py-2.5 px-3 font-mono font-black text-amber-700 dark:text-amber-400 whitespace-nowrap">
                             {order.orderNumber}
                           </td>
-                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
+                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
                             {formatDateBR(order.createdAt)}
                           </td>
-                          <td className="py-2.5 px-3 font-bold text-stone-800 dark:text-stone-200">
-                            {order.supplierName}
+                          <td className="py-2.5 px-3 font-bold text-stone-800 dark:text-stone-200 whitespace-nowrap">
+                            {order.supplierName.toUpperCase()}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-black">
+                          <td className="py-2.5 px-3 text-center font-black whitespace-nowrap">
                             <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-[11px]">
                               {order.totalTires}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-black text-stone-900 dark:text-stone-100 text-xs">
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-stone-900 dark:text-stone-100 text-xs whitespace-nowrap">
                             {orderSum > 0 ? `R$ ${formatCurrencyPtBr(orderSum)}` : '-'}
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-stone-700 dark:text-stone-300 max-w-[180px] truncate" title={order.tires.map(t => t.fireNumber).join(', ')}>
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-stone-700 dark:text-stone-300 max-w-[180px] truncate whitespace-nowrap" title={order.tires.map(t => t.fireNumber).join(', ')}>
                             {order.tires.map(t => t.fireNumber).join(', ')}
                           </td>
-                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
-                            {order.driverName || '-'}
+                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                            {(order.driverName || '-').toUpperCase()}
                           </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                               order.status === 'Concluído'
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : 'bg-amber-100 text-amber-900 border border-amber-300'
                             }`}>
-                              {order.status}
+                              {order.status.toUpperCase()}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right">
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
                             <div className="flex flex-row items-center justify-end gap-1.5 sm:gap-2">
                               {order.status === 'Concluído' ? (
                                 <button
