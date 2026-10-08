@@ -160,12 +160,19 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         try {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', {
-              detail: { activitySector: value }
+              detail: { activitySector: value, ramoAtividade: value }
+            }));
+            const existingRaw = localStorage.getItem('dadosEmpresa');
+            const existing = existingRaw ? JSON.parse(existingRaw) : {};
+            localStorage.setItem('dadosEmpresa', JSON.stringify({
+              ...existing,
+              ramoAtividade: value,
+              activitySector: value
             }));
           }
           const stored = getStoredCompanyProfile();
           if (stored) {
-            saveStoredCompanyProfile({ ...stored, activitySector: value });
+            saveStoredCompanyProfile({ ...stored, activitySector: value, ramoAtividade: value } as any);
           }
         } catch (e) {
           console.warn('Erro ao sincronizar setor em tempo real:', e);
@@ -305,6 +312,16 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     if (e) e.preventDefault();
     setIsSavingCloud(true);
     try {
+      const activeSector = formData.activitySector || 'Prestação de serviço de Silagem';
+      if (typeof localStorage !== 'undefined') {
+        const existingRaw = localStorage.getItem('dadosEmpresa');
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        localStorage.setItem('dadosEmpresa', JSON.stringify({
+          ...existing,
+          ramoAtividade: activeSector,
+          activitySector: activeSector
+        }));
+      }
       await saveCloudCompanyProfile(formData);
       onSaveCompanyProfile(formData);
       setSavedSuccess(true);

@@ -1066,8 +1066,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       
       {/* 1. Modern Horizontal Sub-Tabs Bar Acetinado 3D */}
       <nav 
+        id="fleet-subtabs-nav"
         aria-label="Abas de Gestão de Frotas"
-        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+        className="no-print print:hidden flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
       >
         
         {/* Tab 1: PAINEL */}

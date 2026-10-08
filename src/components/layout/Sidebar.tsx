@@ -45,44 +45,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
 
-  // Setor / Ramo de Atividade dinâmico espelhado do módulo 'Dados da Empresa'
-  const [activitySector, setActivitySector] = useState<string>(() => {
-    return (
-      companyProfile?.activitySector ||
-      getStoredCompanyProfile()?.activitySector ||
-      'PRESTAÇÃO DE SERVIÇO DE SILAGEM'
-    );
-  });
-
-  useEffect(() => {
-    if (companyProfile?.activitySector) {
-      setActivitySector(companyProfile.activitySector);
-    }
-  }, [companyProfile?.activitySector]);
-
-  useEffect(() => {
-    const handleLiveCompanySync = (e: any) => {
-      const sector = e.detail?.activitySector;
-      if (typeof sector === 'string') {
-        setActivitySector(sector);
-      }
-    };
-    const handleStorageCompanySync = () => {
-      try {
-        const stored = getStoredCompanyProfile();
-        if (stored?.activitySector) {
-          setActivitySector(stored.activitySector);
+  // Leitura reativa da chave local dos dados da empresa ('dadosEmpresa' ou perfil oficial)
+  const getResolvedDadosEmpresa = (): { ramoAtividade?: string } => {
+    try {
+      const raw = localStorage.getItem('dadosEmpresa');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const val = parsed?.ramoAtividade || parsed?.activitySector || parsed?.setor;
+        if (val && typeof val === 'string' && val.trim()) {
+          return { ramoAtividade: val.trim() };
         }
-      } catch (err) {}
+      }
+    } catch (e) {}
+
+    try {
+      const stored = getStoredCompanyProfile();
+      if (stored) {
+        const val = (stored as any)?.ramoAtividade || stored?.activitySector;
+        if (val && typeof val === 'string' && val.trim() && val.trim().toUpperCase() !== 'GESTÃO AGRÍCOLA') {
+          return { ramoAtividade: val.trim() };
+        }
+      }
+    } catch (e) {}
+
+    const propVal = (companyProfile as any)?.ramoAtividade || companyProfile?.activitySector;
+    if (propVal && typeof propVal === 'string' && propVal.trim() && propVal.trim().toUpperCase() !== 'GESTÃO AGRÍCOLA') {
+      return { ramoAtividade: propVal.trim() };
+    }
+
+    return { ramoAtividade: 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' };
+  };
+
+  const [dadosEmpresa, setDadosEmpresa] = useState<{ ramoAtividade?: string }>(() => getResolvedDadosEmpresa());
+
+  useEffect(() => {
+    const syncDados = () => {
+      setDadosEmpresa(getResolvedDadosEmpresa());
+    };
+
+    const handleLiveCompanySync = (e: any) => {
+      const sector = e.detail?.ramoAtividade || e.detail?.activitySector;
+      if (typeof sector === 'string') {
+        setDadosEmpresa({ ramoAtividade: sector });
+      } else {
+        syncDados();
+      }
     };
 
     window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
-    window.addEventListener('storage', handleStorageCompanySync);
+    window.addEventListener('storage', syncDados);
     return () => {
       window.removeEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
-      window.removeEventListener('storage', handleStorageCompanySync);
+      window.removeEventListener('storage', syncDados);
     };
-  }, []);
+  }, [companyProfile]);
 
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
     if (propMenuOrder && propMenuOrder.length > 0) {
@@ -288,9 +304,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </h2>
               <p 
                 className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[170px]"
-                title={(activitySector || companyProfile?.activitySector || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM').trim().toUpperCase()}
+                title={dadosEmpresa?.ramoAtividade?.toUpperCase() || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM'}
               >
-                {(activitySector || companyProfile?.activitySector || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM').trim().toUpperCase()}
+                {dadosEmpresa?.ramoAtividade?.toUpperCase() || 'PRESTAÇÃO DE SERVIÇO DE SILAGEM'}
               </p>
             </div>
           </div>

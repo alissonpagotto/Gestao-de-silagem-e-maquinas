@@ -167,7 +167,12 @@ table.dark-elegance-table td,
 
 @media print {
   .no-print,
-  .print\:hidden {
+  .print\:hidden,
+  aside,
+  header,
+  #main-sidebar,
+  #top-bar-container,
+  #fleet-subtabs-nav {
     display: none !important;
   }
 

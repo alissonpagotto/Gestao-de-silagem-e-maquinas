@@ -480,7 +480,9 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
           {/* 2. Botão "IMPRIMIR LISTA" (3D Metálico) */}
           <button
-            onClick={handlePrint}
+            type="button"
+            id="btn-imprimir-lista-motoristas"
+            onClick={() => window.print()}
             title="Visualizar e Imprimir Lista de Motoristas em Folha A4"
             className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
           >
@@ -559,8 +561,14 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             color: #000000 !important;
             overflow: visible !important;
           }
-          aside, nav, header, .no-print, .print\\:hidden {
+          aside, nav, header, #main-sidebar, #top-bar-container, #fleet-subtabs-nav, .no-print, .print\\:hidden {
             display: none !important;
+          }
+          #crm-main-content, main, #fleet-management-module {
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            max-height: none !important;
           }
           table {
             width: 100% !important;
