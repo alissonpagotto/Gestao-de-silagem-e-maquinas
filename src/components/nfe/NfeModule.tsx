@@ -6986,7 +6986,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           }}
         >
           <div 
-            className="w-full max-w-[560px] mx-auto bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
+            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 1. Cabeçalho Principal MDI Tridimensional Acetinado */}
@@ -7080,14 +7080,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
 
             {/* 3. Corpo do Modal (Passo 1 ou Passo 2) */}
-            <div className="p-3.5 sm:p-4 overflow-y-auto scrollbar-none flex-1 space-y-3">
+            <div className="p-3.5 sm:p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
               
               {/* =============================================================== */}
               {/* PASSO 1: DADOS DO DOCUMENTO (FORNECEDOR E CABEÇALHO) */}
               {/* =============================================================== */}
               {manualEntryStep === 1 && (
-                <form onSubmit={handleAdvanceToStep2} className="space-y-2.5">
-                  {manualFormError && (
+                <form onSubmit={handleAdvanceToStep2} className="flex-1 min-h-0 flex flex-col justify-between">
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 scrollbar-none">
+                    {manualFormError && (
                     <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-lg flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold uppercase animate-in fade-in">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{manualFormError.toUpperCase()}</span>
@@ -7286,6 +7287,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       placeholder="INFORMAÇÕES ADICIONAIS, PESAGEM, PLACA, ROMANEIO..."
                       className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-medium text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs resize-none"
                     />
+                    </div>
                   </div>
 
                   {/* 6. Rodapé do Passo 1 */}
@@ -7340,9 +7342,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               {/* PASSO 2: INSERÇÃO DOS ITENS/PRODUTOS (COM ATUALIZAÇÃO DE ESTOQUE) */}
               {/* =============================================================== */}
               {manualEntryStep === 2 && (
-                <div className="space-y-4">
-                  {/* Alerta de Bloqueio de Validação */}
-                  {manualFormError && (
+                <div className="flex-1 min-h-0 flex flex-col justify-between">
+                  {/* Miolo do formulário (onde ficam os campos e a tabela de produtos inseridos) */}
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-3 scrollbar-none">
+                    {/* Alerta de Bloqueio de Validação */}
+                    {manualFormError && (
                     <div 
                       id="alerta-erro-validacao-passo-2"
                       className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2 animate-in fade-in"
@@ -7738,35 +7742,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           <table className="w-full text-left text-xs">
                             <thead className="bg-stone-100/60 dark:bg-stone-800/60 text-[11px] font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10 backdrop-blur-xs">
                               <tr>
-                                <th className="px-4 py-2">Produto</th>
-                                <th className="px-4 py-2 text-center w-36">Quantidade</th>
-                                <th className="px-4 py-2 text-right w-36">Valor Unitário</th>
-                                <th className="px-4 py-2 text-right w-36">Subtotal</th>
-                                <th className="px-4 py-2 text-center w-24">Ações</th>
+                                <th className="px-4 py-2 whitespace-nowrap">Produto</th>
+                                <th className="px-4 py-2 text-center w-36 whitespace-nowrap">Quantidade</th>
+                                <th className="px-4 py-2 text-right w-36 whitespace-nowrap">Valor Unitário</th>
+                                <th className="px-4 py-2 text-right w-36 whitespace-nowrap">Subtotal</th>
+                                <th className="px-4 py-2 text-center w-24 whitespace-nowrap">Ações</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">
                               {manualDocItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition">
-                                  <td className="px-4 py-2">
-                                    <div className="font-bold text-stone-900 dark:text-stone-100">
-                                      {item.descricao}
-                                    </div>
-                                    <div className="text-[10px] text-stone-500 font-mono">
-                                      Unidade: {item.unidade || 'UN'}
+                                <tr key={item.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                                  <td className="px-3 py-1 whitespace-nowrap">
+                                    <div className="flex items-center space-x-2 whitespace-nowrap">
+                                      <span className="font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap" title={item.descricao}>
+                                        {item.descricao}
+                                      </span>
+                                      <span className="text-[10px] text-stone-500 font-mono whitespace-nowrap">
+                                        ({item.unidade || 'UN'})
+                                      </span>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-2 text-center font-mono font-bold text-stone-800 dark:text-stone-200">
+                                  <td className="px-3 py-1 text-center font-mono font-bold text-stone-800 dark:text-stone-200 whitespace-nowrap">
                                     {item.quantidade} {item.unidade || 'UN'}
                                   </td>
-                                  <td className="px-4 py-2 text-right font-mono font-medium text-stone-700 dark:text-stone-300">
+                                  <td className="px-3 py-1 text-right font-mono font-medium text-stone-700 dark:text-stone-300 whitespace-nowrap">
                                     {formatCurrencyBRL(item.valor_unitario)}
                                   </td>
-                                  <td className="px-4 py-2 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                                  <td className="px-3 py-1 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                                     {formatCurrencyBRL(item.valor_total)}
                                   </td>
-                                  <td className="px-4 py-2 text-center">
-                                    <div className="flex items-center justify-center space-x-1">
+                                  <td className="px-3 py-1 text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center space-x-1 whitespace-nowrap">
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -7812,9 +7818,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       )}
                     </div>
                   </div>
+                  </div>
 
                   {/* Rodapé do Passo 2: Finalização da Entrada */}
-                  <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                  <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
                     <button
                       type="button"
                       id="btn-voltar-passo1-entrada"
