@@ -104,10 +104,11 @@ import { useConfirm } from './context/ConfirmContext';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { SupabaseStatusControl } from './components/layout/SupabaseStatusControl';
+import { GlobalTopMenuBar } from './components/layout/GlobalTopMenuBar';
 import { MainDashboard } from './components/dashboard/MainDashboard';
 import { AgroControlHome } from './components/home/AgroControlHome';
 
-import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu } from 'lucide-react';
+import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu, HelpCircle, X, Keyboard } from 'lucide-react';
 import { UserSessionModal } from './components/cadastrosBase/UserSessionModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
 import { ExpenseReceiptViewer } from './components/expenses/ExpenseReceiptViewer';
@@ -301,6 +302,7 @@ export default function App() {
     return DEFAULT_MENU_ORDER;
   });
   const [isReorderMenuOpen, setIsReorderMenuOpen] = useState(false);
+  const [isGlobalHelpModalOpen, setIsGlobalHelpModalOpen] = useState(false);
   const [draftMaintenanceLogFromAlmox, setDraftMaintenanceLogFromAlmox] = useState<MaintenanceLog | null>(null);
 
   const handleSaveMenuOrder = (newOrder: string[]) => {
@@ -312,6 +314,12 @@ export default function App() {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    const handleOpenReorder = () => setIsReorderMenuOpen(true);
+    window.addEventListener('agrocontrol_open_reorder_menu', handleOpenReorder);
+    return () => window.removeEventListener('agrocontrol_open_reorder_menu', handleOpenReorder);
+  }, []);
 
   const { confirm } = useConfirm();
   const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt, startImpersonation, stopImpersonation, activeCompanyId } = useAuth();
@@ -3190,6 +3198,13 @@ export default function App() {
           </div>
         )}
 
+        {/* BARRA DE LINKS DE ATALHOS RÁPIDOS DO MENU SUPERIOR (GLOBAL E FIXA) */}
+        <GlobalTopMenuBar
+          onNavigate={(tab) => setActiveTab(tab)}
+          onOpenReorderMenu={() => setIsReorderMenuOpen(true)}
+          onOpenHelp={() => setIsGlobalHelpModalOpen(true)}
+        />
+
         {/* Workspace Interno da Janela (Sidebar + Conteúdo Principal) */}
         <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-zinc-100 dark:bg-stone-950">
           {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
@@ -3774,6 +3789,83 @@ export default function App() {
         currentOrder={menuOrder}
         onSaveOrder={handleSaveMenuOrder}
       />
+
+      {/* Modal de Ajuda & Guia de Atalhos Global */}
+      {isGlobalHelpModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-3 select-none">
+          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-2.5 px-3 flex items-center justify-between text-white shadow-2xs">
+              <div className="flex items-center space-x-2">
+                <HelpCircle className="w-4 h-4 text-blue-200" />
+                <h3 className="text-xs font-black uppercase tracking-wider">
+                  AJUDA & GUIA DE ATALHOS • AGROCONTROL
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGlobalHelpModalOpen(false)}
+                className="text-blue-100 hover:text-white p-0.5 rounded hover:bg-blue-800/50 transition cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3.5 space-y-3 text-xs">
+              <div className="flex items-center gap-1.5 text-slate-700 dark:text-stone-300 font-semibold text-[11px]">
+                <Keyboard className="w-3.5 h-3.5 text-blue-600" />
+                <span>ATALHOS DE TECLADO RÁPIDOS DISPONÍVEIS:</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10.5px]">
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">PESQUISAR NO SISTEMA</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F12</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">CADASTRO CLIENTES</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F3</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">PRODUTOS & ESTOQUE</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F2</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">MÓDULO DE VENDAS</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F8</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">RECEBIMENTOS</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F9</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">FORNECEDORES</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F4</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">COMPRAS & NF-E</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F5</kbd>
+                </div>
+                <div className="p-2 bg-slate-50 dark:bg-stone-800 rounded border border-slate-200 dark:border-stone-700 flex justify-between items-center">
+                  <span className="text-slate-600 dark:text-stone-400 font-medium">MARKUP & PRECIFICAÇÃO</span>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded font-bold text-blue-600 text-[10px]">F10</kbd>
+                </div>
+              </div>
+              <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-[10.5px] text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                <span>SEGURANÇA: OPERAÇÃO 100% OFFLINE COM GRAVAÇÃO INSTANTÂNEA LOCAL</span>
+                <span className="font-bold uppercase">ATIVO</span>
+              </div>
+              <div className="pt-2 border-t border-slate-200 dark:border-stone-800 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalHelpModalOpen(false)}
+                  className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold cursor-pointer transition shadow-2xs"
+                >
+                  ENTENDI / FECHAR
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

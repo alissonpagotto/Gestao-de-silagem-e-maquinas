@@ -40,7 +40,10 @@ import {
   Eye,
   Printer,
   ArrowDownLeft,
-  Wrench
+  Wrench,
+  Truck,
+  FileSpreadsheet,
+  ShoppingBag
 } from 'lucide-react';
 import { 
   Expense, 
@@ -92,6 +95,7 @@ import { ManageDocumentTypesModal } from './ManageDocumentTypesModal';
 import { ProductFormModal } from '../inventory/ProductFormModal';
 import { ProductLabelPrintModal, LabelProductItem } from '../inventory/ProductLabelPrintModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
+import { FiscalDocumentTypeView } from './FiscalDocumentTypeView';
 import { 
   upsertNotaFiscal, 
   upsertContaAPagar, 
@@ -1052,7 +1056,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // -------------------------------------------------------------------------
   // ABAS PRINCIPAIS DO CABEÇALHO: NOTAS E ENTRADAS | PEDIDOS DE REFORMA | NOTAS DE DEVOLUÇÃO (Requisito 3)
   // -------------------------------------------------------------------------
-  const [activeFiscalSubTab, setActiveFiscalSubTab] = useState<'notas' | 'pedidos_reforma' | 'devolucao'>('notas');
+  type FiscalSubTab = 'notas' | 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao';
+  const [activeFiscalSubTab, setActiveFiscalSubTab] = useState<FiscalSubTab>('notas');
+  const [nfeDocsCount, setNfeDocsCount] = useState<number>(() => {
+    try {
+      const r = localStorage.getItem('agrocontrol_notas_nfe');
+      return r ? JSON.parse(r).length : 0;
+    } catch { return 0; }
+  });
+  const [cteDocsCount, setCteDocsCount] = useState<number>(() => {
+    try {
+      const r = localStorage.getItem('agrocontrol_notas_cte');
+      return r ? JSON.parse(r).length : 0;
+    } catch { return 0; }
+  });
+  const [nfecDocsCount, setNfecDocsCount] = useState<number>(() => {
+    try {
+      const r = localStorage.getItem('agrocontrol_notas_nfec');
+      return r ? JSON.parse(r).length : 0;
+    } catch { return 0; }
+  });
+  const [pedidosCompraCount, setPedidosCompraCount] = useState<number>(() => {
+    try {
+      const r = localStorage.getItem('agrocontrol_pedidos_compra');
+      return r ? JSON.parse(r).length : 0;
+    } catch { return 0; }
+  });
   const [reformOrdersCount, setReformOrdersCount] = useState<number>(() => getStoredReformOrders().length);
   const [pendingReformCount, setPendingReformCount] = useState<number>(() => getStoredPendingReformTires().length);
   const [devolucaoCount, setDevolucaoCount] = useState<number>(() => getStoredNotasDevolucao().length);
@@ -5371,10 +5400,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   return (
-    <div id="nfe-module" className="w-full max-w-none space-y-4">
+    <div id="nfe-module" className="w-full max-w-none">
       
       {/* 1. Header Unificado 3D Slim com Título, Contador e Botões Importar XML e Nova Entrada Manual */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2 mb-3">
         <div>
           <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Notas e Entradas
@@ -5408,7 +5437,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             type="button"
             id="btn-nova-entrada-manual-topo"
             onClick={handleOpenManualEntryModal}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-bold rounded-lg border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-bold rounded-lg border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
             title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Nota avulsa, Cupom sem valor fiscal, Nota de Produtor, Outros)"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -5417,84 +5446,181 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
       </header>
 
-      {/* 2. Barra de Navegação Superior com Abas Adicionais - Moldura Acetinada 3D */}
-      <nav 
-        aria-label="Abas de Notas e Entradas"
-        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
-      >
-        <button
-          type="button"
-          id="tab-fiscal-notas-entradas"
-          onClick={() => setActiveFiscalSubTab('notas')}
-          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-            activeFiscalSubTab === 'notas'
-              ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-              : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-          <span>Notas e Entradas</span>
-          <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-600 text-[10px] font-bold">
-            {unifiedEntries.length}
-          </span>
-        </button>
+      {/* 2. ESTRUTURA INTEGRADA DE PONTA A PONTA: MOLDURA MDI TRIDIMENSIONAL ACETINADA E BLOCO SÓLIDO */}
+      <div className="w-full border border-slate-400 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-xs">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (CONTRATO MASTER) */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas de Notas e Entradas"
+            className="w-full flex items-stretch"
+          >
+            {/* TAB 1: NOTAS E ENTRADAS */}
+            <button
+              type="button"
+              id="tab-fiscal-notas-entradas"
+              onClick={() => setActiveFiscalSubTab('notas')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'notas'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span>NOTAS E ENTRADAS</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {unifiedEntries.length}
+              </span>
+            </button>
 
-        <button
-          type="button"
-          id="tab-fiscal-pedidos-reforma"
-          onClick={() => setActiveFiscalSubTab('pedidos_reforma')}
-          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-            activeFiscalSubTab === 'pedidos_reforma'
-              ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-              : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-          }`}
-        >
-          <Wrench className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          <span>Pedidos de Reforma</span>
-          {pendingReformCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 text-[10px] font-black animate-pulse">
-              {pendingReformCount} novo(s)
-            </span>
-          )}
-          <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-600 text-[10px] font-bold">
-            {reformOrdersCount}
-          </span>
-        </button>
+            {/* TAB 2: NFE (NOTA FISCAL ELETRÔNICA) */}
+            <button
+              type="button"
+              id="tab-fiscal-nfe"
+              onClick={() => setActiveFiscalSubTab('nfe')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'nfe'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>NFE (NOTA FISCAL ELETRÔNICA)</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {nfeDocsCount}
+              </span>
+            </button>
 
-        <button
-          type="button"
-          id="tab-fiscal-notas-devolucao"
-          onClick={() => setActiveFiscalSubTab('devolucao')}
-          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-            activeFiscalSubTab === 'devolucao'
-              ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-              : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-          }`}
-        >
-          <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-          <span>Notas de Devolução</span>
-          <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-600 text-[10px] font-bold">
-            {devolucaoCount}
-          </span>
-        </button>
-      </nav>
+            {/* TAB 3: CTE (CONHECIMENTO DE TRANSPORTE ELETRÔNICO) */}
+            <button
+              type="button"
+              id="tab-fiscal-cte"
+              onClick={() => setActiveFiscalSubTab('cte')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'cte'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span>CTE (CONHECIMENTO DE TRANSPORTE ELETRÔNICO)</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {cteDocsCount}
+              </span>
+            </button>
 
-      {/* Renderização Condicional das Sub-Abas do Módulo */}
-      {activeFiscalSubTab === 'pedidos_reforma' ? (
-        <TireReformOrderView 
-          companyProfile={companyProfile}
-          initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
-          onOrderSaved={() => {
-            setReformOrdersCount(getStoredReformOrders().length);
-            setPendingReformCount(getStoredPendingReformTires().length);
-          }}
-          onEfetivarRetorno={handleEfetivarRetornoPedidoReforma}
-        />
-      ) : activeFiscalSubTab === 'devolucao' ? (
-        <DevolucaoNotasView companyProfile={companyProfile} />
-      ) : (
-        /* Conteúdo padrão de Notas e Entradas */
-        <>
+            {/* TAB 4: NFE-C (NOTA FISCAL COMPLEMENTAR) */}
+            <button
+              type="button"
+              id="tab-fiscal-nfe-c"
+              onClick={() => setActiveFiscalSubTab('nfe_c')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'nfe_c'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>NFE-C (NOTA FISCAL COMPLEMENTAR)</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {nfecDocsCount}
+              </span>
+            </button>
+
+            {/* TAB 5: PEDIDO DE COMPRA */}
+            <button
+              type="button"
+              id="tab-fiscal-pedido-compra"
+              onClick={() => setActiveFiscalSubTab('pedido_compra')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'pedido_compra'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-indigo-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>PEDIDO DE COMPRA</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {pedidosCompraCount}
+              </span>
+            </button>
+
+            {/* TAB 6: PEDIDOS DE REFORMA */}
+            <button
+              type="button"
+              id="tab-fiscal-pedidos-reforma"
+              onClick={() => setActiveFiscalSubTab('pedidos_reforma')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'pedidos_reforma'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Wrench className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>PEDIDOS DE REFORMA</span>
+              {pendingReformCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 text-[10px] font-black animate-pulse">
+                  {pendingReformCount} NOVO(S)
+                </span>
+              )}
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {reformOrdersCount}
+              </span>
+            </button>
+
+            {/* TAB 7: NOTAS DE DEVOLUÇÃO */}
+            <button
+              type="button"
+              id="tab-fiscal-notas-devolucao"
+              onClick={() => setActiveFiscalSubTab('devolucao')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                activeFiscalSubTab === 'devolucao'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-rose-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+              <span>NOTAS DE DEVOLUÇÃO</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {devolucaoCount}
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
+        <div className="w-full bg-white dark:bg-stone-900 p-3 sm:p-4">
+          {activeFiscalSubTab === 'pedidos_reforma' ? (
+            <TireReformOrderView 
+              companyProfile={companyProfile}
+              initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
+              onOrderSaved={() => {
+                setReformOrdersCount(getStoredReformOrders().length);
+                setPendingReformCount(getStoredPendingReformTires().length);
+              }}
+              onEfetivarRetorno={handleEfetivarRetornoPedidoReforma}
+            />
+          ) : activeFiscalSubTab === 'devolucao' ? (
+            <DevolucaoNotasView companyProfile={companyProfile} />
+          ) : activeFiscalSubTab === 'nfe' || activeFiscalSubTab === 'cte' || activeFiscalSubTab === 'nfe_c' || activeFiscalSubTab === 'pedido_compra' ? (
+            <FiscalDocumentTypeView 
+              category={activeFiscalSubTab} 
+              companyProfile={companyProfile}
+              onRefreshAll={() => {
+                try {
+                  const rn = localStorage.getItem('agrocontrol_notas_nfe');
+                  if (rn) setNfeDocsCount(JSON.parse(rn).length);
+                  const rc = localStorage.getItem('agrocontrol_notas_cte');
+                  if (rc) setCteDocsCount(JSON.parse(rc).length);
+                  const rnc = localStorage.getItem('agrocontrol_notas_nfec');
+                  if (rnc) setNfecDocsCount(JSON.parse(rnc).length);
+                  const rp = localStorage.getItem('agrocontrol_pedidos_compra');
+                  if (rp) setPedidosCompraCount(JSON.parse(rp).length);
+                } catch {}
+              }}
+            />
+          ) : (
+            /* Conteúdo padrão de Notas e Entradas */
+            <div className="w-full space-y-4">
       {successMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center space-x-2.5 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-semibold animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -8350,8 +8476,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
       )}
 
-      </>
-      )}
+          </div>
+        )}
+        </div>
+      </div>
 
       {/* ========================================================================= */}
       {/* MODAL DE IMPRESSÃO DE ETIQUETAS EM LOTE PARA ENTRADAS */}
