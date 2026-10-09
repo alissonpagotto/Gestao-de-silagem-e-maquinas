@@ -22,6 +22,7 @@ import {
   Machinery 
 } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
+import { DataBackupSecurityBlock } from '../settings/DataBackupSecurityBlock';
 
 interface ReportsExportTabProps {
   expenses: Expense[];
@@ -278,6 +279,9 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
         </div>
 
       </div>
+
+      {/* BLOCO COMPACTO DE SEGURANÇA E BACKUP DE DADOS (100% OFFLINE) */}
+      <DataBackupSecurityBlock />
 
     </div>
   );

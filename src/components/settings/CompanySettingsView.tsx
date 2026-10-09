@@ -30,6 +30,7 @@ import {
 import { CompanyProfile, ExpenseCategory, CostCenter } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { SupabaseSqlModal } from './SupabaseSqlModal';
+import { DataBackupSecurityBlock } from './DataBackupSecurityBlock';
 import { useAuth } from '../../context/AuthContext';
 import { 
   formatCpfCnpj, 
@@ -410,6 +411,18 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
           <button
             type="button"
+            onClick={() => {
+              const el = document.getElementById('card-backup-seguranca-sistema') || document.getElementById('card-backup-seguranca-safra');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+            title="Ir para Central de Segurança e Backup de Dados"
+          >
+            <span>♻️ BACKUP DO SISTEMA</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsTestPrintOpen(true)}
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
             title="Testar Impressão de Relatórios e Comprovantes"
@@ -441,7 +454,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="flex-1 flex flex-col justify-between gap-2.5 overflow-hidden">
+      <form onSubmit={handleSave} className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-stone-700">
         
         {/* BLOCO 1: IDENTIFICAÇÃO DA EMPRESA & LOGOTIPO */}
         <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
@@ -888,6 +901,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* BLOCO 5: CENTRAL DE SEGURANÇA E BACKUP DE DADOS (100% OFFLINE / LOCALSTORAGE) */}
+        <DataBackupSecurityBlock 
+          subscriberName={formData.tradeName || formData.corporateName || 'COLAÇA SILAGEM LTDA'} 
+        />
 
         {/* Barra de Rodapé Compacta: Status Offline Resiliente & Sincronização */}
         <div className="flex items-center justify-between px-3 py-1 bg-white dark:bg-stone-900 rounded-lg border border-zinc-200 dark:border-stone-800 text-[11px] shrink-0">
