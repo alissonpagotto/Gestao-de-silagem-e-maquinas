@@ -21,7 +21,8 @@ import {
   Check,
   RotateCcw,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Wrench
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Supplier } from '../../types';
 import { 
@@ -35,7 +36,7 @@ import {
   saveStoredMachineries
 } from '../../lib/storage';
 
-export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra';
+export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'nfse';
 
 export interface FiscalDocumentItem {
   id: string;
@@ -64,6 +65,11 @@ export interface FiscalDocumentRecord {
   description?: string;
   items: FiscalDocumentItem[];
   totalAmount: number;
+  // Campos de NFS-E (ISS Municipal e Retenções)
+  issRetained?: boolean;
+  issRate?: number;
+  issAmount?: number;
+  netPayableAmount?: number;
   paymentMethod: string;
   installmentsCount: number;
   installments: Array<{
@@ -88,7 +94,8 @@ export const FISCAL_DOCS_STORAGE_KEYS: Record<FiscalDocumentCategory, string> = 
   nfe: 'agrocontrol_notas_nfe',
   cte: 'agrocontrol_notas_cte',
   nfe_c: 'agrocontrol_notas_nfec',
-  pedido_compra: 'agrocontrol_pedidos_compra'
+  pedido_compra: 'agrocontrol_pedidos_compra',
+  nfse: 'agrocontrol_notas_nfse'
 };
 
 const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
@@ -145,6 +152,17 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
     requiresVehicle: false,
     movesStock: false,
     isPlanningOnly: true
+  },
+  nfse: {
+    title: 'NFS-E • NOTA FISCAL DE SERVIÇO ELETRÔNICA (SERVIÇOS DE TERCEIROS / MANUTENÇÃO)',
+    subtitle: 'Serviços tomados, mecânica/manutenção terceirizada da frota, retenção de ISS municipal e rateio no DRE do trator ou caminhão',
+    buttonLabel: 'LANÇAR NFS-E (SERVIÇO)',
+    defaultPrefix: 'NFSE-',
+    icon: Wrench,
+    color: 'sky',
+    requiresVehicle: false,
+    movesStock: false,
+    isPlanningOnly: false
   }
 };
 
@@ -185,6 +203,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const [formInstallmentsCount, setFormInstallmentsCount] = useState<number>(1);
   const [formNotes, setFormNotes] = useState('');
   const [formItems, setFormItems] = useState<FiscalDocumentItem[]>([]);
+  
+  // Retenção de ISS Municipal (específico para NFS-E)
+  const [formIssRetained, setFormIssRetained] = useState(false);
+  const [formIssRate, setFormIssRate] = useState<number>(5);
+  const [formIssAmount, setFormIssAmount] = useState<number>(0);
 
   // Item sendo adicionado no formulário
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -268,6 +291,16 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     return formItems.reduce((acc, it) => acc + (it.totalPrice || 0), 0);
   }, [formItems]);
 
+  const calculatedIssAmount = useMemo(() => {
+    if (!formIssRetained) return 0;
+    return Number(((totalFormAmount * formIssRate) / 100).toFixed(2));
+  }, [formIssRetained, totalFormAmount, formIssRate]);
+
+  const netPayableTotal = useMemo(() => {
+    if (!formIssRetained) return totalFormAmount;
+    return Math.max(0, Number((totalFormAmount - calculatedIssAmount).toFixed(2)));
+  }, [totalFormAmount, formIssRetained, calculatedIssAmount]);
+
   // Gerar número sequencial padrão ao abrir modal
   const handleOpenCreateModal = () => {
     const nextSeq = String(documents.length + 1).padStart(4, '0');
@@ -278,11 +311,14 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     setFormSupplierName('');
     setFormSupplierCnpj('');
     setFormVehicleId('');
-    setFormDescription(category === 'cte' ? 'Frete rodoviário de silagem / insumos agrícolas' : '');
+    setFormDescription(category === 'cte' ? 'Frete rodoviário de silagem / insumos agrícolas' : category === 'nfse' ? 'Serviços de mecânica / manutenção terceirizada da frota' : '');
     setFormPaymentMethod('Boleto Bancário');
     setFormInstallmentsCount(1);
     setFormNotes('');
     setFormItems([]);
+    setFormIssRetained(false);
+    setFormIssRate(5);
+    setFormIssAmount(0);
     setSelectedProductId('');
     setItemDescription('');
     setItemQuantity(1);
@@ -384,11 +420,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       return;
     }
 
-    // Se for CTE ou NFE-C e não adicionou itens na tabela, gera 1 item padrão com o valor total
+    // Se for CTE, NFE-C ou NFS-E e não adicionou itens na tabela, gera 1 item padrão com o valor total
     let finalItems = [...formItems];
     let finalTotal = totalFormAmount;
-    if (finalItems.length === 0 && (category === 'cte' || category === 'nfe_c')) {
-      const parsedVal = prompt('INFORME O VALOR TOTAL DO DOCUMENTO EM R$:', '0.00');
+    if (finalItems.length === 0 && (category === 'cte' || category === 'nfe_c' || category === 'nfse')) {
+      const parsedVal = prompt(`INFORME O VALOR TOTAL DO ${category === 'nfse' ? 'SERVIÇO' : 'DOCUMENTO'} EM R$:`, '0.00');
       const numVal = parseFloat(String(parsedVal).replace(',', '.')) || 0;
       if (numVal <= 0) {
         alert('VALOR INVÁLIDO.');
@@ -397,7 +433,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       finalTotal = numVal;
       finalItems = [{
         id: `it_${Date.now()}`,
-        description: formDescription || (category === 'cte' ? 'FRETE E TRANSPORTE RODOVIÁRIO' : 'COMPLEMENTO FISCAL'),
+        description: formDescription || (category === 'cte' ? 'FRETE E TRANSPORTE RODOVIÁRIO' : category === 'nfse' ? 'SERVIÇOS DE MANUTENÇÃO / MECÂNICA' : 'COMPLEMENTO FISCAL'),
         quantity: 1,
         unit: 'UN',
         unitPrice: numVal,
@@ -409,10 +445,15 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     const plate = selectedVehicle ? (selectedVehicle.licensePlateOrSerial || (selectedVehicle as any).placa || '') : '';
     const model = selectedVehicle ? (selectedVehicle.model || selectedVehicle.name || '') : '';
 
+    // Cálculo de Retenção de ISS Municipal
+    const issAmountVal = formIssRetained ? Number(((finalTotal * formIssRate) / 100).toFixed(2)) : 0;
+    const netPayableVal = formIssRetained ? Math.max(0, Number((finalTotal - issAmountVal).toFixed(2))) : finalTotal;
+    const payableForInstallments = formIssRetained ? netPayableVal : finalTotal;
+
     // Geração de Parcelas no Contas a Pagar
     const installments = [];
     const count = Math.max(1, formInstallmentsCount);
-    const parcelValue = Number((finalTotal / count).toFixed(2));
+    const parcelValue = Number((payableForInstallments / count).toFixed(2));
     const baseDate = new Date(formDate);
 
     for (let i = 1; i <= count; i++) {
@@ -422,7 +463,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       installments.push({
         number: `${String(i).padStart(2, '0')}/${String(count).padStart(2, '0')}`,
         dueDate: dueStr,
-        amount: i === count ? Number((finalTotal - parcelValue * (count - 1)).toFixed(2)) : parcelValue,
+        amount: i === count ? Number((payableForInstallments - parcelValue * (count - 1)).toFixed(2)) : parcelValue,
         status: 'PENDENTE' as const
       });
     }
@@ -444,6 +485,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       description: formDescription.trim().toUpperCase(),
       items: finalItems,
       totalAmount: finalTotal,
+      issRetained: formIssRetained,
+      issRate: formIssRetained ? formIssRate : undefined,
+      issAmount: formIssRetained ? issAmountVal : undefined,
+      netPayableAmount: formIssRetained ? netPayableVal : finalTotal,
       paymentMethod: formPaymentMethod.toUpperCase(),
       installmentsCount: count,
       installments,
@@ -639,7 +684,63 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       }
     }
 
-    // D) ABA PEDIDO DE COMPRA:
+    // D) ABA NFS-E (NOTA FISCAL DE SERVIÇOS TOMADOS / MANUTENÇÃO TERCEIRIZADA):
+    if (category === 'nfse') {
+      // 1. Se vinculou veículo (trator, caminhão ou máquina), rateia no DRE e custos do veículo
+      if (selectedVehicle) {
+        try {
+          const storedMachineries = getStoredMachineries();
+          const vIdx = storedMachineries.findIndex(m => m.id === selectedVehicle.id);
+          if (vIdx >= 0) {
+            storedMachineries[vIdx].accumulatedCost = (storedMachineries[vIdx].accumulatedCost || 0) + finalTotal;
+            (storedMachineries[vIdx] as any).totalMaintenanceExpenses = ((storedMachineries[vIdx] as any).totalMaintenanceExpenses || 0) + finalTotal;
+            (storedMachineries[vIdx] as any).maintenanceCost = ((storedMachineries[vIdx] as any).maintenanceCost || 0) + finalTotal;
+            saveStoredMachineries(storedMachineries);
+            localStorage.setItem('agrocontrol_frotas_veiculos', JSON.stringify(storedMachineries));
+            localStorage.setItem('agrocontrol_veiculos', JSON.stringify(storedMachineries));
+            localStorage.setItem('agrocontrol_frotas', JSON.stringify(storedMachineries));
+            localStorage.setItem('colaca_silagem_frotas_veiculos', JSON.stringify(storedMachineries));
+            window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: storedMachineries }));
+          }
+        } catch (err) {
+          console.warn('Erro ao ratear NFS-e no veículo da frota:', err);
+        }
+      }
+
+      // 2. Lança parcelas automáticas no Contas a Pagar (agrocontrol_financeiro)
+      try {
+        const storedExpenses = getStoredExpenses();
+        const newExpenses: any[] = installments.map((inst, idx) => ({
+          id: `desp_nfse_${docId}_${idx + 1}`,
+          description: `NFS-E ${newRecord.number} - ${newRecord.supplierName}${plate ? ` (VEÍCULO ${plate})` : ''} [PARC ${inst.number}]`,
+          amount: inst.amount,
+          date: newRecord.issueDate,
+          dueDate: inst.dueDate,
+          categoryId: 'cat_manutencao',
+          categoryName: 'Serviços Terceirizados & Manutenção',
+          categoryColor: '#0ea5e9',
+          costCenterName: plate ? `Veículo ${plate}` : 'Oficina & Manutenção',
+          status: 'pendente',
+          paymentMethod: 'boleto',
+          supplier: newRecord.supplierName,
+          supplierName: newRecord.supplierName,
+          vehicleId: formVehicleId || undefined,
+          vehiclePlate: plate || undefined,
+          notaId: docId,
+          numero_parcela: inst.number,
+          createdAt: new Date().toISOString()
+        }));
+
+        const updatedExpenses = [...newExpenses, ...storedExpenses];
+        saveStoredExpenses(updatedExpenses as any);
+        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
+        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+      } catch (err) {
+        console.warn('Erro ao gerar despesas financeiras da NFS-e:', err);
+      }
+    }
+
+    // E) ABA PEDIDO DE COMPRA:
     // Não movimenta estoque nem financeiro imediato (permanece PENDENTE como reserva/planejamento)
 
     setIsCreateModalOpen(false);
@@ -1287,10 +1388,18 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 <div className={`p-2 rounded-lg border ${
                   config.requiresVehicle 
                     ? 'bg-sky-50/80 border-sky-300 dark:bg-sky-950/40 dark:border-sky-800' 
-                    : 'bg-white border-slate-300 dark:bg-stone-900 dark:border-stone-700'
+                    : category === 'nfse'
+                      ? 'bg-sky-50/50 border-sky-300 dark:bg-sky-950/30 dark:border-sky-800'
+                      : 'bg-white border-slate-300 dark:bg-stone-900 dark:border-stone-700'
                 }`}>
                   <label className="block text-[10px] font-black uppercase text-slate-800 dark:text-stone-200 mb-0.5">
-                    VEÍCULO DA FROTA {config.requiresVehicle ? '*(OBRIGATÓRIO PARA RATEIO DRE NO CT-E)' : '(OPCIONAL)'}
+                    VEÍCULO DA FROTA {
+                      config.requiresVehicle 
+                        ? '*(OBRIGATÓRIO PARA RATEIO DRE NO CT-E)' 
+                        : category === 'nfse' 
+                          ? '(OPCIONAL • VINCULAR TRATOR/CAMINHÃO PARA RATEIO NO DRE DA FROTA)' 
+                          : '(OPCIONAL)'
+                    }
                   </label>
                   <select
                     value={formVehicleId}
@@ -1473,6 +1582,73 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                   <span>3. PARCELAMENTO & INTEGRAÇÃO FINANCEIRA ('agrocontrol_financeiro')</span>
                 </h4>
 
+                {/* RETENÇÃO DE IMPOSTOS MUNICIPAIS (ISS) - EXCLUSIVO PARA NFS-E */}
+                {category === 'nfse' && (
+                  <div className="p-2.5 rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={formIssRetained}
+                          onChange={(e) => setFormIssRetained(e.target.checked)}
+                          className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                        />
+                        <span className="text-[11px] font-black uppercase text-sky-900 dark:text-sky-200">
+                          RETER ISS MUNICIPAL NA FONTE (IMPOSTO MUNICIPAL)
+                        </span>
+                      </label>
+                      {formIssRetained && (
+                        <span className="text-[10px] font-bold text-sky-800 dark:text-sky-300 uppercase">
+                          VALOR LÍQUIDO A PAGAR: <strong>{formatCurrencyBRL(netPayableTotal)}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    {formIssRetained && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-sky-200 dark:border-sky-800">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                            ALÍQUOTA ISS (%)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={formIssRate}
+                            onChange={(e) => setFormIssRate(parseFloat(e.target.value) || 0)}
+                            className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                            VALOR DO ISS RETIDO (R$)
+                          </label>
+                          <input
+                            type="text"
+                            readOnly
+                            value={formatCurrencyBRL(calculatedIssAmount)}
+                            className="w-full px-2.5 py-1 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-black text-rose-700 dark:text-rose-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                            TOTAL DAS PARCELAS (R$)
+                          </label>
+                          <input
+                            type="text"
+                            readOnly
+                            value={formatCurrencyBRL(netPayableTotal)}
+                            className="w-full px-2.5 py-1 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-black text-emerald-800 dark:text-emerald-400"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
@@ -1521,6 +1697,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-bold text-slate-600 mr-2">
                   VALOR: <strong className="text-emerald-700 text-sm">{formatCurrencyBRL(totalFormAmount)}</strong>
+                  {formIssRetained && (
+                    <span className="text-[10px] text-sky-800 dark:text-sky-300 font-bold ml-1.5">
+                      (LÍQUIDO A PAGAR: {formatCurrencyBRL(netPayableTotal)})
+                    </span>
+                  )}
                 </span>
 
                 <button

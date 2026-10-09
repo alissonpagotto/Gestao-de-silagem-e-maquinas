@@ -1057,10 +1057,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   onNavigate,
 }) => {
   // -------------------------------------------------------------------------
-  // ABAS PRINCIPAIS DO CABEÇALHO: NOTAS E ENTRADAS | PEDIDOS DE REFORMA | NOTAS DE DEVOLUÇÃO (Requisito 3)
+  // ABAS PRINCIPAIS DO CABEÇALHO: NÍVEL 1 & NÍVEL 2 DE NOTAS FISCAIS
   // -------------------------------------------------------------------------
-  type FiscalSubTab = 'notas' | 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao' | 'mdfe' | 'manifestacao_destinatario';
-  const [activeFiscalSubTab, setActiveFiscalSubTab] = useState<FiscalSubTab>('notas');
+  type MainFiscalTab = 'notas' | 'notas_fiscais' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao' | 'manifestacao_destinatario';
+  type NotasFiscaisSubTab = 'nfe' | 'cte' | 'nfe_c' | 'nfse' | 'mdfe';
+
+  const [activeMainFiscalTab, setActiveMainFiscalTab] = useState<MainFiscalTab>('notas');
+  const [activeNotasFiscaisSubTab, setActiveNotasFiscaisSubTab] = useState<NotasFiscaisSubTab>('nfe');
+
   const [nfeDocsCount, setNfeDocsCount] = useState<number>(() => {
     try {
       const r = localStorage.getItem('agrocontrol_notas_nfe');
@@ -1079,6 +1083,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return r ? JSON.parse(r).length : 0;
     } catch { return 0; }
   });
+  const [nfseDocsCount, setNfseDocsCount] = useState<number>(() => {
+    try {
+      const r = localStorage.getItem('agrocontrol_notas_nfse');
+      return r ? JSON.parse(r).length : 0;
+    } catch { return 0; }
+  });
   const [pedidosCompraCount, setPedidosCompraCount] = useState<number>(() => {
     try {
       const r = localStorage.getItem('agrocontrol_pedidos_compra');
@@ -1091,13 +1101,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [mdfeCount, setMdfeCount] = useState<number>(() => getStoredMdfe().length);
   const [manifestacoesCount, setManifestacoesCount] = useState<number>(() => getStoredManifestacoes().length);
 
+  const totalNotasFiscaisCount = useMemo(() => {
+    return nfeDocsCount + cteDocsCount + nfecDocsCount + nfseDocsCount + mdfeCount;
+  }, [nfeDocsCount, cteDocsCount, nfecDocsCount, nfseDocsCount, mdfeCount]);
+
   // Escuta gatilho vindo da Gestão de Frotas ('colaca_silagem_abrir_pedido_reforma')
   useEffect(() => {
     const checkTrigger = () => {
       try {
         const flag = localStorage.getItem('colaca_silagem_abrir_pedido_reforma');
         if (flag === 'true') {
-          setActiveFiscalSubTab('pedidos_reforma');
+          setActiveMainFiscalTab('pedidos_reforma');
         }
       } catch {}
     };
@@ -1619,7 +1633,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     } catch (_) {}
 
     // AÇÃO 1: Redirecionar e popular o modal de "Nova Entrada Manual"
-    setActiveFiscalSubTab('notas');
+    setActiveMainFiscalTab('notas');
 
     const today = new Date().toISOString().split('T')[0];
     const orderSum = order.totalValor !== undefined && order.totalValor !== null && order.totalValor > 0
@@ -5463,9 +5477,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <button
               type="button"
               id="tab-fiscal-notas-entradas"
-              onClick={() => setActiveFiscalSubTab('notas')}
+              onClick={() => setActiveMainFiscalTab('notas')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'notas'
+                activeMainFiscalTab === 'notas'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
@@ -5477,67 +5491,31 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </span>
             </button>
 
-            {/* TAB 2: • NFE */}
+            {/* TAB 2: NOTAS FISCAIS (CONSOLIDADOR NFE, CTE, NFCE, NFSE, MDFE) */}
             <button
               type="button"
-              id="tab-fiscal-nfe"
-              onClick={() => setActiveFiscalSubTab('nfe')}
+              id="tab-fiscal-notas-fiscais"
+              onClick={() => setActiveMainFiscalTab('notas_fiscais')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'nfe'
+                activeMainFiscalTab === 'notas_fiscais'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>• NFE</span>
+              <span>NOTAS FISCAIS</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {nfeDocsCount}
+                {totalNotasFiscaisCount}
               </span>
             </button>
 
-            {/* TAB 3: CT-E (FRETE / TRANSPORTE) */}
-            <button
-              type="button"
-              id="tab-fiscal-cte"
-              onClick={() => setActiveFiscalSubTab('cte')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'cte'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span>CT-E (FRETE / TRANSPORTE)</span>
-              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {cteDocsCount}
-              </span>
-            </button>
-
-            {/* TAB 4: NFC-E (CONSUMIDOR FINAL) */}
-            <button
-              type="button"
-              id="tab-fiscal-nfe-c"
-              onClick={() => setActiveFiscalSubTab('nfe_c')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'nfe_c'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>NFC-E (CONSUMIDOR FINAL)</span>
-              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {nfecDocsCount}
-              </span>
-            </button>
-
-            {/* TAB 5: PEDIDO DE COMPRA */}
+            {/* TAB 3: PEDIDO DE COMPRA */}
             <button
               type="button"
               id="tab-fiscal-pedido-compra"
-              onClick={() => setActiveFiscalSubTab('pedido_compra')}
+              onClick={() => setActiveMainFiscalTab('pedido_compra')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'pedido_compra'
+                activeMainFiscalTab === 'pedido_compra'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-indigo-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
@@ -5549,13 +5527,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </span>
             </button>
 
-            {/* TAB 6: PEDIDOS DE REFORMA */}
+            {/* TAB 4: PEDIDOS DE REFORMA */}
             <button
               type="button"
               id="tab-fiscal-pedidos-reforma"
-              onClick={() => setActiveFiscalSubTab('pedidos_reforma')}
+              onClick={() => setActiveMainFiscalTab('pedidos_reforma')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'pedidos_reforma'
+                activeMainFiscalTab === 'pedidos_reforma'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
@@ -5572,13 +5550,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </span>
             </button>
 
-            {/* TAB 7: NOTAS DE DEVOLUÇÃO */}
+            {/* TAB 5: NOTAS DE DEVOLUÇÃO */}
             <button
               type="button"
               id="tab-fiscal-notas-devolucao"
-              onClick={() => setActiveFiscalSubTab('devolucao')}
+              onClick={() => setActiveMainFiscalTab('devolucao')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'devolucao'
+                activeMainFiscalTab === 'devolucao'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-rose-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
@@ -5590,31 +5568,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </span>
             </button>
 
-            {/* TAB 8: MDFE (MANIFESTOS) */}
-            <button
-              type="button"
-              id="tab-fiscal-mdfe"
-              onClick={() => setActiveFiscalSubTab('mdfe')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeFiscalSubTab === 'mdfe'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span>MDFE (MANIFESTOS)</span>
-              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {mdfeCount}
-              </span>
-            </button>
-
-            {/* TAB 9: MANIFESTAÇÃO DESTINATÁRIO */}
+            {/* TAB 6: MANIFESTAÇÃO DESTINATÁRIO */}
             <button
               type="button"
               id="tab-fiscal-manifestacao-destinatario"
-              onClick={() => setActiveFiscalSubTab('manifestacao_destinatario')}
+              onClick={() => setActiveMainFiscalTab('manifestacao_destinatario')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap ${
-                activeFiscalSubTab === 'manifestacao_destinatario'
+                activeMainFiscalTab === 'manifestacao_destinatario'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
@@ -5630,14 +5590,115 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
         <div className="w-full bg-white dark:bg-stone-900 p-3 sm:p-4">
-          {activeFiscalSubTab === 'mdfe' ? (
-            <MdfeView 
+          
+          {/* SEGUNDA LINHA DE SUB-ABAS FISCAIS (ALÍVIO DE ESCALA SLIM DESIGN PRO) */}
+          {activeMainFiscalTab === 'notas_fiscais' && (
+            <div className="no-print flex flex-wrap items-center gap-1.5 pb-2.5 mb-2.5 border-b border-slate-200 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setActiveNotasFiscaisSubTab('nfe')}
+                className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                  activeNotasFiscaisSubTab === 'nfe'
+                    ? 'border-emerald-700 bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                }`}
+              >
+                <span>📑 NF-E (MERCADORIAS)</span>
+                <span className="ml-1 opacity-80">({nfeDocsCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveNotasFiscaisSubTab('cte')}
+                className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                  activeNotasFiscaisSubTab === 'cte'
+                    ? 'border-sky-700 bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                }`}
+              >
+                <span>🚛 CT-E (FRETE / TRANSPORTE)</span>
+                <span className="ml-1 opacity-80">({cteDocsCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveNotasFiscaisSubTab('nfe_c')}
+                className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                  activeNotasFiscaisSubTab === 'nfe_c'
+                    ? 'border-amber-700 bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                }`}
+              >
+                <span>🛒 NFC-E (CONSUMIDOR FINAL)</span>
+                <span className="ml-1 opacity-80">({nfecDocsCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveNotasFiscaisSubTab('nfse')}
+                className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                  activeNotasFiscaisSubTab === 'nfse'
+                    ? 'border-sky-700 bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                }`}
+              >
+                <span>🛠️ NFS-E (NOTA FISCAL DE SERVIÇO)</span>
+                <span className="ml-1 opacity-80">({nfseDocsCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveNotasFiscaisSubTab('mdfe')}
+                className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                  activeNotasFiscaisSubTab === 'mdfe'
+                    ? 'border-indigo-700 bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                }`}
+              >
+                <span>📦 MDF-E (MANIFESTOS)</span>
+                <span className="ml-1 opacity-80">({mdfeCount})</span>
+              </button>
+            </div>
+          )}
+
+          {activeMainFiscalTab === 'notas_fiscais' ? (
+            activeNotasFiscaisSubTab === 'mdfe' ? (
+              <MdfeView 
+                companyProfile={companyProfile}
+                onRefreshAll={() => {
+                  setMdfeCount(getStoredMdfe().length);
+                }}
+              />
+            ) : (
+              <FiscalDocumentTypeView 
+                category={activeNotasFiscaisSubTab} 
+                companyProfile={companyProfile}
+                onRefreshAll={() => {
+                  try {
+                    const rn = localStorage.getItem('agrocontrol_notas_nfe');
+                    if (rn) setNfeDocsCount(JSON.parse(rn).length);
+                    const rc = localStorage.getItem('agrocontrol_notas_cte');
+                    if (rc) setCteDocsCount(JSON.parse(rc).length);
+                    const rnc = localStorage.getItem('agrocontrol_notas_nfec');
+                    if (rnc) setNfecDocsCount(JSON.parse(rnc).length);
+                    const rns = localStorage.getItem('agrocontrol_notas_nfse');
+                    if (rns) setNfseDocsCount(JSON.parse(rns).length);
+                  } catch {}
+                }}
+              />
+            )
+          ) : activeMainFiscalTab === 'pedido_compra' ? (
+            <FiscalDocumentTypeView 
+              category="pedido_compra" 
               companyProfile={companyProfile}
               onRefreshAll={() => {
-                setMdfeCount(getStoredMdfe().length);
+                try {
+                  const rp = localStorage.getItem('agrocontrol_pedidos_compra');
+                  if (rp) setPedidosCompraCount(JSON.parse(rp).length);
+                } catch {}
               }}
             />
-          ) : activeFiscalSubTab === 'manifestacao_destinatario' ? (
+          ) : activeMainFiscalTab === 'manifestacao_destinatario' ? (
             <ManifestacaoDestinatarioView 
               companyProfile={companyProfile}
               inventory={localInventory}
@@ -5648,7 +5709,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 setManifestacoesCount(getStoredManifestacoes().length);
               }}
             />
-          ) : activeFiscalSubTab === 'pedidos_reforma' ? (
+          ) : activeMainFiscalTab === 'pedidos_reforma' ? (
             <TireReformOrderView 
               companyProfile={companyProfile}
               initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
@@ -5658,25 +5719,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               }}
               onEfetivarRetorno={handleEfetivarRetornoPedidoReforma}
             />
-          ) : activeFiscalSubTab === 'devolucao' ? (
+          ) : activeMainFiscalTab === 'devolucao' ? (
             <DevolucaoNotasView companyProfile={companyProfile} />
-          ) : activeFiscalSubTab === 'nfe' || activeFiscalSubTab === 'cte' || activeFiscalSubTab === 'nfe_c' || activeFiscalSubTab === 'pedido_compra' ? (
-            <FiscalDocumentTypeView 
-              category={activeFiscalSubTab} 
-              companyProfile={companyProfile}
-              onRefreshAll={() => {
-                try {
-                  const rn = localStorage.getItem('agrocontrol_notas_nfe');
-                  if (rn) setNfeDocsCount(JSON.parse(rn).length);
-                  const rc = localStorage.getItem('agrocontrol_notas_cte');
-                  if (rc) setCteDocsCount(JSON.parse(rc).length);
-                  const rnc = localStorage.getItem('agrocontrol_notas_nfec');
-                  if (rnc) setNfecDocsCount(JSON.parse(rnc).length);
-                  const rp = localStorage.getItem('agrocontrol_pedidos_compra');
-                  if (rp) setPedidosCompraCount(JSON.parse(rp).length);
-                } catch {}
-              }}
-            />
           ) : (
             /* Conteúdo padrão de Notas e Entradas */
             <div className="w-full space-y-4">
