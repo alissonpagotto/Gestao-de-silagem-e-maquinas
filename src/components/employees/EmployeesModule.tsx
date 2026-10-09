@@ -49,6 +49,7 @@ import { PrintDocumentOptions } from '../../lib/printService';
 import { PrintableEmployeeSheet } from './PrintableEmployeeSheet';
 import { generateEmployeeSheetHtml, generateEmployeeWhatsAppText } from './employeePrintUtils';
 import { EmployeeAvatar, isBrokenAvatarUrl } from '../common/EmployeeAvatar';
+import { EmployeeIndividualHistory } from './EmployeeIndividualHistory';
 import { 
   getStoredCargosPermissoes, 
   attachCargoPermissionsToEmployee,
@@ -567,6 +568,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
+  const [employeesSubView, setEmployeesSubView] = useState<'listagem' | 'historico'>('listagem');
+  const [selectedEmployeeForHistoryId, setSelectedEmployeeForHistoryId] = useState<string | undefined>(undefined);
   const [vacationQuickFilter, setVacationQuickFilter] = useState<'all' | 'expired' | 'warning'>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -2703,8 +2706,45 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   return (
     <div id="employees-module" className="space-y-3 sm:space-y-3.5 animate-fade-in">
-      {/* CNH Alert, Vacation Alert & Staff Summary Cards (Moldura Unificada Slim Design Pro) */}
-      <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+      {/* SUB-BARRA DE ABAS REATIVA (MDI SLIM DESIGN) */}
+      <div className="no-print flex items-center gap-1.5 pb-0.5">
+        <button
+          type="button"
+          onClick={() => setEmployeesSubView('listagem')}
+          className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+            employeesSubView === 'listagem'
+              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
+              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+          }`}
+        >
+          <span>📋 LISTAGEM GERAL DO OPERADOR</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEmployeesSubView('historico')}
+          className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+            employeesSubView === 'historico'
+              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
+              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+          }`}
+        >
+          <span>📜 HISTÓRICO INDIVIDUAL DO COLABORADOR</span>
+        </button>
+      </div>
+
+      {employeesSubView === 'historico' ? (
+        <EmployeeIndividualHistory
+          employees={employees}
+          selectedEmployeeId={selectedEmployeeForHistoryId}
+          companyProfile={activeCompany}
+          onSaveEmployees={onSaveEmployees}
+          onSelectEmployee={(id) => setSelectedEmployeeForHistoryId(id)}
+        />
+      ) : (
+        <>
+          {/* CNH Alert, Vacation Alert & Staff Summary Cards (Moldura Unificada Slim Design Pro) */}
+          <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
           <div className="px-2 py-1 flex items-center justify-between text-black dark:text-stone-100">
             <div>
@@ -3034,6 +3074,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       </button>
                       <button
                         type="button"
+                        onClick={() => {
+                          setSelectedEmployeeForHistoryId(emp.id);
+                          setEmployeesSubView('historico');
+                        }}
+                        className="p-1 text-black dark:text-stone-300 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition cursor-pointer"
+                        title="Ver Histórico Individual / Prontuário do Colaborador"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleDelete(emp.id)}
                         className="p-1 text-black dark:text-stone-300 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
                         title="Excluir"
@@ -3048,6 +3099,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </table>
         </div>
       </div>
+      </>
+    )}
 
       {/* Modal Cadastro/Edição de Colaborador - Padrão 3D Acetinado Slim */}
       {isModalOpen && (

@@ -540,6 +540,19 @@ export type EmployeeRegistrationType =
   | 'mecanico_especialista' 
   | string;
 
+export interface SalaryChangeRecord {
+  id: string;
+  employeeId: string;
+  date: string; // YYYY-MM-DD
+  previousSalary: number;
+  newSalary: number;
+  reason: 'Promoção' | 'Dissídio / Acordo Coletivo' | 'Mérito' | 'Ajuste de Cargo' | 'Reajuste Anual' | 'Outro' | string;
+  cargo?: string;
+  notes?: string;
+  registeredBy?: string;
+  createdAt: string;
+}
+
 export interface Employee {
   id: string;
   companyId?: string; // ID da Empresa
@@ -590,6 +603,7 @@ export interface Employee {
   cnhUpgradeCategory?: string; // Ex: 'A', 'A + C', 'A + D', 'A + E', 'C', 'D', 'E'
   status: 'ativo' | 'ferias' | 'afastado' | 'inativo';
   salary?: number;
+  salaryHistory?: SalaryChangeRecord[];
   teamId?: string; // ID da equipe à qual pertence (ex: 'team_maq_02')
   machineryId?: string; // ID do veículo / maquinário fixo vinculado ao colaborador
   machineryName?: string; // Nome / placa do veículo fixo vinculado ao colaborador
