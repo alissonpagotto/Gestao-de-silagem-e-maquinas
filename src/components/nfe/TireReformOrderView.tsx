@@ -96,11 +96,17 @@ export function formatCurrencyPtBr(value: number): string {
 }
 
 export const REFORM_ORDERS_STORAGE_KEY = 'colaca_silagem_pedidos_reforma_ativos';
+export const AGROCONTROL_REFORM_ORDERS_KEY = 'agrocontrol_pedidos_reforma';
 export const PENDING_REFORM_TIRES_KEY = 'colaca_silagem_pneus_aguardando_pedido';
 export const SUPPLIERS_STORAGE_KEY = 'colaca_silagem_fornecedores';
 
 export function getStoredReformOrders(): TireReformOrder[] {
   try {
+    const rawAgro = localStorage.getItem(AGROCONTROL_REFORM_ORDERS_KEY);
+    if (rawAgro) {
+      const parsed = JSON.parse(rawAgro);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
     const raw = localStorage.getItem(REFORM_ORDERS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -114,6 +120,7 @@ export function getStoredReformOrders(): TireReformOrder[] {
 
 export function saveStoredReformOrders(orders: TireReformOrder[]): void {
   try {
+    localStorage.setItem(AGROCONTROL_REFORM_ORDERS_KEY, JSON.stringify(orders));
     localStorage.setItem(REFORM_ORDERS_STORAGE_KEY, JSON.stringify(orders));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('colaca_silagem_pedidos_reforma_updated', { detail: orders }));
@@ -445,6 +452,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const [orderSavedToast, setOrderSavedToast] = useState<boolean>(false);
   const [orderForPrint, setOrderForPrint] = useState<TireReformOrder | null>(null);
   const [popupBlockedWarning, setPopupBlockedWarning] = useState<boolean>(false);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
 
   // Limpeza de estado após impressão da página
   useEffect(() => {
@@ -918,24 +926,64 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     }, 4000);
   };
 
-  // Excluir permanentemente pedido de reforma
-  const handleDeleteOrder = (orderToDelete: TireReformOrder) => {
-    const confirmed = window.confirm('Deseja excluir permanentemente este pedido de reforma?');
-    if (!confirmed) return;
+  // Dispara abertura do modal personalizado de confirmação de exclusão (Bypass de Sandbox do iframe)
+  const handleDeleteOrder = (orderId: string) => {
+    setOrderToDelete(orderId);
+  };
 
-    const updatedOrders = orders.filter(o => o.id !== orderToDelete.id);
-    setOrders(updatedOrders);
-    saveStoredReformOrders(updatedOrders);
+  // Executa a exclusão definitiva no LocalStorage e no State após confirmação no modal
+  const confirmDeleteOrder = () => {
+    if (!orderToDelete) return;
+    const orderId = orderToDelete;
 
-    // Se estiver visualizando a ordem excluída, fecha o modal
-    if (selectedOrderForView?.id === orderToDelete.id) {
-      setSelectedOrderForView(null);
+    try {
+      // 1. Buscar array atual no LocalStorage (chave 'agrocontrol_pedidos_reforma' e compatibilidade com 'colaca_silagem_pedidos_reforma_ativos')
+      const rawStored = localStorage.getItem('agrocontrol_pedidos_reforma') || localStorage.getItem(REFORM_ORDERS_STORAGE_KEY);
+      let currentList: TireReformOrder[] = [];
+      if (rawStored) {
+        try {
+          const parsed = JSON.parse(rawStored);
+          if (Array.isArray(parsed)) currentList = parsed;
+        } catch {
+          currentList = orders;
+        }
+      } else {
+        currentList = orders;
+      }
+
+      if (!currentList || currentList.length === 0) {
+        currentList = orders;
+      }
+
+      // 2. Filtrar array removendo o objeto correspondente ao 'orderId' clicado
+      const updatedList = currentList.filter(o => o.id !== orderId);
+
+      // 3. Atualizar a chave no LocalStorage com o novo array filtrado (100% Offline)
+      localStorage.setItem('agrocontrol_pedidos_reforma', JSON.stringify(updatedList));
+      localStorage.setItem(REFORM_ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+
+      // Disparar evento para manter ouvintes sincronizados
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('colaca_silagem_pedidos_reforma_updated', { detail: updatedList }));
+      }
+
+      // 4. Atualizar imediatamente o estado local (State) que renderiza a tabela para sumir na hora
+      setOrders(updatedList);
+
+      // Se estiver visualizando a ordem excluída, fecha o modal
+      if (selectedOrderForView?.id === orderId) {
+        setSelectedOrderForView(null);
+      }
+
+      setOrderToDelete(null);
+      setSuccessMessage('PEDIDO DE REFORMA EXCLUÍDO COM SUCESSO!');
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 4000);
+    } catch (err) {
+      console.error('Erro ao excluir pedido de reforma:', err);
+      setOrderToDelete(null);
     }
-
-    setSuccessMessage(`Pedido ${orderToDelete.orderNumber} excluído com sucesso!`);
-    setTimeout(() => {
-      setSuccessMessage('');
-    }, 4000);
   };
 
   // Impressão da Ficha A4 com Logotipo, Assinatura e Total em R$ (Bypass de Sandbox/Iframe)
@@ -1433,24 +1481,24 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
           <div className="border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
             <div className="max-h-[420px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-10 border-b border-stone-200 dark:border-stone-700">
-                  <tr>
-                    <th className="py-2.5 px-3">Nº do Pedido</th>
-                    <th className="py-2.5 px-3">Data de Envio</th>
-                    <th className="py-2.5 px-3">Fornecedor / Recapadora</th>
-                    <th className="py-2.5 px-3 text-center">Qtd. Pneus</th>
-                    <th className="py-2.5 px-3 text-right">Valor Total (R$)</th>
-                    <th className="py-2.5 px-3">Pneus (Nº de Fogo)</th>
-                    <th className="py-2.5 px-3">Motorista</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-right">Ações</th>
+                <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-10 border-b border-stone-200 dark:border-stone-700 whitespace-nowrap">
+                  <tr className="whitespace-nowrap">
+                    <th className="py-1.5 px-2.5 whitespace-nowrap">Nº do Pedido</th>
+                    <th className="py-1.5 px-2.5 whitespace-nowrap">Data de Envio</th>
+                    <th className="py-1.5 px-2.5 whitespace-nowrap">Fornecedor / Recapadora</th>
+                    <th className="py-1.5 px-2.5 text-center whitespace-nowrap">Qtd. Pneus</th>
+                    <th className="py-1.5 px-2.5 text-right whitespace-nowrap">Valor Total (R$)</th>
+                    <th className="py-1.5 px-2.5 whitespace-nowrap">Pneus (Nº de Fogo)</th>
+                    <th className="py-1.5 px-2.5 whitespace-nowrap">Motorista</th>
+                    <th className="py-1.5 px-2.5 text-center whitespace-nowrap">Status</th>
+                    <th className="py-1.5 px-2.5 text-right whitespace-nowrap">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-xs text-stone-400 font-medium">
-                        Nenhum pedido de reforma registrado. Use a Gestão de Frotas para arrastar pneus e gerar uma nova ordem.
+                      <td colSpan={9} className="py-6 text-center text-xs text-stone-400 font-medium uppercase">
+                        NENHUM PEDIDO DE REFORMA REGISTRADO. USE A GESTÃO DE FROTAS PARA ARRASTAR PNEUS E GERAR UMA NOVA ORDEM.
                       </td>
                     </tr>
                   ) : (
@@ -1460,31 +1508,31 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
 
                       return (
-                        <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition uppercase">
-                          <td className="py-2.5 px-3 font-mono font-black text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                        <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition uppercase whitespace-nowrap">
+                          <td className="py-1 px-2.5 font-mono font-black text-amber-700 dark:text-amber-400 whitespace-nowrap">
                             {order.orderNumber}
                           </td>
-                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                          <td className="py-1 px-2.5 text-stone-600 dark:text-stone-400 whitespace-nowrap">
                             {formatDateBR(order.createdAt)}
                           </td>
-                          <td className="py-2.5 px-3 font-bold text-stone-800 dark:text-stone-200 whitespace-nowrap">
+                          <td className="py-1 px-2.5 font-bold text-stone-800 dark:text-stone-200 whitespace-nowrap">
                             {order.supplierName.toUpperCase()}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-black whitespace-nowrap">
+                          <td className="py-1 px-2.5 text-center font-black whitespace-nowrap">
                             <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-[11px]">
                               {order.totalTires}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-black text-stone-900 dark:text-stone-100 text-xs whitespace-nowrap">
+                          <td className="py-1 px-2.5 text-right font-mono font-black text-stone-900 dark:text-stone-100 text-xs whitespace-nowrap">
                             {orderSum > 0 ? `R$ ${formatCurrencyPtBr(orderSum)}` : '-'}
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-stone-700 dark:text-stone-300 max-w-[180px] truncate whitespace-nowrap" title={order.tires.map(t => t.fireNumber).join(', ')}>
+                          <td className="py-1 px-2.5 font-mono text-[11px] text-stone-700 dark:text-stone-300 max-w-[200px] truncate whitespace-nowrap" title={order.tires.map(t => t.fireNumber).join(', ')}>
                             {order.tires.map(t => t.fireNumber).join(', ')}
                           </td>
-                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                          <td className="py-1 px-2.5 text-stone-600 dark:text-stone-400 whitespace-nowrap">
                             {(order.driverName || '-').toUpperCase()}
                           </td>
-                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <td className="py-1 px-2.5 text-center whitespace-nowrap">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                               order.status === 'Concluído'
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
@@ -1493,13 +1541,13 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               {order.status.toUpperCase()}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                            <div className="flex flex-row items-center justify-end gap-1.5 sm:gap-2">
+                          <td className="py-1 px-2.5 text-right whitespace-nowrap">
+                            <div className="flex flex-row items-center justify-end gap-1 sm:gap-1.5">
                               {order.status === 'Concluído' ? (
                                 <button
                                   type="button"
                                   disabled
-                                  className="p-1.5 text-stone-300 dark:text-stone-600 cursor-not-allowed opacity-40 rounded-lg"
+                                  className="p-1 text-stone-300 dark:text-stone-600 cursor-not-allowed opacity-40 rounded-lg"
                                   title="Pedido Concluído - Bloqueado contra novas edições"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
@@ -1508,7 +1556,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditOrder(order)}
-                                  className="p-1.5 text-stone-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
+                                  className="p-1 text-stone-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
                                   title="Editar Pedido de Reforma"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
@@ -1517,7 +1565,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedOrderForView(order)}
-                                className="p-1.5 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+                                className="p-1 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
                                 title="Visualizar Detalhes do Pedido"
                               >
                                 <Eye className="w-3.5 h-3.5" />
@@ -1525,7 +1573,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handlePrintOrder(order)}
-                                className="p-1.5 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+                                className="p-1 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
                                 title="Imprimir Pedido de Envio (Ficha A4)"
                               >
                                 <Printer className="w-3.5 h-3.5" />
@@ -1535,8 +1583,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               <button
                                 type="button"
                                 id={`btn-excluir-pedido-${order.id}`}
-                                onClick={() => handleDeleteOrder(order)}
-                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition cursor-pointer"
+                                onClick={() => setOrderToDelete(order.id)}
+                                className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
                                 title="Excluir permanentemente este pedido de reforma"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1547,11 +1595,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                                   type="button"
                                   id={`btn-efetivar-retorno-${order.id}`}
                                   onClick={() => handleEfetivarRetorno(order)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-md transition cursor-pointer whitespace-nowrap shadow-2xs hover:shadow-xs"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-md transition cursor-pointer whitespace-nowrap shadow-2xs hover:shadow-xs"
                                   title="Efetivar retorno do pedido de reforma"
                                 >
                                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                  <span>Efetivar retorno do pedido de reforma</span>
+                                  <span>Efetivar retorno</span>
                                 </button>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-md">
@@ -1570,6 +1618,80 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão (Customizado para contornar Sandbox/Iframe) */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in print:hidden">
+          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+            {/* Cabeçalho acetinado 3D obrigatório do contrato */}
+            <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 text-slate-700 font-bold text-xs p-2 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 uppercase">
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>CONFIRMAÇÃO DE EXCLUSÃO</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                className="text-slate-500 hover:text-slate-800 p-0.5 rounded transition cursor-pointer"
+                title="FECHAR"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Conteúdo interno rigorosamente em CAIXA ALTA */}
+            <div className="p-4 space-y-3">
+              <p className="text-xs font-bold text-stone-800 dark:text-stone-200 uppercase leading-relaxed text-center sm:text-left">
+                CONFIRMAR EXCLUSÃO: TEM CERTEZA QUE DESEJA APAGAR ESTE REGISTRO EM DEFINITIVO?
+              </p>
+
+              {(() => {
+                const target = orders.find(o => o.id === orderToDelete);
+                if (!target) return null;
+                return (
+                  <div className="p-2.5 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-lg text-[11px] font-mono space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-stone-500 uppercase font-sans">PEDIDO:</span>
+                      <span className="font-bold text-stone-900 dark:text-stone-100">{target.orderNumber.toUpperCase()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-500 uppercase font-sans">FORNECEDOR:</span>
+                      <span className="font-bold text-stone-800 dark:text-stone-200 truncate max-w-[220px]">{target.supplierName.toUpperCase()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-500 uppercase font-sans">TOTAL DE PNEUS:</span>
+                      <span className="font-bold text-stone-800 dark:text-stone-200">{target.totalTires} PNEU(S)</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase text-center sm:text-left">
+                ESTA AÇÃO NÃO PODERÁ SER DESFEITA. O REGISTRO SERÁ REMOVIDO DO LOCALSTORAGE.
+              </p>
+            </div>
+
+            {/* Botões de Ação Rápida */}
+            <div className="p-3 bg-stone-100 dark:bg-stone-800/80 border-t border-stone-200 dark:border-stone-700 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-600 transition cursor-pointer"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteOrder}
+                className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>CONFIRMAR EXCLUSÃO</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
