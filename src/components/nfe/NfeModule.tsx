@@ -43,7 +43,8 @@ import {
   Wrench,
   Truck,
   FileSpreadsheet,
-  ShoppingBag
+  ShoppingBag,
+  FileCheck2
 } from 'lucide-react';
 import { 
   Expense, 
@@ -139,6 +140,8 @@ import {
   DEFAULT_STOCK_SERVICES
 } from './TireReformOrderView';
 import { DevolucaoNotasView, getStoredNotasDevolucao } from './DevolucaoNotasView';
+import { MdfeView, getStoredMdfe } from './MdfeView';
+import { ManifestacaoDestinatarioView, getStoredManifestacoes } from './ManifestacaoDestinatarioView';
 
 interface ParsedNfeItem {
   code: string;
@@ -1056,7 +1059,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // -------------------------------------------------------------------------
   // ABAS PRINCIPAIS DO CABEÇALHO: NOTAS E ENTRADAS | PEDIDOS DE REFORMA | NOTAS DE DEVOLUÇÃO (Requisito 3)
   // -------------------------------------------------------------------------
-  type FiscalSubTab = 'notas' | 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao';
+  type FiscalSubTab = 'notas' | 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao' | 'mdfe' | 'manifestacao_destinatario';
   const [activeFiscalSubTab, setActiveFiscalSubTab] = useState<FiscalSubTab>('notas');
   const [nfeDocsCount, setNfeDocsCount] = useState<number>(() => {
     try {
@@ -1085,6 +1088,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [reformOrdersCount, setReformOrdersCount] = useState<number>(() => getStoredReformOrders().length);
   const [pendingReformCount, setPendingReformCount] = useState<number>(() => getStoredPendingReformTires().length);
   const [devolucaoCount, setDevolucaoCount] = useState<number>(() => getStoredNotasDevolucao().length);
+  const [mdfeCount, setMdfeCount] = useState<number>(() => getStoredMdfe().length);
+  const [manifestacoesCount, setManifestacoesCount] = useState<number>(() => getStoredManifestacoes().length);
 
   // Escuta gatilho vindo da Gestão de Frotas ('colaca_silagem_abrir_pedido_reforma')
   useEffect(() => {
@@ -5572,7 +5577,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-notas-devolucao"
               onClick={() => setActiveFiscalSubTab('devolucao')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'devolucao'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-rose-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -5584,12 +5589,66 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 {devolucaoCount}
               </span>
             </button>
+
+            {/* TAB 8: MDFE (MANIFESTOS) */}
+            <button
+              type="button"
+              id="tab-fiscal-mdfe"
+              onClick={() => setActiveFiscalSubTab('mdfe')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeFiscalSubTab === 'mdfe'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span>MDFE (MANIFESTOS)</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {mdfeCount}
+              </span>
+            </button>
+
+            {/* TAB 9: MANIFESTAÇÃO DESTINATÁRIO */}
+            <button
+              type="button"
+              id="tab-fiscal-manifestacao-destinatario"
+              onClick={() => setActiveFiscalSubTab('manifestacao_destinatario')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                activeFiscalSubTab === 'manifestacao_destinatario'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <FileCheck2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>MANIFESTAÇÃO DESTINATÁRIO</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
+                {manifestacoesCount}
+              </span>
+            </button>
           </nav>
         </div>
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
         <div className="w-full bg-white dark:bg-stone-900 p-3 sm:p-4">
-          {activeFiscalSubTab === 'pedidos_reforma' ? (
+          {activeFiscalSubTab === 'mdfe' ? (
+            <MdfeView 
+              companyProfile={companyProfile}
+              onRefreshAll={() => {
+                setMdfeCount(getStoredMdfe().length);
+              }}
+            />
+          ) : activeFiscalSubTab === 'manifestacao_destinatario' ? (
+            <ManifestacaoDestinatarioView 
+              companyProfile={companyProfile}
+              inventory={localInventory}
+              onSaveInventory={saveInventory}
+              expenses={expenses}
+              onAddExpenseFromNfe={onAddExpenseFromNfe}
+              onRefreshAll={() => {
+                setManifestacoesCount(getStoredManifestacoes().length);
+              }}
+            />
+          ) : activeFiscalSubTab === 'pedidos_reforma' ? (
             <TireReformOrderView 
               companyProfile={companyProfile}
               initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
