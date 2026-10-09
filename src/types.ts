@@ -412,6 +412,7 @@ export interface RhSubPermissions {
   atestados?: boolean;            // [ ] Atestados
   faltas?: boolean;               // [ ] Faltas
   rescisao?: boolean;             // [ ] Rescisão
+  historico?: boolean;            // [ ] Ex-Colaboradores / Histórico
 }
 
 export interface RelatoriosSubPermissions {

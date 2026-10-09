@@ -618,6 +618,20 @@ export function getStoredEmployees(): Employee[] {
   }
 }
 
+export function getStoredAllEmployees(): Employee[] {
+  try {
+    let raw = localStorage.getItem('agrocontrol_funcionarios') ||
+              localStorage.getItem('colaca_silagem_funcionarios') ||
+              localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    if (!raw) return INITIAL_EMPLOYEES;
+    const parsed: Employee[] = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
+    return parsed;
+  } catch (e) {
+    return INITIAL_EMPLOYEES;
+  }
+}
+
 export function saveStoredEmployees(employees: Employee[]): void {
   try {
     const json = JSON.stringify(employees);
