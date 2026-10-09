@@ -5452,14 +5452,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
           <nav 
             aria-label="Abas de Notas e Entradas"
-            className="w-full flex items-stretch"
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
             {/* TAB 1: NOTAS E ENTRADAS */}
             <button
               type="button"
               id="tab-fiscal-notas-entradas"
               onClick={() => setActiveFiscalSubTab('notas')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'notas'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -5472,55 +5472,55 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </span>
             </button>
 
-            {/* TAB 2: NFE (NOTA FISCAL ELETRÔNICA) */}
+            {/* TAB 2: • NFE */}
             <button
               type="button"
               id="tab-fiscal-nfe"
               onClick={() => setActiveFiscalSubTab('nfe')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'nfe'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>NFE (NOTA FISCAL ELETRÔNICA)</span>
+              <span>• NFE</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
                 {nfeDocsCount}
               </span>
             </button>
 
-            {/* TAB 3: CTE (CONHECIMENTO DE TRANSPORTE ELETRÔNICO) */}
+            {/* TAB 3: CT-E (FRETE / TRANSPORTE) */}
             <button
               type="button"
               id="tab-fiscal-cte"
               onClick={() => setActiveFiscalSubTab('cte')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'cte'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-sky-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <Truck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span>CTE (CONHECIMENTO DE TRANSPORTE ELETRÔNICO)</span>
+              <span>CT-E (FRETE / TRANSPORTE)</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
                 {cteDocsCount}
               </span>
             </button>
 
-            {/* TAB 4: NFE-C (NOTA FISCAL COMPLEMENTAR) */}
+            {/* TAB 4: NFC-E (CONSUMIDOR FINAL) */}
             <button
               type="button"
               id="tab-fiscal-nfe-c"
               onClick={() => setActiveFiscalSubTab('nfe_c')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'nfe_c'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>NFE-C (NOTA FISCAL COMPLEMENTAR)</span>
+              <span>NFC-E (CONSUMIDOR FINAL)</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
                 {nfecDocsCount}
               </span>
@@ -5531,7 +5531,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-pedido-compra"
               onClick={() => setActiveFiscalSubTab('pedido_compra')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'pedido_compra'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-indigo-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -5549,7 +5549,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-pedidos-reforma"
               onClick={() => setActiveFiscalSubTab('pedidos_reforma')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeFiscalSubTab === 'pedidos_reforma'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -5572,7 +5572,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-notas-devolucao"
               onClick={() => setActiveFiscalSubTab('devolucao')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-black uppercase transition cursor-pointer select-none whitespace-nowrap ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap ${
                 activeFiscalSubTab === 'devolucao'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-rose-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'

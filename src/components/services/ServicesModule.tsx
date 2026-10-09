@@ -445,358 +445,360 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       </header>
 
       {/* ========================================================
-          3. MENU DE ABAS (TABS) DE NAVEGAÇÃO
-          Barra com fundo moldura acetinada 3D
-          e aba ativa com fundo branco sólido e contorno nítido
+          3. MÓDULO DE SERVIÇOS: ABAS MDI TRIDIMENSIONAL + BLOCO ENVOLVIDO
           ======================================================== */}
-      <nav 
-        aria-label="Abas de Serviços" 
-        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
-      >
-        {allowedTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`group inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none ${
-                isActive
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              <Icon 
-                className={`w-4 h-4 transition-colors ${
-                  isActive 
-                    ? 'text-zinc-900 dark:text-white' 
-                    : 'text-zinc-500 group-hover:text-zinc-800 dark:text-stone-400 dark:group-hover:text-stone-200'
-                }`} 
-              />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* RENDERIZAÇÃO DA ABA ATIVA: FUNÇÃO RESTRITA, AGENDA DE SERVIÇOS, FORMULÁRIOS DE CAMPO OU LISTAGEM DE SERVIÇOS */}
-      {!isServiceTabAllowed(activeTab) ? (
-        <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">
-          <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
-            <Lock className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-              Função Restrita para o seu Cargo
-            </h3>
-            <p className="text-xs text-zinc-600 dark:text-stone-400 leading-relaxed">
-              O cargo <strong>{userSession.cargoNome}</strong> possui acesso ao módulo de Serviços, porém a sub-permissão para esta tela está desativada no cadastro do seu cargo.
-            </p>
-          </div>
-          {allowedTabs.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setActiveTab(allowedTabs[0].id)}
-              className="inline-flex items-center px-4 py-2 rounded-xl bg-[#0963cb] text-white text-xs font-bold hover:bg-[#074ea3] transition shadow-xs cursor-pointer"
-            >
-              Ir para {allowedTabs[0].label}
-            </button>
-          )}
-        </div>
-      ) : activeTab === 'agenda' ? (
-        <ServiceAgendaModule
-          machineries={machineries}
-          employees={employees}
-          clients={clients}
-          companyProfile={companyProfile}
-          onExecuteAppointment={handleExecuteAppointmentFromAgenda}
-        />
-      ) : activeTab === 'formularios' ? (
-        <FieldFormsView
-          companyProfile={companyProfile}
-          machineries={machineries}
-          employees={employees}
-          clients={clients}
-        />
-      ) : (
-        <>
-          {/* ========================================================
-              4. BARRA DE FILTROS (SEARCH & DROPDOWN)
-              ======================================================== */}
-      <section 
-        aria-label="Filtros de Serviços"
-        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full"
-      >
-        {/* Campo de Busca */}
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-            <Search className="w-3.5 h-3.5" />
-          </div>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar cliente, fazenda ou nº..."
-            className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-zinc-900 dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-colors shadow-2xs"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Dropdown de Status */}
-        <div className="relative sm:w-44">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-colors shadow-2xs cursor-pointer"
+      <div className="w-full flex flex-col">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (10% MENOR) */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas de Serviços" 
+            className="w-full flex items-stretch"
           >
-            <option value="todos" className="text-zinc-900 font-semibold">Status: Todos</option>
-            <option value="agendado" className="text-zinc-900 font-semibold">Agendado</option>
-            <option value="em_andamento" className="text-zinc-900 font-semibold">Em Andamento</option>
-            <option value="concluido" className="text-zinc-900 font-semibold">Concluído</option>
-            <option value="cancelado" className="text-zinc-900 font-semibold">Cancelado</option>
-          </select>
-          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-zinc-400">
-            <ChevronDown className="w-3.5 h-3.5" />
-          </div>
+            {allowedTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase select-none transition cursor-pointer whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
+                    isActive
+                      ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                      : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <Icon 
+                    className={`w-3.5 h-3.5 transition-colors ${
+                      isActive 
+                        ? 'text-emerald-700 dark:text-emerald-400' 
+                        : 'text-slate-500 dark:text-stone-400'
+                    }`} 
+                  />
+                  <span>{tab.label.toUpperCase()}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
-      </section>
 
-      {/* ========================================================
-          5. TABELA / CARDS DAS ORDENS DE SERVIÇO
-          Fundo central branco sólido (bg-white), borda perimetral escura/nítida (border-zinc-400)
-          e cabeçalho cinza claro (bg-zinc-100) com texto escuro
-          ======================================================== */}
-      <section 
-        aria-label="Lista de Serviços"
-        className="crm-card bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl shadow-xs overflow-hidden"
-      >
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            {/* Cabeçalho da Tabela - Fundo bg-zinc-100 com Texto em Cinza Escuro de Alta Legibilidade */}
-            <thead>
-              <tr className="border-b border-zinc-400 dark:border-stone-700 bg-zinc-100 dark:bg-stone-800/80">
-                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16">
-                  Nº
-                </th>
-                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
-                  CLIENTE
-                </th>
-                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
-                  {tabConfig.dateColumn}
-                </th>
-                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center">
-                  {tabConfig.quantityColumn}
-                </th>
-                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center">
-                  STATUS
-                </th>
-                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right">
-                  TOTAL
-                </th>
-                <th scope="col" className="px-2.5 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right w-20">
-                  <span className="sr-only">Ações</span>
-                </th>
-              </tr>
-            </thead>
-
-            {/* Corpo da Tabela - Linhas com Fundo Branco Sólido e Textos em Alta Legibilidade */}
-            <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
-              {filteredServices.length === 0 ? (
-                /* Bloco de Estado Vazio Centralizado */
-                <tr className="bg-white dark:bg-stone-900">
-                  <td colSpan={7} className="px-4 py-12 text-center bg-white dark:bg-stone-900">
-                    <p className="text-sm font-semibold text-zinc-500 dark:text-stone-400">
-                      {activeTab === 'trator' 
-                        ? 'Nenhum serviço de trator encontrado' 
-                        : activeTab === 'corte'
-                        ? 'Nenhum serviço de corte de silagem encontrado'
-                        : activeTab === 'colheita'
-                        ? 'Nenhum serviço de colheita de grãos encontrado'
-                        : activeTab === 'maquina'
-                        ? 'Nenhum serviço de máquina encontrado'
-                        : activeTab === 'frete'
-                        ? 'Nenhum serviço de frete encontrado'
-                        : activeTab === 'orcamento'
-                        ? 'Nenhum orçamento encontrado'
-                        : 'Nenhum serviço encontrado'}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                /* Linhas Preenchidas com Fundo Branco e Textos Legíveis */
-                filteredServices.map((service, index) => {
-                  const itemNumber = (index + 1).toString().padStart(3, '0');
-                  const statusColors: Record<string, string> = {
-                    agendado: 'bg-white text-amber-700 border border-zinc-400 dark:bg-stone-800 dark:text-amber-400 dark:border-stone-700 font-bold',
-                    em_andamento: 'bg-white text-blue-700 border border-zinc-400 dark:bg-stone-800 dark:text-blue-400 dark:border-stone-700 font-bold',
-                    concluido: 'bg-white text-emerald-700 border border-zinc-400 dark:bg-stone-800 dark:text-emerald-400 dark:border-stone-700 font-bold',
-                    cancelado: 'bg-white text-rose-700 border border-zinc-400 dark:bg-stone-800 dark:text-rose-400 dark:border-stone-700 font-bold',
-                  };
-
-                  const statusLabels: Record<string, string> = {
-                    agendado: 'Agendado',
-                    em_andamento: 'Em Andamento',
-                    concluido: 'Concluído',
-                    cancelado: 'Cancelado',
-                  };
-
-                  const currentStatus = service.status || 'agendado';
-
-                  // Quantidade exibida de acordo com a unidade e aba
-                  let quantityDisplay = '--';
-                  if (activeTab === 'frete' || service.serviceTab === 'frete' || service.truckBillingMode) {
-                    const mode = service.truckBillingMode;
-                    if (mode === 'km' || mode === 'somente_km') {
-                      quantityDisplay = `${service.truckServiceTotalKm || service.areaQuantity || 0} km`;
-                    } else if (mode === 'horas') {
-                      quantityDisplay = `${service.truckServiceHours || service.areaQuantity || 0} h`;
-                    } else if (mode === 'cargas' || mode === 'cargas_km') {
-                      const addKm = service.truckServiceKmAdditional ? ` + ${service.truckServiceKmAdditional} km` : '';
-                      quantityDisplay = `${service.truckServiceLoads || 0} cargas${addKm}`;
-                    } else if (mode === 'viagem') {
-                      quantityDisplay = `${service.truckServiceTrips || 1} viagem${(service.truckServiceTrips || 1) > 1 ? 's' : ''}`;
-                    } else if (service.truckServiceTotalKm) {
-                      quantityDisplay = `${service.truckServiceTotalKm} km`;
-                    } else if (service.truckServiceHours) {
-                      quantityDisplay = `${service.truckServiceHours} h`;
-                    } else {
-                      quantityDisplay = '--';
-                    }
-                  } else if (service.areaUnit === 'alqueires' && (service.areaQuantity ?? service.areaHectares)) {
-                    quantityDisplay = `${service.areaQuantity ?? service.areaHectares} alq`;
-                  } else if (service.areaUnit === 'hora' && (service.areaQuantity ?? service.tractorHours)) {
-                    quantityDisplay = `${service.areaQuantity ?? service.tractorHours} h`;
-                  } else if (service.areaQuantity ?? service.areaHectares) {
-                    quantityDisplay = `${service.areaQuantity ?? service.areaHectares} ha`;
-                  } else if (service.tractorHours) {
-                    quantityDisplay = `${service.tractorHours} h`;
-                  }
-
-                  return (
-                    <tr 
-                      key={service.id} 
-                      className="bg-white dark:bg-stone-900 hover:bg-zinc-50 dark:hover:bg-stone-800/60 transition-colors duration-150 group border-b border-zinc-200 dark:border-stone-800"
-                    >
-                      {/* Nº */}
-                      <td className="px-3 py-2 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold">
-                        #{itemNumber}
-                      </td>
-
-                      {/* Cliente e Descrições Secundárias */}
-                      <td className="px-3 py-2">
-                        <div className="font-bold text-zinc-900 dark:text-white text-sm leading-snug">
-                          {service.clientName}
-                        </div>
-                        {service.farmName && (
-                          <div className="text-[11px] text-zinc-500 dark:text-stone-400 font-medium">
-                            {service.farmName}
-                          </div>
-                        )}
-                        {(service.freightOrigin || service.freightDestination) && (
-                          <div className="text-[11px] text-zinc-600 dark:text-stone-300 font-medium flex items-center gap-1 mt-0.5">
-                            <span className="bg-zinc-100 dark:bg-stone-800 text-zinc-800 dark:text-stone-200 font-semibold px-1.5 py-0.5 rounded border border-zinc-200 dark:border-stone-700">
-                              Rota: {service.freightOrigin || 'Origem'} ➔ {service.freightDestination || 'Destino'}
-                            </span>
-                          </div>
-                        )}
-                        {(service.machineryAssigned || service.operatorAssigned || service.tractorName || service.forageHarvesterName || service.freightDriverName || service.freightMaterialType) && (
-                          <div className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
-                            {service.freightMaterialType && (
-                              <span className="text-purple-800 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
-                                Carga: {service.freightMaterialType}
-                              </span>
-                            )}
-                            {service.forageHarvesterName && (
-                              <span className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
-                                Forr: {service.forageHarvesterName}
-                              </span>
-                            )}
-                            {service.tractorName && (
-                              <span className="text-blue-800 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/50 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
-                                Trator: {service.tractorName}
-                              </span>
-                            )}
-                            {!service.forageHarvesterName && !service.tractorName && service.machineryAssigned && (
-                              <span className="text-zinc-700 dark:text-stone-300 font-semibold bg-zinc-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-stone-700">
-                                {activeTab === 'frete' || service.serviceTab === 'frete' ? `Caminhão: ${service.machineryAssigned}` : service.machineryAssigned}
-                              </span>
-                            )}
-                            {(service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName || service.freightDriverName) && (
-                              <span className="text-zinc-600 dark:text-stone-400 font-medium">
-                                • {activeTab === 'frete' || service.serviceTab === 'frete' ? 'Motorista' : 'Op'}: {service.freightDriverName || service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Data */}
-                      <td className="px-3 py-2 text-xs text-zinc-700 dark:text-stone-300 font-medium whitespace-nowrap">
-                        {service.startDate ? formatDateBR(service.startDate) : '--'}
-                      </td>
-
-                      {/* Quantidade / Área */}
-                      <td className="px-3 py-2 text-xs text-center text-zinc-800 dark:text-stone-200 font-bold whitespace-nowrap">
-                        {quantityDisplay}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-3 py-2 text-center whitespace-nowrap">
-                        <span 
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            statusColors[currentStatus] || 'bg-zinc-100 text-zinc-800 border-zinc-300'
-                          }`}
-                        >
-                          {statusLabels[currentStatus] || currentStatus}
-                        </span>
-                      </td>
-
-                      {/* Total */}
-                      <td className="px-3 py-2 text-right font-black text-zinc-900 dark:text-white text-xs sm:text-sm whitespace-nowrap">
-                        {formatCurrencyBRL(service.totalAmount || 0)}
-                      </td>
-
-                      {/* Ações */}
-                      <td className="px-2.5 py-2 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(service)}
-                            className="p-1 text-zinc-500 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-md transition-colors cursor-pointer"
-                            title="Editar serviço"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteService(service.id, service.clientName)}
-                            className="p-1 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/30 rounded-md transition-colors cursor-pointer"
-                            title="Excluir serviço"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+        {/* BLOCO INFERIOR DE CONTEÚDO ENVOLVIDO NA MOLDURA PADRONIZADA (COLADO À BASE DAS ABAS) */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden p-3 sm:p-4 space-y-3">
+          {/* RENDERIZAÇÃO DA ABA ATIVA: FUNÇÃO RESTRITA, AGENDA DE SERVIÇOS, FORMULÁRIOS DE CAMPO OU LISTAGEM DE SERVIÇOS */}
+          {!isServiceTabAllowed(activeTab) ? (
+            <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">
+              <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+                <Lock className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  Função Restrita para o seu Cargo
+                </h3>
+                <p className="text-xs text-zinc-600 dark:text-stone-400 leading-relaxed">
+                  O cargo <strong>{userSession.cargoNome}</strong> possui acesso ao módulo de Serviços, porém a sub-permissão para esta tela está desativada no cadastro do seu cargo.
+                </p>
+              </div>
+              {allowedTabs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(allowedTabs[0].id)}
+                  className="inline-flex items-center px-4 py-2 rounded-xl bg-[#0963cb] text-white text-xs font-bold hover:bg-[#074ea3] transition shadow-xs cursor-pointer"
+                >
+                  Ir para {allowedTabs[0].label}
+                </button>
               )}
-            </tbody>
-          </table>
+            </div>
+          ) : activeTab === 'agenda' ? (
+            <ServiceAgendaModule
+              machineries={machineries}
+              employees={employees}
+              clients={clients}
+              companyProfile={companyProfile}
+              onExecuteAppointment={handleExecuteAppointmentFromAgenda}
+            />
+          ) : activeTab === 'formularios' ? (
+            <FieldFormsView
+              companyProfile={companyProfile}
+              machineries={machineries}
+              employees={employees}
+              clients={clients}
+            />
+          ) : (
+            <>
+              {/* ========================================================
+                  4. BARRA DE FILTROS (SEARCH & DROPDOWN)
+                  ======================================================== */}
+              <section 
+                aria-label="Filtros de Serviços"
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full"
+              >
+                {/* Campo de Busca */}
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
+                    <Search className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="BUSCAR CLIENTE, FAZENDA OU Nº..."
+                    className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition-colors shadow-2xs uppercase"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown de Status */}
+                <div className="relative sm:w-44">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition-colors shadow-2xs cursor-pointer uppercase"
+                  >
+                    <option value="todos" className="text-zinc-900 font-semibold">STATUS: TODOS</option>
+                    <option value="agendado" className="text-zinc-900 font-semibold">AGENDADO</option>
+                    <option value="em_andamento" className="text-zinc-900 font-semibold">EM ANDAMENTO</option>
+                    <option value="concluido" className="text-zinc-900 font-semibold">CONCLUÍDO</option>
+                    <option value="cancelado" className="text-zinc-900 font-semibold">CANCELADO</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-zinc-400">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </section>
+
+              {/* ========================================================
+                  5. TABELA SLIM DESIGN PRO DAS ORDENS DE SERVIÇO
+                  ======================================================== */}
+              <section 
+                aria-label="Lista de Serviços"
+                className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xs overflow-hidden"
+              >
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    {/* Cabeçalho da Tabela Slim */}
+                    <thead>
+                      <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800/80">
+                        <th scope="col" className="px-3 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
+                          Nº
+                        </th>
+                        <th scope="col" className="px-3 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                          CLIENTE
+                        </th>
+                        <th scope="col" className="px-3 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                          {(tabConfig.dateColumn || 'DATA').toUpperCase()}
+                        </th>
+                        <th scope="col" className="px-3 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                          {(tabConfig.quantityColumn || 'ÁREA / UNIDADE').toUpperCase()}
+                        </th>
+                        <th scope="col" className="px-3 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                          STATUS
+                        </th>
+                        <th scope="col" className="px-3 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                          TOTAL
+                        </th>
+                        <th scope="col" className="px-2.5 py-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right w-20 whitespace-nowrap">
+                          <span className="sr-only">AÇÕES</span>
+                        </th>
+                      </tr>
+                    </thead>
+
+                    {/* Corpo da Tabela Slim */}
+                    <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
+                      {filteredServices.length === 0 ? (
+                        <tr className="bg-white dark:bg-stone-900">
+                          <td colSpan={7} className="px-4 py-8 text-center bg-white dark:bg-stone-900">
+                            <p className="text-xs font-bold text-zinc-500 dark:text-stone-400 uppercase">
+                              {activeTab === 'trator' 
+                                ? 'NENHUM SERVIÇO DE TRATOR ENCONTRADO' 
+                                : activeTab === 'corte'
+                                ? 'NENHUM SERVIÇO DE CORTE DE SILAGEM ENCONTRADO'
+                                : activeTab === 'colheita'
+                                ? 'NENHUM SERVIÇO DE COLHEITA DE GRÃOS ENCONTRADO'
+                                : activeTab === 'maquina'
+                                ? 'NENHUM SERVIÇO DE MÁQUINA ENCONTRADO'
+                                : activeTab === 'frete'
+                                ? 'NENHUM SERVIÇO DE FRETE ENCONTRADO'
+                                : activeTab === 'orcamento'
+                                ? 'NENHUM ORÇAMENTO ENCONTRADO'
+                                : 'NENHUM SERVIÇO ENCONTRADO'}
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredServices.map((service, index) => {
+                          const itemNumber = (index + 1).toString().padStart(3, '0');
+                          const statusColors: Record<string, string> = {
+                            agendado: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-stone-800 dark:text-amber-400 dark:border-stone-700 font-bold',
+                            em_andamento: 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-stone-800 dark:text-blue-400 dark:border-stone-700 font-bold',
+                            concluido: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-stone-800 dark:text-emerald-400 dark:border-stone-700 font-bold',
+                            cancelado: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-stone-800 dark:text-rose-400 dark:border-stone-700 font-bold',
+                          };
+
+                          const statusLabels: Record<string, string> = {
+                            agendado: 'AGENDADO',
+                            em_andamento: 'EM ANDAMENTO',
+                            concluido: 'CONCLUÍDO',
+                            cancelado: 'CANCELADO',
+                          };
+
+                          const currentStatus = service.status || 'agendado';
+
+                          // Quantidade exibida de acordo com a unidade e aba
+                          let quantityDisplay = '--';
+                          if (activeTab === 'frete' || service.serviceTab === 'frete' || service.truckBillingMode) {
+                            const mode = service.truckBillingMode;
+                            if (mode === 'km' || mode === 'somente_km') {
+                              quantityDisplay = `${service.truckServiceTotalKm || service.areaQuantity || 0} KM`;
+                            } else if (mode === 'horas') {
+                              quantityDisplay = `${service.truckServiceHours || service.areaQuantity || 0} H`;
+                            } else if (mode === 'cargas' || mode === 'cargas_km') {
+                              const addKm = service.truckServiceKmAdditional ? ` + ${service.truckServiceKmAdditional} KM` : '';
+                              quantityDisplay = `${service.truckServiceLoads || 0} CARGAS${addKm}`;
+                            } else if (mode === 'viagem') {
+                              quantityDisplay = `${service.truckServiceTrips || 1} VIAGEM${(service.truckServiceTrips || 1) > 1 ? 'S' : ''}`;
+                            } else if (service.truckServiceTotalKm) {
+                              quantityDisplay = `${service.truckServiceTotalKm} KM`;
+                            } else if (service.truckServiceHours) {
+                              quantityDisplay = `${service.truckServiceHours} H`;
+                            } else {
+                              quantityDisplay = '--';
+                            }
+                          } else if (service.areaUnit === 'alqueires' && (service.areaQuantity ?? service.areaHectares)) {
+                            quantityDisplay = `${service.areaQuantity ?? service.areaHectares} ALQ`;
+                          } else if (service.areaUnit === 'hora' && (service.areaQuantity ?? service.tractorHours)) {
+                            quantityDisplay = `${service.areaQuantity ?? service.tractorHours} H`;
+                          } else if (service.areaQuantity ?? service.areaHectares) {
+                            quantityDisplay = `${service.areaQuantity ?? service.areaHectares} HA`;
+                          } else if (service.tractorHours) {
+                            quantityDisplay = `${service.tractorHours} H`;
+                          }
+
+                          return (
+                            <tr 
+                              key={service.id} 
+                              className="bg-white dark:bg-stone-900 hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
+                            >
+                              {/* Nº */}
+                              <td className="px-3 py-1 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold whitespace-nowrap">
+                                #{itemNumber}
+                              </td>
+
+                              {/* Cliente e Descrições Secundárias */}
+                              <td className="px-3 py-1 whitespace-nowrap">
+                                <div className="font-bold text-zinc-900 dark:text-white text-xs leading-snug uppercase">
+                                  {service.clientName}
+                                </div>
+                                {service.farmName && (
+                                  <div className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium uppercase">
+                                    {service.farmName}
+                                  </div>
+                                )}
+                                {(service.freightOrigin || service.freightDestination) && (
+                                  <div className="text-[10px] text-zinc-600 dark:text-stone-300 font-medium flex items-center gap-1 mt-0.5 uppercase">
+                                    <span className="bg-zinc-100 dark:bg-stone-800 text-zinc-800 dark:text-stone-200 font-semibold px-1 py-0.2 rounded border border-zinc-200 dark:border-stone-700">
+                                      ROTA: {service.freightOrigin || 'ORIGEM'} ➔ {service.freightDestination || 'DESTINO'}
+                                    </span>
+                                  </div>
+                                )}
+                                {(service.machineryAssigned || service.operatorAssigned || service.tractorName || service.forageHarvesterName || service.freightDriverName || service.freightMaterialType) && (
+                                  <div className="text-[10px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5 flex flex-wrap items-center gap-1 uppercase">
+                                    {service.freightMaterialType && (
+                                      <span className="text-purple-800 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/50 px-1 py-0.2 rounded border border-purple-200 dark:border-purple-800">
+                                        CARGA: {service.freightMaterialType}
+                                      </span>
+                                    )}
+                                    {service.forageHarvesterName && (
+                                      <span className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1 py-0.2 rounded border border-amber-200 dark:border-amber-800">
+                                        FORR: {service.forageHarvesterName}
+                                      </span>
+                                    )}
+                                    {service.tractorName && (
+                                      <span className="text-blue-800 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/50 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
+                                        TRATOR: {service.tractorName}
+                                      </span>
+                                    )}
+                                    {!service.forageHarvesterName && !service.tractorName && service.machineryAssigned && (
+                                      <span className="text-zinc-700 dark:text-stone-300 font-semibold bg-zinc-100 dark:bg-stone-800 px-1 py-0.2 rounded border border-zinc-200 dark:border-stone-700">
+                                        {activeTab === 'frete' || service.serviceTab === 'frete' ? `CAMINHÃO: ${service.machineryAssigned}` : service.machineryAssigned}
+                                      </span>
+                                    )}
+                                    {(service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName || service.freightDriverName) && (
+                                      <span className="text-zinc-600 dark:text-stone-400 font-medium">
+                                        • {activeTab === 'frete' || service.serviceTab === 'frete' ? 'MOTORISTA' : 'OP'}: {service.freightDriverName || service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Data */}
+                              <td className="px-3 py-1 text-xs text-zinc-700 dark:text-stone-300 font-medium whitespace-nowrap">
+                                {service.startDate ? formatDateBR(service.startDate) : '--'}
+                              </td>
+
+                              {/* Quantidade / Área */}
+                              <td className="px-3 py-1 text-xs text-center text-zinc-800 dark:text-stone-200 font-bold whitespace-nowrap uppercase">
+                                {quantityDisplay}
+                              </td>
+
+                              {/* Status */}
+                              <td className="px-3 py-1 text-center whitespace-nowrap">
+                                <span 
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                                    statusColors[currentStatus] || 'bg-zinc-100 text-zinc-800 border-zinc-300'
+                                  }`}
+                                >
+                                  {statusLabels[currentStatus] || currentStatus}
+                                </span>
+                              </td>
+
+                              {/* Total */}
+                              <td className="px-3 py-1 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
+                                {formatCurrencyBRL(service.totalAmount || 0)}
+                              </td>
+
+                              {/* Ações */}
+                              <td className="px-2.5 py-1 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(service)}
+                                    className="p-1 text-zinc-500 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-md transition-colors cursor-pointer"
+                                    title="Editar serviço"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteService(service.id, service.clientName)}
+                                    className="p-1 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/30 rounded-md transition-colors cursor-pointer"
+                                    title="Excluir serviço"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
         </div>
-      </section>
-        </>
-      )}
+      </div>
 
       {/* ========================================================
           MODAL DINÂMICO PARA "+ NOVO" & EDIÇÃO

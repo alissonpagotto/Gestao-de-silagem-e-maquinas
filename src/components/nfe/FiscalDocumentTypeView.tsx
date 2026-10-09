@@ -114,9 +114,9 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
     isPlanningOnly: false
   },
   cte: {
-    title: 'CTE • CONHECIMENTO DE TRANSPORTE ELETRÔNICO (FRETE & LOGÍSTICA)',
+    title: 'CT-E • CONHECIMENTO DE TRANSPORTE ELETRÔNICO (FRETE / TRANSPORTE)',
     subtitle: 'Frete e transporte vinculado obrigatoriamente a um veículo da frota com rateio no DRE',
-    buttonLabel: 'LANÇAR CT-E (FRETE)',
+    buttonLabel: 'LANÇAR CT-E (FRETE / TRANSPORTE)',
     defaultPrefix: 'CTE-',
     icon: Truck,
     color: 'sky',
@@ -125,10 +125,10 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
     isPlanningOnly: false
   },
   nfe_c: {
-    title: 'NFE-C • NOTA FISCAL COMPLEMENTAR (AJUSTE FISCAL / DIFERENCIAL)',
-    subtitle: 'Complemento de preços, impostos ou encargos sem alteração nas unidades físicas do estoque (=)',
-    buttonLabel: 'LANÇAR NF-E COMPLEMENTAR',
-    defaultPrefix: 'NFEC-',
+    title: 'NFC-E • NOTA FISCAL DE CONSUMIDOR ELETRÔNICA (CONSUMIDOR FINAL)',
+    subtitle: 'Venda a consumidor final e despesas de consumo com lançamento fiscal simplificado',
+    buttonLabel: 'LANÇAR NFC-E (CONSUMIDOR FINAL)',
+    defaultPrefix: 'NFCE-',
     icon: FileSpreadsheet,
     color: 'amber',
     requiresVehicle: false,
