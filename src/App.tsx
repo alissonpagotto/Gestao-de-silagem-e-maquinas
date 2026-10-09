@@ -104,7 +104,6 @@ import { useConfirm } from './context/ConfirmContext';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { SupabaseStatusControl } from './components/layout/SupabaseStatusControl';
-import { GlobalTopMenuBar } from './components/layout/GlobalTopMenuBar';
 import { MainDashboard } from './components/dashboard/MainDashboard';
 import { AgroControlHome } from './components/home/AgroControlHome';
 
@@ -3197,13 +3196,6 @@ export default function App() {
             </button>
           </div>
         )}
-
-        {/* BARRA DE LINKS DE ATALHOS RÁPIDOS DO MENU SUPERIOR (GLOBAL E FIXA) */}
-        <GlobalTopMenuBar
-          onNavigate={(tab) => setActiveTab(tab)}
-          onOpenReorderMenu={() => setIsReorderMenuOpen(true)}
-          onOpenHelp={() => setIsGlobalHelpModalOpen(true)}
-        />
 
         {/* Workspace Interno da Janela (Sidebar + Conteúdo Principal) */}
         <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-zinc-100 dark:bg-stone-950">
