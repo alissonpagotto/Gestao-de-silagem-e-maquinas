@@ -175,7 +175,9 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         }
         const stored = getStoredCompanyProfile();
         if (stored) {
-          saveStoredCompanyProfile({ ...stored, activitySector: value, ramoAtividade: value } as any);
+          queueMicrotask(() => {
+            saveStoredCompanyProfile({ ...stored, activitySector: value, ramoAtividade: value } as any);
+          });
         }
       } catch (e) {
         console.warn('Erro ao sincronizar setor em tempo real:', e);
@@ -490,7 +492,9 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     alt="COLACA SILAGEM" 
                     className="w-full h-full object-contain p-2 drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
                     referrerPolicy="no-referrer"
-                    onError={() => setLogoError(true)}
+                    onError={() => {
+                      queueMicrotask(() => setLogoError(true));
+                    }}
                   />
                 ) : (
                   <div className="text-center text-zinc-400 dark:text-stone-500 p-1">

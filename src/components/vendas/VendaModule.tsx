@@ -88,8 +88,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
-  // Tab State: Dashboard, PDV ou Contratos
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pdv' | 'contratos'>('dashboard');
+  // Tab State: Dashboard ou PDV
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pdv'>('dashboard');
 
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
 
@@ -286,25 +286,12 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
       id="venda-module-root"
       className={`w-full max-w-none antialiased ${activeTab === 'pdv' ? 'space-y-1 overflow-hidden global' : 'space-y-2.5'}`}
     >
-      {/* 1. CABEÇALHO PADRONIZADO 3D SLIM COM TÍTULO E BOTÃO NOVA VENDA */}
+      {/* 1. CABEÇALHO PADRONIZADO SLIM COM TÍTULO */}
       <header className="no-print flex items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Venda
           </h1>
-        </div>
-
-        {/* Botão Nova Venda 3D Acetinado Padrão Metálico */}
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-nova-venda"
-            type="button"
-            onClick={handleOpenNew}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>+ Nova Venda</span>
-          </button>
         </div>
       </header>
 
@@ -334,7 +321,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               type="button"
               id="tab-pdv-frente-caixa"
               onClick={() => setActiveTab('pdv')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
                 activeTab === 'pdv'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -342,23 +329,6 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
             >
               <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
               <span>PDV</span>
-            </button>
-
-            <button
-              type="button"
-              id="tab-nova-venda-contratos"
-              onClick={() => {
-                setActiveTab('contratos');
-                handleOpenNew();
-              }}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
-                activeTab === 'contratos'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-              }`}
-            >
-              <FileCheck2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>NOVA VENDA</span>
             </button>
           </nav>
         </div>
@@ -433,28 +403,6 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 </div>
               </div>
 
-              {activeTab === 'contratos' && (
-                <div className="p-2.5 rounded bg-emerald-50/80 dark:bg-stone-850 border border-emerald-300/80 dark:border-stone-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <div>
-                      <span className="text-xs font-bold text-zinc-900 dark:text-white block uppercase">
-                        Gestão Comercial de Contratos e Fechamentos de Silagem
-                      </span>
-                      <span className="text-[11px] text-zinc-600 dark:text-stone-400">
-                        Formulário padrão de fechamento comercial de silagem, medição por área/toneladas e logística.
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleOpenNew}
-                    className="px-3 py-1 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs cursor-pointer shrink-0 uppercase"
-                  >
-                    + Abrir Formulário de Contrato
-                  </button>
-                </div>
-              )}
 
               {/* GRADE DE 4 CARDS DE INDICADORES (TOTAL FATURADO, VOLUME TOTAL, CONTRATOS, TICKET MÉDIO) */}
               <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">

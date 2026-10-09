@@ -1734,7 +1734,11 @@ export function saveStoredCompanyProfile(profile: CompanyProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILE, JSON.stringify(profile));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profile }));
+      queueMicrotask(() => {
+        try {
+          window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profile }));
+        } catch (_) {}
+      });
     }
   } catch (e) {
     console.error('Failed to save company profile', e);

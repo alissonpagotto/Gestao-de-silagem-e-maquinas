@@ -18,10 +18,13 @@ import {
   Package,
   User,
   AlertCircle,
-  Clock
+  Clock,
+  ChevronDown,
+  FileCheck2,
+  Tractor
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId, getStoredClients } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 
 export interface PdvItem {
@@ -52,6 +55,63 @@ interface PdvViewProps {
 
 const PDV_DRAFT_KEY = 'colaca_silagem_pdv_draft_itens';
 
+// Carregador reativo e unificador dos clientes e produtores rurais (agrocontrol_clientes)
+export const loadAgrocontrolClientes = (fallback: Client[] = []): Client[] => {
+  const map = new Map<string, Client>();
+
+  // 1. Array oficial 'agrocontrol_clientes' salvo no LocalStorage
+  try {
+    const rawAgro = localStorage.getItem('agrocontrol_clientes');
+    if (rawAgro) {
+      const parsed = JSON.parse(rawAgro);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((c: any) => {
+          if (!c) return;
+          const id = c.id || `ag_${c.name || c.nome || Math.random().toString(36).substr(2, 6)}`;
+          map.set(id, {
+            id,
+            name: c.name || c.nome || 'PRODUTOR RURAL',
+            nome: c.nome || c.name || 'PRODUTOR RURAL',
+            farmName: c.farmName || c.fazenda || '',
+            fazenda: c.fazenda || c.farmName || '',
+            cpfCnpj: c.cpfCnpj || c.cnpjCpf || c.documento || '',
+            phone: c.phone || c.telefone || '',
+            telefone: c.telefone || c.phone || '',
+            city: c.city || c.cidade || '',
+            state: c.state || c.estado || c.uf || '',
+            ...c,
+          });
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao ler agrocontrol_clientes:', e);
+  }
+
+  // 2. Chave de clientes da aplicação
+  try {
+    const stored = getStoredClients();
+    if (Array.isArray(stored)) {
+      stored.forEach(c => {
+        if (c && c.id && !map.has(c.id)) {
+          map.set(c.id, c);
+        }
+      });
+    }
+  } catch (_) {}
+
+  // 3. Fallback dos props
+  if (Array.isArray(fallback)) {
+    fallback.forEach(c => {
+      if (c && c.id && !map.has(c.id)) {
+        map.set(c.id, c);
+      }
+    });
+  }
+
+  return Array.from(map.values());
+};
+
 export const PdvView: React.FC<PdvViewProps> = ({
   clients = [],
   companyProfile,
@@ -60,6 +120,32 @@ export const PdvView: React.FC<PdvViewProps> = ({
 }) => {
   const { confirm: confirmDialog } = useConfirm();
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
+
+  // Modo de operação no PDV: Venda Balcão ou Lançamento de Contrato de Silagem
+  const [operacaoTipo, setOperacaoTipo] = useState<'venda_balcao' | 'contrato_silagem'>('venda_balcao');
+
+  // Clientes e Produtores rurais carregados e sincronizados reativamente de 'agrocontrol_clientes'
+  const [agroClientes, setAgroClientes] = useState<Client[]>(() => loadAgrocontrolClientes(clients));
+
+  useEffect(() => {
+    setAgroClientes(loadAgrocontrolClientes(clients));
+  }, [clients]);
+
+  useEffect(() => {
+    const syncClients = () => {
+      setAgroClientes(loadAgrocontrolClientes(clients));
+    };
+    window.addEventListener('storage', syncClients);
+    window.addEventListener('agrocontrol_clientes_updated', syncClients);
+    window.addEventListener('clients_updated', syncClients);
+    window.addEventListener('colaca_clientes_sync', syncClients);
+    return () => {
+      window.removeEventListener('storage', syncClients);
+      window.removeEventListener('agrocontrol_clientes_updated', syncClients);
+      window.removeEventListener('clients_updated', syncClients);
+      window.removeEventListener('colaca_clientes_sync', syncClients);
+    };
+  }, [clients]);
 
   // Itens lançados na grade
   const [items, setItems] = useState<PdvItem[]>(() => {
@@ -104,6 +190,18 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientSearch, setClientSearch] = useState<string>('CONSUMIDOR FINAL / BALCÃO');
   const [showClientSuggestions, setShowClientSuggestions] = useState<boolean>(false);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fechar dropdown de sugestões de cliente ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setShowClientSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Controle de Pagamento
   const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo'>('a_vista');
@@ -140,9 +238,18 @@ export const PdvView: React.FC<PdvViewProps> = ({
     searchInputRef.current?.focus();
   }, []);
 
-  // Catálogo combinado de produtos (Estoque + Commodities de Silagem)
+  // Catálogo combinado de produtos (Contratos de Prestação de Serviços de Silagem + Commodities + Estoque)
   const productCatalog = useMemo(() => {
     const commodities = [
+      // 1. Contratos de Prestação de Serviços de Silagem
+      { id: 'ctr_corte_ensilagem_ton', code: 'CTR-01', barcode: '7892001', name: 'CONTRATO: CORTE, ENSILAGEM & TRANSPORTE (POR TONELADA)', unit: 'TON', price: 45.00 },
+      { id: 'ctr_corte_ensilagem_ha', code: 'CTR-02', barcode: '7892002', name: 'CONTRATO: PRESTAÇÃO DE SERVIÇO DE CORTE E ENSILAGEM (POR HECTARE)', unit: 'HA', price: 1250.00 },
+      { id: 'ctr_embalagem_sacas', code: 'CTR-03', barcode: '7892003', name: 'CONTRATO: EMBALAGEM / ENSACAMENTO DE SILAGEM', unit: 'TON', price: 65.00 },
+      { id: 'ctr_fechamento_silo', code: 'CTR-04', barcode: '7892004', name: 'CONTRATO: COMPACTAÇÃO E FECHAMENTO DE SILO TRINCHEIRA', unit: 'UN', price: 1800.00 },
+      { id: 'ctr_inoculante_ha', code: 'CTR-05', barcode: '7892005', name: 'CONTRATO: APLICAÇÃO DE INOCULANTE BACTERIANO EM ÁREA', unit: 'HA', price: 85.00 },
+      { id: 'ctr_fornecimento_prog', code: 'CTR-06', barcode: '7892006', name: 'CONTRATO: FORNECIMENTO PROGRAMADO DE SILAGEM DE MILHO', unit: 'TON', price: 380.00 },
+
+      // 2. Commodities e Insumos Rápidos de Silagem
       { id: 'com_silagem_milho', code: 'SIL-01', barcode: '7891001', name: 'SILAGEM DE MILHO PLANTA INTEIRA', unit: 'TON', price: 380.00 },
       { id: 'com_silagem_sorgo', code: 'SIL-02', barcode: '7891002', name: 'SILAGEM DE SORGO FORRAGEIRO', unit: 'TON', price: 320.00 },
       { id: 'com_silagem_capim', code: 'SIL-03', barcode: '7891003', name: 'SILAGEM DE CAPIM AÇU', unit: 'TON', price: 260.00 },
@@ -174,16 +281,31 @@ export const PdvView: React.FC<PdvViewProps> = ({
     ).slice(0, 8);
   }, [inputBusca, productCatalog]);
 
-  // Clientes filtrados para sugestão de autocomplete
+  // Clientes e Produtores rurais filtrados para sugestão de autocomplete reativo
   const suggestedClients = useMemo(() => {
-    if (!clientSearch.trim() || clientSearch === 'CONSUMIDOR FINAL / BALCÃO') return [];
-    const q = clientSearch.toLowerCase().trim();
-    return clients.filter(c => 
-      (c.nome || c.name || '').toLowerCase().includes(q) ||
-      (c.fazenda || c.farmName || '').toLowerCase().includes(q) ||
-      (c.cpfCnpj || '').includes(q)
-    ).slice(0, 6);
-  }, [clientSearch, clients]);
+    const q = clientSearch.trim().toLowerCase();
+    const isDefault = !q || q === 'consumidor final / balcão' || q === 'consumidor final (pdv balcão)';
+
+    if (isDefault) {
+      return agroClientes.slice(0, 15);
+    }
+
+    const cleanQ = q.replace(/\D/g, '');
+    return agroClientes.filter(c => {
+      const name = (c.nome || c.name || '').toLowerCase();
+      const farm = (c.fazenda || c.farmName || '').toLowerCase();
+      const doc = (c.cpfCnpj || '').replace(/\D/g, '');
+      const phone = (c.telefone || c.phone || '').replace(/\D/g, '');
+      const city = (c.city || c.cidade || '').toLowerCase();
+      return (
+        name.includes(q) ||
+        farm.includes(q) ||
+        city.includes(q) ||
+        (cleanQ.length > 2 && doc.includes(cleanQ)) ||
+        (cleanQ.length > 3 && phone.includes(cleanQ))
+      );
+    }).slice(0, 12);
+  }, [clientSearch, agroClientes]);
 
   // Totais do PDV
   const totals = useMemo(() => {
@@ -249,6 +371,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setInputPreco(prod.price > 0 ? prod.price.toFixed(2).replace('.', ',') : '0,00');
     setInputBusca(prod.name);
     setShowSuggestions(false);
+
+    // Auto-detectar contrato caso o item seja de prestação de serviços de silagem
+    if (prod.code.startsWith('CTR-') || prod.name.includes('CONTRATO')) {
+      setOperacaoTipo('contrato_silagem');
+    }
+
     qtyInputRef.current?.focus();
     qtyInputRef.current?.select();
   };
@@ -317,48 +445,80 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setValorPagoInput('');
     setClientSearch('CONSUMIDOR FINAL / BALCÃO');
     setSelectedClientId('');
+    setOperacaoTipo('venda_balcao');
     try {
       localStorage.removeItem(PDV_DRAFT_KEY);
     } catch {}
     searchInputRef.current?.focus();
   };
 
-  // Finalizar a Venda no PDV (F2)
+  // Finalizar a Venda ou Contrato de Silagem no PDV (F2)
   const handleFinalizarVenda = () => {
     if (items.length === 0) {
-      setWarningMessage('Nenhum item lançado no PDV. Insira ao menos um produto antes de finalizar a venda.');
+      setWarningMessage('Nenhum item lançado no PDV. Insira ao menos um produto ou serviço antes de finalizar.');
       searchInputRef.current?.focus();
       setTimeout(() => setWarningMessage(null), 4000);
       return;
     }
 
-    const orderNum = `PDV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+    const isContract = operacaoTipo === 'contrato_silagem' || items.some(it => 
+      it.codigo.startsWith('CTR-') ||
+      it.descricao.includes('CONTRATO') || 
+      it.descricao.includes('PRESTAÇÃO') || 
+      it.descricao.includes('ENSILAGEM')
+    );
+
+    const orderNum = isContract
+      ? `CTR-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`
+      : `PDV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    const clientNameResolved = clientSearch.trim() || 'CONSUMIDOR FINAL (PDV BALCÃO)';
-    const selectedClientObj = clients.find(c => c.id === selectedClientId);
+    const clientNameResolved = clientSearch.trim() || (isContract ? 'PRODUTOR RURAL (CONTRATO)' : 'CONSUMIDOR FINAL (PDV BALCÃO)');
+    const selectedClientObj = agroClientes.find(c => c.id === selectedClientId);
+    const farmNameResolved = selectedClientObj?.fazenda || selectedClientObj?.farmName || (isContract ? 'Fazenda do Produtor' : 'Venda Rápida Balcão PDV');
+
+    const totalTons = items.reduce((acc, it) => it.unidade.includes('TON') ? acc + it.quantidade : acc, 0);
+    const totalHa = items.reduce((acc, it) => it.unidade.includes('HA') ? acc + it.quantidade : acc, 0);
 
     const newSaleOrder: ServiceOrder = {
-      id: `srv_pdv_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: isContract 
+        ? `srv_ctr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}` 
+        : `srv_pdv_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       orderNumber: orderNum,
       clientName: clientNameResolved,
       clientId: selectedClientId || undefined,
-      farmName: selectedClientObj?.fazenda || selectedClientObj?.farmName || 'Venda Rápida Balcão PDV',
+      farmName: farmNameResolved,
       serviceTab: 'venda',
-      serviceType: 'Venda de Silagem & Insumos (PDV)',
+      serviceType: isContract 
+        ? 'Contrato de Prestação de Serviços de Silagem' 
+        : 'Venda Rápida de Balcão (PDV)',
       date: dateStr,
       startDate: dateStr,
       completionDate: dateStr,
-      status: 'concluido',
+      status: isContract && formaPagamento === 'prazo' ? 'em_andamento' : 'concluido',
       ratePerUnit: totals.totalLiquido,
       totalAmount: totals.totalLiquido,
-      tonsEstimated: items.reduce((acc, it) => it.unidade.includes('TON') ? acc + it.quantidade : acc, 0),
-      notes: `Venda gerada via Frente de Caixa PDV • Pagamento: ${formaPagamento.toUpperCase()} (${formaPagamento === 'prazo' ? 'PENDENTE' : 'PAGO'}) • Itens: ${items.map(i => `${i.quantidade}x ${i.descricao}`).join('; ')}`,
+      tonsEstimated: totalTons > 0 ? totalTons : undefined,
+      areaQuantity: totalHa > 0 ? totalHa : undefined,
+      areaUnit: totalHa > 0 ? 'hectares' : undefined,
+      notes: `${isContract ? 'Contrato de Prestação de Serviços de Silagem emitido via PDV Slim' : 'Venda gerada via Frente de Caixa PDV'} • Pagamento: ${formaPagamento.toUpperCase()} (${formaPagamento === 'prazo' ? 'PENDENTE / A PRAZO' : 'PAGO'}) • Produtor/Cliente: ${clientNameResolved} • Fazenda: ${farmNameResolved} • Itens: ${items.map(i => `${i.quantidade} ${i.unidade} - ${i.descricao}`).join('; ')}`,
     };
 
-    // Salvar reativamente
+    // Salvar offline no LocalStorage e emitir evento reativo para sincronização imediata
+    try {
+      const rawServices = localStorage.getItem('colaca_silagem_services');
+      const parsed = rawServices ? JSON.parse(rawServices) : [];
+      const updated = [newSaleOrder, ...(Array.isArray(parsed) ? parsed : [])];
+      localStorage.setItem('colaca_silagem_services', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('colaca_services_updated', { detail: updated }));
+    } catch (e) {
+      console.warn('Erro ao persistir venda no LocalStorage:', e);
+    }
+
+    // Salvar reativamente via callback
     onSaveService(newSaleOrder);
 
     // Preparar dados para o cupom
@@ -469,50 +629,151 @@ export const PdvView: React.FC<PdvViewProps> = ({
         className="p-1.5 sm:p-2 bg-gradient-to-b from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-stone-300 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.1)] shrink-0"
       >
         <form onSubmit={handleAdicionarItem} className="space-y-1.5">
-          {/* Linha de Identificação de Cliente & Atalhos Rápidos */}
-          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] font-semibold text-slate-700 dark:text-stone-300">
-            <div className="relative flex items-center gap-1.5 flex-1 min-w-[260px]">
-              <span className="font-extrabold uppercase text-[10px] text-slate-500 dark:text-stone-400 shrink-0 flex items-center gap-1">
-                <User className="w-3 h-3 text-slate-600 dark:text-stone-300" />
+          {/* Linha de Identificação de Operação, Cliente (Agrocontrol) & Atalhos Rápidos */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-stone-300">
+            {/* Seletor Rápido de Modo de Operação (Venda Balcão vs Contrato de Silagem) */}
+            <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-stone-800 p-0.5 rounded-md border border-slate-300 dark:border-stone-700 shrink-0">
+              <button
+                type="button"
+                onClick={() => setOperacaoTipo('venda_balcao')}
+                className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded transition cursor-pointer flex items-center gap-1 ${
+                  operacaoTipo === 'venda_balcao'
+                    ? 'bg-sky-600 text-white shadow-2xs'
+                    : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-700'
+                }`}
+                title="Venda Rápida de Balcão (PDV)"
+              >
+                <ShoppingCart className="w-3 h-3" />
+                <span>VENDA BALCÃO</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOperacaoTipo('contrato_silagem')}
+                className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded transition cursor-pointer flex items-center gap-1 ${
+                  operacaoTipo === 'contrato_silagem'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-700'
+                }`}
+                title="Contrato de Prestação de Serviços de Silagem"
+              >
+                <FileCheck2 className="w-3 h-3" />
+                <span>CONTRATO DE SILAGEM</span>
+              </button>
+            </div>
+
+            {/* Campo CLIENTE: Seleção Reativa de Produtores Rurais do LocalStorage (agrocontrol_clientes) */}
+            <div ref={clientDropdownRef} className="relative flex items-center gap-1.5 flex-1 min-w-[280px]">
+              <span className="font-extrabold uppercase text-[10px] text-slate-600 dark:text-stone-400 shrink-0 flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
                 CLIENTE:
               </span>
-              <input
-                type="text"
-                value={clientSearch}
-                onChange={e => {
-                  setClientSearch(e.target.value.toUpperCase());
-                  setShowClientSuggestions(true);
-                }}
-                onFocus={() => setShowClientSuggestions(true)}
-                placeholder="CONSUMIDOR FINAL / BALCÃO (OU BUSQUE O CLIENTE...)"
-                className="flex-1 px-2 py-0.5 rounded-md border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold uppercase tracking-wide focus:ring-1 focus:ring-sky-500 outline-none"
-              />
+              <div className="relative flex-1 flex items-center">
+                <input
+                  type="text"
+                  value={clientSearch}
+                  onChange={e => {
+                    setClientSearch(e.target.value.toUpperCase());
+                    setShowClientSuggestions(true);
+                  }}
+                  onFocus={() => setShowClientSuggestions(true)}
+                  placeholder="CONSUMIDOR FINAL / BALCÃO (OU BUSQUE O PRODUTOR RURAL...)"
+                  className="w-full pl-2 pr-12 py-0.5 rounded-md border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold uppercase tracking-wide focus:ring-1 focus:ring-sky-500 outline-none"
+                />
 
-              {/* Sugestões de Clientes */}
-              {showClientSuggestions && suggestedClients.length > 0 && (
-                <div className="absolute top-full left-16 right-0 z-50 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl max-h-40 overflow-y-auto mt-0.5 divide-y divide-slate-100 dark:divide-stone-800">
+                <div className="absolute right-1 flex items-center gap-0.5">
+                  {clientSearch && clientSearch !== 'CONSUMIDOR FINAL / BALCÃO' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClientSearch('CONSUMIDOR FINAL / BALCÃO');
+                        setSelectedClientId('');
+                        setShowClientSuggestions(false);
+                      }}
+                      title="Voltar para Consumidor Final"
+                      className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-stone-200 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowClientSuggestions(prev => !prev)}
+                    title="Listar Produtores Rurais / Clientes"
+                    className="p-0.5 text-slate-500 hover:text-slate-800 dark:hover:text-stone-200 transition cursor-pointer"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sugestões Reativas de Produtores Rurais / Clientes (agrocontrol_clientes) */}
+              {showClientSuggestions && (
+                <div className="absolute top-full left-16 right-0 z-50 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl max-h-56 overflow-y-auto mt-0.5 divide-y divide-slate-100 dark:divide-stone-800">
+                  {/* Opção Rápida: Consumidor Final */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedClientId('');
+                      setClientSearch('CONSUMIDOR FINAL / BALCÃO');
+                      setShowClientSuggestions(false);
+                      searchInputRef.current?.focus();
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-sky-50 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer bg-slate-50/70 dark:bg-stone-850"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-sky-600" />
+                      <span className="font-extrabold text-sky-900 dark:text-sky-300 uppercase">
+                        CONSUMIDOR FINAL / BALCÃO
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-stone-400 font-semibold uppercase">
+                      Venda Rápida
+                    </span>
+                  </button>
+
+                  {/* Lista de Produtores Rurais Cadastrados no LocalStorage */}
                   {suggestedClients.map(c => (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => {
                         setSelectedClientId(c.id);
-                        setClientSearch((c.nome || c.name || '').toUpperCase());
+                        const name = (c.nome || c.name || '').toUpperCase();
+                        const farm = (c.fazenda || c.farmName || '').toUpperCase();
+                        setClientSearch(farm ? `${name} (${farm})` : name);
                         setShowClientSuggestions(false);
                         searchInputRef.current?.focus();
                       }}
-                      className="w-full text-left px-2 py-1 text-xs hover:bg-sky-100 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer"
+                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-emerald-50 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer"
                     >
-                      <span className="font-bold text-zinc-900 dark:text-white truncate">{c.nome || c.name}</span>
-                      <span className="text-[10px] text-slate-500 dark:text-stone-400 truncate">{c.fazenda || c.farmName || ''}</span>
+                      <div className="flex flex-col min-w-0 pr-2">
+                        <span className="font-bold text-zinc-900 dark:text-white truncate uppercase">
+                          {c.nome || c.name}
+                        </span>
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold truncate uppercase">
+                          {c.fazenda || c.farmName ? `Fazenda: ${c.fazenda || c.farmName}` : 'Produtor Rural'}
+                          {c.city || c.cidade ? ` • ${c.city || c.cidade}` : ''}
+                          {c.cpfCnpj ? ` • ${c.cpfCnpj}` : ''}
+                        </span>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-black uppercase shrink-0">
+                        PRODUTOR RURAL
+                      </span>
                     </button>
                   ))}
+
+                  {suggestedClients.length === 0 && clientSearch && clientSearch !== 'CONSUMIDOR FINAL / BALCÃO' && (
+                    <div className="px-3 py-2 text-xs text-slate-500 dark:text-stone-400 text-center font-medium">
+                      Nenhum produtor rural encontrado para "{clientSearch}".
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Teclas de Apoio Operacional */}
-            <div className="hidden md:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-stone-400">
+            <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-stone-400">
               <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F3] BUSCA</span>
               <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[ENTER] INSERIR</span>
               <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F2] FINALIZAR</span>

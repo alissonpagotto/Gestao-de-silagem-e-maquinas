@@ -79,22 +79,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [dadosEmpresa, setDadosEmpresa] = useState<{ ramoAtividade?: string }>(() => getResolvedDadosEmpresa());
 
   useEffect(() => {
+    let isMounted = true;
     const syncDados = () => {
-      setDadosEmpresa(getResolvedDadosEmpresa());
+      queueMicrotask(() => {
+        if (isMounted) setDadosEmpresa(getResolvedDadosEmpresa());
+      });
     };
 
     const handleLiveCompanySync = (e: any) => {
       const sector = e.detail?.ramoAtividade || e.detail?.activitySector;
-      if (typeof sector === 'string') {
-        setDadosEmpresa({ ramoAtividade: sector });
-      } else {
-        syncDados();
-      }
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        if (typeof sector === 'string') {
+          setDadosEmpresa({ ramoAtividade: sector });
+        } else {
+          syncDados();
+        }
+      });
     };
 
     window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
     window.addEventListener('storage', syncDados);
     return () => {
+      isMounted = false;
       window.removeEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
       window.removeEventListener('storage', syncDados);
     };
@@ -174,35 +181,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Sincroniza sessão ativa de permissões
   useEffect(() => {
+    let isMounted = true;
     const handleSessionSync = (e: any) => {
-      if (e?.detail) {
-        setUserSession(e.detail);
-      } else {
-        setUserSession(getActiveUserSession());
-      }
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        if (e?.detail) {
+          setUserSession(e.detail);
+        } else {
+          setUserSession(getActiveUserSession());
+        }
+      });
     };
     window.addEventListener('colaca_silagem_session_updated', handleSessionSync);
     window.addEventListener('storage', handleSessionSync);
     return () => {
+      isMounted = false;
       window.removeEventListener('colaca_silagem_session_updated', handleSessionSync);
       window.removeEventListener('storage', handleSessionSync);
     };
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     const handleOrderSync = (e: any) => {
-      if (e.detail && Array.isArray(e.detail)) {
-        setMenuOrder(e.detail);
-      } else {
-        try {
-          const saved = localStorage.getItem('silagem_facil_sidebar_order');
-          if (saved) setMenuOrder(JSON.parse(saved));
-        } catch (err) {}
-      }
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        if (e.detail && Array.isArray(e.detail)) {
+          setMenuOrder(e.detail);
+        } else {
+          try {
+            const saved = localStorage.getItem('silagem_facil_sidebar_order');
+            if (saved) setMenuOrder(JSON.parse(saved));
+          } catch (err) {}
+        }
+      });
     };
     window.addEventListener('silagem_sidebar_order_changed', handleOrderSync);
     window.addEventListener('storage', handleOrderSync);
     return () => {
+      isMounted = false;
       window.removeEventListener('silagem_sidebar_order_changed', handleOrderSync);
       window.removeEventListener('storage', handleOrderSync);
     };
@@ -215,7 +232,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (id === 'frotas') return 'frotas';
     if (id === 'rh' || id === 'funcionarios') return 'rh';
     if (id === 'estoque' || id === 'almoxarifado' || id === 'fiscal') return 'estoque';
-    if (id === 'configuracoes') return 'empresa';
+    if (id === 'configuracoes' || id === 'empresa') return 'empresa';
     return null;
   };
 
@@ -290,7 +307,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   alt="Logo" 
                   className="max-w-full max-h-full object-contain"
                   referrerPolicy="no-referrer"
-                  onError={() => setLogoError(true)}
+                  onError={() => {
+                    queueMicrotask(() => setLogoError(true));
+                  }}
                 />
               </div>
             ) : (
