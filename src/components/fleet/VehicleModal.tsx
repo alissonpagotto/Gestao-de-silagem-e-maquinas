@@ -856,7 +856,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         initTires = editingVehicle.installedTires;
       } else {
         try {
-          const raw = localStorage.getItem('colaca_silagem_frotas_pneus_estoque');
+          const raw = localStorage.getItem('colaca_silagem_frotas_pneus_estoque') || 
+                      localStorage.getItem('agrocontrol_pneus_estoque') || 
+                      localStorage.getItem('agrocontrol_pneus') ||
+                      localStorage.getItem('silagem_facil_clean_v1_tire_inventory');
           if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {

@@ -438,10 +438,11 @@ export function saveStoredOrders(orders: SilageOrder[]): void {
 
 export function getStoredMachineries(): Machinery[] {
   try {
-    let raw = localStorage.getItem('colaca_silagem_frotas_veiculos');
-    if (!raw) {
-      raw = localStorage.getItem(STORAGE_KEYS.MACHINERIES);
-    }
+    let raw = localStorage.getItem('agrocontrol_frotas_veiculos') ||
+              localStorage.getItem('agrocontrol_veiculos') ||
+              localStorage.getItem('agrocontrol_frotas') ||
+              localStorage.getItem('colaca_silagem_frotas_veiculos') ||
+              localStorage.getItem(STORAGE_KEYS.MACHINERIES);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -514,6 +515,9 @@ export function saveStoredMachineries(machines: Machinery[]): void {
     const json = JSON.stringify(machines);
     localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
     localStorage.setItem('colaca_silagem_frotas_veiculos', json);
+    localStorage.setItem('agrocontrol_frotas_veiculos', json);
+    localStorage.setItem('agrocontrol_veiculos', json);
+    localStorage.setItem('agrocontrol_frotas', json);
   } catch (e) {
     console.error('Failed to save machineries', e);
   }
@@ -2618,7 +2622,10 @@ export function getStoredTireInventory(): TireItem[] {
     }
 
     // 3. Mescla pneus desmontados / avulsos no estoque de frotas
-    const rawFleet = localStorage.getItem('colaca_silagem_frotas_pneus_estoque') || localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
+    const rawFleet = localStorage.getItem('agrocontrol_pneus_estoque') ||
+                     localStorage.getItem('agrocontrol_pneus') ||
+                     localStorage.getItem('colaca_silagem_frotas_pneus_estoque') || 
+                     localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
     if (rawFleet) {
       try {
         const fleetItems = JSON.parse(rawFleet);
@@ -2662,6 +2669,8 @@ export function saveStoredTireInventory(items: TireItem[]): void {
     const json = JSON.stringify(items);
     localStorage.setItem(STORAGE_KEYS.TIRE_INVENTORY, json);
     localStorage.setItem('colaca_silagem_frotas_pneus_estoque', json);
+    localStorage.setItem('agrocontrol_pneus_estoque', json);
+    localStorage.setItem('agrocontrol_pneus', json);
     if (typeof window !== 'undefined') {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('silagem_tire_inventory_updated', { detail: items }));
