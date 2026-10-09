@@ -415,49 +415,15 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   };
 
   return (
-    <div id="inventory-module" className="w-full max-w-none space-y-4 sm:space-y-5">
+    <div id="inventory-module-root" className="w-full max-w-none space-y-2.5 antialiased">
       
-      {/* Header Padronizado 3D Slim com Barra de Abas Integrada */}
-      <header className="no-print flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
+      {/* 1. CABEÇALHO PADRONIZADO SLIM COM TÍTULO E AÇÕES */}
+      <header className="no-print flex items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             Estoque
           </h1>
         </div>
-
-        {/* Barra de Abas Integrada 3D Acetinada */}
-        <nav 
-          aria-label="Abas de Estoque e Insumos"
-          className="flex items-center gap-1 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] rounded-xl overflow-x-auto scrollbar-none"
-        >
-          <button
-            type="button"
-            id="tab-inventario-geral"
-            onClick={() => setActiveTab('inventario')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
-              activeTab === 'inventario'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <Package className="w-3.5 h-3.5" />
-            <span>ABA: INVENTÁRIO GERAL</span>
-          </button>
-
-          <button
-            type="button"
-            id="tab-relatorios-insumos"
-            onClick={() => setActiveTab('relatorios')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer select-none whitespace-nowrap shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] ${
-              activeTab === 'relatorios'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>ABA: RELATÓRIOS DE INSUMOS</span>
-          </button>
-        </nav>
 
         {/* Linha flex com Botões de Ação Padronizados 3D Slim Metálicos */}
         <div className="flex flex-wrap items-center gap-2">
@@ -465,7 +431,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <button
               type="button"
               onClick={onOpenAlmoxarifado}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
             >
               <Wrench className="w-3.5 h-3.5 stroke-[2.2]" />
               <span>Almoxarifado</span>
@@ -475,7 +441,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           <button
             type="button"
             onClick={() => setIsPrintQueueModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
             <span>Fila de Etiquetas</span>
@@ -489,7 +455,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Novo Produto</span>
@@ -497,98 +463,149 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
       </header>
 
-      {/* Summary Cards Compactos Slim */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
-        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400">
-              Valor Total em Estoque
-            </span>
-            <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
-              {formatCurrencyBRL(totalInventoryValue)}
-            </div>
-            <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">{allItems.length} produtos cadastrados</p>
-          </div>
-          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-300 flex items-center justify-center shrink-0">
-            <Package className="w-3.5 h-3.5" />
-          </div>
+      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      <div className="w-full flex flex-col">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas de Estoque e Insumos"
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
+          >
+            <button
+              type="button"
+              id="tab-inventario-geral"
+              onClick={() => setActiveTab('inventario')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeTab === 'inventario'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>INVENTÁRIO GERAL</span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-relatorios-insumos"
+              onClick={() => setActiveTab('relatorios')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                activeTab === 'relatorios'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>RELATÓRIOS DE INSUMOS</span>
+            </button>
+          </nav>
         </div>
 
-        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400">
-              Alertas de Estoque Mínimo
-            </span>
-            <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
-              {lowStockCount}
-            </div>
-            <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">Itens em nível crítico</p>
-          </div>
-          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-3.5 h-3.5" />
-          </div>
-        </div>
-
-        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl px-3 py-2 flex items-center justify-between text-zinc-900 dark:text-white shadow-2xs">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-stone-400">
-              Diesel em Tanque
-            </span>
-            <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
-              {totalDieselLitros.toLocaleString('pt-BR')} L
-            </div>
-            <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">Diesel S10 & S500 na Fazenda</p>
-          </div>
-          <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-            <Fuel className="w-3.5 h-3.5" />
-          </div>
-        </div>
-      </div>
-
-      {/* RENDERIZAÇÃO CONDICIONAL POR ABA: INVENTÁRIO GERAL vs RELATÓRIOS DE INSUMOS */}
-      {activeTab === 'inventario' ? (
-        <>
-          {/* Search & Toggle Preços Especiais */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar produto no estoque por nome ou categoria..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 outline-none"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowSpecialPrices(prev => !prev)}
-          className={`inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer shrink-0 ${
-            showSpecialPrices
-              ? 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 shadow-2xs'
-              : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50 dark:hover:bg-stone-800'
-          }`}
-          title={showSpecialPrices ? "Ocultar colunas de Atacado e Promoção" : "Exibir colunas de Atacado e Promoção"}
-        >
-          {showSpecialPrices ? (
+        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+          {activeTab === 'inventario' ? (
             <>
-              <EyeOff className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span>Ocultar Preços Especiais (Atacado / Promo)</span>
-            </>
-          ) : (
-            <>
-              <Eye className="w-3.5 h-3.5 text-zinc-500 dark:text-stone-400" />
-              <span>Ver Preços Especiais (Atacado / Promo)</span>
-            </>
-          )}
-        </button>
-      </div>
+              {/* GRADE DE CARDS (VALOR TOTAL, ALERTAS, DIESEL EM TANQUE) EM MOLDURA UNIFICADA */}
+              <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
+                  {/* Card 1: Valor Total */}
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                        Valor Total em Estoque
+                      </span>
+                      <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
+                        {formatCurrencyBRL(totalInventoryValue)}
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                        {allItems.length} produtos cadastrados
+                      </p>
+                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-300 flex items-center justify-center shrink-0">
+                      <Package className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
 
-      {/* Inventory Table */}
-      <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs text-zinc-900 dark:text-white">
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-xs border-collapse">
+                  {/* Card 2: Alertas */}
+                  <div className="flex items-center justify-between px-2 py-1 sm:pl-3">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                        Alertas de Estoque Mínimo
+                      </span>
+                      <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
+                        {lowStockCount}
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                        Itens em nível crítico
+                      </p>
+                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+
+                  {/* Card 3: Diesel em Tanque */}
+                  <div className="flex items-center justify-between px-2 py-1 sm:pl-3">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                        Diesel em Tanque
+                      </span>
+                      <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight mt-0.5">
+                        {totalDieselLitros.toLocaleString('pt-BR')} L
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                        Diesel S10 & S500 na Fazenda
+                      </p>
+                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                      <Fuel className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CONTAINER DA TABELA E BUSCA */}
+              <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 overflow-hidden shadow-2xs">
+                {/* Search & Toggle Preços Especiais Integrados */}
+                <div className="p-2 border-b border-slate-200 dark:border-stone-700/80 bg-slate-50/60 dark:bg-stone-800/40 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar produto no estoque por nome ou categoria..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-md text-xs focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSpecialPrices(prev => !prev)}
+                    className={`inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-md border text-xs font-bold transition cursor-pointer shrink-0 ${
+                      showSpecialPrices
+                        ? 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 shadow-2xs'
+                        : 'bg-white dark:bg-stone-900 border-slate-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50 dark:hover:bg-stone-800'
+                    }`}
+                    title={showSpecialPrices ? "Ocultar colunas de Atacado e Promoção" : "Exibir colunas de Atacado e Promoção"}
+                  >
+                    {showSpecialPrices ? (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                        <span>Ocultar Preços Especiais (Atacado / Promo)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5 text-zinc-500 dark:text-stone-400" />
+                        <span>Ver Preços Especiais (Atacado / Promo)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Inventory Table */}
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
               <tr>
                 {/* 1. ITEM & LOCAL */}
@@ -704,46 +721,51 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                     : (effectiveCost > 0 && curPromoMargin !== '' ? Math.round(effectiveCost * (1 + Number(curPromoMargin) / 100) * 100) / 100 : '');
 
                   return (
-                    <tr key={item.id} className="hover:bg-blue-300/30 dark:hover:bg-stone-800/40 transition">
-                      {/* 1. ITEM & LOCAL (Expandido sem cortes) */}
-                      <td className="py-1.5 px-2.5 align-middle">
-                        <div className="font-black text-black dark:text-stone-100 text-xs leading-snug whitespace-normal break-words" title={displayName}>
-                          {displayName}
+                    <tr key={item.id} className="hover:bg-blue-300/30 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                      {/* 1. ITEM & LOCAL (Achatamento em linha única contínua com whitespace-nowrap) */}
+                      <td className="py-1 px-2.5 align-middle whitespace-nowrap">
+                        <div className="flex items-center space-x-1.5 whitespace-nowrap">
+                          <span className="font-black text-black dark:text-stone-100 text-xs whitespace-nowrap" title={displayName}>
+                            {displayName}
+                          </span>
+                          <span className="text-[10px] text-slate-400 dark:text-stone-500 font-normal">|</span>
+                          <span className="text-[9.5px] font-bold text-slate-500 dark:text-stone-400 whitespace-nowrap">
+                            {item.location || 'Geral'}
+                          </span>
                         </div>
-                        <span className="text-[9.5px] font-bold text-black/70 dark:text-stone-400 block whitespace-normal leading-tight">
-                          {item.location || 'Geral'}
-                        </span>
                       </td>
 
-                      {/* 2. CATEGORIA (Expandida sem cortes) */}
-                      <td className="py-1.5 px-2.5 align-middle">
-                        <div className="flex items-center space-x-1.5 font-bold text-[11px] text-black dark:text-stone-200 whitespace-normal">
+                      {/* 2. CATEGORIA (Linha única contínua) */}
+                      <td className="py-1 px-2.5 align-middle whitespace-nowrap">
+                        <div className="flex items-center space-x-1.5 font-bold text-[11px] text-black dark:text-stone-200 whitespace-nowrap">
                           <span className="shrink-0">{getCategoryIcon(displayCat)}</span>
-                          <span className="whitespace-normal leading-snug break-words" title={displayCat}>
+                          <span className="whitespace-nowrap" title={displayCat}>
                             {displayCat.replace('_', ' ')}
                           </span>
                         </div>
                       </td>
 
                       {/* 3. QUANTIDADE */}
-                      <td className="py-1.5 px-2 text-right align-middle whitespace-nowrap">
-                        <span className={`font-black font-mono text-xs ${isLow ? 'text-rose-950 dark:text-rose-400' : 'text-black dark:text-stone-100'}`}>
-                          {effectiveQty} {item.unidade_medida || item.unit}
-                        </span>
-                        {isLow && (
-                          <span className="block text-[8.5px] font-black text-rose-900 dark:text-rose-400">
-                            Baixo!
+                      <td className="py-1 px-2 text-right align-middle whitespace-nowrap">
+                        <div className="inline-flex items-center space-x-1 whitespace-nowrap">
+                          <span className={`font-black font-mono text-xs ${isLow ? 'text-rose-950 dark:text-rose-400' : 'text-black dark:text-stone-100'}`}>
+                            {effectiveQty} {item.unidade_medida || item.unit}
                           </span>
-                        )}
+                          {isLow && (
+                            <span className="text-[8.5px] font-black text-rose-900 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/60 px-1 py-0.2 rounded">
+                              Baixo!
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* 4. CUSTO UNITÁRIO (R$) */}
-                      <td className="py-1.5 px-2 text-right align-middle font-black text-black dark:text-stone-300 font-mono text-xs whitespace-nowrap">
+                      <td className="py-1 px-2 text-right align-middle font-black text-black dark:text-stone-300 font-mono text-xs whitespace-nowrap">
                         {formatCurrencyBRL(effectiveCost)}
                       </td>
 
                       {/* 5. VALOR TOTAL (R$) */}
-                      <td className="py-1.5 px-2 text-right align-middle font-black text-black dark:text-stone-100 font-mono text-xs whitespace-nowrap">
+                      <td className="py-1 px-2 text-right align-middle font-black text-black dark:text-stone-100 font-mono text-xs whitespace-nowrap">
                         {formatCurrencyBRL(itemTotal)}
                       </td>
 
@@ -1037,6 +1059,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       </div>
     </div>
   )}
+        </div>
+      </div>
 
       {/* Modal: Cadastrar Novo Produto no Estoque */}
       {isCreateModalOpen && (
