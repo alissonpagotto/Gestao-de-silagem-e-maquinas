@@ -227,8 +227,17 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
     return employees.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
-      const st = String(emp.status || '').toLowerCase();
-      if (st === 'excluido' || st === 'inativo' || emp.active === false) return false;
+      const st = String(emp.status || '').toLowerCase().trim();
+      if (
+        st === 'excluido' ||
+        st === 'inativo' ||
+        st === 'demitido' ||
+        st === 'desligado' ||
+        emp.active === false ||
+        Boolean(emp.terminationDate)
+      ) {
+        return false;
+      }
       // Ignora registro duplicado/antigo do ALISSON PAG sem CPF
       if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
         return false;
@@ -498,202 +507,162 @@ export const RHModule: React.FC<RHModuleProps> = ({
         )}
       </header>
 
-      {/* Navegação por Abas - Moldura Acetinada 3D */}
-      <nav 
-        aria-label="Abas do RH"
-        className="no-print flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
-      >
-        
-        {/* Aba 1: Dashboard */}
-        {hasRhSubPermission('dashboard') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('dashboard')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'dashboard'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
+      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      <div className="w-full flex flex-col">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas do RH"
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
-            <Users className="w-3.5 h-3.5" />
-            <span>Dashboard</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Dashboard (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 1: Dashboard */}
+            {hasRhSubPermission('dashboard') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('dashboard')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'dashboard'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Dashboard</span>
+              </button>
+            ) : null}
 
-        {/* Aba 2: Funcionários */}
-        {hasRhSubPermission('funcionarios') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('funcionarios')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'funcionarios'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <UserSquare2 className="w-3.5 h-3.5" />
-            <span>Funcionários</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Funcionários (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 2: Funcionários */}
+            {hasRhSubPermission('funcionarios') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('funcionarios')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'funcionarios'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <UserSquare2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                <span>Funcionários</span>
+              </button>
+            ) : null}
 
-        {/* Aba 3: Folha de Pagamento */}
-        {hasRhSubPermission('folha') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('folha')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'folha'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Folha de Pagamento</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Folha (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 3: Folha de Pagamento */}
+            {hasRhSubPermission('folha') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('folha')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'folha'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Folha de Pagamento</span>
+              </button>
+            ) : null}
 
-        {/* Aba 4: Férias */}
-        {hasRhSubPermission('ferias') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('ferias')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'ferias'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Férias</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Férias (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 4: Férias */}
+            {hasRhSubPermission('ferias') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('ferias')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'ferias'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span>Férias</span>
+              </button>
+            ) : null}
 
-        {/* Aba 5: Afastamentos */}
-        {hasRhSubPermission('afastamentos') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('afastamentos')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'afastamentos'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>Afastamentos</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Afastamentos (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 5: Afastamentos */}
+            {hasRhSubPermission('afastamentos') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('afastamentos')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'afastamentos'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                <span>Afastamentos</span>
+              </button>
+            ) : null}
 
-        {/* Aba 6: Adiantamentos */}
-        {hasRhSubPermission('adiantamentos') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('adiantamentos')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'adiantamentos'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Adiantamentos</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Adiantamentos (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 6: Adiantamentos */}
+            {hasRhSubPermission('adiantamentos') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('adiantamentos')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'adiantamentos'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Adiantamentos</span>
+              </button>
+            ) : null}
 
-        {/* Aba 7: Atestados (Nova Aba RH) */}
-        {hasRhSubPermission('atestados') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('atestados')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'atestados'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <FileHeart className="w-3.5 h-3.5" />
-            <span>Atestados</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Atestados (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 7: Atestados */}
+            {hasRhSubPermission('atestados') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('atestados')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'atestados'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <FileHeart className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                <span>Atestados</span>
+              </button>
+            ) : null}
 
-        {/* Aba 8: Faltas (Nova Aba RH) */}
-        {hasRhSubPermission('faltas') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('faltas')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'faltas'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <CalendarX2 className="w-3.5 h-3.5" />
-            <span>Faltas</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Faltas (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 8: Faltas */}
+            {hasRhSubPermission('faltas') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('faltas')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'faltas'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <CalendarX2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Faltas</span>
+              </button>
+            ) : null}
 
-        {/* Aba 9: Rescisão (Nova Aba RH) */}
-        {hasRhSubPermission('rescisao') ? (
-          <button
-            type="button"
-            onClick={() => handleTabChange('rescisao')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'rescisao'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <UserX className="w-3.5 h-3.5" />
-            <span>Rescisão</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Rescisão (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba 9: Rescisão */}
+            {hasRhSubPermission('rescisao') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('rescisao')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'rescisao'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <UserX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                <span>Rescisão</span>
+              </button>
+            ) : null}
+          </nav>
+        </div>
 
-      </nav>
+        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
 
       {/* Renderização do Conteúdo de Cada Aba */}
       {activeTab === 'dashboard' && (
@@ -808,6 +777,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
           onSaveEmployees={onSaveEmployees}
         />
       )}
+        </div>
+      </div>
 
       {/* Modal de Holerite / Recibo de Salário */}
       <PayslipModal

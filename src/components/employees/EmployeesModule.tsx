@@ -1320,8 +1320,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const safeList = Array.isArray(localEmployees) ? localEmployees : [];
     for (const emp of safeList) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
-      const st = String(emp.status || '').toLowerCase();
-      if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;
+      const st = String(emp.status || '').toLowerCase().trim();
+      if (
+        st === 'excluido' ||
+        st === 'inativo' ||
+        st === 'demitido' ||
+        st === 'desligado' ||
+        emp.active === false ||
+        Boolean(emp.terminationDate)
+      ) {
+        continue;
+      }
       // Ignora o registro antigo/duplicado de ALISSON PAG sem CPF
       if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
         continue;
@@ -2699,66 +2708,47 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   return (
     <div id="employees-module" className="space-y-3 sm:space-y-3.5 animate-fade-in">
-      {/* CNH Alert, Vacation Alert & Staff Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-rose-700">
-              CNHs Vencidas
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-rose-700 font-['Outfit'] mt-0.5">
-              {cnhReport.expiredCount}
+      {/* CNH Alert, Vacation Alert & Staff Summary Cards (Moldura Unificada Slim Design Pro) */}
+      <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
+          <div className="px-2 py-1 flex items-center justify-between text-black dark:text-stone-100">
+            <div>
+              <span className="text-[11px] font-semibold text-rose-700 uppercase">
+                CNHs Vencidas
+              </span>
+              <div className="text-sm sm:text-base font-bold text-rose-700 leading-tight mt-0.5 font-['Outfit']">
+                {cnhReport.expiredCount}
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                Exige regularização imediata
+              </p>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-black/75 font-medium mt-0.5">
-              Exige regularização imediata
-            </p>
-          </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center font-black">
-            !
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-700">
-              CNHs a Vencer (60 dias)
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-amber-700 font-['Outfit'] mt-0.5">
-              {cnhReport.expiringIn60DaysCount}
+            <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center font-black text-xs shrink-0">
+              !
             </div>
-            <p className="text-[10px] sm:text-[11px] text-black/75 font-medium mt-0.5">
-              Agendar renovação com motorista
-            </p>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold">
-            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-        </div>
 
-        <div
-          className={`bg-white border rounded-xl p-3 sm:p-3.5 shadow-xs flex items-center justify-between text-black ${
-            vacationAlertsSummary.expiredCount > 0
-              ? 'border-rose-300 bg-rose-50/30'
-              : vacationAlertsSummary.warningCount > 0
-                ? 'border-amber-300 bg-amber-50/30'
-                : 'border-slate-200'
-          }`}
-        >
-          <div>
-            <span
-              className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${
-                vacationAlertsSummary.expiredCount > 0
-                  ? 'text-rose-700'
-                  : vacationAlertsSummary.warningCount > 0
-                    ? 'text-amber-700'
-                    : 'text-emerald-700'
-              }`}
-            >
-              Alertas de Férias (RH)
-            </span>
-            <div className="flex items-baseline gap-2 mt-0.5">
+          <div className="px-2 py-1 sm:pl-3 flex items-center justify-between text-black dark:text-stone-100">
+            <div>
+              <span className="text-[11px] font-semibold text-amber-700 uppercase">
+                CNHs a Vencer (60 dias)
+              </span>
+              <div className="text-sm sm:text-base font-bold text-amber-700 leading-tight mt-0.5 font-['Outfit']">
+                {cnhReport.expiringIn60DaysCount}
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                Agendar renovação com motorista
+              </p>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          <div className="px-2 py-1 sm:pl-3 flex items-center justify-between text-black dark:text-stone-100">
+            <div>
               <span
-                className={`text-xl sm:text-2xl font-black font-['Outfit'] ${
+                className={`text-[11px] font-semibold uppercase ${
                   vacationAlertsSummary.expiredCount > 0
                     ? 'text-rose-700'
                     : vacationAlertsSummary.warningCount > 0
@@ -2766,124 +2756,138 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       : 'text-emerald-700'
                 }`}
               >
-                {vacationAlertsSummary.totalAlerts}
+                Alertas de Férias (RH)
               </span>
-              <span className="text-[10px] font-bold text-black/75">
-                {vacationAlertsSummary.expiredCount > 0 && `${vacationAlertsSummary.expiredCount} vencida(s)`}
-                {vacationAlertsSummary.expiredCount > 0 && vacationAlertsSummary.warningCount > 0 && ' • '}
-                {vacationAlertsSummary.warningCount > 0 && `${vacationAlertsSummary.warningCount} próx. a vencer`}
-                {vacationAlertsSummary.totalAlerts === 0 && 'Períodos regulares'}
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span
+                  className={`text-sm sm:text-base font-bold leading-tight font-['Outfit'] ${
+                    vacationAlertsSummary.expiredCount > 0
+                      ? 'text-rose-700'
+                      : vacationAlertsSummary.warningCount > 0
+                        ? 'text-amber-700'
+                        : 'text-emerald-700'
+                  }`}
+                >
+                  {vacationAlertsSummary.totalAlerts}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
+                  {vacationAlertsSummary.expiredCount > 0 && `${vacationAlertsSummary.expiredCount} vencida(s)`}
+                  {vacationAlertsSummary.expiredCount > 0 && vacationAlertsSummary.warningCount > 0 && ' • '}
+                  {vacationAlertsSummary.warningCount > 0 && `${vacationAlertsSummary.warningCount} próx.`}
+                  {vacationAlertsSummary.totalAlerts === 0 && 'Regulares'}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                Monitoramento (11–12+ meses)
+              </p>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-black/75 font-medium mt-0.5">
-              Monitoramento automático (11–12+ meses)
-            </p>
+            <div
+              className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                vacationAlertsSummary.expiredCount > 0
+                  ? 'bg-rose-100 border-rose-300 text-rose-700'
+                  : vacationAlertsSummary.warningCount > 0
+                    ? 'bg-amber-100 border-amber-300 text-amber-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl border flex items-center justify-center font-bold ${
-              vacationAlertsSummary.expiredCount > 0
-                ? 'bg-rose-100 border-rose-300 text-rose-700'
-                : vacationAlertsSummary.warningCount > 0
-                  ? 'bg-amber-100 border-amber-300 text-amber-800'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            }`}
-          >
-            <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-        </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-black">
-              Total de Colaboradores
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-black font-['Outfit'] mt-0.5">
-              {totalColaboradoresCount}
+          <div className="px-2 py-1 sm:pl-3 flex items-center justify-between text-black dark:text-stone-100">
+            <div>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                Total de Colaboradores
+              </span>
+              <div className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-tight font-['Outfit'] mt-0.5">
+                {totalColaboradoresCount}
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                {activeColaboradoresCount} ativos no momento
+              </p>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-black/75 font-medium mt-0.5">
-              {activeColaboradoresCount} ativos no momento
-            </p>
-          </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 border border-slate-200 text-black flex items-center justify-center">
-            <UserSquare2 className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-300 flex items-center justify-center shrink-0">
+              <UserSquare2 className="w-3.5 h-3.5" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Search Bar & Quick Vacation Alert Filter Badges */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-xs space-y-2.5 text-black">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-black absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, cargo, CPF ou número de CNH..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm text-black placeholder-slate-400 focus:ring-1 focus:ring-sky-600 outline-none"
-          />
+      {/* CONTAINER UNIFICADO DA TABELA E BUSCA (SLIM DESIGN PRO) */}
+      <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 overflow-hidden shadow-2xs">
+        {/* Search Bar & Quick Vacation Alert Filter Badges */}
+        <div className="p-2 border-b border-slate-200 dark:border-stone-700/80 bg-slate-50/60 dark:bg-stone-800/40 space-y-2">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por nome, cargo, CPF ou número de CNH..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-md text-xs focus:ring-1 focus:ring-sky-500 outline-none"
+            />
+          </div>
+
+          {/* Linha de Botões de Filtro Rápido */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setVacationQuickFilter('all')}
+              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition cursor-pointer ${
+                vacationQuickFilter === 'all'
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-2xs'
+                  : 'bg-white dark:bg-stone-900 hover:bg-slate-100 dark:hover:bg-stone-800 text-slate-800 dark:text-stone-300 border-slate-300 dark:border-stone-700'
+              }`}
+            >
+              <UserSquare2 className="w-3 h-3 shrink-0" />
+              <span>Todos os Colaboradores ({listaOrdenada.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVacationQuickFilter('expired')}
+              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition cursor-pointer ${
+                vacationQuickFilter === 'expired'
+                  ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
+                  : 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+              }`}
+            >
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              <span>Férias Vencidas ({vacationAlertsSummary.expiredCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVacationQuickFilter('warning')}
+              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition cursor-pointer ${
+                vacationQuickFilter === 'warning'
+                  ? 'bg-amber-500 text-stone-950 border-amber-600 shadow-2xs'
+                  : 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              <span>Férias a Vencer ({vacationAlertsSummary.warningCount})</span>
+            </button>
+          </div>
         </div>
 
-        {/* Linha de Botões de Filtro Rápido (Filtros Estilizados como Badges) */}
-        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-          <button
-            type="button"
-            onClick={() => setVacationQuickFilter('all')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
-              vacationQuickFilter === 'all'
-                ? 'bg-[#0963cb] text-white border-[#0963cb] shadow-2xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
-            }`}
-          >
-            <UserSquare2 className="w-3.5 h-3.5 shrink-0" />
-            <span>Todos os Colaboradores ({listaOrdenada.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setVacationQuickFilter('expired')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
-              vacationQuickFilter === 'expired'
-                ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
-                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
-            }`}
-          >
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>Férias Vencidas ({vacationAlertsSummary.expiredCount})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setVacationQuickFilter('warning')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
-              vacationQuickFilter === 'warning'
-                ? 'bg-amber-500 text-stone-950 border-amber-600 shadow-2xs'
-                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            <span>Férias a Vencer ({vacationAlertsSummary.warningCount})</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Employees Table / Cards */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs text-black">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-black uppercase text-[10px] font-black tracking-wider">
+        {/* Employees Table */}
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
               <tr>
-                <th className="py-3 px-4">Nome & Contato</th>
-                <th className="py-3 px-4">Cargo / Regime</th>
-                <th className="py-3 px-4">Salário Base</th>
-                <th className="py-3 px-4">Comissão</th>
-                <th className="py-3 px-4">CNH / Status</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                <th className="py-1.5 px-3 whitespace-nowrap">Nome & Contato</th>
+                <th className="py-1.5 px-3 whitespace-nowrap">Cargo / Regime</th>
+                <th className="py-1.5 px-3 whitespace-nowrap">Salário Base</th>
+                <th className="py-1.5 px-3 whitespace-nowrap">Comissão</th>
+                <th className="py-1.5 px-3 whitespace-nowrap">CNH / Status</th>
+                <th className="py-1.5 px-3 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {displayedEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-semibold">
+                  <td colSpan={6} className="py-6 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
                     {vacationQuickFilter === 'expired'
                       ? 'Nenhum colaborador com Férias Vencidas no momento.'
                       : vacationQuickFilter === 'warning'
@@ -2894,56 +2898,51 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               ) : displayedEmployees.map((emp) => {
                 const vacAlert = vacationAlertsByEmployeeId[emp.id];
                 return (
-                  <tr key={emp.id} className="hover:bg-slate-50 transition">
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center space-x-3">
+                  <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                  <td className="py-1 px-3 align-middle whitespace-nowrap">
+                    <div className="flex items-center space-x-2.5 whitespace-nowrap">
                       <EmployeeAvatar
                         photoUrl={emp.photoUrl}
                         name={emp.name}
                         size="sm"
-                        className="shrink-0 rounded-xl"
+                        className="shrink-0 rounded-lg w-7 h-7"
                       />
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <div className="font-bold text-black uppercase">
+                      <div className="whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="font-bold text-black dark:text-stone-100 uppercase text-xs whitespace-nowrap">
                             {emp.name}
-                          </div>
-                          {emp.active === false || emp.status === 'inativo' ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-black font-bold">
-                              INATIVO
-                            </span>
-                          ) : (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold">
-                              ATIVO
-                            </span>
-                          )}
+                          </span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 font-bold whitespace-nowrap">
+                            ATIVO
+                          </span>
                           {vacAlert && vacAlert.level === 'expired' && (
                             <span
                               title={vacAlert.description}
-                              className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-rose-600 text-white font-black tracking-wide shadow-2xs animate-pulse"
+                              className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-black tracking-wide shadow-2xs whitespace-nowrap animate-pulse"
                             >
-                              <AlertCircle className="w-3 h-3 shrink-0" />
-                              <span>FÉRIAS VENCIDAS ({vacAlert.monthsLabel})</span>
+                              <AlertCircle className="w-2.5 h-2.5 shrink-0" />
+                              <span>FÉRIAS VENCIDAS</span>
                             </span>
                           )}
                           {vacAlert && vacAlert.level === 'warning' && (
                             <span
                               title={vacAlert.description}
-                              className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-amber-500 text-stone-950 font-black tracking-wide shadow-2xs"
+                              className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500 text-stone-950 font-black tracking-wide shadow-2xs whitespace-nowrap"
                             >
-                              <AlertTriangle className="w-3 h-3 shrink-0" />
-                              <span>FÉRIAS PRÓXIMAS A VENCER ({vacAlert.monthsLabel})</span>
+                              <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                              <span>PRÓX. A VENCER</span>
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-black/75 font-medium mt-0.5">
+                        <div className="flex items-center gap-x-2 text-[11px] text-slate-500 dark:text-stone-400 font-medium whitespace-nowrap">
                           {emp.cpf && (
-                            <span className="font-mono text-[11px]">CPF: {emp.cpf}</span>
+                            <span className="font-mono text-[10px] whitespace-nowrap">CPF: {emp.cpf}</span>
                           )}
+                          {emp.cpf && emp.phone && <span>•</span>}
                           {emp.phone && (
-                            <div className="flex items-center space-x-1 text-black/75">
-                              <Phone className="w-3 h-3 text-black/60" />
-                              <span>{emp.phone}</span>
+                            <div className="flex items-center space-x-1 whitespace-nowrap">
+                              <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                              <span className="whitespace-nowrap">{emp.phone}</span>
                             </div>
                           )}
                         </div>
@@ -2951,118 +2950,100 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-start space-x-1.5 text-black font-bold">
-                      <Briefcase className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                      <div className="flex flex-wrap gap-1 items-center">
+                  <td className="py-1 px-3 align-middle whitespace-nowrap">
+                    <div className="flex items-center space-x-1.5 text-black dark:text-stone-200 font-bold whitespace-nowrap">
+                      <Briefcase className="w-3 h-3 text-slate-500 shrink-0" />
+                      <div className="inline-flex gap-1 items-center whitespace-nowrap">
                         {(emp.roles && emp.roles.length > 0
                           ? emp.roles
                           : (emp.role || 'Operador').split(',').map(r => r.trim()).filter(Boolean)
                         ).map((r, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-sky-50 text-sky-900 border border-sky-200/70"
+                            className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800 whitespace-nowrap"
                           >
                             {r}
                           </span>
                         ))}
                       </div>
                     </div>
-                    <div className="text-[11px] text-black/75 font-medium mt-1">
+                    <div className="text-[10px] text-slate-500 dark:text-stone-400 font-medium whitespace-nowrap">
                       {emp.contractType || 'Registrado (CLT)'}
                       {emp.admissionDate && ` • Adm: ${formatDateBR(emp.admissionDate)}`}
                     </div>
-                    {vacAlert && vacAlert.level !== 'none' && (
-                      <div
-                        className={`mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${
-                          vacAlert.level === 'expired'
-                            ? 'bg-rose-50 text-rose-800 border-rose-300'
-                            : 'bg-amber-50 text-amber-900 border-amber-300'
-                        }`}
-                      >
-                        <Calendar className="w-3 h-3 shrink-0" />
-                        <span>
-                          Aq.: {formatDateBR(vacAlert.vestingStart)} a {formatDateBR(vacAlert.vestingEnd)}
-                        </span>
-                      </div>
-                    )}
-                    {emp.actingRegion && (
-                      <div className="flex items-center space-x-1 text-[11px] text-orange-950 font-bold mt-1">
-                        <MapPin className="w-3 h-3 text-orange-600 shrink-0" />
-                        <span className="uppercase">{emp.actingRegion}</span>
-                      </div>
-                    )}
                   </td>
 
-                  <td className="py-3.5 px-4 font-black text-black font-['Outfit']">
+                  <td className="py-1 px-3 align-middle font-black text-black dark:text-stone-100 font-['Outfit'] text-xs whitespace-nowrap">
                     {formatCurrencyBRL(emp.baseSalary || emp.salary || 0)}
                   </td>
 
-                  <td className="py-3.5 px-4">
+                  <td className="py-1 px-3 align-middle whitespace-nowrap">
                     {emp.brokerCommissionValue !== undefined && emp.brokerCommissionValue > 0 ? (
-                      <div className="space-y-0.5 text-[11px]">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-sky-800 font-bold text-[10px]">
+                      <div className="whitespace-nowrap text-[10px]">
+                        <span className="inline-flex items-center px-1.5 py-0.2 rounded bg-sky-50 dark:bg-sky-950/40 border border-sky-200 text-sky-800 dark:text-sky-300 font-bold whitespace-nowrap">
                           Comissão Agenciador
                         </span>
-                        <div className="text-black/80 font-bold font-['Outfit'] text-[10px]">
+                        <div className="text-black/80 dark:text-stone-300 font-bold font-['Outfit'] text-[10px] whitespace-nowrap">
                           {emp.brokerCommissionType === 'Valor Fixo por contrato/pedido'
                             ? `${formatCurrencyBRL(emp.brokerCommissionValue)} /pedido`
                             : `${emp.brokerCommissionValue}% ${emp.brokerCommissionType?.includes('produção') ? 'produção' : 'pedido'}`}
                         </div>
                       </div>
                     ) : emp.receivesCommission ? (
-                      <div className="space-y-0.5 text-[11px]">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px]">
+                      <div className="whitespace-nowrap text-[10px]">
+                        <span className="inline-flex items-center px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 text-amber-800 dark:text-amber-300 font-bold whitespace-nowrap">
                           Comissão Ativa
                         </span>
-                        <div className="text-black/80 font-bold font-['Outfit'] text-[10px]">
+                        <div className="text-black/80 dark:text-stone-300 font-bold font-['Outfit'] text-[10px] whitespace-nowrap">
                           {emp.commissionPerHour ? `${formatCurrencyBRL(emp.commissionPerHour)}/h ` : ''}
                           {emp.commissionPerAlqueire ? `${formatCurrencyBRL(emp.commissionPerAlqueire)}/alq ` : ''}
                           {emp.commissionPerHectare ? `${formatCurrencyBRL(emp.commissionPerHectare)}/ha` : ''}
                         </div>
                       </div>
                     ) : (
-                      <span className="text-black/60 text-xs font-medium">Sem comissão</span>
+                      <span className="text-slate-400 dark:text-stone-500 text-[11px] font-medium whitespace-nowrap">Sem comissão</span>
                     )}
                   </td>
 
-                  <td className="py-3.5 px-4">
-                    <div className="space-y-1">
+                  <td className="py-1 px-3 align-middle whitespace-nowrap">
+                    <div className="flex items-center space-x-1.5 whitespace-nowrap">
                       {emp.cnhNumber ? (
-                        <div className="flex items-center space-x-1 text-xs">
-                          <CreditCard className="w-3 h-3 text-slate-500" />
-                          <span className="font-bold text-black">
+                        <div className="inline-flex items-center space-x-1 text-xs whitespace-nowrap">
+                          <CreditCard className="w-3 h-3 text-slate-500 shrink-0" />
+                          <span className="font-bold text-black dark:text-stone-200 whitespace-nowrap">
                             Cat. {emp.cnhCategory || 'B'}
                           </span>
                         </div>
                       ) : null}
-                      {getCnhBadge(emp)}
+                      <span className="whitespace-nowrap">{getCnhBadge(emp)}</span>
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end space-x-1.5">
+                  <td className="py-1 px-3 text-right align-middle whitespace-nowrap">
+                    <div className="flex items-center justify-end space-x-1 whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => handlePrintEmployeeSheet(emp)}
-                        className="p-1.5 text-black hover:text-amber-700 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                        className="p-1 text-black dark:text-stone-300 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded transition cursor-pointer"
                         title="Imprimir cadastro do funcionário para assinatura"
                       >
-                        <Printer className="w-4 h-4 text-amber-600" />
+                        <Printer className="w-3.5 h-3.5 text-amber-600" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleOpenEdit(emp)}
-                        className="p-1.5 text-black hover:text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer"
+                        className="p-1 text-black dark:text-stone-300 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded transition cursor-pointer"
                         title="Editar"
                       >
-                        <Edit3 className="w-4 h-4" />
+                        <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(emp.id)}
-                        className="p-1.5 text-black hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        className="p-1 text-black dark:text-stone-300 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
                         title="Excluir"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>

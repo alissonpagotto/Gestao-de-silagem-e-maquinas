@@ -559,20 +559,26 @@ export function saveStoredSeasons(seasons: CropSeason[]): void {
 
 export function getStoredEmployees(): Employee[] {
   try {
-    let raw = localStorage.getItem('colaca_silagem_funcionarios');
-    if (!raw) {
-      raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-    }
+    let raw = localStorage.getItem('agrocontrol_funcionarios') ||
+              localStorage.getItem('colaca_silagem_funcionarios') ||
+              localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     if (!raw) return INITIAL_EMPLOYEES;
     const parsed: Employee[] = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
     let modified = false;
 
-    // Filtra colaboradores excluídos e registros antigos/duplicados sem dados essenciais
+    // Filtra colaboradores excluídos, inativos, demitidos e registros sem dados essenciais
     const filtered = parsed.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
-      const st = String(emp.status || '').toLowerCase();
-      if (st === 'excluido' || st === 'inativo' || emp.active === false) {
+      const st = String(emp.status || '').toLowerCase().trim();
+      if (
+        st === 'excluido' ||
+        st === 'inativo' ||
+        st === 'demitido' ||
+        st === 'desligado' ||
+        emp.active === false ||
+        Boolean(emp.terminationDate)
+      ) {
         modified = true;
         return false;
       }
@@ -602,6 +608,7 @@ export function getStoredEmployees(): Employee[] {
     });
     if (modified || cleaned.length !== parsed.length) {
       const cleanJson = JSON.stringify(cleaned);
+      localStorage.setItem('agrocontrol_funcionarios', cleanJson);
       localStorage.setItem(STORAGE_KEYS.EMPLOYEES, cleanJson);
       localStorage.setItem('colaca_silagem_funcionarios', cleanJson);
     }
@@ -614,6 +621,7 @@ export function getStoredEmployees(): Employee[] {
 export function saveStoredEmployees(employees: Employee[]): void {
   try {
     const json = JSON.stringify(employees);
+    localStorage.setItem('agrocontrol_funcionarios', json);
     localStorage.setItem(STORAGE_KEYS.EMPLOYEES, json);
     localStorage.setItem('colaca_silagem_funcionarios', json);
   } catch (e) {
