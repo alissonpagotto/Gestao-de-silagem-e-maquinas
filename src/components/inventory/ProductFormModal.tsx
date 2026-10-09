@@ -29,16 +29,16 @@ import { cadastrarProduto, parseNumericFloat } from '../../lib/supabaseService';
 import { ProductLabelPrintModal } from './ProductLabelPrintModal';
 
 export const DEFAULT_TIRE_BRANDS = [
-  'Michelin',
-  'Pirelli',
-  'Bridgestone',
-  'Goodyear',
-  'Firestone',
-  'Continental',
-  'Dunlop',
-  'Trelleborg',
-  'Alliance',
-  'Outro',
+  'MICHELIN',
+  'PIRELLI',
+  'BRIDGESTONE',
+  'GOODYEAR',
+  'FIRESTONE',
+  'CONTINENTAL',
+  'DUNLOP',
+  'TRELLEBORG',
+  'ALLIANCE',
+  'OUTRO',
 ];
 
 export const TIRE_BRAND_STORAGE_KEY = 'colaca_silagem_marcas_pneus';
@@ -49,7 +49,7 @@ export function getStoredTireBrands(): string[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map((b: string) => String(b).toUpperCase());
       }
     }
   } catch (e) {
@@ -232,6 +232,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isBrandManagerOpen, setIsBrandManagerOpen] = useState(false);
   const [newBrandInput, setNewBrandInput] = useState('');
   const [brandToDeleteConfirm, setBrandToDeleteConfirm] = useState<string | null>(null);
+
+  // 1. CORREÇÃO DO REPASSE DE VALOR (BINDING): Atualização reativa de marca com redundância inteligente
+  const setMarcaPneu = (value: string) => {
+    const upperVal = value ? value.toUpperCase() : '';
+    setTireBrand(upperVal);
+    // Se o operador selecionou ou preencheu a marca do pneu e o campo geral de marca estiver vazio ou "SELECIONE...", atualiza também
+    if (!marca || marca.trim() === '' || marca.toUpperCase() === 'SELECIONE...') {
+      if (upperVal && upperVal !== 'SELECIONE...') {
+        setMarca(upperVal);
+      }
+    }
+  };
 
   const handleAddBrand = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -555,7 +567,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       // Inicialização dos parâmetros técnicos do pneu (Gestão de Frotas)
       const tireParams = initialData?.tireParameters;
       const initialFire = (tireParams?.fireNumber || initialData?.fireNumber || '').toUpperCase();
-      const initialTireBrand = (tireParams?.brand || initialData?.brand || initialData?.marca || '').toUpperCase();
+      const initialMarcaGeral = (initialData?.brand || initialData?.marca || '').toUpperCase();
+      const initialTireBrandRaw = (tireParams?.brand || '').toUpperCase();
+      const resolvedTireBrand = (initialTireBrandRaw && initialTireBrandRaw !== 'SELECIONE...')
+        ? initialTireBrandRaw
+        : (initialMarcaGeral && initialMarcaGeral !== 'SELECIONE...' ? initialMarcaGeral : '');
+
       const initialTireModel = (tireParams?.model || initialData?.tireModel || '').toUpperCase();
       const initialTireSize = (tireParams?.size || initialData?.tireSize || '').toUpperCase();
       const initialTread = tireParams?.treadDepthMm ?? initialData?.treadDepthMm ?? 12.0;
@@ -565,7 +582,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialTireNotes = (tireParams?.notes || initialData?.tireNotes || '').toUpperCase();
 
       setTireFireNumber(initialFire);
-      setTireBrand(initialTireBrand);
+      setTireBrand(resolvedTireBrand);
+      if (!marca && resolvedTireBrand) {
+        setMarca(resolvedTireBrand);
+      }
       setTireModel(initialTireModel);
       setTireSize(initialTireSize);
       setTireTreadDepthMm(String(initialTread));
@@ -716,8 +736,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   };
 
-  // Submissão do Formulário
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 2. ATUALIZAÇÃO DA FUNÇÃO DE SALVAMENTO: handleSaveProduct / handleUpdateProduct / handleSubmit
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
@@ -731,6 +751,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setFormError('Para produtos da categoria Pneus, o Nº de Fogo / Matrícula é obrigatório.');
       return;
     }
+
+    // Tratamento estrito em CAIXA ALTA com redundância inteligente:
+    // marca: (marcaPneu && marcaPneu !== "SELECIONE...") ? marcaPneu.toUpperCase() : marcaGeralDoProduto.toUpperCase()
+    const marcaPneu = (tireBrand || '').trim();
+    const marcaGeralDoProduto = (marca || '').trim();
+    const marcaTratada = (marcaPneu && marcaPneu !== "SELECIONE..." && marcaPneu !== "")
+      ? marcaPneu.toUpperCase()
+      : (marcaGeralDoProduto && marcaGeralDoProduto !== "SELECIONE..." ? marcaGeralDoProduto.toUpperCase() : "");
 
     const custoNominalFloat = parseCurrencyPtBr(custoNominalDisplay);
     const precoVendaFloat = parseCurrencyPtBr(precoVendaDisplay);
@@ -773,8 +801,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         tipo_item: (categoria === 'SERVIÇO' || (categoria || '').toUpperCase().startsWith('SERVIÇO') || (categoria || '').toUpperCase().includes('MÃO DE OBRA')) ? 'SERVIÇO' : (initialData?.tipo_item || 'PRODUTO'),
         unit: unidadeMedida.trim() || 'UN',
         unidade_medida: unidadeMedida.trim() || 'UN',
-        brand: marca.trim() || undefined,
-        marca: marca.trim() || undefined,
+        brand: marcaTratada || undefined,
+        marca: marcaTratada || undefined,
         barcode: cleanBarcode,
         codigo_barras: cleanBarcode,
         hasNoGtin: semGtin,
@@ -836,7 +864,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         // Parâmetros Técnicos do Pneu (Gestão de Frotas)
         tireParameters: isPneuCategory ? {
           fireNumber: tireFireNumber.trim().toUpperCase(),
-          brand: (tireBrand.trim() || marca.trim() || 'Michelin').toUpperCase(),
+          brand: (marcaTratada || 'MICHELIN').toUpperCase(),
           model: tireModel.trim() ? tireModel.trim().toUpperCase() : undefined,
           size: tireSize.trim() ? tireSize.trim().toUpperCase() : undefined,
           treadDepthMm: parseFloat(tireTreadDepthMm) || 12.0,
@@ -875,7 +903,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             position: 'estoque',
             positionName: 'Estoque / Disponível',
             fireNumber: cleanFire.toUpperCase(),
-            brand: (tireBrand.trim() || marca.trim() || 'Michelin').toUpperCase(),
+            brand: (marcaTratada || 'MICHELIN').toUpperCase(),
             model: (tireModel.trim() || cleanNome).toUpperCase(),
             size: (tireSize.trim() || '295/80 R 22.5').toUpperCase(),
             treadDepthMm: parseFloat(tireTreadDepthMm) || 12.0,
@@ -902,29 +930,79 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       }
 
-      // Atualização imediata da categoria na chave 'colaca_silagem_estoque_produtos' no LocalStorage
+      // 3. PERSISTÊNCIA COMPLETA: Salva o objeto atualizado no array da chave 'agrocontrol_produtos' do LocalStorage
+      try {
+        const rawAgro = localStorage.getItem('agrocontrol_produtos');
+        let agroList: any[] = rawAgro ? JSON.parse(rawAgro) : [];
+        if (!Array.isArray(agroList)) agroList = [];
+
+        const existingAgroIdx = agroList.findIndex((p: any) => 
+          p.id === newProduct.id || 
+          (p.code && newProduct.code && p.code === newProduct.code) ||
+          (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
+          (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase()) ||
+          (isPneuCategory && p.fireNumber && newProduct.fireNumber && p.fireNumber.toUpperCase() === newProduct.fireNumber.toUpperCase())
+        );
+
+        const productAgroToSave = {
+          ...newProduct,
+          marca: marcaTratada,
+          brand: marcaTratada,
+          ...(isPneuCategory ? {
+            tireBrand: marcaTratada,
+            fireNumber: tireFireNumber.trim().toUpperCase(),
+            tireParameters: {
+              ...(newProduct.tireParameters || {}),
+              brand: (marcaTratada || 'MICHELIN').toUpperCase(),
+              fireNumber: tireFireNumber.trim().toUpperCase(),
+            }
+          } : {})
+        };
+
+        if (existingAgroIdx >= 0) {
+          agroList[existingAgroIdx] = {
+            ...agroList[existingAgroIdx],
+            ...productAgroToSave,
+          };
+        } else {
+          agroList.unshift(productAgroToSave);
+        }
+
+        localStorage.setItem('agrocontrol_produtos', JSON.stringify(agroList));
+        window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: agroList }));
+      } catch (errAgro) {
+        console.warn('Aviso ao persistir produto em agrocontrol_produtos:', errAgro);
+      }
+
+      // Atualização imediata na chave 'colaca_silagem_estoque_produtos' no LocalStorage
       try {
         const rawStock = localStorage.getItem('colaca_silagem_estoque_produtos');
-        if (rawStock) {
-          const stockList = JSON.parse(rawStock);
-          if (Array.isArray(stockList)) {
-            const idx = stockList.findIndex((p: any) => 
-              p.id === newProduct.id || 
-              (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
-              (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase())
-            );
-            if (idx >= 0) {
-              stockList[idx] = {
-                ...stockList[idx],
-                ...newProduct,
-                categoria: newProduct.categoria,
-                category: newProduct.category,
-              };
-              localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(stockList));
-              window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: stockList }));
-            }
-          }
+        let stockList: any[] = rawStock ? JSON.parse(rawStock) : [];
+        if (!Array.isArray(stockList)) stockList = [];
+
+        const idx = stockList.findIndex((p: any) => 
+          p.id === newProduct.id || 
+          (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
+          (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase())
+        );
+        if (idx >= 0) {
+          stockList[idx] = {
+            ...stockList[idx],
+            ...newProduct,
+            marca: marcaTratada,
+            brand: marcaTratada,
+            categoria: newProduct.categoria,
+            category: newProduct.category,
+          };
+        } else {
+          stockList.unshift({
+            ...newProduct,
+            marca: marcaTratada,
+            brand: marcaTratada,
+          });
         }
+        localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(stockList));
+        window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: stockList }));
       } catch (errStock) {
         console.warn('Aviso ao persistir produto no LocalStorage:', errStock);
       }
@@ -938,6 +1016,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setIsSaving(false);
     }
   };
+
+  const handleUpdateProduct = handleSaveProduct;
+  const handleSubmit = handleSaveProduct;
 
   // Objeto reativo do produto atual formatado para pré-visualização e impressão de etiquetas
   const currentProductForPrint = useMemo<InventoryItem>(() => {
@@ -954,6 +1035,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     const pBox = formatEnderecoPart(box);
     const endFmt = enderecoFormatado || '00.00.00.00.00';
 
+    const marcaPneu = (tireBrand || '').trim();
+    const marcaGeral = (marca || '').trim();
+    const marcaPreview = (marcaPneu && marcaPneu !== 'SELECIONE...')
+      ? marcaPneu.toUpperCase()
+      : (marcaGeral && marcaGeral !== 'SELECIONE...' ? marcaGeral.toUpperCase() : '');
+
     return {
       id: initialData?.id || `preview_${Date.now()}`,
       code: codigoInterno.trim() || undefined,
@@ -964,8 +1051,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       categoria: categoria || 'outro',
       unit: unidadeMedida.trim() || 'UN',
       unidade_medida: unidadeMedida.trim() || 'UN',
-      brand: marca.trim() || undefined,
-      marca: marca.trim() || undefined,
+      brand: marcaPreview || undefined,
+      marca: marcaPreview || undefined,
       barcode: cleanBarcode,
       codigo_barras: cleanBarcode,
       unitCost: custo,
@@ -1203,7 +1290,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         <input
                           type="text"
                           value={marca}
-                          onChange={(e) => setMarca(e.target.value.toUpperCase())}
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase();
+                            setMarca(val);
+                            // Redundância inteligente: caso o select de parâmetros técnicos do pneu fique vazio ou "SELECIONE...", assume a marca geral
+                            if (!tireBrand || tireBrand.trim() === '' || tireBrand.toUpperCase() === 'SELECIONE...') {
+                              setTireBrand(val);
+                            }
+                          }}
                           placeholder="EX: MICHELIN, PIRELLI..."
                           className="w-full h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
@@ -1302,16 +1396,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             </label>
                             <div className="flex flex-row items-center gap-1 relative">
                               <select
-                                value={tireBrand}
-                                onChange={(e) => {
-                                  setTireBrand(e.target.value);
-                                  if (!marca) setMarca(e.target.value);
-                                }}
+                                id="select-marca-pneu-tecnico"
+                                value={tireBrand ? tireBrand.toUpperCase() : ''}
+                                onChange={(e) => setMarcaPneu(e.target.value)}
                                 className="flex-1 min-w-0 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition uppercase"
                               >
-                                <option value="">Selecione...</option>
+                                <option value="">SELECIONE...</option>
+                                {/* Garante que caso tireBrand esteja preenchida (ex: ALLIANCE) e não conste na lista padrão, seja renderizada selecionada */}
+                                {tireBrand && tireBrand.toUpperCase() !== 'SELECIONE...' && !tireBrandOptions.some((b) => b.toUpperCase() === tireBrand.toUpperCase()) && (
+                                  <option value={tireBrand.toUpperCase()}>{tireBrand.toUpperCase()}</option>
+                                )}
+                                {/* Redundância inteligente: se marca geral existe e difere, também inclui como opção válida */}
+                                {marca && marca.toUpperCase() !== 'SELECIONE...' && !tireBrandOptions.some((b) => b.toUpperCase() === marca.toUpperCase()) && (!tireBrand || tireBrand.toUpperCase() !== marca.toUpperCase()) && (
+                                  <option value={marca.toUpperCase()}>{marca.toUpperCase()}</option>
+                                )}
                                 {tireBrandOptions.map((b) => (
-                                  <option key={b} value={b}>{b}</option>
+                                  <option key={b} value={b.toUpperCase()}>{b.toUpperCase()}</option>
                                 ))}
                               </select>
                               <div className="flex items-center gap-0.5 shrink-0">
@@ -1419,7 +1519,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                             : 'hover:bg-stone-100 dark:hover:bg-stone-800'
                                         }`}
                                       >
-                                        <span className="truncate">{b}</span>
+                                        <span className="truncate uppercase font-semibold">{b.toUpperCase()}</span>
                                         <button
                                           type="button"
                                           onClick={() => handleRequestRemoveBrand(b)}

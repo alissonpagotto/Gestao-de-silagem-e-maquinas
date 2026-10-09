@@ -591,7 +591,24 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
     }
 
     if (!error && data && Array.isArray(data)) {
-      const merged = data.map((d: any) => normalizeDocumentoEntradaFromRow(d));
+      const cloudNormalized = data.map((d: any) => normalizeDocumentoEntradaFromRow(d));
+
+      // Mescla com a lista local existente para nunca perder notas salvas localmente no agrocontrol_notas_entradas
+      const localMap = new Map<string, DocumentoEntradaRecord>();
+      localList.forEach(l => localMap.set(l.id, l));
+      cloudNormalized.forEach(c => {
+        if (!localMap.has(c.id)) {
+          localMap.set(c.id, c);
+        } else {
+          const localItem = localMap.get(c.id)!;
+          // Se na nuvem for mais recente ou finalizado, atualiza
+          if (c.status === 'Finalizado' && localItem.status !== 'Finalizado') {
+            localMap.set(c.id, c);
+          }
+        }
+      });
+
+      const merged = Array.from(localMap.values());
 
       // Ordena decrescente por data/criação
       merged.sort((a, b) => {

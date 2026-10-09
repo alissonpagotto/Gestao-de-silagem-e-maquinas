@@ -1789,6 +1789,11 @@ export default function App() {
     if (Array.isArray(newOrUpdated)) {
       setExpenses((prev) => {
         const newIds = new Set(newOrUpdated.map((n) => n.id));
+        const notaIds = new Set(
+          newOrUpdated
+            .map((n: any) => n.notaId || n.documento_entrada_id || '')
+            .filter(Boolean)
+        );
         // Coleta identificadores base das parcelas para substituir com segurança versões antigas da mesma OS ou NF-e
         const baseKeys = new Set(
           newOrUpdated
@@ -1801,11 +1806,20 @@ export default function App() {
             .filter(Boolean)
         );
 
-        const filtered = prev.filter((e) => {
+        const filtered = prev.filter((e: any) => {
           if (newIds.has(e.id)) return false;
           if (baseKeys.size > 0) {
             const eBase = e.id.includes('_parc_') ? e.id.split('_parc_')[0] : e.id;
             if (baseKeys.has(eBase)) return false;
+          }
+          if (notaIds.size > 0) {
+            if (e.notaId && notaIds.has(e.notaId)) return false;
+            if (e.documento_entrada_id && notaIds.has(e.documento_entrada_id)) return false;
+            if (typeof e.id === 'string') {
+              for (const nId of notaIds) {
+                if (e.id.includes(nId)) return false;
+              }
+            }
           }
           return true;
         });

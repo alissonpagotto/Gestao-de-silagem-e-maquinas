@@ -1336,13 +1336,14 @@ export function getServicesFromStockLocalStorage(): string[] {
 
 export function getStoredInventory(): InventoryItem[] {
   try {
-    const raw = localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
     const parsed = raw ? JSON.parse(raw) : INITIAL_INVENTORY;
     const baseList = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_INVENTORY;
     const withDiesel = ensureDieselProductsInInventory(baseList);
     const finalized = ensureServicesInInventory(withDiesel);
 
     try {
+      localStorage.setItem('agrocontrol_produtos', JSON.stringify(finalized));
       localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
       localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
     } catch (_) {}
@@ -1358,9 +1359,11 @@ export function saveStoredInventory(items: InventoryItem[]): void {
   try {
     const withDiesel = ensureDieselProductsInInventory(items);
     const finalized = ensureServicesInInventory(withDiesel);
+    localStorage.setItem('agrocontrol_produtos', JSON.stringify(finalized));
     localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
     localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
     window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: finalized }));
+    window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: finalized }));
     
     // Sincroniza também a lista de serviços do estoque
     const serviceNames = finalized
@@ -2874,19 +2877,25 @@ export const updateAppointmentFieldReturn = (
 // -------------------------------------------------------------
 // DOCUMENTOS DE ENTRADA (MÓDULO NOTAS & ENTRADAS MANUAIS)
 // -------------------------------------------------------------
+export const AGROCONTROL_NOTAS_ENTRADAS_KEY = 'agrocontrol_notas_entradas';
 export const STORAGE_KEY_DOCUMENTOS_ENTRADA = 'colaca_silagem_documentos_entrada';
 const LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA = 'silagem_facil_documentos_entrada_v1';
 
 export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
+  // Lê estritamente primeiro da chave agrocontrol_notas_entradas
+  const agro = getStoredList<DocumentoEntradaRecord>(AGROCONTROL_NOTAS_ENTRADAS_KEY, []);
+  if (agro.length > 0) return agro;
   const current = getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
   if (current.length > 0) return current;
   return getStoredList<DocumentoEntradaRecord>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
 };
 
 export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[]): void => {
+  saveStoredList(AGROCONTROL_NOTAS_ENTRADAS_KEY, docs);
   saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
   saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
   if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated', { detail: docs }));
     window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated', { detail: docs }));
   }
 };

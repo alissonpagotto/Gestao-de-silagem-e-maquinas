@@ -97,7 +97,22 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     return options;
   }, []);
 
-  const safeExpenses = Array.isArray(expenses) ? expenses.filter(Boolean) : [];
+  const safeExpenses = useMemo(() => {
+    const list = Array.isArray(expenses) ? expenses.filter(Boolean) : [];
+    const seen = new Set<string>();
+    const deduped: Expense[] = [];
+    for (const exp of list) {
+      if (!exp || !exp.id) continue;
+      // Trava de ID único e trava de notaId + parcela
+      const key = (exp as any).notaId && (exp as any).numero_parcela
+        ? `${(exp as any).notaId}_${(exp as any).numero_parcela}`
+        : exp.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(exp);
+    }
+    return deduped;
+  }, [expenses]);
   const pendingExpenses = safeExpenses.filter((e) => e.status === 'pendente');
   const paidExpenses = safeExpenses.filter((e) => e.status === 'pago');
 
@@ -386,14 +401,14 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs text-black">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-200">
+            <thead className="bg-slate-50 text-[10px] font-bold text-black uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-2.5 px-3">Vencimento</th>
-                <th className="py-2.5 px-3">Fornecedor / Descrição</th>
-                <th className="py-2.5 px-3">Categoria</th>
-                <th className="py-2.5 px-3">Responsável / Banco</th>
-                <th className="py-2.5 px-3 text-right">Valor (R$)</th>
-                <th className="py-2.5 px-3 text-right pr-4">Ações</th>
+                <th className="py-1 px-2.5 whitespace-nowrap">VENCIMENTO</th>
+                <th className="py-1 px-2.5 whitespace-nowrap">FORNECEDOR / DESCRIÇÃO</th>
+                <th className="py-1 px-2.5 whitespace-nowrap">CATEGORIA</th>
+                <th className="py-1 px-2.5 whitespace-nowrap">RESPONSÁVEL / BANCO</th>
+                <th className="py-1 px-2.5 text-right whitespace-nowrap">VALOR (R$)</th>
+                <th className="py-1 px-2.5 text-right whitespace-nowrap pr-3">AÇÕES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -404,115 +419,111 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                   const isOverdue = !isPaid && dueDateVal && dueDateVal < todayStr;
 
                   return (
-                    <tr key={exp.id} className="hover:bg-slate-50 transition">
+                    <tr key={exp.id} className="hover:bg-slate-50 transition whitespace-nowrap">
                       {/* Vencimento com Identificação de Atraso */}
-                      <td className="py-2.5 px-3 font-bold text-black whitespace-nowrap text-xs">
-                        <div className="font-mono">
-                          {dueDateVal ? formatDateBR(dueDateVal) : '—'}
+                      <td className="py-1 px-2.5 font-bold text-black whitespace-nowrap text-xs">
+                        <div className="flex items-center space-x-1.5 font-mono">
+                          <span>{dueDateVal ? formatDateBR(dueDateVal) : '—'}</span>
+                          {isOverdue && (
+                            <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded uppercase">
+                              VENCIDA
+                            </span>
+                          )}
+                          {isPaid && exp.paymentDate && (
+                            <span className="text-[9px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded uppercase">
+                              PAGO {formatDateBR(exp.paymentDate)}
+                            </span>
+                          )}
                         </div>
-                        {isOverdue && (
-                          <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded inline-block mt-0.5">
-                            Vencida
-                          </span>
-                        )}
-                        {isPaid && exp.paymentDate && (
-                          <div className="text-[10px] text-emerald-800 font-semibold mt-0.5">
-                            Pago em {formatDateBR(exp.paymentDate)}
-                          </div>
-                        )}
                       </td>
 
                       {/* Fornecedor / Descrição */}
-                      <td className="py-2.5 px-3">
-                        <div className="font-bold text-black text-xs">
-                          {exp.supplier || 'Sem fornecedor informado'}
+                      <td className="py-1 px-2.5 whitespace-nowrap max-w-[280px]">
+                        <div className="font-bold text-black text-xs truncate uppercase" title={exp.supplier || ''}>
+                          {exp.supplier || 'SEM FORNECEDOR INFORMADO'}
                         </div>
-                        <div className="text-[11px] text-black/75 font-medium">
+                        <div className="text-[10px] text-stone-600 font-medium truncate uppercase" title={exp.description || ''}>
                           {exp.description}
                         </div>
                       </td>
 
                       {/* Categoria */}
-                      <td className="py-2.5 px-3 text-black">
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-black border border-slate-200 text-[11px] font-bold">
-                          {exp.categoryName || 'Geral'}
+                      <td className="py-1 px-2.5 text-black whitespace-nowrap">
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-black border border-slate-200 text-[10px] font-bold uppercase">
+                          {exp.categoryName || exp.category || 'GERAL'}
                         </span>
                       </td>
 
                       {/* Responsável pelo Pagamento & Banco de Débito */}
-                      <td className="py-2.5 px-3 text-black text-xs">
+                      <td className="py-1 px-2.5 text-black text-xs whitespace-nowrap max-w-[200px]">
                         {isPaid ? (
-                          <div className="space-y-0.5">
+                          <div className="flex items-center space-x-1.5 truncate text-[10px] font-semibold text-emerald-900 uppercase">
                             {exp.paidByEmployeeName && (
-                              <div className="flex items-center space-x-1 font-bold text-emerald-900 text-[11px]">
+                              <span className="truncate flex items-center space-x-1">
                                 <UserCheck className="w-3 h-3 text-emerald-700 shrink-0" />
-                                <span className="truncate" title={`Quem pagou: ${exp.paidByEmployeeName}`}>
-                                  {exp.paidByEmployeeName}
-                                </span>
-                              </div>
+                                <span>{exp.paidByEmployeeName}</span>
+                              </span>
                             )}
                             {exp.bankAccountName && (
-                              <div className="flex items-center space-x-1 text-stone-600 text-[10px] font-semibold">
+                              <span className="truncate flex items-center space-x-1 text-stone-600">
                                 <Landmark className="w-3 h-3 text-[#0963cb] shrink-0" />
-                                <span className="truncate" title={`Debitado de: ${exp.bankAccountName}`}>
-                                  {exp.bankAccountName}
-                                </span>
-                              </div>
+                                <span>{exp.bankAccountName}</span>
+                              </span>
                             )}
                             {!exp.paidByEmployeeName && !exp.bankAccountName && (
-                              <span className="text-stone-400 text-[11px] italic">Pago sem registro</span>
+                              <span className="text-stone-400 italic">PAGO SEM REGISTRO</span>
                             )}
                           </div>
                         ) : (
-                          <div className="text-[11px] text-stone-500 font-medium">
+                          <div className="text-[10px] text-stone-500 font-medium uppercase truncate">
                             {exp.bankAccountName ? (
-                              <span className="flex items-center space-x-1 text-stone-600">
+                              <span className="flex items-center space-x-1 text-stone-600 truncate">
                                 <Landmark className="w-3 h-3 text-[#0963cb] shrink-0" />
-                                <span>Previsto: {exp.bankAccountName}</span>
+                                <span>PREV: {exp.bankAccountName}</span>
                               </span>
                             ) : (
-                              <span className="text-stone-400 italic">A definir na baixa</span>
+                              <span className="text-stone-400 italic">A DEFINIR NA BAIXA</span>
                             )}
                           </div>
                         )}
                       </td>
 
                       {/* Valor */}
-                      <td className="py-2.5 px-3 text-right font-black text-black whitespace-nowrap text-xs font-['Outfit']">
+                      <td className="py-1 px-2.5 text-right font-black text-black whitespace-nowrap text-xs font-mono">
                         {formatCurrencyBRL(exp.amount)}
                       </td>
 
                       {/* Ações (Organizadas à direita, com indicador de Status à esquerda do botão Liquidar) */}
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap pr-4">
-                        <div className="flex items-center justify-end space-x-2">
+                      <td className="py-1 px-2.5 text-right whitespace-nowrap pr-3">
+                        <div className="flex items-center justify-end space-x-1.5">
                           
-                          {/* Indicador de STATUS (posicionado exatamente ao lado esquerdo do botão Liquidar) */}
+                          {/* Indicador de STATUS */}
                           {isPaid ? (
                             <span 
                               id={`status-badge-${exp.id}`}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-2xs"
+                              className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 uppercase shadow-2xs"
                               title={`Conta liquidada / paga em ${exp.paymentDate ? formatDateBR(exp.paymentDate) : 'data anterior'}`}
                             >
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              <span>Paga</span>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span>PAGA</span>
                             </span>
                           ) : isOverdue ? (
                             <span 
                               id={`status-badge-${exp.id}`}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-black bg-rose-50 border border-rose-300 text-rose-700 shadow-2xs"
+                              className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-50 border border-rose-300 text-rose-700 uppercase shadow-2xs"
                               title="Conta com vencimento expirado"
                             >
-                              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                              <span>Vencida</span>
+                              <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                              <span>VENCIDA</span>
                             </span>
                           ) : (
                             <span 
                               id={`status-badge-${exp.id}`}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 shadow-2xs"
+                              className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 border border-amber-300 text-amber-800 uppercase shadow-2xs"
                               title="Conta pendente aguardando liquidação"
                             >
-                              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <span>A Pagar</span>
+                              <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span>A PAGAR</span>
                             </span>
                           )}
 
@@ -521,7 +532,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                             type="button"
                             id={`btn-acao-baixa-${exp.id}`}
                             onClick={() => handleActionClick(exp)}
-                            className={`inline-flex items-center space-x-1 text-xs font-black px-3 py-1.5 rounded-lg border transition cursor-pointer shadow-2xs ${
+                            className={`h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2 py-0.5 rounded-md border transition cursor-pointer shadow-2xs uppercase ${
                               isPaid
                                 ? 'border-slate-300 bg-white hover:bg-slate-100 text-stone-700'
                                 : 'border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
@@ -530,13 +541,13 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                           >
                             {isPaid ? (
                               <>
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                <span>Estornar</span>
+                                <RotateCcw className="w-3 h-3" />
+                                <span>ESTORNAR</span>
                               </>
                             ) : (
                               <>
-                                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                <span>Liquidar</span>
+                                <Check className="w-3 h-3 stroke-[3]" />
+                                <span>LIQUIDAR</span>
                               </>
                             )}
                           </button>
@@ -547,10 +558,10 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                               type="button"
                               id={`btn-comprovante-${exp.id}`}
                               onClick={() => onViewReceipt(exp)}
-                              className="p-1.5 text-stone-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer border border-slate-200"
+                              className="h-6 w-6 inline-flex items-center justify-center p-1 text-stone-600 hover:text-sky-700 hover:bg-sky-50 rounded-md transition cursor-pointer border border-slate-200"
                               title="Ver Comprovante / NF"
                             >
-                              <Paperclip className="w-3.5 h-3.5" />
+                              <Paperclip className="w-3 h-3" />
                             </button>
                           )}
 
@@ -560,10 +571,10 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                               type="button"
                               id={`btn-editar-${exp.id}`}
                               onClick={() => onEditExpense(exp)}
-                              className="p-1.5 text-stone-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer border border-slate-200"
+                              className="h-6 w-6 inline-flex items-center justify-center p-1 text-stone-600 hover:text-sky-700 hover:bg-sky-50 rounded-md transition cursor-pointer border border-slate-200"
                               title="Editar Lançamento"
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-3 h-3" />
                             </button>
                           )}
 
@@ -572,10 +583,10 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                             type="button"
                             id={`btn-excluir-${exp.id}`}
                             onClick={() => handleDeleteClick(exp)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer border border-rose-200"
+                            className="h-6 w-6 inline-flex items-center justify-center p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition cursor-pointer border border-rose-200"
                             title="Excluir Lançamento Financeiro"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </td>
@@ -584,8 +595,8 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-black font-medium text-xs">
-                    Nenhuma conta a pagar encontrada para os filtros selecionados.
+                  <td colSpan={6} className="py-4 text-center text-black font-medium text-xs uppercase">
+                    NENHUMA CONTA A PAGAR ENCONTRADA PARA OS FILTROS SELECIONADOS.
                   </td>
                 </tr>
               )}

@@ -67,6 +67,7 @@ import {
   getStoredCostCenters,
   saveStoredCostCenters,
   getStoredDocumentosEntrada,
+  saveStoredDocumentosEntrada,
   getStoredDocumentosEntradaItens,
   saveStoredDocumentosEntradaItens,
   saveLocalDocumentoEntradaItem,
@@ -1245,18 +1246,33 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // 3. Listeners para evento storage (localStorage cross-tab) e foco da janela
     const handleStorageEvent = (e: StorageEvent) => {
-      if (e.key === 'silagem_facil_documentos_entrada_v1') {
-        if (isMounted) debouncedReloadDocs();
+      if (
+        e.key === 'agrocontrol_notas_entradas' ||
+        e.key === 'colaca_silagem_documentos_entrada' ||
+        e.key === 'silagem_facil_documentos_entrada_v1'
+      ) {
+        if (isMounted) {
+          setDocumentosEntrada(getStoredDocumentosEntrada());
+          debouncedReloadDocs();
+        }
       }
     };
-    const handleCustomSyncEvent = () => {
-      if (isMounted) debouncedReloadDocs();
+    const handleCustomSyncEvent = (e?: any) => {
+      if (isMounted) {
+        if (e?.detail && Array.isArray(e.detail)) {
+          setDocumentosEntrada(e.detail);
+        } else {
+          setDocumentosEntrada(getStoredDocumentosEntrada());
+        }
+      }
     };
     const handleFocus = () => {
       if (isMounted) debouncedReloadDocs();
     };
 
     window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('agrocontrol_notas_entradas_updated', handleCustomSyncEvent);
+    window.addEventListener('colaca_silagem_documentos_entrada_updated', handleCustomSyncEvent);
     window.addEventListener('silagem_documentos_entrada_updated', handleCustomSyncEvent);
     window.addEventListener('focus', handleFocus);
     
@@ -1279,6 +1295,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         try { bc.close(); } catch (_) {}
       }
       window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('agrocontrol_notas_entradas_updated', handleCustomSyncEvent);
+      window.removeEventListener('colaca_silagem_documentos_entrada_updated', handleCustomSyncEvent);
       window.removeEventListener('silagem_documentos_entrada_updated', handleCustomSyncEvent);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -1878,6 +1896,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         });
       }
 
+      // Persistência na chave agrocontrol_notas_entradas
+      const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
+      let notasAtuais: DocumentoEntradaRecord[] = [];
+      if (rawNotas) {
+        try {
+          const parsed = JSON.parse(rawNotas);
+          if (Array.isArray(parsed)) notasAtuais = parsed;
+        } catch { notasAtuais = []; }
+      }
+      if (notasAtuais.length === 0) notasAtuais = getStoredDocumentosEntrada();
+      const notasFiltradas = notasAtuais.filter(d => d.id !== savedDoc.id);
+      const notasAtualizadas = [savedDoc, ...notasFiltradas];
+      localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(notasAtualizadas));
+      saveStoredDocumentosEntrada(notasAtualizadas);
+      setDocumentosEntrada(notasAtualizadas);
+
       // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
       if (manualDocItems && manualDocItems.length > 0) {
         try {
@@ -2439,41 +2473,70 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         finalDoc = {
           ...currentManualDoc,
           fornecedor: trimmedSupplier,
+          fornecedor_nome: trimmedSupplier,
           data: manualDate,
+          data_entrada: manualDate,
+          data_emissao: manualDate,
           data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
           observacoes: manualNotes.trim(),
-          status: 'Finalizado'
+          status: 'Finalizado',
+          updated_at: new Date().toISOString()
         };
-        await updateDocumentoEntrada(currentManualDoc.id, {
-          fornecedor: trimmedSupplier,
-          data: manualDate,
-          data_vencimento: firstDueDate,
-          tipo_documento: manualDocumentType,
-          valor_total: finalAmount,
-          observacoes: manualNotes.trim(),
-          status: 'Finalizado'
-        });
-        setDocumentosEntrada(prev => prev.map(d => d.id === finalDoc.id ? finalDoc : d));
-      } else {
-        finalDoc = await insertDocumentoEntrada({
-          fornecedor: trimmedSupplier,
-          data: manualDate,
-          data_vencimento: firstDueDate,
-          tipo_documento: manualDocumentType,
-          valor_total: finalAmount,
-          observacoes: manualNotes.trim(),
-          status: 'Finalizado'
-        });
         activeDocId = finalDoc.id;
-        setDocumentosEntrada(prev => {
-          const filtered = prev.filter(d => d.id !== finalDoc.id);
-          return [finalDoc, ...filtered];
-        });
+        updateDocumentoEntrada(currentManualDoc.id, {
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: firstDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Finalizado'
+        }).catch(e => console.warn('Aviso updateDocumentoEntrada:', e));
+      } else {
+        const newDocId = toValidUUID(generateUUID());
+        activeDocId = newDocId;
+        finalDoc = {
+          id: newDocId,
+          fornecedor: trimmedSupplier,
+          fornecedor_nome: trimmedSupplier,
+          data: manualDate,
+          data_entrada: manualDate,
+          data_emissao: manualDate,
+          data_vencimento: firstDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Finalizado',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        insertDocumentoEntrada(finalDoc).catch(e => console.warn('Aviso insertDocumentoEntrada:', e));
       }
 
-      // LANÇAMENTO NO FINANCEIRO (Tabela public.contas_a_pagar do Supabase)
+      // 1. CORREÇÃO DA EXIBIÇÃO NO HISTÓRICO (PRINT 1):
+      // Salva o cabeçalho completo da nota estritamente na chave 'agrocontrol_notas_entradas' do LocalStorage
+      const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
+      let notasAtuais: DocumentoEntradaRecord[] = [];
+      if (rawNotas) {
+        try {
+          const parsed = JSON.parse(rawNotas);
+          if (Array.isArray(parsed)) notasAtuais = parsed;
+        } catch {
+          notasAtuais = [];
+        }
+      }
+      if (notasAtuais.length === 0) {
+        notasAtuais = getStoredDocumentosEntrada();
+      }
+      const notasFiltradas = notasAtuais.filter(d => d.id !== finalDoc.id);
+      const notasAtualizadas = [finalDoc, ...notasFiltradas];
+      localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(notasAtualizadas));
+      saveStoredDocumentosEntrada(notasAtualizadas);
+      setDocumentosEntrada(notasAtualizadas);
+
+      // LANÇAMENTO NO FINANCEIRO (Tabela public.contas_a_pagar do Supabase e agrocontrol_financeiro)
       // Determinação da categoria financeira exata ('Combustível & Arla' ou 'Insumos & Entradas') para alimentação do gráfico de pizza
       const primaryCategory = determineFinancialCategory(
         manualDocItems.map(i => ({
@@ -2488,74 +2551,95 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const catColor = isCombustivel ? '#d97706' : '#059669';
       const catId = isCombustivel ? 'cat_combustivel' : 'cat_insumos';
 
-      // Fraciona e salva individualmente cada parcela gerada via POST vinculando o fornecedor e o ID da entrada
-      for (let idx = 0; idx < detailedInstallments.length; idx++) {
-        const inst = detailedInstallments[idx];
+      // 2. FIM DA DUPLICAÇÃO NO FINANCEIRO (PRINT 2):
+      // Montagem dos lançamentos das parcelas com ID único vinculado à nota
+      const novosLancamentosFinanceiros: Expense[] = detailedInstallments.map((inst, idx) => {
         const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
         const instId = totalParcs === 1 ? `pagar_${activeDocId}` : `pagar_${activeDocId}_parc_${idx + 1}`;
         const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
-        const parcDescricao = `Entrada manual ref. ${manualDocumentType}${suffix} - ${trimmedSupplier}`;
+        const docDescricao = `ENTRADA MANUAL REF. ${manualDocumentType}${suffix} - ${trimmedSupplier}`.toUpperCase();
 
-        await insertContaAPagarEntradaManual({
+        return {
           id: instId,
+          notaId: activeDocId,
           documento_entrada_id: activeDocId,
-          fornecedor: trimmedSupplier,
+          description: docDescricao,
+          amount: Number(inst.amount) || 0,
+          valor_parcela: Number(inst.amount) || 0,
           valor_total: finalAmount,
-          valor_parcela: Number(inst.amount) || 0,
           numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
-          tipo_documento: manualDocumentType,
-          descricao: parcDescricao,
-          data_emissao: manualDate,
+          categoryId: catId,
+          categoryName: primaryCategory.toUpperCase(),
+          categoria: primaryCategory.toUpperCase(),
+          centro_custo: primaryCategory.toUpperCase(),
+          categoryColor: catColor,
+          dueDate: inst.dueDate || firstDueDate,
           data_vencimento: inst.dueDate || firstDueDate,
+          status: 'pendente' as const,
+          status_pago: false,
+          paymentMethod: mapPaymentMethodCode(inst.paymentMethodCode),
           forma_pagamento: inst.paymentMethodLabel || 'Boleto',
-          centro_custo: primaryCategory,
-          categoria: primaryCategory,
-          tipo_despesa: primaryCategory
-        });
+          supplier: trimmedSupplier.toUpperCase(),
+          fornecedor: trimmedSupplier.toUpperCase(),
+          invoiceNumber: `${manualDocumentType.toUpperCase()}${suffix}`,
+          notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}`.toUpperCase() : docDescricao,
+          receiptUrl: inst.documentFileUrl,
+          receiptName: inst.documentFileName,
+          createdAt: new Date().toISOString(),
+        };
+      });
 
-        // Persistência adicional no schema de contas_a_pagar
-        await upsertContaAPagar({
-          id: instId,
-          nota_fiscal_id: null,
-          numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
-          valor_parcela: Number(inst.amount) || 0,
-          data_vencimento: inst.dueDate || firstDueDate,
-          forma_pagamento: mapPaymentMethodCode(inst.paymentMethodCode),
-          centro_custo: primaryCategory,
-          categoria: primaryCategory,
-          tipo_despesa: primaryCategory,
-          status_pago: false
-        });
-      }
+      // TRAVA DE ID ÚNICO NO LOCALSTORAGE 'agrocontrol_financeiro':
+      // Filtrar e remover qualquer lançamento antigo/duplicado vinculado ao ID desta nota específica antes de injetar os novos
+      let financeiroAtual: any[] = [];
+      try {
+        const rawFin = localStorage.getItem('agrocontrol_financeiro');
+        if (rawFin) {
+          const parsedFin = JSON.parse(rawFin);
+          if (Array.isArray(parsedFin)) financeiroAtual = parsedFin;
+        }
+      } catch (_) {}
+
+      const financeiroLimpo = financeiroAtual.filter((f: any) => 
+        f.notaId !== activeDocId && 
+        f.documento_entrada_id !== activeDocId &&
+        f.nfeId !== activeDocId &&
+        !(typeof f.id === 'string' && f.id.includes(activeDocId))
+      );
+
+      // Agora insere os novos registros únicos sem risco de duplicar
+      const financeiroAtualizado = [...novosLancamentosFinanceiros, ...financeiroLimpo];
+      localStorage.setItem('agrocontrol_financeiro', JSON.stringify(financeiroAtualizado));
+
+      // Sincroniza também no armazenamento de despesas principal do sistema
+      const storedExpenses = getStoredExpenses();
+      const storedExpensesLimpo = storedExpenses.filter(e => 
+        (e as any).notaId !== activeDocId &&
+        (e as any).documento_entrada_id !== activeDocId &&
+        !(typeof e.id === 'string' && e.id.includes(activeDocId))
+      );
+      saveStoredExpenses([...novosLancamentosFinanceiros, ...storedExpensesLimpo]);
 
       // Sincroniza também no estado de despesas do app para atualização em tempo real
       if (onAddExpenseFromNfe) {
-        const expenseRecords: Expense[] = detailedInstallments.map((inst, idx) => {
-          const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
-          const instId = totalParcs === 1 ? `exp_doc_${activeDocId}` : `exp_doc_${activeDocId}_parc_${idx + 1}`;
-          const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
-          const docDescricao = `${manualDocumentType}${suffix} - ${trimmedSupplier}`;
+        onAddExpenseFromNfe(novosLancamentosFinanceiros);
+      }
 
-          return {
-            id: instId,
-            description: docDescricao,
-            amount: Number(inst.amount) || 0,
-            categoryId: catId,
-            categoryName: primaryCategory,
-            categoryColor: catColor,
-            dueDate: inst.dueDate || firstDueDate,
-            status: 'pendente' as const,
-            paymentMethod: mapPaymentMethodCode(inst.paymentMethodCode),
-            supplier: trimmedSupplier,
-            invoiceNumber: `${manualDocumentType.toUpperCase()}${suffix}`,
-            notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}` : docDescricao,
-            receiptUrl: inst.documentFileUrl,
-            receiptName: inst.documentFileName,
-            createdAt: new Date().toISOString(),
-          };
-        });
-
-        onAddExpenseFromNfe(expenseRecords);
+      // Persistência segura no schema do Supabase (se configurado) sem duplicações
+      if (isSupabaseConfigured) {
+        for (const item of novosLancamentosFinanceiros) {
+          upsertContaAPagar({
+            id: item.id,
+            nota_fiscal_id: null,
+            numero_parcela: (item as any).numero_parcela || '01/01',
+            valor_parcela: (item as any).valor_parcela || item.amount || 0,
+            data_vencimento: (item as any).data_vencimento || item.dueDate,
+            forma_pagamento: (item as any).forma_pagamento || item.paymentMethod || 'Boleto',
+            centro_custo: (item as any).centro_custo || item.categoryName || 'Geral',
+            categoria: (item as any).categoria || item.categoryName || 'Geral',
+            status_pago: false
+          }).catch(err => console.warn('Notice upsertContaAPagar:', err));
+        }
       }
 
       // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
@@ -2660,11 +2744,46 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     try {
       await deleteDocumentoEntrada(doc.id);
       setDocumentosEntrada(prev => prev.filter(d => d.id !== doc.id));
+
+      // Limpeza estrita no agrocontrol_notas_entradas
+      try {
+        const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
+        if (rawNotas) {
+          const parsed = JSON.parse(rawNotas);
+          if (Array.isArray(parsed)) {
+            const filtradas = parsed.filter((d: any) => d.id !== doc.id);
+            localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
+          }
+        }
+      } catch (_) {}
+
+      // Limpeza estrita no agrocontrol_financeiro
+      try {
+        const rawFin = localStorage.getItem('agrocontrol_financeiro');
+        if (rawFin) {
+          const parsedFin = JSON.parse(rawFin);
+          if (Array.isArray(parsedFin)) {
+            const filtradasFin = parsedFin.filter((f: any) => 
+              f.notaId !== doc.id &&
+              f.documento_entrada_id !== doc.id &&
+              !(typeof f.id === 'string' && f.id.includes(doc.id))
+            );
+            localStorage.setItem('agrocontrol_financeiro', JSON.stringify(filtradasFin));
+          }
+        }
+      } catch (_) {}
+
       if (onDeleteExpense) {
+        onDeleteExpense(`pagar_${doc.id}`);
         onDeleteExpense(`exp_doc_${doc.id}`);
         // Também remove eventuais parcelas desdobradas da memória local
         expenses
-          .filter(e => e.id.startsWith(`exp_doc_${doc.id}`))
+          .filter(e => 
+            (e as any).notaId === doc.id ||
+            (e as any).documento_entrada_id === doc.id ||
+            e.id.startsWith(`pagar_${doc.id}`) ||
+            e.id.startsWith(`exp_doc_${doc.id}`)
+          )
           .forEach(e => onDeleteExpense(e.id));
       }
       setManualDocToDelete(null);
@@ -6226,12 +6345,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
-                  <th className="py-2 px-2.5 w-[110px] shrink-0">Documento</th>
-                  <th className="py-2 px-2.5 w-[160px] lg:w-[200px]">Fornecedor</th>
-                  <th className="py-2 px-2.5 min-w-[150px]">Descrição / Obs.</th>
-                  <th className="py-2 px-2 w-[85px] text-center shrink-0">Data</th>
-                  <th className="py-2 px-2.5 w-[105px] text-right shrink-0">Valor</th>
-                  <th className="py-2 px-3 text-right min-w-[470px] w-[470px] shrink-0 whitespace-nowrap">Ação</th>
+                  <th className="py-1 px-2.5 w-[110px] shrink-0 whitespace-nowrap">DOCUMENTO</th>
+                  <th className="py-1 px-2.5 w-[160px] lg:w-[200px] whitespace-nowrap">FORNECEDOR</th>
+                  <th className="py-1 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
+                  <th className="py-1 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
+                  <th className="py-1 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
+                  <th className="py-1 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -6256,61 +6375,61 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           }
                         }
                       }}
-                      className="hover:bg-sky-50/60 dark:hover:bg-stone-800/80 cursor-pointer transition group"
+                      className="hover:bg-sky-50/60 dark:hover:bg-stone-800/80 cursor-pointer transition group whitespace-nowrap"
                       title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
                     >
-                      <td className="py-2 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200">
+                      <td className="py-1 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5 truncate">
                           {isXml ? (
                             <FileEdit className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 transition" />
                           ) : (
                             <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 transition" />
                           )}
-                          <span className="truncate group-hover:underline underline-offset-2 font-bold text-stone-900 dark:text-stone-100">
+                          <span className="truncate group-hover:underline underline-offset-2 font-bold text-stone-900 dark:text-stone-100 uppercase">
                             {entry.documentNumber}
                           </span>
                         </div>
                       </td>
-                      <td className="py-2 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200">
-                        <span className="truncate max-w-[200px] block" title={entry.supplier || '-'}>
-                          {entry.supplier || '-'}
+                      <td className="py-1 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200 whitespace-nowrap">
+                        <span className="truncate max-w-[200px] block uppercase" title={entry.supplier || '-'}>
+                          {(entry.supplier || '-').toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-2 px-2.5 text-xs text-stone-600 dark:text-stone-300">
-                        <span className="truncate max-w-[200px] sm:max-w-none block break-words whitespace-normal line-clamp-1" title={entry.description}>
-                          {entry.description}
+                      <td className="py-1 px-2.5 text-xs text-stone-600 dark:text-stone-300 whitespace-nowrap">
+                        <span className="truncate max-w-[240px] sm:max-w-none block uppercase" title={entry.description}>
+                          {(entry.description || '-').toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-2 px-2 text-stone-500 text-center whitespace-nowrap text-xs">
+                      <td className="py-1 px-2 text-stone-500 text-center whitespace-nowrap text-xs font-mono">
                         {formatDateBR(entry.date)}
                       </td>
-                      <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
+                      <td className="py-1 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
                         {formatCurrencyBRL(entry.amount)}
                       </td>
                       <td 
                         onClick={(e) => {
                           e.stopPropagation();
                         }}
-                        className="py-2 px-3 text-right whitespace-nowrap min-w-[470px] w-[470px] shrink-0"
+                        className="py-1 px-3 text-right whitespace-nowrap min-w-[360px] w-[360px] shrink-0"
                       >
                         <div 
-                          className="flex flex-row items-center justify-end gap-2 sm:gap-2.5 flex-nowrap whitespace-nowrap"
+                          className="flex flex-row items-center justify-end gap-1.5 sm:gap-2 flex-nowrap whitespace-nowrap"
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
                         >
-                          {/* 1. Tag de status no início da linha (ex: 'ROMANEIO / FINALIZADO' ou 'ROMANEIO / RASCUNHO' ou 'XML / NF-E') */}
+                          {/* 1. Tag de status no início da linha */}
                           {isXml ? (
-                            <span className="h-7 inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
                               XML / NF-E
                             </span>
                           ) : (
-                            <span className={`h-7 inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-md border uppercase tracking-wider shrink-0 leading-none whitespace-nowrap ${
+                            <span className={`h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider shrink-0 leading-none whitespace-nowrap ${
                               entry.rawManualDoc?.status === 'Rascunho'
                                 ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
                                 : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                             }`}>
-                              {entry.documentType || 'MANUAL'} / {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
+                              {(entry.documentType || 'MANUAL').toUpperCase()} / {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
                             </span>
                           )}
 
@@ -6323,11 +6442,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 e.stopPropagation();
                                 if (entry.rawExpense) handleEditNota(entry.rawExpense);
                               }}
-                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={`Editar detalhes da nota ${entry.documentNumber}`}
                             >
-                              <Pencil className="w-3.5 h-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
-                              <span>Editar</span>
+                              <Pencil className="w-3 h-3 shrink-0 text-sky-600 dark:text-sky-400" />
+                              <span>EDITAR</span>
                             </button>
                           ) : (
                             <button
@@ -6337,11 +6456,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 e.stopPropagation();
                                 if (entry.rawManualDoc) handleOpenEditManualDoc(entry.rawManualDoc);
                               }}
-                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={entry.rawManualDoc?.status === 'Rascunho' ? `Continuar lançamento do rascunho: ${entry.documentNumber}` : `Editar dados e produtos de ${entry.documentNumber}`}
                             >
-                              <Pencil className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                              <span>{entry.rawManualDoc?.status === 'Rascunho' ? 'Continuar' : 'Editar'}</span>
+                              <Pencil className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                              <span>{entry.rawManualDoc?.status === 'Rascunho' ? 'CONTINUAR' : 'EDITAR'}</span>
                             </button>
                           )}
 
@@ -6354,11 +6473,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 e.stopPropagation();
                                 if (entry.rawExpense) handleEditNota(entry.rawExpense);
                               }}
-                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={`Visualizar detalhes da nota ${entry.documentNumber}`}
                             >
-                              <Eye className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                              <span>Ver</span>
+                              <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                              <span>VER</span>
                             </button>
                           ) : (
                             <button
@@ -6368,11 +6487,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 e.stopPropagation();
                                 if (entry.rawManualDoc) setViewingManualDoc(entry.rawManualDoc);
                               }}
-                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={`Visualizar detalhes do documento ${entry.documentNumber}`}
                             >
-                              <Eye className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                              <span>Ver</span>
+                              <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                              <span>VER</span>
                             </button>
                           )}
 
@@ -6388,11 +6507,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 setManualDocToDelete(entry.rawManualDoc);
                               }
                             }}
-                            className="h-7 w-7 inline-flex items-center justify-center p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-lg transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
+                            className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
                             title={`Excluir ${isXml ? 'nota fiscal' : 'entrada manual'} ${entry.documentNumber}`}
                             aria-label={`Excluir ${entry.documentNumber}`}
                           >
-                            <Trash2 className="w-3.5 h-3.5 pointer-events-none" />
+                            <Trash2 className="w-3 h-3 pointer-events-none" />
                           </button>
                         </div>
                       </td>
@@ -6401,9 +6520,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 })}
                 {unifiedEntries.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-stone-400">
-                      <ReceiptText className="w-7 h-7 mx-auto mb-1.5 opacity-50" />
-                      <p className="font-semibold text-xs sm:text-sm">Nenhuma nota ou entrada registrada até o momento.</p>
+                    <td colSpan={6} className="py-6 text-center text-stone-400 uppercase">
+                      <ReceiptText className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                      <p className="font-semibold text-xs">NENHUMA NOTA OU ENTRADA REGISTRADA ATÉ O MOMENTO.</p>
                       <div className="mt-3 flex items-center justify-center space-x-2">
                         <button
                           type="button"
