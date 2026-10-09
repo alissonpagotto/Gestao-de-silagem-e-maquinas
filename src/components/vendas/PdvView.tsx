@@ -442,7 +442,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   return (
     <div 
       id="pdv-frente-de-caixa-container"
-      className="flex-1 w-full min-h-0 flex flex-col justify-between overflow-hidden antialiased select-none gap-1.5"
+      className="w-full h-[calc(100vh-175px)] max-h-[calc(100vh-170px)] flex flex-col justify-between overflow-hidden global antialiased select-none gap-1.5"
     >
       {/* Alerta Não-Bloqueante de Validação */}
       {warningMessage && (
@@ -647,35 +647,50 @@ export const PdvView: React.FC<PdvViewProps> = ({
         aria-label="Grade de Itens do Cupom"
         className="flex-1 min-h-[160px] bg-white dark:bg-stone-900 rounded-xl border border-slate-400 dark:border-stone-800 overflow-hidden flex flex-col shadow-2xs"
       >
-        <div className="flex-1 overflow-y-auto scrollbar-none">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-10 bg-zinc-950 text-white font-black text-[10px] tracking-wider uppercase border-b border-zinc-800">
-              <tr>
-                <th className="py-1 px-2 w-10 text-center">ITEM</th>
-                <th className="py-1 px-2.5 w-24">CÓDIGO (F3)</th>
-                <th className="py-1 px-2.5">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
-                <th className="py-1 px-1.5 w-12 text-center">UN</th>
-                <th className="py-1 px-2 w-16 text-right">QTDE</th>
-                <th className="py-1 px-2 w-24 text-right">PREÇO UNIT.</th>
-                <th className="py-1 px-1.5 w-16 text-right">% DESC.</th>
-                <th className="py-1 px-2 w-20 text-right">R$ DESC.</th>
-                <th className="py-1 px-2.5 w-24 text-right">TOTAL BRUTO</th>
-                <th className="py-1 px-2.5 w-24 text-right text-amber-300">TOTAL LÍQUIDO</th>
-                <th className="py-1 px-1.5 w-10 text-center">AÇÃO</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sky-100 dark:divide-stone-800 font-semibold text-zinc-900 dark:text-stone-100">
-              {items.length === 0 ? (
+        <div className="flex-1 overflow-y-auto max-h-[calc(100vh-340px)] scrollbar-none flex flex-col">
+          {items.length === 0 ? (
+            <div className="flex-1 flex flex-col">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-10 bg-zinc-950 text-white font-black text-[10px] tracking-wider uppercase border-b border-zinc-800">
+                  <tr>
+                    <th className="py-1 px-2 w-10 text-center">ITEM</th>
+                    <th className="py-1 px-2.5 w-24">CÓDIGO (F3)</th>
+                    <th className="py-1 px-2.5">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+                    <th className="py-1 px-1.5 w-12 text-center">UN</th>
+                    <th className="py-1 px-2 w-16 text-right">QTDE</th>
+                    <th className="py-1 px-2 w-24 text-right">PREÇO UNIT.</th>
+                    <th className="py-1 px-1.5 w-16 text-right">% DESC.</th>
+                    <th className="py-1 px-2 w-20 text-right">R$ DESC.</th>
+                    <th className="py-1 px-2.5 w-24 text-right">TOTAL BRUTO</th>
+                    <th className="py-1 px-2.5 w-24 text-right text-amber-300">TOTAL LÍQUIDO</th>
+                    <th className="py-1 px-1.5 w-10 text-center">AÇÃO</th>
+                  </tr>
+                </thead>
+              </table>
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 dark:text-stone-500 font-bold gap-2">
+                <ShoppingCart className="w-10 h-10 text-slate-300 dark:text-stone-600 stroke-[1.5]" />
+                <span className="text-xs uppercase tracking-wide">CAIXA LIVRE • DIGITE O CÓDIGO OU BUSQUE O PRODUTO PARA INICIAR A VENDA</span>
+              </div>
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 z-10 bg-zinc-950 text-white font-black text-[10px] tracking-wider uppercase border-b border-zinc-800">
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400 dark:text-stone-500 font-bold">
-                    <div className="flex flex-col items-center justify-center gap-1.5">
-                      <ShoppingCart className="w-8 h-8 text-slate-300 dark:text-stone-600" />
-                      <span className="text-xs uppercase">CAIXA LIVRE • DIGITE O CÓDIGO OU BUSQUE O PRODUTO PARA INICIAR A VENDA</span>
-                    </div>
-                  </td>
+                  <th className="py-1 px-2 w-10 text-center">ITEM</th>
+                  <th className="py-1 px-2.5 w-24">CÓDIGO (F3)</th>
+                  <th className="py-1 px-2.5">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+                  <th className="py-1 px-1.5 w-12 text-center">UN</th>
+                  <th className="py-1 px-2 w-16 text-right">QTDE</th>
+                  <th className="py-1 px-2 w-24 text-right">PREÇO UNIT.</th>
+                  <th className="py-1 px-1.5 w-16 text-right">% DESC.</th>
+                  <th className="py-1 px-2 w-20 text-right">R$ DESC.</th>
+                  <th className="py-1 px-2.5 w-24 text-right">TOTAL BRUTO</th>
+                  <th className="py-1 px-2.5 w-24 text-right text-amber-300">TOTAL LÍQUIDO</th>
+                  <th className="py-1 px-1.5 w-10 text-center">AÇÃO</th>
                 </tr>
-              ) : (
-                items.map((it, idx) => (
+              </thead>
+              <tbody className="divide-y divide-sky-100 dark:divide-stone-800 font-semibold text-zinc-900 dark:text-stone-100">
+                {items.map((it, idx) => (
                   <tr 
                     key={it.id} 
                     className="hover:bg-sky-50/80 dark:hover:bg-sky-950/30 transition bg-sky-50/30 dark:bg-stone-900/60"
@@ -721,10 +736,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
                       </button>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 

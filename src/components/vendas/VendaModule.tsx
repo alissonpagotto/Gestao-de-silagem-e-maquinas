@@ -284,7 +284,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   return (
     <div 
       id="venda-module-root"
-      className={`w-full max-w-none space-y-2.5 antialiased ${activeTab === 'pdv' ? 'h-[calc(100vh-130px)] flex flex-col overflow-hidden' : ''}`}
+      className={`w-full max-w-none antialiased ${activeTab === 'pdv' ? 'space-y-1 overflow-hidden global' : 'space-y-2.5'}`}
     >
       {/* 1. CABEÇALHO PADRONIZADO 3D SLIM COM TÍTULO E BOTÃO NOVA VENDA */}
       <header className="no-print flex items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
@@ -364,7 +364,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA (ALINHAMENTO SETA VERDE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden p-3 space-y-3">
+        <div className={`w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global ${activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3'}`}>
           {activeTab === 'pdv' ? (
             <PdvView
               clients={clients}
