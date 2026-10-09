@@ -1334,12 +1334,12 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overflow-y-hidden">
       <div 
-        className="bg-white dark:bg-stone-900 w-[95%] max-w-[95%] max-h-[94vh] flex flex-col rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] animate-in fade-in zoom-in-95 duration-150 overflow-hidden border border-slate-400 dark:border-stone-700 mx-auto"
+        className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
         {/* Header - Moldura Metálica 3D Acetinada */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl shadow-xs">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
               <Wrench className="w-4 h-4 text-slate-700 dark:text-stone-200" />

@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Layers,
   Percent,
+  Pencil,
   Clock
 } from 'lucide-react';
 import { PlanoContaCategoria, FormaPagamentoItem, PlanoContasEFormasData } from '../../types';
@@ -361,20 +362,20 @@ export const PlanoContasTab: React.FC = () => {
         <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+              <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 select-none">
                 <tr>
-                  <th className="py-3.5 px-4">Código</th>
-                  <th className="py-3.5 px-4">Nome da Conta</th>
-                  <th className="py-3.5 px-4">Classificação</th>
-                  <th className="py-3.5 px-4">Descrição</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
-                  <th className="py-3.5 px-4 text-right">Ações</th>
+                  <th className="py-1.5 px-3">Código</th>
+                  <th className="py-1.5 px-3">Nome da Conta</th>
+                  <th className="py-1.5 px-3">Classificação</th>
+                  <th className="py-1.5 px-3">Descrição</th>
+                  <th className="py-1.5 px-3 text-center">Status</th>
+                  <th className="py-1.5 px-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-stone-800">
+              <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">
                 {filteredCategorias.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-zinc-500 dark:text-stone-400 font-semibold">
+                    <td colSpan={6} className="py-6 text-center text-zinc-500 dark:text-stone-400 font-semibold uppercase text-xs">
                       Nenhuma conta cadastrada.
                     </td>
                   </tr>
@@ -384,14 +385,14 @@ export const PlanoContasTab: React.FC = () => {
                     const isAtivo = cat.ativo !== false;
                     return (
                       <tr key={cat.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
-                        <td className="py-3 px-4 font-mono font-bold text-zinc-700 dark:text-stone-300">
+                        <td className="py-1.5 px-3 font-mono font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap uppercase">
                           {cat.codigo}
                         </td>
-                        <td className="py-3 px-4 font-bold text-zinc-900 dark:text-white">
+                        <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white whitespace-nowrap uppercase">
                           {cat.nome}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider border ${
+                        <td className="py-1.5 px-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
                             isReceita
                               ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                               : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800'
@@ -400,11 +401,11 @@ export const PlanoContasTab: React.FC = () => {
                             <span>{cat.tipo}</span>
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-xs text-zinc-500 dark:text-stone-400 max-w-xs truncate">
+                        <td className="py-1.5 px-3 text-xs text-zinc-500 dark:text-stone-400 max-w-xs truncate whitespace-nowrap uppercase">
                           {cat.descricao || '—'}
                         </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide border ${
+                        <td className="py-1.5 px-3 text-center whitespace-nowrap">
+                          <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black tracking-wide border ${
                             isAtivo 
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
                               : 'bg-zinc-100 text-zinc-500 border-zinc-300'
@@ -412,21 +413,21 @@ export const PlanoContasTab: React.FC = () => {
                             <span>{isAtivo ? 'ATIVO' : 'INATIVO'}</span>
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-1.5 px-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1">
                             <button
                               type="button"
                               onClick={() => handleOpenEditCat(cat)}
-                              className="p-1.5 rounded-lg text-zinc-600 hover:text-teal-600 hover:bg-zinc-100 transition cursor-pointer"
+                              className="p-1 rounded text-zinc-600 hover:text-teal-600 hover:bg-zinc-100 transition cursor-pointer"
                             >
-                              <Edit3 className="w-4 h-4" />
+                              <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteCat(cat)}
-                              className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 transition cursor-pointer"
+                              className="p-1 rounded text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 transition cursor-pointer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -445,21 +446,21 @@ export const PlanoContasTab: React.FC = () => {
         <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+              <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 select-none">
                 <tr>
-                  <th className="py-3.5 px-4">Sigla / Cód.</th>
-                  <th className="py-3.5 px-4">Forma de Pagamento</th>
-                  <th className="py-3.5 px-4">Modalidade</th>
-                  <th className="py-3.5 px-4">Prazo Padrão</th>
-                  <th className="py-3.5 px-4">Taxa Estimada</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
-                  <th className="py-3.5 px-4 text-right">Ações</th>
+                  <th className="py-1.5 px-3">Sigla / Cód.</th>
+                  <th className="py-1.5 px-3">Forma de Pagamento</th>
+                  <th className="py-1.5 px-3">Modalidade</th>
+                  <th className="py-1.5 px-3">Prazo Padrão</th>
+                  <th className="py-1.5 px-3">Taxa Estimada</th>
+                  <th className="py-1.5 px-3 text-center">Status</th>
+                  <th className="py-1.5 px-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-stone-800">
+              <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">
                 {filteredFormas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-zinc-500 dark:text-stone-400 font-semibold">
+                    <td colSpan={7} className="py-6 text-center text-zinc-500 dark:text-stone-400 font-semibold uppercase text-xs">
                       Nenhuma forma de pagamento cadastrada.
                     </td>
                   </tr>
@@ -468,34 +469,34 @@ export const PlanoContasTab: React.FC = () => {
                     const isAtivo = forma.ativo !== false;
                     return (
                       <tr key={forma.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
-                        <td className="py-3 px-4 font-mono font-bold text-zinc-700 dark:text-stone-300">
+                        <td className="py-1.5 px-3 font-mono font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap uppercase">
                           {forma.codigo}
                         </td>
-                        <td className="py-3 px-4 font-bold text-zinc-900 dark:text-white">
+                        <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white whitespace-nowrap uppercase">
                           <div className="flex items-center space-x-2">
-                            <CreditCard className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                            <CreditCard className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                             <span>{forma.nome}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
+                        <td className="py-1.5 px-3 whitespace-nowrap">
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
                             {forma.tipo}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-xs text-zinc-600 dark:text-stone-400">
+                        <td className="py-1.5 px-3 text-xs text-zinc-600 dark:text-stone-400 whitespace-nowrap uppercase">
                           <div className="flex items-center space-x-1">
-                            <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                            <span>{forma.prazoDias ? `${forma.prazoDias} dias` : 'À vista (0 dias)'}</span>
+                            <Clock className="w-3 h-3 text-zinc-400" />
+                            <span>{forma.prazoDias ? `${forma.prazoDias} DIAS` : 'À VISTA (0 DIAS)'}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-xs font-semibold text-zinc-700 dark:text-stone-300">
+                        <td className="py-1.5 px-3 text-xs font-semibold text-zinc-700 dark:text-stone-300 whitespace-nowrap uppercase">
                           <div className="flex items-center space-x-1">
-                            <Percent className="w-3.5 h-3.5 text-zinc-400" />
+                            <Percent className="w-3 h-3 text-zinc-400" />
                             <span>{forma.taxaPercentual ? `${forma.taxaPercentual.toFixed(2).replace('.', ',')}%` : '0,00%'}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide border ${
+                        <td className="py-1.5 px-3 text-center whitespace-nowrap">
+                          <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black tracking-wide border ${
                             isAtivo 
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
                               : 'bg-zinc-100 text-zinc-500 border-zinc-300'
@@ -503,21 +504,21 @@ export const PlanoContasTab: React.FC = () => {
                             <span>{isAtivo ? 'ATIVO' : 'INATIVO'}</span>
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-1.5 px-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1">
                             <button
                               type="button"
                               onClick={() => handleOpenEditForma(forma)}
-                              className="p-1.5 rounded-lg text-zinc-600 hover:text-teal-600 hover:bg-zinc-100 transition cursor-pointer"
+                              className="p-1 rounded text-zinc-600 hover:text-teal-600 hover:bg-zinc-100 transition cursor-pointer"
                             >
-                              <Edit3 className="w-4 h-4" />
+                              <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteForma(forma)}
-                              className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 transition cursor-pointer"
+                              className="p-1 rounded text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 transition cursor-pointer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -531,13 +532,13 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Categoria - Moldura Metálica 3D Acetinada */}
+      {/* Modal Categoria - Tamanho Padrão Ouro */}
       {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
+          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global">
             
             {/* Header 3D Metálico Acetinado */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
                   <FileSpreadsheet className="w-4 h-4 text-teal-600 dark:text-teal-400" />
@@ -566,79 +567,81 @@ export const PlanoContasTab: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSaveCat} className="p-3 sm:p-4 space-y-2.5 text-xs bg-white dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="col-span-1">
+            <form onSubmit={handleSaveCat} className="p-3 sm:p-4 space-y-2.5 text-xs bg-slate-50 dark:bg-stone-900 overflow-y-auto flex-1 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="col-span-1">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Código <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: 2.01"
+                      value={catCodigo}
+                      onChange={(e) => setCatCodigo(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                      Nome da Conta / Categoria <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Combustíveis, Salários..."
+                      value={catNome}
+                      onChange={(e) => setCatNome(e.target.value)}
+                      className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Código <span className="text-rose-600">*</span>
+                    Classificação da Conta
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: 2.01"
-                    value={catCodigo}
-                    onChange={(e) => setCatCodigo(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  <select
+                    value={catTipo}
+                    onChange={(e) => setCatTipo(e.target.value as any)}
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                  >
+                    <option value="despesa">Despesa Operacional / Administrativa</option>
+                    <option value="receita">Receita Operacional / Venda / Serviços</option>
+                    <option value="ativo">Ativo Imobilizado / Bancos</option>
+                    <option value="passivo">Passivo / Obrigações</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                    Descrição (Opcional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Detalhamento do escopo desta conta..."
+                    value={catDescricao}
+                    onChange={(e) => setCatDescricao(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 resize-none"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Nome da Conta / Categoria <span className="text-rose-600">*</span>
-                  </label>
+
+                <div className="flex items-center space-x-2 pt-1">
                   <input
-                    type="text"
-                    required
-                    placeholder="Ex: Combustíveis, Salários..."
-                    value={catNome}
-                    onChange={(e) => setCatNome(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    type="checkbox"
+                    id="cat-ativo"
+                    checked={catAtivo}
+                    onChange={(e) => setCatAtivo(e.target.checked)}
+                    className="w-4 h-4 rounded text-slate-800 focus:ring-slate-400 border-slate-300 dark:border-stone-700 cursor-pointer"
                   />
+                  <label htmlFor="cat-ativo" className="text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
+                    Conta Ativa no Sistema
+                  </label>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                  Classificação da Conta
-                </label>
-                <select
-                  value={catTipo}
-                  onChange={(e) => setCatTipo(e.target.value as any)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
-                >
-                  <option value="despesa">Despesa Operacional / Administrativa</option>
-                  <option value="receita">Receita Operacional / Venda / Serviços</option>
-                  <option value="ativo">Ativo Imobilizado / Bancos</option>
-                  <option value="passivo">Passivo / Obrigações</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                  Descrição (Opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Detalhamento do escopo desta conta..."
-                  value={catDescricao}
-                  onChange={(e) => setCatDescricao(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 resize-none"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="cat-ativo"
-                  checked={catAtivo}
-                  onChange={(e) => setCatAtivo(e.target.checked)}
-                  className="w-4 h-4 rounded text-slate-800 focus:ring-slate-400 border-slate-300 dark:border-stone-700 cursor-pointer"
-                />
-                <label htmlFor="cat-ativo" className="text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
-                  Conta Ativa no Sistema
-                </label>
-              </div>
-
-              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end space-x-2">
+              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end space-x-2 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsCatModalOpen(false)}
@@ -658,13 +661,13 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Forma Pagamento - Moldura Metálica 3D Acetinada */}
+      {/* Modal Forma Pagamento - Tamanho Padrão Ouro */}
       {isFormaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
+          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global">
             
             {/* Header 3D Metálico Acetinado */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
                   <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />

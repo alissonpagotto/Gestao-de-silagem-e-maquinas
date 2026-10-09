@@ -684,181 +684,186 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         </div>
       </header>
 
-      {/* 2. Top Navigation Tabs Bar - Moldura Acetinada 3D */}
-      <nav 
-        aria-label="Abas do Financeiro" 
-        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
-      >
-        
-        {/* Aba Consolidado */}
-        {hasFinanceiroSubPermission('dre') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('consolidado')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'consolidado'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
+      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      <div className="w-full flex flex-col">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas do Financeiro" 
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Consolidado</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Consolidado (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba Consolidado */}
+            {hasFinanceiroSubPermission('dre') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('consolidado')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'consolidado'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Consolidado</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Consolidado (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba Despesas */}
-        {hasFinanceiroSubPermission('despesas') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('despesas')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'despesas'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Despesas</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Despesas (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba Despesas */}
+            {hasFinanceiroSubPermission('despesas') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('despesas')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'despesas'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Despesas</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Despesas (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba Contas Bancárias */}
-        {hasFinanceiroSubPermission('contas_bancarias') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('contas')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'contas'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            <span>Contas Bancárias</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Contas (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba Contas Bancárias */}
+            {hasFinanceiroSubPermission('contas_bancarias') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('contas')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'contas'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <BarChart2 className="w-3.5 h-3.5" />
+                <span>Contas Bancárias</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Contas (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba A Pagar */}
-        {hasFinanceiroSubPermission('a_pagar') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('a_pagar')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'a_pagar'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <ArrowDownLeft className="w-3.5 h-3.5" />
-            <span>A Pagar</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>A Pagar (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba A Pagar */}
+            {hasFinanceiroSubPermission('a_pagar') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('a_pagar')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'a_pagar'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <ArrowDownLeft className="w-3.5 h-3.5" />
+                <span>A Pagar</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>A Pagar (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba A Receber */}
-        {hasFinanceiroSubPermission('a_receber') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('a_receber')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'a_receber'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>A Receber</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>A Receber (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba A Receber */}
+            {hasFinanceiroSubPermission('a_receber') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('a_receber')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'a_receber'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                <span>A Receber</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>A Receber (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba Acertos Terceiros */}
-        {hasFinanceiroSubPermission('acertos_terceiros') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('acertos')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'acertos'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <Truck className="w-3.5 h-3.5" />
-            <span>Acertos Terceiros</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Acertos (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba Acertos Terceiros */}
+            {hasFinanceiroSubPermission('acertos_terceiros') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('acertos')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'acertos'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Acertos Terceiros</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Acertos (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba Acertos Agenciadores */}
-        {hasFinanceiroSubPermission('acertos_agenciadores') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('acertos_agenciadores')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'acertos_agenciadores'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <Handshake className="w-3.5 h-3.5" />
-            <span>Acertos Agenciadores</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Agenciadores (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba Acertos Agenciadores */}
+            {hasFinanceiroSubPermission('acertos_agenciadores') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('acertos_agenciadores')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'acertos_agenciadores'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Handshake className="w-3.5 h-3.5" />
+                <span>Acertos Agenciadores</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Agenciadores (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Aba Exportar */}
-        {hasFinanceiroSubPermission('exportar') ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('exportar')}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'exportar'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-            }`}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Exportar</span>
-          </button>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-zinc-300/40 dark:bg-stone-800 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3 h-3 text-zinc-400" />
-            <span>Exportar (Bloqueado)</span>
-          </div>
-        )}
+            {/* Aba Exportar */}
+            {hasFinanceiroSubPermission('exportar') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('exportar')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'exportar'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Exportar</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Exportar (Bloqueado)</span>
+              </div>
+            )}
+          </nav>
+        </div>
 
-      </nav>
+        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
 
       {/* ABA: Consolidado */}
       {activeTab === 'consolidado' && (
@@ -1311,6 +1316,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         />
       )}
 
+        </div>
+      </div>
     </div>
   );
 };
+
+

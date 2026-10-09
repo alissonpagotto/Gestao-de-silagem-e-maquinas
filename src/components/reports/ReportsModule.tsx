@@ -287,121 +287,126 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         </div>
       </header>
 
-      {/* 2. Barra de Navegação de Abas (Sub-tabs) - Moldura Acetinada 3D */}
-      <nav 
-        aria-label="Abas de Relatórios"
-        className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
-      >
-        {navSubTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeSubTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveSubTab(tab.id as any)}
-              className={`
-                inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer
-                ${
-                  isActive
-                    ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                    : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-                }
-              `}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      <div className="w-full flex flex-col">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas de Relatórios"
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
+          >
+            {navSubTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeSubTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveSubTab(tab.id as any)}
+                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
+                    isActive
+                      ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                      : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-      {/* 3. Conteúdo da Aba Ativa */}
-      {activeSubTab === 'dashboard' && (
-        <ReportsDashboardTab
-          expenses={expenses}
-          orders={orders}
-          services={services}
-          fuelLogs={fuelLogs}
-          quickPeriod={quickPeriod}
-          onQuickPeriodChange={handleQuickPeriodChange}
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          selectedMonthName={monthsList[selectedMonth]}
-          selectedYear={selectedYear}
-        />
-      )}
+        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+          {/* 3. Conteúdo da Aba Ativa */}
+          {activeSubTab === 'dashboard' && (
+            <ReportsDashboardTab
+              expenses={expenses}
+              orders={orders}
+              services={services}
+              fuelLogs={fuelLogs}
+              quickPeriod={quickPeriod}
+              onQuickPeriodChange={handleQuickPeriodChange}
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              selectedMonthName={monthsList[selectedMonth]}
+              selectedYear={selectedYear}
+            />
+          )}
 
-      {activeSubTab === 'resumo' && (
-        <ReportsResumoTab
-          expenses={expenses}
-          orders={orders}
-          services={services}
-          companyProfile={companyProfile}
-          startDate={startDate}
-          endDate={endDate}
-          onOpenPrintModal={(html, whatsapp) => handleOpenPrintModal(html, whatsapp)}
-        />
-      )}
+          {activeSubTab === 'resumo' && (
+            <ReportsResumoTab
+              expenses={expenses}
+              orders={orders}
+              services={services}
+              companyProfile={companyProfile}
+              startDate={startDate}
+              endDate={endDate}
+              onOpenPrintModal={(html, whatsapp) => handleOpenPrintModal(html, whatsapp)}
+            />
+          )}
 
-      {activeSubTab === 'exportar' && (
-        <ReportsExportTab
-          expenses={expenses}
-          orders={orders}
-          services={services}
-          fuelLogs={fuelLogs}
-          clients={clients}
-          machineries={machineries}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      )}
+          {activeSubTab === 'exportar' && (
+            <ReportsExportTab
+              expenses={expenses}
+              orders={orders}
+              services={services}
+              fuelLogs={fuelLogs}
+              clients={clients}
+              machineries={machineries}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
 
-      {activeSubTab === 'cortes' && (
-        <ReportsCortesTab
-          services={services}
-          orders={orders}
-          seasons={seasons}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      )}
+          {activeSubTab === 'cortes' && (
+            <ReportsCortesTab
+              services={services}
+              orders={orders}
+              seasons={seasons}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
 
-      {activeSubTab === 'vendas' && (
-        <ReportsVendasTab
-          orders={orders}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      )}
+          {activeSubTab === 'vendas' && (
+            <ReportsVendasTab
+              orders={orders}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
 
-      {activeSubTab === 'despesas' && (
-        <ReportsDespesasTab
-          expenses={expenses}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      )}
+          {activeSubTab === 'despesas' && (
+            <ReportsDespesasTab
+              expenses={expenses}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
 
-      {activeSubTab === 'consumo' && (
-        <ReportsConsumoTab
-          fuelLogs={fuelLogs}
-          machineries={machineries}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      )}
+          {activeSubTab === 'consumo' && (
+            <ReportsConsumoTab
+              fuelLogs={fuelLogs}
+              machineries={machineries}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
 
-      {activeSubTab === 'imobilizado' && (
-        <ReportsAtivoImobilizadoTab
-          machineries={machineries}
-          companyProfile={companyProfile}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      )}
+          {activeSubTab === 'imobilizado' && (
+            <ReportsAtivoImobilizadoTab
+              machineries={machineries}
+              companyProfile={companyProfile}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Modal de Impressão e PDF */}
       <PrintPreviewModal

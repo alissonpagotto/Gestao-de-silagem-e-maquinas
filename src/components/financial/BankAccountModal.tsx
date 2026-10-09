@@ -640,11 +640,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-xs animate-in fade-in"
     >
       <div 
-        className="w-full max-w-5xl xl:max-w-6xl rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] bg-slate-100 dark:bg-stone-900 my-auto flex flex-col max-h-[96vh] overflow-hidden"
+        className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in"
       >
         {/* CABEÇALHO - Moldura Metálica 3D Acetinada */}
         <div 
-          className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shadow-xs"
+          className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]"
         >
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">

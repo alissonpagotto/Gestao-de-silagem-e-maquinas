@@ -2343,7 +2343,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       >
         <div 
           id="printable-service-order-modal"
-          className="relative w-full max-w-4xl bg-white dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex flex-col max-h-[92vh] overflow-hidden overflow-x-hidden my-auto"
+          className="relative w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl overflow-x-hidden"
         >
           {/* Badge para Cupom Térmico (Visível apenas em impressão 80mm) */}
           <div className="hidden print:block thermal-receipt-badge text-center">
@@ -2362,7 +2362,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           
           {/* CABEÇALHO DO MODAL (MOLDURA METÁLICA 3D ACETINADA) */}
           <div 
-            className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 shrink-0 w-full rounded-t-2xl print:hidden"
+            className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-200 shrink-0 w-full rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] print:hidden"
           >
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">

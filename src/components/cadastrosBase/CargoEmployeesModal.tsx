@@ -73,10 +73,10 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
+      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150">
         
         {/* Header - Moldura Metálica 3D Acetinada */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl shadow-xs">
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 border-b border-slate-400 dark:border-stone-700 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
           <div className="flex items-center space-x-2.5 min-w-0 pr-2">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
               <Users className="w-4 h-4 text-slate-700 dark:text-stone-200" />
@@ -154,40 +154,40 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
               return (
                 <div 
                   key={emp.id}
-                  className="pt-2.5 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition shadow-2xs"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-1.5 sm:p-2 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition shadow-2xs"
                 >
                   {/* Foto e Nome */}
-                  <div className="flex items-center space-x-3 min-w-0">
+                  <div className="flex items-center space-x-2.5 min-w-0">
                     {photo ? (
                       <img 
                         src={photo} 
                         alt={emp.name} 
-                        className="w-10 h-10 rounded-full object-cover border-2 border-stone-200 dark:border-stone-700 shadow-2xs shrink-0" 
+                        className="w-8 h-8 rounded-full object-cover border border-stone-200 dark:border-stone-700 shadow-2xs shrink-0" 
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
-                        {initials || <User className="w-4 h-4" />}
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+                        {initials || <User className="w-3.5 h-3.5" />}
                       </div>
                     )}
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-extrabold text-stone-900 dark:text-white truncate">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-black uppercase text-stone-900 dark:text-white truncate">
                           {emp.name}
                         </h4>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase whitespace-nowrap ${
                           isPrimary 
                             ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700' 
                             : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
                         }`}>
-                          <CheckCircle2 className="w-3 h-3 shrink-0" />
-                          <span>{isPrimary ? 'Cargo Principal' : 'Cargo Secundário / Acúmulo'}</span>
+                          <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                          <span>{isPrimary ? 'Principal' : 'Secundário'}</span>
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 text-[11px] text-stone-500 dark:text-stone-400 mt-1 flex-wrap">
+                      <div className="flex items-center gap-2 text-[10px] text-stone-500 dark:text-stone-400 mt-0.5 flex-wrap whitespace-nowrap">
                         {emp.registrationType && (
-                          <span className="font-semibold text-stone-700 dark:text-stone-300">
+                          <span className="font-semibold text-stone-700 dark:text-stone-300 uppercase">
                             {emp.registrationType}
                           </span>
                         )}
@@ -196,14 +196,14 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
                         )}
                         {emp.phone && (
                           <span className="inline-flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-stone-400" />
+                            <Phone className="w-2.5 h-2.5 text-stone-400" />
                             <span>{emp.phone}</span>
                           </span>
                         )}
                         {emp.admissionDate && (
                           <span className="inline-flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-stone-400" />
-                            <span>Admissão: {new Date(emp.admissionDate).toLocaleDateString('pt-BR')}</span>
+                            <Calendar className="w-2.5 h-2.5 text-stone-400" />
+                            <span>Adm: {new Date(emp.admissionDate).toLocaleDateString('pt-BR')}</span>
                           </span>
                         )}
                       </div>
@@ -212,9 +212,9 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
 
                   {/* Status Badge */}
                   <div className="flex items-center justify-end sm:shrink-0">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-lg">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      <span>Ativo no Sistema</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded uppercase whitespace-nowrap">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Ativo</span>
                     </span>
                   </div>
                 </div>

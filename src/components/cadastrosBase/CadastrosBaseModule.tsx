@@ -74,88 +74,90 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
         </div>
       </header>
 
-      {/* 3 Abas Horizontais com Moldura Acetinada 3D */}
-      <nav 
-        aria-label="Abas de Cadastros Base"
-        className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)]"
-      >
-        {/* Card 1: Centros de Custo */}
-        {hasCadastrosBaseSubPermission('centros_custo') ? (
-          <button
-            type="button"
-            id="tab-card-centros-custo"
-            onClick={() => setActiveTab('centros_custo')}
-            className={`w-full flex items-center justify-center sm:justify-start space-x-2 py-1.5 px-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-              activeTab === 'centros_custo'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600 font-bold'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60 font-semibold'
-            }`}
+      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      <div className="w-full flex flex-col">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas de Cadastros Base"
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
-            <Building2 className={`w-4 h-4 shrink-0 ${activeTab === 'centros_custo' ? 'text-zinc-900 dark:text-white' : 'text-blue-600 dark:text-blue-400'}`} />
-            <span className="text-xs sm:text-sm truncate">
-              Centros de Custo
-            </span>
-          </button>
-        ) : (
-          <div className="w-full flex items-center justify-center sm:justify-start space-x-2 py-1.5 px-3 rounded-lg border text-left bg-zinc-300/40 border-zinc-400 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="text-xs sm:text-sm font-semibold truncate">Centros de Custo (Bloqueado)</span>
-          </div>
-        )}
+            {/* Card 1: Centros de Custo */}
+            {hasCadastrosBaseSubPermission('centros_custo') ? (
+              <button
+                type="button"
+                id="tab-card-centros-custo"
+                onClick={() => setActiveTab('centros_custo')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'centros_custo'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'centros_custo' ? 'text-zinc-900 dark:text-white' : 'text-blue-600 dark:text-blue-400'}`} />
+                <span>Centros de Custo</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Centros de Custo (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Card 2: Plano de Contas & Formas */}
-        {hasCadastrosBaseSubPermission('plano_contas') ? (
-          <button
-            type="button"
-            id="tab-card-plano-contas"
-            onClick={() => setActiveTab('plano_contas')}
-            className={`w-full flex items-center justify-center sm:justify-start space-x-2 py-1.5 px-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-              activeTab === 'plano_contas'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600 font-bold'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60 font-semibold'
-            }`}
-          >
-            <FileSpreadsheet className={`w-4 h-4 shrink-0 ${activeTab === 'plano_contas' ? 'text-zinc-900 dark:text-white' : 'text-amber-600 dark:text-amber-400'}`} />
-            <span className="text-xs sm:text-sm truncate">
-              Plano de Contas & Formas
-            </span>
-          </button>
-        ) : (
-          <div className="w-full flex items-center justify-center sm:justify-start space-x-2 py-1.5 px-3 rounded-lg border text-left bg-zinc-300/40 border-zinc-400 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="text-xs sm:text-sm font-semibold truncate">Plano de Contas (Bloqueado)</span>
-          </div>
-        )}
+            {/* Card 2: Plano de Contas & Formas */}
+            {hasCadastrosBaseSubPermission('plano_contas') ? (
+              <button
+                type="button"
+                id="tab-card-plano-contas"
+                onClick={() => setActiveTab('plano_contas')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'plano_contas'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <FileSpreadsheet className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'plano_contas' ? 'text-zinc-900 dark:text-white' : 'text-amber-600 dark:text-amber-400'}`} />
+                <span>Plano de Contas & Formas</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Plano de Contas (Bloqueado)</span>
+              </div>
+            )}
 
-        {/* Card 3: Cargos, Setores & Permissões */}
-        {hasCadastrosBaseSubPermission('cargos_permissoes') ? (
-          <button
-            type="button"
-            id="tab-card-cargos-permissoes"
-            onClick={() => setActiveTab('cargos_permissoes')}
-            className={`w-full flex items-center justify-center sm:justify-start space-x-2 py-1.5 px-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-              activeTab === 'cargos_permissoes'
-                ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600 font-bold'
-                : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60 font-semibold'
-            }`}
-          >
-            <ShieldCheck className={`w-4 h-4 shrink-0 ${activeTab === 'cargos_permissoes' ? 'text-zinc-900 dark:text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
-            <span className="text-xs sm:text-sm truncate">
-              Cargos, Setores & Permissões
-            </span>
-          </button>
-        ) : (
-          <div className="w-full flex items-center justify-center sm:justify-start space-x-2 py-1.5 px-3 rounded-lg border text-left bg-zinc-300/40 border-zinc-400 text-zinc-400 opacity-60 select-none">
-            <Lock className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="text-xs sm:text-sm font-semibold truncate">Cargos & Permissões (Bloqueado)</span>
-          </div>
-        )}
-      </nav>
+            {/* Card 3: Cargos, Setores & Permissões */}
+            {hasCadastrosBaseSubPermission('cargos_permissoes') ? (
+              <button
+                type="button"
+                id="tab-card-cargos-permissoes"
+                onClick={() => setActiveTab('cargos_permissoes')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'cargos_permissoes'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cargos_permissoes' ? 'text-zinc-900 dark:text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
+                <span>Cargos, Setores & Permissões</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Cargos & Permissões (Bloqueado)</span>
+              </div>
+            )}
+          </nav>
+        </div>
 
-      {/* Renderização do Sub-menu ativo */}
-      {activeTab === 'centros_custo' && <CentrosCustoTab />}
-      {activeTab === 'plano_contas' && <PlanoContasTab />}
-      {activeTab === 'cargos_permissoes' && <CargosPermissoesTab />}
+        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+          {/* Renderização do Sub-menu ativo */}
+          {activeTab === 'centros_custo' && <CentrosCustoTab />}
+          {activeTab === 'plano_contas' && <PlanoContasTab />}
+          {activeTab === 'cargos_permissoes' && <CargosPermissoesTab />}
+        </div>
+      </div>
     </div>
   );
 };

@@ -1981,134 +1981,6 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Linha 2 Integrada: Botões de Alternância das Abas com Moldura Acetinada 3D */}
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 mt-2 pt-2 border-t border-slate-300 dark:border-stone-800">
-          {/* Botões de Navegação das 3 Abas com Moldura Acetinada 3D */}
-          <nav 
-            aria-label="Abas do Almoxarifado"
-            className="flex flex-wrap items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
-          >
-            <button
-              type="button"
-              onClick={() => setActiveTab('retirada_pecas')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'retirada_pecas'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              <PackageMinus className="w-3.5 h-3.5" />
-              <span>1. Retirada de Peças para Manutenção</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('cautela_ferramentas')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'cautela_ferramentas'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>2. Movimentação e Cautela de Ferramentas</span>
-              {totalEmprestimosAtivos > 0 && (
-                <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-amber-500 text-stone-950 font-black leading-none">
-                  {totalEmprestimosAtivos}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('caixa_veiculo')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'caixa_veiculo'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              <ClipboardCheck className="w-3.5 h-3.5" />
-              <span>3. Caixa de Ferramentas Fixa por Veículo</span>
-            </button>
-          </nav>
-
-          {/* 3 Cartões/Pílulas de Resumo Horizontais Ultra-Compactos */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-            <div
-              onClick={() => setActiveTab('retirada_pecas')}
-              className={`px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
-                activeTab === 'retirada_pecas'
-                  ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-400 dark:border-amber-700'
-                  : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
-              }`}
-            >
-              <div className="min-w-0">
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block leading-none">
-                  ABA 1 • Saídas
-                </span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
-                    {retiradasPecas.length} {retiradasPecas.length === 1 ? 'retirada' : 'retiradas'}
-                  </span>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <PackageMinus className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            <div
-              onClick={() => setActiveTab('cautela_ferramentas')}
-              className={`px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
-                activeTab === 'cautela_ferramentas'
-                  ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700'
-                  : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
-              }`}
-            >
-              <div className="min-w-0">
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block leading-none">
-                  ABA 2 • Cautelas
-                </span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
-                    {totalEmprestimosAtivos} em uso
-                  </span>
-                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 leading-none">
-                    ({movimentacoesFerramentas.length})
-                  </span>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            <div
-              onClick={() => setActiveTab('caixa_veiculo')}
-              className={`px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
-                activeTab === 'caixa_veiculo'
-                  ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700'
-                  : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
-              }`}
-            >
-              <div className="min-w-0">
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block leading-none">
-                  ABA 3 • Caixa Fixa
-                </span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
-                    {resumoCaixaVeiculoAtual.totalItens} itens no veículo
-                  </span>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <Briefcase className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Feedback Banner */}
@@ -2137,6 +2009,118 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           </button>
         </div>
       )}
+
+      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      <div className="w-full flex flex-col flex-1 min-h-0">
+        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <nav 
+            aria-label="Abas do Almoxarifado"
+            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab('retirada_pecas')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeTab === 'retirada_pecas'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <PackageMinus className="w-3.5 h-3.5" />
+              <span>1. Retirada de Peças para Manutenção</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('cautela_ferramentas')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeTab === 'cautela_ferramentas'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>2. Movimentação e Cautela de Ferramentas</span>
+              {totalEmprestimosAtivos > 0 && (
+                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-black bg-amber-500 text-stone-950">
+                  {totalEmprestimosAtivos}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('caixa_veiculo')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                activeTab === 'caixa_veiculo'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              <span>3. Caixa de Ferramentas Fixa por Veículo</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3 flex-1 min-h-0 flex flex-col">
+          {/* Indicadores Resumo Compactos em Moldura */}
+          <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs shrink-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
+              <div
+                onClick={() => setActiveTab('retirada_pecas')}
+                className={`flex items-center justify-between px-2 py-1 cursor-pointer rounded transition ${activeTab === 'retirada_pecas' ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}
+              >
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                    Saídas de Peças
+                  </span>
+                  <div className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
+                    {retiradasPecas.length} {retiradasPecas.length === 1 ? 'retirada' : 'retiradas'}
+                  </div>
+                </div>
+                <div className="w-6 h-6 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <PackageMinus className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              <div
+                onClick={() => setActiveTab('cautela_ferramentas')}
+                className={`flex items-center justify-between px-2 py-1 cursor-pointer rounded transition ${activeTab === 'cautela_ferramentas' ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}`}
+              >
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                    Cautelas Ativas
+                  </span>
+                  <div className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
+                    {totalEmprestimosAtivos} {totalEmprestimosAtivos === 1 ? 'ferramenta' : 'ferramentas'}
+                  </div>
+                </div>
+                <div className="w-6 h-6 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <FileText className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              <div
+                onClick={() => setActiveTab('caixa_veiculo')}
+                className={`flex items-center justify-between px-2 py-1 cursor-pointer rounded transition ${activeTab === 'caixa_veiculo' ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : ''}`}
+              >
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase">
+                    Caixas Fixas
+                  </span>
+                  <div className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
+                    {resumoCaixaVeiculoAtual.totalItens} itens no veículo
+                  </div>
+                </div>
+                <div className="w-6 h-6 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Briefcase className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </div>
+          </div>
 
       {/* =====================================================================
           ABA 1: RETIRADA DE PEÇAS PARA MANUTENÇÃO (FLUXO DE LISTA / PEDIDO POR VEÍCULO)
@@ -3654,6 +3638,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           </div>
         </div>
       )}
+        </div>
+      </div>
 
       {/* =====================================================================
           MODAL: REGISTRAR DEVOLUÇÃO DE FERRAMENTA (ABA 2)

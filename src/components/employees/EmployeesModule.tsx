@@ -1321,8 +1321,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     for (const emp of safeList) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
       const st = String(emp.status || 'ativo').toLowerCase().trim();
-      const isActive = emp.active !== false && (st === 'ativo' || st === '');
-      if (!isActive || st === 'inativo' || st === 'demitido' || st === 'desligado' || st === 'afastado' || st === 'excluido' || Boolean(emp.terminationDate)) {
+      const isInactiveStatus = st === 'inativo' || st === 'demitido' || st === 'desligado' || st === 'afastado' || st === 'excluido';
+      const isActive = emp.active !== false && (st === 'ativo' || st === '') && !isInactiveStatus && !Boolean(emp.terminationDate);
+      if (!isActive) {
         continue;
       }
       // Ignora o registro antigo/duplicado de ALISSON PAG sem CPF

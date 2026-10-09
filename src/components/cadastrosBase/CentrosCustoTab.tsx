@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   FolderKanban,
   Check,
+  Pencil,
   X
 } from 'lucide-react';
 import { CostCenter } from '../../types';
@@ -226,19 +227,19 @@ export const CentrosCustoTab: React.FC = () => {
       <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+            <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 select-none">
               <tr>
-                <th className="py-3.5 px-4">Nome do Centro de Custo</th>
-                <th className="py-3.5 px-4">Tipo / Categoria</th>
-                <th className="py-3.5 px-4">Descrição</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-right">Ações</th>
+                <th className="py-1.5 px-3">Nome do Centro de Custo</th>
+                <th className="py-1.5 px-3">Tipo / Categoria</th>
+                <th className="py-1.5 px-3">Descrição</th>
+                <th className="py-1.5 px-3 text-center">Status</th>
+                <th className="py-1.5 px-3 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-stone-800">
+            <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">
               {filteredCentros.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-zinc-500 dark:text-stone-400 font-semibold">
+                  <td colSpan={5} className="py-6 text-center text-zinc-500 dark:text-stone-400 font-semibold uppercase text-xs">
                     Nenhum centro de custo encontrado.
                   </td>
                 </tr>
@@ -247,30 +248,30 @@ export const CentrosCustoTab: React.FC = () => {
                   const isAtivo = centro.active !== false;
                   return (
                     <tr key={centro.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
-                      <td className="py-3 px-4 font-bold text-zinc-900 dark:text-white">
-                        <div className="flex items-center space-x-2.5">
-                          <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
-                            <FolderKanban className="w-4 h-4" />
+                      <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white whitespace-nowrap uppercase">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 shrink-0">
+                            <FolderKanban className="w-3.5 h-3.5" />
                           </div>
                           <span>{centro.name}</span>
                         </div>
                       </td>
 
-                      <td className="py-3 px-4">
-                        <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold capitalize bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
+                      <td className="py-1.5 px-3 whitespace-nowrap">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
                           {centro.type || 'Operacional'}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 text-xs text-zinc-500 dark:text-stone-400 max-w-xs truncate">
+                      <td className="py-1.5 px-3 text-xs text-zinc-500 dark:text-stone-400 max-w-xs truncate whitespace-nowrap uppercase">
                         {centro.description || '—'}
                       </td>
 
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-1.5 px-3 text-center whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => handleToggleActive(centro)}
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide border cursor-pointer transition ${
+                          className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black tracking-wide border cursor-pointer transition ${
                             isAtivo 
                               ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' 
                               : 'bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 border-zinc-300 dark:border-stone-700'
@@ -281,23 +282,23 @@ export const CentrosCustoTab: React.FC = () => {
                         </button>
                       </td>
 
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-1.5 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(centro)}
                             title="Editar Centro de Custo"
-                            className="p-1.5 rounded-lg text-zinc-600 hover:text-amber-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                            className="p-1 rounded text-zinc-600 hover:text-amber-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-stone-800 transition cursor-pointer"
                           >
-                            <Edit3 className="w-4 h-4" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(centro)}
                             title="Excluir Centro de Custo"
-                            className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                            className="p-1 rounded text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -310,13 +311,13 @@ export const CentrosCustoTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal Criar / Editar - Moldura Metálica 3D Acetinada */}
+      {/* Modal Criar / Editar - Tamanho Padrão Ouro */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
+          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global">
             
             {/* Header 3D Metálico Acetinado */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
                   <FolderKanban className="w-4 h-4 text-slate-700 dark:text-stone-200" />

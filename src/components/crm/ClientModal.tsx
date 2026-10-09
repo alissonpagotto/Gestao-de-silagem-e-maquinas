@@ -450,10 +450,10 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
   return (
     <div className={`fixed inset-0 ${zIndexClass} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden`}>
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:w-[90vw] max-w-6xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 overflow-hidden overflow-y-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 max-h-[95vh] sm:max-h-[92vh] flex flex-col my-0 sm:my-auto">
+      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header - Moldura Metálica 3D Acetinada */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 text-slate-800 flex items-center justify-between relative shrink-0 rounded-t-2xl shadow-xs">
+        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 text-slate-800 flex items-center justify-between relative shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 text-slate-800 flex items-center justify-center border border-slate-300 shadow-2xs shrink-0">
               <UserCheck className="w-4 h-4 text-slate-700" />
