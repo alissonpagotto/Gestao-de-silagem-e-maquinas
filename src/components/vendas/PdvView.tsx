@@ -363,6 +363,60 @@ export const PdvView: React.FC<PdvViewProps> = ({
     return rows;
   }, [formaPagamento, totals.totalLiquido, qtdeParcelas, dataPrimeiraParcela]);
 
+  // Interceptação do gatilho de multiplicação por asterisco ("QTD *") no campo de busca do PDV
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+
+    // 1. Identificação do padrão de quantidade multiplicada por asterisco via Regex (ex: "5*", "12*", "10*7891001")
+    const match = rawVal.match(/^\s*([0-9]+(?:[.,][0-9]+)?)\s*\*(.*)$/);
+    if (match) {
+      const qtdStr = match[1];
+      const rest = match[2];
+      const numQtd = parseFloat(qtdStr.replace(',', '.'));
+
+      if (!isNaN(numQtd) && numQtd > 0) {
+        // Atualiza instantaneamente o campo "QTDE (Q)" no padrão BRL (ex: 10,00 ou 5,00)
+        const formattedQtde = numQtd.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        setInputQtde(formattedQtde);
+
+        // Limpa o prefixo do campo e deixa apenas o que veio após o asterisco em CAIXA ALTA
+        const cleanRest = (rest || '').trimStart().toUpperCase();
+        setInputBusca(cleanRest);
+        setInputDescricao(cleanRest);
+        setShowSuggestions(cleanRest.trim().length > 0);
+        return;
+      }
+    }
+
+    // Caso alternativo com split por asterisco
+    if (rawVal.includes('*')) {
+      const [qtd, ...restArr] = rawVal.split('*');
+      const cleanQtd = qtd.trim().replace(',', '.');
+      const num = parseFloat(cleanQtd);
+      if (!isNaN(num) && num > 0 && cleanQtd !== '') {
+        const formattedQtde = num.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        setInputQtde(formattedQtde);
+        const cleanRest = restArr.join('*').trimStart().toUpperCase();
+        setInputBusca(cleanRest);
+        setInputDescricao(cleanRest);
+        setShowSuggestions(cleanRest.trim().length > 0);
+        return;
+      }
+    }
+
+    // Fluxo normal mantendo strings sempre em CAIXA ALTA
+    const upperVal = rawVal.toUpperCase();
+    setInputBusca(upperVal);
+    setInputDescricao(upperVal);
+    setShowSuggestions(upperVal.trim().length > 0);
+  };
+
   // Selecionar um produto do autocomplete
   const handleSelectProduct = (prod: typeof productCatalog[0]) => {
     setInputCodigo(prod.code);
@@ -377,33 +431,59 @@ export const PdvView: React.FC<PdvViewProps> = ({
       setOperacaoTipo('contrato_silagem');
     }
 
-    qtyInputRef.current?.focus();
-    qtyInputRef.current?.select();
+    if (inputQtde && inputQtde !== '1,00') {
+      // Se a quantidade já foi configurada pelo atalho de asterisco (ex: 10,00), mantém o foco
+      searchInputRef.current?.focus();
+    } else {
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
+    }
   };
 
   // Adicionar item à grade
   const handleAdicionarItem = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    const desc = (inputDescricao || inputBusca).trim().toUpperCase();
-    if (!desc) {
+    let descResolved = (inputDescricao || inputBusca).trim().toUpperCase();
+    if (!descResolved) {
       searchInputRef.current?.focus();
       return;
     }
 
-    const qtd = parseFloat(inputQtde.replace(',', '.')) || 1;
-    const preco = parseFloat(inputPreco.replace(/\./g, '').replace(',', '.')) || 0;
+    const qtd = parseFloat(inputQtde.replace(/\./g, '').replace(',', '.')) || 1;
+    let preco = parseFloat(inputPreco.replace(/\./g, '').replace(',', '.')) || 0;
+    let cod = inputCodigo;
+    let un = inputUnidade.trim().toUpperCase() || 'UN';
+
+    // Se o preço for 0 ou código não estiver preenchido, resolve produto do catálogo por código de barras, código ou nome
+    if (preco <= 0 || !cod) {
+      const q = (inputBusca || descResolved).trim().toLowerCase();
+      const matched = productCatalog.find(p => 
+        p.barcode.toLowerCase() === q ||
+        p.code.toLowerCase() === q ||
+        p.name.toLowerCase() === q
+      ) || (suggestedProducts.length === 1 ? suggestedProducts[0] : null);
+
+      if (matched) {
+        cod = matched.code;
+        descResolved = matched.name;
+        un = matched.unit;
+        preco = matched.price;
+      }
+    }
+
     const descPct = parseFloat(inputDesconto.replace(',', '.')) || 0;
 
+    // Cálculo exato: Valor Total = Preço Unitário * Quantidade Atualizada
     const totalBruto = Math.round(qtd * preco * 100) / 100;
     const valorDesc = Math.round(totalBruto * (descPct / 100) * 100) / 100;
     const totalLiquido = Math.max(0, totalBruto - valorDesc);
 
     const newItem: PdvItem = {
       id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      codigo: inputCodigo || `COD-${String(items.length + 1).padStart(3, '0')}`,
-      descricao: desc,
-      unidade: inputUnidade.trim().toUpperCase() || 'UN',
+      codigo: cod || `COD-${String(items.length + 1).padStart(3, '0')}`,
+      descricao: descResolved,
+      unidade: un,
       quantidade: qtd,
       precoUnitario: preco,
       percentualDesconto: descPct,
@@ -414,7 +494,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     setItems(prev => [...prev, newItem]);
 
-    // Limpar campos de entrada para o próximo item e refocar na busca
+    // Limpar campos de entrada para o próximo item e resetar quantidade de volta para "1,00"
     setInputBusca('');
     setInputCodigo('');
     setInputDescricao('');
@@ -809,12 +889,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
                   ref={searchInputRef}
                   type="text"
                   value={inputBusca}
-                  onChange={e => {
-                    setInputBusca(e.target.value);
-                    setInputDescricao(e.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
+                  onChange={handleSearchInputChange}
+                  onFocus={() => setShowSuggestions(inputBusca.trim().length > 0)}
                   placeholder="DIGITE O NOME, CÓDIGO OU PASSE O LEITOR DE CÓDIGO DE BARRAS..."
                   className="w-full pl-2 pr-7 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none placeholder:normal-case placeholder:font-medium placeholder:text-slate-400"
                 />
