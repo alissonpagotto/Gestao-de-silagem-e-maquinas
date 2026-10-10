@@ -606,12 +606,6 @@ export function getStoredEmployees(): Employee[] {
       }
       return updatedEmp;
     });
-    if (modified || cleaned.length !== parsed.length) {
-      const cleanJson = JSON.stringify(cleaned);
-      localStorage.setItem('agrocontrol_funcionarios', cleanJson);
-      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, cleanJson);
-      localStorage.setItem('colaca_silagem_funcionarios', cleanJson);
-    }
     return cleaned;
   } catch (e) {
     return INITIAL_EMPLOYEES;

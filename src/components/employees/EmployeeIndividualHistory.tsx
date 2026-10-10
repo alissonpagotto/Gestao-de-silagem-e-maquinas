@@ -281,11 +281,16 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
               }}
               className="w-full text-xs font-bold uppercase py-1.5 pl-2.5 pr-8 bg-white border border-slate-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer text-slate-800"
             >
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} {emp.role ? `• ${emp.role}` : ''} {emp.active === false ? '(INATIVO)' : ''}
-                </option>
-              ))}
+              {employees.map(emp => {
+                const tag = emp.status === 'demitido' ? ' (DEMITIDO)' :
+                            emp.status === 'afastado' ? ' (AFASTADO)' :
+                            (emp.active === false || emp.status === 'inativo') ? ' (INATIVO)' : '';
+                return (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} {emp.role ? `• ${emp.role}` : ''}{tag}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -330,7 +335,8 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                 className="w-14 h-14 rounded-full border-2 border-slate-300 shadow-xs object-cover"
               />
               <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${
-                currentEmployee.active === false ? 'bg-rose-500' :
+                currentEmployee.status === 'demitido' ? 'bg-rose-600' :
+                currentEmployee.active === false ? 'bg-slate-500' :
                 currentEmployee.status === 'ferias' ? 'bg-amber-500' :
                 currentEmployee.status === 'afastado' ? 'bg-orange-500' : 'bg-emerald-500'
               }`} />
@@ -342,12 +348,14 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                   {currentEmployee.name}
                 </h2>
                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
-                  currentEmployee.active === false ? 'bg-rose-50 text-rose-700 border-rose-300' :
+                  currentEmployee.status === 'demitido' ? 'bg-rose-100 text-rose-900 border-rose-300' :
+                  currentEmployee.active === false ? 'bg-slate-100 text-slate-700 border-slate-300' :
                   currentEmployee.status === 'ferias' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                   currentEmployee.status === 'afastado' ? 'bg-orange-50 text-orange-800 border-orange-300' :
                   'bg-emerald-50 text-emerald-800 border-emerald-300'
                 }`}>
-                  {currentEmployee.active === false ? 'INATIVO' :
+                  {currentEmployee.status === 'demitido' ? 'DEMITIDO / RESCISÃO' :
+                   currentEmployee.active === false ? 'INATIVO' :
                    currentEmployee.status === 'ferias' ? 'EM FÉRIAS' :
                    currentEmployee.status === 'afastado' ? 'AFASTADO' : 'ATIVO'}
                 </span>
