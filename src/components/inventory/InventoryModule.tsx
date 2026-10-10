@@ -23,7 +23,9 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  Printer
+  Printer,
+  ShoppingCart,
+  FileSpreadsheet
 } from 'lucide-react';
 import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
 import { 
@@ -38,6 +40,8 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductLabelPrintModal, LabelProductItem } from './ProductLabelPrintModal';
 import { PrintQueueManagerModal } from './PrintQueueManagerModal';
+import { ComprasSubModule } from './ComprasSubModule';
+import { CotacoesSubModule } from './CotacoesSubModule';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchEstoque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 
@@ -55,7 +59,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [showSpecialPrices, setShowSpecialPrices] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inventario' | 'relatorios'>('inventario');
+  const [activeTab, setActiveTab] = useState<'inventario' | 'relatorios' | 'compras' | 'cotacoes'>('inventario');
 
   const [localInventory, setLocalInventory] = useState<InventoryItem[]>(inventory);
 
@@ -489,7 +493,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               type="button"
               id="tab-relatorios-insumos"
               onClick={() => setActiveTab('relatorios')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeTab === 'relatorios'
                   ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -497,6 +501,34 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             >
               <BarChart3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>RELATÓRIOS DE INSUMOS</span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-compras"
+              onClick={() => setActiveTab('compras')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeTab === 'compras'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <ShoppingCart className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>COMPRAS</span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-cotacoes"
+              onClick={() => setActiveTab('cotacoes')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                activeTab === 'cotacoes'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <span>COTAÇÕES</span>
             </button>
           </nav>
         </div>
@@ -920,7 +952,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
       </div>
     </>
-  ) : (
+  ) : activeTab === 'relatorios' ? (
     /* ABA: RELATÓRIOS DE INSUMOS */
     <div className="space-y-4 animate-fade-in">
       {/* 1. Tabela de Breakdown por Categoria de Insumos */}
@@ -1058,7 +1090,16 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         )}
       </div>
     </div>
-  )}
+  ) : activeTab === 'compras' ? (
+    <ComprasSubModule 
+      allItems={allItems} 
+      onOpenCreateItem={handleOpenCreateModal} 
+    />
+  ) : activeTab === 'cotacoes' ? (
+    <CotacoesSubModule 
+      allItems={allItems} 
+    />
+  ) : null}
         </div>
       </div>
 
