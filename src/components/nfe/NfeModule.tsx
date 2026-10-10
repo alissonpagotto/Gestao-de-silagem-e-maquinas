@@ -1606,7 +1606,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setIsLoadingDocItems(true);
     try {
       const items = await fetchDocumentosEntradaItens(doc.id);
-      setManualDocItems(items || []);
+      const seen = new Set<string>();
+      const unique = (items || []).filter(i => {
+        if (!i.id) return true;
+        if (seen.has(i.id)) return false;
+        seen.add(i.id);
+        return true;
+      });
+      setManualDocItems(unique);
     } catch (err) {
       console.warn('Erro ao carregar itens da entrada para edição:', err);
       setManualDocItems([]);
@@ -1740,11 +1747,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
     }
 
-    setManualDocItems(itemsList);
+    const seenNewIds = new Set<string>();
+    const deduplicatedItems: DocumentoEntradaItem[] = [];
+    for (const item of itemsList) {
+      if (item.id && !seenNewIds.has(item.id)) {
+        seenNewIds.add(item.id);
+        deduplicatedItems.push(item);
+      } else if (!item.id) {
+        deduplicatedItems.push(item);
+      }
+    }
+
+    setManualDocItems(deduplicatedItems);
     try {
       const existingItems = getStoredDocumentosEntradaItens();
       const otherItems = existingItems.filter(i => i.documento_entrada_id !== newDocId);
-      saveStoredDocumentosEntradaItens([...itemsList, ...otherItems]);
+      saveStoredDocumentosEntradaItens([...deduplicatedItems, ...otherItems]);
     } catch (e) {
       console.warn('Erro ao salvar itens no storage:', e);
     }
@@ -1872,7 +1890,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (currentManualDoc) {
         setIsLoadingDocItems(true);
         const items = await fetchDocumentosEntradaItens(savedDoc.id);
-        setManualDocItems((items || []).filter(i => i.descricao && i.descricao !== 'Item de Entrada'));
+        const seen = new Set<string>();
+        const unique = (items || [])
+          .filter(i => i.descricao && i.descricao !== 'Item de Entrada')
+          .filter(i => {
+            if (!i.id) return true;
+            if (seen.has(i.id)) return false;
+            seen.add(i.id);
+            return true;
+          });
+        setManualDocItems(unique);
         setIsLoadingDocItems(false);
       }
 
@@ -8098,8 +8125,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">
-                              {manualDocItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                              {manualDocItems.map((item, itemIdx) => (
+                                <tr key={`${item.id || 'manual_item'}_${itemIdx}`} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
                                   <td className="px-3 py-1 whitespace-nowrap">
                                     <div className="flex items-center space-x-2 whitespace-nowrap">
                                       <span className="font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap" title={item.descricao}>
@@ -8353,8 +8380,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     Itens da Entrada ({viewingDocItems.length}):
                   </span>
                   <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden bg-stone-50/50 dark:bg-stone-800/40 max-h-40 overflow-y-auto divide-y divide-stone-200 dark:divide-stone-800">
-                    {viewingDocItems.map((it) => (
-                      <div key={it.id} className="p-2 text-[11px] flex items-center justify-between">
+                    {viewingDocItems.map((it, itIdx) => (
+                      <div key={`${it.id || 'view_item'}_${itIdx}`} className="p-2 text-[11px] flex items-center justify-between">
                         <div>
                           <span className="font-bold text-stone-900 dark:text-stone-100 block">
                             {it.descricao}

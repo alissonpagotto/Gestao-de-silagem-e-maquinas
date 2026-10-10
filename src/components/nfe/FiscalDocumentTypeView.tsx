@@ -1538,7 +1538,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         </tr>
                       ) : (
                         formItems.map((item, idx) => (
-                          <tr key={item.id} className="hover:bg-slate-50">
+                          <tr key={`${item.id || 'form_item'}_${idx}`} className="hover:bg-slate-50">
                             <td className="py-1 px-2 text-[10px] font-bold text-slate-500">{idx + 1}</td>
                             <td className="py-1 px-2 font-bold">{item.description}</td>
                             <td className="py-1 px-2 text-center font-bold">{item.quantity}</td>
@@ -1787,8 +1787,8 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {viewingDoc.items.map(it => (
-                      <tr key={it.id}>
+                    {viewingDoc.items.map((it, idx) => (
+                      <tr key={`${it.id || 'view_item'}_${idx}`}>
                         <td className="py-1 px-2 font-bold">{it.description}</td>
                         <td className="py-1 px-2 text-center">{it.quantity}</td>
                         <td className="py-1 px-2 text-center text-[10px]">{it.unit}</td>

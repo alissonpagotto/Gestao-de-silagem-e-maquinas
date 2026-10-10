@@ -615,8 +615,8 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
-                        {items.map((it) => (
-                          <tr key={it.id}>
+                        {items.map((it, idx) => (
+                          <tr key={`${it.id || 'dev_item'}_${idx}`}>
                             <td className="p-1">
                               <input
                                 type="text"

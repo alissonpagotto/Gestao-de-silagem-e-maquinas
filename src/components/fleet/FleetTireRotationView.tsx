@@ -1746,13 +1746,13 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   <span className="text-[10px] text-stone-400">Arraste pneus do caminhão para cá ou cadastre novos pneus via Notas e Entradas</span>
                 </div>
               ) : (
-                tireInventory.map((item) => {
+                tireInventory.map((item, idx) => {
                   const cond = getTireCondition(item.treadDepthMm);
                   const isBeingDragged = draggedItem?.tire.id === item.id;
 
                   return (
                     <div
-                      key={item.id}
+                      key={`${item.id}_${idx}`}
                       draggable={true}
                       onDragStart={(e) => handleDragStart(e, { source: 'inventory', tire: item })}
                       onDragEnd={handleDragEnd}
@@ -1890,9 +1890,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   Nenhum pneu em reforma no momento. Arraste pneus para a caixa acima.
                 </div>
               ) : (
-                tiresInReform.map((item) => (
+                tiresInReform.map((item, idx) => (
                   <div
-                    key={item.id}
+                    key={`${item.id}_${idx}`}
                     className="p-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/90 dark:bg-stone-800/80 space-y-1.5 transition"
                   >
                     <div className="flex items-center justify-between gap-1.5">
@@ -2048,9 +2048,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   <span>+ Arraste mais pneus aqui para descarte</span>
                 </div>
 
-                {tiresPendingDiscard.map((item) => (
+                {tiresPendingDiscard.map((item, idx) => (
                   <div
-                    key={item.id}
+                    key={`${item.id}_${idx}`}
                     className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-stone-50/90 dark:bg-stone-800/80 space-y-1.5 transition"
                   >
                     <div className="flex items-center justify-between gap-1.5">
@@ -2243,9 +2243,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   Nenhum pneu foi descartado até o momento.
                 </div>
               ) : (
-                tiresDiscarded.map((item) => (
+                tiresDiscarded.map((item, idx) => (
                   <div
-                    key={item.id}
+                    key={`${item.id}_${idx}`}
                     className="p-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/60 flex items-center justify-between"
                   >
                     <div className="space-y-1 min-w-0">

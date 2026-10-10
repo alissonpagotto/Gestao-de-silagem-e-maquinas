@@ -902,16 +902,35 @@ export async function fetchDocumentosEntradaItens(documentoEntradaId: string): P
 
   try {
     const docUuid = toValidUUID(documentoEntradaId);
-    let { data, error } = await supabase
-      .from('documentos_entrada_itens')
-      .select('*')
-      .or(`documento_entrada_id.eq.${docUuid},documento_entrada_id.eq.${documentoEntradaId}`)
-      .order('created_at', { ascending: true });
+    let query = supabase.from('documentos_entrada_itens').select('*');
+    if (docUuid === documentoEntradaId) {
+      query = query.eq('documento_entrada_id', docUuid);
+    } else {
+      query = query.or(`documento_entrada_id.eq.${docUuid},documento_entrada_id.eq.${documentoEntradaId}`);
+    }
+
+    let { data, error } = await query.order('created_at', { ascending: true });
 
     if (!error && data && Array.isArray(data)) {
-      const items = (data as any[])
+      const rawItems = (data as any[])
         .map(i => normalizeDocumentoEntradaItemFromRow(i))
         .filter(i => i.descricao && i.descricao !== 'Item de Entrada');
+
+      // Deduplicação estrita para garantir chaves únicas
+      const seenIds = new Set<string>();
+      const items: DocumentoEntradaItem[] = [];
+      for (const it of rawItems) {
+        const key = it.id ? String(it.id).trim() : '';
+        if (key) {
+          if (!seenIds.has(key)) {
+            seenIds.add(key);
+            items.push(it);
+          }
+        } else {
+          items.push(it);
+        }
+      }
+
       const otherItems = getStoredDocumentosEntradaItens().filter(
         i => i.documento_entrada_id !== documentoEntradaId && i.descricao && i.descricao !== 'Item de Entrada'
       );

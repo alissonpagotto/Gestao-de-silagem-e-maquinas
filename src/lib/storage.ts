@@ -2956,17 +2956,47 @@ export const getStoredDocumentosEntradaItens = (documentoEntradaId?: string): Do
   }
   // Elimina itens fantasmas (mock data 'Item de Entrada' ou registros vazios)
   all = all.filter(i => i && i.descricao && i.descricao !== 'Item de Entrada' && i.descricao.trim() !== '');
-  if (documentoEntradaId) {
-    return all.filter(i => i.documento_entrada_id === documentoEntradaId);
+
+  // Deduplicação estrita por ID para prevenir duplicidade de chaves no React
+  const seenIds = new Set<string>();
+  const uniqueItems: DocumentoEntradaItem[] = [];
+  for (const item of all) {
+    const key = item.id ? String(item.id).trim() : '';
+    if (key) {
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        uniqueItems.push(item);
+      }
+    } else {
+      uniqueItems.push(item);
+    }
   }
-  return all;
+
+  if (documentoEntradaId) {
+    return uniqueItems.filter(i => i.documento_entrada_id === documentoEntradaId);
+  }
+  return uniqueItems;
 };
 
 export const saveStoredDocumentosEntradaItens = (items: DocumentoEntradaItem[]): void => {
-  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, items);
-  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, items);
+  const seenIds = new Set<string>();
+  const uniqueItems: DocumentoEntradaItem[] = [];
+  for (const item of (items || [])) {
+    if (!item) continue;
+    const key = item.id ? String(item.id).trim() : '';
+    if (key) {
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        uniqueItems.push(item);
+      }
+    } else {
+      uniqueItems.push(item);
+    }
+  }
+  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, uniqueItems);
+  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, uniqueItems);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_itens_updated', { detail: items }));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_itens_updated', { detail: uniqueItems }));
   }
 };
 

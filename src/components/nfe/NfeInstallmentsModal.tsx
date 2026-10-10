@@ -594,7 +594,7 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
                 <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-transparent">
                   {installments.map((inst, index) => (
                     <tr 
-                      key={inst.id} 
+                      key={`${inst.id || 'inst'}_${index}`} 
                       className="hover:bg-zinc-50 dark:hover:bg-stone-800/40 transition-colors"
                     >
                       {/* 1. Coluna Número */}

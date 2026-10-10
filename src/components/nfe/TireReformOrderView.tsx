@@ -1248,7 +1248,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       </tr>
                     ) : (
                       pendingTires.map((t, idx) => (
-                        <tr key={t.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition">
+                        <tr key={`${t.id || 'pending_tire'}_${idx}`} className="hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition">
                           <td className="py-2 px-3 text-center font-bold text-stone-500">
                             {idx + 1}
                           </td>
@@ -1790,7 +1790,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {selectedOrderForView.tires.map((t, idx) => (
-                      <tr key={t.id || idx} className="hover:bg-stone-50 dark:hover:bg-stone-800/40">
+                      <tr key={`${t.id || 'view_tire'}_${idx}`} className="hover:bg-stone-50 dark:hover:bg-stone-800/40">
                         <td className="py-2 px-2.5 text-center font-bold text-stone-400">{idx + 1}</td>
                         <td className="py-2 px-2.5 font-mono font-black text-stone-900 dark:text-stone-100">{t.fireNumber}</td>
                         <td className="py-2 px-2.5 font-semibold text-stone-800 dark:text-stone-200">{t.brand} {t.model || ''}</td>
@@ -2167,7 +2167,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
               </thead>
               <tbody className="divide-y divide-stone-300 text-[11px]">
                 {activeOrderForPrint.tires.map((t, idx) => (
-                  <tr key={t.id || idx}>
+                  <tr key={`${t.id || 'print_tire'}_${idx}`}>
                     <td className="py-1.5 px-2 text-center font-bold text-stone-500 border-r border-stone-300">{idx + 1}</td>
                     <td className="py-1.5 px-2 font-mono font-black text-stone-950 border-r border-stone-300">{t.fireNumber.toUpperCase()}</td>
                     <td className="py-1.5 px-2 font-bold text-stone-900 border-r border-stone-300 uppercase">{t.brand.toUpperCase()} {(t.model || '').toUpperCase()}</td>
