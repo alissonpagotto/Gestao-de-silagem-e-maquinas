@@ -73,19 +73,19 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
   onSaveEmployees,
   onSelectEmployee
 }) => {
-  // Colaborador Ativo Selecionado
+  // Colaborador Selecionado (Ativo ou Ex-Colaborador)
   const [currentEmpId, setCurrentEmpId] = useState<string>(() => {
-    if (selectedEmployeeId && employees.some(e => e.id === selectedEmployeeId)) {
+    if (selectedEmployeeId) {
       return selectedEmployeeId;
     }
     return employees.length > 0 ? employees[0].id : '';
   });
 
   useEffect(() => {
-    if (selectedEmployeeId && employees.some(e => e.id === selectedEmployeeId)) {
+    if (selectedEmployeeId) {
       setCurrentEmpId(selectedEmployeeId);
     }
-  }, [selectedEmployeeId, employees]);
+  }, [selectedEmployeeId]);
 
   // Busca do Seletor
   const [pickerSearch, setPickerSearch] = useState('');
@@ -101,9 +101,23 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
   const [newSalaryCargo, setNewSalaryCargo] = useState<string>('');
   const [newSalaryNotes, setNewSalaryNotes] = useState<string>('');
 
-  // Colaborador Atual
+  // Colaborador Atual (busca na lista em memória e com fallback no LocalStorage agrocontrol_funcionarios)
   const currentEmployee = useMemo(() => {
-    return employees.find(e => e.id === currentEmpId) || employees[0] || null;
+    if (!currentEmpId) return employees[0] || null;
+    const found = employees.find(e => e.id === currentEmpId);
+    if (found) return found;
+    try {
+      const raw = localStorage.getItem('agrocontrol_funcionarios') ||
+                  localStorage.getItem('colaca_silagem_funcionarios');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const directMatch = parsed.find((e: any) => e && e.id === currentEmpId);
+          if (directMatch) return directMatch;
+        }
+      }
+    } catch {}
+    return employees[0] || null;
   }, [employees, currentEmpId]);
 
   // Lista de colaboradores filtrada para o selector

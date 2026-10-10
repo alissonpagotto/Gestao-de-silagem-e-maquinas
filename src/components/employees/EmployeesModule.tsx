@@ -33,7 +33,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
@@ -568,8 +568,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
-  const [employeesSubView, setEmployeesSubView] = useState<'listagem' | 'historico'>('listagem');
+  const [employeesSubView, setEmployeesSubView] = useState<'listagem' | 'historico' | 'demitidos'>('listagem');
   const [selectedEmployeeForHistoryId, setSelectedEmployeeForHistoryId] = useState<string | undefined>(undefined);
+  const [exEmployeesSearchTerm, setExEmployeesSearchTerm] = useState('');
+  const [employeesStorageVersion, setEmployeesStorageVersion] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => setEmployeesStorageVersion((v) => v + 1);
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('agrocontrol_funcionarios_updated', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('agrocontrol_funcionarios_updated', handleSync);
+    };
+  }, []);
   const [vacationQuickFilter, setVacationQuickFilter] = useState<'all' | 'expired' | 'warning'>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -1408,6 +1420,70 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     }
     return listaOrdenada;
   }, [listaOrdenada, vacationQuickFilter, vacationAlertsByEmployeeId]);
+
+  // Lista unificada contendo ativos e ex-colaboradores para auditoria trabalhista completa
+  const allEmployeesForHistory = useMemo(() => {
+    let rawList: Employee[] = [];
+    try {
+      const raw = localStorage.getItem('agrocontrol_funcionarios') ||
+                  localStorage.getItem('colaca_silagem_funcionarios') ||
+                  localStorage.getItem('silagem_facil_clean_v1_employees');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) rawList = parsed;
+      }
+    } catch {}
+
+    if (rawList.length === 0) {
+      rawList = getStoredAllEmployees();
+    }
+
+    const map = new Map<string, Employee>();
+    for (const emp of rawList) {
+      if (emp && (emp.id || emp.name)) {
+        const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
+        map.set(key, emp);
+      }
+    }
+    for (const emp of localEmployees) {
+      if (emp && (emp.id || emp.name)) {
+        const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
+        map.set(key, emp);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => 
+      (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
+    );
+  }, [localEmployees, employeesSubView, employeesStorageVersion]);
+
+  // Lista de Ex-Colaboradores carregada do LocalStorage ('agrocontrol_funcionarios')
+  // Listando APENAS funcionários cujo status no LocalStorage seja "INATIVO", "DEMITIDO" ou "AFASTADO"
+  const exEmployeesList = useMemo(() => {
+    return allEmployeesForHistory.filter((emp) => {
+      if (!emp || !emp.name || emp.name.trim() === '') return false;
+      const st = String(emp.status || '').toUpperCase().trim();
+      const isEx = st === 'INATIVO' || 
+                   st === 'DEMITIDO' || 
+                   st === 'AFASTADO' || 
+                   st === 'DESLIGADO' || 
+                   emp.active === false || 
+                   Boolean(emp.terminationDate);
+      return isEx;
+    });
+  }, [allEmployeesForHistory]);
+
+  // Filtro de busca na sub-aba de ex-colaboradores
+  const filteredExEmployees = useMemo(() => {
+    if (!exEmployeesSearchTerm.trim()) return exEmployeesList;
+    const term = exEmployeesSearchTerm.toLowerCase().trim();
+    return exEmployeesList.filter((emp) =>
+      (emp.name || '').toLowerCase().includes(term) ||
+      (emp.role || '').toLowerCase().includes(term) ||
+      (emp.cpf && emp.cpf.includes(term)) ||
+      (emp.rg && emp.rg.includes(term)) ||
+      (emp.cnhNumber && emp.cnhNumber.toLowerCase().includes(term))
+    );
+  }, [exEmployeesList, exEmployeesSearchTerm]);
 
   // Alerta de Férias dinâmico para o colaborador aberto no modal de edição/cadastro
   const modalVacationAlert = useMemo(() => {
@@ -2731,16 +2807,200 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         >
           <span>📜 HISTÓRICO INDIVIDUAL DO COLABORADOR</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setEmployeesSubView('demitidos')}
+          className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+            employeesSubView === 'demitidos'
+              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
+              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+          }`}
+        >
+          <span>🗂️ EX-COLABORADORES / HISTÓRICO</span>
+        </button>
       </div>
 
       {employeesSubView === 'historico' ? (
         <EmployeeIndividualHistory
-          employees={employees}
+          employees={allEmployeesForHistory}
           selectedEmployeeId={selectedEmployeeForHistoryId}
           companyProfile={activeCompany}
           onSaveEmployees={onSaveEmployees}
           onSelectEmployee={(id) => setSelectedEmployeeForHistoryId(id)}
         />
+      ) : employeesSubView === 'demitidos' ? (
+        <div className="space-y-2">
+          {/* Barra de Filtro e Totalizador Slim */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-white dark:bg-stone-850 p-2 rounded border border-slate-300/80 dark:border-stone-700/80 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-black uppercase text-slate-800 dark:text-stone-200 tracking-wide flex items-center gap-1.5">
+                <span>🗂️ QUADRO DE EX-COLABORADORES / DESLIGADOS / AFASTADOS</span>
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
+                {exEmployeesList.length} REGISTRO{exEmployeesList.length === 1 ? '' : 'S'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  value={exEmployeesSearchTerm}
+                  onChange={(e) => setExEmployeesSearchTerm(e.target.value)}
+                  placeholder="Buscar por nome, cargo ou CPF..."
+                  className="w-full text-xs py-1 pl-2.5 pr-7 border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                />
+                {exEmployeesSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setExEmployeesSearchTerm('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-stone-200 text-sm font-bold"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabela Slim (py-1) de Ex-Colaboradores */}
+          <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
+                  <tr>
+                    <th className="py-1.5 px-3 whitespace-nowrap">Ex-Colaborador / Contato</th>
+                    <th className="py-1.5 px-3 whitespace-nowrap">Último Cargo / Regime</th>
+                    <th className="py-1.5 px-3 whitespace-nowrap">Último Salário Base</th>
+                    <th className="py-1.5 px-3 whitespace-nowrap">Status Trabalhista</th>
+                    <th className="py-1.5 px-3 whitespace-nowrap">Data Desligamento</th>
+                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Auditoria / Histórico</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
+                  {filteredExEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
+                        {exEmployeesSearchTerm
+                          ? 'Nenhum ex-colaborador encontrado com os termos pesquisados.'
+                          : 'Nenhum ex-colaborador, demitido ou afastado registrado no LocalStorage.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredExEmployees.map((emp) => {
+                      const st = String(emp.status || '').toUpperCase().trim();
+                      const isDemitido = st === 'DEMITIDO' || Boolean(emp.terminationDate);
+                      const isAfastado = st === 'AFASTADO';
+                      const badgeLabel = isDemitido ? 'DEMITIDO' : isAfastado ? 'AFASTADO' : 'INATIVO';
+                      const badgeStyle = isDemitido
+                        ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400'
+                        : isAfastado
+                        ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400'
+                        : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-stone-800 dark:border-stone-700 dark:text-stone-300';
+
+                      return (
+                        <tr
+                          key={emp.id}
+                          className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap"
+                        >
+                          <td className="py-1 px-3 align-middle whitespace-nowrap">
+                            <div className="flex items-center space-x-2.5 whitespace-nowrap">
+                              <EmployeeAvatar
+                                photoUrl={emp.photoUrl}
+                                name={emp.name}
+                                size="sm"
+                                className="shrink-0 rounded-lg w-7 h-7 opacity-85"
+                              />
+                              <div className="whitespace-nowrap">
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedEmployeeForHistoryId(emp.id);
+                                      setEmployeesSubView('historico');
+                                    }}
+                                    className="font-bold text-slate-900 dark:text-stone-100 uppercase text-xs whitespace-nowrap hover:text-sky-700 hover:underline cursor-pointer text-left"
+                                    title="Clique para abrir o Histórico Individual deste ex-colaborador"
+                                  >
+                                    {emp.name}
+                                  </button>
+                                  <span className={`text-[9px] px-1 py-0.2 rounded border font-bold whitespace-nowrap ${badgeStyle}`}>
+                                    {badgeLabel}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-x-2 text-[11px] text-slate-500 dark:text-stone-400 font-medium whitespace-nowrap">
+                                  {emp.cpf && (
+                                    <span className="font-mono text-[10px] whitespace-nowrap">CPF: {emp.cpf}</span>
+                                  )}
+                                  {emp.cpf && emp.phone && <span>•</span>}
+                                  {emp.phone && (
+                                    <div className="flex items-center space-x-1 whitespace-nowrap">
+                                      <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                      <span className="whitespace-nowrap">{emp.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-1 px-3 align-middle whitespace-nowrap">
+                            <div className="flex items-center space-x-1.5 text-black dark:text-stone-200 font-bold whitespace-nowrap">
+                              <Briefcase className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="text-[11px]">
+                                {emp.role || (emp.roles && emp.roles[0]) || 'Operador'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-stone-400 font-medium whitespace-nowrap">
+                              {emp.contractType || 'Registrado (CLT)'}
+                              {emp.admissionDate && ` • Adm: ${formatDateBR(emp.admissionDate)}`}
+                            </div>
+                          </td>
+
+                          <td className="py-1 px-3 align-middle font-black text-black dark:text-stone-100 font-['Outfit'] text-xs whitespace-nowrap">
+                            {formatCurrencyBRL(emp.baseSalary || emp.salary || 0)}
+                          </td>
+
+                          <td className="py-1 px-3 align-middle whitespace-nowrap">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${badgeStyle}`}>
+                              {badgeLabel}
+                            </span>
+                          </td>
+
+                          <td className="py-1 px-3 align-middle whitespace-nowrap text-xs text-slate-700 dark:text-stone-300 font-medium">
+                            {emp.terminationDate ? (
+                              <span className="font-bold text-rose-700 dark:text-rose-400">
+                                {formatDateBR(emp.terminationDate)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 dark:text-stone-500 text-[11px]">Não informada</span>
+                            )}
+                          </td>
+
+                          <td className="py-1 px-3 text-right align-middle whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmployeeForHistoryId(emp.id);
+                                setEmployeesSubView('historico');
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900 border border-sky-300 dark:border-sky-800 rounded transition cursor-pointer"
+                              title="Abrir Histórico Individual e Auditoria Trabalhista deste colaborador"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>AUDITORIA / HISTÓRICO</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           {/* CNH Alert, Vacation Alert & Staff Summary Cards (Moldura Unificada Slim Design Pro) */}
