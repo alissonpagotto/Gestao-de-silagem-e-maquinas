@@ -11,6 +11,7 @@ import {
   RefreshCw,
   HardDrive
 } from 'lucide-react';
+import { executeGlobalStorageAudit } from '../../lib/globalStorageAudit';
 
 export interface DataBackupSecurityBlockProps {
   className?: string;
@@ -53,6 +54,9 @@ const AGROCONTROL_SYNC_ENTITIES: Record<string, string[]> = {
  */
 export function syncAllAgroControlKeys(): void {
   try {
+    // Executa auditoria e espelhamento universal de todas as 13 categorias
+    executeGlobalStorageAudit();
+
     Object.entries(AGROCONTROL_SYNC_ENTITIES).forEach(([agroKey, legacyKeys]) => {
       // Se a chave agrocontrol_* ainda não tiver valor ou a legada tiver sido modificada recentemente
       let candidateValue: string | null = null;
@@ -365,7 +369,10 @@ export function handleRestoreBackup(jsonData: Record<string, any> | string): voi
       localStorage.setItem('silagem_facil_clean_v1_maintenance_logs', s);
     }
 
-    // 4. RECARREGAMENTO COM LIMPEZA DE CACHE:
+    // 4. AUDITORIA E BLINDAGEM COMPLETA DO LOCALSTORAGE NAS 13 CATEGORIAS:
+    executeGlobalStorageAudit();
+
+    // 5. RECARREGAMENTO COM LIMPEZA DE CACHE:
     // Ao finalizar a gravação de todas as chaves contidas no JSON, força o navegador a renderizar o novo banco imediatamente
     window.location.reload();
   } catch (error) {

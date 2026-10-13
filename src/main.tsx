@@ -5,7 +5,11 @@ import { ConfirmProvider } from './context/ConfirmContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppStateProvider } from './context/AppStateContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { executeGlobalStorageAudit } from './lib/globalStorageAudit';
 import './index.css';
+
+// Execução compulsória do Motor de Contingência Universal antes da renderização do React
+executeGlobalStorageAudit();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

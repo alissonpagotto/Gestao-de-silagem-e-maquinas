@@ -26,6 +26,7 @@ import {
 } from './types';
 import { Subscriber } from './types/masterAdmin';
 import { getStoredSubscribers } from './lib/masterAdminStorage';
+import { executeGlobalStorageAudit } from './lib/globalStorageAudit';
 import { 
   getStoredExpenses, 
   saveStoredExpenses,
@@ -375,7 +376,8 @@ export default function App() {
 
   useEffect(() => {
     let isMounted = true;
-    isInitialLoadDone.current = false;
+    // Varredura e blindagem massiva do LocalStorage em todas as 13 categorias
+    executeGlobalStorageAudit();
 
     // Carga inicial mandatória dos 13 serviços oficiais no estoque (LocalStorage: 'colaca_silagem_estoque_produtos')
     ensureStockServicesInitialized();
@@ -1756,6 +1758,7 @@ export default function App() {
 
   // Reload everything when imported from backup
   const handleDataReload = () => {
+    executeGlobalStorageAudit();
     setExpenses(getStoredExpenses());
     setCategories(getStoredCategories());
     setCostCenters(getStoredCostCenters());

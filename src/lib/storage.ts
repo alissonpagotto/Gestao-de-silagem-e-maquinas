@@ -3374,6 +3374,5 @@ export const saveCompanyFinanceiroContas = (contas: BankAccount[], companyId?: s
 };
 export const getCompanyFinanceiroContas = (companyId?: string): BankAccount[] => getCompanyData<BankAccount>('financeiro_contas', getStoredBankAccounts, companyId);
 
-
-
-
+// Exportação e integração oficial do Motor de Contingência Universal do LocalStorage
+export { executeGlobalStorageAudit } from './globalStorageAudit';
