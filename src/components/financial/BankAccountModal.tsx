@@ -134,6 +134,84 @@ export interface GlobalAccountHolder {
   documento: string;
   razaoSocial?: string;
   role?: string;
+  displayLabel?: string;
+}
+
+/**
+ * Recupera dados cadastrais reais da Empresa em CAIXA ALTA
+ * Chaves: 'agrocontrol_empresa', 'dadosEmpresa', 'agrocontrol_site_settings', perfil padrão
+ */
+function getRealCompanyProfileData(): { name: string; cnpj: string } {
+  try {
+    const rawEmpresa = localStorage.getItem('agrocontrol_empresa') || localStorage.getItem('dadosEmpresa');
+    if (rawEmpresa) {
+      const parsed = JSON.parse(rawEmpresa);
+      const name = (parsed.corporateName || parsed.razaoSocial || parsed.tradeName || parsed.nomeFantasia || 'COLAÇA SILAGEM LTDA').toUpperCase().trim();
+      const cnpj = (parsed.cnpjCpf || parsed.cnpj || parsed.documento || '46.097.636/0001-02').trim();
+      return { name, cnpj };
+    }
+  } catch {}
+
+  try {
+    const rawSettings = localStorage.getItem('agrocontrol_site_settings');
+    if (rawSettings) {
+      const parsed = JSON.parse(rawSettings);
+      const name = (parsed.companyName || parsed.corporateName || 'COLAÇA SILAGEM LTDA').toUpperCase().trim();
+      const cnpj = (parsed.cnpj || parsed.document || '46.097.636/0001-02').trim();
+      return { name, cnpj };
+    }
+  } catch {}
+
+  try {
+    const stored = getStoredCompanyProfile();
+    if (stored) {
+      const name = (stored.corporateName || stored.tradeName || 'COLAÇA SILAGEM LTDA').toUpperCase().trim();
+      const cnpj = (stored.cnpjCpf || '46.097.636/0001-02').trim();
+      return { name, cnpj };
+    }
+  } catch {}
+
+  return { name: 'COLAÇA SILAGEM LTDA', cnpj: '46.097.636/0001-02' };
+}
+
+/**
+ * Lê reativamente o array de colaboradores da chave oficial 'agrocontrol_funcionarios'
+ * com FILTRO ESTRITO DE SEGURANÇA contra demitidos, inativos, afastados e ex-colaboradores.
+ */
+function getActiveRhEmployeesFromStorage(): Employee[] {
+  let list: Employee[] = [];
+  try {
+    const raw = localStorage.getItem('agrocontrol_funcionarios') || localStorage.getItem('colaca_silagem_funcionarios');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        list = parsed;
+      }
+    }
+  } catch {}
+
+  if (list.length === 0) {
+    try {
+      const fallback = getStoredEmployees();
+      if (Array.isArray(fallback) && fallback.length > 0) {
+        list = fallback;
+      }
+    } catch {}
+  }
+
+  // FILTRO DE SEGURANÇA CONTRA DEMITIDOS / EX-COLABORADORES / INATIVOS:
+  return list.filter((emp) => {
+    if (!emp || !emp.name || !emp.name.trim()) return false;
+    const st = String(emp.status || '').toUpperCase().trim();
+    const isEx = 
+      st === 'INATIVO' || 
+      st === 'DEMITIDO' || 
+      st === 'AFASTADO' || 
+      st === 'DESLIGADO' || 
+      emp.active === false || 
+      Boolean(emp.terminationDate);
+    return !isEx;
+  });
 }
 
 export const BankAccountModal: React.FC<BankAccountModalProps> = ({
@@ -191,76 +269,83 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
     }));
   }, []);
 
-  // Perfil da Empresa (Razão Social e CNPJ padrão)
-  const companyProfile = useMemo(() => getStoredCompanyProfile(), []);
+  // Estado reativo da Empresa (Pessoa Jurídica) e Funcionários Ativos do RH
+  const [activeEmployees, setActiveEmployees] = useState<Employee[]>(() => getActiveRhEmployeesFromStorage());
+  const [companyData, setCompanyData] = useState(() => getRealCompanyProfileData());
 
-  // Lista de funcionários disponíveis (prop ou storage)
-  const availableEmployees: Employee[] = useMemo(() => {
-    if (employees && employees.length > 0) return employees;
-    return getStoredEmployees();
-  }, [employees]);
+  useEffect(() => {
+    const refreshRhData = () => {
+      setActiveEmployees(getActiveRhEmployeesFromStorage());
+      setCompanyData(getRealCompanyProfileData());
+    };
 
-  // Lista Global de Responsáveis / Titulares de Contas (Disponível para todos os bancos cadastrados)
+    if (isOpen) {
+      refreshRhData();
+    }
+
+    window.addEventListener('storage', refreshRhData);
+    window.addEventListener('agrocontrol_funcionarios_updated', refreshRhData);
+    window.addEventListener('agrocontrol_global_storage_audit_complete', refreshRhData);
+    window.addEventListener('colaca_company_profile_live_change', refreshRhData);
+
+    return () => {
+      window.removeEventListener('storage', refreshRhData);
+      window.removeEventListener('agrocontrol_funcionarios_updated', refreshRhData);
+      window.removeEventListener('agrocontrol_global_storage_audit_complete', refreshRhData);
+      window.removeEventListener('colaca_company_profile_live_change', refreshRhData);
+    };
+  }, [isOpen]);
+
+  // Lista Global de Responsáveis / Titulares de Contas (Exclusivo: Empresa PJ + Funcionários Ativos do RH em CAIXA ALTA)
   const accountHolders: GlobalAccountHolder[] = useMemo(() => {
     const holders: GlobalAccountHolder[] = [];
 
-    // 1. Empresa Principal (Pessoa Jurídica)
-    const compDoc = companyProfile.cnpjCpf || '38.489.123/0001-45';
-    const compName = companyProfile.corporateName || companyProfile.tradeName || 'Colaça Silagem Ltda';
+    // 1ª Opção Fixa (Empresa): "COLAÇA SILAGEM LTDA (PESSOA JURÍDICA) • 46.097.636/0001-02"
+    const cName = (companyData.name || 'COLAÇA SILAGEM LTDA').toUpperCase().trim();
+    const cCnpj = (companyData.cnpj || '46.097.636/0001-02').trim();
     holders.push({
       id: 'holder_company_colaca',
-      name: compName,
-      tipo: 'Pessoa Jurídica (Empresa)',
-      documento: compDoc,
-      razaoSocial: companyProfile.corporateName || compName,
-      role: 'Empresa Titular',
+      name: cName,
+      tipo: 'PESSOA JURÍDICA',
+      documento: cCnpj,
+      razaoSocial: cName,
+      role: 'EMPRESA TITULAR',
+      displayLabel: `${cName} (PESSOA JURÍDICA) • ${cCnpj}`.toUpperCase(),
     });
 
-    // 2. Sócios e Diretores Principais (Titulares Oficiais do Sistema)
-    holders.push({
-      id: 'holder_audirlei_reolan',
-      name: 'AUDIRLEI REOLAN',
-      tipo: 'Sócio / Diretor de Operações',
-      documento: '045.892.149-80',
-      razaoSocial: 'AUDIRLEI REOLAN - PRODUTOR RURAL',
-      role: 'Motorista / Encarregado',
-    });
+    // Demais Opções (Funcionários Ativos do RH): "NOME DO COLABORADOR (CARGO) • CPF"
+    const currentList = activeEmployees.length > 0 ? activeEmployees : (employees && employees.length > 0 ? employees.filter(e => {
+      const st = String(e.status || '').toUpperCase().trim();
+      return st !== 'INATIVO' && st !== 'DEMITIDO' && st !== 'AFASTADO' && st !== 'DESLIGADO' && e.active !== false && !e.terminationDate;
+    }) : []);
 
-    holders.push({
-      id: 'holder_julia_reolan',
-      name: 'JULIA REOLAN',
-      tipo: 'Sócia / Gestão Financeira',
-      documento: '062.348.919-22',
-      razaoSocial: 'JULIA REOLAN GESTAO FINANCEIRA',
-      role: 'Financeiro',
-    });
+    currentList.forEach((emp) => {
+      const empName = (emp.name || '').toUpperCase().trim();
+      const empRole = (emp.role || 'COLABORADOR').toUpperCase().trim();
+      const empCpf = (emp.cpf || '').trim();
+      const displayLabel = empCpf 
+        ? `${empName} (${empRole}) • ${empCpf}`.toUpperCase()
+        : `${empName} (${empRole})`.toUpperCase();
 
-    // 3. Usuários / Colaboradores cadastrados no Módulo RH
-    if (availableEmployees && availableEmployees.length > 0) {
-      availableEmployees.forEach((emp) => {
-        const isAlready = holders.some(
-          h => h.name.toLowerCase() === emp.name.toLowerCase() || (emp.cpf && h.documento === emp.cpf)
-        );
-        if (!isAlready) {
-          holders.push({
-            id: emp.id,
-            name: emp.name,
-            tipo: `Colaborador RH (${emp.role || 'Geral'})`,
-            documento: emp.cpf || '',
-            razaoSocial: emp.name,
-            role: emp.role || 'Motorista',
-          });
-        }
+      holders.push({
+        id: emp.id,
+        name: empName,
+        tipo: empRole,
+        documento: empCpf,
+        razaoSocial: empName,
+        role: empRole,
+        displayLabel,
       });
-    }
+    });
 
     return holders;
-  }, [companyProfile, availableEmployees]);
+  }, [companyData, activeEmployees, employees]);
 
   // Responsável pela Conta selecionado atualmente
   const selectedResponsavel = useMemo(() => {
     return accountHolders.find(
-      h => (responsavelContaId && h.id === responsavelContaId) || (responsavelContaNome && h.name.toLowerCase() === responsavelContaNome.toLowerCase())
+      h => (responsavelContaId && h.id === responsavelContaId) || 
+           (responsavelContaNome && h.name.toUpperCase() === responsavelContaNome.toUpperCase())
     ) || null;
   }, [accountHolders, responsavelContaId, responsavelContaNome]);
 
@@ -369,12 +454,22 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       const rId = editingAccount.responsavel_conta_id || '';
       const rNome = editingAccount.responsavel_conta_nome || '';
       const rDoc = editingAccount.responsavel_conta_documento || '';
-      if (rId || rNome) {
+      const matched = holders.find(h => 
+        (rId && h.id === rId) || 
+        (rNome && h.name.toUpperCase() === rNome.toUpperCase()) ||
+        (rDoc && h.documento === rDoc)
+      );
+
+      if (matched) {
+        setResponsavelContaId(matched.id);
+        setResponsavelContaNome(matched.name);
+        setResponsavelContaDoc(matched.documento);
+      } else if (rId || rNome) {
         setResponsavelContaId(rId);
-        setResponsavelContaNome(rNome);
+        setResponsavelContaNome(rNome.toUpperCase());
         setResponsavelContaDoc(rDoc);
       } else {
-        const def = holders[1] || holders[0];
+        const def = holders[0];
         setResponsavelContaId(def?.id || '');
         setResponsavelContaNome(def?.name || '');
         setResponsavelContaDoc(def?.documento || '');
@@ -400,13 +495,17 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
       // Cartões Corporativos Vinculados
       if (editingAccount.corporateCards && editingAccount.corporateCards.length > 0) {
-        setCorporateCards(editingAccount.corporateCards.map(card => ({
-          ...card,
-          responsavel_cartao_id: card.responsavel_cartao_id || card.responsibleEmployeeId || '',
-          titular_nome: (card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase(),
-          responsibleEmployeeName: card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN',
-          responsavel_funcao: card.responsavel_funcao || 'Motorista',
-        })));
+        setCorporateCards(editingAccount.corporateCards.map(card => {
+          const emp = holders.find(h => h.id === card.responsibleEmployeeId || h.id === card.responsavel_cartao_id);
+          const tNome = (card.titular_nome || card.responsibleEmployeeName || emp?.name || holders[0]?.name || '').toUpperCase();
+          return {
+            ...card,
+            responsavel_cartao_id: card.responsavel_cartao_id || card.responsibleEmployeeId || '',
+            titular_nome: tNome,
+            responsibleEmployeeName: tNome,
+            responsavel_funcao: (card.responsavel_funcao || emp?.role || 'COLABORADOR').toUpperCase(),
+          };
+        }));
       } else {
         setCorporateCards([]);
       }
@@ -424,7 +523,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       setPixKeyType('cpf');
       setPixKey('');
       setColor('#eab308'); // default yellow for BB
-      const def = holders[1] || holders[0];
+      const def = holders[0];
       setResponsavelContaId(def?.id || '');
       setResponsavelContaNome(def?.name || '');
       setResponsavelContaDoc(def?.documento || '');
@@ -469,9 +568,9 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
   // Manipuladores de Cartões de Crédito Corporativos
   const handleAddCard = () => {
-    const defaultEmp = availableEmployees.find(e => e.name.toLowerCase().includes('audirlei')) || availableEmployees[0];
-    const defaultTitular = defaultEmp?.name || responsavelContaNome || 'AUDIRLEI REOLAN';
-    const defaultRole = defaultEmp?.role || 'Motorista';
+    const defaultEmp = activeEmployees[0];
+    const defaultTitular = (defaultEmp?.name || responsavelContaNome || companyData.name || 'EMPRESA').toUpperCase();
+    const defaultRole = (defaultEmp?.role || 'COLABORADOR').toUpperCase();
     const newCardId = `card_${Date.now()}`;
     const randomEnding = '4520';
     const isSicredi = (bankName || '').toLowerCase().includes('sicredi') || bankCode === '748';
@@ -482,10 +581,10 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       name: `${brandLabel} Final ${randomEnding}`,
       brand,
       last4: String(randomEnding),
-      responsibleEmployeeId: defaultEmp?.id || 'emp_audirlei',
+      responsibleEmployeeId: defaultEmp?.id || 'holder_company_colaca',
       responsibleEmployeeName: defaultTitular,
-      responsavel_cartao_id: defaultEmp?.id || 'emp_audirlei',
-      titular_nome: defaultTitular.toUpperCase(),
+      responsavel_cartao_id: defaultEmp?.id || 'holder_company_colaca',
+      titular_nome: defaultTitular,
       responsavel_funcao: defaultRole,
       totalLimit: 5000,
       usedLimit: 0,
@@ -1348,23 +1447,23 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                               <select
                                 value={card.responsibleEmployeeId}
                                 onChange={(e) => {
-                                  const emp = availableEmployees.find((x) => x.id === e.target.value);
-                                  const empName = emp?.name || '';
-                                  const empRole = emp?.role || 'Motorista';
+                                  const emp = activeEmployees.find((x) => x.id === e.target.value);
+                                  const empName = (emp?.name || '').toUpperCase();
+                                  const empRole = (emp?.role || 'COLABORADOR').toUpperCase();
                                   handleUpdateCard(card.id, {
                                     responsibleEmployeeId: e.target.value,
                                     responsibleEmployeeName: empName,
                                     responsavel_cartao_id: e.target.value,
-                                    titular_nome: empName.toUpperCase(),
+                                    titular_nome: empName,
                                     responsavel_funcao: empRole,
                                   });
                                 }}
                                 className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
                               >
-                                <option value="">-- Selecione o Funcionário Responsável --</option>
-                                {availableEmployees.map((emp) => (
+                                <option value="">-- SELECIONE O FUNCIONÁRIO RESPONSÁVEL --</option>
+                                {activeEmployees.map((emp) => (
                                   <option key={emp.id} value={emp.id}>
-                                    {emp.name} {emp.role ? `(${emp.role})` : ''}
+                                    {(emp.name || '').toUpperCase()} ({String(emp.role || 'COLABORADOR').toUpperCase()}) {emp.cpf ? `• ${emp.cpf}` : ''}
                                   </option>
                                 ))}
                               </select>
