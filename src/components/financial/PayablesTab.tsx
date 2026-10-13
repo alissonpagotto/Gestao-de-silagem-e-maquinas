@@ -101,8 +101,24 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     const list = Array.isArray(expenses) ? expenses.filter(Boolean) : [];
     const seen = new Set<string>();
     const deduped: Expense[] = [];
+    let hasFake = false;
     for (const exp of list) {
       if (!exp || !exp.id) continue;
+
+      // 3. EXPULSÃO DE DADOS FAKES NO CONTAS A PAGAR:
+      // Remove permanentemente qualquer registro cujo fornecedor seja "Fornecedor" ou cujo valor seja estritamente igual a R$ 0,00.
+      const sup = String(exp.supplier || (exp as any).fornecedor || (exp as any).credor || '').trim().toLowerCase();
+      const val = typeof exp.amount === 'number' 
+        ? exp.amount 
+        : (typeof (exp as any).valor === 'number' 
+            ? (exp as any).valor 
+            : parseFloat(String(exp.amount ?? (exp as any).valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
+
+      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || val === 0 || isNaN(val)) {
+        hasFake = true;
+        continue;
+      }
+
       // Trava de ID único e trava de notaId + parcela
       const key = (exp as any).notaId && (exp as any).numero_parcela
         ? `${(exp as any).notaId}_${(exp as any).numero_parcela}`
@@ -111,6 +127,16 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       seen.add(key);
       deduped.push(exp);
     }
+
+    if (hasFake && typeof window !== 'undefined') {
+      try {
+        const cleanedJson = JSON.stringify(deduped);
+        localStorage.setItem('agrocontrol_despesas', cleanedJson);
+        localStorage.setItem('agrocontrol_financeiro', cleanedJson);
+        localStorage.setItem('colaca_silagem_despesas', cleanedJson);
+      } catch {}
+    }
+
     return deduped;
   }, [expenses]);
   const pendingExpenses = safeExpenses.filter((e) => e.status === 'pendente');

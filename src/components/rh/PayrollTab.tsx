@@ -939,16 +939,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       ? internalAbsences 
       : getStoredAbsences();
 
+    const targetEmpObj = employees.find(e => e.id === empId);
     const empAbsences = currentAbsencesList.filter(a => {
-      if (a.employeeId !== empId) return false;
+      const isTargetEmployee = a.employeeId === empId || 
+        (targetEmpObj && a.employeeName && a.employeeName.trim().toLowerCase() === targetEmpObj.name.trim().toLowerCase());
+      if (!isTargetEmployee) return false;
       if (a.status === 'abonada') return false;
       if (a.discountPayroll === false) return false;
       if (a.referenceMonth) {
-        return a.referenceMonth === currentMonthRef;
+        if (a.referenceMonth.trim() === currentMonthRef.trim()) return true;
+        const [mRef, yRef] = currentMonthRef.split('/');
+        if (a.referenceMonth === `${yRef}-${mRef.padStart(2, '0')}`) return true;
       }
       if (a.date) {
-        const [y, m] = a.date.split('-');
-        return `${m}/${y}` === currentMonthRef;
+        const [mRef, yRef] = currentMonthRef.split('/');
+        const mPad = mRef.padStart(2, '0');
+        if (a.date.startsWith(`${yRef}-${mPad}`) || a.date.startsWith(`${yRef}-${Number(mRef)}`)) return true;
+        if (a.date.includes(`/${mPad}/${yRef}`) || a.date.endsWith(`${mPad}/${yRef}`)) return true;
       }
       return false;
     });
@@ -1217,14 +1224,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const currentAbsencesList = (internalAbsences && internalAbsences.length > 0) 
         ? internalAbsences 
         : getStoredAbsences();
+      const targetEmpObj = employees.find(e => e.id === payroll.employeeId);
       const empAbsences = currentAbsencesList.filter(a => {
-        if (a.employeeId !== payroll.employeeId) return false;
+        const isTargetEmployee = a.employeeId === payroll.employeeId || 
+          (targetEmpObj && a.employeeName && a.employeeName.trim().toLowerCase() === targetEmpObj.name.trim().toLowerCase());
+        if (!isTargetEmployee) return false;
         if (a.status === 'abonada') return false;
         if (a.discountPayroll === false) return false;
-        if (a.referenceMonth) return a.referenceMonth === currentMonthRef;
+        if (a.referenceMonth) {
+          if (a.referenceMonth.trim() === currentMonthRef.trim()) return true;
+          const [mRef, yRef] = currentMonthRef.split('/');
+          if (a.referenceMonth === `${yRef}-${mRef.padStart(2, '0')}`) return true;
+        }
         if (a.date) {
-          const [y, m] = a.date.split('-');
-          return `${m}/${y}` === currentMonthRef;
+          const [mRef, yRef] = currentMonthRef.split('/');
+          const mPad = mRef.padStart(2, '0');
+          if (a.date.startsWith(`${yRef}-${mPad}`) || a.date.startsWith(`${yRef}-${Number(mRef)}`)) return true;
+          if (a.date.includes(`/${mPad}/${yRef}`) || a.date.endsWith(`${mPad}/${yRef}`)) return true;
         }
         return false;
       });

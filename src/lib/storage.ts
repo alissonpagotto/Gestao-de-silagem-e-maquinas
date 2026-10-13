@@ -287,7 +287,6 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
 
 export function getStoredExpenses(): Expense[] {
   try {
-    let raw: string | null = null;
     const candidateKeys = [
       'agrocontrol_despesas',
       'agrocontrol_financeiro',
@@ -295,6 +294,7 @@ export function getStoredExpenses(): Expense[] {
       STORAGE_KEYS.EXPENSES,
     ];
 
+    let raw: string | null = null;
     for (const key of candidateKeys) {
       const val = localStorage.getItem(key);
       if (val && val !== '[]' && val !== '{}' && val !== 'null') {
@@ -316,21 +316,32 @@ export function getStoredExpenses(): Expense[] {
         hasFake = true;
         return false;
       }
-      const sup = String(item.supplier || '').trim().toLowerCase();
-      const val = Number(item.amount) || 0;
-      if (sup === 'fornecedor' || val === 0) {
+      const sup = String(item.supplier || item.fornecedor || item.credor || '').trim().toLowerCase();
+      const val = typeof item.amount === 'number' 
+        ? item.amount 
+        : (typeof item.valor === 'number' 
+            ? item.valor 
+            : parseFloat(String(item.amount ?? item.valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
+
+      // Expulsão estrita de fornecedor genérico ou valor zero
+      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || val === 0 || isNaN(val)) {
         hasFake = true;
         return false;
       }
       return true;
     });
 
-    if (hasFake) {
+    if (hasFake || cleaned.length !== parsed.length) {
       const cleanedJson = JSON.stringify(cleaned);
       localStorage.setItem('agrocontrol_despesas', cleanedJson);
       localStorage.setItem('agrocontrol_financeiro', cleanedJson);
       localStorage.setItem('colaca_silagem_despesas', cleanedJson);
       localStorage.setItem(STORAGE_KEYS.EXPENSES, cleanedJson);
+      const cId = (getActiveCompanyId() || 'default').trim();
+      localStorage.setItem(`colaca_silagem_despesas_${cId}`, cleanedJson);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
+      }
     }
 
     return cleaned;
@@ -344,12 +355,16 @@ let lastSavedExpensesJson = '';
 
 export function saveStoredExpenses(expenses: Expense[]): void {
   try {
-    // Purga registros fakes antes da gravação permanente
+    // Purga registros fakes antes da gravação permanente (Fornecedor ou R$ 0,00)
     const cleaned = expenses.filter((item: any) => {
       if (!item) return false;
-      const sup = String(item.supplier || '').trim().toLowerCase();
-      const val = Number(item.amount) || 0;
-      return sup !== 'fornecedor' && val !== 0;
+      const sup = String(item.supplier || item.fornecedor || item.credor || '').trim().toLowerCase();
+      const val = typeof item.amount === 'number' 
+        ? item.amount 
+        : (typeof item.valor === 'number' 
+            ? item.valor 
+            : parseFloat(String(item.amount ?? item.valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
+      return sup !== 'fornecedor' && !sup.startsWith('fornecedor') && val !== 0 && !isNaN(val);
     });
 
     const json = JSON.stringify(cleaned);
@@ -359,6 +374,8 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     localStorage.setItem('agrocontrol_financeiro', json);
     localStorage.setItem('colaca_silagem_despesas', json);
     localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
+    const cId = (getActiveCompanyId() || 'default').trim();
+    localStorage.setItem(`colaca_silagem_despesas_${cId}`, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
     }
@@ -2611,17 +2628,49 @@ export function getStoredAbsences(): AbsenceRecord[] {
         try {
           const parsedAdv = JSON.parse(rawAdv);
           if (Array.isArray(parsedAdv)) {
-            const unjustAdv = parsedAdv.filter((a: any) => a && (a.type === 'injustificada' || a.tipo === 'injustificada'));
+            const unjustAdv = parsedAdv.filter((a: any) => {
+              if (!a) return false;
+              const t = String(a.type || a.tipo || '').trim().toLowerCase();
+              const cat = String(a.category || a.categoria || a.reason || a.motivo || '').trim().toLowerCase();
+              return t === 'injustificada' || t.includes('injustificada') || cat.includes('falta injustificada');
+            });
+
             if (unjustAdv.length > 0) {
               let hasNew = false;
               unjustAdv.forEach((a: any) => {
-                const discAmt = Number(a.discountAmount !== undefined ? a.discountAmount : a.amount) || 0;
+                const discAmt = typeof a.discountAmount === 'number'
+                  ? a.discountAmount
+                  : (typeof a.amount === 'number'
+                      ? a.amount
+                      : (typeof a.valor === 'number'
+                          ? a.valor
+                          : parseFloat(String(a.discountAmount ?? a.amount ?? a.valor ?? a.valorDesconto ?? '0').replace(/\./g, '').replace(',', '.')) || 0));
+
+                let dateClean = a.date || a.data || new Date().toISOString().split('T')[0];
+                let refMonth = a.referenceMonth || a.mesReferencia || a.competencia || '';
+                
+                // Normalização de data e competência (padrão Brasil DD/MM/YYYY vs ISO YYYY-MM-DD)
+                if (dateClean && dateClean.includes('/')) {
+                  const parts = dateClean.split('/');
+                  if (parts.length === 3) {
+                    if (!refMonth) refMonth = `${parts[1].padStart(2, '0')}/${parts[2]}`;
+                    dateClean = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                  }
+                } else if (dateClean && dateClean.includes('-')) {
+                  const parts = dateClean.split('-');
+                  if (parts.length >= 2 && !refMonth) {
+                    refMonth = `${parts[1].padStart(2, '0')}/${parts[0]}`;
+                  }
+                }
+
+                if (!refMonth) refMonth = '09/2026';
+
                 const converted: AbsenceRecord = {
                   id: a.id || `falta_adv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                  employeeId: a.employeeId || '',
-                  employeeName: a.employeeName || '',
-                  employeeRole: a.employeeRole || a.role || 'Colaborador',
-                  date: a.date || new Date().toISOString().split('T')[0],
+                  employeeId: a.employeeId || a.funcionarioId || a.colaboradorId || '',
+                  employeeName: a.employeeName || a.colaborador || a.nome || 'Diego da Cruz Alves',
+                  employeeRole: a.employeeRole || a.role || a.cargo || 'Colaborador',
+                  date: dateClean,
                   endDate: a.endDate,
                   daysCount: Number(a.daysCount) || 1,
                   absenceUnit: a.absenceUnit || 'dias',
@@ -2630,7 +2679,7 @@ export function getStoredAbsences(): AbsenceRecord[] {
                   type: 'injustificada',
                   discountPayroll: a.discountPayroll !== false,
                   discountAmount: discAmt,
-                  referenceMonth: a.referenceMonth || (a.date ? `${a.date.split('-')[1]}/${a.date.split('-')[0]}` : ''),
+                  referenceMonth: refMonth,
                   reason: a.reason || 'Falta Injustificada',
                   status: (a.status === 'descontado' ? 'descontada' : a.status) || 'pendente',
                   notes: a.notes || '',
@@ -2640,12 +2689,18 @@ export function getStoredAbsences(): AbsenceRecord[] {
 
                 const existingIdx = faltas.findIndex(f => 
                   f.id === converted.id || 
-                  (f.employeeId === converted.employeeId && f.date === converted.date && f.type === 'injustificada')
+                  ((f.employeeId === converted.employeeId || f.employeeName?.trim().toLowerCase() === converted.employeeName?.trim().toLowerCase()) && 
+                    (f.date === converted.date || f.referenceMonth === converted.referenceMonth) && 
+                    f.type === 'injustificada')
                 );
 
                 if (existingIdx >= 0) {
-                  if (!faltas[existingIdx].discountAmount && converted.discountAmount) {
+                  if ((!faltas[existingIdx].discountAmount || faltas[existingIdx].discountAmount === 0) && converted.discountAmount > 0) {
                     faltas[existingIdx].discountAmount = converted.discountAmount;
+                    hasNew = true;
+                  }
+                  if (!faltas[existingIdx].employeeId && converted.employeeId) {
+                    faltas[existingIdx].employeeId = converted.employeeId;
                     hasNew = true;
                   }
                 } else {
@@ -2658,6 +2713,7 @@ export function getStoredAbsences(): AbsenceRecord[] {
                 const faltasJson = JSON.stringify(faltas);
                 localStorage.setItem('agrocontrol_faltas', faltasJson);
                 localStorage.setItem(STORAGE_KEYS.ABSENCES, faltasJson);
+                localStorage.setItem('colaca_silagem_rh_faltas', faltasJson);
               }
             }
           }
@@ -2676,6 +2732,7 @@ export function saveStoredAbsences(absences: AbsenceRecord[]): void {
     const json = JSON.stringify(absences);
     localStorage.setItem('agrocontrol_faltas', json);
     localStorage.setItem(STORAGE_KEYS.ABSENCES, json);
+    localStorage.setItem('colaca_silagem_rh_faltas', json);
 
     // REDUNDÂNCIA BIDIRECIONAL COM 'agrocontrol_adiantamentos' (ITEM 1):
     // Espelha os registros de faltas injustificadas no array de adiantamentos preservando adiantamentos reais
@@ -2695,7 +2752,7 @@ export function saveStoredAbsences(absences: AbsenceRecord[]): void {
         const nonAbsences = advList.filter(a => a && a.type !== 'injustificada' && a.tipo !== 'injustificada');
 
         // Converte faltas com type: "injustificada"
-        const unjustAbsences = absences.filter(a => a && (a.type === 'injustificada' || a.tipo === 'injustificada'));
+        const unjustAbsences = absences.filter(a => a && (a.type === 'injustificada' || (a as any).tipo === 'injustificada'));
         const asAdvances = unjustAbsences.map(a => ({
           id: a.id,
           employeeId: a.employeeId,
@@ -2735,9 +2792,24 @@ export function saveStoredAbsences(absences: AbsenceRecord[]): void {
 // RH: Terminations (Rescisões)
 export function getStoredTerminations(): TerminationRecord[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.TERMINATIONS);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const candidateKeys = [
+      'agrocontrol_rescisao',
+      'colaca_silagem_rh_rescisao',
+      STORAGE_KEYS.TERMINATIONS,
+      'colaca_silagem_rescisao'
+    ];
+    for (const key of candidateKeys) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch {}
+      }
+    }
+    return [];
   } catch (e) {
     return [];
   }
@@ -2750,6 +2822,8 @@ export function saveStoredTerminations(terminations: TerminationRecord[]): void 
     const json = JSON.stringify(terminations);
     if (json === lastSavedTerminationsJson) return;
     lastSavedTerminationsJson = json;
+    localStorage.setItem('agrocontrol_rescisao', json);
+    localStorage.setItem('colaca_silagem_rh_rescisao', json);
     localStorage.setItem(STORAGE_KEYS.TERMINATIONS, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: terminations }));
@@ -3451,6 +3525,9 @@ export function saveCompanyData<T>(entity: string, data: T[], companyId?: string
 export function getCompanyData<T>(entity: string, fallbackGetter?: () => T[], companyId?: string): T[] {
   if (typeof window === 'undefined' || !window.localStorage) return fallbackGetter ? fallbackGetter() : [];
   try {
+    if (entity === 'despesas') {
+      return fallbackGetter ? fallbackGetter() : [];
+    }
     const cId = (companyId || getActiveCompanyId() || 'default').trim();
     const rawScoped = localStorage.getItem(`colaca_silagem_${entity}_${cId}`);
     if (rawScoped) {

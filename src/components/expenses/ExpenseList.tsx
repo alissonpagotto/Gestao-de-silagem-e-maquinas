@@ -73,6 +73,17 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     return (expenses || []).filter((exp) => {
       if (!exp) return false;
 
+      // 3. EXPULSÃO DE DADOS FAKES NO CONTAS A PAGAR & DESPESAS:
+      const sup = String(exp.supplier || (exp as any).fornecedor || (exp as any).credor || '').trim().toLowerCase();
+      const val = typeof exp.amount === 'number' 
+        ? exp.amount 
+        : (typeof (exp as any).valor === 'number' 
+            ? (exp as any).valor 
+            : parseFloat(String(exp.amount ?? (exp as any).valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
+      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || val === 0 || isNaN(val)) {
+        return false;
+      }
+
       // Search term
       const matchesSearch = !term ||
         Boolean(exp.description?.toLowerCase().includes(term)) ||

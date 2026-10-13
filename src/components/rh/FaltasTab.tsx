@@ -63,11 +63,125 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [discountFilter, setDiscountFilter] = useState<string>('todos');
 
+  // Função para ler registros de agrocontrol_adiantamentos com type: "injustificada" e espelhar bidirecionalmente
+  const syncFromAdiantamentos = React.useCallback((): AbsenceRecord[] => {
+    try {
+      const storedFaltas = getStoredAbsences();
+      let mergedFaltas = [...storedFaltas];
+      let hasChanges = false;
+
+      const candidateAdvKeys = ['agrocontrol_adiantamentos', 'silagem_facil_clean_v1_advances', 'colaca_silagem_rh_adiantamentos'];
+      for (const advKey of candidateAdvKeys) {
+        const rawAdv = localStorage.getItem(advKey);
+        if (!rawAdv) continue;
+        try {
+          const parsedAdv = JSON.parse(rawAdv);
+          if (Array.isArray(parsedAdv)) {
+            const unjustList = parsedAdv.filter((a: any) => {
+              if (!a) return false;
+              const t = String(a.type || a.tipo || '').trim().toLowerCase();
+              const cat = String(a.category || a.categoria || a.reason || a.motivo || '').trim().toLowerCase();
+              return t === 'injustificada' || t.includes('injustificada') || cat.includes('falta injustificada');
+            });
+
+            if (unjustList.length > 0) {
+              unjustList.forEach((a: any) => {
+                const discAmt = typeof a.discountAmount === 'number'
+                  ? a.discountAmount
+                  : (typeof a.amount === 'number'
+                      ? a.amount
+                      : (typeof a.valor === 'number'
+                          ? a.valor
+                          : parseFloat(String(a.discountAmount ?? a.amount ?? a.valor ?? a.valorDesconto ?? '0').replace(/\./g, '').replace(',', '.')) || 0));
+
+                let dateClean = a.date || a.data || new Date().toISOString().split('T')[0];
+                let refMonth = a.referenceMonth || a.mesReferencia || a.competencia || '';
+                
+                if (dateClean && dateClean.includes('/')) {
+                  const parts = dateClean.split('/');
+                  if (parts.length === 3) {
+                    if (!refMonth) refMonth = `${parts[1].padStart(2, '0')}/${parts[2]}`;
+                    dateClean = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                  }
+                } else if (dateClean && dateClean.includes('-')) {
+                  const parts = dateClean.split('-');
+                  if (parts.length >= 2 && !refMonth) {
+                    refMonth = `${parts[1].padStart(2, '0')}/${parts[0]}`;
+                  }
+                }
+
+                if (!refMonth) refMonth = currentMonthRef || '09/2026';
+
+                // Procura colaborador por ID ou por Nome (Ex: Diego da Cruz Alves)
+                const empName = a.employeeName || a.colaborador || a.nome || 'Diego da Cruz Alves';
+                const matchedEmp = employees.find(e => 
+                  (a.employeeId && e.id === a.employeeId) ||
+                  (e.name && e.name.trim().toLowerCase() === String(empName).trim().toLowerCase())
+                );
+                const finalEmpId = a.employeeId || matchedEmp?.id || `emp_diego_${Date.now()}`;
+                const finalEmpName = matchedEmp?.name || empName;
+                const finalEmpRole = matchedEmp?.role || a.employeeRole || a.role || a.cargo || 'Colaborador';
+
+                const converted: AbsenceRecord = {
+                  id: a.id || `falta_adv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                  employeeId: finalEmpId,
+                  employeeName: finalEmpName,
+                  employeeRole: finalEmpRole,
+                  date: dateClean,
+                  endDate: a.endDate,
+                  daysCount: Number(a.daysCount) || 1,
+                  absenceUnit: a.absenceUnit || 'dias',
+                  absenceHours: a.absenceHours,
+                  calculationMemory: a.calculationMemory || a.notes || 'Falta Injustificada',
+                  type: 'injustificada',
+                  discountPayroll: a.discountPayroll !== false,
+                  discountAmount: discAmt,
+                  referenceMonth: refMonth,
+                  reason: a.reason || 'Falta Injustificada',
+                  status: (a.status === 'descontado' ? 'descontada' : a.status) || 'pendente',
+                  notes: a.notes || '',
+                  createdAt: a.createdAt || new Date().toISOString(),
+                  updatedAt: a.updatedAt || new Date().toISOString(),
+                };
+
+                const existingIdx = mergedFaltas.findIndex(f => 
+                  f.id === converted.id || 
+                  ((f.employeeId === converted.employeeId || f.employeeName?.trim().toLowerCase() === converted.employeeName?.trim().toLowerCase()) &&
+                    (f.date === converted.date || f.referenceMonth === converted.referenceMonth) &&
+                    f.type === 'injustificada')
+                );
+
+                if (existingIdx >= 0) {
+                  if ((!mergedFaltas[existingIdx].discountAmount || mergedFaltas[existingIdx].discountAmount === 0) && converted.discountAmount > 0) {
+                    mergedFaltas[existingIdx] = { ...mergedFaltas[existingIdx], discountAmount: converted.discountAmount };
+                    hasChanges = true;
+                  }
+                  if (!mergedFaltas[existingIdx].employeeId && converted.employeeId) {
+                    mergedFaltas[existingIdx] = { ...mergedFaltas[existingIdx], employeeId: converted.employeeId };
+                    hasChanges = true;
+                  }
+                } else {
+                  mergedFaltas.push(converted);
+                  hasChanges = true;
+                }
+              });
+            }
+          }
+        } catch {}
+      }
+
+      if (hasChanges) {
+        saveStoredAbsences(mergedFaltas);
+      }
+      return mergedFaltas;
+    } catch {
+      return getStoredAbsences();
+    }
+  }, [employees, currentMonthRef]);
+
   // Inicialização reativa imediata: consome agrocontrol_faltas e agrocontrol_adiantamentos (type: "injustificada")
   const [localAbsences, setLocalAbsences] = useState<AbsenceRecord[]>(() => {
-    const stored = getStoredAbsences();
-    if (Array.isArray(stored) && stored.length > 0) return stored;
-    return Array.isArray(absences) ? absences : [];
+    return syncFromAdiantamentos();
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -100,18 +214,19 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   // Escuta alterações de storage para recarregar imediatamente
   useEffect(() => {
     const handleSync = () => {
-      const stored = getStoredAbsences();
-      if (stored.length > 0) {
-        setLocalAbsences(stored);
+      const res = syncFromAdiantamentos();
+      if (res.length > 0) {
+        setLocalAbsences(res);
       }
     };
+    handleSync();
     window.addEventListener('storage', handleSync);
     window.addEventListener('silagem_absences_updated', handleSync);
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('silagem_absences_updated', handleSync);
     };
-  }, []);
+  }, [syncFromAdiantamentos]);
 
   // Trava de segurança para carga inicial única das faltas
   const isAbsencesLoadedRef = useRef<string | null>(null);
@@ -360,6 +475,26 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     setCalculationMemory(res.calculationMemory);
   };
 
+  // Helper de comparação robusta de competência / mês
+  const isMonthMatching = (a: AbsenceRecord, selMonth: string) => {
+    if (!selMonth || selMonth === 'todos') return true;
+    const cleanSel = selMonth.trim();
+    if (a.referenceMonth && a.referenceMonth.trim() === cleanSel) return true;
+    const parts = cleanSel.split('/');
+    if (parts.length === 2) {
+      const [m, y] = parts;
+      const mPad = m.padStart(2, '0');
+      if (a.date) {
+        if (a.date.startsWith(`${y}-${mPad}`) || a.date.startsWith(`${y}-${Number(m)}`)) return true;
+        if (a.date.includes(`/${mPad}/${y}`) || a.date.endsWith(`${mPad}/${y}`)) return true;
+      }
+      if (a.referenceMonth) {
+        if (a.referenceMonth.replace('-', '/') === `${y}/${mPad}` || a.referenceMonth.replace('-', '/') === `${mPad}/${y}`) return true;
+      }
+    }
+    return false;
+  };
+
   // Filtered List usando a array local reativa com state reset
   const activeAbsences = localAbsences;
   const filtered = activeAbsences.filter(a => {
@@ -368,7 +503,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       (a.reason && a.reason.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (a.notes && a.notes.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesMonth = !selectedMonth || a.referenceMonth === selectedMonth || a.date.startsWith(selectedMonth.split('/').reverse().join('-'));
+    const matchesMonth = isMonthMatching(a, selectedMonth);
     const matchesType = typeFilter === 'todos' || a.type === typeFilter;
     const matchesDiscount = 
       discountFilter === 'todos' || 
@@ -381,20 +516,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
   // KPIs for the selected month or total
   const monthAbsences = selectedMonth
-    ? activeAbsences.filter(a => {
-        if (!a) return false;
-        if (a.referenceMonth === selectedMonth) return true;
-        const parts = selectedMonth.split('/');
-        if (parts.length === 2 && a.date && a.date.startsWith(`${parts[1]}-${parts[0]}`)) return true;
-        return false;
-      })
+    ? activeAbsences.filter(a => isMonthMatching(a, selectedMonth))
     : activeAbsences;
   const totalOccurrences = monthAbsences.length;
   const unjustifiedCount = monthAbsences.filter(a => a.type === 'injustificada' || a.type === 'suspensao').length;
   const justifiedCount = monthAbsences.filter(a => a.type === 'justificada').length;
   const totalDiscountAmount = monthAbsences
     .filter(a => a.discountPayroll)
-    .reduce((sum, a) => sum + (a.discountAmount || 0), 0);
+    .reduce((sum, a) => sum + (Number(a.discountAmount) || 0), 0);
 
   const handleOpenModal = (item?: AbsenceRecord) => {
     if (item) {

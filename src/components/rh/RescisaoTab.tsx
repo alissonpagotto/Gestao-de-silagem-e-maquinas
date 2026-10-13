@@ -41,7 +41,8 @@ import {
   saveStoredTerminations,
   getStoredExpenses,
   saveStoredExpenses,
-  getStoredMachineries
+  getStoredMachineries,
+  STORAGE_KEYS
 } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
@@ -95,7 +96,79 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const realtimeChannelRef = useRef<any>(null);
 
   // Histórico de Rescisões persistido
-  const [terminations, setTerminations] = useState<TerminationRecord[]>(() => getStoredTerminations());
+  // Helper de verificação estrita: se a despesa já existir em agrocontrol_despesas
+  const checkIsTerminationInExpenses = (t: TerminationRecord, expList?: Expense[]): boolean => {
+    if (t.status === 'integrado' || Boolean(t.isIntegrated)) return true;
+
+    let allExpenses: Expense[] = expList || [];
+    if (!allExpenses || allExpenses.length === 0) {
+      try {
+        const raw = localStorage.getItem('agrocontrol_despesas') || localStorage.getItem('agrocontrol_financeiro') || localStorage.getItem('colaca_silagem_despesas') || localStorage.getItem(STORAGE_KEYS.EXPENSES);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) allExpenses = parsed;
+        }
+      } catch {}
+    }
+
+    const canonicalId = toValidUUID(t.id);
+    const expectedPayableId = toValidUUID(`cap_rescisao_${canonicalId}`);
+
+    return allExpenses.some((e) => {
+      if (!e) return false;
+      const eId = toValidUUID(e.id);
+      if (e.id === t.id || eId === canonicalId) return true;
+      if (t.financePayableId && (e.id === t.financePayableId || eId === toValidUUID(t.financePayableId))) return true;
+      if (e.id === expectedPayableId || eId === expectedPayableId) return true;
+      if (e.id === `cap_rescisao_${t.id}` || e.id === `rescisao_${t.id}`) return true;
+      if ((e as any).payableId === t.id || (e as any).terminationId === t.id || (e as any).rescisaoId === t.id) return true;
+
+      // Correspondência por colaborador e histórico rescisório
+      const empMatches = (e.employeeId && e.employeeId === t.employeeId) ||
+        (e.supplier && e.supplier.trim().toLowerCase() === t.employeeName?.trim().toLowerCase()) ||
+        (e.employeeName && e.employeeName.trim().toLowerCase() === t.employeeName?.trim().toLowerCase()) ||
+        (e.description && t.employeeName && e.description.toLowerCase().includes(t.employeeName.trim().toLowerCase()));
+
+      if (empMatches) {
+        const desc = String(e.description || '').toLowerCase();
+        const cat = String(e.categoryName || '').toLowerCase();
+        const center = String((e as any).costCenterName || '').toLowerCase();
+        if (desc.includes('rescis') || cat.includes('rescis') || center.includes('rescis') || desc.includes('acerto')) {
+          return true;
+        }
+        const netVal = Number(t.calculation?.netTotal) || 0;
+        const expVal = Number(e.amount) || 0;
+        if (netVal > 0 && Math.abs(netVal - expVal) < 0.1) {
+          return true;
+        }
+      }
+      return false;
+    });
+  };
+
+  // Histórico de Rescisões persistido com trava de integração inicial
+  const [terminations, setTerminations] = useState<TerminationRecord[]>(() => {
+    const stored = getStoredTerminations();
+    let hasLock = false;
+    const locked = stored.map(t => {
+      if (checkIsTerminationInExpenses(t)) {
+        if (t.status === 'rascunho' || !t.isIntegrated) {
+          hasLock = true;
+          return {
+            ...t,
+            status: 'integrado' as const,
+            isIntegrated: true,
+            financePayableId: t.financePayableId || toValidUUID(`cap_rescisao_${toValidUUID(t.id)}`),
+          };
+        }
+      }
+      return t;
+    });
+    if (hasLock) {
+      saveStoredTerminations(locked);
+    }
+    return locked;
+  });
   const terminationsRef = useRef<TerminationRecord[]>(terminations);
   useEffect(() => {
     terminationsRef.current = terminations;
@@ -114,33 +187,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     };
   }, []);
 
-  // Helper de verificação estrita: se a despesa já existir em agrocontrol_despesas
   const isTerminationInExpenses = (t: TerminationRecord): boolean => {
-    if (t.status === 'integrado' || Boolean(t.isIntegrated)) return true;
-    const canonicalId = toValidUUID(t.id);
-    const expectedPayableId = toValidUUID(`cap_rescisao_${canonicalId}`);
-
-    return existingExpenses.some((e) => {
-      if (!e) return false;
-      const eId = toValidUUID(e.id);
-      if (e.id === t.id || eId === canonicalId) return true;
-      if (t.financePayableId && (e.id === t.financePayableId || eId === toValidUUID(t.financePayableId))) return true;
-      if (e.id === expectedPayableId || eId === expectedPayableId) return true;
-
-      // Correspondência por colaborador e histórico rescisório
-      const empMatches = (e.employeeId && e.employeeId === t.employeeId) ||
-        (e.supplier && e.supplier.trim().toLowerCase() === t.employeeName?.trim().toLowerCase()) ||
-        (e.employeeName && e.employeeName.trim().toLowerCase() === t.employeeName?.trim().toLowerCase());
-
-      if (empMatches) {
-        const desc = String(e.description || '').toLowerCase();
-        const cat = String(e.categoryName || '').toLowerCase();
-        if (desc.includes('rescis') || cat.includes('rescis')) {
-          return true;
-        }
-      }
-      return false;
-    });
+    return checkIsTerminationInExpenses(t, existingExpenses);
   };
 
   // Trava automática: Se o 'id' da despesa já existir no array 'agrocontrol_despesas',
@@ -722,20 +770,23 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   // Indicadores de Resumo (KPIs)
   const totalCount = terminations.length;
   const homologadosCount = terminations.filter((t) => t.status === 'homologado').length;
-  const integradosCount = terminations.filter((t) => t.status === 'integrado' || Boolean(t.isIntegrated)).length;
-  const rascunhosCount = terminations.filter((t) => t.status === 'rascunho').length;
+  const integradosCount = terminations.filter((t) => t.status === 'integrado' || Boolean(t.isIntegrated) || isTerminationInExpenses(t)).length;
+  const rascunhosCount = terminations.filter((t) => t.status === 'rascunho' && !t.isIntegrated && !isTerminationInExpenses(t)).length;
   const totalNetLiquido = terminations.reduce((sum, t) => sum + (t.calculation?.netTotal || 0), 0);
 
   // Filtragem e Busca
   const filteredTerminations = useMemo(() => {
     return terminations.filter((item) => {
+      const isIntegrated = item.status === 'integrado' || Boolean(item.isIntegrated) || isTerminationInExpenses(item);
+      const effectiveStatus = isIntegrated ? 'integrado' : item.status;
+
       // Filtro de Status
       if (statusFilter === 'homologado') {
-        if (item.status === 'rascunho') return false;
+        if (effectiveStatus === 'rascunho') return false;
       } else if (statusFilter === 'integrado') {
-        if (item.status !== 'integrado' && !item.isIntegrated) return false;
+        if (effectiveStatus !== 'integrado') return false;
       } else if (statusFilter === 'rascunho') {
-        if (item.status !== 'rascunho') return false;
+        if (effectiveStatus !== 'rascunho') return false;
       }
 
       // Busca por termo
@@ -961,12 +1012,15 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-medium">
-                {filteredTerminations.map((t) => (
+                {filteredTerminations.map((t) => {
+                  const isRowIntegrated = t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t);
+                  const effectiveRowStatus = isRowIntegrated ? 'integrado' : t.status;
+                  return (
                   <tr key={t.id || t.employeeId} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     
                     {/* Status: Integrado / Em Andamento / Homologado */}
                     <td className="py-2.5 px-3 whitespace-nowrap">
-                      {t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t) ? (
+                      {effectiveRowStatus === 'integrado' ? (
                         <span
                           className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
                           title="Lançado e integrado ao Contas a Pagar e DRE"
@@ -974,7 +1028,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                           <CheckCircle2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                           <span>Integrado</span>
                         </span>
-                      ) : t.status === 'rascunho' ? (
+                      ) : effectiveRowStatus === 'rascunho' ? (
                         <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 shadow-2xs">
                           <Clock className="w-3 h-3" />
                           <span>Em Andamento</span>
@@ -1027,7 +1081,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                       <div className="flex items-center justify-center space-x-1.5">
                         
                         {/* 1. Botão de Integração Financeira: Ocultado automaticamente quando a rescisão já estiver integrada */}
-                        {!(t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t)) && (
+                        {!isRowIntegrated && (
                           <button
                             type="button"
                             onClick={() => handleIntegrarRescisaoFinanceiro(t)}
@@ -1092,7 +1146,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     </td>
 
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
