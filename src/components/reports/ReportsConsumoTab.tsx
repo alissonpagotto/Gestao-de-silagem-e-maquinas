@@ -43,16 +43,25 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
 
   // Filtered Fuel Logs (Respeitando dinamicamente filtros de data, veículo e busca)
   const filteredLogs = useMemo(() => {
-    return localLogs.filter(log => {
-      const matchDate = log.date >= startDate && log.date <= endDate;
+    const term = (searchTerm || '').trim().toLowerCase();
+    const selVehicleLower = String(selectedVehicle || '').toLowerCase();
+    return (localLogs || []).filter(log => {
+      if (!log) return false;
+      const matchDate = (!startDate || !endDate) ? true : (log.date >= startDate && log.date <= endDate);
+      const plateOrName = String(log.machineryPlateOrName || (log as any).vehiclePlate || (log as any).vehicleName || '').toLowerCase();
+      const driver = String(log.driverOrOperator || '').toLowerCase();
+      const station = String(log.supplierStation || '').toLowerCase();
+
       const matchSearch = 
-        log.machineryPlateOrName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.driverOrOperator && log.driverOrOperator.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (log.supplierStation && log.supplierStation.toLowerCase().includes(searchTerm.toLowerCase()));
+        !term ||
+        plateOrName.includes(term) ||
+        driver.includes(term) ||
+        station.includes(term);
+
       const matchType = fuelTypeFilter === 'todos' || log.fuelType === fuelTypeFilter;
       const matchVehicle = selectedVehicle === 'todos' || 
         log.machineryId === selectedVehicle || 
-        log.machineryPlateOrName.toLowerCase() === selectedVehicle.toLowerCase();
+        plateOrName === selVehicleLower;
 
       return matchDate && matchSearch && matchType && matchVehicle;
     });

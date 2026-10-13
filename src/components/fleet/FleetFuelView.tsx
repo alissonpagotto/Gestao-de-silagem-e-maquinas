@@ -51,11 +51,18 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
   // Filtered Fuel Logs
   const filteredLogs = useMemo(() => {
-    return localLogs.filter((log) => {
+    const term = (searchTerm || '').trim().toLowerCase();
+    return (localLogs || []).filter((log) => {
+      if (!log) return false;
+      const plateOrName = String(log.machineryPlateOrName || (log as any).vehiclePlate || (log as any).vehicleName || '').toLowerCase();
+      const driver = String(log.driverOrOperator || '').toLowerCase();
+      const station = String(log.supplierStation || '').toLowerCase();
+
       const matchSearch =
-        log.machineryPlateOrName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.driverOrOperator || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.supplierStation || '').toLowerCase().includes(searchTerm.toLowerCase());
+        !term ||
+        plateOrName.includes(term) ||
+        driver.includes(term) ||
+        station.includes(term);
 
       const matchVehicle = selectedVehicle === 'todos' || log.machineryId === selectedVehicle;
       const matchFuelType = selectedFuelType === 'todos' || log.fuelType === selectedFuelType;
@@ -65,8 +72,8 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
   }, [localLogs, searchTerm, selectedVehicle, selectedFuelType]);
 
   // Statistics
-  const totalLiters = filteredLogs.reduce((acc, curr) => acc + curr.liters, 0);
-  const totalCost = filteredLogs.reduce((acc, curr) => acc + curr.totalAmount, 0);
+  const totalLiters = filteredLogs.reduce((acc, curr) => acc + (Number(curr?.liters) || 0), 0);
+  const totalCost = filteredLogs.reduce((acc, curr) => acc + (Number(curr?.totalAmount) || 0), 0);
   const avgPrice = totalLiters > 0 ? totalCost / totalLiters : 0;
 
   return (
@@ -102,7 +109,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
             <Droplets className="w-4 h-4 text-amber-600" />
           </div>
           <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1 font-['Outfit']">
-            {totalLiters.toLocaleString('pt-BR')} <span className="text-sm font-semibold">Litros</span>
+            {(Number(totalLiters) || 0).toLocaleString('pt-BR')} <span className="text-sm font-semibold">Litros</span>
           </div>
           <p className="text-xs text-stone-500 mt-0.5">Volume abastecido no período</p>
         </div>
@@ -211,25 +218,25 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 font-bold text-stone-900 dark:text-stone-100">
-                      {(log.machineryPlateOrName || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim()}
+                      {(String(log.machineryPlateOrName || (log as any).vehiclePlate || (log as any).vehicleName || '')).replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim() || 'Veículo'}
                     </td>
 
                     <td className="py-3.5 px-4">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/50">
-                        {log.fuelType}
+                        {log.fuelType || 'Diesel'}
                       </span>
                     </td>
 
                     <td className="py-3.5 px-4 font-mono font-bold text-stone-900 dark:text-stone-100">
-                      {log.liters.toLocaleString('pt-BR')} L
+                      {(Number(log.liters) || 0).toLocaleString('pt-BR')} L
                     </td>
 
                     <td className="py-3.5 px-4 text-stone-600 dark:text-stone-400">
-                      {formatCurrencyBRL(log.pricePerLiter)}
+                      {formatCurrencyBRL(Number(log.pricePerLiter) || 0)}
                     </td>
 
                     <td className="py-3.5 px-4 font-black text-amber-800 dark:text-amber-300 font-['Outfit']">
-                      {formatCurrencyBRL(log.totalAmount)}
+                      {formatCurrencyBRL(Number(log.totalAmount) || 0)}
                     </td>
 
                     {(() => {

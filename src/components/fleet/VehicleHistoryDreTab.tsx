@@ -1208,13 +1208,13 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                   {vehicleFuelLogs.map((log) => (
                     <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="p-2.5 font-medium whitespace-nowrap">{formatDateBR(log.date)}</td>
-                      <td className="p-2.5">{log.fuelType}</td>
-                      <td className="p-2.5 font-bold text-amber-600">{log.liters.toLocaleString('pt-BR')} L</td>
-                      <td className="p-2.5 font-mono">{log.pricePerLiter ? formatCurrencyBRL(log.pricePerLiter) : '--'}</td>
-                      <td className="p-2.5 font-bold">{formatCurrencyBRL(log.totalAmount)}</td>
+                      <td className="p-2.5">{log.fuelType || 'Diesel'}</td>
+                      <td className="p-2.5 font-bold text-amber-600">{(Number(log.liters) || 0).toLocaleString('pt-BR')} L</td>
+                      <td className="p-2.5 font-mono">{log.pricePerLiter ? formatCurrencyBRL(Number(log.pricePerLiter) || 0) : '--'}</td>
+                      <td className="p-2.5 font-bold">{formatCurrencyBRL(Number(log.totalAmount) || 0)}</td>
                       <td className="p-2.5 font-mono">
-                        {log.currentKm ? `${log.currentKm.toLocaleString('pt-BR')} km` : ''}
-                        {log.currentHourMeter ? `${log.currentHourMeter.toLocaleString('pt-BR')} h` : ''}
+                        {log.currentKm ? `${(Number(log.currentKm) || 0).toLocaleString('pt-BR')} km` : ''}
+                        {log.currentHourMeter ? `${(Number(log.currentHourMeter) || 0).toLocaleString('pt-BR')} h` : ''}
                         {!log.currentKm && !log.currentHourMeter ? (log.currentHourMeterOrKm || '--') : ''}
                       </td>
                       <td className="p-2.5">

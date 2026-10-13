@@ -484,7 +484,7 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-xs text-black dark:text-white">
-                      {log.machineryPlateOrName}
+                      {log.machineryPlateOrName || (log as any).vehiclePlate || (log as any).vehicleName || 'Veículo'}
                     </span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white dark:bg-amber-950/60 text-black dark:text-amber-300 border border-slate-300 dark:border-amber-800 font-black">
                       {log.fuelType}
@@ -531,7 +531,7 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-xs text-black dark:text-white">
-                      {m.machineryPlateOrName}
+                      {m.machineryPlateOrName || (m as any).vehiclePlate || (m as any).vehicleName || 'Veículo'}
                     </span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white dark:bg-indigo-950/60 text-black dark:text-indigo-300 border border-slate-300 dark:border-indigo-800 font-black">
                       {m.serviceCategory}

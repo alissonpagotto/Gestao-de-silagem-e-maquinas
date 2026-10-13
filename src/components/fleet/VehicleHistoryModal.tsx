@@ -1091,7 +1091,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                     Histórico de Abastecimentos ({vehicleFuelLogs.length})
                   </h3>
                   <p className="text-xs text-stone-500">
-                    Consumo total: {vehicleFuelLogs.reduce((a, c) => a + c.liters, 0).toLocaleString('pt-BR')} Litros
+                    Consumo total: {vehicleFuelLogs.reduce((a, c) => a + (Number(c?.liters) || 0), 0).toLocaleString('pt-BR')} Litros
                   </p>
                 </div>
                 {onNewFuel && (
