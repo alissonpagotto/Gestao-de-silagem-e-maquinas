@@ -815,7 +815,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                         </tr>
                       ) : (
                         filteredOrders.map((order) => (
-                          <tr key={order.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                          <tr key={order.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                             
                             {/* Pedido # */}
                             <td className="py-3 px-3.5">
@@ -1128,7 +1128,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                       </tr>
                     ) : (
                       vehicleFuelLogs.map(log => (
-                        <tr key={log.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                        <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                           <td className="py-2.5 px-3.5 whitespace-nowrap">{formatDateBR(log.date)}</td>
                           <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">{log.fuelType}</td>
                           <td className="py-2.5 px-3.5 font-mono">{log.liters} L</td>
@@ -1200,7 +1200,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                       </tr>
                     ) : (
                       vehicleMaintenanceLogs.map(log => (
-                        <tr key={log.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                        <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                           <td className="py-2.5 px-3.5 whitespace-nowrap">{formatDateBR(log.date)}</td>
                           <td className="py-2.5 px-3.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
@@ -1295,7 +1295,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                       </tr>
                     ) : (
                       driverExpenses.map(exp => (
-                        <tr key={exp.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                        <tr key={exp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                           <td className="py-2.5 px-3.5 whitespace-nowrap">{formatDateBR(exp.dueDate || exp.paymentDate)}</td>
                           <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">{exp.employeeName || exp.supplier}</td>
                           <td className="py-2.5 px-3.5">

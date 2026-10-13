@@ -1499,7 +1499,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                     return (
                       <tr 
                         key={a.id}
-                        className="hover:bg-stone-50/90 dark:hover:bg-stone-800/50 transition-colors"
+                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800"
                       >
                         {/* 1ª Coluna: Nº Agendamento */}
                         <td className="py-3 px-3.5 align-middle whitespace-nowrap">

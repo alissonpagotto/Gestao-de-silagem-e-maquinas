@@ -1030,7 +1030,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 {items.map((it, idx) => (
                   <tr 
                     key={it.id} 
-                    className="hover:bg-sky-50/80 dark:hover:bg-sky-950/30 transition bg-sky-50/30 dark:bg-stone-900/60"
+                    className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-sky-100/70 dark:hover:bg-sky-950/40 transition border-b border-slate-200 dark:border-stone-800"
                   >
                     <td className="py-1 px-2 text-center font-mono text-[10px] text-slate-500">
                       {String(idx + 1).padStart(2, '0')}
@@ -1359,7 +1359,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-semibold text-[11px]">
                     {parcelas.map(p => (
-                      <tr key={p.numero}>
+                      <tr key={p.numero} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="py-0.5 px-2 text-slate-700 dark:text-stone-300">
                           {p.numero}ª Parcela
                         </td>

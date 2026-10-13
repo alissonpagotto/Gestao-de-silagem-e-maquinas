@@ -418,7 +418,7 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
                   const calcIpva = v.ipvaTotalAmount || (v.ipvaBaseValue && rate ? (v.ipvaBaseValue * (rate / 100)) : 0);
 
                   return (
-                    <tr key={v.id} className="hover:bg-blue-50/40 dark:hover:bg-stone-800/40 transition">
+                    <tr key={v.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-2 px-3 text-center font-black font-mono text-stone-900 dark:text-stone-100">
                         {v.fleetNumber ? (
                           <span className="px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700">

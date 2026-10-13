@@ -2643,12 +2643,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                           {/* LINHA PRINCIPAL DO PEDIDO FECHADO (CLICÁVEL PARA EXPANDIR) */}
                           <tr
                             onClick={() => handleToggleExpandLote(grupo.loteKey)}
-                            className={`cursor-pointer transition select-none ${
+                            className={`cursor-pointer transition select-none border-b border-slate-200 dark:border-stone-800 ${
                               isEditingThisBatch
                                 ? 'bg-amber-50/90 dark:bg-amber-950/40'
                                 : isExpanded
                                   ? 'bg-zinc-50 dark:bg-stone-800/60'
-                                  : 'hover:bg-zinc-50/80 dark:hover:bg-stone-800/40'
+                                  : 'even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800'
                             }`}
                           >
                             {/* 1. Data e Número do Pedido (#1024 + código do lote) */}
@@ -3536,7 +3536,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                         return (
                           <tr
                             key={item.id}
-                            className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/40 transition"
+                            className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800"
                           >
                             <td className="py-3 px-3 font-mono font-black text-zinc-800 dark:text-stone-200">
                               {item.codigo_item_ferramenta}

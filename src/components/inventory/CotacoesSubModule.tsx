@@ -303,7 +303,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
                 : null;
 
               return (
-                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
+                <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                   {/* CÓDIGO & DESCRIÇÃO DO PRODUTO (Tratado em UPPERCASE) */}
                   <td className="py-1 px-3 font-bold text-slate-900 dark:text-white uppercase">
                     <span className="font-mono text-slate-500 mr-1.5 text-[10px]">

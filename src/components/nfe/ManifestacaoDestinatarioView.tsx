@@ -719,7 +719,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
                     <tr 
                       key={n.id}
                       onClick={() => handleOpenDetailModal(n)}
-                      className="hover:bg-slate-50 dark:hover:bg-stone-850/60 transition cursor-pointer group"
+                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition cursor-pointer group border-b border-slate-200 dark:border-stone-800"
                     >
                       {/* Nº NF-E */}
                       <td className="py-1 px-2.5 whitespace-nowrap font-bold text-slate-900 dark:text-white uppercase">
@@ -1030,7 +1030,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-stone-800 uppercase font-medium">
                         {selectedNota.itens.map((it, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-stone-850">
+                          <tr key={idx} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                             <td className="p-2 font-mono font-bold">{it.codigo}</td>
                             <td className="p-2 font-bold">{it.descricao}</td>
                             <td className="p-2 font-mono text-[10px]">{it.ncm}</td>

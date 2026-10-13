@@ -665,7 +665,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                     return (
                       <tr
                         key={driver.id}
-                        className="hover:bg-stone-50/80 dark:hover:bg-stone-800/30 transition group"
+                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition group border-b border-slate-200 dark:border-stone-800"
                       >
                         {/* Motorista / Cargo */}
                         <td className="py-1 px-3">

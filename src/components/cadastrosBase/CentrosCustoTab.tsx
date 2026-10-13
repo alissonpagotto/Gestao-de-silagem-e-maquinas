@@ -247,7 +247,7 @@ export const CentrosCustoTab: React.FC = () => {
                 filteredCentros.map((centro) => {
                   const isAtivo = centro.active !== false;
                   return (
-                    <tr key={centro.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
+                    <tr key={centro.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white whitespace-nowrap uppercase">
                         <div className="flex items-center space-x-2">
                           <div className="p-1 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 shrink-0">

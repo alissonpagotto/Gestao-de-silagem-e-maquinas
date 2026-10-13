@@ -753,7 +753,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                     : (effectiveCost > 0 && curPromoMargin !== '' ? Math.round(effectiveCost * (1 + Number(curPromoMargin) / 100) * 100) / 100 : '');
 
                   return (
-                    <tr key={item.id} className="hover:bg-blue-300/30 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                    <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
                       {/* 1. ITEM & LOCAL (Achatamento em linha única contínua com whitespace-nowrap) */}
                       <td className="py-1 px-2.5 align-middle whitespace-nowrap">
                         <div className="flex items-center space-x-1.5 whitespace-nowrap">
@@ -985,7 +985,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               {categorySummary.map(([catName, data]) => {
                 const percent = totalInventoryValue > 0 ? (data.totalValue / totalInventoryValue) * 100 : 0;
                 return (
-                  <tr key={catName} className="hover:bg-zinc-50 dark:hover:bg-stone-800/50 transition">
+                  <tr key={catName} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-2.5 px-3 font-bold text-zinc-900 dark:text-white flex items-center space-x-2">
                       {getCategoryIcon(catName)}
                       <span>{catName}</span>
@@ -1059,7 +1059,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   const estimatedReorderCost = deficit * unitCost;
 
                   return (
-                    <tr key={item.id} className="hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition">
+                    <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-2.5 px-3 font-bold text-zinc-900 dark:text-white">
                         {item.nome_comercial || item.name}
                       </td>

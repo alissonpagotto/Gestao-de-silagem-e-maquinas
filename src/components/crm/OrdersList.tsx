@@ -103,7 +103,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             </thead>
             <tbody className="divide-y divide-stone-100 font-medium">
               {filteredOrders.map((ord) => (
-                <tr key={ord.id} className="hover:bg-stone-50">
+                <tr key={ord.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
                   <td className="py-1.5 px-3">
                     <div className="font-bold text-stone-900 leading-snug">{ord.clientName}</div>
                     <div className="text-[10px] text-stone-500">{ord.farmName}</div>

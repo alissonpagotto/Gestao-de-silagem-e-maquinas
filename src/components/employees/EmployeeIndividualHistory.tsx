@@ -516,7 +516,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                       const diff = rec.newSalary - rec.previousSalary;
                       const pct = rec.previousSalary > 0 ? ((diff / rec.previousSalary) * 100).toFixed(1) : '0';
                       return (
-                        <tr key={`${rec.id || 'sal'}_${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={`${rec.id || 'sal'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200">
                           <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap">
                             {formatDateBR(rec.date)}
                           </td>
@@ -600,7 +600,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {employeeVacations.map((v, idx) => (
-                      <tr key={`${v.id || 'vac'}_${idx}`} className="hover:bg-slate-50/80">
+                      <tr key={`${v.id || 'vac'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200">
                         <td className="py-2 px-2.5 font-bold text-slate-800 whitespace-nowrap">
                           {v.acquisitionPeriodStart && v.acquisitionPeriodEnd ? (
                             `${formatDateBR(v.acquisitionPeriodStart)} até ${formatDateBR(v.acquisitionPeriodEnd)}`
@@ -679,7 +679,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {employeeCertificates.map((c, idx) => (
-                      <tr key={`${c.id || 'cert'}_${idx}`} className="hover:bg-slate-50/80">
+                      <tr key={`${c.id || 'cert'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200">
                         <td className="py-2 px-2.5 font-bold text-slate-800 whitespace-nowrap">
                           {formatDateBR(c.startDate)} {c.endDate ? `até ${formatDateBR(c.endDate)}` : ''}
                         </td>
@@ -753,7 +753,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {employeeAbsences.map((a, idx) => (
-                      <tr key={`${a.id || 'abs'}_${idx}`} className="hover:bg-slate-50/80">
+                      <tr key={`${a.id || 'abs'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200">
                         <td className="py-2 px-2.5 font-bold text-slate-800 whitespace-nowrap">
                           {formatDateBR(a.date)}
                         </td>
@@ -830,7 +830,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {employeeAdvances.map((adv, idx) => (
-                      <tr key={`${adv.id || 'adv'}_${idx}`} className="hover:bg-slate-50/80">
+                      <tr key={`${adv.id || 'adv'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200">
                         <td className="py-2 px-2.5 font-bold text-slate-800 whitespace-nowrap">
                           {formatDateBR(adv.date)}
                         </td>

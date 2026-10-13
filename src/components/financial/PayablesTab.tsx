@@ -419,7 +419,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                   const isOverdue = !isPaid && dueDateVal && dueDateVal < todayStr;
 
                   return (
-                    <tr key={exp.id} className="hover:bg-slate-50 transition whitespace-nowrap">
+                    <tr key={exp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
                       {/* Vencimento com Identificação de Atraso */}
                       <td className="py-1 px-2.5 font-bold text-black whitespace-nowrap text-xs">
                         <div className="flex items-center space-x-1.5 font-mono">

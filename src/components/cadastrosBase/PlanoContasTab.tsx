@@ -384,7 +384,7 @@ export const PlanoContasTab: React.FC = () => {
                     const isReceita = cat.tipo === 'receita';
                     const isAtivo = cat.ativo !== false;
                     return (
-                      <tr key={cat.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
+                      <tr key={cat.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="py-1.5 px-3 font-mono font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap uppercase">
                           {cat.codigo}
                         </td>
@@ -468,7 +468,7 @@ export const PlanoContasTab: React.FC = () => {
                   filteredFormas.map((forma) => {
                     const isAtivo = forma.ativo !== false;
                     return (
-                      <tr key={forma.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
+                      <tr key={forma.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="py-1.5 px-3 font-mono font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap uppercase">
                           {forma.codigo}
                         </td>

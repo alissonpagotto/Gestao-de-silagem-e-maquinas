@@ -504,7 +504,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                     <tr 
                       key={m.id}
                       onClick={() => handleOpenViewModal(m)}
-                      className="hover:bg-slate-50 dark:hover:bg-stone-850/60 transition cursor-pointer group"
+                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition cursor-pointer group border-b border-slate-200 dark:border-stone-800"
                     >
                       {/* Nº / Série */}
                       <td className="py-1 px-2.5 whitespace-nowrap font-bold text-slate-900 dark:text-white uppercase">
@@ -840,7 +840,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-stone-800 uppercase font-medium">
                           {selectedMdfe.documentosVinculados.map((doc, i) => (
-                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-stone-850">
+                            <tr key={i} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                               <td className="p-2 font-bold">{doc.tipo}</td>
                               <td className="p-2 font-mono">{doc.numero}</td>
                               <td className="p-2 font-mono text-[10px] text-slate-500">{doc.chave}</td>

@@ -711,7 +711,7 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
                       const isEntry = m.type === 'entrada';
 
                       return (
-                        <tr key={m.id} className="hover:bg-stone-50/80 transition-colors">
+                        <tr key={m.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200">
                           {/* Data */}
                           <td className="py-3 px-3.5 font-bold font-mono text-stone-800 whitespace-nowrap">
                             {m.date ? formatDateBR(m.date) : '—'}

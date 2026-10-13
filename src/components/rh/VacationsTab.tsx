@@ -2809,7 +2809,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 filteredRows.map((row) => {
                   const vac = row.vacationRecord;
                   return (
-                    <tr key={row.rowKey} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
+                    <tr key={row.rowKey} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       {/* 1. Colaborador (Linha Única Compacta: Avatar Local + Nome + Cargo + Adm + DRE) */}
                       <td className="py-1 px-3 whitespace-nowrap">
                         <div className="flex items-center space-x-2">

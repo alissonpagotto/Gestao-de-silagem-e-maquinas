@@ -1159,7 +1159,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 </tr>
               ) : (
                 filteredDocuments.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/60 transition">
+                  <tr key={doc.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-1 px-2 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {doc.number}
                     </td>
@@ -1538,7 +1538,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         </tr>
                       ) : (
                         formItems.map((item, idx) => (
-                          <tr key={`${item.id || 'form_item'}_${idx}`} className="hover:bg-slate-50">
+                          <tr key={`${item.id || 'form_item'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
                             <td className="py-1 px-2 text-[10px] font-bold text-slate-500">{idx + 1}</td>
                             <td className="py-1 px-2 font-bold">{item.description}</td>
                             <td className="py-1 px-2 text-center font-bold">{item.quantity}</td>
@@ -1788,7 +1788,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {viewingDoc.items.map((it, idx) => (
-                      <tr key={`${it.id || 'view_item'}_${idx}`}>
+                      <tr key={`${it.id || 'view_item'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
                         <td className="py-1 px-2 font-bold">{it.description}</td>
                         <td className="py-1 px-2 text-center">{it.quantity}</td>
                         <td className="py-1 px-2 text-center text-[10px]">{it.unit}</td>

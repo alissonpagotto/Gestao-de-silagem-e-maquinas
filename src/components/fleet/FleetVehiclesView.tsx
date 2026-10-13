@@ -859,7 +859,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     const categoryTag = getVehicleCategoryTag(vehicle);
 
                     return (
-                      <tr key={vehicle.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                      <tr key={vehicle.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         
                         {/* Identificação / Placa / Nº Série */}
                         <td className="py-1 px-2 xl:px-2.5 align-top">

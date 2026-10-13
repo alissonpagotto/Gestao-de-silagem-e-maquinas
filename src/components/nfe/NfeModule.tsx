@@ -6076,7 +6076,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </thead>
                           <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100">
                             {parsedData.items.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-sky-50/50 dark:hover:bg-stone-800/30 transition-colors">
+                              <tr key={idx} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800">
                                 {/* CÓD & NCM (Área Verde - Super Enxuta) */}
                                 <td className="py-0.5 px-1 font-mono text-black text-[9px] text-center align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-10">
                                   <div className="font-bold text-black dark:text-stone-100 truncate" title={item.code || '-'}>
@@ -6631,7 +6631,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           }
                         }
                       }}
-                      className="hover:bg-sky-50/60 dark:hover:bg-stone-800/80 cursor-pointer transition group whitespace-nowrap"
+                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 cursor-pointer transition group whitespace-nowrap border-b border-slate-200 dark:border-stone-800"
                       title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
                     >
                       <td className="py-1 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap">
@@ -8126,7 +8126,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             </thead>
                             <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">
                               {manualDocItems.map((item, itemIdx) => (
-                                <tr key={`${item.id || 'manual_item'}_${itemIdx}`} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                                <tr key={`${item.id || 'manual_item'}_${itemIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
                                   <td className="px-3 py-1 whitespace-nowrap">
                                     <div className="flex items-center space-x-2 whitespace-nowrap">
                                       <span className="font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap" title={item.descricao}>

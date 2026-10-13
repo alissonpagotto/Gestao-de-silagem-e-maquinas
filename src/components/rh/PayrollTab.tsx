@@ -2308,10 +2308,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 <th className="py-2 px-3 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900">
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
+                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-2 px-3">
                       {item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated) ? (
                         <span
@@ -2831,7 +2831,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           <tbody className="divide-y divide-stone-200/70 bg-white">
                             {commissionItems.length > 0 ? (
                               commissionItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-blue-50/40 transition">
+                                <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
                                   <td className="py-1 px-1.5 font-medium text-stone-900">
                                     <div className="flex items-center space-x-1">
                                       <span className="truncate max-w-[130px] text-[9px]">{item.description}</span>
@@ -3215,7 +3215,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           <tbody className="divide-y divide-stone-200/70 bg-white">
                             {deductionItems.length > 0 ? (
                               deductionItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-rose-50/40 transition">
+                                <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
                                   <td className="py-1 px-1.5 font-medium text-stone-900">
                                     {(() => {
                                       const isFalta = item.type === 'Falta / Atraso' || item.description?.toLowerCase().includes('falta') || item.description?.toLowerCase().includes('dias anteriores');

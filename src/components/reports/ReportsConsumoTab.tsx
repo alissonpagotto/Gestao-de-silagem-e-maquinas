@@ -339,7 +339,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                   const dualEff = formatDualFuelLogEfficiency(item, vehicle);
 
                   return (
-                    <tr key={item.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                    <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-600 dark:text-stone-400">
                         {formatDateBR(item.date)}
                       </td>

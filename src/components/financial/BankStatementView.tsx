@@ -433,7 +433,7 @@ export const BankStatementView: React.FC<BankStatementViewProps> = ({
             <tbody className="divide-y divide-slate-200">
               {filteredMovements.length > 0 ? (
                 filteredMovements.map((mov) => (
-                  <tr key={mov.id} className="hover:bg-slate-50 transition">
+                  <tr key={mov.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-2.5 px-3 font-bold text-black whitespace-nowrap text-xs">
                       {formatDateBR(mov.date)}
                     </td>

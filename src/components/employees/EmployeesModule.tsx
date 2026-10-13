@@ -2902,7 +2902,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       return (
                         <tr
                           key={emp.id}
-                          className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap"
+                          className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800"
                         >
                           <td className="py-1 px-3 align-middle whitespace-nowrap">
                             <div className="flex items-center space-x-2.5 whitespace-nowrap">
@@ -3193,7 +3193,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               ) : displayedEmployees.map((emp) => {
                 const vacAlert = vacationAlertsByEmployeeId[emp.id];
                 return (
-                  <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition whitespace-nowrap">
+                  <tr key={emp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
                   <td className="py-1 px-3 align-middle whitespace-nowrap">
                     <div className="flex items-center space-x-2.5 whitespace-nowrap">
                       <EmployeeAvatar

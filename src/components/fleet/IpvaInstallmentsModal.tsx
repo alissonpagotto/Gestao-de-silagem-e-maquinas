@@ -468,7 +468,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                     return (
                       <tr 
                         key={inst.id} 
-                        className="hover:bg-zinc-50 dark:hover:bg-stone-700/50 transition-colors"
+                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800"
                       >
                         {/* 1. Coluna Número: Indicador sequencial da parcela (ex: 01, 02, 03...) */}
                         <td className="py-2.5 px-3 text-center">

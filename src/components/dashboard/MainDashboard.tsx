@@ -937,7 +937,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                           const margem = season.faturamento - totalCusto;
                           const percMargem = season.faturamento > 0 ? (margem / season.faturamento) * 100 : 0;
                           return (
-                            <tr key={season.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
+                            <tr key={season.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                               <td className="py-1 px-2 font-bold text-zinc-900 dark:text-white whitespace-nowrap">
                                 {season.nome}
                               </td>

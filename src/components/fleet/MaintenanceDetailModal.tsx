@@ -340,7 +340,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {log.partsItems.map((item, idx) => (
-                      <tr key={idx}>
+                      <tr key={idx} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="py-2 px-3">
                           {item.origin === 'almoxarifado_interno' ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800">Almoxarifado</span>

@@ -1121,11 +1121,23 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
 }
 
 html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table) tbody {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
+}
+
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table):not(.print-table) tbody tr:not(.no-zebra):not([style*="background"]):nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table):not(.print-table) tbody tr:not(.no-zebra):not([style*="background"]):nth-child(odd) {
+  background-color: #ffffff;
+}
+
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table):not(.print-table) tbody tr:not(.no-zebra):hover {
+  background-color: rgba(226, 232, 240, 0.6);
 }
 
 html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table) tbody tr {
-  border-color: #f4f4f5 !important;     /* zinc-100 */
+  border-bottom: 1px solid #e2e8f0;
 }
 
 /* ==========================================================================

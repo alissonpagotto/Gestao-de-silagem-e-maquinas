@@ -1248,7 +1248,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       </tr>
                     ) : (
                       pendingTires.map((t, idx) => (
-                        <tr key={`${t.id || 'pending_tire'}_${idx}`} className="hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition">
+                        <tr key={`${t.id || 'pending_tire'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                           <td className="py-2 px-3 text-center font-bold text-stone-500">
                             {idx + 1}
                           </td>
@@ -1508,7 +1508,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
 
                       return (
-                        <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition uppercase whitespace-nowrap">
+                        <tr key={order.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition uppercase whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
                           <td className="py-1 px-2.5 font-mono font-black text-amber-700 dark:text-amber-400 whitespace-nowrap">
                             {order.orderNumber}
                           </td>
@@ -1790,7 +1790,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {selectedOrderForView.tires.map((t, idx) => (
-                      <tr key={`${t.id || 'view_tire'}_${idx}`} className="hover:bg-stone-50 dark:hover:bg-stone-800/40">
+                      <tr key={`${t.id || 'view_tire'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="py-2 px-2.5 text-center font-bold text-stone-400">{idx + 1}</td>
                         <td className="py-2 px-2.5 font-mono font-black text-stone-900 dark:text-stone-100">{t.fireNumber}</td>
                         <td className="py-2 px-2.5 font-semibold text-stone-800 dark:text-stone-200">{t.brand} {t.model || ''}</td>

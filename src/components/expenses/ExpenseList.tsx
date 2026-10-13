@@ -469,7 +469,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               </tr>
             ) : (
               filteredExpenses.map((exp) => (
-                <tr key={exp.id} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition-colors">
+                <tr key={exp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800">
                   
                   {/* Description & Supplier */}
                   <td className="py-1.5 px-3 max-w-xs">

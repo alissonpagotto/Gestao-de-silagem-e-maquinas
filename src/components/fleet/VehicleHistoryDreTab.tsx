@@ -813,7 +813,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {vehicleFuelLogs.slice(0, 5).map((log) => (
-                      <tr key={log.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50">
+                      <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="p-2.5 font-medium">{formatDateBR(log.date)}</td>
                         <td className="p-2.5">{log.fuelType}</td>
                         <td className="p-2.5 font-bold text-amber-600">{log.liters.toLocaleString('pt-BR')} L</td>
@@ -1140,7 +1140,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {vehicleDriverExpenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50">
+                    <tr key={exp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="p-2.5 font-medium whitespace-nowrap">{formatDateBR(exp.dueDate || exp.paymentDate || exp.createdAt)}</td>
                       <td className="p-2.5 font-bold text-stone-800 dark:text-stone-200">{exp.employeeName || exp.supplier || '--'}</td>
                       <td className="p-2.5">
@@ -1206,7 +1206,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {vehicleFuelLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50">
+                    <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="p-2.5 font-medium whitespace-nowrap">{formatDateBR(log.date)}</td>
                       <td className="p-2.5">{log.fuelType}</td>
                       <td className="p-2.5 font-bold text-amber-600">{log.liters.toLocaleString('pt-BR')} L</td>
@@ -1275,7 +1275,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {vehicleMaintenanceLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50">
+                    <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="p-2.5 font-medium whitespace-nowrap">{formatDateBR(log.date)}</td>
                       <td className="p-2.5 font-semibold text-stone-800 dark:text-stone-200">
                         {log.serviceCategory || log.description}

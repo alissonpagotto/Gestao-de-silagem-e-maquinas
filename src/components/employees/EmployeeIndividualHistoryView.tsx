@@ -609,7 +609,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
                     const percent = rec.salarioAnterior > 0 ? ((diff / rec.salarioAnterior) * 100).toFixed(1) : '0';
 
                     return (
-                      <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/60">
+                      <tr key={rec.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                         <td className="py-1 px-2 font-mono whitespace-nowrap">{formatDateBR(rec.data)}</td>
                         <td className="py-1 px-2 whitespace-nowrap font-bold">
                           <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300 text-[9px]">
@@ -651,7 +651,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-800 uppercase font-medium">
                   {folhasHistorico.map(f => (
-                    <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/60">
+                    <tr key={f.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-1 px-2 font-black text-slate-900 dark:text-white whitespace-nowrap">{f.competencia} ({f.mesAno})</td>
                       <td className="py-1 px-2 text-right font-mono whitespace-nowrap">{formatCurrencyBRL(f.salarioBase)}</td>
                       <td className="py-1 px-2 text-right font-mono whitespace-nowrap text-sky-700">{formatCurrencyBRL(f.horasExtras)}</td>
@@ -709,7 +709,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-800 uppercase font-medium">
                   {ocorrenciasPonto.map(oc => (
-                    <tr key={oc.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/60">
+                    <tr key={oc.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-1 px-2 font-mono whitespace-nowrap">{formatDateBR(oc.data)}</td>
                       <td className="py-1 px-2 font-bold whitespace-nowrap">
                         <span className={`px-1.5 py-0.2 rounded text-[9px] ${
@@ -774,7 +774,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-800 uppercase font-medium">
                   {valesList.map(v => (
-                    <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/60">
+                    <tr key={v.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-1 px-2 font-mono whitespace-nowrap">{formatDateBR(v.data)}</td>
                       <td className="py-1 px-2 font-bold whitespace-nowrap">
                         <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 text-[9px]">

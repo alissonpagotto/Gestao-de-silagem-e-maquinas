@@ -1064,7 +1064,7 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
                   {installments.map((inst) => (
                     <tr 
                       key={inst.id} 
-                      className="hover:bg-white/90 transition-colors"
+                      className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition-colors border-b border-slate-200"
                     >
                       {/* 1. Coluna Nº: Indicador sequencial da parcela (ex: 01, 02, 03...) */}
                       <td className="py-2.5 px-3 text-center">

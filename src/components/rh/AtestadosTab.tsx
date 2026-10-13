@@ -357,7 +357,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
             <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((cert) => (
-                  <tr key={cert.id} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
+                  <tr key={cert.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         cert.status === 'homologado'

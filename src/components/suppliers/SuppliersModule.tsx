@@ -247,7 +247,7 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
               </tr>
             ) : (
               filteredSuppliers.map((sup) => (
-                <tr key={sup.id} className="hover:bg-slate-100/70 dark:hover:bg-stone-800/50 transition">
+                <tr key={sup.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                   {/* Coluna 1: Nome Principal + Fantasia + Tag em Linha Única Horizontal */}
                   <td className="py-1 px-2.5 align-middle">
                     <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">

@@ -892,9 +892,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   <th className="py-2.5 px-3 text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900 font-medium">
+              <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-medium">
                 {filteredTerminations.map((t) => (
-                  <tr key={t.id || t.employeeId} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
+                  <tr key={t.id || t.employeeId} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     
                     {/* Status: Integrado / Em Andamento / Homologado */}
                     <td className="py-2.5 px-3 whitespace-nowrap">

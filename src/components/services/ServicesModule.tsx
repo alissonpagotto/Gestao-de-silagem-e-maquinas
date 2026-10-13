@@ -685,7 +685,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                           return (
                             <tr 
                               key={service.id} 
-                              className="bg-white dark:bg-stone-900 hover:bg-slate-50 dark:hover:bg-stone-800/60 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
+                              className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
                             >
                               {/* Nº */}
                               <td className="px-3 py-1 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold whitespace-nowrap">

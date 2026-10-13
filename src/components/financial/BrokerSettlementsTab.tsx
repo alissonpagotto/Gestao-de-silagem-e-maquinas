@@ -798,8 +798,8 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                   return (
                     <tr 
                       key={item.id} 
-                      className={`hover:bg-sky-50/40 dark:hover:bg-slate-800/40 transition ${
-                        isPaid ? 'bg-white' : 'bg-amber-50/20'
+                      className={`hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800 ${
+                        isPaid ? 'even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900' : 'bg-amber-50/30'
                       }`}
                     >
                       {/* Data / Mês */}

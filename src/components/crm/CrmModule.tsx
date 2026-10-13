@@ -436,7 +436,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                 </tr>
               ) : (
                 filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-slate-100/70 dark:hover:bg-stone-800/50 transition">
+                  <tr key={client.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     {/* Linha Única Estrita: Nome e Fazenda na mesma linha sem quebra */}
                     <td className="py-1 px-2.5 align-middle">
                       <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">

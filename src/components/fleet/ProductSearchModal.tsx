@@ -258,7 +258,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
                       className={`cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-blue-600 text-white font-medium select-none'
-                          : 'bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800/60'
+                          : 'even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 text-stone-800 dark:text-stone-200 hover:bg-slate-200/60 dark:hover:bg-stone-800 border-b border-slate-200 dark:border-stone-800'
                       }`}
                     >
                       {/* Código */}
