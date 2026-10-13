@@ -33,7 +33,7 @@ const AGROCONTROL_SYNC_ENTITIES: Record<string, string[]> = {
   agrocontrol_funcionarios: ['colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees'],
   agrocontrol_combustivel: ['silagem_facil_clean_v1_fuel_logs'],
   agrocontrol_manutencao: ['silagem_facil_clean_v1_maintenance_logs'],
-  agrocontrol_bancos: ['colaca_silagem_financeiro_contas', 'silagem_facil_clean_v1_bank_accounts'],
+  agrocontrol_bancos: ['colaca_silagem_financeiro_contas', 'silagem_facil_clean_v1_bank_accounts', 'agrocontrol_contas_bancarias', 'agrocontrol_financeiro_contas'],
   agrocontrol_safras: ['silagem_facil_clean_v1_seasons'],
   agrocontrol_pedidos: ['silagem_facil_clean_v1_orders'],
   agrocontrol_servicos: ['silagem_facil_clean_v1_services'],
@@ -310,10 +310,12 @@ export function handleRestoreBackup(jsonData: Record<string, any> | string): voi
     }
 
     // Bancos
-    if (data['agrocontrol_bancos'] || data['colaca_silagem_financeiro_contas'] || data['silagem_facil_clean_v1_bank_accounts']) {
-      const bnc = data['agrocontrol_bancos'] ?? data['colaca_silagem_financeiro_contas'] ?? data['silagem_facil_clean_v1_bank_accounts'];
+    if (data['agrocontrol_bancos'] || data['colaca_silagem_financeiro_contas'] || data['silagem_facil_clean_v1_bank_accounts'] || data['agrocontrol_contas_bancarias'] || data['agrocontrol_financeiro_contas']) {
+      const bnc = data['agrocontrol_bancos'] ?? data['agrocontrol_contas_bancarias'] ?? data['agrocontrol_financeiro_contas'] ?? data['colaca_silagem_financeiro_contas'] ?? data['silagem_facil_clean_v1_bank_accounts'];
       const s = serialize(bnc);
       localStorage.setItem('agrocontrol_bancos', s);
+      localStorage.setItem('agrocontrol_contas_bancarias', s);
+      localStorage.setItem('agrocontrol_financeiro_contas', s);
       localStorage.setItem('colaca_silagem_financeiro_contas', s);
       localStorage.setItem('silagem_facil_clean_v1_bank_accounts', s);
     }

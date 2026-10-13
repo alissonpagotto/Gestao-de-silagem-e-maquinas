@@ -1904,19 +1904,19 @@ export default function App() {
       )
     );
 
-    // Atualiza saldo da conta bancária debitando o valor da despesa
-    const exp = expenses.find((e) => e.id === expenseId);
     if (exp && settlementData.bankAccountId) {
-      setBankAccounts((prev) =>
-        prev.map((acc) =>
+      setBankAccounts((prev) => {
+        const updated = prev.map((acc) =>
           acc.id === settlementData.bankAccountId
             ? {
                 ...acc,
                 balance: (acc.balance || 0) - exp.amount,
               }
             : acc
-        )
-      );
+        );
+        saveStoredBankAccounts(updated);
+        return updated;
+      });
     }
   };
 

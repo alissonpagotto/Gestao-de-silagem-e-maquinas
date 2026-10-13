@@ -450,18 +450,18 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
     try {
       switch (type) {
         case 'corrente':
-          return 'Conta Corrente';
+          return 'CONTA CORRENTE';
         case 'poupanca':
-          return 'Poupança Agro';
+          return 'POUPANÇA AGRO';
         case 'aplicacao':
-          return 'Investimento / Aplicação';
+          return 'INVESTIMENTO / APLICAÇÃO';
         case 'caixa_fisico':
-          return 'Caixa Físico / Sede';
+          return 'CAIXA FÍSICO / SEDE';
         default:
-          return 'Conta Bancária';
+          return 'CONTA BANCÁRIA';
       }
     } catch (_) {
-      return 'Conta Bancária';
+      return 'CONTA BANCÁRIA';
     }
   };
 
@@ -543,17 +543,17 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
           <div className="w-10 h-10 rounded-xl bg-sky-50 text-[#0963cb] flex items-center justify-center mx-auto">
             <Landmark className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-black text-black">Nenhuma conta bancária cadastrada</h3>
-          <p className="text-xs text-stone-600 max-w-md mx-auto">
+          <h3 className="text-sm font-black text-black uppercase">NENHUMA CONTA BANCÁRIA CADASTRADA</h3>
+          <p className="text-xs text-stone-600 max-w-md mx-auto uppercase">
             Cadastre as contas correntes bancárias, cooperativas de crédito (Sicredi, Sicoob, Banco do Brasil, Caixa, Itaú, Bradesco, Santander, Cresol) ou o caixa físico da fazenda.
           </p>
           <button
             type="button"
             onClick={() => handleOpenModal()}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#0963cb] text-white rounded-lg text-xs font-bold hover:bg-[#0852a8] transition cursor-pointer shadow-xs"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#0963cb] text-white rounded-lg text-xs font-bold hover:bg-[#0852a8] transition cursor-pointer shadow-xs uppercase tracking-wide"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Cadastrar Primeira Conta</span>
+            <span>CADASTRAR PRIMEIRA CONTA</span>
           </button>
         </div>
       ) : (
