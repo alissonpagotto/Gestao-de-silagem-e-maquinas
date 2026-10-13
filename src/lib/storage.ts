@@ -287,7 +287,9 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
 
 export function getStoredExpenses(): Expense[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    const raw = localStorage.getItem('agrocontrol_financeiro') ||
+                localStorage.getItem('colaca_silagem_despesas') ||
+                localStorage.getItem(STORAGE_KEYS.EXPENSES);
     if (!raw) return INITIAL_EXPENSES;
     return JSON.parse(raw);
   } catch (e) {
@@ -303,6 +305,8 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     const json = JSON.stringify(expenses);
     if (json === lastSavedExpensesJson) return;
     lastSavedExpensesJson = json;
+    localStorage.setItem('agrocontrol_financeiro', json);
+    localStorage.setItem('colaca_silagem_despesas', json);
     localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
@@ -314,7 +318,9 @@ export function saveStoredExpenses(expenses: Expense[]): void {
 
 export function getStoredCategories(): ExpenseCategory[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+    const raw = localStorage.getItem('agrocontrol_plano_contas') ||
+                localStorage.getItem('colaca_silagem_plano_contas') ||
+                localStorage.getItem(STORAGE_KEYS.CATEGORIES);
     if (!raw) return INITIAL_CATEGORIES;
     return JSON.parse(raw);
   } catch (e) {
@@ -325,7 +331,10 @@ export function getStoredCategories(): ExpenseCategory[] {
 
 export function saveStoredCategories(categories: ExpenseCategory[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+    const json = JSON.stringify(categories);
+    localStorage.setItem('agrocontrol_plano_contas', json);
+    localStorage.setItem('colaca_silagem_plano_contas', json);
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, json);
   } catch (e) {
     console.error('Failed to save categories', e);
   }
@@ -333,10 +342,9 @@ export function saveStoredCategories(categories: ExpenseCategory[]): void {
 
 export function getStoredCostCenters(): CostCenter[] {
   try {
-    let raw = localStorage.getItem('colaca_silagem_centros_custo');
-    if (!raw) {
-      raw = localStorage.getItem(STORAGE_KEYS.COST_CENTERS);
-    }
+    let raw = localStorage.getItem('agrocontrol_centros_custo') ||
+              localStorage.getItem('colaca_silagem_centros_custo') ||
+              localStorage.getItem(STORAGE_KEYS.COST_CENTERS);
     if (!raw) return INITIAL_COST_CENTERS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_COST_CENTERS;
@@ -349,6 +357,7 @@ export function getStoredCostCenters(): CostCenter[] {
 export function saveStoredCostCenters(centers: CostCenter[]): void {
   try {
     const json = JSON.stringify(centers);
+    localStorage.setItem('agrocontrol_centros_custo', json);
     localStorage.setItem(STORAGE_KEYS.COST_CENTERS, json);
     localStorage.setItem('colaca_silagem_centros_custo', json);
   } catch (e) {
@@ -386,7 +395,9 @@ export function getActiveNfeDraft(): any | null {
 
 export function getStoredClients(): Client[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    const raw = localStorage.getItem('agrocontrol_clientes') ||
+                localStorage.getItem('colaca_silagem_clientes') ||
+                localStorage.getItem(STORAGE_KEYS.CLIENTS);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -402,7 +413,10 @@ export function getStoredClients(): Client[] {
       return !isMock && !isMockId;
     });
     if (cleaned.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(cleaned));
+      const json = JSON.stringify(cleaned);
+      localStorage.setItem('agrocontrol_clientes', json);
+      localStorage.setItem('colaca_silagem_clientes', json);
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
     }
     return cleaned;
   } catch (e) {
@@ -412,7 +426,10 @@ export function getStoredClients(): Client[] {
 
 export function saveStoredClients(clients: Client[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
+    const json = JSON.stringify(clients);
+    localStorage.setItem('agrocontrol_clientes', json);
+    localStorage.setItem('colaca_silagem_clientes', json);
+    localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
   } catch (e) {
     console.error('Failed to save clients', e);
   }
@@ -420,7 +437,8 @@ export function saveStoredClients(clients: Client[]): void {
 
 export function getStoredOrders(): SilageOrder[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    const raw = localStorage.getItem('agrocontrol_pedidos') ||
+                localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (!raw) return INITIAL_ORDERS;
     return JSON.parse(raw);
   } catch (e) {
@@ -430,7 +448,9 @@ export function getStoredOrders(): SilageOrder[] {
 
 export function saveStoredOrders(orders: SilageOrder[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    const json = JSON.stringify(orders);
+    localStorage.setItem('agrocontrol_pedidos', json);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, json);
   } catch (e) {
     console.error('Failed to save orders', e);
   }
