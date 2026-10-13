@@ -94,18 +94,47 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
   // Modal para Visualização do Comprovante
   const [viewingReceipt, setViewingReceipt] = useState<{ url: string; name?: string } | null>(null);
 
+  // Filtro rígido contra registros fakes ou oriundos de faltas (ELIMINAÇÃO DE FAKES):
+  // Exibe APENAS registros que foram criados manualmente nesta aba e que possuam valor maior do que zero.
+  // Bloqueia completamente a exibição de qualquer registro com valor 'R$ 0,00' ou que venha da chave de faltas.
+  const isRealAdvance = React.useCallback((a: SalaryAdvance): boolean => {
+    if (!a) return false;
+    const val = Number(a.amount ?? (a as any).valor ?? 0);
+    if (val <= 0 || isNaN(val)) return false;
+
+    const t = String(a.type || (a as any).tipo || (a as any).tipo_registro || '').toLowerCase();
+    if (t === 'injustificada' || t === 'falta_injustificada' || t.includes('injustificada') || (a as any).isAbsence) return false;
+
+    const r = String(a.reason || a.notes || '').toLowerCase();
+    if (r.includes('falta injustificada')) return false;
+    if (r.includes('adiantamento quinzenal') && val === 0) return false;
+
+    return true;
+  }, []);
+
+  const realAdvances = React.useMemo(() => {
+    return advances.filter(isRealAdvance);
+  }, [advances, isRealAdvance]);
+
+  // Purga reativa imediata se o estado tiver registros com valor 0 ou faltas
+  React.useEffect(() => {
+    if (advances.length > 0 && advances.length !== realAdvances.length) {
+      onSaveAdvances(realAdvances);
+    }
+  }, [advances, realAdvances, onSaveAdvances]);
+
   // Filtered
-  const filtered = advances.filter(a => 
+  const filtered = realAdvances.filter(a => 
     a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (a.reason && a.reason.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // KPIs
-  const currentMonthAdvances = advances.filter(a => a.referenceMonth === currentMonthRef);
-  const totalValesMonth = currentMonthAdvances.reduce((sum, a) => sum + (a.amount || 0), 0);
-  const pendentesCount = advances.filter(a => a.status === 'pendente').length;
-  const descontadosCount = advances.filter(a => a.status === 'descontado').length;
-  const totalGeralVales = advances.reduce((sum, a) => sum + (a.amount || 0), 0);
+  const currentMonthAdvances = realAdvances.filter(a => a.referenceMonth === currentMonthRef);
+  const totalValesMonth = currentMonthAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const pendentesCount = realAdvances.filter(a => a.status === 'pendente').length;
+  const descontadosCount = realAdvances.filter(a => a.status === 'descontado').length;
+  const totalGeralVales = realAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
   // Cálculo da Projeção de Parcelamento Dinâmico
   const activePlan = calculateAdvanceInstallmentPlan(
@@ -234,12 +263,15 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         referenceMonth || currentMonthRef
       );
 
-      const newInstallmentRecords: SalaryAdvance[] = plan.installments.map((inst) => ({
+      const newInstallmentRecords: (SalaryAdvance & { tipo: string; tipo_registro: string; valor: number })[] = plan.installments.map((inst) => ({
         id: `adv_${Date.now()}_${inst.number}`,
         employeeId: emp.id,
         employeeName: emp.name,
         date,
         amount: inst.amount,
+        valor: inst.amount,
+        tipo: 'vale_salarial',
+        tipo_registro: 'vale_salarial',
         paymentMethod,
         referenceMonth: inst.referenceMonth,
         status: status,
@@ -260,7 +292,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       }));
 
       // Se estiver editando, substitui o registro antigo ou grupo
-      let updatedList = advances;
+      let updatedList = realAdvances;
       if (editingAdvance) {
         if (editingAdvance.installmentGroupId) {
           updatedList = updatedList.filter(a => a.installmentGroupId !== editingAdvance.installmentGroupId);
@@ -273,12 +305,15 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
     } else {
       // Cota Única (1x)
       if (editingAdvance) {
-        const updated = advances.map(a => a.id === editingAdvance.id ? {
+        const updated = realAdvances.map(a => a.id === editingAdvance.id ? {
           ...a,
           employeeId: emp.id,
           employeeName: emp.name,
           date,
           amount,
+          valor: amount,
+          tipo: 'vale_salarial',
+          tipo_registro: 'vale_salarial',
           paymentMethod,
           referenceMonth,
           status,
@@ -295,18 +330,21 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         } : a);
         onSaveAdvances(updated);
       } else {
-        const newAdv: SalaryAdvance = {
+        const newAdv = {
           id: `adv_${Date.now()}`,
           employeeId: emp.id,
           employeeName: emp.name,
           date,
           amount,
+          valor: amount,
+          tipo: 'vale_salarial',
+          tipo_registro: 'vale_salarial',
           paymentMethod,
           referenceMonth,
           status,
           reason,
           notes,
-          discountType: 'Cota Única',
+          discountType: 'Cota Única' as const,
           installmentNumber: 1,
           totalInstallments: 1,
           monthlyInterestRate: 0,
@@ -316,7 +354,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
           attachmentUrl: receiptUrl || undefined,
           createdAt: new Date().toISOString(),
         };
-        onSaveAdvances([newAdv, ...advances]);
+        onSaveAdvances([newAdv, ...realAdvances]);
       }
     }
 
@@ -325,11 +363,11 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 
   const handleToggleStatus = (id: string, currentStatus: 'pendente' | 'descontado') => {
     const nextStatus = currentStatus === 'pendente' ? 'descontado' : 'pendente';
-    onSaveAdvances(advances.map(a => a.id === id ? { ...a, status: nextStatus } : a));
+    onSaveAdvances(realAdvances.map(a => a.id === id ? { ...a, status: nextStatus } : a));
   };
 
   const handleDelete = async (id: string) => {
-    const adv = advances.find(a => a.id === id);
+    const adv = realAdvances.find(a => a.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Adiantamento / Vale',
       message: adv?.employeeName
@@ -340,7 +378,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveAdvances(advances.filter(a => a.id !== id));
+      onSaveAdvances(realAdvances.filter(a => a.id !== id));
     }
   };
 

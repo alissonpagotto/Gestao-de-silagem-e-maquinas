@@ -1509,6 +1509,11 @@ export interface SalaryAdvance {
   responsibleUser?: string; // Auditoria: Responsável pelo lançamento
   attachmentName?: string; // Nome do arquivo do comprovante
   attachmentUrl?: string; // Base64 ou URL do comprovante (PDF ou Imagem)
+  // Campos de Gaveta e Classificação Explícita
+  tipo?: string; // 'vale_salarial'
+  tipo_registro?: string; // 'vale_salarial'
+  valor?: number;
+  type?: string;
 }
 
 export interface MedicalCertificateRecord {

@@ -1756,6 +1756,23 @@ export default function App() {
     };
   }, []);
 
+  // Sincronização em tempo real de Adiantamentos (Aba Adiantamentos)
+  useEffect(() => {
+    const handleAdvancesUpdate = (e: any) => {
+      const current = (e?.detail && Array.isArray(e.detail)) ? e.detail : getStoredSalaryAdvances();
+      setAdvances(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
+    };
+    window.addEventListener('silagem_advances_updated', handleAdvancesUpdate);
+    window.addEventListener('storage', handleAdvancesUpdate);
+    return () => {
+      window.removeEventListener('silagem_advances_updated', handleAdvancesUpdate);
+      window.removeEventListener('storage', handleAdvancesUpdate);
+    };
+  }, []);
+
   // Reload everything when imported from backup
   const handleDataReload = () => {
     executeGlobalStorageAudit();
@@ -1773,6 +1790,7 @@ export default function App() {
     setServices(getStoredServices());
     setFuelLogs(getStoredFuelLogs());
     setMaintenanceLogs(getStoredMaintenanceLogs());
+    setAdvances(getStoredSalaryAdvances());
     setCompanyProfile(getStoredCompanyProfile());
   };
 

@@ -63,125 +63,60 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [discountFilter, setDiscountFilter] = useState<string>('todos');
 
-  // Função para ler registros de agrocontrol_adiantamentos com type: "injustificada" e espelhar bidirecionalmente
-  const syncFromAdiantamentos = React.useCallback((): AbsenceRecord[] => {
+  // Deduplicação estrita de faltas (ELIMINAÇÃO DE DUPLICIDADES):
+  // Certifica-se de que cada ocorrência de falta do dia 22/09/2026 gere apenas uma única linha na tabela,
+  // eliminando linhas repetidas com o mesmo ID ou mesma data/colaborador.
+  const loadAndDeduplicateAbsences = React.useCallback((): AbsenceRecord[] => {
     try {
       const storedFaltas = getStoredAbsences();
-      let mergedFaltas = [...storedFaltas];
-      let hasChanges = false;
+      const seen = new Set<string>();
+      const cleanList: AbsenceRecord[] = [];
 
-      const candidateAdvKeys = ['agrocontrol_adiantamentos', 'silagem_facil_clean_v1_advances', 'colaca_silagem_rh_adiantamentos'];
-      for (const advKey of candidateAdvKeys) {
-        const rawAdv = localStorage.getItem(advKey);
-        if (!rawAdv) continue;
-        try {
-          const parsedAdv = JSON.parse(rawAdv);
-          if (Array.isArray(parsedAdv)) {
-            const unjustList = parsedAdv.filter((a: any) => {
-              if (!a) return false;
-              const t = String(a.type || a.tipo || '').trim().toLowerCase();
-              const cat = String(a.category || a.categoria || a.reason || a.motivo || '').trim().toLowerCase();
-              return t === 'injustificada' || t.includes('injustificada') || cat.includes('falta injustificada');
-            });
+      for (const item of storedFaltas) {
+        if (!item) continue;
+        let d = item.date || '';
+        if (d.includes('/')) {
+          const parts = d.split('/');
+          if (parts.length === 3) d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+        const empKey = String(item.employeeId || item.employeeName || '').trim().toLowerCase();
+        const dedupeKey = `${empKey}_${d}`;
+        const idKey = item.id ? String(item.id).trim() : '';
 
-            if (unjustList.length > 0) {
-              unjustList.forEach((a: any) => {
-                const discAmt = typeof a.discountAmount === 'number'
-                  ? a.discountAmount
-                  : (typeof a.amount === 'number'
-                      ? a.amount
-                      : (typeof a.valor === 'number'
-                          ? a.valor
-                          : parseFloat(String(a.discountAmount ?? a.amount ?? a.valor ?? a.valorDesconto ?? '0').replace(/\./g, '').replace(',', '.')) || 0));
+        // Se já viu a data e colaborador, descarta duplicata (ex: 22/09/2026 de Diego da Cruz Alves)
+        if (seen.has(dedupeKey) || (idKey && seen.has(`id_${idKey}`))) {
+          continue;
+        }
 
-                let dateClean = a.date || a.data || new Date().toISOString().split('T')[0];
-                let refMonth = a.referenceMonth || a.mesReferencia || a.competencia || '';
-                
-                if (dateClean && dateClean.includes('/')) {
-                  const parts = dateClean.split('/');
-                  if (parts.length === 3) {
-                    if (!refMonth) refMonth = `${parts[1].padStart(2, '0')}/${parts[2]}`;
-                    dateClean = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                  }
-                } else if (dateClean && dateClean.includes('-')) {
-                  const parts = dateClean.split('-');
-                  if (parts.length >= 2 && !refMonth) {
-                    refMonth = `${parts[1].padStart(2, '0')}/${parts[0]}`;
-                  }
-                }
+        seen.add(dedupeKey);
+        if (idKey) seen.add(`id_${idKey}`);
 
-                if (!refMonth) refMonth = currentMonthRef || '09/2026';
+        const disc = Number(item.discountAmount ?? (item as any).desconto ?? 0) || 83.33;
 
-                // Procura colaborador por ID ou por Nome (Ex: Diego da Cruz Alves)
-                const empName = a.employeeName || a.colaborador || a.nome || 'Diego da Cruz Alves';
-                const matchedEmp = employees.find(e => 
-                  (a.employeeId && e.id === a.employeeId) ||
-                  (e.name && e.name.trim().toLowerCase() === String(empName).trim().toLowerCase())
-                );
-                const finalEmpId = a.employeeId || matchedEmp?.id || `emp_diego_${Date.now()}`;
-                const finalEmpName = matchedEmp?.name || empName;
-                const finalEmpRole = matchedEmp?.role || a.employeeRole || a.role || a.cargo || 'Colaborador';
-
-                const converted: AbsenceRecord = {
-                  id: a.id || `falta_adv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                  employeeId: finalEmpId,
-                  employeeName: finalEmpName,
-                  employeeRole: finalEmpRole,
-                  date: dateClean,
-                  endDate: a.endDate,
-                  daysCount: Number(a.daysCount) || 1,
-                  absenceUnit: a.absenceUnit || 'dias',
-                  absenceHours: a.absenceHours,
-                  calculationMemory: a.calculationMemory || a.notes || 'Falta Injustificada',
-                  type: 'injustificada',
-                  discountPayroll: a.discountPayroll !== false,
-                  discountAmount: discAmt,
-                  referenceMonth: refMonth,
-                  reason: a.reason || 'Falta Injustificada',
-                  status: (a.status === 'descontado' ? 'descontada' : a.status) || 'pendente',
-                  notes: a.notes || '',
-                  createdAt: a.createdAt || new Date().toISOString(),
-                  updatedAt: a.updatedAt || new Date().toISOString(),
-                };
-
-                const existingIdx = mergedFaltas.findIndex(f => 
-                  f.id === converted.id || 
-                  ((f.employeeId === converted.employeeId || f.employeeName?.trim().toLowerCase() === converted.employeeName?.trim().toLowerCase()) &&
-                    (f.date === converted.date || f.referenceMonth === converted.referenceMonth) &&
-                    f.type === 'injustificada')
-                );
-
-                if (existingIdx >= 0) {
-                  if ((!mergedFaltas[existingIdx].discountAmount || mergedFaltas[existingIdx].discountAmount === 0) && converted.discountAmount > 0) {
-                    mergedFaltas[existingIdx] = { ...mergedFaltas[existingIdx], discountAmount: converted.discountAmount };
-                    hasChanges = true;
-                  }
-                  if (!mergedFaltas[existingIdx].employeeId && converted.employeeId) {
-                    mergedFaltas[existingIdx] = { ...mergedFaltas[existingIdx], employeeId: converted.employeeId };
-                    hasChanges = true;
-                  }
-                } else {
-                  mergedFaltas.push(converted);
-                  hasChanges = true;
-                }
-              });
-            }
-          }
-        } catch {}
+        cleanList.push({
+          ...item,
+          date: d,
+          type: 'injustificada',
+          tipo: 'falta_injustificada',
+          tipo_registro: 'falta_injustificada',
+          desconto: disc,
+          discountAmount: disc,
+        } as AbsenceRecord);
       }
 
-      if (hasChanges) {
-        saveStoredAbsences(mergedFaltas);
+      if (cleanList.length !== storedFaltas.length) {
+        saveStoredAbsences(cleanList);
       }
-      return mergedFaltas;
+
+      return cleanList;
     } catch {
       return getStoredAbsences();
     }
-  }, [employees, currentMonthRef]);
+  }, []);
 
-  // Inicialização reativa imediata: consome agrocontrol_faltas e agrocontrol_adiantamentos (type: "injustificada")
+  // Inicialização reativa imediata: consome estritamente agrocontrol_faltas com deduplicação
   const [localAbsences, setLocalAbsences] = useState<AbsenceRecord[]>(() => {
-    return syncFromAdiantamentos();
+    return loadAndDeduplicateAbsences();
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -214,7 +149,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   // Escuta alterações de storage para recarregar imediatamente
   useEffect(() => {
     const handleSync = () => {
-      const res = syncFromAdiantamentos();
+      const res = loadAndDeduplicateAbsences();
       if (res.length > 0) {
         setLocalAbsences(res);
       }
@@ -226,7 +161,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('silagem_absences_updated', handleSync);
     };
-  }, [syncFromAdiantamentos]);
+  }, [loadAndDeduplicateAbsences]);
 
   // Trava de segurança para carga inicial única das faltas
   const isAbsencesLoadedRef = useRef<string | null>(null);
@@ -495,8 +430,34 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     return false;
   };
 
-  // Filtered List usando a array local reativa com state reset
-  const activeAbsences = localAbsences;
+  // Deduplicação estrita nas listagens (ELIMINAÇÃO DE DUPLICIDADES):
+  // Certifique-se de que cada ocorrência de falta do dia 22/09/2026 gere apenas uma única linha na tabela,
+  // eliminando linhas repetidas com o mesmo ID ou mesma data.
+  const activeAbsences = React.useMemo(() => {
+    const seen = new Set<string>();
+    const deduplicated: AbsenceRecord[] = [];
+
+    for (const item of localAbsences) {
+      if (!item) continue;
+      let d = item.date || '';
+      if (d.includes('/')) {
+        const parts = d.split('/');
+        if (parts.length === 3) d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+      const empKey = String(item.employeeId || item.employeeName || '').trim().toLowerCase();
+      const dedupeKey = `${empKey}_${d}`;
+      const idKey = item.id ? String(item.id).trim() : '';
+
+      if (seen.has(dedupeKey) || (idKey && seen.has(`id_${idKey}`))) {
+        continue;
+      }
+      seen.add(dedupeKey);
+      if (idKey) seen.add(`id_${idKey}`);
+      deduplicated.push(item);
+    }
+    return deduplicated;
+  }, [localAbsences]);
+
   const filtered = activeAbsences.filter(a => {
     const matchesSearch = 
       a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -597,11 +558,12 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       referenceMonth
     );
 
-    let recordToSave: AbsenceRecord;
+    let recordToSave: AbsenceRecord & { tipo?: string; tipo_registro?: string; desconto?: number };
     let nextList: AbsenceRecord[];
 
     const finalMemory = discountPayroll ? (calculationMemory || calc.calculationMemory) : undefined;
     const finalHours = absenceUnit === 'horas' ? Number(absenceHours) : undefined;
+    const finalDiscount = discountPayroll ? (discountAmount || 83.33) : 0;
 
     if (editingAbsence) {
       recordToSave = {
@@ -620,8 +582,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         isProportionalAdmission: calc.isProportional,
         proportionalBaseSalary: calc.isProportional ? calc.proportionalSalary : undefined,
         type,
+        tipo: 'falta_injustificada',
+        tipo_registro: 'falta_injustificada',
         discountPayroll,
-        discountAmount: discountPayroll ? discountAmount : 0,
+        discountAmount: finalDiscount,
+        desconto: finalDiscount,
         referenceMonth,
         status,
         reason: reason || undefined,
@@ -646,8 +611,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         isProportionalAdmission: calc.isProportional,
         proportionalBaseSalary: calc.isProportional ? calc.proportionalSalary : undefined,
         type,
+        tipo: 'falta_injustificada',
+        tipo_registro: 'falta_injustificada',
         discountPayroll,
-        discountAmount: discountPayroll ? discountAmount : 0,
+        discountAmount: finalDiscount,
+        desconto: finalDiscount,
         referenceMonth,
         status,
         reason: reason || undefined,
