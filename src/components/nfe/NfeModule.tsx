@@ -5616,7 +5616,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
-        <div className="w-full bg-white dark:bg-stone-900 p-3 sm:p-4">
+        <div className="w-full bg-[#c8dbee] dark:bg-stone-900 p-3 sm:p-4">
           
           {/* SEGUNDA LINHA DE SUB-ABAS FISCAIS (ALÍVIO DE ESCALA SLIM DESIGN PRO) */}
           {activeMainFiscalTab === 'notas_fiscais' && (

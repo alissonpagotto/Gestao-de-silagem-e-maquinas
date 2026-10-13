@@ -534,7 +534,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#c8dbee] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
           {activeTab === 'inventario' ? (
             <>
               {/* GRADE DE CARDS (VALOR TOTAL, ALERTAS, DIESEL EM TANQUE) EM MOLDURA UNIFICADA */}
