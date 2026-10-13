@@ -1,15 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
-  ShoppingCart, 
   Search, 
   Plus, 
   Trash2, 
   TrendingDown, 
   CheckCircle2, 
   AlertTriangle, 
-  Building2, 
-  Award,
-  ArrowRight
+  Save, 
+  FileText,
+  X
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { formatCurrencyBRL } from '../../lib/formatters';
@@ -19,510 +18,692 @@ interface ComprasSubModuleProps {
   onOpenCreateItem?: () => void;
 }
 
-interface PurchaseItemDraft {
-  item: InventoryItem;
+export interface PurchaseDraftItem {
+  id: string;
+  itemId?: string;
+  code: string;
+  description: string;
+  category: string;
   quantity: number;
+  unit: string;
   unitCost: number;
 }
+
+const STORAGE_KEY = 'agrocontrol_rascunho_compras';
+const LEGACY_STORAGE_KEY = 'colaca_silagem_compras_draft';
 
 export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
   allItems,
 }) => {
-  const [comprasSubTab, setComprasSubTab] = useState<'avulsos' | 'abaixo_estoque'>('avulsos');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
-  
-  // Lista de compras em rascunho / cotação de compra local
-  const [purchaseList, setPurchaseList] = useState<PurchaseItemDraft[]>(() => {
+  // 1. CARREGAMENTO REATIVO DE PRODUTOS CADASTRADOS (agrocontrol_produtos)
+  const [storedProducts, setStoredProducts] = useState<InventoryItem[]>(() => {
     try {
-      const saved = localStorage.getItem('colaca_silagem_compras_draft');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+      const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return allItems || [];
   });
 
-  const [orderFinalizedMessage, setOrderFinalizedMessage] = useState(false);
-
   useEffect(() => {
-    try {
-      localStorage.setItem('colaca_silagem_compras_draft', JSON.stringify(purchaseList));
-    } catch (_) {}
-  }, [purchaseList]);
+    const handleProductsUpdate = () => {
+      try {
+        const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStoredProducts(parsed);
+          }
+        }
+      } catch (_) {}
+    };
 
-  // Produtos que estão abaixo ou igual ao estoque mínimo (lógica de negócio mandatória)
+    window.addEventListener('agrocontrol_produtos_updated', handleProductsUpdate);
+    window.addEventListener('storage', handleProductsUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_produtos_updated', handleProductsUpdate);
+      window.removeEventListener('storage', handleProductsUpdate);
+    };
+  }, []);
+
+  const availableProducts = useMemo(() => {
+    if (storedProducts && storedProducts.length > 0) return storedProducts;
+    return allItems || [];
+  }, [storedProducts, allItems]);
+
+  // 2. LISTA DE RASCUNHO ISOLADA (agrocontrol_rascunho_compras)
+  const [purchaseList, setPurchaseList] = useState<PurchaseDraftItem[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          // Normaliza registros caso tenham vindo do formato legado
+          return parsed.map((p: any) => {
+            if (p.item) {
+              return {
+                id: p.id || `draft_${p.item.id || Date.now()}`,
+                itemId: p.item.id,
+                code: (p.item.code || p.item.codigo_produto || 'S/CÓD').toUpperCase(),
+                description: (p.item.nome_comercial || p.item.name || 'PRODUTO').toUpperCase(),
+                category: (p.item.categoria || p.item.category || 'GERAL').toUpperCase(),
+                quantity: Number(p.quantity) || 1,
+                unit: p.item.unit || 'UN',
+                unitCost: Number(p.item.preco_custo_inicial ?? p.item.unitCost ?? 0),
+              };
+            }
+            return {
+              id: p.id || `draft_${Date.now()}`,
+              itemId: p.itemId,
+              code: String(p.code || 'S/CÓD').toUpperCase(),
+              description: String(p.description || 'ITEM').toUpperCase(),
+              category: String(p.category || 'GERAL').toUpperCase(),
+              quantity: Number(p.quantity) || 1,
+              unit: String(p.unit || 'UN').toUpperCase(),
+              unitCost: Number(p.unitCost) || 0,
+            };
+          });
+        }
+      }
+    } catch (_) {}
+    return [];
+  });
+
+  // 3. ESTADOS DA BARRA DE INSERÇÃO RÁPIDA (PDV)
+  const [searchProductText, setSearchProductText] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [quantity, setQuantity] = useState('1,00');
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+  const [autocompleteIndex, setAutocompleteIndex] = useState(0);
+
+  // Estados de confirmação e avisos temporários
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
+
+  const productInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Foco inicial e atalho F3
+  useEffect(() => {
+    productInputRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F3') {
+        e.preventDefault();
+        productInputRef.current?.focus();
+        productInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Fechar dropdown de autocomplete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(e.target as Node) &&
+        productInputRef.current &&
+        !productInputRef.current.contains(e.target as Node)
+      ) {
+        setAutocompleteOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Timer para avisos temporários
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  // Produtos abaixo do estoque mínimo para injeção rápida opcional
   const belowStockItems = useMemo(() => {
-    return allItems.filter(item => {
+    return availableProducts.filter(item => {
       const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
       const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
       return cur <= min;
     });
-  }, [allItems]);
+  }, [availableProducts]);
 
-  // Lista de categorias únicas para filtro
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    allItems.forEach(i => {
-      const cat = (i.categoria || i.category || 'GERAL').trim().toUpperCase();
-      if (cat) set.add(cat);
-    });
-    return Array.from(set).sort();
-  }, [allItems]);
+  // Filtro preditivo para o autocomplete
+  const filteredProducts = useMemo(() => {
+    const term = searchProductText.trim().toLowerCase();
+    if (!term) return [];
+    return availableProducts.filter(p => {
+      const name = String(p.nome_comercial || p.name || '').toLowerCase();
+      const code = String(p.code || (p as any).codigo_produto || (p as any).barcode || '').toLowerCase();
+      const cat = String(p.categoria || p.category || '').toLowerCase();
+      return name.includes(term) || code.includes(term) || cat.includes(term);
+    }).slice(0, 10);
+  }, [availableProducts, searchProductText]);
 
-  // Itens filtrados para a busca manual de itens avulsos
-  const filteredAvulsos = useMemo(() => {
-    const s = searchTerm.toLowerCase().trim();
-    return allItems.filter(item => {
-      const name = String(item.nome_comercial || item.name || '').toLowerCase();
-      const code = String(item.code || item.codigo_produto || item.barcode || '').toLowerCase();
-      const cat = String(item.categoria || item.category || '').toUpperCase();
-      
-      const matchesSearch = !s || name.includes(s) || code.includes(s);
-      const matchesCategory = selectedCategory === 'TODAS' || cat === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [allItems, searchTerm, selectedCategory]);
+  // Preço de referência do produto selecionado
+  const refPrice = useMemo(() => {
+    if (!selectedProduct) return 0;
+    return Number(
+      selectedProduct.preco_custo_inicial ?? 
+      selectedProduct.unitCost ?? 
+      (selectedProduct as any).ultimoCusto ?? 
+      0
+    );
+  }, [selectedProduct]);
 
-  const handleAddItemToPurchase = (item: InventoryItem, suggestedQty: number = 1) => {
-    setPurchaseList(prev => {
-      const existing = prev.find(p => p.item.id === item.id);
-      const cost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
-      if (existing) {
-        return prev.map(p => 
-          p.item.id === item.id 
-            ? { ...p, quantity: p.quantity + suggestedQty }
-            : p
-        );
-      }
-      return [...prev, { item, quantity: suggestedQty, unitCost: cost }];
-    });
-  };
-
-  const handleAddAllBelowStock = () => {
-    belowStockItems.forEach(item => {
-      const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-      const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
-      const suggested = Math.max(1, min - cur > 0 ? min - cur : min || 1);
-      handleAddItemToPurchase(item, suggested);
-    });
-  };
-
-  const handleUpdateQty = (itemId: string, newQty: number) => {
-    if (newQty <= 0) {
-      handleRemoveItem(itemId);
+  // Multiplicador por Asterisco no campo de busca do Produto
+  const handleSearchChange = (val: string) => {
+    const upperVal = val.toUpperCase();
+    
+    // Expressão regular para capturar multiplicador no início (ex: "5*" ou "10,5*")
+    const match = upperVal.match(/^(\d+(?:[.,]\d+)?)\*(.*)$/);
+    if (match) {
+      const numPart = match[1];
+      const restText = match[2];
+      setQuantity(numPart);
+      setSearchProductText(restText);
+      setAutocompleteOpen(restText.trim().length > 0);
+      productInputRef.current?.focus();
       return;
     }
-    setPurchaseList(prev => prev.map(p => p.item.id === itemId ? { ...p, quantity: newQty } : p));
+
+    setSearchProductText(upperVal);
+    setAutocompleteOpen(upperVal.trim().length > 0);
+    setAutocompleteIndex(0);
+
+    // Tenta correspondência exata por código ou código de barras
+    const exact = availableProducts.find(p => {
+      const code = String(p.code || (p as any).codigo_produto || '').trim().toUpperCase();
+      const bar = String((p as any).barcode || '').trim().toUpperCase();
+      return (code && code === upperVal.trim()) || (bar && bar === upperVal.trim());
+    });
+
+    if (exact) {
+      setSelectedProduct(exact);
+    } else if (selectedProduct && !upperVal.includes(String(selectedProduct.name || '').toUpperCase())) {
+      setSelectedProduct(null);
+    }
   };
 
-  const handleUpdateCost = (itemId: string, newCost: number) => {
-    setPurchaseList(prev => prev.map(p => p.item.id === itemId ? { ...p, unitCost: Math.max(0, newCost) } : p));
+  const handleSelectProduct = (prod: InventoryItem) => {
+    setSelectedProduct(prod);
+    setSearchProductText(`${prod.code ? `[${prod.code}] ` : ''}${prod.nome_comercial || prod.name}`.toUpperCase());
+    setAutocompleteOpen(false);
+    productInputRef.current?.focus();
   };
 
-  const handleRemoveItem = (itemId: string) => {
-    setPurchaseList(prev => prev.filter(p => p.item.id !== itemId));
+  // Disparo do Inserir Item no Rascunho (Enter ou Botão + INSERIR)
+  const handleAddItemToOrder = () => {
+    const rawQty = quantity.replace(',', '.');
+    const numQty = parseFloat(rawQty);
+    const finalQty = isNaN(numQty) || numQty <= 0 ? 1 : numQty;
+
+    let targetItem = selectedProduct;
+    if (!targetItem && filteredProducts.length > 0 && searchProductText.trim().length > 0) {
+      targetItem = filteredProducts[autocompleteIndex] || filteredProducts[0];
+    }
+
+    const itemDesc = targetItem 
+      ? (targetItem.nome_comercial || targetItem.name || 'PRODUTO').toUpperCase()
+      : searchProductText.trim().toUpperCase();
+
+    if (!itemDesc) {
+      productInputRef.current?.focus();
+      return;
+    }
+
+    const itemCode = (targetItem?.code || (targetItem as any)?.codigo_produto || 'S/CÓD').toUpperCase();
+    const itemCat = (targetItem?.categoria || targetItem?.category || 'GERAL').toUpperCase();
+    const itemUnit = (targetItem?.unit || 'UN').toUpperCase();
+    const itemCost = targetItem ? Number(targetItem.preco_custo_inicial ?? targetItem.unitCost ?? (targetItem as any).ultimoCusto ?? 0) : 0;
+
+    setPurchaseList(prev => {
+      // Se já existir no rascunho com o mesmo código ou descrição, soma a quantidade
+      const existingIdx = prev.findIndex(p => 
+        (itemCode !== 'S/CÓD' && p.code === itemCode) || 
+        p.description === itemDesc
+      );
+
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + finalQty,
+        };
+        return updated;
+      }
+
+      return [
+        ...prev,
+        {
+          id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          itemId: targetItem?.id,
+          code: itemCode,
+          description: itemDesc,
+          category: itemCat,
+          quantity: finalQty,
+          unit: itemUnit,
+          unitCost: itemCost,
+        }
+      ];
+    });
+
+    // Reset dos campos e retorno do foco com quantidade em 1,00
+    setSearchProductText('');
+    setSelectedProduct(null);
+    setQuantity('1,00');
+    setAutocompleteOpen(false);
+
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 10);
   };
 
-  const totalPurchaseValue = useMemo(() => {
-    return purchaseList.reduce((acc, p) => acc + (p.quantity * p.unitCost), 0);
+  const handleRemoveItem = (id: string) => {
+    setPurchaseList(prev => prev.filter(p => p.id !== id));
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 10);
+  };
+
+  // Incluir todos os itens que estão abaixo do estoque mínimo
+  const handleImportBelowStockItems = () => {
+    if (belowStockItems.length === 0) return;
+
+    setPurchaseList(prev => {
+      const updated = [...prev];
+      belowStockItems.forEach(item => {
+        const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
+        const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
+        const deficit = Math.max(1, min - cur > 0 ? min - cur : min || 1);
+        const itemCode = (item.code || (item as any).codigo_produto || 'S/CÓD').toUpperCase();
+        const itemDesc = (item.nome_comercial || item.name || 'PRODUTO').toUpperCase();
+        const itemCat = (item.categoria || item.category || 'GERAL').toUpperCase();
+        const itemCost = Number(item.preco_custo_inicial ?? item.unitCost ?? (item as any).ultimoCusto ?? 0);
+
+        const existingIdx = updated.findIndex(p => 
+          (itemCode !== 'S/CÓD' && p.code === itemCode) || 
+          p.description === itemDesc
+        );
+
+        if (existingIdx >= 0) {
+          updated[existingIdx].quantity = Math.max(updated[existingIdx].quantity, deficit);
+        } else {
+          updated.push({
+            id: `draft_${item.id || Date.now()}`,
+            itemId: item.id,
+            code: itemCode,
+            description: itemDesc,
+            category: itemCat,
+            quantity: deficit,
+            unit: (item.unit || 'UN').toUpperCase(),
+            unitCost: itemCost,
+          });
+        }
+      });
+      return updated;
+    });
+
+    setToastMessage(`✓ ${belowStockItems.length} ITENS ABAIXO DO ESTOQUE MÍNIMO INCLUÍDOS NO RASCUNHO!`);
+  };
+
+  // Salvar rascunho no LocalStorage
+  const handleSaveDraft = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(purchaseList));
+      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(purchaseList));
+      setToastMessage('💾 RASCUNHO DA LISTA DE COMPRAS SALVO COM SUCESSO NO LOCALSTORAGE!');
+    } catch (_) {
+      setToastMessage('ERRO AO SALVAR RASCUNHO NO LOCALSTORAGE.');
+    }
+  };
+
+  // Limpar lista e LocalStorage
+  const handleConfirmClearDraft = () => {
+    setPurchaseList([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch (_) {}
+    setShowClearConfirmModal(false);
+    setToastMessage('🗑️ RASCUNHO DE COMPRAS ZERADO COM SUCESSO.');
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 10);
+  };
+
+  // Cálculos de resumo
+  const totalItemsCount = useMemo(() => {
+    return purchaseList.reduce((acc, p) => acc + (Number(p.quantity) || 0), 0);
   }, [purchaseList]);
 
-  const totalPurchaseQty = useMemo(() => {
-    return purchaseList.reduce((acc, p) => acc + p.quantity, 0);
+  const totalEstimatedCost = useMemo(() => {
+    return purchaseList.reduce((acc, p) => acc + ((Number(p.quantity) || 0) * (Number(p.unitCost) || 0)), 0);
   }, [purchaseList]);
 
   return (
-    <div className="w-full flex flex-col space-y-3">
-      {/* 1. SEGUNDO NÍVEL: SUB-LINHA DE BOTÕES MICRO HORIZONTAIS */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100 dark:bg-stone-850 p-2 rounded-lg border border-slate-300 dark:border-stone-700 shadow-xs">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setComprasSubTab('avulsos')}
-            className={`text-[10px] font-bold tracking-wide uppercase px-3 py-1 rounded border transition-all cursor-pointer ${
-              comprasSubTab === 'avulsos'
-                ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
-                : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-600'
-            }`}
-          >
-            <span>🛒 COMPRAS DE ITENS AVULSOS</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setComprasSubTab('abaixo_estoque')}
-            className={`text-[10px] font-bold tracking-wide uppercase px-3 py-1 rounded border transition-all cursor-pointer flex items-center gap-1.5 ${
-              comprasSubTab === 'abaixo_estoque'
-                ? 'border-rose-800 bg-rose-700 text-white shadow-xs'
-                : 'text-rose-700 border-rose-300 bg-rose-50/60 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
-            }`}
-          >
-            <TrendingDown className="w-3 h-3" />
-            <span>📉 COMPRA DE PRODUTOS ABAIXO DO ESTOQUE</span>
-            {belowStockItems.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-900 text-white text-[9px] font-black">
-                {belowStockItems.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Totais do Rascunho da Ordem de Compra */}
-        <div className="flex items-center gap-2">
-          <div className="text-[10px] text-slate-600 dark:text-stone-300 font-semibold uppercase">
-            Itens no Pedido: <span className="font-bold text-slate-900 dark:text-white">{purchaseList.length}</span> ({totalPurchaseQty.toLocaleString('pt-BR')} un)
-          </div>
-          <div className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
-            TOTAL: {formatCurrencyBRL(totalPurchaseValue)}
-          </div>
-          {purchaseList.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm('Deseja limpar todos os itens deste rascunho de compras?')) {
-                  setPurchaseList([]);
-                }
-              }}
-              className="text-[9px] font-bold uppercase px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-stone-700 dark:text-stone-300 cursor-pointer"
-            >
-              LIMPAR
-            </button>
-          )}
-        </div>
-      </div>
-
-      {orderFinalizedMessage && (
-        <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center justify-between">
+    <div className="w-full flex flex-col space-y-2 h-[calc(100vh-210px)] min-h-[500px] max-h-[95vh] overflow-hidden">
+      
+      {/* AVISO TEMPORÁRIO DE SUCESSO */}
+      {toastMessage && (
+        <div className="px-3 py-2 rounded border border-emerald-400 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-xs font-black uppercase flex items-center justify-between shadow-xs animate-in fade-in duration-150 shrink-0">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>PEDIDO DE COMPRA GERADO E PERSISTIDO COM SUCESSO! ITENS ENVIADOS PARA COTAÇÃO/FINANCEIRO.</span>
+            <span>{toastMessage}</span>
           </div>
           <button 
             type="button" 
-            onClick={() => setOrderFinalizedMessage(false)}
-            className="text-[10px] underline uppercase cursor-pointer"
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-bold text-xs cursor-pointer"
           >
-            FECHAR
+            ✕
           </button>
         </div>
       )}
 
-      {/* CONTEÚDO DA SUB-ABA 1: COMPRA DE PRODUTOS ABAIXO DO ESTOQUE */}
-      {comprasSubTab === 'abaixo_estoque' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between bg-white dark:bg-stone-850 p-2.5 rounded-lg border border-slate-300 dark:border-stone-700 shadow-xs">
-            <div>
-              <h4 className="text-xs font-black uppercase text-slate-800 dark:text-stone-100 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                <span>VARREDURA REATIVA: PRODUTOS EM NÍVEL CRÍTICO OU ABAIXO DO ESTOQUE MÍNIMO</span>
-              </h4>
-              <p className="text-[10px] text-slate-500 dark:text-stone-400">
-                Comparação automática de 'quantidade' atual versus 'estoqueMinimo' no cadastro global.
-              </p>
-            </div>
+      {/* CABEÇALHO COMPACTO COM BOX DE RESUMO REATIVO NO TOPO DIREITO */}
+      <div className="flex items-center justify-between gap-2 px-1 shrink-0">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+          <h3 className="text-xs font-black uppercase text-slate-800 dark:text-stone-100 tracking-wider">
+            BLOCO DE RASCUNHO DE COMPRAS • DIGITAÇÃO RÁPIDA (PDV)
+          </h3>
+          <span className="text-[10px] text-slate-500 font-semibold hidden md:inline">
+            [F3: FOCAR PRODUTO | EX: "5*" PARA MULTIPLICAR | ENTER: INSERIR]
+          </span>
+        </div>
 
-            {belowStockItems.length > 0 && (
-              <button
-                type="button"
-                onClick={handleAddAllBelowStock}
-                className="inline-flex items-center gap-1 px-3 py-1 text-[10px] font-black uppercase rounded bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer active:scale-95 transition"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>INCLUIR TODOS OS {belowStockItems.length} ITENS NO PEDIDO</span>
-              </button>
-            )}
+        <div className="flex items-center gap-2">
+          {belowStockItems.length > 0 && (
+            <button
+              type="button"
+              onClick={handleImportBelowStockItems}
+              title="Puxar produtos que atingiram ou estão abaixo do estoque mínimo"
+              className="text-[10px] font-black uppercase px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 cursor-pointer transition shadow-xs"
+            >
+              <TrendingDown className="w-3 h-3 text-amber-600" />
+              <span>PUXAR CRÍTICOS ({belowStockItems.length})</span>
+            </button>
+          )}
+
+          {/* BOX DE RESUMO REATIVO EM SOFT COLOR NO TOPO DIREITO */}
+          <div className="text-[10px] sm:text-xs font-black uppercase px-3 py-1 rounded bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-200 shadow-xs flex items-center gap-1.5 whitespace-nowrap">
+            <span>ITENS NO PEDIDO:</span>
+            <span className="text-slate-900 dark:text-white font-mono">{purchaseList.length}</span>
+            <span className="text-slate-500 font-mono">({totalItemsCount.toLocaleString('pt-BR')} UN)</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-emerald-700 dark:text-emerald-400 font-mono">
+              TOTAL: {formatCurrencyBRL(totalEstimatedCost)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 1. BARRA DE INSERÇÃO RÁPIDA SUPERIOR (ESTILO FRENTE DE CAIXA / PDV) */}
+      <div className="bg-slate-100 dark:bg-stone-850 p-2 border border-slate-300 dark:border-stone-700 rounded flex items-center gap-2 grid grid-cols-12 shrink-0 shadow-xs">
+        
+        {/* Campo 1 (Col 7): PRODUTO / CÓDIGO [F3] com busca preditiva reativa */}
+        <div className="col-span-12 sm:col-span-7 relative">
+          <label className="block text-[9px] font-black text-slate-600 dark:text-stone-400 uppercase mb-0.5 tracking-wider">
+            PRODUTO / CÓDIGO [F3]
+          </label>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              ref={productInputRef}
+              type="text"
+              value={searchProductText}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setAutocompleteIndex(prev => Math.min(prev + 1, filteredProducts.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setAutocompleteIndex(prev => Math.max(prev - 1, 0));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (autocompleteOpen && filteredProducts.length > 0 && !selectedProduct) {
+                    handleSelectProduct(filteredProducts[autocompleteIndex] || filteredProducts[0]);
+                  }
+                  handleAddItemToOrder();
+                } else if (e.key === 'Escape') {
+                  setAutocompleteOpen(false);
+                }
+              }}
+              placeholder="DIGITE NOME, CÓDIGO OU MULTIPLICADOR (EX: 5*)..."
+              className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono shadow-xs"
+            />
           </div>
 
-          {belowStockItems.length === 0 ? (
-            <div className="p-8 text-center bg-white dark:bg-stone-850 rounded-lg border border-slate-300 dark:border-stone-700">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-              <p className="text-xs font-bold text-slate-700 dark:text-stone-200 uppercase">
-                EXCELENTE! NENHUM PRODUTO ABAIXO DO ESTOQUE MÍNIMO NESTE MOMENTO.
-              </p>
-              <p className="text-[10px] text-slate-500 dark:text-stone-400 mt-1">
-                Todos os itens cadastrados estão com quantidades confortáveis no almoxarifado.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-850">
-              <table className="w-full text-left border-collapse text-[11px]">
-                <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700">
-                  <tr>
-                    <th className="py-1.5 px-3">CÓDIGO & PRODUTO</th>
-                    <th className="py-1.5 px-2">CATEGORIA</th>
-                    <th className="py-1.5 px-2 text-right">QTD. ATUAL</th>
-                    <th className="py-1.5 px-2 text-right">ESTOQUE MÍNIMO</th>
-                    <th className="py-1.5 px-2 text-right text-rose-600">DÉFICIT</th>
-                    <th className="py-1.5 px-2 text-right">ÚLTIMO CUSTO</th>
-                    <th className="py-1.5 px-2 text-right">TOTAL ESTIMADO</th>
-                    <th className="py-1.5 px-3 text-center">AÇÃO</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
-                  {belowStockItems.map((item) => {
-                    const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                    const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
-                    const deficit = Math.max(1, min - cur > 0 ? min - cur : 1);
-                    const cost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
-                    const isAlreadyAdded = purchaseList.some(p => p.item.id === item.id);
-
-                    return (
-                      <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                        <td className="py-1 px-3 font-bold text-slate-900 dark:text-white uppercase">
-                          <span className="font-mono text-slate-500 mr-1.5 text-[10px]">
-                            {item.code || item.codigo_produto || 'S/CÓD'}
-                          </span>
-                          {item.nome_comercial || item.name}
-                        </td>
-                        <td className="py-1 px-2 text-slate-600 dark:text-stone-400 uppercase text-[10px]">
-                          {item.categoria || item.category || 'GERAL'}
-                        </td>
-                        <td className="py-1 px-2 text-right font-black text-rose-600 font-mono">
-                          {cur.toLocaleString('pt-BR')} {item.unit}
-                        </td>
-                        <td className="py-1 px-2 text-right text-slate-700 dark:text-stone-300 font-mono">
-                          {min.toLocaleString('pt-BR')} {item.unit}
-                        </td>
-                        <td className="py-1 px-2 text-right font-black text-rose-700 dark:text-rose-400 font-mono">
-                          -{deficit.toLocaleString('pt-BR')} {item.unit}
-                        </td>
-                        <td className="py-1 px-2 text-right font-mono text-slate-700 dark:text-stone-300">
-                          {formatCurrencyBRL(cost)}
-                        </td>
-                        <td className="py-1 px-2 text-right font-black font-mono text-slate-900 dark:text-white">
-                          {formatCurrencyBRL(deficit * cost)}
-                        </td>
-                        <td className="py-1 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleAddItemToPurchase(item, deficit)}
-                            disabled={isAlreadyAdded}
-                            className={`px-2 py-0.5 text-[9px] font-black uppercase rounded transition cursor-pointer ${
-                              isAlreadyAdded
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 cursor-default'
-                                : 'bg-slate-800 text-white hover:bg-slate-700 active:scale-95'
-                            }`}
-                          >
-                            {isAlreadyAdded ? '✓ ADICIONADO' : '+ COMPRAR'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {/* Autocomplete Dropdown Suspenso */}
+          {autocompleteOpen && filteredProducts.length > 0 && (
+            <div 
+              ref={dropdownRef}
+              className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-md shadow-xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800"
+            >
+              {filteredProducts.map((prod, idx) => (
+                <div
+                  key={prod.id}
+                  onClick={() => handleSelectProduct(prod)}
+                  className={`px-3 py-1.5 text-xs uppercase cursor-pointer flex items-center justify-between transition ${
+                    idx === autocompleteIndex 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 font-black' 
+                      : 'hover:bg-slate-100 dark:hover:bg-stone-800 text-slate-800 dark:text-stone-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="font-mono text-[10px] text-slate-500 font-bold shrink-0">
+                      [{prod.code || (prod as any).codigo_produto || 'S/CÓD'}]
+                    </span>
+                    <span className="truncate font-bold">{prod.nome_comercial || prod.name}</span>
+                    <span className="text-[9px] text-slate-400 shrink-0">
+                      ({prod.categoria || prod.category || 'GERAL'})
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0 ml-2 font-mono text-[11px] font-bold text-slate-700 dark:text-stone-300">
+                    {formatCurrencyBRL(Number(prod.preco_custo_inicial ?? prod.unitCost ?? (prod as any).ultimoCusto ?? 0))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-      )}
 
-      {/* CONTEÚDO DA SUB-ABA 2: COMPRAS DE ITENS AVULSOS (BUSCA MANUAL GERAL) */}
-      {comprasSubTab === 'avulsos' && (
-        <div className="space-y-3">
-          {/* Barra de Busca e Filtro de Categoria */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-white dark:bg-stone-850 p-2.5 rounded-lg border border-slate-300 dark:border-stone-700 shadow-xs">
-            <div className="sm:col-span-2 relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
-                placeholder="BUSCAR ITEM POR NOME, CÓDIGO OU CÓDIGO DE BARRAS..."
-                className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
+        {/* Campo 2 (Col 2): QTDE */}
+        <div className="col-span-6 sm:col-span-2">
+          <label className="block text-[9px] font-black text-slate-600 dark:text-stone-400 uppercase mb-0.5 tracking-wider">
+            QTDE
+          </label>
+          <input
+            type="text"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddItemToOrder();
+              }
+            }}
+            className="w-full px-2 py-1 text-xs font-black text-center rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+          />
+        </div>
 
-            <div>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-2 py-1 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+        {/* Campo 3 (Col 2): PREÇO REF. (desabilitado) */}
+        <div className="col-span-6 sm:col-span-2">
+          <label className="block text-[9px] font-black text-slate-600 dark:text-stone-400 uppercase mb-0.5 tracking-wider">
+            PREÇO REF.
+          </label>
+          <input
+            type="text"
+            disabled
+            value={formatCurrencyBRL(refPrice)}
+            className="w-full px-2 py-1 text-xs font-black text-right rounded border border-slate-300 dark:border-stone-700 bg-slate-200/80 dark:bg-stone-800 text-slate-700 dark:text-stone-300 font-mono select-none cursor-not-allowed shadow-xs"
+          />
+        </div>
+
+        {/* Campo 4 (Col 1): Botão rígido + INSERIR */}
+        <div className="col-span-12 sm:col-span-1 flex flex-col justify-end">
+          <label className="block text-[9px] font-black text-transparent mb-0.5 select-none hidden sm:block">
+            _
+          </label>
+          <button
+            type="button"
+            onClick={handleAddItemToOrder}
+            className="w-full py-1 text-xs font-black uppercase rounded bg-emerald-600 hover:bg-emerald-700 text-white transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center gap-1 tracking-wider"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+            <span>INSERIR</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. TABELA DE COMPRAS MANTIDA EM RASCUNHO (100% ISOLADA COM ROLAGEM INDEPENDENTE) */}
+      <div className="flex-1 min-h-0 border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-850 overflow-hidden flex flex-col shadow-xs">
+        <div className="overflow-x-auto overflow-y-auto flex-1">
+          <table className="w-full text-left border-collapse text-[11px]">
+            <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-10 shadow-xs">
+              <tr>
+                <th className="py-1 px-3 w-28">CÓDIGO</th>
+                <th className="py-1 px-3">DESCRIÇÃO</th>
+                <th className="py-1 px-3 w-48">CATEGORIA</th>
+                <th className="py-1 px-3 w-36 text-right">QUANTIDADE SOLICITADA</th>
+                <th className="py-1 px-2 w-16 text-center">REMOVER</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
+              {purchaseList.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-stone-500 uppercase font-bold text-xs">
+                    <FileText className="w-8 h-8 text-slate-300 dark:text-stone-600 mx-auto mb-2" />
+                    NENHUM ITEM NO BLOCO DE RASCUNHO AINDA.
+                    <div className="text-[10px] font-normal normal-case mt-0.5 text-slate-400">
+                      Utilize a barra de digitação rápida no topo ou o atalho F3 para adicionar produtos.
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                purchaseList.map((item) => (
+                  <tr 
+                    key={item.id} 
+                    className="even:bg-[#eaeaea] odd:bg-white dark:even:bg-stone-800/60 dark:odd:bg-stone-900 hover:bg-slate-200/50 dark:hover:bg-stone-750 transition border-b border-slate-200 dark:border-stone-800"
+                  >
+                    <td className="py-1 px-3 font-mono font-bold text-slate-700 dark:text-stone-300 uppercase text-[10px]">
+                      {item.code || 'S/CÓD'}
+                    </td>
+                    <td className="py-1 px-3 font-bold text-slate-900 dark:text-white uppercase truncate max-w-md">
+                      {item.description}
+                    </td>
+                    <td className="py-1 px-3 text-slate-600 dark:text-stone-400 uppercase text-[10px]">
+                      {item.category || 'GERAL'}
+                    </td>
+                    <td className="py-1 px-3 text-right font-black font-mono text-slate-900 dark:text-white">
+                      {Number(item.quantity).toLocaleString('pt-BR')} {item.unit || 'UN'}
+                    </td>
+                    <td className="py-1 px-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="p-1 px-2 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950 font-black text-xs rounded transition cursor-pointer"
+                        title="Remover item do rascunho"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 3. BOTÕES DE CONTROLE DA LISTA (RODAPÉ DO PAINEL) */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-slate-100 dark:bg-stone-850 p-2 border border-slate-300 dark:border-stone-700 rounded shrink-0 shadow-xs">
+        <div className="text-[10px] font-bold uppercase text-slate-500 dark:text-stone-400">
+          * ESTE RASCUNHO É ISOLADO: NÃO ALTERA SALDO REAL DE ESTOQUE E NÃO GERA CONTAS A PAGAR.
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            className="flex-1 sm:flex-none px-4 py-1.5 text-xs font-black uppercase rounded bg-slate-800 hover:bg-slate-900 text-white transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center gap-1.5 tracking-wider"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>💾 SALVAR RASCUNHO DA LISTA</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowClearConfirmModal(true)}
+            disabled={purchaseList.length === 0}
+            className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
+              purchaseList.length === 0
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-stone-800 dark:text-stone-600'
+                : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs'
+            }`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>🗑️ EXCLUIR LISTA COMPLETA</span>
+          </button>
+        </div>
+      </div>
+
+      {/* MODAL CUSTOMIZADO ANTI-SANDBOX DE CONFIRMAÇÃO PARA LIMPAR LISTA */}
+      {showClearConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl max-w-md w-full p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-2">
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="w-5 h-5" />
+                <h4 className="text-xs font-black uppercase tracking-wider">
+                  CONFIRMAÇÃO DE EXCLUSÃO
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClearConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer"
               >
-                <option value="TODAS">TODAS AS CATEGORIAS</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
 
-          {/* Tabela de Produtos Cadastrados Disponíveis para Compra */}
-          <div className="overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-850 max-h-[350px] overflow-y-auto">
-            <table className="w-full text-left border-collapse text-[11px]">
-              <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-10 shadow-xs">
-                <tr>
-                  <th className="py-1.5 px-3">CÓDIGO & DESCRIÇÃO (UPPERCASE)</th>
-                  <th className="py-1.5 px-2">CATEGORIA</th>
-                  <th className="py-1.5 px-2 text-right">ESTOQUE ATUAL</th>
-                  <th className="py-1.5 px-2 text-right">ESTOQUE MÍN.</th>
-                  <th className="py-1.5 px-2 text-right">ÚLTIMO CUSTO</th>
-                  <th className="py-1.5 px-3 text-center">AÇÃO RÁPIDA</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
-                {filteredAvulsos.map((item) => {
-                  const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                  const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
-                  const cost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
-                  const isBelow = cur <= min;
+            <div className="py-2">
+              <p className="text-xs font-bold uppercase text-slate-800 dark:text-stone-100 leading-relaxed">
+                TEM CERTEZA QUE DESEJA ZERAR ESTE RASCUNHO?
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-stone-400 mt-1">
+                Todos os {purchaseList.length} itens serão removidos da tela e a chave 'agrocontrol_rascunho_compras' será apagada imediatamente.
+              </p>
+            </div>
 
-                  return (
-                    <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                      <td className="py-1 px-3 font-bold text-slate-900 dark:text-white uppercase">
-                        <span className="font-mono text-slate-500 mr-1.5 text-[10px]">
-                          {item.code || item.codigo_produto || 'S/CÓD'}
-                        </span>
-                        {item.nome_comercial || item.name}
-                      </td>
-                      <td className="py-1 px-2 text-slate-600 dark:text-stone-400 uppercase text-[10px]">
-                        {item.categoria || item.category || 'GERAL'}
-                      </td>
-                      <td className={`py-1 px-2 text-right font-mono font-bold ${isBelow ? 'text-rose-600 font-black' : 'text-slate-800 dark:text-stone-200'}`}>
-                        {cur.toLocaleString('pt-BR')} {item.unit}
-                      </td>
-                      <td className="py-1 px-2 text-right font-mono text-slate-500">
-                        {min.toLocaleString('pt-BR')} {item.unit}
-                      </td>
-                      <td className="py-1 px-2 text-right font-mono text-slate-700 dark:text-stone-300">
-                        {formatCurrencyBRL(cost)}
-                      </td>
-                      <td className="py-1 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleAddItemToPurchase(item, 1)}
-                          className="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-700 hover:bg-emerald-800 text-white transition active:scale-95 cursor-pointer shadow-xs"
-                        >
-                          + INSERIR ITEM
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirmModal(false)}
+                className="px-3 py-1.5 text-xs font-bold uppercase rounded bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-stone-800 dark:text-stone-300 transition cursor-pointer"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearDraft}
+                className="px-4 py-1.5 text-xs font-black uppercase rounded bg-rose-600 hover:bg-rose-700 text-white transition active:scale-95 cursor-pointer shadow-xs"
+              >
+                SIM, ZERAR RASCUNHO
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* RASCUNHO / ITENS SELECIONADOS PARA O PEDIDO DE COMPRA ATUAL */}
-      {purchaseList.length > 0 && (
-        <div className="border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-850 p-2.5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-700 pb-2">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-emerald-600" />
-              <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wide">
-                LISTA DE PRODUTOS PARA COMPRA CONSOLIDADA ({purchaseList.length} ITENS)
-              </h4>
-            </div>
-            <span className="text-[10px] text-slate-500">
-              Ajuste as quantidades e o valor unitário estimado antes de fechar o pedido
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-[11px]">
-              <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] font-black text-slate-600 dark:text-stone-400 uppercase tracking-wide border-b border-slate-200 dark:border-stone-700">
-                <tr>
-                  <th className="py-1 px-2">ITEM / DESCRIÇÃO</th>
-                  <th className="py-1 px-2 w-28 text-center">QUANTIDADE</th>
-                  <th className="py-1 px-2 w-32 text-right">VALOR UNIT. (R$)</th>
-                  <th className="py-1 px-2 text-right">SUBTOTAL</th>
-                  <th className="py-1 px-2 w-12 text-center">REMOVER</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-stone-750">
-                {purchaseList.map((entry) => {
-                  const subtotal = entry.quantity * entry.unitCost;
-                  return (
-                    <tr key={entry.item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                      <td className="py-1 px-2 font-bold uppercase text-slate-900 dark:text-white">
-                        <span className="font-mono text-slate-500 text-[10px] mr-1">
-                          {entry.item.code || entry.item.codigo_produto || 'S/CÓD'}
-                        </span>
-                        {entry.item.nome_comercial || entry.item.name}
-                      </td>
-                      <td className="py-1 px-2 text-center">
-                        <div className="inline-flex items-center gap-1">
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="any"
-                            value={entry.quantity}
-                            onChange={(e) => handleUpdateQty(entry.item.id, parseFloat(e.target.value) || 0)}
-                            className="w-16 px-1 py-0.5 text-center text-xs font-bold rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-900 dark:text-white font-mono"
-                          />
-                          <span className="text-[10px] text-slate-500 font-mono">{entry.item.unit}</span>
-                        </div>
-                      </td>
-                      <td className="py-1 px-2 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={entry.unitCost}
-                          onChange={(e) => handleUpdateCost(entry.item.id, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-1 py-0.5 text-right text-xs font-bold rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-900 dark:text-white font-mono"
-                        />
-                      </td>
-                      <td className="py-1 px-2 text-right font-black font-mono text-slate-900 dark:text-white">
-                        {formatCurrencyBRL(subtotal)}
-                      </td>
-                      <td className="py-1 px-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(entry.item.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                          title="Remover item"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Rodapé da Compra com Ação Final */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-900/60 p-2 rounded">
-            <div className="text-[11px] font-bold text-slate-700 dark:text-stone-300">
-              VALOR TOTAL ESTIMADO DA COMPRA:{' '}
-              <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 font-mono ml-1">
-                {formatCurrencyBRL(totalPurchaseValue)}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setOrderFinalizedMessage(true);
-                // Grava compra registrada no histórico de pedidos de compras
-                try {
-                  const rawHistory = localStorage.getItem('colaca_silagem_compras_historico');
-                  const history = rawHistory ? JSON.parse(rawHistory) : [];
-                  const newRecord = {
-                    id: `compra_${Date.now()}`,
-                    date: new Date().toISOString(),
-                    items: purchaseList,
-                    totalValue: totalPurchaseValue,
-                    status: 'PENDENTE',
-                  };
-                  history.unshift(newRecord);
-                  localStorage.setItem('colaca_silagem_compras_historico', JSON.stringify(history));
-                  setPurchaseList([]);
-                } catch (_) {}
-              }}
-              className="px-4 py-1.5 text-xs font-black uppercase rounded bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>FINALIZAR & SALVAR PEDIDO DE COMPRA</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
