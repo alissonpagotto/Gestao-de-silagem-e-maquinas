@@ -1230,7 +1230,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
           {/* Trava Visual de Segurança para Sub-abas Bloqueadas */}
           {!isFleetSubTabAllowed(activeSubTab) && (
             <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">

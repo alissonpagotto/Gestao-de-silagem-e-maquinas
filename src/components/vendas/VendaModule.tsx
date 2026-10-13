@@ -334,7 +334,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA (ALINHAMENTO SETA VERDE) */}
-        <div className={`w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#c8dbee] dark:bg-stone-900 shadow-sm overflow-hidden global ${activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3'}`}>
+        <div className={`w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global ${activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3'}`}>
           {activeTab === 'pdv' ? (
             <PdvView
               clients={clients}

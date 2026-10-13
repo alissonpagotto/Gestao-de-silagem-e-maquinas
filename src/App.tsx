@@ -3198,7 +3198,7 @@ export default function App() {
         )}
 
         {/* Workspace Interno da Janela (Sidebar + Conteúdo Principal) */}
-        <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-zinc-100 dark:bg-stone-950">
+        <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-[#b9cde3] dark:bg-stone-950">
           {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
           <Sidebar
             activeTab={activeTab}
@@ -3222,12 +3222,12 @@ export default function App() {
 
           {/* Main Body Area with left padding for desktop sidebar */}
           <div 
-            className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-zinc-100 dark:bg-stone-950"
+            className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-[#b9cde3] dark:bg-stone-950"
           >
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 
               id="crm-main-content"
-              className={`flex-1 min-h-0 overflow-y-auto p-2 sm:p-2.5 lg:p-3 ${activeTab === 'configuracoes' ? 'pb-2 lg:pb-2 overflow-hidden' : 'pb-20 lg:pb-3.5'} w-full max-w-none bg-zinc-100 dark:bg-stone-950`}
+              className={`flex-1 min-h-0 overflow-y-auto p-2 sm:p-2.5 lg:p-3 ${activeTab === 'configuracoes' ? 'pb-2 lg:pb-2 overflow-hidden' : 'pb-20 lg:pb-3.5'} w-full max-w-none bg-[#b9cde3] dark:bg-stone-950`}
             >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (
