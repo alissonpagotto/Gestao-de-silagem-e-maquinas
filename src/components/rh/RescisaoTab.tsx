@@ -101,6 +101,74 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     terminationsRef.current = terminations;
   }, [terminations]);
 
+  // 2. TRAVA DE INTEGRAÇÃO DA RESCISÃO: Consulta reativa ao array 'agrocontrol_despesas'
+  const [existingExpenses, setExistingExpenses] = useState<Expense[]>(() => getStoredExpenses());
+
+  useEffect(() => {
+    const syncExpenses = () => setExistingExpenses(getStoredExpenses());
+    window.addEventListener('storage', syncExpenses);
+    window.addEventListener('silagem_expenses_updated', syncExpenses);
+    return () => {
+      window.removeEventListener('storage', syncExpenses);
+      window.removeEventListener('silagem_expenses_updated', syncExpenses);
+    };
+  }, []);
+
+  // Helper de verificação estrita: se a despesa já existir em agrocontrol_despesas
+  const isTerminationInExpenses = (t: TerminationRecord): boolean => {
+    if (t.status === 'integrado' || Boolean(t.isIntegrated)) return true;
+    const canonicalId = toValidUUID(t.id);
+    const expectedPayableId = toValidUUID(`cap_rescisao_${canonicalId}`);
+
+    return existingExpenses.some((e) => {
+      if (!e) return false;
+      const eId = toValidUUID(e.id);
+      if (e.id === t.id || eId === canonicalId) return true;
+      if (t.financePayableId && (e.id === t.financePayableId || eId === toValidUUID(t.financePayableId))) return true;
+      if (e.id === expectedPayableId || eId === expectedPayableId) return true;
+
+      // Correspondência por colaborador e histórico rescisório
+      const empMatches = (e.employeeId && e.employeeId === t.employeeId) ||
+        (e.supplier && e.supplier.trim().toLowerCase() === t.employeeName?.trim().toLowerCase()) ||
+        (e.employeeName && e.employeeName.trim().toLowerCase() === t.employeeName?.trim().toLowerCase());
+
+      if (empMatches) {
+        const desc = String(e.description || '').toLowerCase();
+        const cat = String(e.categoryName || '').toLowerCase();
+        if (desc.includes('rescis') || cat.includes('rescis')) {
+          return true;
+        }
+      }
+      return false;
+    });
+  };
+
+  // Trava automática: Se o 'id' da despesa já existir no array 'agrocontrol_despesas',
+  // força o status da rescisão a mudar de "rascunho" para "integrado"
+  useEffect(() => {
+    let hasChanges = false;
+    setTerminations((prev) => {
+      const updated = prev.map((t) => {
+        const inExp = isTerminationInExpenses(t);
+        if (inExp && (t.status === 'rascunho' || !t.isIntegrated)) {
+          hasChanges = true;
+          return {
+            ...t,
+            status: 'integrado' as const,
+            isIntegrated: true,
+            financePayableId: t.financePayableId || toValidUUID(`cap_rescisao_${toValidUUID(t.id)}`),
+          };
+        }
+        return t;
+      });
+      if (hasChanges) {
+        saveStoredTerminations(updated);
+        return updated;
+      }
+      return prev;
+    });
+  }, [existingExpenses]);
+
   // Controle da Janela Modal de Cálculo e Listagem
   // OBRIGATÓRIO: Inicia fechado (isOpen: false)
   const [isCalculationModalOpen, setIsCalculationModalOpen] = useState<boolean>(false);
@@ -898,7 +966,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     
                     {/* Status: Integrado / Em Andamento / Homologado */}
                     <td className="py-2.5 px-3 whitespace-nowrap">
-                      {t.isIntegrated || t.status === 'integrado' ? (
+                      {t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t) ? (
                         <span
                           className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
                           title="Lançado e integrado ao Contas a Pagar e DRE"
@@ -950,7 +1018,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     </td>
 
                     {/* Coluna de Ações:
-                        1. Botão Fechamento Financeiro (ao lado do Visualizar/Editar e antes de Imprimir TRCT)
+                        1. Botão Fechamento Financeiro (ocultado se já integrado ao Contas a Pagar)
                         2. Botão Visualizar/Editar
                         3. Botão Imprimir TRCT (PDF)
                         4. Botão Excluir
@@ -958,45 +1026,35 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center space-x-1.5">
                         
-                        {/* 1. Botão de Integração Financeira (ao lado de Visualizar/Editar e antes de Imprimir TRCT) */}
-                        <button
-                          type="button"
-                          onClick={() => handleIntegrarRescisaoFinanceiro(t)}
-                          disabled={t.isIntegrated || t.status === 'integrado' || integratingId === t.id}
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs ${
-                            t.isIntegrated || t.status === 'integrado'
-                              ? 'bg-blue-100/60 dark:bg-blue-950/40 text-blue-400 dark:text-blue-500 border border-blue-200 dark:border-blue-900 opacity-60 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white cursor-pointer active:scale-95'
-                          }`}
-                          title={
-                            t.isIntegrated || t.status === 'integrado'
-                              ? 'Rescisão já integrada ao Contas a Pagar e DRE do Veículo'
-                              : 'Enviar para Contas a Pagar e DRE do Veículo'
-                          }
-                        >
-                          {integratingId === t.id ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          ) : t.isIntegrated || t.status === 'integrado' ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                          ) : (
-                            <svg
-                              className="w-3.5 h-3.5 shrink-0"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
-                              <polyline points="16 6 12 2 8 6" />
-                              <line x1="12" y1="2" x2="12" y2="15" />
-                            </svg>
-                          )}
-                          <span className="hidden sm:inline">
-                            {t.isIntegrated || t.status === 'integrado' ? 'Integrado' : 'Integrar'}
-                          </span>
-                        </button>
+                        {/* 1. Botão de Integração Financeira: Ocultado automaticamente quando a rescisão já estiver integrada */}
+                        {!(t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t)) && (
+                          <button
+                            type="button"
+                            onClick={() => handleIntegrarRescisaoFinanceiro(t)}
+                            disabled={integratingId === t.id}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white cursor-pointer active:scale-95"
+                            title="Enviar para Contas a Pagar e DRE do Veículo"
+                          >
+                            {integratingId === t.id ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <svg
+                                className="w-3.5 h-3.5 shrink-0"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                                <polyline points="16 6 12 2 8 6" />
+                                <line x1="12" y1="2" x2="12" y2="15" />
+                              </svg>
+                            )}
+                            <span className="hidden sm:inline">Integrar</span>
+                          </button>
+                        )}
 
                         {/* 2. Botão Visualizar/Editar */}
                         <button

@@ -287,11 +287,53 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
 
 export function getStoredExpenses(): Expense[] {
   try {
-    const raw = localStorage.getItem('agrocontrol_financeiro') ||
-                localStorage.getItem('colaca_silagem_despesas') ||
-                localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    let raw: string | null = null;
+    const candidateKeys = [
+      'agrocontrol_despesas',
+      'agrocontrol_financeiro',
+      'colaca_silagem_despesas',
+      STORAGE_KEYS.EXPENSES,
+    ];
+
+    for (const key of candidateKeys) {
+      const val = localStorage.getItem(key);
+      if (val && val !== '[]' && val !== '{}' && val !== 'null') {
+        raw = val;
+        break;
+      }
+    }
+
     if (!raw) return INITIAL_EXPENSES;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return INITIAL_EXPENSES;
+
+    // 3. EXPULSÃO DE DADOS FAKES NO CONTAS A PAGAR:
+    // Delete permanentemente do LocalStorage qualquer registro cujo fornecedor seja "Fornecedor"
+    // ou cujo valor seja estritamente igual a R$ 0,00.
+    let hasFake = false;
+    const cleaned = parsed.filter((item: any) => {
+      if (!item) {
+        hasFake = true;
+        return false;
+      }
+      const sup = String(item.supplier || '').trim().toLowerCase();
+      const val = Number(item.amount) || 0;
+      if (sup === 'fornecedor' || val === 0) {
+        hasFake = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (hasFake) {
+      const cleanedJson = JSON.stringify(cleaned);
+      localStorage.setItem('agrocontrol_despesas', cleanedJson);
+      localStorage.setItem('agrocontrol_financeiro', cleanedJson);
+      localStorage.setItem('colaca_silagem_despesas', cleanedJson);
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, cleanedJson);
+    }
+
+    return cleaned;
   } catch (e) {
     console.error('Failed to load expenses', e);
     return INITIAL_EXPENSES;
@@ -302,14 +344,23 @@ let lastSavedExpensesJson = '';
 
 export function saveStoredExpenses(expenses: Expense[]): void {
   try {
-    const json = JSON.stringify(expenses);
+    // Purga registros fakes antes da gravação permanente
+    const cleaned = expenses.filter((item: any) => {
+      if (!item) return false;
+      const sup = String(item.supplier || '').trim().toLowerCase();
+      const val = Number(item.amount) || 0;
+      return sup !== 'fornecedor' && val !== 0;
+    });
+
+    const json = JSON.stringify(cleaned);
     if (json === lastSavedExpensesJson) return;
     lastSavedExpensesJson = json;
+    localStorage.setItem('agrocontrol_despesas', json);
     localStorage.setItem('agrocontrol_financeiro', json);
     localStorage.setItem('colaca_silagem_despesas', json);
     localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
+      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
     }
   } catch (e) {
     console.error('Failed to save expenses', e);
@@ -2537,9 +2588,84 @@ export function saveStoredMedicalCertificates(certificates: MedicalCertificateRe
 // RH: Absences (Faltas)
 export function getStoredAbsences(): AbsenceRecord[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.ABSENCES);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    let faltas: AbsenceRecord[] = [];
+    const candidateKeys = ['agrocontrol_faltas', STORAGE_KEYS.ABSENCES, 'colaca_silagem_rh_faltas'];
+    for (const key of candidateKeys) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            faltas = parsed;
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    // 1. LEITURA REATIVA DE FALTAS EM 'agrocontrol_adiantamentos' com type: "injustificada":
+    const candidateAdvKeys = ['agrocontrol_adiantamentos', STORAGE_KEYS.SALARY_ADVANCES, 'colaca_silagem_rh_adiantamentos'];
+    for (const advKey of candidateAdvKeys) {
+      const rawAdv = localStorage.getItem(advKey);
+      if (rawAdv) {
+        try {
+          const parsedAdv = JSON.parse(rawAdv);
+          if (Array.isArray(parsedAdv)) {
+            const unjustAdv = parsedAdv.filter((a: any) => a && (a.type === 'injustificada' || a.tipo === 'injustificada'));
+            if (unjustAdv.length > 0) {
+              let hasNew = false;
+              unjustAdv.forEach((a: any) => {
+                const discAmt = Number(a.discountAmount !== undefined ? a.discountAmount : a.amount) || 0;
+                const converted: AbsenceRecord = {
+                  id: a.id || `falta_adv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                  employeeId: a.employeeId || '',
+                  employeeName: a.employeeName || '',
+                  employeeRole: a.employeeRole || a.role || 'Colaborador',
+                  date: a.date || new Date().toISOString().split('T')[0],
+                  endDate: a.endDate,
+                  daysCount: Number(a.daysCount) || 1,
+                  absenceUnit: a.absenceUnit || 'dias',
+                  absenceHours: a.absenceHours,
+                  calculationMemory: a.calculationMemory || a.notes || 'Falta Injustificada',
+                  type: 'injustificada',
+                  discountPayroll: a.discountPayroll !== false,
+                  discountAmount: discAmt,
+                  referenceMonth: a.referenceMonth || (a.date ? `${a.date.split('-')[1]}/${a.date.split('-')[0]}` : ''),
+                  reason: a.reason || 'Falta Injustificada',
+                  status: (a.status === 'descontado' ? 'descontada' : a.status) || 'pendente',
+                  notes: a.notes || '',
+                  createdAt: a.createdAt || new Date().toISOString(),
+                  updatedAt: a.updatedAt || new Date().toISOString(),
+                };
+
+                const existingIdx = faltas.findIndex(f => 
+                  f.id === converted.id || 
+                  (f.employeeId === converted.employeeId && f.date === converted.date && f.type === 'injustificada')
+                );
+
+                if (existingIdx >= 0) {
+                  if (!faltas[existingIdx].discountAmount && converted.discountAmount) {
+                    faltas[existingIdx].discountAmount = converted.discountAmount;
+                    hasNew = true;
+                  }
+                } else {
+                  faltas.push(converted);
+                  hasNew = true;
+                }
+              });
+
+              if (hasNew) {
+                const faltasJson = JSON.stringify(faltas);
+                localStorage.setItem('agrocontrol_faltas', faltasJson);
+                localStorage.setItem(STORAGE_KEYS.ABSENCES, faltasJson);
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    return faltas;
   } catch (e) {
     return [];
   }
@@ -2547,7 +2673,60 @@ export function getStoredAbsences(): AbsenceRecord[] {
 
 export function saveStoredAbsences(absences: AbsenceRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(absences));
+    const json = JSON.stringify(absences);
+    localStorage.setItem('agrocontrol_faltas', json);
+    localStorage.setItem(STORAGE_KEYS.ABSENCES, json);
+
+    // REDUNDÂNCIA BIDIRECIONAL COM 'agrocontrol_adiantamentos' (ITEM 1):
+    // Espelha os registros de faltas injustificadas no array de adiantamentos preservando adiantamentos reais
+    try {
+      const candidateAdvKeys = ['agrocontrol_adiantamentos', STORAGE_KEYS.SALARY_ADVANCES];
+      for (const advKey of candidateAdvKeys) {
+        const rawAdv = localStorage.getItem(advKey);
+        let advList: any[] = [];
+        if (rawAdv) {
+          try {
+            const parsed = JSON.parse(rawAdv);
+            if (Array.isArray(parsed)) advList = parsed;
+          } catch {}
+        }
+
+        // Mantém adiantamentos reais que não são faltas
+        const nonAbsences = advList.filter(a => a && a.type !== 'injustificada' && a.tipo !== 'injustificada');
+
+        // Converte faltas com type: "injustificada"
+        const unjustAbsences = absences.filter(a => a && (a.type === 'injustificada' || a.tipo === 'injustificada'));
+        const asAdvances = unjustAbsences.map(a => ({
+          id: a.id,
+          employeeId: a.employeeId,
+          employeeName: a.employeeName,
+          date: a.date,
+          amount: a.discountAmount || 0,
+          discountAmount: a.discountAmount || 0,
+          paymentMethod: 'outro',
+          referenceMonth: a.referenceMonth,
+          status: a.status === 'descontada' ? 'descontado' : 'pendente',
+          reason: a.reason || 'Falta Injustificada',
+          notes: a.notes || a.calculationMemory || '',
+          createdAt: a.createdAt,
+          type: 'injustificada',
+          tipo: 'injustificada',
+          daysCount: a.daysCount || 1,
+          absenceUnit: a.absenceUnit || 'dias',
+          absenceHours: a.absenceHours,
+          calculationMemory: a.calculationMemory,
+        }));
+
+        const merged = [...nonAbsences, ...asAdvances];
+        localStorage.setItem(advKey, JSON.stringify(merged));
+      }
+    } catch (e) {
+      console.warn('Erro ao espelhar em agrocontrol_adiantamentos:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_absences_updated', { detail: absences }));
+    }
   } catch (e) {
     console.error('Failed to save absences', e);
   }

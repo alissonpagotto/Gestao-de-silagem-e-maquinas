@@ -23,7 +23,7 @@ import {
   formatEmployeeAdmissionDate,
   getAdmissionProportionality 
 } from './payrollHelpers';
-import { formatDateBR, formatCurrencyBRL, getActiveCompanyId, saveStoredAbsences } from '../../lib/storage';
+import { formatDateBR, formatCurrencyBRL, getActiveCompanyId, saveStoredAbsences, getStoredAbsences } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { supabase } from '../../lib/supabase';
 import { 
@@ -63,11 +63,13 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [discountFilter, setDiscountFilter] = useState<string>('todos');
 
-  // 2. LIMPEZA DE CACHE DO ESTADO (STATE RESET):
-  // Inicializa com array local vazia (.useState([])) antes de disparar a nova busca reativa,
-  // impedindo que dados residuais ou erro 400 travem a renderização da tela.
-  const [localAbsences, setLocalAbsences] = useState<AbsenceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Inicialização reativa imediata: consome agrocontrol_faltas e agrocontrol_adiantamentos (type: "injustificada")
+  const [localAbsences, setLocalAbsences] = useState<AbsenceRecord[]>(() => {
+    const stored = getStoredAbsences();
+    if (Array.isArray(stored) && stored.length > 0) return stored;
+    return Array.isArray(absences) ? absences : [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,6 +97,22 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const onSaveAbsencesRef = React.useRef(onSaveAbsences);
   onSaveAbsencesRef.current = onSaveAbsences;
 
+  // Escuta alterações de storage para recarregar imediatamente
+  useEffect(() => {
+    const handleSync = () => {
+      const stored = getStoredAbsences();
+      if (stored.length > 0) {
+        setLocalAbsences(stored);
+      }
+    };
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('silagem_absences_updated', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('silagem_absences_updated', handleSync);
+    };
+  }, []);
+
   // Trava de segurança para carga inicial única das faltas
   const isAbsencesLoadedRef = useRef<string | null>(null);
 
@@ -107,32 +125,42 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
     const loadInitialFromSupabase = async () => {
       try {
-        setIsLoading(true);
+        const stored = getStoredAbsences();
+        if (stored.length > 0 && isMounted) {
+          setLocalAbsences(stored);
+        }
         const fresh = await fetchCloudAbsences(effectiveCompanyId);
         if (!isMounted) return;
-        if (Array.isArray(fresh)) {
-          setLocalAbsences(fresh);
-          saveStoredAbsences(fresh);
-          onSaveAbsencesRef.current(fresh);
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          // Unifica sem perder registros armazenados no LocalStorage
+          const merged = [...fresh];
+          for (const s of stored) {
+            if (!merged.some(m => m.id === s.id)) {
+              merged.push(s);
+            }
+          }
+          setLocalAbsences(merged);
+          saveStoredAbsences(merged);
+          onSaveAbsencesRef.current(merged);
+        } else if (stored.length > 0) {
+          setLocalAbsences(stored);
+          saveStoredAbsences(stored);
+          onSaveAbsencesRef.current(stored);
         }
       } catch (err) {
         if (isMounted) {
-          setLocalAbsences([]);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
+          const stored = getStoredAbsences();
+          setLocalAbsences(stored);
         }
       }
     };
 
     if (isAbsencesLoadedRef.current !== effectiveCompanyId) {
       isAbsencesLoadedRef.current = effectiveCompanyId;
+      const stored = getStoredAbsences();
+      setLocalAbsences(stored.length > 0 ? stored : (Array.isArray(absences) ? absences : []));
       if (isSupabaseConfigured) {
         loadInitialFromSupabase();
-      } else {
-        setLocalAbsences(Array.isArray(absences) ? absences : []);
-        setIsLoading(false);
       }
     }
 
@@ -352,7 +380,15 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   });
 
   // KPIs for the selected month or total
-  const monthAbsences = selectedMonth ? activeAbsences.filter(a => a.referenceMonth === selectedMonth) : activeAbsences;
+  const monthAbsences = selectedMonth
+    ? activeAbsences.filter(a => {
+        if (!a) return false;
+        if (a.referenceMonth === selectedMonth) return true;
+        const parts = selectedMonth.split('/');
+        if (parts.length === 2 && a.date && a.date.startsWith(`${parts[1]}-${parts[0]}`)) return true;
+        return false;
+      })
+    : activeAbsences;
   const totalOccurrences = monthAbsences.length;
   const unjustifiedCount = monthAbsences.filter(a => a.type === 'injustificada' || a.type === 'suspensao').length;
   const justifiedCount = monthAbsences.filter(a => a.type === 'justificada').length;
