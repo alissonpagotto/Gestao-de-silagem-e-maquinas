@@ -54,7 +54,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
   const belowStockItems = useMemo(() => {
     return allItems.filter(item => {
       const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-      const min = Number(item.minQuantity ?? item.estoqueMinimo ?? 0);
+      const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
       return cur <= min;
     });
   }, [allItems]);
@@ -101,7 +101,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
   const handleAddAllBelowStock = () => {
     belowStockItems.forEach(item => {
       const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-      const min = Number(item.minQuantity ?? item.estoqueMinimo ?? 0);
+      const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
       const suggested = Math.max(1, min - cur > 0 ? min - cur : min || 1);
       handleAddItemToPurchase(item, suggested);
     });
@@ -261,7 +261,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
                   {belowStockItems.map((item) => {
                     const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                    const min = Number(item.minQuantity ?? item.estoqueMinimo ?? 0);
+                    const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
                     const deficit = Math.max(1, min - cur > 0 ? min - cur : 1);
                     const cost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
                     const isAlreadyAdded = purchaseList.some(p => p.item.id === item.id);
@@ -364,7 +364,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
               <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
                 {filteredAvulsos.map((item) => {
                   const cur = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                  const min = Number(item.minQuantity ?? item.estoqueMinimo ?? 0);
+                  const min = Number(item.minQuantity ?? (item as any).estoqueMinimo ?? 0);
                   const cost = Number(item.preco_custo_inicial ?? item.unitCost ?? 0);
                   const isBelow = cur <= min;
 

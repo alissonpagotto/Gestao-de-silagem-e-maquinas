@@ -296,7 +296,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
               className="w-full text-xs font-bold uppercase py-1.5 pl-2.5 pr-8 bg-white border border-slate-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer text-slate-800"
             >
               {employees.map(emp => {
-                const tag = emp.status === 'demitido' ? ' (DEMITIDO)' :
+                const tag = (emp.status as any) === 'demitido' ? ' (DEMITIDO)' :
                             emp.status === 'afastado' ? ' (AFASTADO)' :
                             (emp.active === false || emp.status === 'inativo') ? ' (INATIVO)' : '';
                 return (

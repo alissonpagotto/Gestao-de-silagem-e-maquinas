@@ -254,6 +254,16 @@ export interface Machinery {
   trailerCapacityM3?: number; // Capacidade Volumétrica do Reboque (m³)
   coupledTrailerId?: string; // ID do reboque engatado (quando selecionado)
   coupledTrailerName?: string; // Placa / Identificação do reboque engatado (compatibilidade)
+  reboques?: Array<{
+    id: string;
+    order?: number;
+    plate?: string;
+    model?: string;
+    type?: string;
+    capacityLoadKg?: number;
+    capacityM3?: number;
+  }> | string[]; // Suporte a múltiplos implementos na composição (Bitrem / Rodotrem)
+  reboques_ids?: string[]; // IDs dos reboques vinculados à composição
   vehicleTypeDetailed?: string; // Truck, Bi-trem, Rodotrem, Cavalo Mecânico, etc.
 
   // Controle de Peso

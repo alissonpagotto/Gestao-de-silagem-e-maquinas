@@ -620,7 +620,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         {/* Top bar: Search + Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           
-          {/* Lado Esquerdo: Search Input + Botão "+ CADASTRAR VEÍCULO" adjacente contínuo (conforme gabarito verde) */}
+          {/* Lado Esquerdo: Search Input */}
           <div className="flex flex-1 items-center gap-2 max-w-2xl min-w-0">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -632,21 +632,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/60 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white dark:focus:bg-stone-800 shadow-inner"
               />
             </div>
+          </div>
 
-            {/* 1. Botão "+ CADASTRAR VEÍCULO" Realocado: Adjacente contínuo ao término do Search (3D Metálico) */}
+          {/* Lado Direito: CADASTRAR VEÍCULO, Imprimir Lista, Sincronizar Leituras, View Toggle */}
+          <div className="flex items-center flex-wrap gap-2 shrink-0">
+            
+            {/* Botão CADASTRAR VEÍCULO (Reposicionado no canto direito superior conforme gabarito rosa, sem o '+' redundante na string) */}
             <button
               onClick={onOpenNewVehicle}
               title="Cadastrar Novo Veículo ou Máquina na Frota"
               className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Plus className="w-4 h-4 text-slate-700 dark:text-stone-300 stroke-[2.5]" />
-              <span>+ CADASTRAR VEÍCULO</span>
+              <span>CADASTRAR VEÍCULO</span>
             </button>
-          </div>
 
-          {/* Lado Direito: Imprimir Lista, Sincronizar Leituras, View Toggle */}
-          <div className="flex items-center flex-wrap gap-2 shrink-0">
-            
             {/* Botão Imprimir Lista de Veículos (3D Metálico) */}
             <button
               onClick={handleOpenPrint}

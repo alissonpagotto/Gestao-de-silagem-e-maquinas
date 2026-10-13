@@ -44,6 +44,7 @@ import {
   saveStoredVehicleOwnershipRegimes,
   getStoredCompanyProfile,
   getStoredMachineries,
+  saveStoredMachineries,
   getStoredEmployees,
   getActiveCompanyId
 } from '../../lib/storage';
@@ -204,8 +205,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     saveStoredVehicleOwnershipRegimes(updated);
   };
 
-  // Vínculo de Reboque & Bloco Dinâmico
+  // Vínculo de Reboque & Bloco Dinâmico (Composição Múltipla: Bitrem / Rodotrem / Simples)
   const [hasCoupledTrailer, setHasCoupledTrailer] = useState(false);
+  const [reboquesVinculados, setReboquesVinculados] = useState<string[]>([]);
+  const [selectedCandidateTrailerId, setSelectedCandidateTrailerId] = useState<string>('');
   const [trailerPlate, setTrailerPlate] = useState('');
   const [trailerModel, setTrailerModel] = useState('');
   const [coupledTrailerType, setCoupledTrailerType] = useState('');
@@ -217,10 +220,44 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [customTrailerText, setCustomTrailerText] = useState('');
   const [vehicleTypeDetailed, setVehicleTypeDetailed] = useState('');
 
+  // Alternância Dinâmica de Nomenclatura Técnica (Caminhão Rodoviário vs Máquina Agrícola / Campo)
+  const isCaminhao = useMemo(() => {
+    const cat = (categoryType || '').trim().toUpperCase();
+    const comp = (compositionType || '').trim().toUpperCase();
+    const detailed = (vehicleTypeDetailed || '').trim().toUpperCase();
+    const editCat = String((editingVehicle as any)?.category || (editingVehicle as any)?.categoria || '').trim().toUpperCase();
+    const editTipo = String((editingVehicle as any)?.tipo || (editingVehicle as any)?.type || (editingVehicle as any)?.tipo_veiculo || '').trim().toUpperCase();
+
+    return (
+      cat === 'CAMINHAO' ||
+      cat === 'CAMINHÃO' ||
+      cat === 'TRATOR_ESTRADA' ||
+      cat.includes('CAMINH') ||
+      cat.includes('CAVALO') ||
+      cat.includes('RODOVI') ||
+      editCat === 'CAMINHAO' ||
+      editCat === 'CAMINHÃO' ||
+      editCat === 'TRATOR_ESTRADA' ||
+      editCat.includes('CAMINH') ||
+      editCat.includes('CAVALO') ||
+      editTipo === 'CAMINHAO' ||
+      editTipo === 'CAMINHÃO' ||
+      editTipo === 'TRATOR_ESTRADA' ||
+      editTipo.includes('CAMINH') ||
+      editTipo.includes('CAVALO') ||
+      comp === 'CAVALO' ||
+      detailed.includes('BITREM') ||
+      detailed.includes('RODOTREM') ||
+      detailed.includes('CAMINH')
+    );
+  }, [categoryType, compositionType, vehicleTypeDetailed, editingVehicle]);
+
   // Alternar vínculo de reboque e limpar campos quando desativado
   const handleToggleCoupledTrailer = (enabled: boolean) => {
     setHasCoupledTrailer(enabled);
     if (!enabled) {
+      setReboquesVinculados([]);
+      setSelectedCandidateTrailerId('');
       setTrailerPlate('');
       setTrailerModel('');
       setCoupledTrailerType('');
@@ -232,37 +269,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     }
   };
 
-  // Preenchimento rápido e bloqueado a partir de reboque selecionado no dropdown
-  const handleSelectCandidateTrailer = (trailerId: string) => {
-    setCoupledTrailerId(trailerId);
-    if (!trailerId) {
-      setTrailerPlate('');
-      setTrailerModel('');
-      setCoupledTrailerType('');
-      setTrailerCapacityLoadKg('');
-      setTrailerCapacityM3('');
-      setCoupledTrailerName('');
-      return;
-    }
-    const found = candidateTrailers.find(t => t.id === trailerId || toValidUUID(t.id) === toValidUUID(trailerId));
-    if (found) {
-      const foundPlate = (found.licensePlateOrSerial || (found as any).placa_ou_serie || (found as any).plate || '').toUpperCase();
-      const foundModel = (found.model || (found as any).modelo || found.name || (found as any).nome || '').toUpperCase();
-      const foundType = (found as any).trailerType || (found as any).tipo || (found as any).type || 'Reboque';
-      const foundLoad = found.capacityLoadKg !== undefined && found.capacityLoadKg !== null 
-        ? String(found.capacityLoadKg) 
-        : ((found as any).capacidade_carga_kg !== undefined ? String((found as any).capacidade_carga_kg) : '');
-      const foundM3 = found.capacityM3 !== undefined && found.capacityM3 !== null 
-        ? String(found.capacityM3) 
-        : ((found as any).capacidade_m3 !== undefined ? String((found as any).capacidade_m3) : '');
+  // Adicionar implemento à composição
+  const handleAddTrailer = () => {
+    if (!selectedCandidateTrailerId) return;
+    setReboquesVinculados(prev => [...prev, selectedCandidateTrailerId]);
+    setSelectedCandidateTrailerId('');
+  };
 
-      setTrailerPlate(foundPlate);
-      setTrailerModel(foundModel);
-      setCoupledTrailerType(foundType);
-      setTrailerCapacityLoadKg(foundLoad);
-      setTrailerCapacityM3(foundM3);
-      setCoupledTrailerName(foundModel ? `${foundPlate} - ${foundModel}` : foundPlate);
-    }
+  // Remover implemento da composição
+  const handleRemoveTrailer = (indexToRemove: number) => {
+    setReboquesVinculados(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   // Weights & Capacity
@@ -463,11 +479,85 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     );
   }, [machineries, supabaseTrailers, editingVehicle]);
 
-  // Efeito de reconciliação reativa: se os reboques carregarem após a abertura do modal
+  // Dados estruturados de cada implemento vinculado na composição
+  const linkedTrailersData = useMemo(() => {
+    return reboquesVinculados.map((id, index) => {
+      const found = candidateTrailers.find(t => t.id === id || toValidUUID(t.id) === toValidUUID(id)) ||
+                    machineries.find(m => m.id === id || toValidUUID(m.id) === toValidUUID(id)) ||
+                    supabaseTrailers.find(t => t.id === id || toValidUUID(t.id) === toValidUUID(id));
+      const plate = (found?.licensePlateOrSerial || (found as any)?.placa_ou_serie || (found as any)?.plate || (found as any)?.fleetNumber || 'S/N').toUpperCase();
+      const model = (found?.model || (found as any)?.modelo || found?.name || (found as any)?.nome || 'REBOQUE').toUpperCase();
+      const type = (found as any)?.trailerType || (found as any)?.tipo || (found as any)?.type || (found as any)?.categoriaVeiculo || 'Reboque';
+      const capacityLoadKg = found?.capacityLoadKg !== undefined && found?.capacityLoadKg !== null 
+        ? Number(found.capacityLoadKg) 
+        : ((found as any)?.capacidade_carga_kg !== undefined ? Number((found as any).capacidade_carga_kg) : 0);
+      const capacityM3 = found?.capacityM3 !== undefined && found?.capacityM3 !== null 
+        ? Number(found.capacityM3) 
+        : ((found as any)?.capacidade_m3 !== undefined ? Number((found as any).capacidade_m3) : 0);
+
+      return {
+        id,
+        order: index + 1,
+        orderLabel: `${index + 1}º IMPLEMENTO`,
+        plate,
+        model,
+        type,
+        capacityLoadKg,
+        capacityM3,
+        raw: found,
+      };
+    });
+  }, [reboquesVinculados, candidateTrailers, machineries, supabaseTrailers]);
+
+  // Propriedades automáticas calculadas reativamente da composição (multiplicação reativa de carga, volume, modelo e placa)
+  const aggregatedTrailers = useMemo(() => {
+    if (linkedTrailersData.length === 0) {
+      return {
+        plates: trailerPlate || '',
+        models: trailerModel || '',
+        types: coupledTrailerType || '',
+        totalLoadKg: trailerCapacityLoadKg ? Number(trailerCapacityLoadKg) : 0,
+        totalM3: trailerCapacityM3 ? Number(trailerCapacityM3) : 0,
+        compositionName: coupledTrailerName || '',
+      };
+    }
+
+    const plates = linkedTrailersData.map(t => t.plate).filter(Boolean).join(' / ');
+    const models = linkedTrailersData.map(t => t.model).filter(Boolean).join(' + ');
+    const types = linkedTrailersData.map(t => t.type).filter(Boolean).join(' / ');
+    const totalLoadKg = linkedTrailersData.reduce((acc, t) => acc + (t.capacityLoadKg || 0), 0);
+    const totalM3 = linkedTrailersData.reduce((acc, t) => acc + (t.capacityM3 || 0), 0);
+    const compositionName = `${plates} - ${models}`;
+
+    return {
+      plates,
+      models,
+      types,
+      totalLoadKg,
+      totalM3,
+      compositionName,
+    };
+  }, [linkedTrailersData, trailerPlate, trailerModel, coupledTrailerType, trailerCapacityLoadKg, trailerCapacityM3, coupledTrailerName]);
+
+  // Efeito de reconciliação reativa: multiplica e sincroniza as propriedades automáticas calculadas
   useEffect(() => {
     if (!isOpen || !hasCoupledTrailer) return;
 
-    if (coupledTrailerId && (!trailerPlate || !trailerModel)) {
+    if (linkedTrailersData.length > 0) {
+      setTrailerPlate(aggregatedTrailers.plates);
+      setTrailerModel(aggregatedTrailers.models);
+      setCoupledTrailerType(aggregatedTrailers.types);
+      setTrailerCapacityLoadKg(aggregatedTrailers.totalLoadKg > 0 ? String(aggregatedTrailers.totalLoadKg) : '');
+      setTrailerCapacityM3(aggregatedTrailers.totalM3 > 0 ? String(aggregatedTrailers.totalM3) : '');
+      setCoupledTrailerName(aggregatedTrailers.compositionName);
+      setCoupledTrailerId(reboquesVinculados[0] || '');
+      if (reboquesVinculados.length >= 2) {
+        setCompositionType('cavalo');
+        if (!vehicleTypeDetailed) {
+          setVehicleTypeDetailed(reboquesVinculados.length === 2 ? 'Bi-trem' : 'Rodotrem');
+        }
+      }
+    } else if (coupledTrailerId && (!trailerPlate || !trailerModel)) {
       const found = candidateTrailers.find(t => t.id === coupledTrailerId || toValidUUID(t.id) === toValidUUID(coupledTrailerId));
       if (found) {
         const foundPlate = (found.licensePlateOrSerial || (found as any).placa_ou_serie || (found as any).plate || '').toUpperCase();
@@ -494,7 +584,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         setCoupledTrailerId(found.id);
       }
     }
-  }, [isOpen, hasCoupledTrailer, coupledTrailerId, trailerPlate, candidateTrailers]);
+  }, [isOpen, hasCoupledTrailer, coupledTrailerId, trailerPlate, candidateTrailers, linkedTrailersData, aggregatedTrailers, reboquesVinculados, vehicleTypeDetailed]);
 
   // Calculate real-time consumption metrics from fuel logs
   const consumptionMetrics = useMemo(() => {
@@ -628,8 +718,18 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       coupledTrailerType: hasCoupledTrailer ? (coupledTrailerType.trim() || undefined) : undefined,
       trailerCapacityLoadKg: hasCoupledTrailer && trailerCapacityLoadKg ? parseFloat(trailerCapacityLoadKg) : undefined,
       trailerCapacityM3: hasCoupledTrailer && trailerCapacityM3 ? parseFloat(trailerCapacityM3) : undefined,
-      coupledTrailerId: hasCoupledTrailer ? (coupledTrailerId || undefined) : undefined,
+      coupledTrailerId: hasCoupledTrailer ? (reboquesVinculados[0] || coupledTrailerId || undefined) : undefined,
       coupledTrailerName: finalCoupledName,
+      reboques: hasCoupledTrailer ? linkedTrailersData.map(t => ({
+        id: t.id,
+        order: t.order,
+        plate: t.plate,
+        model: t.model,
+        type: t.type,
+        capacityLoadKg: t.capacityLoadKg,
+        capacityM3: t.capacityM3,
+      })) : [],
+      reboques_ids: hasCoupledTrailer ? reboquesVinculados : [],
       vehicleTypeDetailed: vehicleTypeDetailed.trim() || undefined,
       taraWeightKg: taraWeightKg ? parseFloat(taraWeightKg) : undefined,
       capacityLoadKg: capacityLoadKg ? parseFloat(capacityLoadKg) : undefined,
@@ -794,16 +894,34 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           : 'Próprio'
       );
       
-      // Vínculo de Reboque & Composição
+      // Vínculo de Reboque & Composição (Bitrem / Rodotrem / Simples)
       const initialTrailerId = editingVehicle.coupledTrailerId || (editingVehicle as any).reboque_vinculado_id || (editingVehicle as any).reboque_id || '';
+      const loadedReboques: string[] = [];
+      if (editingVehicle.reboques && Array.isArray(editingVehicle.reboques)) {
+        editingVehicle.reboques.forEach((item: any) => {
+          if (typeof item === 'string' && item) loadedReboques.push(item);
+          else if (item && typeof item === 'object' && item.id) loadedReboques.push(item.id);
+        });
+      } else if (editingVehicle.reboques_ids && Array.isArray(editingVehicle.reboques_ids)) {
+        editingVehicle.reboques_ids.forEach((id: string) => {
+          if (id) loadedReboques.push(id);
+        });
+      }
+      if (loadedReboques.length === 0 && initialTrailerId) {
+        loadedReboques.push(initialTrailerId);
+      }
+
       const hasTrailer = Boolean(
         editingVehicle.hasCoupledTrailer ||
+        loadedReboques.length > 0 ||
         initialTrailerId ||
         editingVehicle.trailerPlate ||
         editingVehicle.trailerModel ||
         editingVehicle.coupledTrailerName
       );
       setHasCoupledTrailer(hasTrailer);
+      setReboquesVinculados(hasTrailer ? loadedReboques : []);
+      setSelectedCandidateTrailerId('');
       setTrailerPlate((editingVehicle.trailerPlate || '').toUpperCase());
       setTrailerModel((editingVehicle.trailerModel || '').toUpperCase());
       setCoupledTrailerType(editingVehicle.coupledTrailerType || '');
@@ -823,6 +941,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       const isReboqueEdit = (editingVehicle.categoryType || '').trim().toLowerCase() === 'reboque' || (editingVehicle.categoryType || '').trim().toLowerCase() === 'transbordo / reboque / carreta';
       if (isReboqueEdit) {
         setHasCoupledTrailer(false);
+        setReboquesVinculados([]);
         setCompositionType('reboque');
       }
 
@@ -1065,6 +1184,21 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setRevisionStatus('Em dia');
       setNotes('');
       setActiveTab('dados');
+
+      // Reset de Vínculo de Reboque e Composição
+      setHasCoupledTrailer(false);
+      setReboquesVinculados([]);
+      setSelectedCandidateTrailerId('');
+      setTrailerPlate('');
+      setTrailerModel('');
+      setCoupledTrailerType('');
+      setTrailerCapacityLoadKg('');
+      setTrailerCapacityM3('');
+      setCompositionType('veiculo_simples');
+      setCoupledTrailerId('');
+      setCoupledTrailerName('');
+      setCustomTrailerText('');
+      setVehicleTypeDetailed('');
     }
   }, [editingVehicle, isOpen, employees, expenses]);
 
@@ -1465,18 +1599,28 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       status: status || 'disponivel',
       ownership: ownership || 'proprio',
       
-      // Vínculo de Reboque
+      // Vínculo de Reboque & Composição (Bitrem / Rodotrem / Simples)
       hasCoupledTrailer: isReboqueCategory ? false : hasCoupledTrailer,
-      trailerPlate: !isReboqueCategory && hasCoupledTrailer ? (trailerPlate.trim().toUpperCase() || undefined) : undefined,
-      trailerModel: !isReboqueCategory && hasCoupledTrailer ? (trailerModel.trim().toUpperCase() || undefined) : undefined,
-      coupledTrailerType: !isReboqueCategory && hasCoupledTrailer ? (coupledTrailerType.trim() || undefined) : undefined,
-      trailerCapacityLoadKg: !isReboqueCategory && hasCoupledTrailer && trailerCapacityLoadKg ? parseFloat(trailerCapacityLoadKg) : undefined,
-      trailerCapacityM3: !isReboqueCategory && hasCoupledTrailer && trailerCapacityM3 ? parseFloat(trailerCapacityM3) : undefined,
+      trailerPlate: !isReboqueCategory && hasCoupledTrailer ? (aggregatedTrailers.plates || trailerPlate.trim().toUpperCase() || undefined) : undefined,
+      trailerModel: !isReboqueCategory && hasCoupledTrailer ? (aggregatedTrailers.models || trailerModel.trim().toUpperCase() || undefined) : undefined,
+      coupledTrailerType: !isReboqueCategory && hasCoupledTrailer ? (aggregatedTrailers.types || coupledTrailerType.trim() || undefined) : undefined,
+      trailerCapacityLoadKg: !isReboqueCategory && hasCoupledTrailer && aggregatedTrailers.totalLoadKg > 0 ? aggregatedTrailers.totalLoadKg : (trailerCapacityLoadKg ? parseFloat(trailerCapacityLoadKg) : undefined),
+      trailerCapacityM3: !isReboqueCategory && hasCoupledTrailer && aggregatedTrailers.totalM3 > 0 ? aggregatedTrailers.totalM3 : (trailerCapacityM3 ? parseFloat(trailerCapacityM3) : undefined),
       compositionType: isReboqueCategory ? 'reboque' : (hasCoupledTrailer ? 'cavalo' : compositionType),
-      coupledTrailerId: (!isReboqueCategory && hasCoupledTrailer && coupledTrailerId) ? coupledTrailerId : undefined,
-      reboque_vinculado_id: (!isReboqueCategory && hasCoupledTrailer && coupledTrailerId) ? coupledTrailerId : null,
-      coupledTrailerName: !isReboqueCategory && hasCoupledTrailer ? finalCoupledName : undefined,
-      vehicleTypeDetailed: vehicleTypeDetailed.trim() || undefined,
+      coupledTrailerId: (!isReboqueCategory && hasCoupledTrailer && (reboquesVinculados[0] || coupledTrailerId)) ? (reboquesVinculados[0] || coupledTrailerId) : undefined,
+      reboque_vinculado_id: (!isReboqueCategory && hasCoupledTrailer && (reboquesVinculados[0] || coupledTrailerId)) ? (reboquesVinculados[0] || coupledTrailerId) : null,
+      coupledTrailerName: !isReboqueCategory && hasCoupledTrailer ? (aggregatedTrailers.compositionName || finalCoupledName) : undefined,
+      reboques: (!isReboqueCategory && hasCoupledTrailer) ? linkedTrailersData.map(t => ({
+        id: t.id,
+        order: t.order,
+        plate: t.plate,
+        model: t.model,
+        type: t.type,
+        capacityLoadKg: t.capacityLoadKg,
+        capacityM3: t.capacityM3,
+      })) : [],
+      reboques_ids: (!isReboqueCategory && hasCoupledTrailer) ? reboquesVinculados : [],
+      vehicleTypeDetailed: vehicleTypeDetailed.trim() || (hasCoupledTrailer && reboquesVinculados.length >= 2 ? (reboquesVinculados.length === 2 ? 'Bi-trem' : 'Rodotrem') : undefined),
 
       // Dados específicos de Reboque (quando Categoria = Reboque)
       trailerType: isReboqueCategory ? (trailerType.trim() || undefined) : undefined,
@@ -1593,6 +1737,23 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           notes: `Parcelamento de aquisição do veículo ${formattedName} (Placa/Série: ${(plate || serialNumber).toUpperCase()}). Parcela ${i} de ${numInstallments}. NF Compra: ${purchaseInvoiceNumber.trim() || 'N/A'}.`,
         });
       }
+    }
+
+    // 3. Persistência Reativa no LocalStorage (chave 'agrocontrol_frotas_veiculos')
+    try {
+      const rawStored = localStorage.getItem('agrocontrol_frotas_veiculos') || localStorage.getItem('colaca_silagem_frotas_veiculos');
+      const currentList: Machinery[] = rawStored ? JSON.parse(rawStored) : (machineries || []);
+      const existsIndex = currentList.findIndex(m => m.id === vehicleData.id);
+      let updatedFleet: Machinery[];
+      if (existsIndex >= 0) {
+        updatedFleet = [...currentList];
+        updatedFleet[existsIndex] = { ...updatedFleet[existsIndex], ...vehicleData };
+      } else {
+        updatedFleet = [vehicleData, ...currentList];
+      }
+      saveStoredMachineries(updatedFleet);
+    } catch (e) {
+      console.warn('Erro ao salvar localmente na chave agrocontrol_frotas_veiculos:', e);
     }
 
     onSave(vehicleData);
@@ -2173,7 +2334,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 <div className="flex items-center space-x-1.5">
                   <Link2 className="w-4 h-4 text-zinc-700" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
-                    Vínculo de Reboque / Implemento
+                    {isCaminhao ? 'Vínculo de Reboque (Cavalo / Caminhão)' : 'Vínculo de Implemento / Plataforma (Máquina Agrícola)'}
                   </h4>
                 </div>
                 <span className="text-[10px] font-semibold text-zinc-500">
@@ -2189,12 +2350,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   </div>
                   <div>
                     <label htmlFor="coupledTrailerSwitch" className="text-xs font-bold text-zinc-800 cursor-pointer block leading-tight">
-                      Este veículo possui reboque vinculado?
+                      {isCaminhao ? 'Este caminhão possui reboque(s) vinculado(s)?' : 'Esta máquina possui implemento(s) / plataforma(s) acoplada(s)?'}
                     </label>
                     <span className="text-[10px] text-zinc-500">
                       {hasCoupledTrailer 
-                        ? 'Sim — Reboque, carreta ou implemento acoplado' 
-                        : 'Não — Veículo operando de forma isolada / sem reboque'}
+                        ? (isCaminhao ? 'Sim — Reboque, bitrem ou carreta acoplada' : 'Sim — Plataforma, concha, implemento ou acessório acoplado') 
+                        : (isCaminhao ? 'Não — Caminhão operando de forma isolada / toco / chassi' : 'Não — Máquina operando de forma isolada')}
                     </span>
                   </div>
                 </div>
@@ -2215,145 +2376,207 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 </label>
               </div>
 
-              {/* 2. Bloco Dinâmico do Reboque */}
+              {/* 2. Bloco Dinâmico do Reboque / Implemento */}
               {hasCoupledTrailer && (
                 <div className="pt-2 border-t border-zinc-200 space-y-2">
                   <div className="flex items-center justify-between pb-1 border-b border-zinc-200">
                     <div className="flex items-center space-x-1.5">
                       <Layers className="w-3.5 h-3.5 text-zinc-700" />
                       <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-800">
-                        Dados do Reboque
+                        {isCaminhao 
+                          ? '📦 COMPOSIÇÃO DE REBOQUES (BITREM / RODOTREN / SIMPLES)' 
+                          : '🚜 COMPOSIÇÃO DE IMPLEMENTOS E PLATAFORMAS (ACOPLAMENTO)'}
                       </h5>
                     </div>
-                    {isLoadingTrailers && (
+                    {isLoadingTrailers ? (
                       <span className="text-[10px] text-zinc-400 font-medium animate-pulse">
                         Sincronizando com Supabase...
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase">
+                        {reboquesVinculados.length === 0
+                          ? (isCaminhao ? 'Nenhum reboque vinculado' : 'Nenhum implemento vinculado')
+                          : reboquesVinculados.length === 1
+                            ? (isCaminhao ? '1 Reboque Acoplado' : '1 Implemento Acoplado')
+                            : (isCaminhao ? `${reboquesVinculados.length} Reboques (Composição)` : `${reboquesVinculados.length} Implementos / Acessórios`)}
                       </span>
                     )}
                   </div>
 
-                  {/* Seletor Conectado de Reboques Cadastrados (Supabase / Frota) */}
+                  {/* Seletor Conectado + Botão Adicionar (Linha Slim) */}
                   <div>
                     <label htmlFor="coupledTrailerSelect" className="block text-[11px] font-bold mb-1 text-zinc-700">
-                      Selecione o Reboque / Implemento Cadastrado:
+                      {isCaminhao ? 'Selecione o Reboque Cadastrado no Sistema:' : 'Selecione o Implemento / Acessório Cadastrado:'}
                     </label>
-                    <select
-                      id="coupledTrailerSelect"
-                      value={coupledTrailerId}
-                      onChange={(e) => handleSelectCandidateTrailer(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
-                    >
-                      <option value="">-- Selecione o reboque cadastrado no sistema --</option>
-                      {candidateTrailers.map((t) => {
-                        const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
-                        const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
-                        const capKg = t.capacityLoadKg ? ` (${Number(t.capacityLoadKg).toLocaleString('pt-BR')} kg)` : '';
-                        return (
-                          <option key={t.id} value={t.id} className="uppercase font-medium">
-                            {plateStr} - {modelStr}{capKg}
-                          </option>
-                        );
-                      })}
-                      {candidateTrailers.length === 0 && (
-                        <option value="" disabled>
-                          {isLoadingTrailers ? 'Carregando reboques do Supabase...' : 'Nenhum reboque cadastrado no sistema'}
+                    <div className="flex items-center gap-2">
+                      <select
+                        id="coupledTrailerSelect"
+                        value={selectedCandidateTrailerId}
+                        onChange={(e) => setSelectedCandidateTrailerId(e.target.value)}
+                        className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
+                      >
+                        <option value="">
+                          {isCaminhao 
+                            ? '-- Selecione o reboque cadastrado no sistema --' 
+                            : '-- Selecione o implemento / acessório cadastrado no sistema --'}
                         </option>
-                      )}
-                    </select>
-                  </div>
+                        {candidateTrailers.map((t) => {
+                          const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
+                          const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
+                          const capKg = t.capacityLoadKg ? ` (${Number(t.capacityLoadKg).toLocaleString('pt-BR')} kg)` : '';
+                          return (
+                            <option key={t.id} value={t.id} className="uppercase font-medium">
+                              {plateStr} - {modelStr}{capKg}
+                            </option>
+                          );
+                        })}
+                        {candidateTrailers.length === 0 && (
+                          <option value="" disabled>
+                            {isLoadingTrailers ? 'Carregando itens do Supabase...' : 'Nenhum item cadastrado no sistema'}
+                          </option>
+                        )}
+                      </select>
 
-                  {/* Grid de Campos do Reboque (Somente Leitura - Bloqueio de Digitação Manual) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-[120px_repeat(4,minmax(0,1fr))] gap-2 pt-1">
-                    {/* 1º: Placa do Reboque */}
-                    <div className="col-span-1">
-                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
-                        Placa
-                      </label>
-                      <input
-                        type="text"
-                        readOnly
-                        disabled
-                        placeholder="Automático"
-                        value={trailerPlate}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-mono font-bold uppercase cursor-not-allowed select-none shadow-2xs"
-                      />
-                    </div>
-
-                    {/* 2º: Modelo do Reboque */}
-                    <div className="col-span-1">
-                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
-                        Modelo
-                      </label>
-                      <input
-                        type="text"
-                        readOnly
-                        disabled
-                        placeholder="Automático"
-                        value={trailerModel}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold uppercase cursor-not-allowed select-none shadow-2xs"
-                      />
-                    </div>
-
-                    {/* 3º: Tipo de Reboque */}
-                    <div className="col-span-1">
-                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
-                        Tipo
-                      </label>
-                      <input
-                        type="text"
-                        readOnly
-                        disabled
-                        placeholder="Automático"
-                        value={coupledTrailerType}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shadow-2xs"
-                      />
-                    </div>
-
-                    {/* 4º: Capacidade Carga (kg) */}
-                    <div className="col-span-1">
-                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
-                        Carga (kg)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          readOnly
-                          disabled
-                          placeholder="—"
-                          value={trailerCapacityLoadKg ? (isNaN(Number(trailerCapacityLoadKg)) ? trailerCapacityLoadKg : Number(trailerCapacityLoadKg).toLocaleString('pt-BR')) : ''}
-                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shadow-2xs"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 pointer-events-none">
-                          kg
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 5º: Capacidade Volumétrica (m³) */}
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
-                        Volume (m³)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          readOnly
-                          disabled
-                          placeholder="—"
-                          value={trailerCapacityM3 ? (isNaN(Number(trailerCapacityM3)) ? trailerCapacityM3 : Number(trailerCapacityM3).toLocaleString('pt-BR')) : ''}
-                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shadow-2xs"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 pointer-events-none">
-                          m³
-                        </span>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddTrailer}
+                        disabled={!selectedCandidateTrailerId}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition flex items-center space-x-1.5 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-200 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:bg-slate-200 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.05)] shrink-0 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title={isCaminhao ? 'Adicionar reboque à composição' : 'Adicionar implemento / acessório'}
+                      >
+                        <Plus className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+                        <span>{isCaminhao ? '+ ADICIONAR REBOQUE' : '+ ADICIONAR IMPLEMENTO / ACESSÓRIO'}</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Aviso informativo de campos bloqueados para digitação manual */}
-                  <div className="flex items-center space-x-1.5 text-[10px] sm:text-[11px] text-zinc-500 pt-0.5">
-                    <Lock className="w-3 h-3 text-zinc-400 shrink-0" />
-                    <span>Campos bloqueados para digitação: preenchidos automaticamente pelo reboque selecionado no menu acima.</span>
+                  {/* Listagem em Grade Achatada (Slim Design Pro) */}
+                  {linkedTrailersData.length > 0 ? (
+                    <div className="pt-1">
+                      <div className="text-[10px] font-bold uppercase text-zinc-500 mb-1">
+                        {isCaminhao 
+                          ? `Reboques Acoplados na Composição (${linkedTrailersData.length}):` 
+                          : `Implementos / Plataformas Acopladas (${linkedTrailersData.length}):`}
+                      </div>
+                      <div className="space-y-1">
+                        {linkedTrailersData.map((item, index) => {
+                          const badgeLabel = isCaminhao
+                            ? (index === 0 ? '1º REBOQUE' : index === 1 ? '2º REBOQUE' : `${index + 1}º REBOQUE`)
+                            : (index === 0 ? '1ª PLATAFORMA / IMPLEMENTO' : index === 1 ? '2º ACESSÓRIO (PÁ / CONCHA FRONTAL)' : `${index + 1}º IMPLEMENTO / ACESSÓRIO`);
+
+                          const tipoStr = (item.type || (isCaminhao ? 'REBOQUE' : 'IMPLEMENTO')).toUpperCase();
+                          const placaStr = (item.plate || 'S/N').toUpperCase();
+                          const modeloStr = (item.model || 'S/M').toUpperCase();
+                          const cargaStr = item.capacityLoadKg > 0 
+                            ? `${Number(item.capacityLoadKg).toLocaleString('pt-BR')} KG` 
+                            : '—';
+                          const volumeStr = item.capacityM3 > 0 
+                            ? `${Number(item.capacityM3).toLocaleString('pt-BR')} M³` 
+                            : '—';
+
+                          return (
+                            <div
+                              key={`${item.id}-${index}`}
+                              className="flex items-center justify-between bg-slate-100 border border-slate-300 rounded px-2 py-1 text-[10px] font-bold uppercase text-slate-700 tracking-tight mb-1"
+                            >
+                              <div className="flex items-center flex-wrap sm:flex-nowrap gap-x-2.5 gap-y-1 flex-1 min-w-0">
+                                <span className="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-black shrink-0 tracking-normal whitespace-nowrap">
+                                  {badgeLabel}
+                                </span>
+                                <div className="shrink-0 whitespace-nowrap">
+                                  <span className="text-slate-500 font-semibold mr-1">TIPO:</span>
+                                  <span className="text-slate-900">{tipoStr}</span>
+                                </div>
+                                <div className="shrink-0 whitespace-nowrap">
+                                  <span className="text-slate-500 font-semibold mr-1">PLACA/SÉRIE:</span>
+                                  <span className="text-zinc-900 font-mono">{placaStr}</span>
+                                </div>
+                                <div className="truncate min-w-[70px]">
+                                  <span className="text-slate-500 font-semibold mr-1">MODELO:</span>
+                                  <span className="text-slate-900 truncate">{modeloStr}</span>
+                                </div>
+                                <div className="shrink-0 whitespace-nowrap">
+                                  <span className="text-slate-500 font-semibold mr-1">CARGA:</span>
+                                  <span className="text-emerald-700">{cargaStr}</span>
+                                </div>
+                                <div className="shrink-0 whitespace-nowrap">
+                                  <span className="text-slate-500 font-semibold mr-1">VOLUME:</span>
+                                  <span className="text-sky-700">{volumeStr}</span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTrailer(index)}
+                                className="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:text-red-800 hover:bg-red-200/60 font-black text-xs transition cursor-pointer ml-2 shrink-0"
+                                title="Remover da composição"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded bg-zinc-50 border border-dashed border-zinc-300 text-center text-[11px] text-zinc-500 font-medium">
+                      {isCaminhao
+                        ? 'Nenhum reboque vinculado. Selecione um reboque acima e clique em "+ ADICIONAR REBOQUE" para montar a composição (Bitrem, Rodotrem ou Carreta Simples).'
+                        : 'Nenhum implemento ou acessório vinculado. Selecione um item acima e clique em "+ ADICIONAR IMPLEMENTO / ACESSÓRIO" para acoplar à máquina agrícola.'}
+                    </div>
+                  )}
+
+                  {/* Bloco de Acumulados Consolidado na Base (Propriedades Operacionais da Composição) */}
+                  <div className="pt-2 border-t border-zinc-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {/* CARGA TOTAL */}
+                      <div>
+                        <label className="block text-[10px] font-bold mb-0.5 text-zinc-700 uppercase tracking-tight">
+                          {isCaminhao ? 'Carga Total da Composição (KG)' : 'Capacidade Total de Carga (KG)'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            placeholder="0 KG"
+                            value={aggregatedTrailers.totalLoadKg > 0 ? `${aggregatedTrailers.totalLoadKg.toLocaleString('pt-BR')} KG` : '0 KG'}
+                            className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-bold cursor-not-allowed select-none shadow-2xs"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 pointer-events-none uppercase">
+                            KG
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* VOLUME TOTAL */}
+                      <div>
+                        <label className="block text-[10px] font-bold mb-0.5 text-zinc-700 uppercase tracking-tight">
+                          {isCaminhao ? 'Volume Total da Composição (M³)' : 'Capacidade Volumétrica Total (M³)'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            placeholder="0 M³"
+                            value={aggregatedTrailers.totalM3 > 0 ? `${aggregatedTrailers.totalM3.toLocaleString('pt-BR')} M³` : '0 M³'}
+                            className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-bold cursor-not-allowed select-none shadow-2xs"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 pointer-events-none uppercase">
+                            M³
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 text-[10px] text-zinc-500 pt-1.5">
+                      <Lock className="w-3 h-3 text-zinc-400 shrink-0" />
+                      <span>
+                        {isCaminhao
+                          ? 'Propriedades operacionais consolidadas calculadas automaticamente a partir dos reboques vinculados.'
+                          : 'Propriedades operacionais consolidadas calculadas automaticamente a partir dos implementos e plataformas acopladas.'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

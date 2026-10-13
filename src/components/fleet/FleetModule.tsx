@@ -429,6 +429,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
             merged.coupledTrailerType = undefined;
             merged.trailerPlate = undefined;
             merged.trailerModel = undefined;
+            merged.reboques = [];
+            merged.reboques_ids = [];
             if (merged.compositionType === 'cavalo') {
               merged.compositionType = 'veiculo_simples';
             }
@@ -440,6 +442,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
             merged.trailerModel = vehicleData.trailerModel;
             merged.coupledTrailerType = vehicleData.coupledTrailerType;
             merged.coupledTrailerName = vehicleData.coupledTrailerName;
+            merged.reboques = vehicleData.reboques || [];
+            merged.reboques_ids = vehicleData.reboques_ids || [];
           }
 
           // Sanitização explícita de campos numéricos (BIGINT Compatibility)
@@ -536,6 +540,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         coupledTrailerType: hasTrailer ? vehicleData.coupledTrailerType : undefined,
         trailerPlate: hasTrailer ? vehicleData.trailerPlate : undefined,
         trailerModel: hasTrailer ? vehicleData.trailerModel : undefined,
+        reboques: hasTrailer ? (vehicleData.reboques || []) : [],
+        reboques_ids: hasTrailer ? (vehicleData.reboques_ids || []) : [],
         compositionType: vehicleData.compositionType || (hasTrailer ? 'cavalo' : 'veiculo_simples'),
       };
       const calculatedNew = updateVehicleWithCalculatedMetrics(newVehicle, fuelLogs);
