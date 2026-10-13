@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Plus, Trash2, Edit2, Check, Tag, Building, ChevronDown, ArrowUp, ArrowDown, ArrowDownAZ } from 'lucide-react';
 import { ExpenseCategory, CostCenter } from '../../types';
+import { INITIAL_CATEGORIES } from '../../lib/initialData';
 
 interface ExpenseCategoriesModalProps {
   isOpen: boolean;
@@ -36,6 +37,11 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
   onSaveCostCenters,
   onSelectCategory,
 }) => {
+  const safeCategories = useMemo(
+    () => (Array.isArray(categories) && categories.length > 0 ? categories : INITIAL_CATEGORIES),
+    [categories]
+  );
+
   const [activeTab, setActiveTab] = useState<'categories' | 'costCenters'>('categories');
 
   // New Category State
@@ -71,7 +77,7 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
       isCustom: true,
     };
 
-    onSaveCategories([...categories, newCategory]);
+    onSaveCategories([...safeCategories, newCategory]);
     if (onSelectCategory) {
       onSelectCategory(newId);
     }
@@ -89,7 +95,7 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
 
   const handleSaveEditCategory = (id: string) => {
     if (!editCatName.trim()) return;
-    const updated = categories.map((c) =>
+    const updated = safeCategories.map((c) =>
       c.id === id
         ? {
             ...c,
@@ -104,22 +110,22 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
   };
 
   const handleDeleteCategory = (id: string, name: string) => {
-    if (categories.length <= 1) {
+    if (safeCategories.length <= 1) {
       return;
     }
-    onSaveCategories(categories.filter((c) => c.id !== id));
+    onSaveCategories(safeCategories.filter((c) => c.id !== id));
     if (editingCatId === id) setEditingCatId(null);
   };
 
   // Reorder & Sort Category Handlers
   const handleSortCategoriesAZ = () => {
-    const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+    const sorted = [...safeCategories].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
     onSaveCategories(sorted);
   };
 
   const handleMoveCategoryUp = (index: number) => {
     if (index <= 0) return;
-    const updated = [...categories];
+    const updated = [...safeCategories];
     const item = updated[index];
     updated[index] = updated[index - 1];
     updated[index - 1] = item;
@@ -127,8 +133,8 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
   };
 
   const handleMoveCategoryDown = (index: number) => {
-    if (index >= categories.length - 1) return;
-    const updated = [...categories];
+    if (index >= safeCategories.length - 1) return;
+    const updated = [...safeCategories];
     const item = updated[index];
     updated[index] = updated[index + 1];
     updated[index + 1] = item;
@@ -234,7 +240,7 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
                   : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
-              Categorias de Despesas ({categories.length})
+              Categorias de Despesas ({safeCategories.length})
             </button>
             <button
               type="button"
@@ -318,7 +324,7 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <span className="text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider block">
-                      CATEGORIAS CADASTRADAS ({categories.length})
+                      CATEGORIAS CADASTRADAS ({safeCategories.length})
                     </span>
                     <span className="text-[10px] text-stone-400">Clique nas setas para reordenar ou no botão A-Z</span>
                   </div>
@@ -335,7 +341,7 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
                 </div>
 
                 <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs">
-                  {categories.map((cat, index) => {
+                  {safeCategories.map((cat, index) => {
                     const isEditing = editingCatId === cat.id;
 
                     if (isEditing) {
@@ -428,7 +434,7 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
                             </button>
                             <button
                               type="button"
-                              disabled={index === categories.length - 1}
+                              disabled={index === safeCategories.length - 1}
                               onClick={() => handleMoveCategoryDown(index)}
                               className="p-1 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-20 disabled:pointer-events-none hover:bg-white dark:hover:bg-stone-700 rounded transition cursor-pointer"
                               title="Mover para baixo"

@@ -477,7 +477,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       return;
     }
 
-    const cat = categories.find((c) => c.name === newExpData.categoryName);
+    const cat = Array.isArray(categories) ? categories.find((c) => c.name === newExpData.categoryName) : undefined;
     const newExp: Expense = {
       id: `exp_bank_${Date.now()}`,
       description: newExpData.description || 'Despesa Bancária',

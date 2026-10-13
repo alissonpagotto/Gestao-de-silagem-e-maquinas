@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   Upload, 
@@ -17,6 +17,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount } from '../../types';
+import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
 
@@ -60,6 +61,20 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   onSaveSuppliers,
 }) => {
   const today = new Date().toISOString().split('T')[0];
+
+  const safeCategories: ExpenseCategory[] = useMemo(() => {
+    if (Array.isArray(categories) && categories.length > 0) return categories;
+    if (categories && typeof categories === 'object' && Array.isArray((categories as any).categorias) && (categories as any).categorias.length > 0) {
+      return (categories as any).categorias.map((c: any) => ({
+        id: c.id || c.codigo || 'cat_geral',
+        name: c.nome || c.name || 'Geral',
+        color: c.cor || c.color || '#0284c7',
+        icon: c.icon || 'Tag',
+        description: c.descricao || c.description,
+      }));
+    }
+    return INITIAL_CATEGORIES;
+  }, [categories]);
 
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState<string>('');
@@ -147,7 +162,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       // Defaults for new expense
       setDescription('');
       setAmount('');
-      setCategoryId(categories[0]?.id || '');
+      setCategoryId(safeCategories[0]?.id || '');
       setDueDate(today);
       setPaymentDate(today);
       setStatus('pago');
@@ -171,7 +186,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setReceiptUrl(undefined);
       setReceiptName(undefined);
     }
-  }, [editingExpense, isOpen, categories]);
+  }, [editingExpense, isOpen, safeCategories]);
 
   // Close supplier dropdown on outside click
   useEffect(() => {
@@ -265,7 +280,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     }
   };
 
-  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const selectedCategory = safeCategories.find((c) => c.id === categoryId);
   const isAlimentacao = selectedCategory?.name?.toLowerCase().includes('aliment') || 
                         selectedCategory?.name?.toLowerCase().includes('refeiç') || 
                         selectedCategory?.name?.toLowerCase().includes('restaurante');
@@ -412,7 +427,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     const effectiveDesc = description.trim() || 
       (isAlimentacao ? `Refeição (${mealType === 'cafe' ? 'Café da Manhã' : mealType === 'almoco' ? 'Almoço' : 'Janta'})` : selectedCategory?.name || 'Despesa Operacional');
 
-    const selectedCat = categories.find((c) => c.id === categoryId) || categories[0];
+    const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
 
     const singleEmp = selectedTargets.length === 1 && activeEmployees.some((e) => e.id === selectedTargets[0])
       ? activeEmployees.find((e) => e.id === selectedTargets[0])
@@ -572,7 +587,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                   >
-                    {categories.map((cat) => (
+                    {safeCategories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
                       </option>
@@ -1189,7 +1204,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       <ExpenseCategoriesModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        categories={categories}
+        categories={safeCategories}
         onSaveCategories={(newCats) => {
           if (onSaveCategories) {
             onSaveCategories(newCats);

@@ -55,6 +55,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   onViewReceipt,
   onDuplicateExpense,
 }) => {
+  const safeCategories = Array.isArray(categories) ? categories : [];
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('todos');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
@@ -392,7 +393,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
             >
               <option value="todas">Todas as Categorias</option>
-              {categories.map((c) => (
+              {safeCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>

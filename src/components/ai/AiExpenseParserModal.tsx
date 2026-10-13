@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, X, Check, ArrowRight, Lightbulb } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, PaymentMethod } from '../../types';
+import { INITIAL_CATEGORIES } from '../../lib/initialData';
 
 interface AiExpenseParserModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
   costCenters,
   machineries,
 }) => {
+  const safeCategories = Array.isArray(categories) && categories.length > 0 ? categories : INITIAL_CATEGORIES;
   const [inputPrompt, setInputPrompt] = useState('');
   const [parsedPreview, setParsedPreview] = useState<Partial<Expense> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -48,21 +50,21 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
     }
 
     // 2. Identify Category
-    let matchedCat = categories[categories.length - 1]; // fallback
+    let matchedCat = safeCategories[safeCategories.length - 1]; // fallback
     if (text.includes('diesel') || text.includes('abastec') || text.includes('combustivel') || text.includes('arla')) {
-      matchedCat = categories.find((c) => c.id === 'cat_combustivel') || categories[0];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_combustivel') || safeCategories[0];
     } else if (text.includes('faca') || text.includes('manut') || text.includes('peça') || text.includes('mecanic') || text.includes('oleo') || text.includes('filtro')) {
-      matchedCat = categories.find((c) => c.id === 'cat_manutencao') || categories[1];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_manutencao') || safeCategories[1];
     } else if (text.includes('semente') || text.includes('adubo') || text.includes('inoculante') || text.includes('defensiv') || text.includes('quimic')) {
-      matchedCat = categories.find((c) => c.id === 'cat_insumos') || categories[2];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_insumos') || safeCategories[2];
     } else if (text.includes('diaria') || text.includes('mao de obra') || text.includes('operador') || text.includes('salario') || text.includes('equipe')) {
-      matchedCat = categories.find((c) => c.id === 'cat_mao_de_obra') || categories[3];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_mao_de_obra') || safeCategories[3];
     } else if (text.includes('lona') || text.includes('fita') || text.includes('embalag') || text.includes('saco')) {
-      matchedCat = categories.find((c) => c.id === 'cat_lona_embalagem') || categories[6] || categories[0];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_lona_embalagem') || safeCategories[6] || safeCategories[0];
     } else if (text.includes('frete') || text.includes('transporte') || text.includes('carreta')) {
-      matchedCat = categories.find((c) => c.id === 'cat_frete') || categories[4];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_frete') || safeCategories[4];
     } else if (text.includes('almoco') || text.includes('comida') || text.includes('marmita') || text.includes('refeic')) {
-      matchedCat = categories.find((c) => c.id === 'cat_alimentacao') || categories[5];
+      matchedCat = safeCategories.find((c) => c.id === 'cat_alimentacao') || safeCategories[5];
     }
 
     // 3. Payment Method
@@ -130,8 +132,8 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
       id: `exp_${Date.now()}_ai`,
       description: parsedPreview.description || 'Lançamento Rápido',
       amount: parsedPreview.amount || 0,
-      categoryId: parsedPreview.categoryId || categories[0].id,
-      categoryName: parsedPreview.categoryName || categories[0].name,
+      categoryId: parsedPreview.categoryId || safeCategories[0]?.id || 'cat_default',
+      categoryName: parsedPreview.categoryName || safeCategories[0]?.name || 'Geral',
       categoryColor: parsedPreview.categoryColor || '#10b981',
       dueDate: parsedPreview.dueDate || new Date().toISOString().split('T')[0],
       paymentDate: parsedPreview.paymentDate,

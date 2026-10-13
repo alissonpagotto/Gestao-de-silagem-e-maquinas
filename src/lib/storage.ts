@@ -318,11 +318,62 @@ export function saveStoredExpenses(expenses: Expense[]): void {
 
 export function getStoredCategories(): ExpenseCategory[] {
   try {
-    const raw = localStorage.getItem('agrocontrol_plano_contas') ||
-                localStorage.getItem('colaca_silagem_plano_contas') ||
-                localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-    if (!raw) return INITIAL_CATEGORIES;
-    return JSON.parse(raw);
+    const candidateKeys = [
+      'agrocontrol_categorias_despesas',
+      STORAGE_KEYS.CATEGORIES,
+      'agrocontrol_plano_contas',
+    ];
+
+    for (const key of candidateKeys) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const validList = parsed.filter(item => item && typeof item === 'object' && (item.id || item.name || item.nome));
+            if (validList.length > 0) {
+              return validList.map((item: any) => ({
+                id: item.id || `cat_${item.name || item.nome}`,
+                name: item.name || item.nome || 'Categoria',
+                color: item.color || item.cor || '#0284c7',
+                icon: item.icon || 'Tag',
+                description: item.description || item.descricao,
+                isCustom: item.isCustom ?? false,
+              }));
+            }
+          } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categorias) && parsed.categorias.length > 0) {
+            return parsed.categorias.map((item: any) => ({
+              id: item.id || item.codigo || `cat_${item.nome}`,
+              name: item.nome || item.name || 'Categoria',
+              color: item.cor || item.color || '#0284c7',
+              icon: item.icon || 'Tag',
+              description: item.descricao || item.description,
+              isCustom: false,
+            }));
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Fallback: check colaca_silagem_plano_contas if it has categorias
+    const rawPlano = localStorage.getItem('colaca_silagem_plano_contas');
+    if (rawPlano) {
+      try {
+        const parsedPlano = JSON.parse(rawPlano);
+        if (parsedPlano && Array.isArray(parsedPlano.categorias) && parsedPlano.categorias.length > 0) {
+          return parsedPlano.categorias.map((item: any) => ({
+            id: item.id || item.codigo || `cat_${item.nome}`,
+            name: item.nome || item.name || 'Categoria',
+            color: item.cor || item.color || '#0284c7',
+            icon: item.icon || 'Tag',
+            description: item.descricao || item.description,
+            isCustom: false,
+          }));
+        }
+      } catch (_) {}
+    }
+
+    return INITIAL_CATEGORIES;
   } catch (e) {
     console.error('Failed to load categories', e);
     return INITIAL_CATEGORIES;
@@ -331,10 +382,17 @@ export function getStoredCategories(): ExpenseCategory[] {
 
 export function saveStoredCategories(categories: ExpenseCategory[]): void {
   try {
-    const json = JSON.stringify(categories);
-    localStorage.setItem('agrocontrol_plano_contas', json);
-    localStorage.setItem('colaca_silagem_plano_contas', json);
+    const list = Array.isArray(categories) && categories.length > 0 ? categories : INITIAL_CATEGORIES;
+    const json = JSON.stringify(list);
     localStorage.setItem(STORAGE_KEYS.CATEGORIES, json);
+    localStorage.setItem('agrocontrol_categorias_despesas', json);
+    const currentPlano = localStorage.getItem('agrocontrol_plano_contas');
+    if (!currentPlano || currentPlano.startsWith('[')) {
+      localStorage.setItem('agrocontrol_plano_contas', json);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_categories_updated', { detail: list }));
+    }
   } catch (e) {
     console.error('Failed to save categories', e);
   }

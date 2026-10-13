@@ -1887,6 +1887,7 @@ export default function App() {
   };
 
   const handleSettlePayment = (expenseId: string, settlementData: PaymentSettlementData) => {
+    const targetExp = expenses.find((e) => e.id === expenseId);
     setExpenses((prev) =>
       prev.map((e) =>
         e.id === expenseId
@@ -1904,13 +1905,13 @@ export default function App() {
       )
     );
 
-    if (exp && settlementData.bankAccountId) {
+    if (targetExp && settlementData.bankAccountId) {
       setBankAccounts((prev) => {
         const updated = prev.map((acc) =>
           acc.id === settlementData.bankAccountId
             ? {
                 ...acc,
-                balance: (acc.balance || 0) - exp.amount,
+                balance: (acc.balance || 0) - targetExp.amount,
               }
             : acc
         );
@@ -3436,8 +3437,8 @@ export default function App() {
                 onAddExpenseFromNfe={(newExpOrList) => {
                   const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];
                   const createdList: Expense[] = list.map((newExp, idx) => {
-                    const cat = categories.find(c => c.id === newExp.categoryId);
-                    const cc = costCenters.find(c => c.id === newExp.costCenterId);
+                    const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
+                    const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
                     return {
                       id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
                       description: newExp.description || 'Despesa Importada via NF-e',

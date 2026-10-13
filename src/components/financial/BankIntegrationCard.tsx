@@ -43,6 +43,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
   onLinkExpensesToAccount,
   categories = [],
 }) => {
+  const safeCategories = Array.isArray(categories) ? categories : [];
   const [internalAccountId, setInternalAccountId] = useState<string>(
     controlledAccountId || accounts[0]?.id || ''
   );
@@ -152,7 +153,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
         amount: val,
         dueDate: billDueDate,
         categoryName: billCategory,
-        categoryId: categories.find((c) => c.name === billCategory)?.id || 'cat_default',
+        categoryId: safeCategories.find((c) => c.name === billCategory)?.id || 'cat_default',
         status: 'pendente',
         paymentMethod: 'boleto',
         bankAccountId: activeAccount.id,
@@ -509,7 +510,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
                   onChange={(e) => setBillCategory(e.target.value)}
                   className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
                 >
-                  {categories.map((c) => (
+                  {safeCategories.map((c) => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
                   <option value="Insumos Agrícolas">Insumos Agrícolas</option>
