@@ -56,7 +56,7 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
   }, [allowedTabs, activeTab]);
 
   return (
-    <div className="space-y-2.5 sm:space-y-3 max-w-7xl mx-auto pb-4">
+    <div className="space-y-2.5 sm:space-y-3 w-full mx-auto pb-4">
       {/* Top Banner Slim - Moldura Acetinada 3D */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div className="flex items-center space-x-2.5">
@@ -151,7 +151,7 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
           {/* Renderização do Sub-menu ativo */}
           {activeTab === 'centros_custo' && <CentrosCustoTab />}
           {activeTab === 'plano_contas' && <PlanoContasTab />}

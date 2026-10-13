@@ -846,21 +846,21 @@ export const CargosPermissoesTab: React.FC = () => {
                         className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors group border-b border-slate-200 dark:border-stone-800"
                       >
                         {/* 1. Coluna Cargo / Função (Exibindo estritamente apenas o Nome Principal em destaque) */}
-                        <td className="py-1.5 px-4 whitespace-nowrap">
-                          <div className="font-extrabold text-zinc-900 dark:text-white text-xs sm:text-sm">
+                        <td className="py-1 px-4 whitespace-nowrap">
+                          <div className="font-extrabold text-zinc-900 dark:text-white text-xs uppercase">
                             {cargo.nome}
                           </div>
                         </td>
 
                         {/* 2. Coluna Setor / Área */}
-                        <td className="py-1.5 px-4 whitespace-nowrap">
+                        <td className="py-1 px-4 whitespace-nowrap">
                           <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border uppercase tracking-wider ${getSectorBadgeStyle(cargo.setor)}`}>
                             {cargo.setor || 'GERAL'}
                           </span>
                         </td>
 
                         {/* 3. Coluna Módulos Liberados (Alinhados horizontalmente em linha única flexível) */}
-                        <td className="py-1.5 px-4">
+                        <td className="py-1 px-4">
                           <div className="flex flex-row items-center justify-start gap-1.5 flex-wrap">
                             {/* Serviços */}
                             {cargo.permissoes?.servicos ? (
@@ -943,15 +943,15 @@ export const CargosPermissoesTab: React.FC = () => {
                         </td>
 
                         {/* 4. Coluna Status de Uso (Botão Reativo com Modal Slim - Print 1) */}
-                        <td className="py-1.5 px-4 whitespace-nowrap">
+                        <td className="py-1 px-4 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setSelectedCargoForEmployees(cargo)}
-                            className="inline-flex items-center space-x-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 transition cursor-pointer"
+                            className="inline-flex items-center space-x-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-2.5 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 transition cursor-pointer"
                             title={`Clique para listar os colaboradores vinculados ao cargo "${cargo.nome}"`}
                           >
                             <Users className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                            <span>
+                            <span className="uppercase">
                               <strong>{empCount}</strong> {empCount === 1 ? 'colaborador' : 'colaboradores'}
                             </span>
                             <Eye className="w-3 h-3 text-blue-400 ml-0.5 opacity-70" />
@@ -959,23 +959,23 @@ export const CargosPermissoesTab: React.FC = () => {
                         </td>
 
                         {/* 5. Coluna Ações (Editar com Lápis aciona o Modal Expandido de 3 Colunas) */}
-                        <td className="py-1.5 px-4 text-right whitespace-nowrap">
+                        <td className="py-1 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1.5">
                             {/* BOTÃO EDITAR: ABRE O PAINEL DE 3 COLUNAS */}
                             <button
                               type="button"
                               onClick={() => handleOpenEditModal(cargo)}
-                              className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition cursor-pointer flex items-center space-x-1 font-bold text-xs"
+                              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition cursor-pointer flex items-center space-x-1 font-bold text-xs"
                               title={`Editar cargo "${cargo.nome}"`}
                             >
                               <Edit3 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Editar</span>
+                              <span className="hidden sm:inline uppercase">Editar</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => handleDeleteCargo(cargo.id)}
-                              className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition cursor-pointer"
+                              className="p-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition cursor-pointer"
                               title={`Excluir cargo "${cargo.nome}"`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
