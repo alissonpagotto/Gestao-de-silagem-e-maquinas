@@ -142,6 +142,10 @@ export function exportAgroControlBackup(subscriberName: string = 'COLAÇA SILAGE
  */
 export function handleRestoreBackup(jsonData: Record<string, any> | string): void {
   try {
+    // 1. LIMPEZA PRÉVIA COMPULSÓRIA:
+    // Antes de injetar os novos dados do arquivo, executa comando para limpar chaves órfãs do navegador
+    localStorage.clear();
+
     const data: Record<string, any> = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
     if (!data || typeof data !== 'object') {
       throw new Error('Conteúdo do arquivo JSON de backup inválido ou corrompido.');
@@ -152,167 +156,215 @@ export function handleRestoreBackup(jsonData: Record<string, any> | string): voi
       return typeof val === 'string' ? val : JSON.stringify(val);
     };
 
-    // 2. LOOP AUTOMÁTICO DE SEGURANÇA:
-    // Varre o JSON: para cada chave que começar com "agrocontrol_", aplica localStorage.setItem direto,
-    // garantindo que nenhuma tabela seja esquecida.
+    const parseArray = (val: any): any[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    // 2. GRAVAÇÃO GERAL AUTOMÁTICA DAS CHAVES CONTIDAS NO JSON:
+    // Varre todas as chaves contidas no JSON (produtos, funcionários, frotas, bancos, manifestações, etc.)
     Object.entries(data).forEach(([chave, valor]) => {
       if (chave.startsWith('_')) return; // ignora metadados
-      if (chave.startsWith('agrocontrol_')) {
-        localStorage.setItem(chave, serialize(valor));
-      }
+      localStorage.setItem(chave, serialize(valor));
     });
 
-    // 1. MAPEAR CHAVES ESPECÍFICAS COM REDUNDÂNCIA:
-    // -------------------------------------------------------------
-    // FROTAS E VEÍCULOS:
-    // Se encontrar 'agrocontrol_frotas_veiculos' (ou chaves equivalentes), grava em:
-    // - agrocontrol_frotas_veiculos
-    // - agrocontrol_veiculos
-    // - agrocontrol_frotas
-    // + redundâncias ativas para os componentes de visualização da frota
-    const dadosFrotas = data['agrocontrol_frotas_veiculos'] ?? 
-                        data['agrocontrol_veiculos'] ?? 
-                        data['agrocontrol_frotas'] ?? 
-                        data['colaca_silagem_frotas_veiculos'] ?? 
-                        data['silagem_facil_clean_v1_machineries'];
+    // 2. TRATAMENTO E UNIFICAÇÃO DE CHAVES DUPLICADAS (VÍNCULO REAL DO BACKUP):
+    // Varre os dados do JSON recebido. Se o arquivo contiver 'agrocontrol_frotas_veiculos' ou 'agrocontrol_frotas',
+    // captura o array de maior volume e salva OBRIGATORIAMENTE em ambas as chaves no LocalStorage de forma idêntica
+    const frotaCandidates = [
+      data['agrocontrol_frotas_veiculos'],
+      data['agrocontrol_frotas'],
+      data['agrocontrol_veiculos'],
+      data['colaca_silagem_frotas_veiculos'],
+      data['silagem_facil_clean_v1_machineries']
+    ].map(parseArray);
 
-    if (dadosFrotas !== undefined) {
-      const serializedFrotas = serialize(dadosFrotas);
-      localStorage.setItem('agrocontrol_frotas_veiculos', serializedFrotas);
-      localStorage.setItem('agrocontrol_veiculos', serializedFrotas);
-      localStorage.setItem('agrocontrol_frotas', serializedFrotas);
-      localStorage.setItem('colaca_silagem_frotas_veiculos', serializedFrotas);
-      localStorage.setItem('silagem_facil_clean_v1_machineries', serializedFrotas);
+    // Identificar o array com maior volume de veículos cadastrados
+    let dadosFrota: any[] = [];
+    for (const arr of frotaCandidates) {
+      if (arr.length > dadosFrota.length) {
+        dadosFrota = arr;
+      }
     }
 
-    // PNEUS E ESTOQUE DE PNEUS:
-    // Se encontrar 'agrocontrol_pneus_estoque' (ou 'agrocontrol_pneus'), grava em:
-    // - agrocontrol_pneus_estoque
-    // - agrocontrol_pneus
-    // + redundâncias ativas para os componentes de estoque e rodízio de pneus
-    const dadosPneus = data['agrocontrol_pneus_estoque'] ?? 
-                       data['agrocontrol_pneus'] ?? 
-                       data['colaca_silagem_frotas_pneus_estoque'] ?? 
-                       data['silagem_facil_clean_v1_tire_inventory'];
+    // 3. PADRONIZAÇÃO DE TERMOS COMERCIAL (MUDANÇA DE IMPLEMENTO PARA REBOQUE):
+    // Dentro do loop de salvamento, intercepta o array de frotas e faz uma varredura: se o veículo for do tipo
+    // "Caminhão Trator" ou "Cavalo", certifica-se de que qualquer propriedade textual na interface exiba o termo "REBOQUE"
+    // e nunca "IMPLEMENTO", deixando o termo "implemento" restrito apenas às plataformas das ensiladeiras e pás dos tratores.
+    if (dadosFrota.length > 0) {
+      dadosFrota = dadosFrota.map((veiculo: any) => {
+        if (!veiculo || typeof veiculo !== 'object') return veiculo;
+        const vTipo = String(veiculo.type || veiculo.category || veiculo.tipo || veiculo.categoria || '').toUpperCase();
+        const isCavaloOuCaminhaoTrator = 
+          vTipo.includes('TRATOR_ESTRADA') || 
+          vTipo.includes('CAVALO') || 
+          vTipo.includes('CAMINHÃO TRATOR') || 
+          vTipo.includes('CAMINHAO TRATOR') ||
+          vTipo.includes('CAMINHÃO') ||
+          vTipo.includes('CAMINHAO');
 
-    if (dadosPneus !== undefined) {
-      const serializedPneus = serialize(dadosPneus);
+        if (isCavaloOuCaminhaoTrator) {
+          const veiculoAtualizado = { ...veiculo };
+          
+          // Padroniza seletor e tipo de acoplamento
+          if (veiculoAtualizado.coupledTrailerType && typeof veiculoAtualizado.coupledTrailerType === 'string') {
+            veiculoAtualizado.coupledTrailerType = veiculoAtualizado.coupledTrailerType.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          }
+          if (veiculoAtualizado.compositionType && typeof veiculoAtualizado.compositionType === 'string') {
+            veiculoAtualizado.compositionType = veiculoAtualizado.compositionType.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          }
+          if (veiculoAtualizado.implementoType && typeof veiculoAtualizado.implementoType === 'string') {
+            veiculoAtualizado.implementoType = veiculoAtualizado.implementoType.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          }
+
+          // Se tiver array de reboques/implementos vinculados, padroniza propriedades e rótulos
+          if (Array.isArray(veiculoAtualizado.reboques)) {
+            veiculoAtualizado.reboques = veiculoAtualizado.reboques.map((item: any) => {
+              if (typeof item === 'string') {
+                return item.replace(/IMPLEMENTO/gi, 'REBOQUE');
+              }
+              if (item && typeof item === 'object') {
+                const itemAtt = { ...item };
+                if (typeof itemAtt.tipo === 'string') itemAtt.tipo = itemAtt.tipo.replace(/IMPLEMENTO/gi, 'REBOQUE');
+                if (typeof itemAtt.type === 'string') itemAtt.type = itemAtt.type.replace(/IMPLEMENTO/gi, 'REBOQUE');
+                if (typeof itemAtt.categoria === 'string') itemAtt.categoria = itemAtt.categoria.replace(/IMPLEMENTO/gi, 'REBOQUE');
+                if (typeof itemAtt.label === 'string') itemAtt.label = itemAtt.label.replace(/IMPLEMENTO/gi, 'REBOQUE');
+                return itemAtt;
+              }
+              return item;
+            });
+          }
+
+          return veiculoAtualizado;
+        }
+
+        return veiculo;
+      });
+
+      const serializedFrota = JSON.stringify(dadosFrota);
+      localStorage.setItem('agrocontrol_frotas_veiculos', serializedFrota);
+      localStorage.setItem('agrocontrol_frotas', serializedFrota);
+      localStorage.setItem('agrocontrol_veiculos', serializedFrota);
+      localStorage.setItem('colaca_silagem_frotas_veiculos', serializedFrota);
+      localStorage.setItem('silagem_facil_clean_v1_machineries', serializedFrota);
+    }
+
+    // MAPEAMENTO DE ESPELHAMENTO PARA O ESTOQUE DE PNEUS:
+    // se encontrar 'agrocontrol_pneus_estoque', salve o mesmo dado em 'agrocontrol_pneus'.
+    const pneuCandidates = [
+      data['agrocontrol_pneus_estoque'],
+      data['agrocontrol_pneus'],
+      data['colaca_silagem_frotas_pneus_estoque'],
+      data['silagem_facil_clean_v1_tire_inventory']
+    ].map(parseArray);
+
+    let dadosPneus: any[] = [];
+    for (const arr of pneuCandidates) {
+      if (arr.length > dadosPneus.length) {
+        dadosPneus = arr;
+      }
+    }
+
+    if (dadosPneus.length > 0) {
+      const serializedPneus = JSON.stringify(dadosPneus);
       localStorage.setItem('agrocontrol_pneus_estoque', serializedPneus);
       localStorage.setItem('agrocontrol_pneus', serializedPneus);
       localStorage.setItem('colaca_silagem_frotas_pneus_estoque', serializedPneus);
       localStorage.setItem('silagem_facil_clean_v1_tire_inventory', serializedPneus);
     }
 
-    // PRODUTOS:
-    // Se encontrar 'agrocontrol_produtos', grava em:
-    // - agrocontrol_produtos
-    // + redundâncias ativas para estoque de produtos
-    const dadosProdutos = data['agrocontrol_produtos'] ?? 
-                          data['colaca_silagem_estoque_produtos'] ?? 
-                          data['silagem_facil_clean_v1_inventory'];
-
-    if (dadosProdutos !== undefined) {
-      const serializedProdutos = serialize(dadosProdutos);
-      localStorage.setItem('agrocontrol_produtos', serializedProdutos);
-      localStorage.setItem('colaca_silagem_estoque_produtos', serializedProdutos);
-      localStorage.setItem('silagem_facil_clean_v1_inventory', serializedProdutos);
+    // REDUNDÂNCIA E ESPELHAMENTO DE ENTIDADES ADICIONAIS DO BACKUP:
+    // Produtos
+    if (data['agrocontrol_produtos'] || data['colaca_silagem_estoque_produtos'] || data['silagem_facil_clean_v1_inventory']) {
+      const prod = data['agrocontrol_produtos'] ?? data['colaca_silagem_estoque_produtos'] ?? data['silagem_facil_clean_v1_inventory'];
+      const s = serialize(prod);
+      localStorage.setItem('agrocontrol_produtos', s);
+      localStorage.setItem('colaca_silagem_estoque_produtos', s);
+      localStorage.setItem('silagem_facil_clean_v1_inventory', s);
     }
 
-    // FINANCEIRO:
-    // Se encontrar 'agrocontrol_financeiro', grava em:
-    // - agrocontrol_financeiro
-    // + redundâncias ativas para despesas e receitas
-    const dadosFinanceiro = data['agrocontrol_financeiro'] ?? 
-                            data['silagem_facil_clean_v1_expenses'];
-
-    if (dadosFinanceiro !== undefined) {
-      const serializedFinanceiro = serialize(dadosFinanceiro);
-      localStorage.setItem('agrocontrol_financeiro', serializedFinanceiro);
-      localStorage.setItem('silagem_facil_clean_v1_expenses', serializedFinanceiro);
+    // Financeiro
+    if (data['agrocontrol_financeiro'] || data['silagem_facil_clean_v1_expenses']) {
+      const fin = data['agrocontrol_financeiro'] ?? data['silagem_facil_clean_v1_expenses'];
+      const s = serialize(fin);
+      localStorage.setItem('agrocontrol_financeiro', s);
+      localStorage.setItem('silagem_facil_clean_v1_expenses', s);
     }
 
-    // FUNCIONÁRIOS:
-    // Se encontrar 'agrocontrol_funcionarios', grava em:
-    // - agrocontrol_funcionarios
-    // + redundâncias ativas para equipe e motoristas
-    const dadosFuncionarios = data['agrocontrol_funcionarios'] ?? 
-                              data['colaca_silagem_funcionarios'] ?? 
-                              data['silagem_facil_clean_v1_employees'];
-
-    if (dadosFuncionarios !== undefined) {
-      const serializedFuncionarios = serialize(dadosFuncionarios);
-      localStorage.setItem('agrocontrol_funcionarios', serializedFuncionarios);
-      localStorage.setItem('colaca_silagem_funcionarios', serializedFuncionarios);
-      localStorage.setItem('silagem_facil_clean_v1_employees', serializedFuncionarios);
+    // Funcionários
+    if (data['agrocontrol_funcionarios'] || data['colaca_silagem_funcionarios'] || data['silagem_facil_clean_v1_employees']) {
+      const func = data['agrocontrol_funcionarios'] ?? data['colaca_silagem_funcionarios'] ?? data['silagem_facil_clean_v1_employees'];
+      const s = serialize(func);
+      localStorage.setItem('agrocontrol_funcionarios', s);
+      localStorage.setItem('colaca_silagem_funcionarios', s);
+      localStorage.setItem('silagem_facil_clean_v1_employees', s);
     }
 
-    // OUTRAS ENTIDADES OPERACIONAIS COMPLEMENTARES
-    if (data['agrocontrol_pedidos_reforma'] !== undefined) {
-      const s = serialize(data['agrocontrol_pedidos_reforma']);
-      localStorage.setItem('agrocontrol_pedidos_reforma', s);
-      localStorage.setItem('colaca_silagem_pedidos_reforma_ativos', s);
-    }
-    if (data['agrocontrol_fornecedores'] !== undefined) {
-      const s = serialize(data['agrocontrol_fornecedores']);
-      localStorage.setItem('agrocontrol_fornecedores', s);
-      localStorage.setItem('silagem_facil_clean_v1_suppliers', s);
-    }
-    if (data['agrocontrol_clientes'] !== undefined) {
-      const s = serialize(data['agrocontrol_clientes']);
-      localStorage.setItem('agrocontrol_clientes', s);
-      localStorage.setItem('silagem_facil_clean_v1_clients', s);
-    }
-    if (data['agrocontrol_empresa'] !== undefined) {
-      const s = serialize(data['agrocontrol_empresa']);
-      localStorage.setItem('agrocontrol_empresa', s);
-      localStorage.setItem('dadosEmpresa', s);
-      localStorage.setItem('silagem_facil_clean_v1_company_profile', s);
-    }
-    if (data['agrocontrol_bancos'] !== undefined) {
-      const s = serialize(data['agrocontrol_bancos']);
+    // Bancos
+    if (data['agrocontrol_bancos'] || data['colaca_silagem_financeiro_contas'] || data['silagem_facil_clean_v1_bank_accounts']) {
+      const bnc = data['agrocontrol_bancos'] ?? data['colaca_silagem_financeiro_contas'] ?? data['silagem_facil_clean_v1_bank_accounts'];
+      const s = serialize(bnc);
       localStorage.setItem('agrocontrol_bancos', s);
       localStorage.setItem('colaca_silagem_financeiro_contas', s);
       localStorage.setItem('silagem_facil_clean_v1_bank_accounts', s);
     }
-    if (data['agrocontrol_tipos_veiculos'] !== undefined) {
-      const s = serialize(data['agrocontrol_tipos_veiculos']);
-      localStorage.setItem('agrocontrol_tipos_veiculos', s);
-      localStorage.setItem('colaca_silagem_tipos_veiculos', s);
-      localStorage.setItem('silagem_facil_clean_v1_vehicle_types', s);
+
+    // Empresa
+    if (data['agrocontrol_empresa'] || data['dadosEmpresa'] || data['silagem_facil_clean_v1_company_profile']) {
+      const emp = data['agrocontrol_empresa'] ?? data['dadosEmpresa'] ?? data['silagem_facil_clean_v1_company_profile'];
+      const s = serialize(emp);
+      localStorage.setItem('agrocontrol_empresa', s);
+      localStorage.setItem('dadosEmpresa', s);
+      localStorage.setItem('silagem_facil_clean_v1_company_profile', s);
     }
-    if (data['agrocontrol_notas_entradas'] !== undefined) {
-      const s = serialize(data['agrocontrol_notas_entradas']);
-      localStorage.setItem('agrocontrol_notas_entradas', s);
-      localStorage.setItem('colaca_silagem_documentos_entrada_itens', s);
+
+    // Pedidos de Reforma
+    if (data['agrocontrol_pedidos_reforma'] || data['colaca_silagem_pedidos_reforma_ativos']) {
+      const ref = data['agrocontrol_pedidos_reforma'] ?? data['colaca_silagem_pedidos_reforma_ativos'];
+      const s = serialize(ref);
+      localStorage.setItem('agrocontrol_pedidos_reforma', s);
+      localStorage.setItem('colaca_silagem_pedidos_reforma_ativos', s);
     }
-    if (data['agrocontrol_safras'] !== undefined) {
-      const s = serialize(data['agrocontrol_safras']);
-      localStorage.setItem('agrocontrol_safras', s);
-      localStorage.setItem('silagem_facil_clean_v1_seasons', s);
+
+    // Fornecedores & Clientes
+    if (data['agrocontrol_fornecedores'] || data['silagem_facil_clean_v1_suppliers']) {
+      const forn = data['agrocontrol_fornecedores'] ?? data['silagem_facil_clean_v1_suppliers'];
+      const s = serialize(forn);
+      localStorage.setItem('agrocontrol_fornecedores', s);
+      localStorage.setItem('silagem_facil_clean_v1_suppliers', s);
     }
-    if (data['agrocontrol_pedidos'] !== undefined) {
-      const s = serialize(data['agrocontrol_pedidos']);
-      localStorage.setItem('agrocontrol_pedidos', s);
-      localStorage.setItem('silagem_facil_clean_v1_orders', s);
+    if (data['agrocontrol_clientes'] || data['silagem_facil_clean_v1_clients']) {
+      const cli = data['agrocontrol_clientes'] ?? data['silagem_facil_clean_v1_clients'];
+      const s = serialize(cli);
+      localStorage.setItem('agrocontrol_clientes', s);
+      localStorage.setItem('silagem_facil_clean_v1_clients', s);
     }
-    if (data['agrocontrol_servicos'] !== undefined) {
-      const s = serialize(data['agrocontrol_servicos']);
-      localStorage.setItem('agrocontrol_servicos', s);
-      localStorage.setItem('silagem_facil_clean_v1_services', s);
-    }
-    if (data['agrocontrol_combustivel'] !== undefined) {
-      const s = serialize(data['agrocontrol_combustivel']);
+
+    // Combustível & Manutenção
+    if (data['agrocontrol_combustivel'] || data['silagem_facil_clean_v1_fuel_logs']) {
+      const comb = data['agrocontrol_combustivel'] ?? data['silagem_facil_clean_v1_fuel_logs'];
+      const s = serialize(comb);
       localStorage.setItem('agrocontrol_combustivel', s);
       localStorage.setItem('silagem_facil_clean_v1_fuel_logs', s);
     }
-    if (data['agrocontrol_manutencao'] !== undefined) {
-      const s = serialize(data['agrocontrol_manutencao']);
+    if (data['agrocontrol_manutencao'] || data['silagem_facil_clean_v1_maintenance_logs']) {
+      const man = data['agrocontrol_manutencao'] ?? data['silagem_facil_clean_v1_maintenance_logs'];
+      const s = serialize(man);
       localStorage.setItem('agrocontrol_manutencao', s);
       localStorage.setItem('silagem_facil_clean_v1_maintenance_logs', s);
     }
 
-    // 3. RECARREGAMENTO FORÇADO:
-    // Limpa a memória do navegador e força a leitura imediata dos novos dados na tela
+    // 4. RECARREGAMENTO COM LIMPEZA DE CACHE:
+    // Ao finalizar a gravação de todas as chaves contidas no JSON, força o navegador a renderizar o novo banco imediatamente
     window.location.reload();
   } catch (error) {
     console.error('ERRO CRÍTICO NA RESTAURAÇÃO DO BACKUP:', error);
