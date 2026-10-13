@@ -39,26 +39,38 @@ interface BankAccountsTabProps {
 }
 
 /**
- * Leitura isolada e resiliente de contas bancárias no LocalStorage
+ * Leitura isolada e resiliente de contas bancárias no LocalStorage (Padrão AgroControl)
  */
 function loadInitialLocalAccounts(fallbackAccounts: BankAccount[] = []): BankAccount[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // 1. Chave prioritária solicitada
-      const rawGlobal = window.localStorage.getItem('colaca_silagem_financeiro_contas');
-      if (rawGlobal) {
-        const parsed = JSON.parse(rawGlobal);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      // 1. Unificação oficial e resiliente: busca de forma reativa nas 3 chaves oficiais
+      const contasSalvas = JSON.parse(
+        localStorage.getItem('agrocontrol_bancos') || 
+        localStorage.getItem('agrocontrol_contas_bancarias') || 
+        localStorage.getItem('agrocontrol_financeiro_contas') || '[]'
+      );
+      if (Array.isArray(contasSalvas) && contasSalvas.length > 0) {
+        return contasSalvas;
       }
 
       // 2. Chave escopada por empresa ativa
       const cId = getActiveCompanyId();
       if (cId) {
-        const rawScoped = window.localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
+        const rawScoped = localStorage.getItem(`agrocontrol_bancos_${cId}`) ||
+                          localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
         if (rawScoped) {
           const parsed = JSON.parse(rawScoped);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
+      }
+
+      // 3. Fallback legado de transição
+      const rawLegacy = localStorage.getItem('colaca_silagem_financeiro_contas') ||
+                        localStorage.getItem('silagem_facil_clean_v1_bank_accounts');
+      if (rawLegacy) {
+        const parsed = JSON.parse(rawLegacy);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     }
   } catch (err) {
@@ -131,27 +143,37 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
     return computeConsolidatedBalances(effectiveAccounts);
   }, [effectiveAccounts]);
 
-  // Trava de segurança para execução EXCLUSIVAMENTE UMA ÚNICA VEZ durante o carregamento inicial
-  const isInitialLoad = useRef(true);
-
+  // Sincronização reativa e imediata ao carregar / recarregar a tela ou alterar dados
   useEffect(() => {
-    if (!isInitialLoad.current) return;
-    isInitialLoad.current = false;
-
     try {
-      const stored = loadInitialLocalAccounts(accounts);
-      const safeList = Array.isArray(stored) && stored.length > 0 
-        ? stored 
-        : (Array.isArray(accounts) && accounts.length > 0 ? accounts : []);
-      if (safeList.length > 0) {
-        setLocalAccounts((prev) => {
-          if (JSON.stringify(prev) === JSON.stringify(safeList)) return prev;
-          return safeList;
-        });
+      const fresh = loadInitialLocalAccounts(accounts);
+      if (Array.isArray(fresh) && fresh.length > 0) {
+        setLocalAccounts(fresh);
       }
     } catch (err) {
-      console.warn('Erro ao inicializar saldos e contas bancárias:', err);
+      console.warn('Erro ao sincronizar contas bancárias:', err);
     }
+  }, [accounts]);
+
+  // Listener reativo de LocalStorage para atualizar as contas instantaneamente em tempo real
+  useEffect(() => {
+    const handleStorageUpdate = (e: StorageEvent) => {
+      if (
+        !e.key || 
+        e.key === 'agrocontrol_bancos' || 
+        e.key === 'agrocontrol_contas_bancarias' || 
+        e.key === 'agrocontrol_financeiro_contas'
+      ) {
+        try {
+          const fresh = loadInitialLocalAccounts();
+          if (Array.isArray(fresh) && fresh.length > 0) {
+            setLocalAccounts(fresh);
+          }
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageUpdate);
+    return () => window.removeEventListener('storage', handleStorageUpdate);
   }, []);
 
   const lastPropsJsonRef = useRef(JSON.stringify(accounts || []));
@@ -194,18 +216,52 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         updated = [...effectiveAccounts, newAcc];
       }
 
-      saveStoredBankAccounts(updated);
-      setLocalAccounts(updated);
-      lastPropsJsonRef.current = JSON.stringify(updated);
+      // 2. GRAVAÇÃO EM ESPELHO COMPULSÓRIA
+      const novasContas = updated;
+      localStorage.setItem('agrocontrol_bancos', JSON.stringify(novasContas));
+      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(novasContas));
+      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(novasContas));
+
+      saveStoredBankAccounts(novasContas);
+      setLocalAccounts(novasContas);
+      lastPropsJsonRef.current = JSON.stringify(novasContas);
 
       if (onSaveAccounts) {
-        onSaveAccounts(updated);
+        onSaveAccounts(novasContas);
       }
 
       const target = accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : updated[0];
       upsertContaBancaria(target, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria notice:', err));
     } catch (err) {
       console.warn('Erro ao salvar conta bancária:', err);
+    }
+  };
+
+  const handleUpdateBalance = (accountId: string, newBalance: number) => {
+    try {
+      const activeCompanyId = getActiveCompanyId();
+      const novasContas = effectiveAccounts.map((a) =>
+        a.id === accountId ? { ...a, balance: newBalance } : a
+      );
+      // 2. GRAVAÇÃO EM ESPELHO COMPULSÓRIA
+      localStorage.setItem('agrocontrol_bancos', JSON.stringify(novasContas));
+      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(novasContas));
+      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(novasContas));
+
+      saveStoredBankAccounts(novasContas);
+      setLocalAccounts(novasContas);
+      lastPropsJsonRef.current = JSON.stringify(novasContas);
+
+      if (onSaveAccounts) {
+        onSaveAccounts(novasContas);
+      }
+
+      const target = novasContas.find((a) => a.id === accountId);
+      if (target) {
+        upsertContaBancaria(target, activeCompanyId).catch(console.warn);
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar saldo da conta bancária:', err);
     }
   };
 
@@ -273,6 +329,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       try {
         const activeCompanyId = getActiveCompanyId();
         const updated = effectiveAccounts.filter((a) => a.id !== id);
+        // GRAVAÇÃO EM ESPELHO COMPULSÓRIA
+        localStorage.setItem('agrocontrol_bancos', JSON.stringify(updated));
+        localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updated));
+        localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updated));
+
         saveStoredBankAccounts(updated);
         setLocalAccounts(updated);
         lastPropsJsonRef.current = JSON.stringify(updated);
@@ -316,6 +377,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
           }
           return acc;
         });
+
+        // GRAVAÇÃO EM ESPELHO COMPULSÓRIA
+        localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
+        localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
+        localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
 
         saveStoredBankAccounts(updatedAccounts);
         setLocalAccounts(updatedAccounts);
@@ -362,6 +428,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
           return acc;
         });
 
+        // GRAVAÇÃO EM ESPELHO COMPULSÓRIA
+        localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
+        localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
+        localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
+
         saveStoredBankAccounts(updatedAccounts);
         setLocalAccounts(updatedAccounts);
         lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
@@ -401,11 +472,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         <div className="space-y-0.5">
           <div className="flex items-center space-x-2">
             <span className="text-[10.5px] font-black text-black uppercase tracking-wider">
-              Saldo Consolidado em Contas
+              SALDO CONSOLIDADO EM CONTAS
             </span>
             {totalOverdraftLimit > 0 && (
-              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
-                + Limite Ativo
+              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase">
+                + LIMITE ATIVO
               </span>
             )}
           </div>
@@ -415,8 +486,8 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
               {formatCurrencyBRL(totalAvailableResources)}
             </div>
             {totalOverdraftLimit > 0 && (
-              <div className="text-[11px] text-stone-600 font-semibold">
-                (Próprio: <strong className={totalBalance < 0 ? 'text-rose-600 font-bold' : 'text-black font-bold'}>{formatCurrencyBRL(totalBalance)}</strong> + Limite: <strong className="text-emerald-800 font-bold">{formatCurrencyBRL(totalOverdraftLimit)}</strong>)
+              <div className="text-[11px] text-stone-600 font-semibold uppercase">
+                (PRÓPRIO: <strong className={totalBalance < 0 ? 'text-rose-600 font-bold' : 'text-black font-bold'}>{formatCurrencyBRL(totalBalance)}</strong> + LIMITE: <strong className="text-emerald-800 font-bold">{formatCurrencyBRL(totalOverdraftLimit)}</strong>)
               </div>
             )}
           </div>
@@ -428,11 +499,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
             type="button"
             id="btn-abrir-extrato-geral"
             onClick={() => handleOpenStatement()}
-            className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-stone-50 text-stone-800 font-bold text-xs rounded-lg border border-stone-300 transition shadow-2xs cursor-pointer active:scale-95"
+            className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-stone-50 text-stone-800 font-bold text-xs rounded-lg border border-stone-300 transition shadow-2xs cursor-pointer active:scale-95 uppercase tracking-wide"
             title="Abrir Extrato de Contas Bancárias"
           >
             <FileText className="w-3.5 h-3.5 text-[#0963cb]" />
-            <span>Extrato Geral</span>
+            <span>EXTRATO GERAL</span>
           </button>
 
           {/* Botão de Cadastrar Nova Conta */}
@@ -440,10 +511,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
             type="button"
             id="btn-abrir-nova-conta"
             onClick={() => handleOpenModal()}
-            className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-black text-xs rounded-lg transition shadow-2xs cursor-pointer active:scale-95 shrink-0"
+            className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-black text-xs rounded-lg transition shadow-2xs cursor-pointer active:scale-95 shrink-0 uppercase tracking-wide"
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Cadastrar Conta</span>
+            <span>CADASTRAR CONTA</span>
           </button>
         </div>
       </div>
@@ -556,7 +627,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                         />
                       </div>
                       <div className="truncate min-w-0">
-                        <h4 className={`font-black text-xs sm:text-[13px] leading-tight truncate ${theme.textPrimary}`}>
+                        <h4 className={`font-black text-xs sm:text-[13px] leading-tight truncate uppercase ${theme.textPrimary}`}>
                           {safeAccName}
                         </h4>
                         <div className="flex items-center space-x-1.5 text-[9.5px] font-semibold truncate leading-tight mt-0.5">
@@ -565,12 +636,12 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                               {safeBankCode}
                             </span>
                           )}
-                          <span className={`truncate font-bold ${theme.textSecondary}`}>{safeBankName}</span>
+                          <span className={`truncate font-bold uppercase ${theme.textSecondary}`}>{safeBankName}</span>
                         </div>
                       </div>
                     </div>
 
-                    <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded shrink-0 leading-none shadow-2xs border ${theme.badgeBg}`}>
+                    <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded shrink-0 leading-none shadow-2xs border uppercase ${theme.badgeBg}`}>
                       {getAccountTypeLabel(safeAccountType)}
                     </span>
                   </div>
@@ -579,11 +650,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                   <div className={`p-1.5 sm:p-2 rounded-lg border space-y-0.5 ${theme.innerCardBg}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-[8.5px] font-extrabold text-stone-500 uppercase tracking-wider">
-                        {hasOverdraft ? 'Disponível Total' : 'Saldo em Conta'}
+                        {hasOverdraft ? 'DISPONÍVEL TOTAL' : 'SALDO EM CONTA'}
                       </span>
                       {hasOverdraft && (
                         <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                          + Limite
+                          + LIMITE
                         </span>
                       )}
                     </div>
@@ -593,9 +664,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                     </div>
 
                     {hasOverdraft && (
-                      <div className="text-[9px] text-stone-600 font-medium border-t border-slate-200/70 pt-0.5 flex justify-between items-center leading-tight">
-                        <span>Próprio: <strong className={safeAccBalance < 0 ? 'text-rose-600' : 'text-stone-900'}>{formatCurrencyBRL(safeAccBalance)}</strong></span>
-                        <span>Limite: <strong className="text-emerald-800">{formatCurrencyBRL(safeOverdraft)}</strong></span>
+                      <div className="text-[9px] text-stone-600 font-medium border-t border-slate-200/70 pt-0.5 flex justify-between items-center leading-tight uppercase">
+                        <span>PRÓPRIO: <strong className={safeAccBalance < 0 ? 'text-rose-600' : 'text-stone-900'}>{formatCurrencyBRL(safeAccBalance)}</strong></span>
+                        <span>LIMITE: <strong className="text-emerald-800">{formatCurrencyBRL(safeOverdraft)}</strong></span>
                       </div>
                     )}
                   </div>
@@ -606,7 +677,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                   <div className="space-y-0.5 text-[9px] text-stone-600 dark:text-stone-300 leading-tight">
                     {/* Linha do Titular com Logotipo Discreto e Nítido */}
                     <div className="flex justify-between items-center gap-1.5">
-                      <span className="text-stone-400 font-medium text-[8.5px] shrink-0">Titular:</span>
+                      <span className="text-stone-400 font-medium text-[8.5px] shrink-0 uppercase">TITULAR:</span>
                       <div className="flex items-center gap-1.5 truncate min-w-0">
                         <div 
                           className="w-4 h-4 rounded-xs shrink-0 overflow-hidden flex items-center justify-center shadow-2xs"
@@ -614,7 +685,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                           <BankLogoIcon code={safeBankCode || (safeAccountType === 'caixa_fisico' ? '099' : undefined)} name={safeBankName} size={16} />
                         </div>
                         <span 
-                          className="font-bold text-stone-800 dark:text-stone-100 text-[9.5px] truncate" 
+                          className="font-bold text-stone-800 dark:text-stone-100 text-[9.5px] truncate uppercase" 
                           title={acc?.responsavel_conta_nome || acc?.accountName || safeAccName}
                         >
                           {acc?.responsavel_conta_nome || acc?.accountName || safeAccName}
@@ -624,9 +695,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
                     {(acc?.agency || acc?.accountNumber) && (
                       <div className="flex justify-between items-center gap-1">
-                        <span className="text-stone-400 font-medium text-[8.5px]">Ag/Conta:</span>
-                        <span className="font-bold font-mono text-stone-800 dark:text-stone-200 text-[9.5px] truncate">
-                          {acc.agency ? `Ag: ${acc.agency}` : ''} 
+                        <span className="text-stone-400 font-medium text-[8.5px] uppercase">AG/CONTA:</span>
+                        <span className="font-bold font-mono text-stone-800 dark:text-stone-200 text-[9.5px] truncate uppercase">
+                          {acc.agency ? `AG: ${acc.agency}` : ''} 
                           {acc.agency && acc.accountNumber ? ' | ' : ''}
                           {acc.accountNumber ? `CC: ${acc.accountNumber}${acc.accountDigit ? `-${acc.accountDigit}` : ''}` : ''}
                         </span>
@@ -635,7 +706,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
                     {acc?.pixKey && (
                       <div className="flex justify-between items-center gap-1">
-                        <span className="text-stone-400 font-medium text-[8.5px] shrink-0">
+                        <span className="text-stone-400 font-medium text-[8.5px] shrink-0 uppercase">
                           PIX{acc.pixKeyType ? ` (${String(acc.pixKeyType).toUpperCase()})` : ''}:
                         </span>
                         <span className="font-mono text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 truncate max-w-[140px]" title={acc.pixKey}>
@@ -646,12 +717,12 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
                     {acc?.corporateCards && Array.isArray(acc.corporateCards) && acc.corporateCards.length > 0 && (
                       <div className="flex justify-between items-center gap-1">
-                        <span className="text-purple-700 font-medium text-[8.5px] flex items-center gap-1">
+                        <span className="text-purple-700 font-medium text-[8.5px] flex items-center gap-1 uppercase">
                           <CreditCard className="w-2.5 h-2.5 text-purple-600" />
-                          <span>{acc.corporateCards.length} {acc.corporateCards.length === 1 ? 'Cartão' : 'Cartões'}:</span>
+                          <span>{acc.corporateCards.length} {acc.corporateCards.length === 1 ? 'CARTÃO' : 'CARTÕES'}:</span>
                         </span>
                         <span className="font-mono text-[8.5px] font-bold text-purple-900 bg-purple-50 px-1 py-0.2 rounded border border-purple-200">
-                          {formatCurrencyBRL(acc.corporateCards.reduce((s, c) => s + (c && typeof c.usedLimit === 'number' ? c.usedLimit : 0), 0))} util.
+                          {formatCurrencyBRL(acc.corporateCards.reduce((s, c) => s + (c && typeof c.usedLimit === 'number' ? c.usedLimit : 0), 0))} UTIL.
                         </span>
                       </div>
                     )}
@@ -662,11 +733,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenStatement(acc?.id)}
-                      className="inline-flex items-center space-x-1 text-[10px] font-bold text-[#0963cb] hover:text-blue-800 hover:bg-blue-50/80 px-1.5 py-0.5 rounded transition cursor-pointer active:scale-95"
+                      className="inline-flex items-center space-x-1 text-[10px] font-bold text-[#0963cb] hover:text-blue-800 hover:bg-blue-50/80 px-1.5 py-0.5 rounded transition cursor-pointer active:scale-95 uppercase"
                       title="Ver Extrato da Conta"
                     >
                       <FileText className="w-2.5 h-2.5" />
-                      <span>Ver Extrato</span>
+                      <span>VER EXTRATO</span>
                     </button>
 
                     <div className="flex items-center space-x-0.5">

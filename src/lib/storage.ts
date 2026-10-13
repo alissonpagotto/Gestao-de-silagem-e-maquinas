@@ -2237,17 +2237,31 @@ export function importFullBackup(jsonString: string): { success: boolean; messag
 
 export function getStoredBankAccounts(): BankAccount[] {
   try {
+    // 1. Chave prioritária oficial AgroControl e espelhos
+    const rawUnified = localStorage.getItem('agrocontrol_bancos') || 
+                       localStorage.getItem('agrocontrol_contas_bancarias') || 
+                       localStorage.getItem('agrocontrol_financeiro_contas');
+    if (rawUnified) {
+      const parsed = JSON.parse(rawUnified);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+
+    const cId = getActiveCompanyId();
+    if (cId) {
+      const rawScoped = localStorage.getItem(`agrocontrol_bancos_${cId}`) ||
+                        localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
+      if (rawScoped) {
+        const parsed = JSON.parse(rawScoped);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+
     const raw = localStorage.getItem(STORAGE_KEYS.BANK_ACCOUNTS);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-    const cId = getActiveCompanyId();
-    const rawColacaScoped = localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
-    if (rawColacaScoped) {
-      const parsed = JSON.parse(rawColacaScoped);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
+
     const rawColacaGlobal = localStorage.getItem('colaca_silagem_financeiro_contas');
     if (rawColacaGlobal) {
       const parsed = JSON.parse(rawColacaGlobal);
@@ -2262,9 +2276,18 @@ export function getStoredBankAccounts(): BankAccount[] {
 export function saveStoredBankAccounts(accounts: BankAccount[]): void {
   try {
     const json = JSON.stringify(accounts);
+    // Gravação em espelho compulsória oficial AgroControl
+    localStorage.setItem('agrocontrol_bancos', json);
+    localStorage.setItem('agrocontrol_contas_bancarias', json);
+    localStorage.setItem('agrocontrol_financeiro_contas', json);
+
+    // Chaves de compatibilidade legada e escopo por empresa
     localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
     const cId = getActiveCompanyId();
-    localStorage.setItem(`colaca_silagem_financeiro_contas_${cId}`, json);
+    if (cId) {
+      localStorage.setItem(`colaca_silagem_financeiro_contas_${cId}`, json);
+      localStorage.setItem(`agrocontrol_bancos_${cId}`, json);
+    }
     localStorage.setItem('colaca_silagem_financeiro_contas', json);
     saveCompanyData('financeiro_contas', accounts, cId);
   } catch (e) {
