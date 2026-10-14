@@ -417,10 +417,21 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
   }, [vehicleServices]);
 
   const totalFreightRevenue = useMemo(() => {
-    return vehicleSilageOrders.reduce((sum, o) => {
+    const fromOrders = vehicleSilageOrders.reduce((sum, o) => {
       return sum + (o.freightCost || (o.freightType === 'CIF' ? o.totalAmount * 0.15 : o.totalAmount));
     }, 0);
-  }, [vehicleSilageOrders]);
+
+    const vehAny = vehicle as any;
+    const directList = Array.isArray(vehAny?.receitasOperacionais)
+      ? vehAny.receitasOperacionais
+      : (Array.isArray(vehAny?.dreEntries) ? vehAny.dreEntries : []);
+
+    const fromDirectReceitas = directList
+      .filter((r: any) => r?.tipo === 'RECEITA_OPERACIONAL_LOGISTICA' && !vehicleSilageOrders.some(o => o.orderNumber === `${r.orderNumber}-FRETE`))
+      .reduce((sum: number, r: any) => sum + (Number(r.valor) || 0), 0);
+
+    return fromOrders + fromDirectReceitas;
+  }, [vehicleSilageOrders, vehicle]);
 
   const totalGrossRevenue = totalServicesRevenue + totalFreightRevenue;
 

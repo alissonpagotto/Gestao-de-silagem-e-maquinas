@@ -32,10 +32,11 @@ import {
   Download,
   Copy,
   FileText,
-  CheckCheck
+  CheckCheck,
+  Truck
 } from 'lucide-react';
-import { Client, CompanyProfile, ServiceOrder, InventoryItem } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId, getStoredClients } from '../../lib/storage';
+import { Client, CompanyProfile, ServiceOrder, InventoryItem, Machinery } from '../../types';
+import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId, getStoredClients, getStoredMachineries, STORAGE_KEYS } from '../../lib/storage';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -57,6 +58,16 @@ interface InstallmentRow {
   numero: number;
   vencimento: string;
   valor: number;
+}
+
+export interface FreteVinculadoItem {
+  id: string;
+  veiculoId: string;
+  veiculoIdentificacao: string; // [PLACA / MODELO DO VEÍCULO]
+  tipoCalculo: 'fixo' | 'km';
+  valorUnitario: number;
+  kmRodados: number;
+  valorTotal: number;
 }
 
 export type PriceTable = 'venda' | 'custo' | 'atacado' | 'promocional';
@@ -369,11 +380,21 @@ export const generatePrintableSaleHtml = (
     <div class="totals-box">
       <div class="totals-row"><span>TOTAL BRUTO:</span><span class="font-mono">${formatCurrencyBRL(sale.totalBruto)}</span></div>
       <div class="totals-row"><span>DESCONTOS:</span><span class="font-mono" style="color: #dc2626;">${formatCurrencyBRL(sale.totalDesconto)}</span></div>
+      ${sale.totalFrete > 0 ? `<div class="totals-row"><span>FRETE LOGÍSTICA:</span><span class="font-mono" style="color: #d97706; font-weight: 700;">${formatCurrencyBRL(sale.totalFrete)}</span></div>` : ''}
       <div class="totals-row totals-main"><span>TOTAL LÍQUIDO:</span><span class="font-mono">${formatCurrencyBRL(sale.totalLiquido)}</span></div>
       <div class="totals-row"><span>VALOR RECEBIDO:</span><span class="font-mono">${formatCurrencyBRL(sale.valorPago)}</span></div>
       <div class="totals-row"><span>TROCO:</span><span class="font-mono" style="color: #059669; font-weight: 800;">${formatCurrencyBRL(sale.troco)}</span></div>
     </div>
   </div>
+
+  ${sale.fretes && sale.fretes.length > 0 ? `
+    <div style="margin-top: 10px; padding: 6px 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 9.5px; text-transform: uppercase;">
+      <div style="font-weight: 900; color: #1e293b; margin-bottom: 2px;">🚚 TRANSPORTE & LOGÍSTICA DE ENTREGA (VEÍCULOS VINCULADOS):</div>
+      <div style="color: #475569; font-weight: 700;">
+        ${sale.fretes.map((f: any) => `• ${f.veiculoIdentificacao} [${f.tipoCalculo === 'km' ? `${f.kmRodados} KM` : 'FIXO'}] : ${formatCurrencyBRL(f.valorTotal)}`).join(' | ')}
+      </div>
+    </div>
+  ` : ''}
 
   ${sale.parcelas && sale.parcelas.length > 0 ? `
     <div style="margin-top: 15px;">
@@ -457,9 +478,17 @@ export const generatePrintableSaleHtml = (
   <div class="dashed"></div>
   <div class="item-row"><span>TOTAL BRUTO:</span><span>${formatCurrencyBRL(sale.totalBruto)}</span></div>
   <div class="item-row"><span>DESCONTOS:</span><span>${formatCurrencyBRL(sale.totalDesconto)}</span></div>
+  ${sale.totalFrete > 0 ? `<div class="item-row"><span>FRETE LOGÍSTICA:</span><span>${formatCurrencyBRL(sale.totalFrete)}</span></div>` : ''}
   <div class="item-row font-bold" style="font-size: 12px;"><span>TOTAL LÍQUIDO:</span><span>${formatCurrencyBRL(sale.totalLiquido)}</span></div>
   <div class="item-row"><span>VALOR RECEBIDO:</span><span>${formatCurrencyBRL(sale.valorPago)}</span></div>
   <div class="item-row font-bold"><span>TROCO:</span><span>${formatCurrencyBRL(sale.troco)}</span></div>
+  ${sale.fretes && sale.fretes.length > 0 ? `
+    <div class="dashed"></div>
+    <div style="font-size: 8.5px; text-align: left;">
+      <div class="font-bold">VEÍCULOS / TRANSPORTE:</div>
+      ${sale.fretes.map((f: any) => `<div>• ${f.veiculoIdentificacao} (${formatCurrencyBRL(f.valorTotal)})</div>`).join('')}
+    </div>
+  ` : ''}
   ${sale.parcelas && sale.parcelas.length > 0 ? `
     <div class="dashed"></div>
     <div class="font-bold text-center" style="font-size: 9.5px;">PARCELAS A RECEBER (${sale.parcelas.length}x):</div>
@@ -790,7 +819,76 @@ export const PdvView: React.FC<PdvViewProps> = ({
     valorPago: number;
     troco: number;
     parcelas?: InstallmentRow[];
+    fretes?: FreteVinculadoItem[];
+    totalFrete?: number;
   } | null>(null);
+
+  // =========================================================================
+  // LOGÍSTICA DE TRANSPORTE / FRETE VINCULADO MULTIVEÍCULO (SLIM DESIGN PRO)
+  // =========================================================================
+  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [fretesVinculados, setFretesVinculados] = useState<FreteVinculadoItem[]>([]);
+  const [veiculoFreteId, setVeiculoFreteId] = useState<string>('');
+  const [tipoCalculoFrete, setTipoCalculoFrete] = useState<'fixo' | 'km'>('fixo');
+  const [valorTaxaFreteInput, setValorTaxaFreteInput] = useState<string>('0,00');
+  const [kmRodadosFreteInput, setKmRodadosFreteInput] = useState<string>('');
+
+  // Carregar lista de caminhões, tratores e cavalos mecânicos de 'agrocontrol_frotas_veiculos'
+  const loadFleetVehicles = () => {
+    try {
+      const raw = localStorage.getItem('agrocontrol_frotas_veiculos') ||
+                  localStorage.getItem('colaca_silagem_frotas_veiculos') ||
+                  localStorage.getItem('agrocontrol_veiculos') ||
+                  localStorage.getItem('agrocontrol_frotas');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAvailableVehicles(parsed);
+          setVeiculoFreteId(prev => prev || parsed[0]?.id || '');
+          return;
+        }
+      }
+      const stored = getStoredMachineries();
+      if (stored && stored.length > 0) {
+        setAvailableVehicles(stored);
+        setVeiculoFreteId(prev => prev || stored[0]?.id || '');
+      } else {
+        // Frota padrão inicial para prontidão operacional imediata
+        const fallbackFleet = [
+          { id: 'frot_caminhao_axor', model: 'MERCEDES-BENZ AXOR 2544', plate: 'BRA-2024', licensePlateOrSerial: 'BRA-2024', brand: 'Mercedes-Benz', categoryType: 'caminhao', fleetNumber: '101' },
+          { id: 'frot_caminhao_volvo', model: 'VOLVO FH 540 6X4 (CAVALO MECÂNICO)', plate: 'AGR-8899', licensePlateOrSerial: 'AGR-8899', brand: 'Volvo', categoryType: 'caminhao', fleetNumber: '102' },
+          { id: 'frot_trator_jd', model: 'TRATOR JOHN DEERE 6110M', plate: 'JD-6110', licensePlateOrSerial: 'JD-6110', brand: 'John Deere', categoryType: 'trator', fleetNumber: '201' },
+        ];
+        setAvailableVehicles(fallbackFleet);
+        setVeiculoFreteId(prev => prev || fallbackFleet[0].id);
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar veículos de frete:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadFleetVehicles();
+    const handleUpdate = () => loadFleetVehicles();
+    window.addEventListener('agrocontrol_frotas_veiculos_updated', handleUpdate);
+    window.addEventListener('frotas_veiculos_updated', handleUpdate);
+    window.addEventListener('machineries_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_frotas_veiculos_updated', handleUpdate);
+      window.removeEventListener('frotas_veiculos_updated', handleUpdate);
+      window.removeEventListener('machineries_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const getVehicleIdentificationText = (v: any): string => {
+    if (!v) return 'VEÍCULO INDEFINIDO';
+    const plate = v.licensePlateOrSerial || v.plate || v.plateOrSerial || 'S/ PLACA';
+    const name = v.model || v.name || v.brand || 'VEÍCULO';
+    const fleet = v.fleetNumber || v.numero_frota;
+    return `[${plate.toUpperCase()}] ${name.toUpperCase()}${fleet ? ` (FROTA #${fleet})` : ''}`;
+  };
 
   // Foco inicial no campo de busca ao montar
   useEffect(() => {
@@ -903,7 +1001,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }).slice(0, 12);
   }, [clientSearch, agroClientes]);
 
-  // Totais do PDV
+  // Totais do PDV com Soma Reativa do Frete Vinculado
   const totals = useMemo(() => {
     let bruto = 0;
     let desconto = 0;
@@ -915,20 +1013,22 @@ export const PdvView: React.FC<PdvViewProps> = ({
       totalItensContagem += it.quantidade;
     });
 
-    const liquido = Math.max(0, bruto - desconto);
+    const totalFreteCalculado = fretesVinculados.reduce((acc, f) => acc + (f.valorTotal || 0), 0);
+    const liquido = Math.max(0, bruto - desconto) + totalFreteCalculado;
     const pagoNumerico = valorPagoInput ? parseFloat(valorPagoInput.replace(/\./g, '').replace(',', '.')) || 0 : liquido;
     const troco = Math.max(0, pagoNumerico - liquido);
 
     return {
       totalBruto: bruto,
       totalDesconto: desconto,
+      totalFrete: totalFreteCalculado,
       totalLiquido: liquido,
       totalItens: items.length,
       totalQuantidade: totalItensContagem,
       valorPago: pagoNumerico,
       troco: troco
     };
-  }, [items, valorPagoInput]);
+  }, [items, valorPagoInput, fretesVinculados]);
 
   // Parcelas do Bloco a Prazo
   const parcelas = useMemo<InstallmentRow[]>(() => {
@@ -1230,6 +1330,204 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setItems(prev => prev.filter(it => it.id !== id));
   };
 
+  // =========================================================================
+  // MOTOR DE LOGÍSTICA DE FRETE MULTIVEÍCULO & CRUZA DE DADOS COM O DRE DA FROTA
+  // =========================================================================
+  const handleAdicionarFrete = () => {
+    const selectedVeh = availableVehicles.find(v => v.id === veiculoFreteId) || availableVehicles[0];
+    if (!selectedVeh && availableVehicles.length === 0) {
+      setWarningMessage('NENHUM VEÍCULO DISPONÍVEL NA FROTA PARA VINCULAR FRETE.');
+      setTimeout(() => setWarningMessage(null), 3500);
+      return;
+    }
+
+    const taxa = parseFloat(valorTaxaFreteInput.replace(/\./g, '').replace(',', '.')) || 0;
+    if (taxa <= 0) {
+      setWarningMessage('INFORME O VALOR OU TAXA DO FRETE MAIOR QUE ZERO.');
+      setTimeout(() => setWarningMessage(null), 3500);
+      return;
+    }
+
+    let km = 0;
+    let totalFrete = taxa;
+    if (tipoCalculoFrete === 'km') {
+      km = parseFloat(kmRodadosFreteInput.replace(/\./g, '').replace(',', '.')) || 0;
+      if (km <= 0) {
+        setWarningMessage('PARA CÁLCULO POR KM RODADO, INFORME A QUILOMETRAGEM PERCORRIDA.');
+        setTimeout(() => setWarningMessage(null), 3500);
+        return;
+      }
+      totalFrete = Math.round(taxa * km * 100) / 100;
+    }
+
+    const identText = selectedVeh 
+      ? getVehicleIdentificationText(selectedVeh) 
+      : `[FROTA] VEÍCULO ${veiculoFreteId}`;
+
+    const novoFrete: FreteVinculadoItem = {
+      id: `frete_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      veiculoId: selectedVeh?.id || veiculoFreteId || `veh_custom_${Date.now()}`,
+      veiculoIdentificacao: identText,
+      tipoCalculo: tipoCalculoFrete,
+      valorUnitario: taxa,
+      kmRodados: km,
+      valorTotal: totalFrete
+    };
+
+    const updated = [...fretesVinculados, novoFrete];
+    setFretesVinculados(updated);
+
+    // Limpar campos de entrada para permitir vincular novos veículos
+    setValorTaxaFreteInput('0,00');
+    setKmRodadosFreteInput('');
+
+    // Ajustar valor recebido de forma reativa caso o usuário não tenha digitado valor manual divergente
+    const freteTotalSum = updated.reduce((s, f) => s + f.valorTotal, 0);
+    const novoLiquido = Math.max(0, totals.totalBruto - totals.totalDesconto) + freteTotalSum;
+    setValorPagoInput(novoLiquido.toFixed(2).replace('.', ','));
+  };
+
+  const handleRemoverFrete = (freteId: string) => {
+    const updated = fretesVinculados.filter(f => f.id !== freteId);
+    setFretesVinculados(updated);
+    const freteTotalSum = updated.reduce((s, f) => s + f.valorTotal, 0);
+    const novoLiquido = Math.max(0, totals.totalBruto - totals.totalDesconto) + freteTotalSum;
+    setValorPagoInput(novoLiquido.toFixed(2).replace('.', ','));
+  };
+
+  // Injeção automática da Receita Operacional Logística no DRE/Histórico do Veículo no LocalStorage
+  const injectFreightRevenueIntoFleetVehicles = (
+    fretes: FreteVinculadoItem[],
+    orderNumber: string,
+    clientName: string,
+    dateStr: string
+  ) => {
+    if (!fretes || fretes.length === 0) return;
+
+    try {
+      const rawStored = localStorage.getItem('agrocontrol_frotas_veiculos') ||
+                        localStorage.getItem('colaca_silagem_frotas_veiculos') ||
+                        localStorage.getItem('agrocontrol_veiculos') ||
+                        localStorage.getItem('agrocontrol_frotas');
+
+      let vehiclesList: any[] = [];
+      if (rawStored) {
+        try { vehiclesList = JSON.parse(rawStored); } catch {}
+      }
+      if (!Array.isArray(vehiclesList) || vehiclesList.length === 0) {
+        vehiclesList = getStoredMachineries();
+      }
+
+      const nowIso = new Date().toISOString();
+
+      fretes.forEach(f => {
+        const vIndex = vehiclesList.findIndex(v => 
+          v.id === f.veiculoId || 
+          (v.licensePlateOrSerial && f.veiculoIdentificacao.includes(v.licensePlateOrSerial)) ||
+          (v.plate && f.veiculoIdentificacao.includes(v.plate))
+        );
+
+        const novaReceita = {
+          id: `rec_frete_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          tipo: 'RECEITA_OPERACIONAL_LOGISTICA',
+          categoria: 'Receita Operacional Logística',
+          dreCategory: 'Faturamento de Fretes & Entregas de Silagem',
+          descricao: `RECEITA OPERACIONAL LOGÍSTICA - FRETE PDV ${orderNumber}`,
+          tipoCalculo: f.tipoCalculo === 'km' ? 'POR KM RODADO' : 'VALOR FIXO',
+          valor: f.valorTotal,
+          amount: f.valorTotal,
+          dreGrossAmount: f.valorTotal,
+          valorUnitario: f.valorUnitario,
+          kmRodados: f.kmRodados,
+          orderNumber: orderNumber,
+          data: dateStr,
+          date: dateStr,
+          cliente: clientName,
+          criadoEm: nowIso
+        };
+
+        if (vIndex >= 0) {
+          const v = { ...vehiclesList[vIndex] };
+          const existingDre = Array.isArray(v.dreEntries) ? v.dreEntries : [];
+          const existingReceitas = Array.isArray(v.receitasOperacionais) ? v.receitasOperacionais : [];
+          const existingHistory = Array.isArray(v.historicoDRE) ? v.historicoDRE : [];
+
+          v.dreEntries = [novaReceita, ...existingDre];
+          v.receitasOperacionais = [novaReceita, ...existingReceitas];
+          v.historicoDRE = [novaReceita, ...existingHistory];
+          v.accumulatedRevenue = (Number(v.accumulatedRevenue) || 0) + f.valorTotal;
+          v.faturamentoTotal = (Number(v.faturamentoTotal) || 0) + f.valorTotal;
+
+          vehiclesList[vIndex] = v;
+        } else {
+          const novoVeiculo = {
+            id: f.veiculoId,
+            name: f.veiculoIdentificacao,
+            model: f.veiculoIdentificacao,
+            brand: 'Frota AgroControl',
+            licensePlateOrSerial: f.veiculoIdentificacao,
+            plate: f.veiculoIdentificacao,
+            status: 'operacional',
+            dreEntries: [novaReceita],
+            receitasOperacionais: [novaReceita],
+            historicoDRE: [novaReceita],
+            accumulatedRevenue: f.valorTotal,
+            faturamentoTotal: f.valorTotal
+          };
+          vehiclesList.push(novoVeiculo);
+        }
+      });
+
+      const serialized = JSON.stringify(vehiclesList);
+      localStorage.setItem('agrocontrol_frotas_veiculos', serialized);
+      localStorage.setItem('colaca_silagem_frotas_veiculos', serialized);
+      localStorage.setItem('agrocontrol_veiculos', serialized);
+      localStorage.setItem('agrocontrol_frotas', serialized);
+      localStorage.setItem(STORAGE_KEYS.MACHINERIES, serialized);
+
+      // Injetar também no array de pedidos/ordens de frete ('agrocontrol_pedidos') para consolidar no DRE
+      try {
+        const rawOrders = localStorage.getItem('agrocontrol_pedidos') || localStorage.getItem(STORAGE_KEYS.ORDERS);
+        let ordersList: any[] = [];
+        if (rawOrders) {
+          try { ordersList = JSON.parse(rawOrders); } catch {}
+        }
+        if (!Array.isArray(ordersList)) ordersList = [];
+
+        fretes.forEach(f => {
+          ordersList.unshift({
+            id: `ord_frete_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            orderNumber: `${orderNumber}-FRETE`,
+            clientName: clientName,
+            date: dateStr,
+            machineryId: f.veiculoId,
+            machineryPlateOrName: f.veiculoIdentificacao,
+            freightCost: f.valorTotal,
+            totalAmount: f.valorTotal,
+            freightType: f.tipoCalculo === 'km' ? 'POR KM' : 'FIXO',
+            distanceKm: f.kmRodados,
+            notes: `Receita Operacional Logística vinculada ao cupom PDV ${orderNumber}`,
+            status: 'concluido'
+          });
+        });
+
+        const ordersJson = JSON.stringify(ordersList);
+        localStorage.setItem('agrocontrol_pedidos', ordersJson);
+        localStorage.setItem(STORAGE_KEYS.ORDERS, ordersJson);
+        window.dispatchEvent(new CustomEvent('colaca_orders_updated', { detail: ordersList }));
+      } catch (eOrd) {
+        console.warn('Erro ao atualizar pedidos de frete:', eOrd);
+      }
+
+      // Disparar eventos de sincronização imediata
+      window.dispatchEvent(new CustomEvent('agrocontrol_frotas_veiculos_updated', { detail: vehiclesList }));
+      window.dispatchEvent(new CustomEvent('frotas_veiculos_updated', { detail: vehiclesList }));
+      window.dispatchEvent(new CustomEvent('machineries_updated', { detail: vehiclesList }));
+    } catch (e) {
+      console.warn('Erro ao injetar receita operacional do frete:', e);
+    }
+  };
+
   // Limpar todo o PDV (F4)
   const handleLimparPdv = () => {
     setItems([]);
@@ -1246,6 +1544,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setOperacaoTipo('venda_balcao');
     setIsDiscountExceeded(false);
     setAttemptedDiscount(0);
+    setFretesVinculados([]);
+    setValorTaxaFreteInput('0,00');
+    setKmRodadosFreteInput('');
     try {
       localStorage.removeItem(PDV_DRAFT_KEY);
     } catch {}
@@ -1384,6 +1685,11 @@ export const PdvView: React.FC<PdvViewProps> = ({
       }
     }
 
+    // Injeção 100% automática da Receita Operacional Logística no DRE/Histórico dos veículos da frota
+    if (fretesVinculados.length > 0) {
+      injectFreightRevenueIntoFleetVehicles(fretesVinculados, orderNum, clientNameResolved, dateStr);
+    }
+
     const saleRecord = {
       orderNumber: orderNum,
       date: formatDateBR(dateStr),
@@ -1394,6 +1700,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       items: [...items],
       totalBruto: totals.totalBruto,
       totalDesconto: totals.totalDesconto,
+      totalFrete: totals.totalFrete,
       totalLiquido: totals.totalLiquido,
       forma: formaLabelMap[formaPagamento],
       tipoCobranca: formaPagamento === 'prazo' ? cobrancaLabel : undefined,
@@ -1401,7 +1708,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
       formatoImpressao: formatoImpressao,
       valorPago: totals.valorPago,
       troco: totals.troco,
-      parcelas: formaPagamento === 'prazo' ? [...parcelas] : undefined
+      parcelas: formaPagamento === 'prazo' ? [...parcelas] : undefined,
+      fretes: [...fretesVinculados]
     };
 
     setLastFinishedSale(saleRecord);
@@ -2247,7 +2555,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     {formatCurrencyBRL(totals.totalLiquido)}
                   </div>
                   <div className="text-[9.5px] font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5 truncate">
-                    SUBTOTAL: {formatCurrencyBRL(totals.totalBruto)} • DESC: {formatCurrencyBRL(totals.totalDesconto)}
+                    SUBTOTAL: {formatCurrencyBRL(totals.totalBruto)} • DESC: {formatCurrencyBRL(totals.totalDesconto)}{totals.totalFrete > 0 ? ` • FRETE: ${formatCurrencyBRL(totals.totalFrete)}` : ''}
                   </div>
                 </div>
 
@@ -2293,6 +2601,144 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     {totals.troco > 0 ? 'CALCULADO AUTOMATICAMENTE' : 'SEM TROCO A DEVOLVER'}
                   </div>
                 </div>
+              </div>
+
+              {/* =====================================================================
+                  NOVO: SEÇÃO DE FRETE DINÂMICO MULTIVEÍCULO (LOGÍSTICA DE TRANSPORTE)
+                 ===================================================================== */}
+              <div className="bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>🚚 LOGÍSTICA DE TRANSPORTE / FRETE VINCULADO</span>
+                  </span>
+                  {fretesVinculados.length > 0 && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 font-mono uppercase whitespace-nowrap">
+                      TOTAL FRETE: {formatCurrencyBRL(totals.totalFrete)} ({fretesVinculados.length} {fretesVinculados.length === 1 ? 'VEÍCULO' : 'VEÍCULOS'})
+                    </span>
+                  )}
+                </div>
+
+                {/* Linha horizontal fina de inputs utilizando o padrão de contorno de aço */}
+                <div className="bg-slate-100 dark:bg-stone-850 p-2 border border-slate-300 dark:border-stone-700 rounded flex flex-wrap lg:flex-nowrap items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-stone-300 uppercase mb-2">
+                  {/* CAMPO 1 (Dropdown Slim): VEÍCULO FRETE */}
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-[9px] font-black uppercase text-slate-500 dark:text-stone-400 mb-0.5 whitespace-nowrap">
+                      VEÍCULO FRETE:
+                    </label>
+                    <select
+                      value={veiculoFreteId}
+                      onChange={e => setVeiculoFreteId(e.target.value)}
+                      className="w-full px-2 py-1 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-[11px] font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 uppercase truncate"
+                    >
+                      {availableVehicles.map((veh: any, vIdx: number) => (
+                        <option key={veh.id || `veh_${vIdx}`} value={veh.id}>
+                          {getVehicleIdentificationText(veh)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* CAMPO 2 (Dropdown Slim): TIPO CÁLCULO */}
+                  <div className="w-40 sm:w-44 shrink-0">
+                    <label className="block text-[9px] font-black uppercase text-slate-500 dark:text-stone-400 mb-0.5 whitespace-nowrap">
+                      TIPO CÁLCULO:
+                    </label>
+                    <select
+                      value={tipoCalculoFrete}
+                      onChange={e => {
+                        const newType = e.target.value as 'fixo' | 'km';
+                        setTipoCalculoFrete(newType);
+                        if (newType === 'fixo') setKmRodadosFreteInput('');
+                      }}
+                      className="w-full px-2 py-1 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-[11px] font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 uppercase whitespace-nowrap"
+                    >
+                      <option value="fixo">VALOR FIXO (R$)</option>
+                      <option value="km">POR KM RODADO (R$/KM)</option>
+                    </select>
+                  </div>
+
+                  {/* CAMPO 3 (Input Numérico): VALOR / TAXA */}
+                  <div className="w-28 sm:w-32 shrink-0">
+                    <label className="block text-[9px] font-black uppercase text-slate-500 dark:text-stone-400 mb-0.5 whitespace-nowrap">
+                      VALOR / TAXA:
+                    </label>
+                    <input
+                      type="text"
+                      value={valorTaxaFreteInput}
+                      onChange={e => setValorTaxaFreteInput(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full px-2 py-1 text-right rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-[11px] font-bold text-zinc-900 dark:text-white font-mono shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 whitespace-nowrap"
+                    />
+                  </div>
+
+                  {/* CAMPO 4 (Input Numérico): KM RODADOS */}
+                  <div className="w-24 sm:w-28 shrink-0">
+                    <label className="block text-[9px] font-black uppercase text-slate-500 dark:text-stone-400 mb-0.5 whitespace-nowrap">
+                      KM RODADOS:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      disabled={tipoCalculoFrete !== 'km'}
+                      value={kmRodadosFreteInput}
+                      onChange={e => setKmRodadosFreteInput(e.target.value)}
+                      placeholder={tipoCalculoFrete === 'km' ? 'Ex: 150' : '-'}
+                      className={`w-full px-2 py-1 text-right rounded border text-[11px] font-bold font-mono shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 whitespace-nowrap ${
+                        tipoCalculoFrete === 'km'
+                          ? 'border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white'
+                          : 'border-slate-200 dark:border-stone-700 bg-slate-200/60 dark:bg-stone-800 text-slate-400 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
+
+                  {/* CAMPO 5 (Botão Micro): + VINCULAR FRETE */}
+                  <div className="shrink-0 self-end">
+                    <button
+                      type="button"
+                      onClick={handleAdicionarFrete}
+                      className="px-3 py-1.5 rounded bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-800 dark:via-stone-700 dark:to-stone-800 hover:from-amber-400 hover:to-amber-500 hover:text-white text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-2xs text-[10px] sm:text-[11px] font-black tracking-wider transition active:scale-95 cursor-pointer whitespace-nowrap uppercase"
+                      title="Adicionar veículo e frete à composição"
+                    >
+                      + VINCULAR FRETE
+                    </button>
+                  </div>
+                </div>
+
+                {/* Listagem compacta e multiveículo em linhas horizontais micro zebradas */}
+                {fretesVinculados.length > 0 && (
+                  <div className="rounded border border-slate-200 dark:border-stone-700 overflow-hidden divide-y divide-slate-200 dark:divide-stone-700 bg-white dark:bg-stone-900 max-h-28 overflow-y-auto no-scrollbar">
+                    {fretesVinculados.map((item) => (
+                      <div
+                        key={item.id}
+                        className="even:bg-[#eaeaea] dark:even:bg-stone-800/60 odd:bg-white dark:odd:bg-stone-900 py-1 px-2 border-b border-slate-200 dark:border-stone-700 text-[10px] font-bold text-slate-700 dark:text-stone-300 flex items-center justify-between uppercase whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="font-black text-slate-900 dark:text-white truncate">
+                            {item.veiculoIdentificacao}
+                          </span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200 dark:bg-stone-700 font-mono text-slate-600 dark:text-stone-300 shrink-0">
+                            TIPO: {item.tipoCalculo === 'km' ? `KM (${item.kmRodados} KM x ${formatCurrencyBRL(item.valorUnitario)}/KM)` : 'FIXO'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0 ml-2">
+                          <span className="font-mono font-black text-amber-700 dark:text-amber-400 text-[11px]">
+                            TOTAL FRETE: {formatCurrencyBRL(item.valorTotal)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoverFrete(item.id)}
+                            className="w-4 h-4 rounded-full flex items-center justify-center bg-rose-100 hover:bg-rose-500 text-rose-600 hover:text-white transition cursor-pointer text-[10px] font-black shadow-2xs shrink-0"
+                            title="Remover veículo do frete"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 2. GRADE DE BOTÕES DE FORMA DE PAGAMENTO REATIVOS */}
