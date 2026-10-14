@@ -70,6 +70,49 @@ export interface FreteVinculadoItem {
   valorTotal: number;
 }
 
+export interface VendaRascunho {
+  id: string;
+  identificacao: string;
+  data: string;
+  hora?: string;
+  total: number;
+  items: PdvItem[];
+  selectedClientId?: string;
+  clientSearch?: string;
+  tabelaPreco?: PriceTable;
+  fretesVinculados?: FreteVinculadoItem[];
+  formaPagamento?: 'a_vista' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo';
+  prazoCondicao?: string;
+  tipoCobranca?: 'carteira' | 'boleto';
+  qtdeParcelas?: number;
+  dataPrimeiraParcela?: string;
+  formatoImpressao?: 'a4' | 'termica';
+  valorPagoInput?: string;
+  operacaoTipo?: string;
+}
+
+export const RASCUNHOS_STORAGE_KEY = 'agrocontrol_rascunhos_vendas';
+
+export const getStoredRascunhos = (): VendaRascunho[] => {
+  try {
+    const raw = localStorage.getItem(RASCUNHOS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredRascunhos = (rascunhos: VendaRascunho[]): void => {
+  try {
+    localStorage.setItem(RASCUNHOS_STORAGE_KEY, JSON.stringify(rascunhos));
+    window.dispatchEvent(new CustomEvent('agrocontrol_rascunhos_updated', { detail: rascunhos }));
+  } catch (e) {
+    console.warn('Erro ao salvar rascunhos de venda no LocalStorage:', e);
+  }
+};
+
 export type PriceTable = 'venda' | 'custo' | 'atacado' | 'promocional';
 
 export interface CatalogProduct {
@@ -890,6 +933,43 @@ export const PdvView: React.FC<PdvViewProps> = ({
     return `[${plate.toUpperCase()}] ${name.toUpperCase()}${fleet ? ` (FROTA #${fleet})` : ''}`;
   };
 
+  // =========================================================================
+  // GESTÃO DE RASCUNHOS DE VENDA TEMPORÁRIOS ('agrocontrol_rascunhos_vendas')
+  // =========================================================================
+  const [rascunhosSalvos, setRascunhosSalvos] = useState<VendaRascunho[]>(() => getStoredRascunhos());
+  const [isRascunhosDropdownOpen, setIsRascunhosDropdownOpen] = useState<boolean>(false);
+  const [isSaveDraftModalOpen, setIsSaveDraftModalOpen] = useState<boolean>(false);
+  const [draftIdentificacaoInput, setDraftIdentificacaoInput] = useState<string>('');
+  const [currentLoadedDraftId, setCurrentLoadedDraftId] = useState<string | null>(null);
+  const rascunhosDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sincronização reativa dos rascunhos com LocalStorage e CustomEvents
+  useEffect(() => {
+    const syncRascunhos = () => {
+      setRascunhosSalvos(getStoredRascunhos());
+    };
+    window.addEventListener('agrocontrol_rascunhos_updated', syncRascunhos);
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key === RASCUNHOS_STORAGE_KEY) {
+        syncRascunhos();
+      }
+    });
+    return () => {
+      window.removeEventListener('agrocontrol_rascunhos_updated', syncRascunhos);
+    };
+  }, []);
+
+  // Fechar dropdown de rascunhos ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (rascunhosDropdownRef.current && !rascunhosDropdownRef.current.contains(e.target as Node)) {
+        setIsRascunhosDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Foco inicial no campo de busca ao montar
   useEffect(() => {
     searchInputRef.current?.focus();
@@ -1547,10 +1627,114 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setFretesVinculados([]);
     setValorTaxaFreteInput('0,00');
     setKmRodadosFreteInput('');
+    setCurrentLoadedDraftId(null);
     try {
       localStorage.removeItem(PDV_DRAFT_KEY);
     } catch {}
     searchInputRef.current?.focus();
+  };
+
+  // =========================================================================
+  // GESTÃO DE RASCUNHOS DE VENDA TEMPORÁRIOS ('agrocontrol_rascunhos_vendas')
+  // =========================================================================
+  // Disparar abertura da caixa de identificação para salvar rascunho
+  const handleSaveVendaRascunho = () => {
+    if (items.length === 0) {
+      setWarningMessage('Nenhum item lançado no PDV para salvar como rascunho.');
+      setTimeout(() => setWarningMessage(null), 3000);
+      return;
+    }
+    const clientDesc = clientSearch && clientSearch !== 'CONSUMIDOR FINAL / BALCÃO'
+      ? clientSearch.trim()
+      : `Venda Balcão (${items.length} ${items.length === 1 ? 'item' : 'itens'})`;
+    setDraftIdentificacaoInput(clientDesc);
+    setIsSaveDraftModalOpen(true);
+  };
+
+  // Confirmar e persistir o rascunho em 'agrocontrol_rascunhos_vendas'
+  const handleConfirmSaveDraft = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const nomeFinal = draftIdentificacaoInput.trim();
+    if (!nomeFinal) {
+      setWarningMessage('Informe uma identificação para o rascunho.');
+      setTimeout(() => setWarningMessage(null), 3000);
+      return;
+    }
+
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString('pt-BR');
+    const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const novoRascunho: VendaRascunho = {
+      id: currentLoadedDraftId || `rasc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      identificacao: nomeFinal.toUpperCase(),
+      data: dateFormatted,
+      hora: timeFormatted,
+      total: totals.totalLiquido,
+      items: [...items],
+      selectedClientId: selectedClientId || undefined,
+      clientSearch: clientSearch,
+      tabelaPreco: tabelaPreco,
+      fretesVinculados: [...fretesVinculados],
+      formaPagamento: formaPagamento,
+      prazoCondicao: prazoCondicao,
+      tipoCobranca: tipoCobranca,
+      qtdeParcelas: qtdeParcelas,
+      dataPrimeiraParcela: dataPrimeiraParcela,
+      formatoImpressao: formatoImpressao,
+      valorPagoInput: valorPagoInput,
+      operacaoTipo: operacaoTipo
+    };
+
+    const existing = getStoredRascunhos();
+    const filtered = existing.filter(r => r.id !== novoRascunho.id);
+    const updated = [novoRascunho, ...filtered];
+
+    saveStoredRascunhos(updated);
+    setRascunhosSalvos(updated);
+    setCurrentLoadedDraftId(null);
+    setIsSaveDraftModalOpen(false);
+    setIsCheckoutModalOpen(false);
+
+    // Limpar a tela do PDV, deixando o caixa 100% livre e pronto para uma nova operação
+    handleLimparPdv();
+  };
+
+  // Recuperar rascunho na tela do PDV
+  const handleLoadDraft = (draft: VendaRascunho) => {
+    setItems(draft.items || []);
+    if (draft.fretesVinculados && Array.isArray(draft.fretesVinculados)) {
+      setFretesVinculados(draft.fretesVinculados);
+    } else {
+      setFretesVinculados([]);
+    }
+    setSelectedClientId(draft.selectedClientId || '');
+    setClientSearch(draft.clientSearch || 'CONSUMIDOR FINAL / BALCÃO');
+    if (draft.tabelaPreco) setTabelaPreco(draft.tabelaPreco);
+    if (draft.formaPagamento) setFormaPagamento(draft.formaPagamento);
+    if (draft.prazoCondicao) setPrazoCondicao(draft.prazoCondicao);
+    if (draft.tipoCobranca) setTipoCobranca(draft.tipoCobranca);
+    if (draft.qtdeParcelas) setQtdeParcelas(draft.qtdeParcelas);
+    if (draft.dataPrimeiraParcela) setDataPrimeiraParcela(draft.dataPrimeiraParcela);
+    if (draft.formatoImpressao) setFormatoImpressao(draft.formatoImpressao);
+    if (draft.valorPagoInput) setValorPagoInput(draft.valorPagoInput);
+    if (draft.operacaoTipo) setOperacaoTipo(draft.operacaoTipo as any);
+
+    setCurrentLoadedDraftId(draft.id);
+    setIsRascunhosDropdownOpen(false);
+    searchInputRef.current?.focus();
+  };
+
+  // Excluir rascunho
+  const handleDeleteDraft = (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const existing = getStoredRascunhos();
+    const updated = existing.filter(r => r.id !== draftId);
+    saveStoredRascunhos(updated);
+    setRascunhosSalvos(updated);
+    if (currentLoadedDraftId === draftId) {
+      setCurrentLoadedDraftId(null);
+    }
   };
 
   // Abrir Janela Modal Centralizada de Fechamento do PDV (F2)
@@ -1711,6 +1895,14 @@ export const PdvView: React.FC<PdvViewProps> = ({
       parcelas: formaPagamento === 'prazo' ? [...parcelas] : undefined,
       fretes: [...fretesVinculados]
     };
+
+    // Excluir automaticamente este rascunho específico do banco local ao concluir a venda para evitar duplicidades
+    if (currentLoadedDraftId) {
+      const existingDrafts = getStoredRascunhos();
+      const updatedDrafts = existingDrafts.filter(r => r.id !== currentLoadedDraftId);
+      saveStoredRascunhos(updatedDrafts);
+      setRascunhosSalvos(updatedDrafts);
+    }
 
     setLastFinishedSale(saleRecord);
     setActivePrintFormat(formatoImpressao);
@@ -2037,12 +2229,98 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               )}
             </div>
 
-            {/* Teclas de Apoio Operacional */}
-            <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-stone-400">
-              <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F3] BUSCA</span>
-              <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[ENTER] INSERIR</span>
-              <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F2] FINALIZAR</span>
-              <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F4] LIMPAR</span>
+            {/* Teclas de Apoio Operacional & Botão Dropdown Slim RASCUNHOS SALVOS */}
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Botão Seletor Dropdown Slim: 📜 RASCUNHOS SALVOS */}
+              <div ref={rascunhosDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsRascunhosDropdownOpen(prev => !prev)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-black bg-gradient-to-b from-amber-100 via-amber-50 to-amber-100 dark:from-stone-800 dark:to-stone-900 text-amber-950 dark:text-amber-300 border border-amber-400/90 shadow-2xs hover:bg-amber-200 transition cursor-pointer whitespace-nowrap uppercase"
+                  title="Listar rascunhos de venda temporários salvos no caixa"
+                >
+                  <span>📜 RASCUNHOS SALVOS</span>
+                  {rascunhosSalvos.length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[9px] font-black font-mono">
+                      {rascunhosSalvos.length}
+                    </span>
+                  )}
+                  <ChevronDown className={`w-3 h-3 text-amber-700 dark:text-amber-400 transition-transform ${isRascunhosDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isRascunhosDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-80 sm:w-96 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-stone-800 animate-in fade-in duration-100">
+                    <div className="px-3 py-1.5 bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 text-white text-[10px] font-black uppercase flex items-center justify-between shadow-xs">
+                      <span>📜 RASCUNHOS SALVOS NO CAIXA</span>
+                      <span className="font-mono text-amber-100">{rascunhosSalvos.length} {rascunhosSalvos.length === 1 ? 'REGISTRO' : 'REGISTROS'}</span>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto no-scrollbar divide-y divide-slate-100 dark:divide-stone-800">
+                      {rascunhosSalvos.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-500 dark:text-stone-400 font-medium">
+                          Nenhum rascunho de venda salvo no momento.
+                        </div>
+                      ) : (
+                        rascunhosSalvos.map((draft) => (
+                          <div
+                            key={draft.id}
+                            onClick={() => handleLoadDraft(draft)}
+                            className="p-2.5 hover:bg-amber-50 dark:hover:bg-stone-800 flex items-center justify-between cursor-pointer transition text-left group"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="text-xs font-black uppercase text-zinc-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400">
+                                {draft.identificacao}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
+                                <span>📅 {draft.data} {draft.hora ? `• ${draft.hora}` : ''}</span>
+                                <span>• {draft.items?.length || 0} {draft.items?.length === 1 ? 'item' : 'itens'}</span>
+                                {draft.fretesVinculados && draft.fretesVinculados.length > 0 && (
+                                  <span className="text-sky-600 dark:text-sky-400 font-semibold">• 🚚 {draft.fretesVinculados.length} veíc.</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs font-black font-mono text-emerald-700 dark:text-emerald-400">
+                                {formatCurrencyBRL(draft.total)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteDraft(draft.id, e)}
+                                className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                title="Excluir rascunho"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Indicador de Rascunho Ativo */}
+              {currentLoadedDraftId && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 text-[10px] font-black text-emerald-800 dark:text-emerald-300 uppercase animate-pulse">
+                  <span>EDITANDO RASCUNHO</span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentLoadedDraftId(null)}
+                    title="Desvincular rascunho"
+                    className="ml-0.5 hover:text-rose-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-stone-400">
+                <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F3] BUSCA</span>
+                <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[ENTER] INSERIR</span>
+                <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F2] FINALIZAR</span>
+                <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F4] LIMPAR</span>
+              </div>
             </div>
           </div>
 
@@ -2950,26 +3228,120 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
             </div>
 
-            {/* 4. BOTÃO CONFIRMAR NO RODAPÉ ACETINADO */}
-            <div className="p-2.5 sm:p-3 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsCheckoutModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase tracking-wider"
-              >
-                CANCELAR / VOLTAR AO PDV
-              </button>
+            {/* 4. BOTÕES NO RODAPÉ ACETINADO (CANCELAR, SALVAR RASCUNHO E CONFIRMAR) */}
+            <div className="p-2.5 sm:p-3 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCheckoutModalOpen(false)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase tracking-wider"
+                >
+                  CANCELAR / VOLTAR AO PDV
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveVendaRascunho}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400 font-bold text-xs uppercase px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] cursor-pointer whitespace-nowrap"
+                  title="Salvar venda temporária e liberar PDV"
+                >
+                  <span>💾 SALVAR RASCUNHO VENDA</span>
+                </button>
+              </div>
 
               <button
                 type="button"
                 onClick={handleConfirmarEImprimir}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] transition active:scale-95 cursor-pointer uppercase tracking-wider"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] transition active:scale-95 cursor-pointer uppercase tracking-wider ml-auto"
               >
                 <Printer className="w-4 h-4 stroke-[2.5]" />
                 <span>CONFIRMAR E IMPRIMIR DOCUMENTO</span>
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MICRO-MODAL PADRÃO OURO: INFORME UMA IDENTIFICAÇÃO PARA O RASCUNHO
+         ===================================================================== */}
+      {isSaveDraftModalOpen && (
+        <div 
+          className="fixed inset-0 z-[60] bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 overflow-hidden animate-in fade-in duration-150"
+          onClick={() => setIsSaveDraftModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg shadow-2xl overflow-hidden select-none"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Cabeçalho padrão ouro acetinado */}
+            <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 px-4 py-2 text-white flex items-center justify-between shadow-xs border-b border-amber-700/60">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">💾</span>
+                <h4 className="text-xs font-black uppercase tracking-wider font-['Outfit']">
+                  INFORME UMA IDENTIFICAÇÃO PARA O RASCUNHO *
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaveDraftModalOpen(false)}
+                className="p-1 hover:bg-black/20 rounded transition text-amber-100 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Formulário */}
+            <form onSubmit={handleConfirmSaveDraft} className="p-4 space-y-3 bg-slate-50 dark:bg-stone-900">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-1">
+                  IDENTIFICAÇÃO / NOME DO RASCUNHO *:
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={draftIdentificacaoInput}
+                  onChange={e => setDraftIdentificacaoInput(e.target.value)}
+                  placeholder="EX: PRODUTOR JOÃO - SILAGEM 2 CAMINHÕES"
+                  className="w-full px-3 py-1.5 rounded-md border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-850 text-xs font-bold uppercase text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
+                />
+              </div>
+
+              <div className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-300 font-semibold space-y-0.5">
+                <div className="flex justify-between">
+                  <span>TOTAL DA VENDA:</span>
+                  <span className="font-mono font-black">{formatCurrencyBRL(totals.totalLiquido)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-amber-800/80 dark:text-amber-400">
+                  <span>ITENS NO PDV:</span>
+                  <span>{items.length} {items.length === 1 ? 'item' : 'itens'}</span>
+                </div>
+                {fretesVinculados.length > 0 && (
+                  <div className="flex justify-between text-[10px] text-amber-800/80 dark:text-amber-400">
+                    <span>FRETE VINCULADO:</span>
+                    <span>{formatCurrencyBRL(totals.totalFrete)} ({fretesVinculados.length} veíc.)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Botões do Rodapé */}
+              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSaveDraftModalOpen(false)}
+                  className="px-3 py-1.5 rounded text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 uppercase"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded text-xs font-black bg-gradient-to-b from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white shadow-xs uppercase tracking-wider cursor-pointer"
+                >
+                  💾 CONFIRMAR E SALVAR
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
