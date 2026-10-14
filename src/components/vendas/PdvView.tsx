@@ -872,9 +872,61 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [fretesVinculados, setFretesVinculados] = useState<FreteVinculadoItem[]>([]);
   const [veiculoFreteId, setVeiculoFreteId] = useState<string>('');
+  const [veiculoSearchText, setVeiculoSearchText] = useState<string>('');
+  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState<boolean>(false);
+  const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(0);
+  const vehicleContainerRef = useRef<HTMLDivElement>(null);
   const [tipoCalculoFrete, setTipoCalculoFrete] = useState<'fixo' | 'km'>('fixo');
   const [valorTaxaFreteInput, setValorTaxaFreteInput] = useState<string>('0,00');
   const [kmRodadosFreteInput, setKmRodadosFreteInput] = useState<string>('');
+
+  // Fechar dropdown de veículos ao clicar fora do componente
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (vehicleContainerRef.current && !vehicleContainerRef.current.contains(e.target as Node)) {
+        setIsVehicleDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Formatador de máscara monetária contínua no padrão comercial brasileiro R$ #.##0,00 (estilo maskmoney)
+  const formatMaskMoney = (val: string | number): string => {
+    const digits = String(val).replace(/\D/g, '');
+    if (!digits) return '0,00';
+    const num = parseInt(digits, 10);
+    if (isNaN(num) || num === 0) return '0,00';
+    const floatVal = num / 100;
+    return floatVal.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  // Conversor resiliente de máscara monetária para número float puro
+  const parseMaskMoneyToFloat = (val: string | number): number => {
+    if (val === undefined || val === null || val === '') return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    const str = String(val).trim();
+    if (str.includes(',')) {
+      const clean = str.replace(/\./g, '').replace(',', '.');
+      const num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    }
+    const cleanDigits = str.replace(/\D/g, '');
+    if (!cleanDigits) return 0;
+    const num = parseInt(cleanDigits, 10);
+    return isNaN(num) ? 0 : num / 100;
+  };
+
+  const getVehicleIdentificationText = (v: any): string => {
+    if (!v) return 'VEÍCULO INDEFINIDO';
+    const plate = v.licensePlateOrSerial || v.plate || v.plateOrSerial || 'S/ PLACA';
+    const name = v.model || v.name || v.brand || 'VEÍCULO';
+    const fleet = v.fleetNumber || v.numero_frota;
+    return `[${plate.toUpperCase()}] ${name.toUpperCase()}${fleet ? ` (FROTA #${fleet})` : ''}`;
+  };
 
   // Carregar lista de caminhões, tratores e cavalos mecânicos de 'agrocontrol_frotas_veiculos'
   const loadFleetVehicles = () => {
@@ -888,6 +940,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) {
           setAvailableVehicles(parsed);
           setVeiculoFreteId(prev => prev || parsed[0]?.id || '');
+          setVeiculoSearchText(prev => prev || getVehicleIdentificationText(parsed[0]));
           return;
         }
       }
@@ -895,6 +948,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       if (stored && stored.length > 0) {
         setAvailableVehicles(stored);
         setVeiculoFreteId(prev => prev || stored[0]?.id || '');
+        setVeiculoSearchText(prev => prev || getVehicleIdentificationText(stored[0]));
       } else {
         // Frota padrão inicial para prontidão operacional imediata
         const fallbackFleet = [
@@ -904,6 +958,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
         ];
         setAvailableVehicles(fallbackFleet);
         setVeiculoFreteId(prev => prev || fallbackFleet[0].id);
+        setVeiculoSearchText(prev => prev || getVehicleIdentificationText(fallbackFleet[0]));
       }
     } catch (err) {
       console.warn('Erro ao carregar veículos de frete:', err);
@@ -925,12 +980,36 @@ export const PdvView: React.FC<PdvViewProps> = ({
     };
   }, []);
 
-  const getVehicleIdentificationText = (v: any): string => {
-    if (!v) return 'VEÍCULO INDEFINIDO';
-    const plate = v.licensePlateOrSerial || v.plate || v.plateOrSerial || 'S/ PLACA';
-    const name = v.model || v.name || v.brand || 'VEÍCULO';
-    const fleet = v.fleetNumber || v.numero_frota;
-    return `[${plate.toUpperCase()}] ${name.toUpperCase()}${fleet ? ` (FROTA #${fleet})` : ''}`;
+  // Filtragem dinâmica por digitação do operador (Autocomplete reativo por PLACA, MODELO, MARCA ou TIPO)
+  const filteredVehicles = useMemo(() => {
+    const q = veiculoSearchText.trim().toLowerCase();
+    if (!q) {
+      return availableVehicles.slice(0, 20);
+    }
+    const cleanQ = q.replace(/[^a-z0-9]/gi, '');
+    return availableVehicles.filter((v: any) => {
+      const plate = (v.licensePlateOrSerial || v.plate || v.plateOrSerial || '').toLowerCase();
+      const cleanPlate = plate.replace(/[^a-z0-9]/gi, '');
+      const model = (v.model || v.name || '').toLowerCase();
+      const brand = (v.brand || '').toLowerCase();
+      const type = (v.categoryType || v.type || v.tipo || '').toLowerCase();
+      const fleet = (v.fleetNumber || v.numero_frota || '').toString().toLowerCase();
+
+      return (
+        plate.includes(q) ||
+        (cleanQ.length > 0 && cleanPlate.includes(cleanQ)) ||
+        model.includes(q) ||
+        brand.includes(q) ||
+        type.includes(q) ||
+        fleet.includes(q)
+      );
+    }).slice(0, 20);
+  }, [veiculoSearchText, availableVehicles]);
+
+  const handleSelectVehicle = (veh: any) => {
+    setVeiculoFreteId(veh.id);
+    setVeiculoSearchText(getVehicleIdentificationText(veh));
+    setIsVehicleDropdownOpen(false);
   };
 
   // =========================================================================
