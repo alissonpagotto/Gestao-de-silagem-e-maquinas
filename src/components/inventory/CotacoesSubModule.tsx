@@ -752,16 +752,24 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
       };
     });
 
+    try {
+      localStorage.setItem('colaca_cotacao_fornecedor_a', cotacao.fornecedores[0] || 'FORNECEDOR A');
+      localStorage.setItem('colaca_cotacao_fornecedor_b', cotacao.fornecedores[1] || 'FORNECEDOR B');
+      localStorage.setItem('colaca_cotacao_fornecedor_c', cotacao.fornecedores[2] || 'FORNECEDOR C');
+      localStorage.setItem('colaca_cotacao_precos_map', JSON.stringify(newPrecos));
+      localStorage.setItem('colaca_cotacao_itens_list', JSON.stringify(newItems));
+    } catch (_) {}
+
     setQuotedItems(newItems);
     setCotacoes(newPrecos);
     setActiveCotacaoId(cotacao.id);
     setActiveCotacaoNome(cotacao.nome);
     setIsHistoryModalOpen(false);
 
-    setToastMessage(`✓ COTAÇÃO "${cotacao.nome}" CARREGADA COM SUCESSO!`);
+    setToastMessage(`✓ COTAÇÃO "${cotacao.nome}" REABERTA COM SUCESSO!`);
     setTimeout(() => {
       productInputRef.current?.focus();
-    }, 10);
+    }, 20);
   };
 
   // Excluir cotação do histórico
@@ -1453,7 +1461,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
       {/* MODAL 2: CENTRAL DE HISTÓRICO DE COTAÇÕES (PAINEL DE RECUPERAÇÃO) */}
       {isHistoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-100">
-          <div className="w-full max-w-4xl h-[90vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl">
+          <div className="w-full max-w-5xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl">
             
             {/* CABEÇALHO MDI TRIDIMENSIONAL ACETINADO */}
             <div className="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-900 text-white px-4 py-3 border-b border-slate-700 shadow-md flex items-center justify-between shrink-0">
@@ -1493,8 +1501,8 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
               </div>
             </div>
 
-            {/* MIOLO: LISTAGEM DE COTAÇÕES ARQUIVADAS */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-4 bg-slate-50 dark:bg-stone-900 space-y-2">
+            {/* MIOLO: LISTAGEM DE COTAÇÕES ARQUIVADAS EM TABELA SLIM HORIZONTAL */}
+            <div className="flex-1 overflow-y-auto overflow-x-auto bg-slate-50 dark:bg-stone-900 border-b border-slate-300 dark:border-stone-700">
               {filteredHistory.length === 0 ? (
                 <div className="py-16 text-center text-slate-400 dark:text-stone-500 uppercase font-bold text-xs">
                   <FolderOpen className="w-10 h-10 text-slate-300 dark:text-stone-600 mx-auto mb-2" />
@@ -1504,69 +1512,100 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {filteredHistory.map((cotacao) => {
-                    const isCurrent = activeCotacaoId === cotacao.id;
-                    const itemsCount = cotacao.itens?.length || 0;
-                    const [f1, f2, f3] = cotacao.fornecedores || [];
+                <table className="w-full table-fixed text-left border-collapse">
+                  <thead className="bg-slate-200 dark:bg-stone-850 text-slate-700 dark:text-stone-300 font-black text-[10px] uppercase border-b border-slate-300 dark:border-stone-700 sticky top-0 z-10 shadow-xs">
+                    <tr>
+                      <th className="px-3 py-1.5 w-28 whitespace-nowrap">DATA</th>
+                      <th className="px-3 py-1.5 w-60 whitespace-nowrap">IDENTIFICAÇÃO / NOME</th>
+                      <th className="px-3 py-1.5 w-28 text-center whitespace-nowrap">PRODUTOS</th>
+                      <th className="px-3 py-1.5 whitespace-nowrap">FORNECEDORES</th>
+                      <th className="px-3 py-1.5 w-32 text-right whitespace-nowrap">AÇÕES</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
+                    {filteredHistory.map((cotacao) => {
+                      const isCurrent = activeCotacaoId === cotacao.id;
+                      const itemsCount = cotacao.itens?.length || 0;
+                      const [f1, f2, f3] = cotacao.fornecedores || [];
 
-                    return (
-                      <div
-                        key={cotacao.id}
-                        className={`p-3 rounded-lg border transition shadow-xs flex flex-col justify-between ${
-                          isCurrent
-                            ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500'
-                            : 'border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-850 hover:border-slate-400'
-                        }`}
-                      >
-                        <div className="space-y-1.5">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
-                              {cotacao.nome}
-                            </h4>
-                            <span className="text-[10px] font-mono text-slate-500 shrink-0 flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-slate-400" />
-                              {cotacao.data}
-                            </span>
-                          </div>
-
-                          <div className="text-[10px] text-slate-600 dark:text-stone-300 space-y-0.5">
-                            <div>• <strong>{itemsCount}</strong> produto(s) cotado(s)</div>
-                            <div className="truncate text-slate-500 dark:text-stone-400">
-                              • Fornecedores: {f1 || 'A'} | {f2 || 'B'} | {f3 || 'C'}
+                      return (
+                        <tr
+                          key={cotacao.id}
+                          className="even:bg-[#eaeaea] odd:bg-white dark:even:bg-stone-800 dark:odd:bg-stone-850 border-b border-slate-300 dark:border-stone-700 hover:bg-blue-50/70 dark:hover:bg-stone-750 transition-colors"
+                        >
+                          {/* [DATA] */}
+                          <td className="px-3 py-1 text-[11px] font-mono font-bold text-slate-700 dark:text-stone-300 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>{cotacao.data || '-'}</span>
                             </div>
-                          </div>
-                        </div>
+                          </td>
 
-                        <div className="flex items-center justify-between gap-2 pt-2.5 mt-2 border-t border-slate-200 dark:border-stone-750">
-                          {isCurrent ? (
-                            <span className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
-                              ✓ COTAÇÃO ATIVA NA TELA
+                          {/* [IDENTIFICAÇÃO / NOME] */}
+                          <td className="px-3 py-1 text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="truncate" title={cotacao.nome}>
+                                {cotacao.nome}
+                              </span>
+                              {isCurrent && (
+                                <span className="inline-block text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap shrink-0">
+                                  ✓ ATIVA NA TELA
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* [PRODUTOS] */}
+                          <td className="px-3 py-1 text-center whitespace-nowrap">
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-800 dark:text-stone-200">
+                              {itemsCount} PRODUTO(S)
                             </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleLoadCotacaoFromHistory(cotacao)}
-                              className="px-3 py-1 text-xs font-black uppercase rounded bg-emerald-600 hover:bg-emerald-700 text-white transition active:scale-95 cursor-pointer shadow-xs flex items-center gap-1"
-                            >
-                              <FolderOpen className="w-3.5 h-3.5" />
-                              <span>CARREGAR NA TELA</span>
-                            </button>
-                          )}
+                          </td>
 
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteCotacaoFromHistory(cotacao.id, cotacao.nome, e)}
-                            className="p-1 px-2 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950 text-xs font-bold rounded transition cursor-pointer"
-                            title="Excluir cotação do banco histórico"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          {/* [FORNECEDORES] */}
+                          <td className="px-3 py-1 text-[10px] font-bold uppercase whitespace-nowrap overflow-hidden">
+                            <div className="flex items-center gap-2 w-full">
+                              <span className="truncate flex-1 text-blue-700 dark:text-blue-400 font-black" title={f1 || 'FORNECEDOR A'}>
+                                {f1 || 'FORNECEDOR A'}
+                              </span>
+                              <span className="text-slate-400 dark:text-stone-500 font-normal shrink-0">vs</span>
+                              <span className="truncate flex-1 text-amber-700 dark:text-amber-400 font-black" title={f2 || 'FORNECEDOR B'}>
+                                {f2 || 'FORNECEDOR B'}
+                              </span>
+                              <span className="text-slate-400 dark:text-stone-500 font-normal shrink-0">vs</span>
+                              <span className="truncate flex-1 text-purple-700 dark:text-purple-400 font-black" title={f3 || 'FORNECEDOR C'}>
+                                {f3 || 'FORNECEDOR C'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* [AÇÕES] */}
+                          <td className="px-3 py-1 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleLoadCotacaoFromHistory(cotacao)}
+                                className="px-2.5 py-1 text-[10px] font-black uppercase rounded bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white transition active:scale-95 cursor-pointer shadow-xs flex items-center gap-1"
+                                title="Reabrir esta cotação na tela principal"
+                              >
+                                <FolderOpen className="w-3 h-3" />
+                                <span>REABRIR</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteCotacaoFromHistory(cotacao.id, cotacao.nome, e)}
+                                className="p-1 px-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/70 border border-transparent hover:border-rose-300 dark:hover:border-rose-800 rounded transition cursor-pointer"
+                                title="Excluir cotação do banco histórico"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
 
