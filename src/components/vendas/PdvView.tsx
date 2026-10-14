@@ -877,6 +877,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(0);
   const vehicleContainerRef = useRef<HTMLDivElement>(null);
   const [tipoCalculoFrete, setTipoCalculoFrete] = useState<'fixo' | 'km'>('fixo');
+  const [valorTaxaFreteRaw, setValorTaxaFreteRaw] = useState<string>('');
   const [valorTaxaFreteInput, setValorTaxaFreteInput] = useState<string>('0,00');
   const [kmRodadosFreteInput, setKmRodadosFreteInput] = useState<string>('');
 
@@ -891,33 +892,80 @@ export const PdvView: React.FC<PdvViewProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Formatador de máscara monetária contínua no padrão comercial brasileiro R$ #.##0,00 (estilo maskmoney)
-  const formatMaskMoney = (val: string | number): string => {
-    const digits = String(val).replace(/\D/g, '');
-    if (!digits) return '0,00';
-    const num = parseInt(digits, 10);
-    if (isNaN(num) || num === 0) return '0,00';
-    const floatVal = num / 100;
-    return floatVal.toLocaleString('pt-BR', {
+  /**
+   * MÁSCARA FINANCEIRA PADRÃO DE CENTAVOS FLUIDOS NO FRETE (DIREITA PARA A ESQUERDA):
+   * - Inicia com "0,00"
+   * - Digitação entra como centavos empurrando para a esquerda:
+   *   "5" -> 0,05
+   *   "50" -> 0,50
+   *   "550" -> 5,50
+   *   "551000" -> 5.510,00
+   */
+  const formatFreteTaxaCentsRTL = (rawDigits: string): string => {
+    const clean = String(rawDigits || '').replace(/\D/g, '').replace(/^0+/, '');
+    if (!clean) return '0,00';
+    const centsFloat = parseInt(clean, 10) / 100;
+    return centsFloat.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
   };
 
-  // Conversor resiliente de máscara monetária para número float puro
-  const parseMaskMoneyToFloat = (val: string | number): number => {
-    if (val === undefined || val === null || val === '') return 0;
-    if (typeof val === 'number') return isNaN(val) ? 0 : val;
-    const str = String(val).trim();
-    if (str.includes(',')) {
-      const clean = str.replace(/\./g, '').replace(',', '.');
-      const num = parseFloat(clean);
-      return isNaN(num) ? 0 : num;
+  const handleValorTaxaFreteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (['Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+      return;
     }
-    const cleanDigits = str.replace(/\D/g, '');
-    if (!cleanDigits) return 0;
-    const num = parseInt(cleanDigits, 10);
-    return isNaN(num) ? 0 : num / 100;
+
+    const target = e.currentTarget;
+    const isAllSelected = (target.selectionStart === 0 && target.selectionEnd === target.value.length) || target.value === '0,00';
+
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const currentDigits = valorTaxaFreteInput.replace(/\D/g, '').replace(/^0+/, '');
+      if (isAllSelected || currentDigits.length <= 1) {
+        setValorTaxaFreteInput('0,00');
+        setValorTaxaFreteRaw('');
+        return;
+      }
+      const next = currentDigits.slice(0, -1);
+      setValorTaxaFreteRaw(next);
+      setValorTaxaFreteInput(formatFreteTaxaCentsRTL(next));
+      return;
+    }
+
+    if (e.key === 'Delete') {
+      e.preventDefault();
+      setValorTaxaFreteInput('0,00');
+      setValorTaxaFreteRaw('');
+      return;
+    }
+
+    if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      const digit = e.key;
+      const currentDigits = isAllSelected ? '' : valorTaxaFreteInput.replace(/\D/g, '').replace(/^0+/, '');
+      if (currentDigits.length >= 11) return;
+      const next = currentDigits + digit;
+      setValorTaxaFreteRaw(next);
+      setValorTaxaFreteInput(formatFreteTaxaCentsRTL(next));
+      return;
+    }
+  };
+
+  const handleValorTaxaFreteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const clean = val.replace(/\D/g, '').replace(/^0+/, '');
+    setValorTaxaFreteRaw(clean);
+    setValorTaxaFreteInput(formatFreteTaxaCentsRTL(clean));
+  };
+
+  const handleValorTaxaFretePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    const digits = pasted.replace(/\D/g, '').replace(/^0+/, '');
+    setValorTaxaFreteRaw(digits);
+    setValorTaxaFreteInput(formatFreteTaxaCentsRTL(digits));
   };
 
   const getVehicleIdentificationText = (v: any): string => {
@@ -1538,6 +1586,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     // Limpar campos de entrada para permitir vincular novos veículos
     setValorTaxaFreteInput('0,00');
+    setValorTaxaFreteRaw('');
     setKmRodadosFreteInput('');
 
     // Ajustar valor recebido de forma reativa caso o usuário não tenha digitado valor manual divergente
@@ -1705,6 +1754,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setAttemptedDiscount(0);
     setFretesVinculados([]);
     setValorTaxaFreteInput('0,00');
+    setValorTaxaFreteRaw('');
     setKmRodadosFreteInput('');
     setCurrentLoadedDraftId(null);
     try {
@@ -3023,7 +3073,11 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     <input
                       type="text"
                       value={valorTaxaFreteInput}
-                      onChange={e => setValorTaxaFreteInput(e.target.value)}
+                      onKeyDown={handleValorTaxaFreteKeyDown}
+                      onChange={handleValorTaxaFreteChange}
+                      onPaste={handleValorTaxaFretePaste}
+                      onFocus={e => e.target.select()}
+                      onClick={e => (e.target as HTMLInputElement).select()}
                       placeholder="0,00"
                       className="w-full px-2 py-1 text-right rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-[11px] font-bold text-zinc-900 dark:text-white font-mono shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 whitespace-nowrap"
                     />
