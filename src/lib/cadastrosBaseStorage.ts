@@ -646,7 +646,9 @@ export function saveStoredCentrosCusto(centers: CostCenter[]): void {
     localStorage.setItem(CADASTROS_STORAGE_KEYS.CENTROS_CUSTO, json);
     localStorage.setItem('silagem_facil_clean_v1_cost_centers', json);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('colaca_silagem_centros_updated', { detail: centers }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('colaca_silagem_centros_updated', { detail: centers }));
+      }, 0);
     }
   } catch (err) {
     console.error('Erro ao salvar centros_custo:', err);

@@ -340,7 +340,9 @@ export function getStoredExpenses(): Expense[] {
       const cId = (getActiveCompanyId() || 'default').trim();
       localStorage.setItem(`colaca_silagem_despesas_${cId}`, cleanedJson);
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
+        }, 0);
       }
     }
 

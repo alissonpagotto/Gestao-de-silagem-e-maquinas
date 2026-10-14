@@ -1019,9 +1019,6 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
     return dateB - dateA;
   });
 
-  // Salva no storage de registros fiscais a lista limpa e sem resíduos de parcelas
-  saveStoredFiscalRecords(consolidatedList);
-
   return consolidatedList;
 }
 
@@ -1151,7 +1148,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   useEffect(() => {
     if (expenses) {
-      setNotasLancadas(buildUnifiedFiscalRecords(expenses));
+      const unified = buildUnifiedFiscalRecords(expenses);
+      setNotasLancadas(unified);
+      saveStoredFiscalRecords(unified);
     }
   }, [expenses]);
 
@@ -6076,7 +6075,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </thead>
                           <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100">
                             {parsedData.items.map((item, idx) => (
-                              <tr key={idx} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800">
+                              <tr key={`parsed_nfe_item_${item.code || 'item'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800">
                                 {/* CÓD & NCM (Área Verde - Super Enxuta) */}
                                 <td className="py-0.5 px-1 font-mono text-black text-[9px] text-center align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-10">
                                   <div className="font-bold text-black dark:text-stone-100 truncate" title={item.code || '-'}>
@@ -6610,12 +6609,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                {unifiedEntries.map((entry) => {
+                {unifiedEntries.map((entry, idx) => {
                   const isXml = entry.sourceType === 'xml';
                   return (
                     <tr 
-                      key={entry.id} 
-                      id={`row-doc-${entry.id}`}
+                      key={`unified_entry_${entry.sourceType}_${entry.id || 'doc'}_${idx}`} 
+                      id={`row-doc-${entry.id || idx}`}
                       onClick={(e) => {
                         const target = e.target as HTMLElement;
                         if (target && target.closest('button')) {
@@ -6775,7 +6774,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   );
                 })}
                 {unifiedEntries.length === 0 && (
-                  <tr>
+                  <tr key="unified_entries_empty_row">
                     <td colSpan={6} className="py-6 text-center text-stone-400 uppercase">
                       <ReceiptText className="w-6 h-6 mx-auto mb-1 opacity-50" />
                       <p className="font-semibold text-xs">NENHUMA NOTA OU ENTRADA REGISTRADA ATÉ O MOMENTO.</p>

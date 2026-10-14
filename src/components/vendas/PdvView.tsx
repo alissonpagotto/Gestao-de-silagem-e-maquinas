@@ -27,7 +27,12 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Building2,
+  Download,
+  Copy,
+  FileText,
+  CheckCheck
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId, getStoredClients } from '../../lib/storage';
@@ -190,6 +195,49 @@ export const loadAgrocontrolClientes = (fallback: Client[] = []): Client[] => {
   }
 
   return Array.from(map.values());
+};
+
+// Carregador reativo da conta bancária com status de 'PRIORITÁRIA' ou primeira ativa
+export const getPrioritaryBankAccount = (): { bankName: string; agency: string; accountNumber: string; rawText: string } => {
+  try {
+    const raw = localStorage.getItem('agrocontrol_bancos_contas') ||
+                localStorage.getItem('agrocontrol_bancos') ||
+                localStorage.getItem('agrocontrol_contas_bancarias') ||
+                localStorage.getItem('agrocontrol_financeiro_contas') ||
+                localStorage.getItem('colaca_silagem_financeiro_contas');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list) && list.length > 0) {
+        const priority = list.find((a: any) => 
+          String(a.status || '').toUpperCase() === 'PRIORITÁRIA' || 
+          String(a.status || '').toUpperCase() === 'PRIORITARIA' || 
+          a.prioritaria === true || 
+          a.isDefault === true || 
+          a.padrao === true ||
+          String(a.status || '').toLowerCase() === 'ativa' ||
+          String(a.status || '').toLowerCase() === 'ativo'
+        ) || list[0];
+
+        const bName = (priority.bankName || priority.banco || priority.nome || 'SICREDI').toUpperCase();
+        const ag = priority.agency || priority.agencia || '0725';
+        const num = priority.accountNumber || priority.conta || priority.numeroConta || '12345-6';
+        return {
+          bankName: bName,
+          agency: ag,
+          accountNumber: num,
+          rawText: `${bName} - AG: ${ag} C/C: ${num}`
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar conta prioritária do LocalStorage:', e);
+  }
+  return {
+    bankName: 'SICREDI',
+    agency: '0725',
+    accountNumber: '12345-6',
+    rawText: 'SICREDI - AG: 0725 C/C: 12345-6'
+  };
 };
 
 export const PdvView: React.FC<PdvViewProps> = ({
@@ -439,8 +487,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo'>('a_vista');
   const [valorPagoInput, setValorPagoInput] = useState<string>('');
   
-  // Bloco Prazo
+  // Bloco Prazo: Condição, Cobrança, Formato e Parcelas
   const [prazoCondicao, setPrazoCondicao] = useState<string>('30 DIAS');
+  const [tipoCobranca, setTipoCobranca] = useState<'carteira' | 'boleto'>('carteira');
+  const [formatoImpressao, setFormatoImpressao] = useState<'a4' | 'termica'>('termica');
   const [dataPrimeiraParcela, setDataPrimeiraParcela] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -448,18 +498,49 @@ export const PdvView: React.FC<PdvViewProps> = ({
   });
   const [qtdeParcelas, setQtdeParcelas] = useState<number>(1);
 
-  // Modal de Cupom / Comprovante
+  // Busca reativa da Conta Prioritária para Boleto Bancário
+  const [prioritaryAccount, setPrioritaryAccount] = useState<{
+    bankName: string;
+    agency: string;
+    accountNumber: string;
+    rawText: string;
+  }>(() => getPrioritaryBankAccount());
+
+  useEffect(() => {
+    const syncAccount = () => {
+      setPrioritaryAccount(getPrioritaryBankAccount());
+    };
+    window.addEventListener('storage', syncAccount);
+    window.addEventListener('agrocontrol_bancos_updated', syncAccount);
+    window.addEventListener('agrocontrol_bancos_contas_updated', syncAccount);
+    window.addEventListener('bank_accounts_updated', syncAccount);
+    return () => {
+      window.removeEventListener('storage', syncAccount);
+      window.removeEventListener('agrocontrol_bancos_updated', syncAccount);
+      window.removeEventListener('agrocontrol_bancos_contas_updated', syncAccount);
+      window.removeEventListener('bank_accounts_updated', syncAccount);
+    };
+  }, []);
+
+  // Modal de Cupom / Espelho de Venda A4 com Suporte Anti-Sandbox
   const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
+  const [activePrintFormat, setActivePrintFormat] = useState<'a4' | 'termica'>('termica');
+  const [copiedFeedback, setCopiedFeedback] = useState<boolean>(false);
   const [lastFinishedSale, setLastFinishedSale] = useState<{
     orderNumber: string;
     date: string;
     time: string;
     client: string;
+    clientId?: string;
+    farmName?: string;
     items: PdvItem[];
     totalBruto: number;
     totalDesconto: number;
     totalLiquido: number;
     forma: string;
+    tipoCobranca?: string;
+    bancoEmissor?: string;
+    formatoImpressao?: 'a4' | 'termica';
     valorPago: number;
     troco: number;
     parcelas?: InstallmentRow[];
@@ -994,25 +1075,74 @@ export const PdvView: React.FC<PdvViewProps> = ({
     // Salvar reativamente via callback
     onSaveService(newSaleOrder);
 
-    // Preparar dados para o cupom
+    // Preparar dados para o cupom e espelho
+    const cobrancaLabel = tipoCobranca === 'carteira' ? 'CARTEIRA (CONTA INTERNA)' : 'BOLETO BANCÁRIO';
     const formaLabelMap = {
       a_vista: 'À VISTA (DINHEIRO)',
       cartao_debito: 'CARTÃO DE DÉBITO',
       cartao_credito: 'CARTÃO DE CRÉDITO',
       pix: 'PIX INSTANTÂNEO',
-      prazo: `A PRAZO (${prazoCondicao} - ${qtdeParcelas}x)`
+      prazo: `A PRAZO [${cobrancaLabel}] (${prazoCondicao} - ${qtdeParcelas}x)`
     };
+
+    // 2. REGRA DE LANÇAMENTO PARA COMPRA EM CARTEIRA:
+    // Ao finalizar a venda em 'CARTEIRA' (ou A PRAZO), a função 'handleFinalizarVenda' gera automaticamente 
+    // as parcelas de recebimento e as injeta na chave 'agrocontrol_financeiro_receber' do LocalStorage vinculadas ao cliente.
+    if (formaPagamento === 'prazo') {
+      const clienteNomeFinal = clientSearch.trim() || clientNameResolved || 'MARCOS ROBERTO COELHO';
+      const parcelasList = parcelas.length > 0 ? parcelas : [
+        { numero: 1, vencimento: dataPrimeiraParcela, valor: totals.totalLiquido }
+      ];
+
+      const novasParcelasReceber = parcelasList.map(p => ({
+        id: `rec_pdv_${Date.now()}_${p.numero}_${Math.random().toString(36).substr(2, 6)}`,
+        orderNumber: orderNum,
+        numeroDocumento: `${orderNum}-${p.numero}/${parcelasList.length}`,
+        clientId: selectedClientId || undefined,
+        clienteId: selectedClientId || undefined,
+        clientName: clienteNomeFinal,
+        clienteNome: clienteNomeFinal,
+        descricao: `Venda PDV [${cobrancaLabel}] - Parcela ${p.numero}/${parcelasList.length} - ${clienteNomeFinal}`,
+        valor: p.valor,
+        valorOriginal: p.valor,
+        dataEmissao: dateStr,
+        dataVencimento: p.vencimento,
+        status: 'pendente',
+        status_pago: false,
+        formaPagamento: 'prazo',
+        tipoCobranca: cobrancaLabel,
+        bancoEmissor: tipoCobranca === 'boleto' ? prioritaryAccount.rawText : undefined,
+        categoria: 'Venda de Balcão / Silagem',
+        criadoEm: new Date().toISOString()
+      }));
+
+      try {
+        const rawRec = localStorage.getItem('agrocontrol_financeiro_receber');
+        const parsedRec = rawRec ? JSON.parse(rawRec) : [];
+        const updatedRec = [...novasParcelasReceber, ...(Array.isArray(parsedRec) ? parsedRec : [])];
+        localStorage.setItem('agrocontrol_financeiro_receber', JSON.stringify(updatedRec));
+        window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_receber_updated', { detail: updatedRec }));
+        window.dispatchEvent(new CustomEvent('financeiro_receber_updated', { detail: updatedRec }));
+      } catch (e) {
+        console.warn('Erro ao salvar em agrocontrol_financeiro_receber:', e);
+      }
+    }
 
     setLastFinishedSale({
       orderNumber: orderNum,
       date: formatDateBR(dateStr),
       time: timeStr,
       client: clientNameResolved,
+      clientId: selectedClientId || undefined,
+      farmName: farmNameResolved,
       items: [...items],
       totalBruto: totals.totalBruto,
       totalDesconto: totals.totalDesconto,
       totalLiquido: totals.totalLiquido,
       forma: formaLabelMap[formaPagamento],
+      tipoCobranca: formaPagamento === 'prazo' ? cobrancaLabel : undefined,
+      bancoEmissor: formaPagamento === 'prazo' && tipoCobranca === 'boleto' ? prioritaryAccount.rawText : undefined,
+      formatoImpressao: formatoImpressao,
       valorPago: totals.valorPago,
       troco: totals.troco,
       parcelas: formaPagamento === 'prazo' ? [...parcelas] : undefined
@@ -1021,7 +1151,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
     // Limpar o PDV
     handleLimparPdv();
 
-    // Abrir automaticamente comprovante de cupom
+    // Ativar o formato de impressão selecionado e abrir o comprovante/espelho
+    setActivePrintFormat(formatoImpressao);
     setIsReceiptOpen(true);
   };
 
@@ -1057,20 +1188,98 @@ export const PdvView: React.FC<PdvViewProps> = ({
           handleLimparPdv();
         }
       }
-      // F5: Imprimir Último Cupom
+      // F5: Cupom / Espelho de Venda
       else if (e.key === 'F5') {
         e.preventDefault();
         if (lastFinishedSale) {
+          setActivePrintFormat(formatoImpressao);
           setIsReceiptOpen(true);
         } else if (items.length > 0) {
-          window.print();
+          handlePrintSafe();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [items, totals, formaPagamento, lastFinishedSale, confirmDialog]);
+  }, [items, totals, formaPagamento, lastFinishedSale, confirmDialog, formatoImpressao]);
+
+  // Funções Anti-Sandbox para Impressão, Download e Cópia Segura
+  const handlePrintSafe = () => {
+    try {
+      window.print();
+    } catch (err) {
+      console.warn('Sandbox restrita para window.print():', err);
+    }
+  };
+
+  const handleCopyComprovante = () => {
+    if (!lastFinishedSale) return;
+    try {
+      const isA4 = activePrintFormat === 'a4';
+      const text = `================================================
+${companyProfile?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS'}
+${companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : ''}
+${isA4 ? 'NOTA DE VENDA & ESPELHO DE PEDIDO DE BALCÃO (A4)' : 'CUPOM NÃO FISCAL DE VENDA (80MM)'}
+================================================
+PEDIDO Nº: ${lastFinishedSale.orderNumber}
+DATA/HORA: ${lastFinishedSale.date} às ${lastFinishedSale.time}
+CLIENTE:   ${lastFinishedSale.client}
+${lastFinishedSale.farmName ? `FAZENDA:   ${lastFinishedSale.farmName}\n` : ''}PAGAMENTO: ${lastFinishedSale.forma}
+${lastFinishedSale.tipoCobranca ? `COBRANÇA:  ${lastFinishedSale.tipoCobranca}\n` : ''}${lastFinishedSale.bancoEmissor ? `BANCO:     ${lastFinishedSale.bancoEmissor}\n` : ''}------------------------------------------------
+ITENS DO PEDIDO:
+${lastFinishedSale.items.map((it, idx) => `${idx + 1}. [${it.codigo}] ${it.quantidade} ${it.unidade} - ${it.descricao} | Unit: ${formatCurrencyBRL(it.precoUnitario)} | Total: ${formatCurrencyBRL(it.totalLiquido)}`).join('\n')}
+------------------------------------------------
+SUBTOTAL BRUTO: ${formatCurrencyBRL(lastFinishedSale.totalBruto)}
+DESCONTO:       ${formatCurrencyBRL(lastFinishedSale.totalDesconto)}
+TOTAL LÍQUIDO:  ${formatCurrencyBRL(lastFinishedSale.totalLiquido)}
+${lastFinishedSale.troco > 0 ? `TROCO:          ${formatCurrencyBRL(lastFinishedSale.troco)}\n` : ''}${lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 ? `\nPROGRAMAÇÃO DE PARCELAS:\n` + lastFinishedSale.parcelas.map(p => `• Parcela ${p.numero} (${formatDateBR(p.vencimento)}): ${formatCurrencyBRL(p.valor)}`).join('\n') : ''}
+================================================
+AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
+`;
+      navigator.clipboard.writeText(text);
+      setCopiedFeedback(true);
+      setTimeout(() => setCopiedFeedback(false), 2500);
+    } catch (err) {
+      console.warn('Erro ao copiar comprovante:', err);
+    }
+  };
+
+  const handleDownloadComprovante = () => {
+    if (!lastFinishedSale) return;
+    try {
+      const isA4 = activePrintFormat === 'a4';
+      const text = `================================================
+${companyProfile?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS'}
+${companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : ''}
+${isA4 ? 'NOTA DE VENDA & ESPELHO DE PEDIDO DE BALCÃO (A4)' : 'CUPOM NÃO FISCAL DE VENDA (80MM)'}
+================================================
+PEDIDO Nº: ${lastFinishedSale.orderNumber}
+DATA/HORA: ${lastFinishedSale.date} às ${lastFinishedSale.time}
+CLIENTE:   ${lastFinishedSale.client}
+${lastFinishedSale.farmName ? `FAZENDA:   ${lastFinishedSale.farmName}\n` : ''}PAGAMENTO: ${lastFinishedSale.forma}
+${lastFinishedSale.tipoCobranca ? `COBRANÇA:  ${lastFinishedSale.tipoCobranca}\n` : ''}${lastFinishedSale.bancoEmissor ? `BANCO:     ${lastFinishedSale.bancoEmissor}\n` : ''}------------------------------------------------
+ITENS DO PEDIDO:
+${lastFinishedSale.items.map((it, idx) => `${idx + 1}. [${it.codigo}] ${it.quantidade} ${it.unidade} - ${it.descricao} | Unit: ${formatCurrencyBRL(it.precoUnitario)} | Total: ${formatCurrencyBRL(it.totalLiquido)}`).join('\n')}
+------------------------------------------------
+SUBTOTAL BRUTO: ${formatCurrencyBRL(lastFinishedSale.totalBruto)}
+DESCONTO:       ${formatCurrencyBRL(lastFinishedSale.totalDesconto)}
+TOTAL LÍQUIDO:  ${formatCurrencyBRL(lastFinishedSale.totalLiquido)}
+${lastFinishedSale.troco > 0 ? `TROCO:          ${formatCurrencyBRL(lastFinishedSale.troco)}\n` : ''}${lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 ? `\nPROGRAMAÇÃO DE PARCELAS:\n` + lastFinishedSale.parcelas.map(p => `• Parcela ${p.numero} (${formatDateBR(p.vencimento)}): ${formatCurrencyBRL(p.valor)}`).join('\n') : ''}
+================================================
+AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
+`;
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${isA4 ? 'espelho_a4' : 'cupom_80mm'}_${lastFinishedSale.orderNumber}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn('Erro ao baixar comprovante:', err);
+    }
+  };
 
   return (
     <div 
@@ -1747,9 +1956,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
             {lastFinishedSale && (
               <button
                 type="button"
-                onClick={() => setIsReceiptOpen(true)}
+                onClick={() => {
+                  setActivePrintFormat(formatoImpressao);
+                  setIsReceiptOpen(true);
+                }}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 text-white border border-sky-400 shadow-xs transition active:scale-95 cursor-pointer"
-                title="Reimprimir cupom fiscal da última venda"
+                title="Reimprimir cupom / espelho da última venda"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>[F5] CUPOM</span>
@@ -1771,8 +1983,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
         {/* Bloco Condição para Pagamento a Prazo (Abre dinamicamente) */}
         {formaPagamento === 'prazo' && (
-          <div className="mt-2 pt-2 border-t border-slate-300 dark:border-stone-800 space-y-1.5 animate-in fade-in duration-150">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div className="mt-2 pt-2 border-t border-slate-300 dark:border-stone-800 space-y-2 animate-in fade-in duration-150">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+              {/* 1. PRAZO */}
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
                   PRAZO:
@@ -1780,7 +1993,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 <select
                   value={prazoCondicao}
                   onChange={e => setPrazoCondicao(e.target.value)}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase"
+                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
                 >
                   <option value="30 DIAS">30 DIAS</option>
                   <option value="30/60 DIAS">30/60 DIAS</option>
@@ -1790,6 +2003,37 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 </select>
               </div>
 
+              {/* 2. TIPO COBRANÇA * */}
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                  TIPO COBRANÇA *:
+                </label>
+                <select
+                  value={tipoCobranca}
+                  onChange={e => setTipoCobranca(e.target.value as 'carteira' | 'boleto')}
+                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="carteira">💳 CARTEIRA (CONTA INTERNA)</option>
+                  <option value="boleto">📄 BOLETO BANCÁRIO</option>
+                </select>
+              </div>
+
+              {/* 3. FORMATO IMPRESSÃO * */}
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                  FORMATO IMPRESSÃO *:
+                </label>
+                <select
+                  value={formatoImpressao}
+                  onChange={e => setFormatoImpressao(e.target.value as 'a4' | 'termica')}
+                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="a4">🖨️ FOLHA A4 RETRATO</option>
+                  <option value="termica">📟 TÉRMICA 80MM (CUPOM RAPIDO)</option>
+                </select>
+              </div>
+
+              {/* 4. DATA 1ª PARCELA */}
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
                   DATA 1ª PARCELA:
@@ -1798,10 +2042,11 @@ export const PdvView: React.FC<PdvViewProps> = ({
                   type="date"
                   value={dataPrimeiraParcela}
                   onChange={e => setDataPrimeiraParcela(e.target.value)}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
+                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
+              {/* 5. QTDE/PARCELAS */}
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
                   QTDE/PARCELAS:
@@ -1809,7 +2054,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 <select
                   value={qtdeParcelas}
                   onChange={e => setQtdeParcelas(parseInt(e.target.value) || 1)}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
+                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
                 >
                   <option value={1}>1x (Parcela Única)</option>
                   <option value={2}>2x Mensais</option>
@@ -1820,15 +2065,28 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 </select>
               </div>
 
+              {/* 6. VALOR TOTAL A PRAZO */}
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
                   VALOR TOTAL A PRAZO:
                 </label>
-                <div className="px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-amber-700 dark:text-amber-400 font-mono">
+                <div className="px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-amber-700 dark:text-amber-400 font-mono shadow-2xs">
                   {formatCurrencyBRL(totals.totalLiquido)}
                 </div>
               </div>
             </div>
+
+            {/* Micro badge / feedback informativo do banco emissor logo abaixo do seletor de cobrança */}
+            {tipoCobranca === 'boleto' && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-800 text-[10px] text-sky-800 dark:text-sky-300 shadow-2xs animate-in fade-in duration-150">
+                <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                <span className="font-bold text-slate-500 dark:text-stone-400 uppercase">BANCO EMISSOR DO BOLETO:</span>
+                <span className="font-mono text-xs font-black uppercase text-sky-950 dark:text-sky-100">{prioritaryAccount.rawText}</span>
+                <span className="ml-auto inline-flex items-center px-1.5 py-0.2 rounded bg-sky-600 text-white text-[9px] font-black uppercase tracking-wider">
+                  CONTA PRIORITÁRIA
+                </span>
+              </div>
+            )}
 
             {/* Tabela Compacta de Parcelas Geradas */}
             {parcelas.length > 0 && (
@@ -1864,116 +2122,424 @@ export const PdvView: React.FC<PdvViewProps> = ({
       </section>
 
       {/* =====================================================================
-          5. MODAL DE CUPOM / COMPROVANTE TÉRMICO NÃO FISCAL (PDV)
+          5. MODAL DE COMPROVANTE DUPLO • A4 RETRATO & TÉRMICA 80MM (ANTI-SANDBOX)
          ===================================================================== */}
       {isReceiptOpen && lastFinishedSale && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-400 dark:border-stone-800 max-w-sm w-full p-4 shadow-2xl flex flex-col space-y-3">
-            {/* Header do Cupom */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-stone-800">
-              <div className="flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-xs font-black uppercase text-zinc-900 dark:text-white">
+        <div 
+          className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-y-auto"
+          onClick={() => setIsReceiptOpen(false)}
+        >
+          <div 
+            className={`bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xl flex flex-col my-auto transition-all duration-200 overflow-hidden ${
+              activePrintFormat === 'a4' ? 'max-w-4xl w-full' : 'max-w-md w-full'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header do Modal com Seletor de Formato */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-600 shrink-0" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
                   COMPROVANTE DE VENDA • PDV
                 </h3>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 dark:bg-stone-700 text-slate-700 dark:text-stone-300">
+                  {lastFinishedSale.orderNumber}
+                </span>
               </div>
+
+              {/* Seletor Rápido de Formato (Térmica 80mm vs Folha A4 Retrato) */}
+              <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-stone-900 p-0.5 rounded-lg border border-slate-300 dark:border-stone-700">
+                <button
+                  type="button"
+                  onClick={() => setActivePrintFormat('termica')}
+                  className={`px-2.5 py-1 rounded text-[10px] font-black uppercase transition cursor-pointer flex items-center gap-1 ${
+                    activePrintFormat === 'termica'
+                      ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-stone-400 hover:text-black dark:hover:text-white'
+                  }`}
+                  title="Formato Bobina Térmica 80mm"
+                >
+                  <Receipt className="w-3 h-3" />
+                  <span>📟 TÉRMICA 80MM</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePrintFormat('a4')}
+                  className={`px-2.5 py-1 rounded text-[10px] font-black uppercase transition cursor-pointer flex items-center gap-1 ${
+                    activePrintFormat === 'a4'
+                      ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-stone-400 hover:text-black dark:hover:text-white'
+                  }`}
+                  title="Formato Folha A4 Retrato"
+                >
+                  <FileText className="w-3 h-3" />
+                  <span>🖨️ FOLHA A4 RETRATO</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setIsReceiptOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-black dark:hover:text-white"
+                className="p-1 rounded text-slate-400 hover:text-black dark:hover:text-white cursor-pointer"
+                title="Fechar (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Corpo Estilo Cupom Térmico (Font Mono) */}
-            <div id="cupom-pdv-imprimivel" className="bg-slate-50 dark:bg-stone-800/80 p-3 rounded-lg border border-slate-200 dark:border-stone-700 font-mono text-[11px] space-y-2 text-zinc-900 dark:text-stone-100">
-              <div className="text-center pb-2 border-b border-dashed border-slate-300 dark:border-stone-700">
-                <div className="font-bold text-xs">{companyProfile?.name || 'AGRO SILAGEM & FORRAGENS'}</div>
-                <div className="text-[10px] text-slate-500">{companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : 'SISTEMA DE VENDAS AGRÍCOLAS'}</div>
-                <div className="text-[10px] text-slate-500">{lastFinishedSale.date} às {lastFinishedSale.time}</div>
-                <div className="text-[10px] font-bold mt-1">CUPOM: {lastFinishedSale.orderNumber}</div>
-              </div>
-
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase">CLIENTE:</span>
-                <div className="font-bold truncate">{lastFinishedSale.client}</div>
-              </div>
-
-              <div className="border-t border-b border-dashed border-slate-300 dark:border-stone-700 py-1 space-y-1">
-                <div className="flex justify-between text-[9px] font-bold text-slate-500">
-                  <span>ITEM / QTD x UN</span>
-                  <span>TOTAL</span>
-                </div>
-                {lastFinishedSale.items.map((it, i) => (
-                  <div key={i} className="flex justify-between text-[10px] leading-tight">
-                    <span className="truncate pr-1">{it.quantidade}x {it.descricao}</span>
-                    <span className="font-bold shrink-0">{formatCurrencyBRL(it.totalLiquido)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-0.5 text-xs pt-1">
-                <div className="flex justify-between">
-                  <span>SUBTOTAL BRUTO:</span>
-                  <span>{formatCurrencyBRL(lastFinishedSale.totalBruto)}</span>
-                </div>
-                {lastFinishedSale.totalDesconto > 0 && (
-                  <div className="flex justify-between text-rose-600">
-                    <span>DESCONTOS:</span>
-                    <span>-{formatCurrencyBRL(lastFinishedSale.totalDesconto)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-sm text-emerald-700 dark:text-emerald-400 pt-1 border-t border-slate-200 dark:border-stone-700">
-                  <span>TOTAL A PAGAR:</span>
-                  <span>{formatCurrencyBRL(lastFinishedSale.totalLiquido)}</span>
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-600 dark:text-stone-300 pt-1">
-                  <span>PAGAMENTO:</span>
-                  <span className="font-bold">{lastFinishedSale.forma}</span>
-                </div>
-                {lastFinishedSale.troco > 0 && (
-                  <div className="flex justify-between text-[10px] text-blue-700 dark:text-blue-400">
-                    <span>TROCO:</span>
-                    <span className="font-bold">{formatCurrencyBRL(lastFinishedSale.troco)}</span>
-                  </div>
-                )}
-              </div>
-
-              {lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 && (
-                <div className="border-t border-dashed border-slate-300 dark:border-stone-700 pt-1 text-[10px]">
-                  <span className="font-bold text-slate-500">PROGRAMAÇÃO DE PARCELAS:</span>
-                  {lastFinishedSale.parcelas.map(p => (
-                    <div key={p.numero} className="flex justify-between">
-                      <span>{p.numero}ª ({formatDateBR(p.vencimento)}):</span>
-                      <span className="font-bold">{formatCurrencyBRL(p.valor)}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* Faixa Informativa Anti-Sandbox */}
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-900/60 px-4 py-1.5 flex items-center justify-between text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>PROTEÇÃO ANTI-SANDBOX: Visualização na tela com opções de impressão direta, cópia para WhatsApp/e-mail e download do espelho de venda.</span>
+              </span>
+              {copiedFeedback && (
+                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-black uppercase animate-in fade-in">
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  COPIADO COM SUCESSO!
+                </span>
               )}
-
-              <div className="text-center pt-2 text-[9px] text-slate-500 uppercase border-t border-dashed border-slate-300 dark:border-stone-700">
-                OBRIGADO PELA PREFERÊNCIA • VOLTE SEMPRE!
-              </div>
             </div>
 
-            {/* Ações do Modal de Cupom */}
-            <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-200 dark:border-stone-800">
-              <button
-                type="button"
-                onClick={() => setIsReceiptOpen(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 cursor-pointer"
-              >
-                FECHAR
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-black transition cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>IMPRIMIR CUPOM</span>
-              </button>
+            {/* Área de Conteúdo Scrollável */}
+            <div className="p-3 sm:p-4 max-h-[75vh] overflow-y-auto bg-slate-100 dark:bg-stone-950">
+              {/* =============================================================
+                  FORMATO 1: FOLHA A4 RETRATO (ESPELHO DE PEDIDO / NOTA DE VENDA)
+                 ============================================================= */}
+              {activePrintFormat === 'a4' ? (
+                <div id="espelho-a4-imprimivel" className="bg-white text-zinc-900 p-6 sm:p-8 rounded-lg border border-slate-300 shadow-md font-sans text-xs space-y-4">
+                  {/* Cabeçalho Formal A4 */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 border-b-2 border-slate-800">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Tractor className="w-6 h-6 text-emerald-700" />
+                        <h2 className="text-base font-black uppercase tracking-tight text-zinc-900">
+                          {companyProfile?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS'}
+                        </h2>
+                      </div>
+                      <div className="text-[11px] text-slate-600 mt-1 space-y-0.5">
+                        <div>
+                          <span className="font-bold">CNPJ/CPF:</span> {companyProfile?.cnpjCpf || companyProfile?.cnpj || '12.345.678/0001-90'}
+                          {companyProfile?.stateRegistration && <span className="ml-2"><span className="font-bold">IE:</span> {companyProfile.stateRegistration}</span>}
+                        </div>
+                        <div>
+                          <span className="font-bold">ENDEREÇO:</span> {companyProfile?.address || 'Rodovia BR-163, KM 120'} • {companyProfile?.city || 'Sorriso'} - {companyProfile?.state || 'MT'}
+                        </div>
+                        <div>
+                          <span className="font-bold">CONTATO:</span> {companyProfile?.phone || '(66) 99988-7766'} • {companyProfile?.email || 'contato@agrocontrol.com.br'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right sm:border-l sm:border-slate-300 sm:pl-4 min-w-[200px]">
+                      <span className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-black text-[10px] uppercase tracking-wider mb-1">
+                        ESPELHO DE PEDIDO DE BALCÃO
+                      </span>
+                      <div className="text-lg font-black font-mono text-zinc-900">
+                        {lastFinishedSale.orderNumber}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-semibold">
+                        EMISSÃO: {lastFinishedSale.date} às {lastFinishedSale.time}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-semibold">
+                        STATUS: <span className="font-bold text-emerald-700 uppercase">FATURADO / CONCLUÍDO</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dados do Cliente / Produtor Rural */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
+                    <div>
+                      <span className="block text-[9px] font-black text-slate-500 uppercase">PRODUTOR / CLIENTE:</span>
+                      <span className="font-bold text-zinc-900 uppercase truncate block">
+                        {lastFinishedSale.client}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] font-black text-slate-500 uppercase">FAZENDA / DESTINO:</span>
+                      <span className="font-semibold text-zinc-800 uppercase truncate block">
+                        {lastFinishedSale.farmName || 'Fazenda do Produtor'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] font-black text-slate-500 uppercase">FORMA DE PAGAMENTO:</span>
+                      <span className="font-bold text-emerald-800 uppercase truncate block">
+                        {lastFinishedSale.forma}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] font-black text-slate-500 uppercase">TIPO COBRANÇA:</span>
+                      <span className="font-bold text-sky-800 uppercase truncate block">
+                        {lastFinishedSale.tipoCobranca || 'CARTEIRA (CONTA INTERNA)'}
+                      </span>
+                    </div>
+                    {lastFinishedSale.bancoEmissor && (
+                      <div className="sm:col-span-4 bg-sky-50 border border-sky-200 rounded px-2 py-1 text-[10px] flex items-center gap-1.5 font-bold text-sky-900">
+                        <Building2 className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+                        <span className="uppercase">CONTA EMISSORA DO BOLETO (PRIORITÁRIA):</span>
+                        <span className="font-mono font-black">{lastFinishedSale.bancoEmissor}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Grade de Itens (Tabela Zebrada com Padrão AgroControl) */}
+                  <div className="border border-slate-300 rounded-lg overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-200 text-slate-800 text-[10px] font-black uppercase border-b border-slate-300">
+                        <tr>
+                          <th className="py-1.5 px-2 w-8 text-center">#</th>
+                          <th className="py-1.5 px-2 w-20">CÓDIGO</th>
+                          <th className="py-1.5 px-2">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+                          <th className="py-1.5 px-2 w-14 text-center">UNID</th>
+                          <th className="py-1.5 px-2 w-16 text-right">QTDE</th>
+                          <th className="py-1.5 px-2 w-24 text-right">VALOR UNIT.</th>
+                          <th className="py-1.5 px-2 w-20 text-right">DESC.</th>
+                          <th className="py-1.5 px-2 w-28 text-right">TOTAL LÍQUIDO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-[11px] font-medium">
+                        {lastFinishedSale.items.map((it, idx) => (
+                          <tr key={idx} className="even:bg-[#eaeaea] odd:bg-white hover:bg-slate-100 transition">
+                            <td className="py-1 px-2 text-center text-slate-500 font-mono text-[10px]">{idx + 1}</td>
+                            <td className="py-1 px-2 font-mono font-bold text-slate-700 text-[10px]">{it.codigo || 'DIV'}</td>
+                            <td className="py-1 px-2 font-bold text-zinc-900">{it.descricao}</td>
+                            <td className="py-1 px-2 text-center font-bold text-slate-600">{it.unidade}</td>
+                            <td className="py-1 px-2 text-right font-mono font-bold text-zinc-900">
+                              {it.quantidade.toFixed(2).replace('.', ',')}
+                            </td>
+                            <td className="py-1 px-2 text-right font-mono text-slate-700">
+                              {formatCurrencyBRL(it.precoUnitario)}
+                            </td>
+                            <td className="py-1 px-2 text-right font-mono text-rose-600">
+                              {it.percentualDesconto > 0 ? `${it.percentualDesconto.toFixed(1).replace('.', ',')}%` : '-'}
+                            </td>
+                            <td className="py-1 px-2 text-right font-mono font-black text-zinc-900">
+                              {formatCurrencyBRL(it.totalLiquido)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Bloco Inferior: Parcelas & Totais Financeiros */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    {/* Programação de Parcelas (se a prazo) */}
+                    <div>
+                      {lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 ? (
+                        <div className="border border-slate-300 rounded-lg overflow-hidden">
+                          <div className="bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700 border-b border-slate-300 flex justify-between items-center">
+                            <span>PROGRAMAÇÃO DE PARCELAS A RECEBER</span>
+                            <span className="text-emerald-700 font-mono">{lastFinishedSale.parcelas.length}x PARCELAS</span>
+                          </div>
+                          <table className="w-full text-xs text-left">
+                            <thead className="bg-slate-50 text-[9px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                              <tr>
+                                <th className="py-1 px-2">PARCELA</th>
+                                <th className="py-1 px-2">VENCIMENTO</th>
+                                <th className="py-1 px-2 text-right">VALOR (R$)</th>
+                                <th className="py-1 px-2 text-center">SITUAÇÃO</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-[10px]">
+                              {lastFinishedSale.parcelas.map(p => (
+                                <tr key={p.numero} className="even:bg-slate-50 odd:bg-white">
+                                  <td className="py-1 px-2 font-bold text-slate-700">{p.numero}ª Parcela</td>
+                                  <td className="py-1 px-2 font-semibold text-slate-700">{formatDateBR(p.vencimento)}</td>
+                                  <td className="py-1 px-2 text-right font-mono font-black text-zinc-900">{formatCurrencyBRL(p.valor)}</td>
+                                  <td className="py-1 px-2 text-center font-bold text-amber-700 uppercase text-[9px]">A RECEBER</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-slate-600">
+                          <span className="font-bold block uppercase text-slate-700 mb-1">OBSERVAÇÕES DA OPERAÇÃO:</span>
+                          <p>Venda faturada e liquidada integralmente no balcão de atendimento via {lastFinishedSale.forma}.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Resumo de Fechamento Financeiro */}
+                    <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 space-y-1.5 self-start">
+                      <div className="flex justify-between text-xs text-slate-700">
+                        <span className="font-bold uppercase">SUBTOTAL BRUTO:</span>
+                        <span className="font-mono font-bold">{formatCurrencyBRL(lastFinishedSale.totalBruto)}</span>
+                      </div>
+                      {lastFinishedSale.totalDesconto > 0 && (
+                        <div className="flex justify-between text-xs text-rose-600">
+                          <span className="font-bold uppercase">DESCONTOS CONCEDIDOS:</span>
+                          <span className="font-mono font-bold">-{formatCurrencyBRL(lastFinishedSale.totalDesconto)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-black text-emerald-800 pt-1.5 border-t-2 border-slate-300">
+                        <span className="uppercase">TOTAL LÍQUIDO A PAGAR:</span>
+                        <span className="font-mono">{formatCurrencyBRL(lastFinishedSale.totalLiquido)}</span>
+                      </div>
+                      {lastFinishedSale.valorPago > 0 && (
+                        <div className="flex justify-between text-xs text-slate-700 pt-1 border-t border-dashed border-slate-200">
+                          <span className="font-semibold uppercase">VALOR RECEBIDO:</span>
+                          <span className="font-mono font-bold">{formatCurrencyBRL(lastFinishedSale.valorPago)}</span>
+                        </div>
+                      )}
+                      {lastFinishedSale.troco > 0 && (
+                        <div className="flex justify-between text-xs text-blue-700">
+                          <span className="font-bold uppercase">TROCO DEVOLVIDO:</span>
+                          <span className="font-mono font-black">{formatCurrencyBRL(lastFinishedSale.troco)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Termo de Recebimento e Assinaturas */}
+                  <div className="pt-4 border-t border-slate-300 text-[10px] text-slate-600 space-y-4">
+                    <p className="italic text-center text-slate-500">
+                      "Declaro ter conferido e recebido os produtos/serviços acima relacionados em perfeita ordem, concordando com as condições comerciais e datas de vencimento discriminadas neste documento."
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4">
+                      <div className="text-center">
+                        <div className="border-t border-slate-400 w-4/5 mx-auto mb-1"></div>
+                        <span className="font-bold uppercase text-zinc-900 block truncate">{lastFinishedSale.client}</span>
+                        <span className="text-[9px] text-slate-500 uppercase">ASSINATURA DO CLIENTE / PRODUTOR</span>
+                      </div>
+                      <div className="text-center">
+                        <div className="border-t border-slate-400 w-4/5 mx-auto mb-1"></div>
+                        <span className="font-bold uppercase text-zinc-900 block">{companyProfile?.name || 'AGROCONTROL'}</span>
+                        <span className="text-[9px] text-slate-500 uppercase">RESPONSÁVEL PELO CAIXA / EMISSOR</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* =============================================================
+                   FORMATO 2: TÉRMICA 80MM (CUPOM RÁPIDO NÃO FISCAL)
+                   ============================================================= */
+                <div id="cupom-pdv-imprimivel" className="w-full max-w-[340px] mx-auto bg-white text-zinc-900 p-4 rounded-lg border border-slate-300 shadow-md font-mono text-[11px] space-y-2">
+                  <div className="text-center pb-2 border-b border-dashed border-slate-400">
+                    <div className="font-black text-xs uppercase">{companyProfile?.name || 'AGROCONTROL SILAGEM'}</div>
+                    <div className="text-[10px] text-slate-600">{companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : 'SISTEMA DE VENDAS AGRÍCOLAS'}</div>
+                    <div className="text-[10px] text-slate-600">{lastFinishedSale.date} às {lastFinishedSale.time}</div>
+                    <div className="text-[11px] font-black mt-1 uppercase text-zinc-900">
+                      CUPOM: {lastFinishedSale.orderNumber}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold">CLIENTE:</span>
+                    <div className="font-bold truncate uppercase">{lastFinishedSale.client}</div>
+                    {lastFinishedSale.farmName && (
+                      <div className="text-[10px] text-slate-600 truncate uppercase">{lastFinishedSale.farmName}</div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-b border-dashed border-slate-400 py-1.5 space-y-1">
+                    <div className="flex justify-between text-[9px] font-black text-slate-600 uppercase">
+                      <span>ITEM / QTD x UN</span>
+                      <span>TOTAL</span>
+                    </div>
+                    {lastFinishedSale.items.map((it, i) => (
+                      <div key={i} className="flex justify-between text-[10.5px] leading-tight">
+                        <span className="truncate pr-1">
+                          {it.quantidade.toFixed(1).replace('.', ',')}x {it.descricao}
+                        </span>
+                        <span className="font-bold shrink-0">{formatCurrencyBRL(it.totalLiquido)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-0.5 text-xs pt-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 font-bold">SUBTOTAL:</span>
+                      <span className="font-mono font-bold">{formatCurrencyBRL(lastFinishedSale.totalBruto)}</span>
+                    </div>
+                    {lastFinishedSale.totalDesconto > 0 && (
+                      <div className="flex justify-between text-rose-600">
+                        <span className="font-bold">DESCONTOS:</span>
+                        <span className="font-mono font-bold">-{formatCurrencyBRL(lastFinishedSale.totalDesconto)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-black text-sm text-emerald-800 pt-1 border-t border-slate-300">
+                      <span>TOTAL LÍQUIDO:</span>
+                      <span>{formatCurrencyBRL(lastFinishedSale.totalLiquido)}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-700 pt-1">
+                      <span className="font-bold">PAGAMENTO:</span>
+                      <span className="font-black uppercase text-right">{lastFinishedSale.forma}</span>
+                    </div>
+                    {lastFinishedSale.bancoEmissor && (
+                      <div className="text-[9.5px] text-sky-800 font-bold pt-0.5">
+                        BANCO: {lastFinishedSale.bancoEmissor}
+                      </div>
+                    )}
+                    {lastFinishedSale.troco > 0 && (
+                      <div className="flex justify-between text-[10px] text-blue-700">
+                        <span className="font-bold">TROCO:</span>
+                        <span className="font-bold">{formatCurrencyBRL(lastFinishedSale.troco)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 && (
+                    <div className="border-t border-dashed border-slate-400 pt-1.5 text-[10px] space-y-0.5">
+                      <span className="font-black text-slate-600 uppercase block">PARCELAS A RECEBER:</span>
+                      {lastFinishedSale.parcelas.map(p => (
+                        <div key={p.numero} className="flex justify-between">
+                          <span>{p.numero}ª ({formatDateBR(p.vencimento)}):</span>
+                          <span className="font-bold">{formatCurrencyBRL(p.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-center pt-2 text-[9px] text-slate-500 uppercase border-t border-dashed border-slate-400">
+                    OBRIGADO PELA PREFERÊNCIA • VOLTE SEMPRE!
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ações do Modal com Suporte Anti-Sandbox */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-slate-50 dark:bg-stone-850 border-t border-slate-300 dark:border-stone-700 rounded-b-xl">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleCopyComprovante}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer shadow-2xs"
+                  title="Copiar dados do comprovante para enviar no WhatsApp ou e-mail"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{copiedFeedback ? 'COPIADO!' : 'COPIAR DADOS'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadComprovante}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer shadow-2xs"
+                  title="Baixar espelho ou cupom de venda em arquivo texto"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span>BAIXAR ARQUIVO</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReceiptOpen(false)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer"
+                >
+                  FECHAR
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintSafe}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-black dark:bg-stone-100 dark:text-zinc-900 dark:hover:bg-white transition cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>IMPRIMIR {activePrintFormat === 'a4' ? 'ESPELHO A4' : 'CUPOM 80MM'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
