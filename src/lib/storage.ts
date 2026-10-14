@@ -921,7 +921,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const existing = currentList[s10Idx];
     const effectiveQty = extractProductQty(existing);
     const effectiveCost = extractProductCost(existing, 5.85);
-    const effectiveSale = extractProductSale(existing);
+    const effectiveSale = extractProductSale(existing) || effectiveCost;
     const validId = STORAGE_UUID_REGEX.test(String(existing.id || '')) ? existing.id : CANONICAL_FUEL_PROD_UUIDS.S10;
 
     currentList[s10Idx] = {
@@ -938,9 +938,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
       custo_nominal: effectiveCost,
-      salePrice: effectiveSale,
-      preco_venda_varejo: effectiveSale,
-      preco_venda: effectiveSale,
+      salePrice: effectiveSale || 5.85,
+      preco_venda_varejo: effectiveSale || 5.85,
+      preco_venda: effectiveSale || 5.85,
       location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
       capacidade_total: existing.capacidade_total || (tankS10?.capacidade_total || 15000),
@@ -965,9 +965,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unitCost: 5.85,
       preco_custo_inicial: 5.85,
       custo_nominal: 5.85,
-      salePrice: 0,
-      preco_venda_varejo: 0,
-      preco_venda: 0,
+      salePrice: 5.85,
+      preco_venda_varejo: 5.85,
+      preco_venda: 5.85,
       profitMargin: 0,
       location: 'Tanque Fazenda (Pátio Central)',
       localizacao_fisica: 'Tanque Fazenda (Pátio Central)',
@@ -987,7 +987,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const existing = currentList[s500Idx];
     const effectiveQty = extractProductQty(existing);
     const effectiveCost = extractProductCost(existing, 5.60);
-    const effectiveSale = extractProductSale(existing);
+    const effectiveSale = extractProductSale(existing) || effectiveCost;
     const validId = STORAGE_UUID_REGEX.test(String(existing.id || '')) ? existing.id : CANONICAL_FUEL_PROD_UUIDS.S500;
 
     currentList[s500Idx] = {
@@ -1004,9 +1004,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
       custo_nominal: effectiveCost,
-      salePrice: effectiveSale,
-      preco_venda_varejo: effectiveSale,
-      preco_venda: effectiveSale,
+      salePrice: effectiveSale || 5.60,
+      preco_venda_varejo: effectiveSale || 5.60,
+      preco_venda: effectiveSale || 5.60,
       location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
       capacidade_total: existing.capacidade_total || (tankS500?.capacidade_total || 10000),
@@ -1032,9 +1032,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unitCost: 5.60,
       preco_custo_inicial: 5.60,
       custo_nominal: 5.60,
-      salePrice: 0,
-      preco_venda_varejo: 0,
-      preco_venda: 0,
+      salePrice: 5.60,
+      preco_venda_varejo: 5.60,
+      preco_venda: 5.60,
       profitMargin: 0,
       location: 'Tanque Fazenda (Oficina)',
       localizacao_fisica: 'Tanque Fazenda (Oficina)',
@@ -1071,7 +1071,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const existing = currentList[arlaGranelIdx];
     const effectiveQty = extractProductQty(existing);
     const effectiveCost = extractProductCost(existing, 3.20);
-    const effectiveSale = extractProductSale(existing);
+    const effectiveSale = extractProductSale(existing) || effectiveCost;
     const safeGranelId = (STORAGE_UUID_REGEX.test(String(existing.id || '')) && existing.id !== CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO)
       ? existing.id
       : CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL;
@@ -1091,9 +1091,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
       custo_nominal: effectiveCost,
-      salePrice: effectiveSale,
-      preco_venda_varejo: effectiveSale,
-      preco_venda: effectiveSale,
+      salePrice: effectiveSale || 3.20,
+      preco_venda_varejo: effectiveSale || 3.20,
+      preco_venda: effectiveSale || 3.20,
       location: existing.localizacao_fisica || existing.location || 'Tanque Arla (Barracão)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Arla (Barracão)',
       capacidade_total: existing.capacidade_total || (tankArla?.capacidade_total || 1000),
@@ -1119,9 +1119,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unitCost: 3.20,
       preco_custo_inicial: 3.20,
       custo_nominal: 3.20,
-      salePrice: 0,
-      preco_venda_varejo: 0,
-      preco_venda: 0,
+      salePrice: 3.20,
+      preco_venda_varejo: 3.20,
+      preco_venda: 3.20,
       profitMargin: 0,
       location: 'Tanque Arla (Barracão)',
       localizacao_fisica: 'Tanque Arla (Barracão)',

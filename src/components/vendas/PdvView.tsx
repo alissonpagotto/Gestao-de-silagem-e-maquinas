@@ -46,6 +46,78 @@ interface InstallmentRow {
   valor: number;
 }
 
+export type PriceTable = 'venda' | 'custo' | 'atacado' | 'promocional';
+
+export interface CatalogProduct {
+  id: string;
+  code: string;
+  barcode: string;
+  name: string;
+  unit: string;
+  price: number;
+  salePrice: number;
+  unitCost: number;
+  wholesalePrice?: number;
+  promoPrice?: number;
+  rawItem?: any;
+}
+
+export function calculatePriceByTable(
+  item: {
+    salePrice?: number;
+    unitCost?: number;
+    wholesalePrice?: number;
+    promoPrice?: number;
+    precoVenda?: number;
+    precoCusto?: number;
+    precoAtacado?: number;
+    precoPromocional?: number;
+    name?: string;
+    nome_comercial?: string;
+    price?: number;
+  },
+  table: PriceTable
+): number {
+  const nameStr = (item.name || item.nome_comercial || '').toUpperCase();
+  const isDieselS10 = nameStr.includes('DIESEL S10');
+  const isDieselS500 = nameStr.includes('DIESEL S500');
+
+  let cost = Number(item.precoCusto ?? item.unitCost ?? 0);
+  let sale = Number(item.precoVenda ?? item.salePrice ?? item.price ?? 0);
+  let atacado = Number(item.precoAtacado ?? item.wholesalePrice ?? 0);
+  let promo = Number(item.precoPromocional ?? item.promoPrice ?? 0);
+
+  // Fallbacks para garantir que produtos com custo preenchido ou combustíveis não fiquem zerados
+  if (cost <= 0) {
+    if (isDieselS10) cost = 5.85;
+    else if (isDieselS500) cost = 5.60;
+    else if (sale > 0) cost = Math.round(sale * 0.75 * 100) / 100;
+  }
+
+  if (sale <= 0) {
+    if (cost > 0) sale = cost;
+    else if (isDieselS10) sale = 5.85;
+    else if (isDieselS500) sale = 5.60;
+  }
+
+  switch (table) {
+    case 'venda':
+      return sale > 0 ? sale : cost;
+    case 'custo':
+      return cost > 0 ? cost : sale;
+    case 'atacado':
+      if (atacado > 0) return atacado;
+      const baseAtacado = sale > 0 ? sale : cost;
+      return Math.round(baseAtacado * 0.90 * 100) / 100; // Desconto automático de 10% sobre a venda
+    case 'promocional':
+      if (promo > 0) return promo;
+      const basePromo = sale > 0 ? sale : cost;
+      return Math.round(basePromo * 0.85 * 100) / 100; // Desconto automático de 15% sobre a venda
+    default:
+      return sale;
+  }
+}
+
 interface PdvViewProps {
   clients?: Client[];
   companyProfile?: CompanyProfile;
@@ -181,6 +253,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [inputPreco, setInputPreco] = useState<string>('0,00');
   const [inputDesconto, setInputDesconto] = useState<string>('0,00');
   
+  // Tabela de Preços Ativa e Objeto de Produto Selecionado
+  const [tabelaPreco, setTabelaPreco] = useState<PriceTable>('venda');
+  const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+
   // Sugestões de autocomplete na busca
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -239,36 +315,73 @@ export const PdvView: React.FC<PdvViewProps> = ({
   }, []);
 
   // Catálogo combinado de produtos (Contratos de Prestação de Serviços de Silagem + Commodities + Estoque)
-  const productCatalog = useMemo(() => {
-    const commodities = [
+  const productCatalog = useMemo<CatalogProduct[]>(() => {
+    const commodities: CatalogProduct[] = [
       // 1. Contratos de Prestação de Serviços de Silagem
-      { id: 'ctr_corte_ensilagem_ton', code: 'CTR-01', barcode: '7892001', name: 'CONTRATO: CORTE, ENSILAGEM & TRANSPORTE (POR TONELADA)', unit: 'TON', price: 45.00 },
-      { id: 'ctr_corte_ensilagem_ha', code: 'CTR-02', barcode: '7892002', name: 'CONTRATO: PRESTAÇÃO DE SERVIÇO DE CORTE E ENSILAGEM (POR HECTARE)', unit: 'HA', price: 1250.00 },
-      { id: 'ctr_embalagem_sacas', code: 'CTR-03', barcode: '7892003', name: 'CONTRATO: EMBALAGEM / ENSACAMENTO DE SILAGEM', unit: 'TON', price: 65.00 },
-      { id: 'ctr_fechamento_silo', code: 'CTR-04', barcode: '7892004', name: 'CONTRATO: COMPACTAÇÃO E FECHAMENTO DE SILO TRINCHEIRA', unit: 'UN', price: 1800.00 },
-      { id: 'ctr_inoculante_ha', code: 'CTR-05', barcode: '7892005', name: 'CONTRATO: APLICAÇÃO DE INOCULANTE BACTERIANO EM ÁREA', unit: 'HA', price: 85.00 },
-      { id: 'ctr_fornecimento_prog', code: 'CTR-06', barcode: '7892006', name: 'CONTRATO: FORNECIMENTO PROGRAMADO DE SILAGEM DE MILHO', unit: 'TON', price: 380.00 },
+      { id: 'ctr_corte_ensilagem_ton', code: 'CTR-01', barcode: '7892001', name: 'CONTRATO: CORTE, ENSILAGEM & TRANSPORTE (POR TONELADA)', unit: 'TON', price: 45.00, salePrice: 45.00, unitCost: 32.00, wholesalePrice: 40.50, promoPrice: 38.25 },
+      { id: 'ctr_corte_ensilagem_ha', code: 'CTR-02', barcode: '7892002', name: 'CONTRATO: PRESTAÇÃO DE SERVIÇO DE CORTE E ENSILAGEM (POR HECTARE)', unit: 'HA', price: 1250.00, salePrice: 1250.00, unitCost: 900.00, wholesalePrice: 1125.00, promoPrice: 1062.50 },
+      { id: 'ctr_embalagem_sacas', code: 'CTR-03', barcode: '7892003', name: 'CONTRATO: EMBALAGEM / ENSACAMENTO DE SILAGEM', unit: 'TON', price: 65.00, salePrice: 65.00, unitCost: 48.00, wholesalePrice: 58.50, promoPrice: 55.25 },
+      { id: 'ctr_fechamento_silo', code: 'CTR-04', barcode: '7892004', name: 'CONTRATO: COMPACTAÇÃO E FECHAMENTO DE SILO TRINCHEIRA', unit: 'UN', price: 1800.00, salePrice: 1800.00, unitCost: 1300.00, wholesalePrice: 1620.00, promoPrice: 1530.00 },
+      { id: 'ctr_inoculante_ha', code: 'CTR-05', barcode: '7892005', name: 'CONTRATO: APLICAÇÃO DE INOCULANTE BACTERIANO EM ÁREA', unit: 'HA', price: 85.00, salePrice: 85.00, unitCost: 60.00, wholesalePrice: 76.50, promoPrice: 72.25 },
+      { id: 'ctr_fornecimento_prog', code: 'CTR-06', barcode: '7892006', name: 'CONTRATO: FORNECIMENTO PROGRAMADO DE SILAGEM DE MILHO', unit: 'TON', price: 380.00, salePrice: 380.00, unitCost: 280.00, wholesalePrice: 342.00, promoPrice: 323.00 },
 
       // 2. Commodities e Insumos Rápidos de Silagem
-      { id: 'com_silagem_milho', code: 'SIL-01', barcode: '7891001', name: 'SILAGEM DE MILHO PLANTA INTEIRA', unit: 'TON', price: 380.00 },
-      { id: 'com_silagem_sorgo', code: 'SIL-02', barcode: '7891002', name: 'SILAGEM DE SORGO FORRAGEIRO', unit: 'TON', price: 320.00 },
-      { id: 'com_silagem_capim', code: 'SIL-03', barcode: '7891003', name: 'SILAGEM DE CAPIM AÇU', unit: 'TON', price: 260.00 },
-      { id: 'com_frete_ton', code: 'SRV-01', barcode: '7891004', name: 'TRANSPORTE / FRETE DE SILAGEM', unit: 'TON', price: 45.00 },
-      { id: 'com_lona_200', code: 'INS-01', barcode: '7891005', name: 'LONA PLÁSTICA DUPLA FACE 200 MICRAS', unit: 'M', price: 18.50 },
-      { id: 'com_inoculante', code: 'INS-02', barcode: '7891006', name: 'INOCULANTE BACTERIANO P/ SILAGEM 1L', unit: 'L', price: 145.00 },
+      { id: 'com_silagem_milho', code: 'SIL-01', barcode: '7891001', name: 'SILAGEM DE MILHO PLANTA INTEIRA', unit: 'TON', price: 380.00, salePrice: 380.00, unitCost: 280.00, wholesalePrice: 342.00, promoPrice: 323.00 },
+      { id: 'com_silagem_sorgo', code: 'SIL-02', barcode: '7891002', name: 'SILAGEM DE SORGO FORRAGEIRO', unit: 'TON', price: 320.00, salePrice: 320.00, unitCost: 230.00, wholesalePrice: 288.00, promoPrice: 272.00 },
+      { id: 'com_silagem_capim', code: 'SIL-03', barcode: '7891003', name: 'SILAGEM DE CAPIM AÇU', unit: 'TON', price: 260.00, salePrice: 260.00, unitCost: 180.00, wholesalePrice: 234.00, promoPrice: 221.00 },
+      { id: 'com_frete_ton', code: 'SRV-01', barcode: '7891004', name: 'TRANSPORTE / FRETE DE SILAGEM', unit: 'TON', price: 45.00, salePrice: 45.00, unitCost: 32.00, wholesalePrice: 40.50, promoPrice: 38.25 },
+      { id: 'com_lona_200', code: 'INS-01', barcode: '7891005', name: 'LONA PLÁSTICA DUPLA FACE 200 MICRAS', unit: 'M', price: 18.50, salePrice: 18.50, unitCost: 13.00, wholesalePrice: 16.65, promoPrice: 15.72 },
+      { id: 'com_inoculante', code: 'INS-02', barcode: '7891006', name: 'INOCULANTE BACTERIANO P/ SILAGEM 1L', unit: 'L', price: 145.00, salePrice: 145.00, unitCost: 105.00, wholesalePrice: 130.50, promoPrice: 123.25 },
     ];
 
-    const stockMapped = stockItems.map(item => ({
-      id: item.id,
-      code: item.code || `EST-${item.id.slice(-4).toUpperCase()}`,
-      barcode: item.barcode || '',
-      name: (item.nome_comercial || item.name || '').toUpperCase(),
-      unit: (item.unidade_medida || item.unit || 'UN').toUpperCase(),
-      price: Number(item.preco_venda_varejo !== undefined ? item.preco_venda_varejo : item.salePrice || 0),
-    }));
+    const stockMapped: CatalogProduct[] = stockItems.map(item => {
+      const name = (item.nome_comercial || item.name || '').toUpperCase();
+      const unit = (item.unidade_medida || item.unit || 'UN').toUpperCase();
+      const isDieselS10 = name.includes('DIESEL S10');
+      const isDieselS500 = name.includes('DIESEL S500');
+
+      let cost = Number(item.preco_custo_inicial ?? item.custo_nominal ?? item.custo_com_imposto ?? item.unitCost ?? (item as any).precoCusto ?? 0);
+      let sale = Number(item.preco_venda_varejo ?? item.preco_venda ?? item.salePrice ?? (item as any).precoVenda ?? 0);
+      let atacado = Number(item.wholesalePrice ?? item.preco_venda_atacado ?? item.preco_atacado ?? (item as any).precoAtacado ?? 0);
+      let promo = Number(item.promoPrice ?? item.preco_venda_promo ?? item.preco_promocional ?? (item as any).precoPromocional ?? 0);
+
+      if (cost <= 0) {
+        if (isDieselS10) cost = 5.85;
+        else if (isDieselS500) cost = 5.60;
+        else if (sale > 0) cost = Math.round(sale * 0.75 * 100) / 100;
+      }
+
+      if (sale <= 0) {
+        if (cost > 0) sale = cost;
+        else if (isDieselS10) sale = 5.85;
+        else if (isDieselS500) sale = 5.60;
+      }
+
+      const activePrice = calculatePriceByTable({
+        salePrice: sale,
+        unitCost: cost,
+        wholesalePrice: atacado,
+        promoPrice: promo,
+        name,
+      }, tabelaPreco);
+
+      return {
+        id: item.id,
+        code: item.code || (item as any).codigo_produto || `EST-${item.id.slice(-4).toUpperCase()}`,
+        barcode: item.barcode || (item as any).codigo_barras || '',
+        name,
+        unit,
+        price: activePrice > 0 ? activePrice : (sale > 0 ? sale : cost),
+        salePrice: sale,
+        unitCost: cost,
+        wholesalePrice: atacado,
+        promoPrice: promo,
+        rawItem: item,
+      };
+    });
 
     return [...commodities, ...stockMapped];
-  }, [stockItems]);
+  }, [stockItems, tabelaPreco]);
 
   // Itens filtrados para sugestão de autocomplete
   const suggestedProducts = useMemo(() => {
@@ -418,11 +531,15 @@ export const PdvView: React.FC<PdvViewProps> = ({
   };
 
   // Selecionar um produto do autocomplete
-  const handleSelectProduct = (prod: typeof productCatalog[0]) => {
+  const handleSelectProduct = (prod: CatalogProduct) => {
+    setSelectedProduct(prod);
     setInputCodigo(prod.code);
     setInputDescricao(prod.name);
     setInputUnidade(prod.unit);
-    setInputPreco(prod.price > 0 ? prod.price.toFixed(2).replace('.', ',') : '0,00');
+    
+    // Injeção compulsória do valor financeiro do objeto com base na tabela ativa no momento
+    const precoTabela = calculatePriceByTable(prod, tabelaPreco);
+    setInputPreco(precoTabela > 0 ? precoTabela.toFixed(2).replace('.', ',') : '0,00');
     setInputBusca(prod.name);
     setShowSuggestions(false);
 
@@ -437,6 +554,29 @@ export const PdvView: React.FC<PdvViewProps> = ({
     } else {
       qtyInputRef.current?.focus();
       qtyInputRef.current?.select();
+    }
+  };
+
+  // Alteração reativa da tabela de preços em tempo real
+  const handleTableChange = (newTable: PriceTable) => {
+    setTabelaPreco(newTable);
+
+    // Se já houver um produto selecionado na barra de inserção, recalcula e reflete instantaneamente
+    let target = selectedProduct;
+    if (!target) {
+      const q = (inputDescricao || inputBusca || inputCodigo).trim().toLowerCase();
+      if (q) {
+        target = productCatalog.find(p => 
+          p.code.toLowerCase() === q ||
+          p.barcode.toLowerCase() === q ||
+          p.name.toLowerCase() === q
+        ) || (suggestedProducts.length > 0 ? suggestedProducts[0] : null);
+      }
+    }
+
+    if (target) {
+      const novoPreco = calculatePriceByTable(target, newTable);
+      setInputPreco(novoPreco > 0 ? novoPreco.toFixed(2).replace('.', ',') : '0,00');
     }
   };
 
@@ -468,7 +608,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
         cod = matched.code;
         descResolved = matched.name;
         un = matched.unit;
-        preco = matched.price;
+        preco = calculatePriceByTable(matched, tabelaPreco);
       }
     }
 
@@ -501,6 +641,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setInputQtde('1,00');
     setInputPreco('0,00');
     setInputDesconto('0,00');
+    setSelectedProduct(null);
     setShowSuggestions(false);
 
     setTimeout(() => {
@@ -522,6 +663,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setInputQtde('1,00');
     setInputPreco('0,00');
     setInputDesconto('0,00');
+    setSelectedProduct(null);
     setValorPagoInput('');
     setClientSearch('CONSUMIDOR FINAL / BALCÃO');
     setSelectedClientId('');
@@ -863,7 +1005,54 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
           {/* Grid de Inputs Horizontais Estilo Supermercado */}
           <div className="grid grid-cols-12 gap-1.5 items-end">
-            {/* 1. QTDE (Q) */}
+            {/* 1. DESCRIÇÃO / CÓD. / REFERÊNCIA COM FOCO AUTOMÁTICO (F3) */}
+            <div className="col-span-12 sm:col-span-4 relative">
+              <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 flex items-center justify-between">
+                <span>DESCRIÇÃO / CÓDIGO / REFERÊNCIA [F3]</span>
+                <Barcode className="w-3.5 h-3.5 text-slate-400" />
+              </label>
+              <div className="relative">
+                <input
+                  ref={searchInputRef}
+                  autoFocus
+                  type="text"
+                  value={inputBusca}
+                  onChange={handleSearchInputChange}
+                  onFocus={() => setShowSuggestions(inputBusca.trim().length > 0)}
+                  placeholder="DIGITE O NOME, CÓDIGO OU PASSE O LEITOR DE CÓDIGO DE BARRAS..."
+                  className="w-full pl-2 pr-7 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none placeholder:normal-case placeholder:font-medium placeholder:text-slate-400"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Sugestões de produtos com valor financeiro em tempo real */}
+              {showSuggestions && suggestedProducts.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl max-h-48 overflow-y-auto mt-0.5 divide-y divide-slate-100 dark:divide-stone-800">
+                  {suggestedProducts.map(p => {
+                    const precoCalculado = calculatePriceByTable(p, tabelaPreco);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelectProduct(p)}
+                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-sky-100 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="font-mono text-[10px] font-bold text-slate-500">[{p.code}]</span>
+                          <span className="font-bold text-zinc-900 dark:text-white truncate">{p.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-semibold text-slate-500">{p.unit}</span>
+                          <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrencyBRL(precoCalculado)}</strong>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 2. QTDE (Q) */}
             <div className="col-span-2 sm:col-span-1">
               <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5">
                 QTDE (Q)
@@ -876,49 +1065,6 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 className="w-full text-center px-1 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none"
                 placeholder="1,00"
               />
-            </div>
-
-            {/* 2. DESCRIÇÃO / CÓD. / REFERÊNCIA COM FOCO AUTOMÁTICO (F3) */}
-            <div className="col-span-6 sm:col-span-5 relative">
-              <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 flex items-center justify-between">
-                <span>DESCRIÇÃO / CÓDIGO / REFERÊNCIA [F3]</span>
-                <Barcode className="w-3.5 h-3.5 text-slate-400" />
-              </label>
-              <div className="relative">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={inputBusca}
-                  onChange={handleSearchInputChange}
-                  onFocus={() => setShowSuggestions(inputBusca.trim().length > 0)}
-                  placeholder="DIGITE O NOME, CÓDIGO OU PASSE O LEITOR DE CÓDIGO DE BARRAS..."
-                  className="w-full pl-2 pr-7 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none placeholder:normal-case placeholder:font-medium placeholder:text-slate-400"
-                />
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Sugestões de produtos */}
-              {showSuggestions && suggestedProducts.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl max-h-48 overflow-y-auto mt-0.5 divide-y divide-slate-100 dark:divide-stone-800">
-                  {suggestedProducts.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleSelectProduct(p)}
-                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-sky-100 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer"
-                    >
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="font-mono text-[10px] font-bold text-slate-500">[{p.code}]</span>
-                        <span className="font-bold text-zinc-900 dark:text-white truncate">{p.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-semibold text-slate-500">{p.unit}</span>
-                        <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrencyBRL(p.price)}</strong>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* 3. UNIDADE */}
@@ -935,18 +1081,40 @@ export const PdvView: React.FC<PdvViewProps> = ({
               />
             </div>
 
-            {/* 4. PREÇO VENDA (R$) */}
-            <div className="col-span-2 sm:col-span-2">
-              <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5">
-                PREÇO VENDA (R$)
-              </label>
-              <input
-                type="text"
-                value={inputPreco}
-                onChange={e => setInputPreco(e.target.value)}
-                className="w-full text-right px-2 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none"
-                placeholder="0,00"
-              />
+            {/* 4. BLOCO COMBINADO: SELETOR DE TABELA DE PREÇOS + PREÇO VENDA (R$) */}
+            <div className="col-span-8 sm:col-span-3">
+              <div className="grid grid-cols-2 gap-1.5">
+                {/* Seletor Dropdown Slim de Tabela de Preços */}
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 truncate" title="TABELA DE PREÇO">
+                    TABELA PREÇO
+                  </label>
+                  <select
+                    value={tabelaPreco}
+                    onChange={e => handleTableChange(e.target.value as PriceTable)}
+                    className="w-full px-1.5 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-[11px] font-bold text-zinc-900 dark:text-white uppercase shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer"
+                  >
+                    <option value="venda">PREÇO DE VENDA (FINAL)</option>
+                    <option value="custo">PREÇO DE CUSTO</option>
+                    <option value="atacado">PREÇO DE ATACADO</option>
+                    <option value="promocional">PREÇO PROMOCIONAL</option>
+                  </select>
+                </div>
+
+                {/* Input de Preço de Venda */}
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 text-right truncate">
+                    PREÇO VENDA (R$)
+                  </label>
+                  <input
+                    type="text"
+                    value={inputPreco}
+                    onChange={e => setInputPreco(e.target.value)}
+                    className="w-full text-right px-2 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* 5. % DESCONTO */}
