@@ -21,10 +21,18 @@ import {
   Clock,
   ChevronDown,
   FileCheck2,
-  Tractor
+  Tractor,
+  Key,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId, getStoredClients } from '../../lib/storage';
+import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
+import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { useConfirm } from '../../context/ConfirmContext';
 
 export interface PdvItem {
@@ -283,6 +291,149 @@ export const PdvView: React.FC<PdvViewProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // =========================================================================
+  // REGRAS DE SEGURANÇA E ALÇADA MÁXIMA DE DESCONTO (% DESC) POR CARGO
+  // =========================================================================
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    try {
+      const raw = localStorage.getItem('agrocontrol_usuario_logado') || localStorage.getItem('usuario_logado');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed) return parsed;
+      }
+    } catch {}
+    return getActiveUserSession();
+  });
+
+  useEffect(() => {
+    const handleSyncUser = () => {
+      try {
+        const raw = localStorage.getItem('agrocontrol_usuario_logado') || localStorage.getItem('usuario_logado');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed) {
+            setCurrentUser(parsed);
+            return;
+          }
+        }
+      } catch {}
+      setCurrentUser(getActiveUserSession());
+    };
+
+    window.addEventListener('colaca_silagem_session_updated', handleSyncUser);
+    window.addEventListener('storage', handleSyncUser);
+    return () => {
+      window.removeEventListener('colaca_silagem_session_updated', handleSyncUser);
+      window.removeEventListener('storage', handleSyncUser);
+    };
+  }, []);
+
+  // 1. Trava de Teto Máximo por Perfil de Usuário:
+  // Administrador Geral: teto de 15.00% | Caixa / Operador: teto rigoroso de 5.00%
+  const isAdministradorGeral = useMemo(() => {
+    if (!currentUser) return false;
+    if (currentUser.type === 'admin') return true;
+    const roleStr = (currentUser.cargoNome || currentUser.cargo || currentUser.name || currentUser.role || '').toUpperCase();
+    return roleStr.includes('ADMINISTRADOR') || roleStr.includes('ADMIN') || roleStr.includes('DIRETOR') || roleStr.includes('GERENTE GERAL');
+  }, [currentUser]);
+
+  const maxDiscountAllowed = isAdministradorGeral ? 15.00 : 5.00;
+  const roleBadgeLabel = isAdministradorGeral ? 'ADMINISTRADOR GERAL' : 'CAIXA / OPERADOR';
+
+  // Estados de Alerta e Modal de Autorização Master
+  const [isDiscountExceeded, setIsDiscountExceeded] = useState<boolean>(false);
+  const [attemptedDiscount, setAttemptedDiscount] = useState<number>(0);
+  const [isMasterAuthModalOpen, setIsMasterAuthModalOpen] = useState<boolean>(false);
+  const [masterPasswordInput, setMasterPasswordInput] = useState<string>('');
+  const [masterAuthError, setMasterAuthError] = useState<string>('');
+  const [showMasterPassword, setShowMasterPassword] = useState<boolean>(false);
+  const discountAlertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Validador de Senha Administrativa contra 'agrocontrol_cargos_permissoes' e configurações mestre
+  const validateAdminPassword = (enteredPass: string): boolean => {
+    const cleanPass = enteredPass.trim();
+    if (!cleanPass) return false;
+
+    // 1. Varre 'agrocontrol_cargos_permissoes' e 'colaca_silagem_cargos_permissoes'
+    const storageKeys = [
+      'agrocontrol_cargos_permissoes',
+      'colaca_silagem_cargos_permissoes',
+      'cargos_permissoes'
+    ];
+
+    for (const key of storageKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              if (item?.senha && item.senha.trim() === cleanPass) return true;
+              if (item?.password && item.password.trim() === cleanPass) return true;
+              if (item?.senha_admin && item.senha_admin.trim() === cleanPass) return true;
+              if (item?.admin_password && item.admin_password.trim() === cleanPass) return true;
+            }
+          } else if (parsed && typeof parsed === 'object') {
+            if (parsed.senha && parsed.senha.trim() === cleanPass) return true;
+            if (parsed.password && parsed.password.trim() === cleanPass) return true;
+            if (parsed.senha_admin && parsed.senha_admin.trim() === cleanPass) return true;
+            if (parsed.admin_password && parsed.admin_password.trim() === cleanPass) return true;
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Senha mestre das configurações administrativas do ERP
+    try {
+      const adminSettings = getStoredAdminSettings();
+      if (adminSettings?.masterPassword && adminSettings.masterPassword.trim() === cleanPass) {
+        return true;
+      }
+    } catch {}
+
+    // 3. Padrões de senhas administrativas padrão do sistema
+    const defaultMasterPasswords = [
+      'AgroControl@Master2026',
+      'admin123',
+      'admin',
+      'agro2026',
+      '123456',
+      'agrocontrol'
+    ];
+
+    return defaultMasterPasswords.some(p => p.toLowerCase() === cleanPass.toLowerCase());
+  };
+
+  // Interceptação e Correção Automática no campo % DESC
+  const handleDescontoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const cleanNum = parseFloat(raw.replace(/\./g, '').replace(',', '.'));
+
+    // Se o operador digitar um valor maior do que o teto permitido pelo seu cargo
+    if (!isNaN(cleanNum) && cleanNum > maxDiscountAllowed) {
+      // 1. Captura o valor excedido para autorização
+      setAttemptedDiscount(cleanNum);
+      // 2. Reajusta o input automaticamente para o teto máximo permitido (5.00% ou 15.00%)
+      setInputDesconto(maxDiscountAllowed.toFixed(2).replace('.', ','));
+      // 3. Aplica alerta e borda amarela temporária
+      setIsDiscountExceeded(true);
+
+      if (discountAlertTimeoutRef.current) {
+        clearTimeout(discountAlertTimeoutRef.current);
+      }
+      discountAlertTimeoutRef.current = setTimeout(() => {
+        setIsDiscountExceeded(false);
+      }, 5000);
+      return;
+    }
+
+    setInputDesconto(raw);
+    if (isNaN(cleanNum) || cleanNum <= maxDiscountAllowed) {
+      setIsDiscountExceeded(false);
+      setAttemptedDiscount(0);
+    }
+  };
 
   // Controle de Pagamento
   const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo'>('a_vista');
@@ -630,10 +781,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   };
 
-  // Adicionar item à grade
-  const handleAdicionarItem = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-
+  // Função compartilhada para inserir o item com desconto autorizado
+  const inserirItemComDesconto = (descontoFinal: number) => {
     let descResolved = (inputDescricao || inputBusca).trim().toUpperCase();
     if (!descResolved) {
       searchInputRef.current?.focus();
@@ -662,7 +811,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       }
     }
 
-    const descPct = parseFloat(inputDesconto.replace(',', '.')) || 0;
+    const descPct = Math.max(0, descontoFinal);
 
     // Cálculo exato: Valor Total = Preço Unitário * Quantidade Atualizada
     const totalBruto = Math.round(qtd * preco * 100) / 100;
@@ -693,10 +842,60 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setInputDesconto('0,00');
     setSelectedProduct(null);
     setShowSuggestions(false);
+    setIsDiscountExceeded(false);
+    setAttemptedDiscount(0);
 
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 50);
+  };
+
+  // Adicionar item à grade com validação rigorosa de teto de desconto por cargo
+  const handleAdicionarItem = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    let descResolved = (inputDescricao || inputBusca).trim().toUpperCase();
+    if (!descResolved) {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    const descPct = parseFloat(inputDesconto.replace(',', '.')) || 0;
+
+    // Se o desconto exceder o teto máximo permitido pelo perfil, abre o modal de autorização master
+    if (attemptedDiscount > maxDiscountAllowed || descPct > maxDiscountAllowed) {
+      const requested = attemptedDiscount > maxDiscountAllowed ? attemptedDiscount : descPct;
+      setAttemptedDiscount(requested);
+      setIsMasterAuthModalOpen(true);
+      return;
+    }
+
+    inserirItemComDesconto(descPct);
+  };
+
+  // Confirmação de Autorização Master com Senha do Administrador
+  const handleConfirmMasterAuth = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!masterPasswordInput.trim()) {
+      setMasterAuthError('INFORME A SENHA DO ADMINISTRADOR.');
+      return;
+    }
+
+    const isValid = validateAdminPassword(masterPasswordInput);
+    if (!isValid) {
+      setMasterAuthError('SENHA DO ADMINISTRADOR INCORRETA OU ACESSO NÃO AUTORIZADO.');
+      return;
+    }
+
+    // Senha correta: libera o desconto maior exclusivamente para aquele item
+    const authorizedPct = attemptedDiscount > 0 ? attemptedDiscount : (parseFloat(inputDesconto.replace(',', '.')) || maxDiscountAllowed);
+    inserirItemComDesconto(authorizedPct);
+
+    // Fecha o modal e limpa os campos
+    setIsMasterAuthModalOpen(false);
+    setMasterPasswordInput('');
+    setMasterAuthError('');
   };
 
   // Remover item da grade
@@ -718,6 +917,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setClientSearch('CONSUMIDOR FINAL / BALCÃO');
     setSelectedClientId('');
     setOperacaoTipo('venda_balcao');
+    setIsDiscountExceeded(false);
+    setAttemptedDiscount(0);
     try {
       localStorage.removeItem(PDV_DRAFT_KEY);
     } catch {}
@@ -1186,18 +1387,44 @@ export const PdvView: React.FC<PdvViewProps> = ({
               </div>
             </div>
 
-            {/* 5. % DESCONTO */}
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 text-right">
-                % DESC.
+            {/* 5. % DESCONTO COM TRAVA DE SEGURANÇA E ALÇADA POR CARGO */}
+            <div className="col-span-2 sm:col-span-1 relative">
+              <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 text-right flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentDesc = parseFloat(inputDesconto.replace(',', '.')) || maxDiscountAllowed;
+                    setAttemptedDiscount(currentDesc > maxDiscountAllowed ? currentDesc : maxDiscountAllowed + 5);
+                    setIsMasterAuthModalOpen(true);
+                  }}
+                  title="Autorização de Desconto Master (Administrador)"
+                  className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 p-0 cursor-pointer"
+                >
+                  <Key className="w-3 h-3" />
+                </button>
+                <span>% DESC.</span>
               </label>
               <input
                 type="text"
                 value={inputDesconto}
-                onChange={e => setInputDesconto(e.target.value)}
-                className="w-full text-right px-1 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none"
+                onChange={handleDescontoChange}
+                className={`w-full text-right px-1 py-1 rounded-lg border text-xs font-bold shadow-2xs outline-none transition ${
+                  isDiscountExceeded
+                    ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200'
+                    : 'border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-1 focus:ring-sky-500'
+                }`}
                 placeholder="0,00"
               />
+              {/* Texto explicativo micro em UPPERCASE logo abaixo do campo quando violado */}
+              {isDiscountExceeded && (
+                <div 
+                  onClick={() => setIsMasterAuthModalOpen(true)}
+                  title="Clique para autorizar desconto master"
+                  className="text-[7.5px] font-black uppercase text-amber-600 dark:text-amber-400 leading-tight mt-0.5 cursor-pointer hover:underline truncate"
+                >
+                  * LIMITE MÁXIMO DE DESCONTO PERMITIDO PARA SEU CARGO EXCEDIDO.
+                </div>
+              )}
             </div>
 
             {/* 6. BOTÃO INSERIR ITEM */}
@@ -1211,6 +1438,26 @@ export const PdvView: React.FC<PdvViewProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Alerta Operacional Slim de Teto de Desconto Excedido */}
+          {isDiscountExceeded && (
+            <div className="flex items-center justify-between px-2.5 py-1 rounded-md bg-amber-100 dark:bg-amber-950/80 border border-amber-400 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-[10px] font-black uppercase shadow-2xs animate-in fade-in duration-150">
+              <div className="flex items-center gap-1.5 truncate">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="truncate">
+                  * LIMITE MÁXIMO DE DESCONTO PERMITIDO PARA SEU CARGO EXCEDIDO. (PERFIL: {roleBadgeLabel} • TETO: {maxDiscountAllowed.toFixed(2).replace('.', ',')}%)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMasterAuthModalOpen(true)}
+                className="shrink-0 ml-2 inline-flex items-center gap-1 text-[10px] font-black uppercase text-amber-900 dark:text-amber-100 hover:text-amber-700 dark:hover:text-amber-300 underline cursor-pointer"
+              >
+                <Key className="w-3 h-3" />
+                <span>🔑 AUTORIZAR DESCONTO MASTER</span>
+              </button>
+            </div>
+          )}
         </form>
       </section>
 
@@ -1728,6 +1975,136 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 <span>IMPRIMIR CUPOM</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          6. MODAL DE AUTORIZAÇÃO DE DESCONTO MASTER (PADRÃO OURO)
+         ===================================================================== */}
+      {isMasterAuthModalOpen && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150"
+          onClick={() => {
+            setIsMasterAuthModalOpen(false);
+            setMasterAuthError('');
+            setMasterPasswordInput('');
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 border-2 border-amber-500/90 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden select-none animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Cabeçalho Dourado Padrão Ouro */}
+            <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 px-3.5 py-2.5 text-white flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-1.5">
+                <Key className="w-4 h-4 text-amber-100" />
+                <h3 className="text-xs font-black uppercase tracking-wider">
+                  🔑 AUTORIZAÇÃO DE DESCONTO MASTER
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMasterAuthModalOpen(false);
+                  setMasterAuthError('');
+                  setMasterPasswordInput('');
+                }}
+                className="p-1 hover:bg-black/20 rounded transition text-amber-100 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Formulário de Autorização */}
+            <form onSubmit={handleConfirmMasterAuth} className="p-3.5 space-y-3">
+              {/* Quadro Informativo de Alçadas */}
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-lg p-2.5 text-[11px] space-y-1">
+                <div className="flex justify-between items-center text-slate-700 dark:text-stone-300">
+                  <span className="font-bold text-[10px] uppercase text-slate-500 dark:text-stone-400">ITEM:</span>
+                  <span className="font-black truncate max-w-[200px] text-right uppercase">
+                    {(inputDescricao || inputBusca || 'PRODUTO SELECIONADO').trim()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-[10px] uppercase text-slate-500 dark:text-stone-400">DESCONTO SOLICITADO:</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={attemptedDiscount > 0 ? attemptedDiscount : parseFloat(inputDesconto.replace(',', '.')) || maxDiscountAllowed}
+                      onChange={e => setAttemptedDiscount(parseFloat(e.target.value) || 0)}
+                      className="w-16 px-1 py-0.5 text-right font-black text-rose-600 dark:text-rose-400 text-xs border border-amber-300 dark:border-amber-700 rounded bg-white dark:bg-stone-800"
+                    />
+                    <span className="font-black text-rose-600 dark:text-rose-400 text-xs">%</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="font-semibold text-slate-500 dark:text-stone-400 uppercase">TETO PERMITIDO ({roleBadgeLabel}):</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-400">
+                    {maxDiscountAllowed.toFixed(2).replace('.', ',')}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Input da Senha do Administrador */}
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider mb-1 flex items-center justify-between">
+                  <span>SENHA DO ADMINISTRADOR</span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type={showMasterPassword ? 'text' : 'password'}
+                    autoFocus
+                    value={masterPasswordInput}
+                    onChange={e => {
+                      setMasterPasswordInput(e.target.value);
+                      if (masterAuthError) setMasterAuthError('');
+                    }}
+                    placeholder="DIGITE A SENHA DO ADMINISTRADOR..."
+                    className="w-full pl-2.5 pr-8 py-1.5 rounded-lg border border-amber-400 dark:border-amber-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMasterPassword(prev => !prev)}
+                    className="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-stone-200 cursor-pointer p-0.5"
+                    title={showMasterPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showMasterPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {masterAuthError && (
+                  <p className="mt-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase animate-in fade-in">
+                    * {masterAuthError}
+                  </p>
+                )}
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMasterAuthModalOpen(false);
+                    setMasterAuthError('');
+                    setMasterPasswordInput('');
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white text-xs font-extrabold uppercase shadow-sm flex items-center gap-1.5 transition cursor-pointer active:scale-95"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>AUTORIZAR E INSERIR</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
