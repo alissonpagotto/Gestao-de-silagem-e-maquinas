@@ -259,8 +259,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
   // Sugestões de autocomplete na busca
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
+  const productSearchContainerRef = useRef<HTMLDivElement>(null);
 
   // Cliente selecionado no PDV
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -268,11 +270,14 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [showClientSuggestions, setShowClientSuggestions] = useState<boolean>(false);
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fechar dropdown de sugestões de cliente ao clicar fora
+  // Fechar dropdowns de sugestões ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
         setShowClientSuggestions(false);
+      }
+      if (productSearchContainerRef.current && !productSearchContainerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -479,6 +484,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   // Interceptação do gatilho de multiplicação por asterisco ("QTD *") no campo de busca do PDV
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;
+    setSelectedSuggestionIndex(0);
 
     // 1. Identificação do padrão de quantidade multiplicada por asterisco via Regex (ex: "5*", "12*", "10*7891001")
     const match = rawVal.match(/^\s*([0-9]+(?:[.,][0-9]+)?)\s*\*(.*)$/);
@@ -530,7 +536,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setShowSuggestions(upperVal.trim().length > 0);
   };
 
-  // Selecionar um produto do autocomplete
+  // Selecionar um produto do autocomplete e saltar foco imediatamente para a Quantidade
   const handleSelectProduct = (prod: CatalogProduct) => {
     setSelectedProduct(prod);
     setInputCodigo(prod.code);
@@ -541,19 +547,63 @@ export const PdvView: React.FC<PdvViewProps> = ({
     const precoTabela = calculatePriceByTable(prod, tabelaPreco);
     setInputPreco(precoTabela > 0 ? precoTabela.toFixed(2).replace('.', ',') : '0,00');
     setInputBusca(prod.name);
+    
+    // 1. FECHAMENTO IMEDIATO DA LISTA FLUTUANTE (SUGESTÕES)
     setShowSuggestions(false);
+    setSelectedSuggestionIndex(0);
 
     // Auto-detectar contrato caso o item seja de prestação de serviços de silagem
     if (prod.code.startsWith('CTR-') || prod.name.includes('CONTRATO')) {
       setOperacaoTipo('contrato_silagem');
     }
 
-    if (inputQtde && inputQtde !== '1,00') {
-      // Se a quantidade já foi configurada pelo atalho de asterisco (ex: 10,00), mantém o foco
-      searchInputRef.current?.focus();
-    } else {
+    // 2. SALTO DE FOCO AUTOMÁTICO PARA O PRÓXIMO CAMPO ("QTDE") COM SELEÇÃO DO TEXTO
+    setTimeout(() => {
       qtyInputRef.current?.focus();
       qtyInputRef.current?.select();
+    }, 10);
+  };
+
+  // Manipulação do teclado no input de busca (OnKeyDown: ENTER, Setas Cima/Baixo, ESC)
+  const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (suggestedProducts.length > 0) {
+        e.preventDefault();
+        if (!showSuggestions) {
+          setShowSuggestions(true);
+        } else {
+          setSelectedSuggestionIndex(prev => (prev + 1) % suggestedProducts.length);
+        }
+      }
+    } else if (e.key === 'ArrowUp') {
+      if (suggestedProducts.length > 0 && showSuggestions) {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => (prev - 1 + suggestedProducts.length) % suggestedProducts.length);
+      }
+    } else if (e.key === 'Enter') {
+      // 1. Se a lista de sugestões estiver aberta e houver itens, seleciona automaticamente o item ativo
+      if (showSuggestions && suggestedProducts.length > 0) {
+        e.preventDefault();
+        const targetProd = suggestedProducts[selectedSuggestionIndex] || suggestedProducts[0];
+        handleSelectProduct(targetProd);
+      } else if (inputBusca.trim().length > 0) {
+        // Se houver apenas 1 sugestão exata ou filtrada
+        if (suggestedProducts.length === 1) {
+          e.preventDefault();
+          handleSelectProduct(suggestedProducts[0]);
+        } else {
+          // Se não houver lista aberta mas houver texto digitado, fecha e pula para o campo de quantidade
+          e.preventDefault();
+          setShowSuggestions(false);
+          setTimeout(() => {
+            qtyInputRef.current?.focus();
+            qtyInputRef.current?.select();
+          }, 10);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setShowSuggestions(false);
     }
   };
 
@@ -1006,7 +1056,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
           {/* Grid de Inputs Horizontais Estilo Supermercado */}
           <div className="grid grid-cols-12 gap-1.5 items-end">
             {/* 1. DESCRIÇÃO / CÓD. / REFERÊNCIA COM FOCO AUTOMÁTICO (F3) */}
-            <div className="col-span-12 sm:col-span-4 relative">
+            <div ref={productSearchContainerRef} className="col-span-12 sm:col-span-4 relative">
               <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 flex items-center justify-between">
                 <span>DESCRIÇÃO / CÓDIGO / REFERÊNCIA [F3]</span>
                 <Barcode className="w-3.5 h-3.5 text-slate-400" />
@@ -1018,7 +1068,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
                   type="text"
                   value={inputBusca}
                   onChange={handleSearchInputChange}
-                  onFocus={() => setShowSuggestions(inputBusca.trim().length > 0)}
+                  onKeyDown={handleSearchInputKeyDown}
+                  onFocus={() => {
+                    if (inputBusca.trim().length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
                   placeholder="DIGITE O NOME, CÓDIGO OU PASSE O LEITOR DE CÓDIGO DE BARRAS..."
                   className="w-full pl-2 pr-7 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none placeholder:normal-case placeholder:font-medium placeholder:text-slate-400"
                 />
@@ -1028,14 +1083,21 @@ export const PdvView: React.FC<PdvViewProps> = ({
               {/* Sugestões de produtos com valor financeiro em tempo real */}
               {showSuggestions && suggestedProducts.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl max-h-48 overflow-y-auto mt-0.5 divide-y divide-slate-100 dark:divide-stone-800">
-                  {suggestedProducts.map(p => {
+                  {suggestedProducts.map((p, idx) => {
                     const precoCalculado = calculatePriceByTable(p, tabelaPreco);
+                    const isSelected = idx === selectedSuggestionIndex;
                     return (
                       <button
                         key={p.id}
                         type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onMouseEnter={() => setSelectedSuggestionIndex(idx)}
                         onClick={() => handleSelectProduct(p)}
-                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-sky-100 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer"
+                        className={`w-full text-left px-2.5 py-1.5 text-xs flex items-center justify-between transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-sky-100 dark:bg-sky-950/70 border-l-4 border-sky-600 pl-1.5'
+                            : 'hover:bg-sky-50 dark:hover:bg-stone-800'
+                        }`}
                       >
                         <div className="flex items-center gap-1.5 truncate">
                           <span className="font-mono text-[10px] font-bold text-slate-500">[{p.code}]</span>
@@ -1062,6 +1124,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
                 type="text"
                 value={inputQtde}
                 onChange={e => setInputQtde(e.target.value)}
+                onFocus={e => e.target.select()}
                 className="w-full text-center px-1 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none"
                 placeholder="1,00"
               />
