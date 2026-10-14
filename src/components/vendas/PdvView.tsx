@@ -21,8 +21,7 @@ import {
   Clock,
   ChevronDown,
   FileCheck2,
-  Tractor,
-  Settings
+  Tractor
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredInventory, getActiveCompanyId, getStoredClients } from '../../lib/storage';
@@ -269,18 +268,11 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [showClientSuggestions, setShowClientSuggestions] = useState<boolean>(false);
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Micro Menu Flutuante Discreto de Preços (Pop-over Cifrão / Engrenagem)
-  const [isPriceMenuOpen, setIsPriceMenuOpen] = useState<boolean>(false);
-  const priceMenuRef = useRef<HTMLDivElement>(null);
-
-  // Fechar menu de preços e dropdown de clientes ao clicar fora
+  // Fechar dropdown de sugestões de cliente ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
         setShowClientSuggestions(false);
-      }
-      if (priceMenuRef.current && !priceMenuRef.current.contains(e.target as Node)) {
-        setIsPriceMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1089,42 +1081,37 @@ export const PdvView: React.FC<PdvViewProps> = ({
               />
             </div>
 
-            {/* 4. BLOCO COMBINADO: SELETOR DE TABELA DE PREÇOS + PREÇO VENDA (R$) */}
+            {/* 4. BLOCO COMBINADO: SELETOR MICRO-SLIM + PREÇO (R$) */}
             <div className="col-span-8 sm:col-span-3">
-              <div className="grid grid-cols-2 gap-1.5">
-                {/* Seletor Dropdown Slim de Tabela de Preços */}
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 truncate" title="TABELA DE PREÇO">
+              <div className="flex items-end gap-1.5">
+                {/* Seletor Micro-Slim de Tabela de Preços (Sistema de Siglas Reativas) */}
+                <div className="shrink-0">
+                  <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 text-center truncate" title="TABELA PREÇO">
                     TABELA PREÇO
                   </label>
-                  <select
-                    value={tabelaPreco}
-                    onChange={e => handleTableChange(e.target.value as PriceTable)}
-                    className="w-full px-1.5 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-[10px] font-bold text-slate-700 dark:text-white uppercase shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer"
-                  >
-                    <option value="custo">• [1-PC] CUSTO</option>
-                    <option value="venda">• [2-PF] FINAL</option>
-                    <option value="atacado">• [3-PA] ATACADO</option>
-                    <option value="promocional">• [4-PP] PROMO</option>
-                  </select>
+                  <div className="relative w-[65px]">
+                    <div className="w-[65px] text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-center leading-none cursor-pointer focus:outline-none select-none flex items-center justify-center min-h-[25px]">
+                      {tabelaPreco === 'custo' ? '1-PC' : tabelaPreco === 'venda' ? '2-PF' : tabelaPreco === 'atacado' ? '3-PA' : '4-PP'}
+                    </div>
+                    <select
+                      value={tabelaPreco}
+                      onChange={e => handleTableChange(e.target.value as PriceTable)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      title="TABELA PREÇO"
+                    >
+                      <option value="custo">1-PC - CUSTO</option>
+                      <option value="venda">2-PF - FINAL</option>
+                      <option value="atacado">3-PA - ATACADO</option>
+                      <option value="promocional">4-PP - PROMO</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Input de Preço de Venda com Micro Menu Flutuante Discreto */}
-                <div className="relative" ref={priceMenuRef}>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider truncate">
-                      PREÇO (R$)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setIsPriceMenuOpen(prev => !prev)}
-                      className="inline-flex items-center gap-0.5 p-0.5 px-1 rounded text-slate-500 hover:text-sky-600 dark:text-stone-400 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer"
-                      title="Menu Discreto de Preços (1-PC / 2-PF / 3-PA / 4-PP)"
-                    >
-                      <DollarSign className="w-2.5 h-2.5 stroke-[2.5]" />
-                      <Settings className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
+                {/* Input de Preço de Venda */}
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-0.5 text-right truncate">
+                    PREÇO (R$)
+                  </label>
                   <input
                     type="text"
                     value={inputPreco}
@@ -1132,56 +1119,6 @@ export const PdvView: React.FC<PdvViewProps> = ({
                     className="w-full text-right px-2 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white shadow-2xs focus:ring-1 focus:ring-sky-500 outline-none"
                     placeholder="0,00"
                   />
-
-                  {/* Micro Menu Flutuante Absoluto (Pop-over Slim Design Pro) */}
-                  {isPriceMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-md shadow-2xl p-1 text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase space-y-0.5 animate-in fade-in duration-100">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleTableChange('custo');
-                          setIsPriceMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 rounded transition hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:text-sky-700 dark:hover:text-sky-300 flex items-center justify-between ${tabelaPreco === 'custo' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 font-black' : ''}`}
-                      >
-                        <span>• [1-PC] CUSTO</span>
-                        {tabelaPreco === 'custo' && <Check className="w-3 h-3 text-sky-600" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleTableChange('venda');
-                          setIsPriceMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 rounded transition hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:text-sky-700 dark:hover:text-sky-300 flex items-center justify-between ${tabelaPreco === 'venda' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 font-black' : ''}`}
-                      >
-                        <span>• [2-PF] FINAL</span>
-                        {tabelaPreco === 'venda' && <Check className="w-3 h-3 text-sky-600" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleTableChange('atacado');
-                          setIsPriceMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 rounded transition hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:text-sky-700 dark:hover:text-sky-300 flex items-center justify-between ${tabelaPreco === 'atacado' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 font-black' : ''}`}
-                      >
-                        <span>• [3-PA] ATACADO</span>
-                        {tabelaPreco === 'atacado' && <Check className="w-3 h-3 text-sky-600" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleTableChange('promocional');
-                          setIsPriceMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 rounded transition hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:text-sky-700 dark:hover:text-sky-300 flex items-center justify-between ${tabelaPreco === 'promocional' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 font-black' : ''}`}
-                      >
-                        <span>• [4-PP] PROMO</span>
-                        {tabelaPreco === 'promocional' && <Check className="w-3 h-3 text-sky-600" />}
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
