@@ -1334,7 +1334,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overflow-y-hidden">
       <div 
-        className="w-full max-w-5xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#c8dbee] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
@@ -1400,7 +1400,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             onClick={() => setActiveTab('geral')}
             className={`py-1 px-3 text-xs font-black uppercase transition rounded whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'geral'
-                ? 'bg-white text-zinc-900 shadow-xs border border-slate-400'
+                ? 'bg-emerald-100/90 text-emerald-950 font-black shadow-xs border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                 : 'text-zinc-700 hover:text-zinc-900 hover:bg-slate-300/60'
             }`}
           >
@@ -1408,7 +1408,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             <span>1. DIAGNÓSTICO, EQUIPE & LOCAL</span>
             {laborItems.length > 0 && (
               <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                activeTab === 'geral' ? 'bg-zinc-200 text-zinc-800' : 'bg-zinc-300 text-zinc-800'
+                activeTab === 'geral' ? 'bg-emerald-200 text-emerald-900 font-bold' : 'bg-zinc-300 text-zinc-800'
               }`}>
                 {laborItems.length}
               </span>
@@ -1421,7 +1421,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             onClick={() => setActiveTab('pecas')}
             className={`py-1 px-3 text-xs font-black uppercase transition rounded whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'pecas'
-                ? 'bg-white text-zinc-900 shadow-xs border border-slate-400'
+                ? 'bg-emerald-100/90 text-emerald-950 font-black shadow-xs border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                 : 'text-zinc-700 hover:text-zinc-900 hover:bg-slate-300/60'
             }`}
           >
@@ -1429,7 +1429,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             <span>2. PEÇAS & ESTOQUE</span>
             {partsItems.length > 0 && (
               <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                activeTab === 'pecas' ? 'bg-zinc-200 text-zinc-800' : 'bg-zinc-300 text-zinc-800'
+                activeTab === 'pecas' ? 'bg-emerald-200 text-emerald-900 font-bold' : 'bg-zinc-300 text-zinc-800'
               }`}>
                 {partsItems.length}
               </span>
@@ -1442,7 +1442,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             onClick={() => setActiveTab('fiscal_financeiro')}
             className={`py-1 px-3 text-xs font-black uppercase transition rounded whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'fiscal_financeiro'
-                ? 'bg-white text-zinc-900 shadow-xs border border-slate-400'
+                ? 'bg-emerald-100/90 text-emerald-950 font-black shadow-xs border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                 : 'text-zinc-700 hover:text-zinc-900 hover:bg-slate-300/60'
             }`}
           >
@@ -1454,11 +1454,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           </button>
         </div>
 
-        {/* Form Body com Estrutura Flexível: Topo e Base Fixos, Centro Rolável em Cinza Claro (bg-zinc-100) */}
-        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-zinc-100">
+        {/* Form Body com Estrutura Flexível: Topo e Base Fixos, Centro Rolável em Modo Claro bg-[#c8dbee] */}
+        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#c8dbee] dark:bg-stone-900">
           
           {/* Conteúdo Central com Rolagem Vertical Independente */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-zinc-100">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-[#c8dbee] dark:bg-stone-900">
 
             {/* Banner de Feedback de Ação */}
             {feedbackBanner && (
@@ -1494,13 +1494,13 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           {/* ABA 1 UNIFICADA: DIAGNÓSTICO, EQUIPE & LOCAL (2 COLUNAS) */}
           {/* ======================================================== */}
           {activeTab === 'geral' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 sm:gap-3.5 animate-in fade-in duration-150 items-stretch flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 lg:gap-5 animate-in fade-in duration-150 items-stretch flex-1 min-h-0">
               
               {/* --- COLUNA DA ESQUERDA: DADOS DO VEÍCULO, AFERIÇÃO, DIAGNÓSTICO, LOCAL E EXECUÇÃO --- */}
               <div className="space-y-2.5 flex flex-col">
                 {/* Bloco 1: Identificação da OS e Veículo */}
                 <div className="p-3 bg-white rounded border border-slate-300/80 shadow-xs">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {/* Número da OS */}
                     <div>
                       <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-0.5 truncate">
@@ -1510,7 +1510,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         type="text"
                         value={osNumber}
                         onChange={(e) => setOsNumber(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-mono font-bold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                         placeholder="OS-2026-0001"
                       />
                     </div>
@@ -1524,7 +1524,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                       />
                     </div>
 
@@ -1537,7 +1537,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         type="date"
                         value={completionDate}
                         onChange={(e) => setCompletionDate(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                       />
                     </div>
 
@@ -1549,7 +1549,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                       <select
                         value={machineryId}
                         onChange={(e) => handleMachineryChange(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer truncate"
                       >
                         <option value="">SELECIONE...</option>
                         {machineries.map((m) => (
@@ -1565,7 +1565,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
                 {/* Bloco 2: Aferição e Controle (Horímetro e Próxima Revisão) */}
                 <div className="p-3 bg-white rounded border border-slate-300/80 shadow-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
                       <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-0.5 truncate">
                         HORÍMETRO / KM ATUAL
@@ -1576,7 +1576,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         value={formatThousand(currentHourMeterOrKm)}
                         onChange={(e) => handleThousandInput(e.target.value, setCurrentHourMeterOrKm)}
                         placeholder="Ex: 5.000"
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                       />
                     </div>
 
@@ -1590,7 +1590,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         value={formatThousand(nextServiceDue)}
                         onChange={(e) => handleThousandInput(e.target.value, setNextServiceDue)}
                         placeholder="Ex: 6.000"
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                       />
                     </div>
                   </div>
@@ -1598,12 +1598,12 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
                 {/* Bloco 3: Tipo de Manutenção e Categoria */}
                 <div className="p-3 bg-white rounded border border-slate-300/80 space-y-2 shadow-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-1">
                         TIPO DE MANUTENÇÃO
                       </label>
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                         {[
                           { id: 'preventiva', label: 'PREVENTIVA' },
                           { id: 'corretiva', label: 'CORRETIVA' },
@@ -1622,10 +1622,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                   setServiceCategory('Revisão (entressafra)');
                                 }
                               }}
-                              className={`py-1.5 px-1.5 text-[10.5px] rounded border text-center transition cursor-pointer font-bold ${
+                              className={`py-1 px-1.5 text-[10.5px] rounded text-center transition cursor-pointer font-bold whitespace-nowrap ${
                                 isActive
-                                  ? 'border-zinc-800 bg-zinc-100 text-zinc-950 ring-1 ring-zinc-800 shadow-xs'
-                                  : 'bg-zinc-50 border-slate-300 text-zinc-700 hover:bg-zinc-100'
+                                  ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200/80'
                               }`}
                             >
                               {t.label}
@@ -1654,7 +1654,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         <select
                           value={serviceCategory}
                           onChange={(e) => setServiceCategory(e.target.value)}
-                          className="flex-1 px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer"
+                          className="flex-1 px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer"
                         >
                           {sortedCategories.map((cat) => (
                             <option key={cat.id} value={cat.name}>
@@ -1669,7 +1669,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsCategoriesModalOpen(true)}
-                          className="p-1.5 border border-slate-300 bg-white hover:bg-zinc-100 rounded text-zinc-700 transition cursor-pointer shrink-0"
+                          className="p-1 border border-slate-300 bg-white hover:bg-zinc-100 rounded text-zinc-700 transition cursor-pointer shrink-0"
                           title="Incluir, editar ou excluir categorias"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -1688,7 +1688,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         value={customCategory}
                         onChange={(e) => setCustomCategory(e.target.value)}
                         placeholder="Ex: Regulagem de Rotor de Craqueador"
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                       />
                     </div>
                   )}
@@ -1704,7 +1704,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Ex: Troca de óleo da caixa de transmissão e substituição de 4 facas do rotor da ensiladeira que empenaram no talhão 3..."
                     rows={2}
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden resize-none"
+                    className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden resize-none"
                   />
                 </div>
 
@@ -1717,7 +1717,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     </h4>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
                     {[
                       {
                         id: 'roca',
@@ -1746,14 +1746,14 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           key={loc.id}
                           type="button"
                           onClick={() => setLocation(loc.id as any)}
-                          className={`py-1.5 px-2 rounded border text-center transition cursor-pointer ${
+                          className={`py-1.5 px-2 rounded text-center transition cursor-pointer ${
                             isActive
-                              ? 'border-zinc-800 bg-zinc-100 text-zinc-950 font-bold ring-1 ring-zinc-800 shadow-xs'
-                              : 'bg-zinc-50 border-slate-300 text-zinc-700 hover:bg-zinc-100'
+                              ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
+                              : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200/80'
                           }`}
                         >
-                          <span className={`text-xs font-black block truncate ${isActive ? 'text-zinc-950' : 'text-zinc-700'}`}>{loc.title}</span>
-                          <span className={`text-[9px] block truncate font-bold ${isActive ? 'text-zinc-600' : 'text-zinc-500'}`}>{loc.subtitle}</span>
+                          <span className={`text-xs font-black block truncate ${isActive ? 'text-emerald-950' : 'text-slate-600'}`}>{loc.title}</span>
+                          <span className={`text-[9px] block truncate font-bold ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}>{loc.subtitle}</span>
                         </button>
                       );
                     })}
@@ -1773,7 +1773,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           ? 'Ponto de referência: Ex: Box 2 do Barracão Principal'
                           : 'Ponto de referência: Ex: Oficina Diesel Power - Toledo/PR'
                       }
-                      className="w-full px-2.5 py-1.5 h-8 bg-white border border-slate-300 rounded text-xs text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                      className="w-full px-2.5 py-1 h-8 bg-white border border-slate-300 rounded text-xs text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                     />
                   </div>
                 </div>
@@ -1787,7 +1787,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     </h4>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
                     {[
                       { id: 'equipe_propria', label: 'EQUIPE PRÓPRIA', desc: 'OPERADOR/EQUIPE' },
                       { id: 'mecanico_interno', label: 'MECÂNICA INTERNA', desc: 'MECÂNICOS BASE' },
@@ -1800,14 +1800,14 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           key={ex.id}
                           type="button"
                           onClick={() => handleExecutorTypeChange(ex.id as any)}
-                          className={`py-1.5 px-2 rounded border text-center transition cursor-pointer ${
+                          className={`py-1.5 px-2 rounded text-center transition cursor-pointer ${
                             isActive
-                              ? 'border-zinc-800 bg-zinc-100 text-zinc-950 font-bold ring-1 ring-zinc-800 shadow-xs'
-                              : 'bg-zinc-50 border-slate-300 text-zinc-700 hover:bg-zinc-100'
+                              ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
+                              : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200/80'
                           }`}
                         >
-                          <span className={`text-xs font-black block truncate ${isActive ? 'text-zinc-950' : 'text-zinc-700'}`}>{ex.label}</span>
-                          <span className={`text-[9px] block truncate font-bold ${isActive ? 'text-zinc-600' : 'text-zinc-500'}`}>{ex.desc}</span>
+                          <span className={`text-xs font-black block truncate ${isActive ? 'text-emerald-950' : 'text-slate-600'}`}>{ex.label}</span>
+                          <span className={`text-[9px] block truncate font-bold ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}>{ex.desc}</span>
                         </button>
                       );
                     })}
@@ -1820,7 +1820,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         value={workshopOrMechanic}
                         onChange={(e) => setWorkshopOrMechanic(e.target.value)}
                         placeholder="Nome da Oficina Externa ou Prestador Socorro Terceiro *"
-                        className="w-full px-2.5 py-1.5 h-8 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 h-8 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
                       />
                     </div>
                   )}
@@ -1903,8 +1903,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                             <div className="grid grid-cols-12 gap-2 items-end">
                               {/* Selecionar Funcionário */}
                               <div className="col-span-12 sm:col-span-4">
-                                <label className="block text-[10px] font-bold text-zinc-600 mb-1">
-                                  Funcionário / Mecânico
+                                <label className="block text-[10px] font-black uppercase text-zinc-700 mb-0.5">
+                                  FUNCIONÁRIO / MECÂNICO
                                 </label>
                                 <select
                                   value={item.employeeId || ''}
@@ -1916,17 +1916,17 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                       mechanicName: found ? found.name : (selectedId ? item.mechanicName : '')
                                     });
                                   }}
-                                  className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 cursor-pointer shadow-2xs"
+                                  className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer shadow-2xs"
                                 >
-                                  <option value="">Selecione funcionário...</option>
+                                  <option value="">SELECIONE FUNCIONÁRIO...</option>
                                   {mechanicEmployees.map((emp) => (
                                     <option key={emp.id} value={emp.id}>
-                                      {emp.name} {emp.role ? `(${emp.role})` : ''}
+                                      {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
                                     </option>
                                   ))}
                                   {item.employeeId && !mechanicEmployees.some(e => e.id === item.employeeId) && (
                                     <option value={item.employeeId}>
-                                      {allEmployeesList.find(e => e.id === item.employeeId)?.name || item.mechanicName || 'Funcionário selecionado'}
+                                      {(allEmployeesList.find(e => e.id === item.employeeId)?.name || item.mechanicName || 'FUNCIONÁRIO SELECIONADO').toUpperCase()}
                                     </option>
                                   )}
                                 </select>
@@ -1935,16 +1935,16 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                     type="text"
                                     value={item.mechanicName || ''}
                                     onChange={(e) => handleUpdateLaborItem(index, { mechanicName: e.target.value })}
-                                    placeholder="Ou nome avulso..."
-                                    className="w-full mt-1 px-2 py-1 bg-white border border-zinc-300 rounded-md text-[11px] text-zinc-900"
+                                    placeholder="OU NOME AVULSO..."
+                                    className="w-full mt-1 px-2 py-1 bg-white border border-slate-300 rounded text-[11px] text-zinc-900 uppercase"
                                   />
                                 )}
                               </div>
 
                               {/* Data do Lançamento */}
                               <div className="col-span-6 sm:col-span-2">
-                                <label className="block text-[10px] font-bold text-zinc-600 mb-1 text-center">
-                                  Data
+                                <label className="block text-[10px] font-black uppercase text-zinc-700 mb-0.5 text-center">
+                                  DATA
                                 </label>
                                 <input
                                   type="date"
@@ -1953,30 +1953,30 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                     dataLancamento: e.target.value,
                                     date: e.target.value 
                                   })}
-                                  title="Data da execução das horas"
-                                  className="w-full px-2 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-center text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 cursor-pointer shadow-2xs"
+                                  title="DATA DA EXECUÇÃO DAS HORAS"
+                                  className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-center text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer shadow-2xs"
                                 />
                               </div>
 
                               {/* Horas (Total Calculado - Readonly) */}
                               <div className="col-span-3 sm:col-span-2">
-                                <label className="block text-[10px] font-bold text-zinc-600 mb-1 text-center">
-                                  Horas
+                                <label className="block text-[10px] font-black uppercase text-zinc-700 mb-0.5 text-center">
+                                  HORAS
                                 </label>
                                 <input
                                   type="text"
                                   readOnly
                                   value={`${itemHoursDisplay}h`}
                                   placeholder="0,00h"
-                                  title="Total de horas calculado pelos turnos do Apontamento de Ponto"
-                                  className="w-full px-2 py-1.5 bg-zinc-100 border border-zinc-300 rounded-lg text-xs font-black text-center text-zinc-900 cursor-not-allowed select-none shadow-2xs font-mono"
+                                  title="TOTAL DE HORAS CALCULADO PELOS TURNOS DO APONTAMENTO DE PONTO"
+                                  className="w-full px-2 py-1 bg-zinc-100 border border-slate-300 rounded text-xs font-black text-center text-zinc-900 cursor-not-allowed select-none shadow-2xs font-mono"
                                 />
                               </div>
 
                               {/* Valor da Hora */}
                               <div className="col-span-3 sm:col-span-2">
-                                <label className="block text-[10px] font-bold text-zinc-600 mb-1 text-right">
-                                  $/hora
+                                <label className="block text-[10px] font-black uppercase text-zinc-700 mb-0.5 text-right">
+                                  $/HORA
                                 </label>
                                 <input
                                   type="number"
@@ -1987,18 +1987,18 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                     const val = e.target.value;
                                     handleUpdateLaborItem(index, { hourlyRate: val === '' ? 0 : (parseFloat(val) || 0) });
                                   }}
-                                  placeholder="R$/h"
-                                  title="Valor da Hora (R$)"
-                                  className="w-full px-2 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-bold text-right text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-2xs font-mono"
+                                  placeholder="R$/H"
+                                  title="VALOR DA HORA (R$)"
+                                  className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-right text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden shadow-2xs font-mono"
                                 />
                               </div>
 
                               {/* Subtotal */}
                               <div className="col-span-12 sm:col-span-2">
-                                <label className="block text-[10px] font-bold text-zinc-600 mb-1 text-right">
-                                  Subtotal
+                                <label className="block text-[10px] font-black uppercase text-zinc-700 mb-0.5 text-right">
+                                  SUBTOTAL
                                 </label>
-                                <div className="px-2 py-1.5 bg-zinc-100 rounded-lg text-xs font-black text-zinc-900 font-mono text-right truncate border border-zinc-300 shadow-2xs">
+                                <div className="px-2 py-1 bg-zinc-100 rounded text-xs font-black text-zinc-900 font-mono text-right truncate border border-slate-300 shadow-2xs">
                                   {formatCurrencyBRL(item.totalCost || 0)}
                                 </div>
                               </div>
