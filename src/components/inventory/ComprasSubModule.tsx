@@ -11,7 +11,10 @@ import {
   X,
   Printer,
   CheckSquare,
-  Square
+  Square,
+  FolderOpen,
+  Calendar,
+  Sparkles
 } from 'lucide-react';
 import { InventoryItem, CompanyProfile } from '../../types';
 import { formatCurrencyBRL } from '../../lib/formatters';
@@ -34,8 +37,16 @@ export interface PurchaseDraftItem {
   unitCost: number;
 }
 
+export interface HistoricoCompra {
+  id: string;
+  nome: string;
+  data: string;
+  itens: PurchaseDraftItem[];
+}
+
 const STORAGE_KEY = 'agrocontrol_rascunho_compras';
 const LEGACY_STORAGE_KEY = 'colaca_silagem_compras_draft';
+const HISTORICO_COMPRAS_STORAGE_KEY = 'agrocontrol_historico_compras';
 
 // Gerador do HTML A4 formatado e anti-sandbox para a Lista de Compras
 function generatePurchasePrintHtml(items: PurchaseDraftItem[], company: CompanyProfile): string {
@@ -236,13 +247,52 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
-  // 4. ESTADOS DO MODAL DE ITENS CRÍTICOS (ESTOQUE BAIXO)
+  // 4. BANCO HISTÓRICO DE LISTAS DE COMPRAS ARQUIVADAS (agrocontrol_historico_compras)
+  const [historicoCompras, setHistoricoCompras] = useState<HistoricoCompra[]>(() => {
+    try {
+      const raw = localStorage.getItem(HISTORICO_COMPRAS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
+
+  const persistHistorico = (lista: HistoricoCompra[]) => {
+    setHistoricoCompras(lista);
+    try {
+      localStorage.setItem(HISTORICO_COMPRAS_STORAGE_KEY, JSON.stringify(lista));
+    } catch (_) {}
+  };
+
+  // Identificação da lista ativa carregada na tela (id e nome)
+  const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [activeListNome, setActiveListNome] = useState<string>('');
+
+  // Modais de Salvamento e Central de Listas
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [saveNomeInput, setSaveNomeInput] = useState('');
+  const saveInputRef = useRef<HTMLInputElement>(null);
+
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
+
+  // Auto-persistência reativa da lista de rascunho temporária
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(purchaseList));
+      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(purchaseList));
+    } catch (_) {}
+  }, [purchaseList]);
+
+  // 5. ESTADOS DO MODAL DE ITENS CRÍTICOS (ESTOQUE BAIXO)
   const [isCriticalModalOpen, setIsCriticalModalOpen] = useState(false);
   const [criticalSelectedMap, setCriticalSelectedMap] = useState<Record<string, boolean>>({});
   const [criticalQtyMap, setCriticalQtyMap] = useState<Record<string, string>>({});
   const [criticalSearchTerm, setCriticalSearchTerm] = useState('');
 
-  // 5. ESTADO DO MODAL DE IMPRESSÃO A4 ANTI-SANDBOX
+  // 6. ESTADO DO MODAL DE IMPRESSÃO A4 ANTI-SANDBOX
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const productInputRef = useRef<HTMLInputElement>(null);
@@ -505,23 +555,112 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
     setToastMessage(`✓ ${selectedItems.length} PRODUTOS CRÍTICOS INSERIDOS NO RASCUNHO!`);
   };
 
-  // Salvar rascunho no LocalStorage
-  const handleSaveDraft = () => {
+  // Abertura do modal de salvamento por nome
+  const handleOpenSaveModal = () => {
+    if (purchaseList.length === 0) {
+      setToastMessage('⚠️ ADICIONE AO MENOS UM ITEM NA LISTA ANTES DE SALVAR.');
+      return;
+    }
+    setSaveNomeInput(activeListNome || '');
+    setIsSaveModalOpen(true);
+    setTimeout(() => {
+      saveInputRef.current?.focus();
+      saveInputRef.current?.select();
+    }, 40);
+  };
+
+  // Confirmar Salvamento de Lista de Compras por Nome
+  const handleConfirmSaveList = (saveAsNew = false) => {
+    const nomeFinal = saveNomeInput.trim().toUpperCase();
+    if (!nomeFinal) {
+      setToastMessage('INFORME UM NOME VÁLIDO PARA A LISTA DE COMPRAS.');
+      return;
+    }
+
+    const isUpdating = activeListId && !saveAsNew;
+    const targetId = isUpdating ? activeListId : Date.now().toString();
+
+    const listaData: HistoricoCompra = {
+      id: targetId,
+      nome: nomeFinal,
+      data: new Date().toLocaleDateString('pt-BR'),
+      itens: [...purchaseList],
+    };
+
+    let novaLista: HistoricoCompra[];
+    if (isUpdating) {
+      novaLista = historicoCompras.map(l => l.id === targetId ? listaData : l);
+    } else {
+      novaLista = [listaData, ...historicoCompras];
+    }
+
+    persistHistorico(novaLista);
+    setActiveListId(targetId);
+    setActiveListNome(nomeFinal);
+    setIsSaveModalOpen(false);
+    setToastMessage(`💾 LISTA "${nomeFinal}" SALVA NO HISTÓRICO COM SUCESSO!`);
+  };
+
+  // Reabrir lista do histórico
+  const handleLoadListFromHistory = (lista: HistoricoCompra) => {
+    const items = lista.itens || [];
+    setPurchaseList(items);
+
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(purchaseList));
-      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(purchaseList));
-      setToastMessage('💾 RASCUNHO DA LISTA DE COMPRAS SALVO COM SUCESSO NO LOCALSTORAGE!');
-    } catch (_) {
-      setToastMessage('ERRO AO SALVAR RASCUNHO NO LOCALSTORAGE.');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(items));
+      window.dispatchEvent(new Event('agrocontrol_rascunho_compras_updated'));
+    } catch (_) {}
+
+    setActiveListId(lista.id);
+    setActiveListNome(lista.nome);
+    setIsHistoryModalOpen(false);
+
+    setToastMessage(`✓ LISTA "${lista.nome}" REABERTA COM SUCESSO!`);
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 20);
+  };
+
+  // Excluir lista do histórico
+  const handleDeleteListFromHistory = (id: string, nome: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (confirm(`DESEJA EXCLUIR DEFINITIVAMENTE A LISTA "${nome}" DO HISTÓRICO?`)) {
+      const novaLista = historicoCompras.filter(l => l.id !== id);
+      persistHistorico(novaLista);
+      if (activeListId === id) {
+        setActiveListId(null);
+        setActiveListNome('');
+      }
+      setToastMessage(`🗑️ LISTA "${nome}" REMOVIDA DO HISTÓRICO.`);
     }
   };
 
-  // Limpar lista e LocalStorage
-  const handleConfirmClearDraft = () => {
+  // Iniciar nova lista em branco (sem apagar histórico)
+  const handleNewBlankList = () => {
     setPurchaseList([]);
+    setActiveListId(null);
+    setActiveListNome('');
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      window.dispatchEvent(new Event('agrocontrol_rascunho_compras_updated'));
+    } catch (_) {}
+    setToastMessage('✨ NOVA LISTA EM BRANCO INICIADA COM SUCESSO.');
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 20);
+  };
+
+  // Limpar lista e rascunho temporário do LocalStorage
+  const handleConfirmClearDraft = () => {
+    setPurchaseList([]);
+    setActiveListId(null);
+    setActiveListNome('');
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      window.dispatchEvent(new Event('agrocontrol_rascunho_compras_updated'));
     } catch (_) {}
     setShowClearConfirmModal(false);
     setToastMessage('🗑️ RASCUNHO DE COMPRAS ZERADO COM SUCESSO.');
@@ -529,6 +668,21 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
       productInputRef.current?.focus();
     }, 10);
   };
+
+  // Filtragem de listas arquivadas dentro do modal
+  const filteredHistory = useMemo(() => {
+    const term = historySearchTerm.trim().toLowerCase();
+    if (!term) return historicoCompras;
+    return historicoCompras.filter(l => {
+      const nome = String(l.nome || '').toLowerCase();
+      const data = String(l.data || '').toLowerCase();
+      const hasItem = (l.itens || []).some(it => 
+        String(it.description || '').toLowerCase().includes(term) ||
+        String(it.code || '').toLowerCase().includes(term)
+      );
+      return nome.includes(term) || data.includes(term) || hasItem;
+    });
+  }, [historicoCompras, historySearchTerm]);
 
   // Cálculos de resumo
   const totalItemsCount = useMemo(() => {
@@ -572,23 +726,69 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
       )}
 
       {/* CABEÇALHO COMPACTO COM BOX DE RESUMO REATIVO NO TOPO DIREITO */}
-      <div className="flex items-center justify-between gap-2 px-1 shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
           <FileText className="w-4 h-4 text-slate-700 dark:text-stone-300" />
           <h3 className="text-xs font-black uppercase text-slate-800 dark:text-stone-100 tracking-wider">
             BLOCO DE RASCUNHO DE COMPRAS • DIGITAÇÃO RÁPIDA (PDV)
           </h3>
-          <span className="text-[10px] text-slate-500 font-semibold hidden md:inline">
+          <span className="text-[10px] text-slate-500 font-semibold hidden lg:inline">
             [F3: FOCAR PRODUTO | EX: "5*" PARA MULTIPLICAR | ENTER: INSERIR]
           </span>
+          {activeListNome && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-700 text-[10px] font-black uppercase shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+              <span>LISTA ATIVA: {activeListNome}</span>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* BOTÃO REATIVO: ABRIR LISTA SALVA */}
+          <button
+            type="button"
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="text-xs font-bold uppercase px-3 py-1 rounded bg-[#1e293b] hover:bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer transition active:scale-95 shadow-xs"
+            title="Abrir Central de Listas de Compras Arquivadas"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+            <span>📜 ABRIR LISTA SALVA</span>
+            {historicoCompras.length > 0 && (
+              <span className="px-1.5 py-0.2 text-[9px] rounded-full bg-slate-700 text-slate-200 font-mono">
+                {historicoCompras.length}
+              </span>
+            )}
+          </button>
+
+          {/* BOTÃO SALVAR LISTA */}
+          <button
+            type="button"
+            onClick={handleOpenSaveModal}
+            className="text-xs font-bold uppercase px-3 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-xs"
+            title="Salvar ou atualizar lista no histórico"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>💾 SALVAR LISTA</span>
+          </button>
+
+          {/* BOTÃO NOVA LISTA (se houver itens ou lista ativa) */}
+          {(purchaseList.length > 0 || activeListNome) && (
+            <button
+              type="button"
+              onClick={handleNewBlankList}
+              className="text-[10px] font-black uppercase px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-stone-800 dark:text-stone-300 border border-slate-300 dark:border-stone-700 flex items-center gap-1 cursor-pointer transition"
+              title="Iniciar nova lista em branco (mantendo histórico salvo)"
+            >
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              <span>NOVA LISTA</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleOpenCriticalModal}
             title="Selecionar produtos com estoque baixo ou no limite mínimo"
-            className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 cursor-pointer transition shadow-xs"
+            className="text-[10px] font-black uppercase px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 cursor-pointer transition shadow-xs"
           >
             <TrendingDown className="w-3 h-3 text-amber-600" />
             <span>PUXAR CRÍTICOS ({belowStockItems.length})</span>
@@ -811,12 +1011,25 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
           <button
             type="button"
-            onClick={handleSaveDraft}
+            onClick={handleOpenSaveModal}
             className="flex-1 sm:flex-none px-4 py-1.5 text-xs font-black uppercase rounded bg-slate-800 hover:bg-slate-900 text-white transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center gap-1.5 tracking-wider"
+            title="Salvar lista com nome no histórico"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>💾 SALVAR RASCUNHO DA LISTA</span>
+            <span>💾 SALVAR LISTA</span>
           </button>
+
+          {(purchaseList.length > 0 || activeListNome) && (
+            <button
+              type="button"
+              onClick={handleNewBlankList}
+              className="flex-1 sm:flex-none px-3 py-1.5 text-xs font-black uppercase rounded bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-stone-800 dark:text-stone-200 border border-slate-300 dark:border-stone-700 transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center gap-1.5 tracking-wider"
+              title="Iniciar nova lista em branco (mantendo histórico salvo)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span>NOVA LISTA</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -827,9 +1040,10 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-stone-800 dark:text-stone-600'
                 : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs'
             }`}
+            title="Zerar os itens atualmente na tela"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>🗑️ EXCLUIR LISTA COMPLETA</span>
+            <span>🗑️ ZERAR TELA</span>
           </button>
         </div>
       </div>
@@ -1099,6 +1313,251 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
                 SIM, ZERAR RASCUNHO
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. MODAL CUSTOMIZADO: SALVAMENTO DE LISTA DE COMPRAS NO HISTÓRICO POR NOME */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl max-w-lg w-full p-5 space-y-4">
+            
+            {/* CABEÇALHO DO MODAL */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-3">
+              <div className="flex items-center gap-2 text-slate-800 dark:text-white">
+                <Save className="w-5 h-5 text-emerald-600" />
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider">
+                  💾 SALVAR LISTA DE COMPRAS NO HISTÓRICO
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-1 tracking-wider">
+                  INFORME O NOME / IDENTIFICAÇÃO DESTA LISTA DE COMPRAS *
+                </label>
+                <input
+                  ref={saveInputRef}
+                  type="text"
+                  value={saveNomeInput}
+                  onChange={(e) => setSaveNomeInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleConfirmSaveList(false);
+                    }
+                  }}
+                  placeholder="EX: LISTA DE COMPRAS - SAFRA 2026/2027"
+                  className="w-full px-3 py-2 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-850 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono shadow-xs"
+                />
+              </div>
+
+              <div className="p-2.5 rounded bg-slate-50 dark:bg-stone-850 border border-slate-200 dark:border-stone-750 text-[10px] text-slate-500 dark:text-stone-400 space-y-1">
+                <div>• Total de produtos incluídos: <strong>{purchaseList.length}</strong> ({totalItemsCount.toLocaleString('pt-BR')} UN)</div>
+                <div>• Valor total estimado: <strong>{formatCurrencyBRL(totalEstimatedCost)}</strong></div>
+                <div>• Armazenamento: <strong>100% Offline LocalStorage ('agrocontrol_historico_compras')</strong></div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="px-3.5 py-1.5 text-xs font-bold uppercase rounded bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-stone-800 dark:text-stone-300 transition cursor-pointer"
+              >
+                CANCELAR
+              </button>
+
+              {activeListId && (
+                <button
+                  type="button"
+                  onClick={() => handleConfirmSaveList(true)}
+                  className="px-3.5 py-1.5 text-xs font-black uppercase rounded bg-blue-600 hover:bg-blue-700 text-white transition active:scale-95 cursor-pointer shadow-xs"
+                >
+                  SALVAR COMO NOVA
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleConfirmSaveList(false)}
+                className="px-4 py-1.5 text-xs font-black uppercase rounded bg-emerald-600 hover:bg-emerald-700 text-white transition active:scale-95 cursor-pointer shadow-xs"
+              >
+                {activeListId ? 'ATUALIZAR LISTA ATUAL' : 'CONFIRMAR E SALVAR'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 5. MODAL 2: CENTRAL DE LISTAS DE COMPRAS ARQUIVADAS (PADRÃO OURO DE JANELA AMPLA) */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-100">
+          <div className="w-full max-w-5xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl">
+            
+            {/* CABEÇALHO MDI TRIDIMENSIONAL ACETINADO */}
+            <div className="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-900 text-white px-4 py-3 border-b border-slate-700 shadow-md flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <FolderOpen className="w-5 h-5 text-amber-400" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-100">
+                  CENTRAL DE LISTAS DE COMPRAS ARQUIVADAS
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {historicoCompras.length} LISTAS NO BANCO
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/10 transition cursor-pointer"
+                title="Fechar Janela"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* BARRA DE PESQUISA DENTRO DO MODAL */}
+            <div className="bg-slate-100 dark:bg-stone-850 px-4 py-2 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
+              <div className="text-xs font-bold uppercase text-slate-600 dark:text-stone-300">
+                SELECIONE UMA LISTA PARA RECUPERAR ITENS E QUANTIDADES NO BLOCO DE COMPRAS:
+              </div>
+              <div className="relative w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={historySearchTerm}
+                  onChange={(e) => setHistorySearchTerm(e.target.value.toUpperCase())}
+                  placeholder="FILTRAR LISTAS..."
+                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-slate-800 dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
+                />
+              </div>
+            </div>
+
+            {/* MIOLO: LISTAGEM DE LISTAS ARQUIVADAS EM TABELA SLIM HORIZONTAL ZEBRADA */}
+            <div className="flex-1 overflow-y-auto overflow-x-auto bg-slate-50 dark:bg-stone-900 border-b border-slate-300 dark:border-stone-700">
+              {filteredHistory.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 dark:text-stone-500 uppercase font-bold text-xs">
+                  <FolderOpen className="w-10 h-10 text-slate-300 dark:text-stone-600 mx-auto mb-2" />
+                  NENHUMA LISTA DE COMPRAS ARQUIVADA ENCONTRADA.
+                  <div className="text-[10px] font-normal normal-case mt-1 text-slate-400">
+                    Insira itens na tabela e clique em &ldquo;💾 SALVAR LISTA&rdquo; para arquivar uma lista por nome neste banco.
+                  </div>
+                </div>
+              ) : (
+                <table className="w-full table-fixed text-left border-collapse">
+                  <thead className="bg-slate-200 dark:bg-stone-850 text-slate-700 dark:text-stone-300 font-black text-[10px] uppercase border-b border-slate-300 dark:border-stone-700 sticky top-0 z-10 shadow-xs">
+                    <tr>
+                      <th className="px-3 py-1.5 w-28 whitespace-nowrap">DATA</th>
+                      <th className="px-3 py-1.5 w-64 whitespace-nowrap">IDENTIFICAÇÃO / NOME DA LISTA</th>
+                      <th className="px-3 py-1.5 whitespace-nowrap">ITENS / PRODUTOS</th>
+                      <th className="px-3 py-1.5 w-32 text-right whitespace-nowrap">QTDE TOTAL</th>
+                      <th className="px-3 py-1.5 w-32 text-right whitespace-nowrap">AÇÕES</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-stone-750">
+                    {filteredHistory.map((lista) => {
+                      const isCurrent = activeListId === lista.id;
+                      const itemCount = lista.itens?.length || 0;
+                      const totalQty = (lista.itens || []).reduce((acc, it) => acc + (Number(it.quantity) || 0), 0);
+                      const prodSummary = (lista.itens || []).map(it => it.description).slice(0, 4).join(', ') + (itemCount > 4 ? '...' : '');
+
+                      return (
+                        <tr
+                          key={lista.id}
+                          className="even:bg-[#eaeaea] odd:bg-white dark:even:bg-stone-800 dark:odd:bg-stone-850 border-b border-slate-300 dark:border-stone-700 hover:bg-emerald-50/70 dark:hover:bg-stone-750 transition-colors"
+                        >
+                          {/* [DATA] */}
+                          <td className="px-3 py-1 text-[11px] font-mono font-bold text-slate-700 dark:text-stone-300 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>{lista.data || '-'}</span>
+                            </div>
+                          </td>
+
+                          {/* [IDENTIFICAÇÃO / NOME DA LISTA] */}
+                          <td className="px-3 py-1 text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="truncate" title={lista.nome}>
+                                {lista.nome}
+                              </span>
+                              {isCurrent && (
+                                <span className="inline-block text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap shrink-0">
+                                  ✓ ATIVA NA TELA
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* [ITENS / PRODUTOS] */}
+                          <td className="px-3 py-1 text-[10px] uppercase whitespace-nowrap overflow-hidden">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-800 dark:text-stone-200 font-black shrink-0">
+                                {itemCount} ITEM(NS)
+                              </span>
+                              <span className="text-slate-600 dark:text-stone-400 truncate" title={(lista.itens || []).map(i => i.description).join(', ')}>
+                                {prodSummary || '-'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* [QTDE TOTAL] */}
+                          <td className="px-3 py-1 text-right font-mono font-black text-slate-900 dark:text-white text-xs whitespace-nowrap">
+                            {totalQty.toLocaleString('pt-BR')} UN
+                          </td>
+
+                          {/* [AÇÕES] */}
+                          <td className="px-3 py-1 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleLoadListFromHistory(lista)}
+                                className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs py-1 px-3 rounded flex items-center gap-1 uppercase transition active:scale-95 cursor-pointer shadow-xs"
+                                title="Abrir esta lista de compras na tela principal"
+                              >
+                                <FolderOpen className="w-3 h-3" />
+                                <span>ABRIR</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteListFromHistory(lista.id, lista.nome, e)}
+                                className="p-1 px-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/70 border border-transparent hover:border-rose-300 dark:hover:border-rose-800 rounded transition cursor-pointer"
+                                title="Excluir lista do histórico"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* RODAPÉ DO MODAL COM BOTÃO FECHAR COLADO NA BASE */}
+            <div className="bg-slate-100 dark:bg-stone-850 px-4 py-2 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between shrink-0">
+              <div className="text-[11px] text-slate-500 dark:text-stone-400 font-bold uppercase">
+                * O BANCO DE LISTAS É PERMANENTE E INDEPENDENTE DO RASCUNHO TEMPORÁRIO.
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="px-5 py-1.5 text-xs font-black uppercase rounded bg-slate-800 hover:bg-slate-900 text-white transition active:scale-95 cursor-pointer shadow-xs"
+              >
+                FECHAR
+              </button>
+            </div>
+
           </div>
         </div>
       )}
