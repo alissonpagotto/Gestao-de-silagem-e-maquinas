@@ -197,35 +197,46 @@ export const loadAgrocontrolClientes = (fallback: Client[] = []): Client[] => {
   return Array.from(map.values());
 };
 
-// Carregador reativo da conta bancária com status de 'PRIORITÁRIA' ou primeira ativa
+// Carregador reativo dinâmico da conta bancária com status 'isPriority' ou primeira ativa (100% livre de hardcode)
 export const getPrioritaryBankAccount = (): { bankName: string; agency: string; accountNumber: string; rawText: string } => {
   try {
-    const raw = localStorage.getItem('agrocontrol_bancos_contas') ||
-                localStorage.getItem('agrocontrol_bancos') ||
+    const raw = localStorage.getItem('agrocontrol_bancos') ||
                 localStorage.getItem('agrocontrol_contas_bancarias') ||
                 localStorage.getItem('agrocontrol_financeiro_contas') ||
+                localStorage.getItem('agrocontrol_bancos_contas') ||
                 localStorage.getItem('colaca_silagem_financeiro_contas');
     if (raw) {
       const list = JSON.parse(raw);
       if (Array.isArray(list) && list.length > 0) {
         const priority = list.find((a: any) => 
+          a.isPriority === true || 
+          a.prioritaria === true
+        ) || list.find((a: any) =>
           String(a.status || '').toUpperCase() === 'PRIORITÁRIA' || 
           String(a.status || '').toUpperCase() === 'PRIORITARIA' || 
-          a.prioritaria === true || 
           a.isDefault === true || 
-          a.padrao === true ||
+          a.padrao === true
+        ) || list.find((a: any) => 
           String(a.status || '').toLowerCase() === 'ativa' ||
           String(a.status || '').toLowerCase() === 'ativo'
         ) || list[0];
 
-        const bName = (priority.bankName || priority.banco || priority.nome || 'SICREDI').toUpperCase();
-        const ag = priority.agency || priority.agencia || '0725';
-        const num = priority.accountNumber || priority.conta || priority.numeroConta || '12345-6';
+        const bName = (priority.bankName || priority.banco || priority.nome || priority.name || '').toUpperCase().trim();
+        const ag = (priority.agency || priority.agencia || '').trim();
+        const num = (priority.accountNumber || priority.conta || priority.numeroConta || '').trim();
+        const digit = (priority.accountDigit || priority.digito || '').trim();
+        const fullAccount = num ? `${num}${digit ? `-${digit}` : ''}` : '';
+
+        const parts: string[] = [];
+        if (bName) parts.push(bName);
+        if (ag) parts.push(`AG: ${ag}`);
+        if (fullAccount) parts.push(`C/C: ${fullAccount}`);
+
         return {
           bankName: bName,
           agency: ag,
-          accountNumber: num,
-          rawText: `${bName} - AG: ${ag} C/C: ${num}`
+          accountNumber: fullAccount,
+          rawText: parts.join(' - ') || bName || 'CONTA BANCÁRIA'
         };
       }
     }
@@ -233,10 +244,10 @@ export const getPrioritaryBankAccount = (): { bankName: string; agency: string; 
     console.warn('Erro ao carregar conta prioritária do LocalStorage:', e);
   }
   return {
-    bankName: 'SICREDI',
-    agency: '0725',
-    accountNumber: '12345-6',
-    rawText: 'SICREDI - AG: 0725 C/C: 12345-6'
+    bankName: '',
+    agency: '',
+    accountNumber: '',
+    rawText: 'NENHUMA CONTA PRIORITÁRIA DEFINIDA'
   };
 };
 

@@ -720,6 +720,8 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       responsavel_conta_id: responsavelContaId || undefined,
       responsavel_conta_nome: responsavelContaNome || undefined,
       responsavel_conta_documento: responsavelContaDoc || undefined,
+      isPriority: editingAccount?.isPriority,
+      prioritaria: editingAccount?.prioritaria,
     });
 
     // Disparar badge temporário de sucesso no rodapé e MANTER modal aberto

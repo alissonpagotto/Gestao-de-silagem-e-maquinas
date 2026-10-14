@@ -14,7 +14,8 @@ import {
   QrCode, 
   Sparkles, 
   FileText, 
-  Link2 
+  Link2,
+  Star 
 } from 'lucide-react';
 import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts } from '../../lib/storage';
@@ -155,25 +156,26 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
     }
   }, [accounts]);
 
-  // Listener reativo de LocalStorage para atualizar as contas instantaneamente em tempo real
+  // Listener reativo de LocalStorage e eventos para atualizar as contas instantaneamente em tempo real
   useEffect(() => {
-    const handleStorageUpdate = (e: StorageEvent) => {
-      if (
-        !e.key || 
-        e.key === 'agrocontrol_bancos' || 
-        e.key === 'agrocontrol_contas_bancarias' || 
-        e.key === 'agrocontrol_financeiro_contas'
-      ) {
-        try {
-          const fresh = loadInitialLocalAccounts();
-          if (Array.isArray(fresh) && fresh.length > 0) {
-            setLocalAccounts(fresh);
-          }
-        } catch (_) {}
-      }
+    const handleStorageUpdate = (e?: StorageEvent | Event) => {
+      try {
+        const fresh = loadInitialLocalAccounts();
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          setLocalAccounts(fresh);
+        }
+      } catch (_) {}
     };
     window.addEventListener('storage', handleStorageUpdate);
-    return () => window.removeEventListener('storage', handleStorageUpdate);
+    window.addEventListener('agrocontrol_bancos_updated', handleStorageUpdate);
+    window.addEventListener('agrocontrol_bancos_contas_updated', handleStorageUpdate);
+    window.addEventListener('bank_accounts_updated', handleStorageUpdate);
+    return () => {
+      window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('agrocontrol_bancos_updated', handleStorageUpdate);
+      window.removeEventListener('agrocontrol_bancos_contas_updated', handleStorageUpdate);
+      window.removeEventListener('bank_accounts_updated', handleStorageUpdate);
+    };
   }, []);
 
   const lastPropsJsonRef = useRef(JSON.stringify(accounts || []));
@@ -262,6 +264,74 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       }
     } catch (err) {
       console.warn('Erro ao atualizar saldo da conta bancária:', err);
+    }
+  };
+
+  // Alternância exclusiva de conta bancária prioritária (100% offline e reativa)
+  const handleSetPriorityAccount = (accountId: string) => {
+    try {
+      const activeCompanyId = getActiveCompanyId();
+
+      // 1. Ler contas da chave oficial e espelhos
+      let baseList: BankAccount[] = [];
+      const rawUnified = localStorage.getItem('agrocontrol_bancos') ||
+                         localStorage.getItem('agrocontrol_contas_bancarias') ||
+                         localStorage.getItem('agrocontrol_financeiro_contas');
+      if (rawUnified) {
+        try {
+          const parsed = JSON.parse(rawUnified);
+          if (Array.isArray(parsed) && parsed.length > 0) baseList = parsed;
+        } catch (_) {}
+      }
+      if (baseList.length === 0 && effectiveAccounts.length > 0) {
+        baseList = [...effectiveAccounts];
+      }
+
+      if (baseList.length === 0) return;
+
+      // 2. Definir isPriority: false para todas e isPriority: true unicamente na selecionada
+      const updatedAccounts: BankAccount[] = baseList.map((a) => {
+        const isSelected = a.id === accountId;
+        return {
+          ...a,
+          isPriority: isSelected,
+          prioritaria: isSelected,
+        };
+      });
+
+      // 3. Salvar array atualizado no LocalStorage nas chaves oficiais e espelhos
+      const json = JSON.stringify(updatedAccounts);
+      localStorage.setItem('agrocontrol_bancos', json);
+      localStorage.setItem('agrocontrol_contas_bancarias', json);
+      localStorage.setItem('agrocontrol_financeiro_contas', json);
+      localStorage.setItem('agrocontrol_bancos_contas', json);
+      localStorage.setItem('colaca_silagem_financeiro_contas', json);
+
+      if (activeCompanyId) {
+        localStorage.setItem(`agrocontrol_bancos_${activeCompanyId}`, json);
+        localStorage.setItem(`colaca_silagem_financeiro_contas_${activeCompanyId}`, json);
+      }
+
+      saveStoredBankAccounts(updatedAccounts);
+      setLocalAccounts(updatedAccounts);
+      lastPropsJsonRef.current = json;
+
+      if (onSaveAccounts) {
+        onSaveAccounts(updatedAccounts);
+      }
+
+      // 4. Forçar atualização reativa em tempo real (PDV e abas)
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('agrocontrol_bancos_contas_updated'));
+      window.dispatchEvent(new Event('bank_accounts_updated'));
+      window.dispatchEvent(new Event('storage'));
+
+      const target = updatedAccounts.find((a) => a.id === accountId);
+      if (target) {
+        upsertContaBancaria(target, activeCompanyId).catch(console.warn);
+      }
+    } catch (err) {
+      console.warn('Erro ao alternar conta prioritária:', err);
     }
   };
 
@@ -578,6 +648,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
             let safeOverdraft = 0;
             let safeAccName = 'Conta Bancária';
             let safeId = `acc_${index}`;
+            let isPriorityAccount = false;
 
             try {
               if (acc) {
@@ -591,6 +662,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                 safeOverdraft = typeof acc.overdraftLimit === 'number' && !isNaN(acc.overdraftLimit) ? acc.overdraftLimit : 0;
                 hasOverdraft = safeOverdraft > 0;
                 totalAccAvailable = safeAccBalance + safeOverdraft;
+                isPriorityAccount = Boolean(acc.isPriority === true || acc.prioritaria === true);
               }
             } catch (err) {
               console.warn('Erro ao processar visual da conta bancária:', err);
@@ -641,9 +713,17 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                       </div>
                     </div>
 
-                    <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded shrink-0 leading-none shadow-2xs border uppercase ${theme.badgeBg}`}>
-                      {getAccountTypeLabel(safeAccountType)}
-                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isPriorityAccount && (
+                        <span className="text-[8px] font-black px-1.5 py-0.2 rounded leading-none shadow-2xs border uppercase bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700/60 flex items-center gap-0.5">
+                          <Star className="w-2 h-2 fill-amber-500 text-amber-600 dark:text-amber-400" />
+                          <span>EMISSÃO</span>
+                        </span>
+                      )}
+                      <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded shrink-0 leading-none shadow-2xs border uppercase ${theme.badgeBg}`}>
+                        {getAccountTypeLabel(safeAccountType)}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Card de Saldo Compacto com fundo e borda temáticos */}
@@ -729,23 +809,40 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                   </div>
 
                   {/* Barra de Ações Integrada */}
-                  <div className="flex items-center justify-between pt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenStatement(acc?.id)}
-                      className="inline-flex items-center space-x-1 text-[10px] font-bold text-[#0963cb] hover:text-blue-800 hover:bg-blue-50/80 px-1.5 py-0.5 rounded transition cursor-pointer active:scale-95 uppercase"
-                      title="Ver Extrato da Conta"
-                    >
-                      <FileText className="w-2.5 h-2.5" />
-                      <span>VER EXTRATO</span>
-                    </button>
+                  <div className="flex items-center justify-between pt-1 gap-1 border-t border-black/5 dark:border-white/5">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenStatement(acc?.id)}
+                        className="inline-flex items-center space-x-1 text-[9.5px] font-bold text-[#0963cb] hover:text-blue-800 hover:bg-blue-50/80 px-1.5 py-1 rounded transition cursor-pointer active:scale-95 uppercase tracking-wider"
+                        title="VER EXTRATO DA CONTA"
+                      >
+                        <FileText className="w-2.5 h-2.5" />
+                        <span>VER EXTRATO</span>
+                      </button>
 
-                    <div className="flex items-center space-x-0.5">
+                      <button
+                        type="button"
+                        id={`btn-prioridade-${safeId}`}
+                        onClick={() => handleSetPriorityAccount(acc?.id || safeId)}
+                        className={`inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-1 rounded transition cursor-pointer active:scale-95 uppercase tracking-wider border ${
+                          isPriorityAccount
+                            ? 'bg-amber-100/90 hover:bg-amber-200/90 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:hover:bg-amber-900/80 dark:text-amber-200 dark:border-amber-700/60 shadow-2xs'
+                            : 'text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-stone-800 border-transparent hover:border-slate-300'
+                        }`}
+                        title={isPriorityAccount ? 'CONTA PRIORITÁRIA ATIVA PARA EMISSÃO' : 'CLIQUE PARA ATIVAR COMO CONTA PRIORITÁRIA DE EMISSÃO'}
+                      >
+                        <Star className={`w-2.5 h-2.5 ${isPriorityAccount ? 'fill-amber-400 text-amber-600 dark:fill-amber-400 dark:text-amber-300' : 'text-slate-400'}`} />
+                        <span>{isPriorityAccount ? '⭐ PRIORITÁRIA' : '⭐ ATIVAR EMISSÃO'}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center space-x-0.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOpenModal(acc)}
                         className="p-1 text-stone-400 hover:text-[#0963cb] hover:bg-sky-50 rounded transition cursor-pointer"
-                        title="Editar Conta"
+                        title="EDITAR CONTA"
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
@@ -753,7 +850,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                         type="button"
                         onClick={() => acc && handleDelete(acc.id)}
                         className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
-                        title="Excluir Conta"
+                        title="EXCLUIR CONTA"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>

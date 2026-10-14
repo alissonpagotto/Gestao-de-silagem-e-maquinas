@@ -1270,6 +1270,9 @@ export interface BankAccount {
   responsavel_conta_id?: string; // ID do Responsável Geral pela Conta Corrente
   responsavel_conta_nome?: string; // Nome Completo / Razão Social do Responsável
   responsavel_conta_documento?: string; // CPF ou CNPJ do Responsável pela Conta
+  isPriority?: boolean; // Conta prioritária para emissão de boletos e PDV
+  prioritaria?: boolean; // Alias para compatibilidade
+  status?: string;
 }
 
 export interface BankTransaction {
