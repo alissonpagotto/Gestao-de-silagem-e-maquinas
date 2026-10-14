@@ -633,6 +633,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
+  const valorPagoInputRef = useRef<HTMLInputElement>(null);
   const productSearchContainerRef = useRef<HTMLDivElement>(null);
 
   // Cliente selecionado no PDV
@@ -1222,8 +1223,17 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     const totalFreteCalculado = fretesVinculados.reduce((acc, f) => acc + (f.valorTotal || 0), 0);
     const liquido = Math.max(0, bruto - desconto) + totalFreteCalculado;
-    const pagoNumerico = valorPagoInput ? parseFloat(valorPagoInput.replace(/\./g, '').replace(',', '.')) || 0 : liquido;
-    const troco = Math.max(0, pagoNumerico - liquido);
+
+    let pagoNumerico = liquido;
+    if (valorPagoInput && valorPagoInput.trim()) {
+      const cleanVal = valorPagoInput.trim();
+      if (cleanVal.includes(',')) {
+        pagoNumerico = parseFloat(cleanVal.replace(/\./g, '').replace(',', '.')) || 0;
+      } else {
+        pagoNumerico = parseFloat(cleanVal) || 0;
+      }
+    }
+    const troco = Math.max(0, Math.round((pagoNumerico - liquido) * 100) / 100);
 
     return {
       totalBruto: bruto,
@@ -1866,6 +1876,22 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   };
 
+  // Acionamento Reativo e Foco Operacional no Botão "À VISTA"
+  const handleAcionarAVista = () => {
+    setFormaPagamento('a_vista');
+    const formattedLiquido = totals.totalLiquido > 0 
+      ? totals.totalLiquido.toFixed(2).replace('.', ',') 
+      : '0,00';
+    setValorPagoInput(formattedLiquido);
+
+    setTimeout(() => {
+      if (valorPagoInputRef.current) {
+        valorPagoInputRef.current.focus();
+        valorPagoInputRef.current.select();
+      }
+    }, 20);
+  };
+
   // Abrir Janela Modal Centralizada de Fechamento do PDV (F2)
   const handleOpenCheckoutModal = () => {
     if (items.length === 0) {
@@ -1876,11 +1902,20 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
 
     // Sincronizar o valor recebido padrão para o total líquido se estiver vazio ou zerado
-    if (!valorPagoInput || parseFloat(valorPagoInput.replace(',', '.')) <= 0) {
-      setValorPagoInput(totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00');
+    const formattedTotal = totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00';
+    if (!valorPagoInput || parseFloat(valorPagoInput.replace(/\./g, '').replace(',', '.')) <= 0) {
+      setValorPagoInput(formattedTotal);
     }
 
     setIsCheckoutModalOpen(true);
+
+    // Se estiver em À VISTA (padrão de abertura), selecionar e focar automaticamente
+    setTimeout(() => {
+      if (valorPagoInputRef.current) {
+        valorPagoInputRef.current.focus();
+        valorPagoInputRef.current.select();
+      }
+    }, 50);
   };
 
   // Confirmar Venda 100% Offline e Executar Bypass de Impressão na aba '_blank'
@@ -2102,11 +2137,16 @@ export const PdvView: React.FC<PdvViewProps> = ({
           handlePrintSafe();
         }
       }
+      // F1 / Alt+1: Selecionar À VISTA (Dinheiro) se Modal de Fechamento estiver aberto
+      else if (isCheckoutModalOpen && (e.key === 'F1' || (e.altKey && e.key === '1'))) {
+        e.preventDefault();
+        handleAcionarAVista();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [items, totals, formaPagamento, lastFinishedSale, confirmDialog, formatoImpressao]);
+  }, [items, totals, formaPagamento, lastFinishedSale, confirmDialog, formatoImpressao, isCheckoutModalOpen]);
 
   // Funções Anti-Sandbox para Impressão, Download e Cópia Segura
   const handlePrintSafe = () => {
@@ -2974,7 +3014,16 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     </span>
                     <button
                       type="button"
-                      onClick={() => setValorPagoInput(totals.totalLiquido.toFixed(2).replace('.', ','))}
+                      onClick={() => {
+                        const formatted = totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00';
+                        setValorPagoInput(formatted);
+                        setTimeout(() => {
+                          if (valorPagoInputRef.current) {
+                            valorPagoInputRef.current.focus();
+                            valorPagoInputRef.current.select();
+                          }
+                        }, 20);
+                      }}
                       className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-stone-700 text-sky-700 dark:text-sky-300 border border-slate-300 dark:border-stone-600 hover:bg-sky-50 uppercase cursor-pointer"
                       title="Copiar valor exato líquido"
                     >
@@ -2982,9 +3031,18 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     </button>
                   </div>
                   <input
+                    ref={valorPagoInputRef}
                     type="text"
                     value={valorPagoInput}
                     onChange={e => setValorPagoInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleConfirmarEImprimir();
+                      }
+                    }}
+                    onFocus={e => e.target.select()}
+                    onClick={e => (e.target as HTMLInputElement).select()}
                     placeholder={totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00'}
                     className="w-full text-2xl sm:text-3xl font-black font-['Outfit'] text-zinc-900 dark:text-white bg-transparent outline-none mt-1 border-b border-slate-300 dark:border-stone-600 focus:border-amber-500 font-mono"
                   />
@@ -3001,11 +3059,11 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     </span>
                     <CheckCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <div className={`text-2xl sm:text-3xl font-black font-['Outfit'] mt-1 ${totals.troco > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-stone-500'}`}>
+                  <div className={`text-2xl sm:text-3xl font-black font-['Outfit'] mt-1 ${totals.troco > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-stone-500'}`}>
                     {formatCurrencyBRL(totals.troco)}
                   </div>
-                  <div className="text-[9.5px] font-bold text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-                    {totals.troco > 0 ? 'CALCULADO AUTOMATICAMENTE' : 'SEM TROCO A DEVOLVER'}
+                  <div className={`text-[9.5px] font-black mt-0.5 uppercase tracking-wide truncate ${totals.troco > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-emerald-700/80 dark:text-emerald-400/80'}`}>
+                    {totals.troco > 0 ? `DEVOLVER ${formatCurrencyBRL(totals.troco)} EM DINHEIRO` : 'SEM TROCO A DEVOLVER'}
                   </div>
                 </div>
               </div>
@@ -3181,7 +3239,13 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                       <button
                         key={method.key}
                         type="button"
-                        onClick={() => setFormaPagamento(method.key as any)}
+                        onClick={() => {
+                          if (method.key === 'a_vista') {
+                            handleAcionarAVista();
+                          } else {
+                            setFormaPagamento(method.key as any);
+                          }
+                        }}
                         className={`py-2 px-2 rounded-lg text-xs font-black uppercase transition cursor-pointer text-center border shadow-2xs ${
                           isSelected
                             ? 'bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-white border-amber-600 ring-2 ring-amber-300 dark:ring-amber-800'
