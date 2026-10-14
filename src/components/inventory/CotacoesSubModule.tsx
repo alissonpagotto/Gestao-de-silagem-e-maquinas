@@ -13,7 +13,8 @@ import {
   X, 
   AlertTriangle,
   Calendar,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Zap
 } from 'lucide-react';
 import { InventoryItem, CompanyProfile } from '../../types';
 import { formatCurrencyBRL } from '../../lib/formatters';
@@ -284,13 +285,16 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
   // Nomes dos 3 fornecedores concorrentes (persistidos)
   const [fornecedorA, setFornecedorA] = useState<string>(() => {
-    return localStorage.getItem('colaca_cotacao_fornecedor_a') || 'FORNECEDOR A (DISTRIBUIDOR PRINCIPAL)';
+    const saved = localStorage.getItem('colaca_cotacao_fornecedor_a');
+    return saved !== null ? saved : 'FORNECEDOR A (DISTRIBUIDOR PRINCIPAL)';
   });
   const [fornecedorB, setFornecedorB] = useState<string>(() => {
-    return localStorage.getItem('colaca_cotacao_fornecedor_b') || 'FORNECEDOR B (ATACADÃO REGIONAL)';
+    const saved = localStorage.getItem('colaca_cotacao_fornecedor_b');
+    return saved !== null ? saved : 'FORNECEDOR B (ATACADÃO REGIONAL)';
   });
   const [fornecedorC, setFornecedorC] = useState<string>(() => {
-    return localStorage.getItem('colaca_cotacao_fornecedor_c') || 'FORNECEDOR C (COOPERATIVA AGRO)';
+    const saved = localStorage.getItem('colaca_cotacao_fornecedor_c');
+    return saved !== null ? saved : 'FORNECEDOR C (COOPERATIVA AGRO)';
   });
 
   // Mapa de preços cotados por item: { [id]: { precoA, precoB, precoC } }
@@ -786,26 +790,41 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
     }
   };
 
-  // 3. LIMPAR TELA OU EXCLUIR COTAÇÃO ABERTA
+  // 3. INICIAR NOVA COTAÇÃO (LIMPEZA TOTAL VOLÁTIL SEM APAGAR HISTÓRICO)
+  const handleNewCotacao = () => {
+    setQuotedItems([]);
+    setCotacoes({});
+    setFornecedorA('');
+    setFornecedorB('');
+    setFornecedorC('');
+    setActiveCotacaoId(null);
+    setActiveCotacaoNome('');
+    setSearchProductText('');
+    setSelectedProduct(null);
+    setSearchTerm('');
+    try {
+      localStorage.setItem('colaca_cotacao_fornecedor_a', '');
+      localStorage.setItem('colaca_cotacao_fornecedor_b', '');
+      localStorage.setItem('colaca_cotacao_fornecedor_c', '');
+      localStorage.removeItem('colaca_cotacao_precos_map');
+      localStorage.removeItem('agrocontrol_cotacao_itens');
+      localStorage.removeItem('colaca_cotacao_itens_list');
+      window.dispatchEvent(new Event('agrocontrol_cotacoes_updated'));
+    } catch (_) {}
+    setToastMessage('⚡ NOVA COTAÇÃO EM BRANCO INICIADA COM SUCESSO.');
+    setTimeout(() => {
+      productInputRef.current?.focus();
+    }, 20);
+  };
+
+  // 4. LIMPAR TELA OU EXCLUIR COTAÇÃO ABERTA
   const handleOpenClearDeleteModal = () => {
     setIsClearDeleteModalOpen(true);
   };
 
   const handleExecuteClearScreenOnly = () => {
-    setQuotedItems([]);
-    setCotacoes({});
-    setActiveCotacaoId(null);
-    setActiveCotacaoNome('');
-    try {
-      localStorage.removeItem('colaca_cotacao_precos_map');
-      localStorage.removeItem('agrocontrol_cotacao_itens');
-      localStorage.removeItem('colaca_cotacao_itens_list');
-    } catch (_) {}
+    handleNewCotacao();
     setIsClearDeleteModalOpen(false);
-    setToastMessage('✨ TELA LIMPA COM SUCESSO. PRONTO PARA NOVA COTAÇÃO!');
-    setTimeout(() => {
-      productInputRef.current?.focus();
-    }, 10);
   };
 
   const handleExecuteDeleteFromHistoryAndClear = () => {
@@ -813,7 +832,8 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
       const novaLista = historicoCotacoes.filter(c => c.id !== activeCotacaoId);
       persistHistorico(novaLista);
     }
-    handleExecuteClearScreenOnly();
+    handleNewCotacao();
+    setIsClearDeleteModalOpen(false);
     setToastMessage('🗑️ COTAÇÃO EXCLUÍDA DO HISTÓRICO E TELA RESETADA COM SUCESSO.');
   };
 
@@ -853,18 +873,12 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
       <div className="shrink-0 z-20 bg-gradient-to-b from-slate-100 via-white to-slate-100 dark:from-stone-850 dark:via-stone-900 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 p-2 shadow-xs space-y-1.5">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-emerald-600" />
+            <Building2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-xs font-black uppercase text-slate-800 dark:text-stone-100 tracking-wide">
                   PAINEL DE COTAÇÕES & COMPARATIVO MULTIFORNECEDOR
                 </h3>
-                {activeCotacaoNome && (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
-                    <span>📁 ABERTO:</span>
-                    <strong className="truncate max-w-[180px]">{activeCotacaoNome}</strong>
-                  </span>
-                )}
               </div>
               <p className="text-[10px] text-slate-500 dark:text-stone-400">
                 Histórico com múltiplos salvamentos por nome e inteligência colorimétrica de preços.
@@ -872,19 +886,65 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* BADGE DINÂMICO DE STATUS VISUAL IDÊNTICO À TELA DE COMPRAS */}
+            {activeCotacaoNome ? (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-700 text-[10px] font-black uppercase shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                <span>• COTAÇÃO ATIVA: {activeCotacaoNome}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 text-[10px] font-black uppercase shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                <span>• NOVA COTAÇÃO EM ANDAMENTO (NÃO ARQUIVADA)</span>
+              </div>
+            )}
+
             {/* BOTÃO CENTRAL DE HISTÓRICO DE COTAÇÕES */}
             <button
               type="button"
               onClick={() => setIsHistoryModalOpen(true)}
-              className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 cursor-pointer flex items-center gap-1.5 shadow-xs transition"
+              className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-[#1e293b] hover:bg-slate-900 text-white dark:bg-stone-800 dark:hover:bg-stone-750 dark:text-stone-100 border border-slate-700 dark:border-stone-700 cursor-pointer flex items-center gap-1.5 shadow-xs transition active:scale-95"
               title="Abrir cotações salvas no histórico"
             >
-              <FolderOpen className="w-3.5 h-3.5 text-amber-600" />
-              <span>📜 ABRIR COTAÇÃO SALVA ({historicoCotacoes.length})</span>
+              <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span>📜 ABRIR COTAÇÃO SALVA</span>
+              {historicoCotacoes.length > 0 && (
+                <span className="px-1.5 py-0.2 text-[9px] rounded-full bg-slate-700 text-slate-200 font-mono">
+                  {historicoCotacoes.length}
+                </span>
+              )}
             </button>
 
-            <div className="relative w-40 sm:w-48">
+            {/* BOTÃO SALVAR COTAÇÃO */}
+            <button
+              type="button"
+              onClick={handleOpenSaveModal}
+              disabled={quotedItems.length === 0}
+              className={`text-[10px] font-black uppercase px-2.5 py-1 rounded border flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-xs ${
+                quotedItems.length === 0
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-slate-300 dark:bg-stone-800 dark:text-stone-600 dark:border-stone-700'
+                  : 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800'
+              }`}
+              title="Salvar ou atualizar esta cotação no histórico"
+            >
+              <Save className="w-3 h-3" />
+              <span>💾 SALVAR COTAÇÃO</span>
+            </button>
+
+            {/* LOCAL 1: BOTÃO ⚡ NOVA COTAÇÃO NA BARRA DE FERRAMENTAS SUPERIOR */}
+            <button
+              type="button"
+              onClick={handleNewCotacao}
+              className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 border border-amber-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-xs font-black"
+              title="Iniciar nova cotação do zero (limpar tela sem apagar histórico)"
+            >
+              <Zap className="w-3 h-3 text-slate-950 fill-slate-950" />
+              <span>⚡ NOVA COTAÇÃO</span>
+            </button>
+
+            {/* FILTRAR NA TABELA */}
+            <div className="relative w-36 sm:w-44">
               <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -1313,24 +1373,28 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
         {/* 3. REAJUSTE DE BOTÕES DO RODAPÉ (SLIM DESIGN PRO) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 mt-2 border-t border-slate-200 dark:border-stone-750">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500 dark:text-stone-400">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 dark:text-stone-400">
             {activeCotacaoNome ? (
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                <span>📁 ARQUIVADA:</span>
-                <strong className="font-black">{activeCotacaoNome}</strong>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-700 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                <span>• COTAÇÃO ATIVA:</span>
+                <strong className="font-black text-blue-950 dark:text-blue-100 truncate max-w-[200px]">{activeCotacaoNome}</strong>
               </span>
             ) : (
-              <span>* NOVA COTAÇÃO EM ANDAMENTO (NÃO ARQUIVADA)</span>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                <span>• NOVA COTAÇÃO EM ANDAMENTO (NÃO ARQUIVADA)</span>
+              </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
             {/* BOTÃO 1: IMPRIMIR ESTA COTAÇÃO (A4) */}
             <button
               type="button"
               onClick={() => setIsPrintModalOpen(true)}
               disabled={quotedItems.length === 0}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
                 quotedItems.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-stone-800 dark:text-stone-600'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs'
@@ -1346,7 +1410,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
               type="button"
               onClick={handleOpenSaveModal}
               disabled={quotedItems.length === 0}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
                 quotedItems.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-stone-800 dark:text-stone-600'
                   : 'bg-slate-800 hover:bg-slate-900 text-white cursor-pointer shadow-xs'
@@ -1357,12 +1421,23 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
               <span>💾 SALVAR COTAÇÃO</span>
             </button>
 
+            {/* LOCAL 2: BOTÃO ⚡ NOVA COTAÇÃO (ENTRE SALVAR E LIMPAR/EXCLUIR) */}
+            <button
+              type="button"
+              onClick={handleNewCotacao}
+              className="flex-1 sm:flex-none px-3 py-1.5 text-xs font-black uppercase rounded bg-amber-500 hover:bg-amber-600 text-slate-950 font-black border border-amber-600 transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center gap-1.5 tracking-wider"
+              title="Iniciar nova cotação do zero (reseta a grade e fornecedores mantendo o histórico)"
+            >
+              <Zap className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
+              <span>⚡ NOVA COTAÇÃO</span>
+            </button>
+
             {/* BOTÃO 3: LIMPAR TELA / EXCLUIR */}
             <button
               type="button"
               onClick={handleOpenClearDeleteModal}
               disabled={quotedItems.length === 0 && !activeCotacaoId}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-black uppercase rounded transition active:scale-95 flex items-center justify-center gap-1.5 tracking-wider ${
                 quotedItems.length === 0 && !activeCotacaoId
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-stone-800 dark:text-stone-600'
                   : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs'
