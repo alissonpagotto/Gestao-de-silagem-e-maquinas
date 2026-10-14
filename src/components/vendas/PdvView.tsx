@@ -251,6 +251,238 @@ export const getPrioritaryBankAccount = (): { bankName: string; agency: string; 
   };
 };
 
+export const generatePrintableSaleHtml = (
+  sale: any,
+  format: 'a4' | 'termica',
+  company?: CompanyProfile | null
+): string => {
+  const isA4 = format === 'a4';
+  const companyName = (company?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS').toUpperCase();
+  const companyDoc = company?.cnpjCpf || company?.cnpj || '12.345.678/0001-90';
+  const companyAddress = company?.address || 'Rodovia BR-163, KM 120 • Sorriso - MT';
+  const companyPhone = company?.phone || '(66) 99988-7766';
+
+  if (isA4) {
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>ESPELHO DE VENDA - ${sale.orderNumber}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 11px; color: #0f172a; background: #fff; line-height: 1.35; padding: 15px; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-title { font-size: 15px; font-weight: 900; text-transform: uppercase; color: #047857; letter-spacing: 0.5px; }
+    .company-sub { font-size: 10px; color: #475569; margin-top: 3px; font-weight: 500; }
+    .order-box { text-align: right; border-left: 1px solid #cbd5e1; padding-left: 14px; min-width: 190px; }
+    .order-tag { display: inline-block; background: #d1fae5; color: #065f46; font-size: 9px; font-weight: 900; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .order-num { font-size: 17px; font-weight: 900; font-family: monospace; color: #0f172a; margin-top: 3px; }
+    .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin: 12px 0; }
+    .info-label { font-size: 8.5px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-val { font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase; margin-top: 1px; }
+    .bank-box { grid-column: span 4; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; padding: 6px 10px; font-weight: 800; color: #0369a1; font-size: 10px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { background: #e2e8f0; font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #1e293b; padding: 6px 8px; border: 1px solid #cbd5e1; letter-spacing: 0.3px; }
+    td { padding: 5px 8px; border: 1px solid #e2e8f0; font-size: 10.5px; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .font-mono { font-family: monospace; }
+    .totals-area { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .totals-box { width: 300px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; }
+    .totals-row { display: flex; justify-content: space-between; padding: 4px 10px; font-size: 10.5px; font-weight: 600; border-bottom: 1px solid #f1f5f9; }
+    .totals-main { background: #fef3c7; font-weight: 900; font-size: 12.5px; color: #78350f; border-bottom: 1px solid #fde68a; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
+    .sig-line { width: 45%; text-align: center; border-top: 1px solid #64748b; padding-top: 5px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: #475569; }
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company-title">${companyName}</div>
+      <div class="company-sub">
+        CNPJ/CPF: ${companyDoc} | ${companyAddress} | ${companyPhone}
+      </div>
+    </div>
+    <div class="order-box">
+      <div class="order-tag">ESPELHO DE VENDA PDV</div>
+      <div class="order-num">${sale.orderNumber}</div>
+      <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">${sale.date} às ${sale.time}</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div>
+      <div class="info-label">CLIENTE / PRODUTOR:</div>
+      <div class="info-val">${sale.client || 'CONSUMIDOR FINAL'}</div>
+    </div>
+    <div>
+      <div class="info-label">FAZENDA / DESTINO:</div>
+      <div class="info-val">${sale.farmName || 'BALCÃO'}</div>
+    </div>
+    <div>
+      <div class="info-label">FORMA DE PAGAMENTO:</div>
+      <div class="info-val" style="color: #047857;">${sale.forma}</div>
+    </div>
+    <div>
+      <div class="info-label">TIPO COBRANÇA:</div>
+      <div class="info-val" style="color: #0369a1;">${sale.tipoCobranca || 'À VISTA'}</div>
+    </div>
+    ${sale.bancoEmissor ? `<div class="bank-box">🏛️ BANCO EMISSOR: <strong>${sale.bancoEmissor}</strong></div>` : ''}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="text-center" style="width: 25px;">#</th>
+        <th style="width: 75px;">CÓDIGO</th>
+        <th>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+        <th class="text-center" style="width: 45px;">UN</th>
+        <th class="text-right" style="width: 60px;">QTDE</th>
+        <th class="text-right" style="width: 85px;">VALOR UNIT.</th>
+        <th class="text-right" style="width: 65px;">DESC.</th>
+        <th class="text-right" style="width: 100px;">TOTAL LÍQUIDO</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sale.items.map((it: any, idx: number) => `
+        <tr>
+          <td class="text-center text-slate-500 font-mono">${idx + 1}</td>
+          <td class="font-mono" style="font-weight: 700; color: #475569;">${it.codigo || 'DIV'}</td>
+          <td><strong>${it.descricao}</strong></td>
+          <td class="text-center" style="font-weight: 700;">${it.unidade}</td>
+          <td class="text-right font-mono" style="font-weight: 700;">${it.quantidade.toFixed(2).replace('.', ',')}</td>
+          <td class="text-right font-mono">${formatCurrencyBRL(it.precoUnitario)}</td>
+          <td class="text-right font-mono" style="color: #dc2626; font-weight: 700;">${it.percentualDesconto > 0 ? it.percentualDesconto.toFixed(1).replace('.', ',') + '%' : '-'}</td>
+          <td class="text-right font-mono" style="font-weight: 900;">${formatCurrencyBRL(it.totalLiquido)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="totals-area">
+    <div class="totals-box">
+      <div class="totals-row"><span>TOTAL BRUTO:</span><span class="font-mono">${formatCurrencyBRL(sale.totalBruto)}</span></div>
+      <div class="totals-row"><span>DESCONTOS:</span><span class="font-mono" style="color: #dc2626;">${formatCurrencyBRL(sale.totalDesconto)}</span></div>
+      <div class="totals-row totals-main"><span>TOTAL LÍQUIDO:</span><span class="font-mono">${formatCurrencyBRL(sale.totalLiquido)}</span></div>
+      <div class="totals-row"><span>VALOR RECEBIDO:</span><span class="font-mono">${formatCurrencyBRL(sale.valorPago)}</span></div>
+      <div class="totals-row"><span>TROCO:</span><span class="font-mono" style="color: #059669; font-weight: 800;">${formatCurrencyBRL(sale.troco)}</span></div>
+    </div>
+  </div>
+
+  ${sale.parcelas && sale.parcelas.length > 0 ? `
+    <div style="margin-top: 15px;">
+      <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #334155; margin-bottom: 4px;">PROGRAMAÇÃO DE PARCELAS A RECEBER:</div>
+      <table>
+        <thead>
+          <tr><th style="width: 25%;">PARCELA</th><th style="width: 40%;">VENCIMENTO</th><th class="text-right">VALOR</th></tr>
+        </thead>
+        <tbody>
+          ${sale.parcelas.map((p: any) => `
+            <tr>
+              <td><strong>${p.numero}ª Parcela</strong></td>
+              <td>${p.vencimento ? formatDateBR(p.vencimento) : '-'}</td>
+              <td class="text-right font-mono"><strong>${formatCurrencyBRL(p.valor)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  ` : ''}
+
+  <div class="signatures">
+    <div class="sig-line">EMISSOR / OPERADOR DO CAIXA</div>
+    <div class="sig-line">${sale.client || 'ASSINATURA DO CLIENTE'}</div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      window.focus();
+      setTimeout(function() { window.print(); }, 250);
+    };
+  </script>
+</body>
+</html>`;
+  }
+
+  // 80mm Cupom Térmico
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>CUPOM - ${sale.orderNumber}</title>
+  <style>
+    @page { size: 80mm auto; margin: 2mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #000; background: #fff; line-height: 1.25; width: 72mm; margin: 0 auto; padding: 5px 0; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .font-bold { font-weight: bold; }
+    .dashed { border-top: 1px dashed #000; margin: 5px 0; }
+    .double { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3px 0; margin: 5px 0; }
+    .item-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px; }
+    @media print {
+      body { width: 100%; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="text-center font-bold" style="font-size: 12px;">${companyName}</div>
+  <div class="text-center" style="font-size: 9px;">${companyDoc}</div>
+  <div class="text-center" style="font-size: 9px;">${companyAddress}</div>
+  <div class="dashed"></div>
+  <div class="text-center font-bold">CUPOM NÃO FISCAL</div>
+  <div class="text-center font-bold" style="font-size: 13px;">PEDIDO: ${sale.orderNumber}</div>
+  <div class="text-center" style="font-size: 9px;">DATA: ${sale.date} ${sale.time}</div>
+  <div class="dashed"></div>
+  <div>CLIENTE: <span class="font-bold">${sale.client || 'CONSUMIDOR FINAL'}</span></div>
+  ${sale.farmName ? `<div>FAZENDA: ${sale.farmName}</div>` : ''}
+  <div>PAGTO:   <span class="font-bold">${sale.forma}</span></div>
+  ${sale.bancoEmissor ? `<div>BANCO:   <span class="font-bold">${sale.bancoEmissor}</span></div>` : ''}
+  <div class="double text-center font-bold" style="font-size: 9.5px;">ITENS DO PEDIDO</div>
+  ${sale.items.map((it: any, idx: number) => `
+    <div style="margin-bottom: 4px;">
+      <div class="font-bold">${idx + 1}. [${it.codigo || 'DIV'}] ${it.descricao}</div>
+      <div class="item-row">
+        <span>${it.quantidade.toFixed(2).replace('.', ',')} ${it.unidade} x ${formatCurrencyBRL(it.precoUnitario)}</span>
+        <span class="font-bold">${formatCurrencyBRL(it.totalLiquido)}</span>
+      </div>
+    </div>
+  `).join('')}
+  <div class="dashed"></div>
+  <div class="item-row"><span>TOTAL BRUTO:</span><span>${formatCurrencyBRL(sale.totalBruto)}</span></div>
+  <div class="item-row"><span>DESCONTOS:</span><span>${formatCurrencyBRL(sale.totalDesconto)}</span></div>
+  <div class="item-row font-bold" style="font-size: 12px;"><span>TOTAL LÍQUIDO:</span><span>${formatCurrencyBRL(sale.totalLiquido)}</span></div>
+  <div class="item-row"><span>VALOR RECEBIDO:</span><span>${formatCurrencyBRL(sale.valorPago)}</span></div>
+  <div class="item-row font-bold"><span>TROCO:</span><span>${formatCurrencyBRL(sale.troco)}</span></div>
+  ${sale.parcelas && sale.parcelas.length > 0 ? `
+    <div class="dashed"></div>
+    <div class="font-bold text-center" style="font-size: 9.5px;">PARCELAS A RECEBER (${sale.parcelas.length}x):</div>
+    ${sale.parcelas.map((p: any) => `
+      <div class="item-row" style="font-size: 9.5px;">
+        <span>${p.numero}ª (${p.vencimento ? formatDateBR(p.vencimento) : '-'})</span>
+        <span class="font-bold">${formatCurrencyBRL(p.valor)}</span>
+      </div>
+    `).join('')}
+  ` : ''}
+  <div class="dashed"></div>
+  <div class="text-center" style="font-size: 9px; margin-top: 6px;">OBRIGADO PELA PREFERÊNCIA!</div>
+  <div class="text-center font-bold" style="font-size: 8px;">AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE</div>
+  <script>
+    window.onload = function() {
+      window.focus();
+      setTimeout(function() { window.print(); }, 250);
+    };
+  </script>
+</body>
+</html>`;
+};
+
 export const PdvView: React.FC<PdvViewProps> = ({
   clients = [],
   companyProfile,
@@ -532,6 +764,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
       window.removeEventListener('bank_accounts_updated', syncAccount);
     };
   }, []);
+
+  // Modal Centralizado de Fechamento do PDV (Padrão Ouro Slim Design Pro)
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
 
   // Modal de Cupom / Espelho de Venda A4 com Suporte Anti-Sandbox
   const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
@@ -1017,14 +1252,26 @@ export const PdvView: React.FC<PdvViewProps> = ({
     searchInputRef.current?.focus();
   };
 
-  // Finalizar a Venda ou Contrato de Silagem no PDV (F2)
-  const handleFinalizarVenda = () => {
+  // Abrir Janela Modal Centralizada de Fechamento do PDV (F2)
+  const handleOpenCheckoutModal = () => {
     if (items.length === 0) {
       setWarningMessage('Nenhum item lançado no PDV. Insira ao menos um produto ou serviço antes de finalizar.');
       searchInputRef.current?.focus();
       setTimeout(() => setWarningMessage(null), 4000);
       return;
     }
+
+    // Sincronizar o valor recebido padrão para o total líquido se estiver vazio ou zerado
+    if (!valorPagoInput || parseFloat(valorPagoInput.replace(',', '.')) <= 0) {
+      setValorPagoInput(totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00');
+    }
+
+    setIsCheckoutModalOpen(true);
+  };
+
+  // Confirmar Venda 100% Offline e Executar Bypass de Impressão na aba '_blank'
+  const handleConfirmarEImprimir = () => {
+    if (items.length === 0) return;
 
     const isContract = operacaoTipo === 'contrato_silagem' || items.some(it => 
       it.codigo.startsWith('CTR-') ||
@@ -1096,11 +1343,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
       prazo: `A PRAZO [${cobrancaLabel}] (${prazoCondicao} - ${qtdeParcelas}x)`
     };
 
-    // 2. REGRA DE LANÇAMENTO PARA COMPRA EM CARTEIRA:
-    // Ao finalizar a venda em 'CARTEIRA' (ou A PRAZO), a função 'handleFinalizarVenda' gera automaticamente 
-    // as parcelas de recebimento e as injeta na chave 'agrocontrol_financeiro_receber' do LocalStorage vinculadas ao cliente.
+    // Gravação das parcelas a prazo no financeiro a receber
     if (formaPagamento === 'prazo') {
-      const clienteNomeFinal = clientSearch.trim() || clientNameResolved || 'MARCOS ROBERTO COELHO';
+      const clienteNomeFinal = clientSearch.trim() || clientNameResolved || 'CONSUMIDOR / CLIENTE';
       const parcelasList = parcelas.length > 0 ? parcelas : [
         { numero: 1, vencimento: dataPrimeiraParcela, valor: totals.totalLiquido }
       ];
@@ -1139,7 +1384,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       }
     }
 
-    setLastFinishedSale({
+    const saleRecord = {
       orderNumber: orderNum,
       date: formatDateBR(dateStr),
       time: timeStr,
@@ -1157,23 +1402,42 @@ export const PdvView: React.FC<PdvViewProps> = ({
       valorPago: totals.valorPago,
       troco: totals.troco,
       parcelas: formaPagamento === 'prazo' ? [...parcelas] : undefined
-    });
+    };
 
-    // Limpar o PDV
-    handleLimparPdv();
-
-    // Ativar o formato de impressão selecionado e abrir o comprovante/espelho
+    setLastFinishedSale(saleRecord);
     setActivePrintFormat(formatoImpressao);
-    setIsReceiptOpen(true);
+    handleLimparPdv();
+    setIsCheckoutModalOpen(false);
+
+    // Bypass de Sandbox: Abrir aba '_blank' com o layout de impressão correto
+    try {
+      const printHtml = generatePrintableSaleHtml(saleRecord, formatoImpressao, companyProfile);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(printHtml);
+        printWindow.document.close();
+      } else {
+        setIsReceiptOpen(true);
+      }
+    } catch (e) {
+      console.warn('Sandbox bypass notice:', e);
+      setIsReceiptOpen(true);
+    }
   };
 
-  // Teclas de Atalho do PDV (F2, F3, F4, F5)
+  // Teclas de Atalho do PDV (F2, F3, F4, F5, Esc)
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      // F2: Finalizar Venda
+      // F2: Finalizar Venda (Abre modal de fechamento)
       if (e.key === 'F2') {
         e.preventDefault();
-        handleFinalizarVenda();
+        handleOpenCheckoutModal();
+      }
+      // Esc: Fechar Modal de Fechamento se aberto
+      else if (e.key === 'Escape' && isCheckoutModalOpen) {
+        e.preventDefault();
+        setIsCheckoutModalOpen(false);
       }
       // F3: Focar Busca de Produtos
       else if (e.key === 'F3') {
@@ -1853,79 +2117,17 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
       </section>
 
       {/* =====================================================================
-          4. CONTROLE DE PAGAMENTO INTEGRADO & BOTÕES DE AÇÃO (RODAPÉ)
+          4. CONTROLE DE FECHAMENTO DO PDV (RODAPÉ SLIM DESIGN PRO)
          ===================================================================== */}
       <section 
-        aria-label="Controle de Pagamento Integrado"
+        aria-label="Controle de Fechamento do PDV"
         className="p-1.5 sm:p-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.1)] shrink-0"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           
-          {/* Seletor de Formas de Pagamento Rápidas */}
-          <div className="lg:col-span-5 flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mr-1 shrink-0">
-              PAGAMENTO:
-            </span>
-            <button
-              type="button"
-              onClick={() => setFormaPagamento('a_vista')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-                formaPagamento === 'a_vista'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:bg-slate-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              À VISTA
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormaPagamento('pix')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-                formaPagamento === 'pix'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:bg-slate-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              PIX
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormaPagamento('cartao_debito')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-                formaPagamento === 'cartao_debito'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:bg-slate-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              DÉBITO
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormaPagamento('cartao_credito')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-                formaPagamento === 'cartao_credito'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:bg-slate-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              CRÉDITO
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormaPagamento('prazo')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
-                formaPagamento === 'prazo'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
-                  : 'text-zinc-700 dark:text-stone-400 hover:bg-slate-300/60 dark:hover:bg-stone-800/60'
-              }`}
-            >
-              A PRAZO
-            </button>
-          </div>
-
           {/* Valor Pago pelo Cliente */}
-          <div className="lg:col-span-3 flex items-center gap-1.5">
-            <label className="text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 shrink-0">
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 shrink-0 whitespace-nowrap">
               VALOR PAGO (R$):
             </label>
             <input
@@ -1933,12 +2135,12 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               value={valorPagoInput}
               onChange={e => setValorPagoInput(e.target.value)}
               placeholder={totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00'}
-              className="w-full text-right px-2 py-0.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white font-mono shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-36 sm:w-44 text-right px-2.5 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white font-mono shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
             />
           </div>
 
-          {/* Trio de Botões de Ação do PDV */}
-          <div className="lg:col-span-4 flex items-center justify-end gap-1.5">
+          {/* Botões de Ação do PDV */}
+          <div className="flex items-center gap-1.5 ml-auto">
             <button
               type="button"
               onClick={async () => {
@@ -1957,7 +2159,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   handleLimparPdv();
                 }
               }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-300 border border-slate-400 dark:border-stone-700 hover:bg-slate-300 shadow-2xs transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-300 border border-slate-400 dark:border-stone-700 hover:bg-slate-300 shadow-2xs transition active:scale-95 cursor-pointer whitespace-nowrap"
               title="Cancelar itens da venda atual"
             >
               <X className="w-3.5 h-3.5 text-rose-500" />
@@ -1971,7 +2173,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   setActivePrintFormat(formatoImpressao);
                   setIsReceiptOpen(true);
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 text-white border border-sky-400 shadow-xs transition active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 text-white border border-sky-400 shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
                 title="Reimprimir cupom / espelho da última venda"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -1981,156 +2183,350 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
             <button
               type="button"
-              onClick={handleFinalizarVenda}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
-              title="Finalizar e gravar venda no sistema"
+              onClick={handleOpenCheckoutModal}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+              title="Finalizar e emitir comprovante da venda"
             >
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>[F2] FINALIZAR VENDA</span>
+              <span>✅ [F2] FINALIZAR VENDA</span>
             </button>
           </div>
 
         </div>
+      </section>
 
-        {/* Bloco Condição para Pagamento a Prazo (Abre dinamicamente) */}
-        {formaPagamento === 'prazo' && (
-          <div className="mt-2 pt-2 border-t border-slate-300 dark:border-stone-800 space-y-2 animate-in fade-in duration-150">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-              {/* 1. PRAZO */}
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  PRAZO:
-                </label>
-                <select
-                  value={prazoCondicao}
-                  onChange={e => setPrazoCondicao(e.target.value)}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value="30 DIAS">30 DIAS</option>
-                  <option value="30/60 DIAS">30/60 DIAS</option>
-                  <option value="30/60/90 DIAS">30/60/90 DIAS</option>
-                  <option value="SAFRA (FECHAMENTO)">SAFRA (FECHAMENTO)</option>
-                  <option value="PERSONALIZADO">PERSONALIZADO</option>
-                </select>
-              </div>
-
-              {/* 2. TIPO COBRANÇA * */}
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  TIPO COBRANÇA *:
-                </label>
-                <select
-                  value={tipoCobranca}
-                  onChange={e => setTipoCobranca(e.target.value as 'carteira' | 'boleto')}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value="carteira">💳 CARTEIRA (CONTA INTERNA)</option>
-                  <option value="boleto">📄 BOLETO BANCÁRIO</option>
-                </select>
-              </div>
-
-              {/* 3. FORMATO IMPRESSÃO * */}
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  FORMATO IMPRESSÃO *:
-                </label>
-                <select
-                  value={formatoImpressao}
-                  onChange={e => setFormatoImpressao(e.target.value as 'a4' | 'termica')}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value="a4">🖨️ FOLHA A4 RETRATO</option>
-                  <option value="termica">📟 TÉRMICA 80MM (CUPOM RAPIDO)</option>
-                </select>
-              </div>
-
-              {/* 4. DATA 1ª PARCELA */}
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  DATA 1ª PARCELA:
-                </label>
-                <input
-                  type="date"
-                  value={dataPrimeiraParcela}
-                  onChange={e => setDataPrimeiraParcela(e.target.value)}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
-                />
-              </div>
-
-              {/* 5. QTDE/PARCELAS */}
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  QTDE/PARCELAS:
-                </label>
-                <select
-                  value={qtdeParcelas}
-                  onChange={e => setQtdeParcelas(parseInt(e.target.value) || 1)}
-                  className="w-full px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value={1}>1x (Parcela Única)</option>
-                  <option value={2}>2x Mensais</option>
-                  <option value={3}>3x Mensais</option>
-                  <option value={4}>4x Mensais</option>
-                  <option value={6}>6x Mensais</option>
-                  <option value={12}>12x Anual</option>
-                </select>
-              </div>
-
-              {/* 6. VALOR TOTAL A PRAZO */}
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  VALOR TOTAL A PRAZO:
-                </label>
-                <div className="px-2 py-0.5 rounded-md border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black text-amber-700 dark:text-amber-400 font-mono shadow-2xs">
-                  {formatCurrencyBRL(totals.totalLiquido)}
-                </div>
-              </div>
-            </div>
-
-            {/* Micro badge / feedback informativo do banco emissor logo abaixo do seletor de cobrança */}
-            {tipoCobranca === 'boleto' && (
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-800 text-[10px] text-sky-800 dark:text-sky-300 shadow-2xs animate-in fade-in duration-150">
-                <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                <span className="font-bold text-slate-500 dark:text-stone-400 uppercase">BANCO EMISSOR DO BOLETO:</span>
-                <span className="font-mono text-xs font-black uppercase text-sky-950 dark:text-sky-100">{prioritaryAccount.rawText}</span>
-                <span className="ml-auto inline-flex items-center px-1.5 py-0.2 rounded bg-sky-600 text-white text-[9px] font-black uppercase tracking-wider">
-                  CONTA PRIORITÁRIA
+      {/* =====================================================================
+          NOVO: MODAL CENTRALIZADO DE FECHAMENTO DO PDV (PADRÃO OURO SLIM DESIGN PRO)
+         ===================================================================== */}
+      {isCheckoutModalOpen && (
+        <div 
+          id="modal-fechamento-pdv-overlay"
+          className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+          onClick={() => setIsCheckoutModalOpen(false)}
+        >
+          <div 
+            id="modal-fechamento-pdv"
+            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global select-none shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Cabeçalho Metálico Acetinado Padrão Ouro em CAIXA ALTA */}
+            <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 px-4 py-2.5 text-white flex items-center justify-between shadow-xs border-b border-amber-700/60 shrink-0">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-amber-100 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider font-['Outfit']">
+                  🖨️ CONCLUIR E EMITIR COMPROVANTE DE VENDA
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-black/20 text-white border border-white/20">
+                  {items.length} {items.length === 1 ? 'ITEM' : 'ITENS'} • {operacaoTipo === 'contrato_silagem' ? 'CONTRATO DE SILAGEM' : 'VENDA BALCÃO'}
                 </span>
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="p-1 hover:bg-black/20 rounded transition text-amber-100 hover:text-white cursor-pointer"
+                title="Fechar (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-            {/* Tabela Compacta de Parcelas Geradas */}
-            {parcelas.length > 0 && (
-              <div className="bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-800 overflow-hidden">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 border-b border-slate-200 dark:border-stone-700">
-                    <tr>
-                      <th className="py-0.5 px-2">PARCELA</th>
-                      <th className="py-0.5 px-2">VENCIMENTO</th>
-                      <th className="py-0.5 px-2 text-right">VALOR PARCELA</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-semibold text-[11px]">
-                    {parcelas.map(p => (
-                      <tr key={p.numero} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                        <td className="py-0.5 px-2 text-slate-700 dark:text-stone-300">
-                          {p.numero}ª Parcela
-                        </td>
-                        <td className="py-0.5 px-2 text-slate-700 dark:text-stone-300">
-                          {formatDateBR(p.vencimento)}
-                        </td>
-                        <td className="py-0.5 px-2 text-right font-black text-zinc-900 dark:text-white font-mono">
-                          {formatCurrencyBRL(p.valor)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Conteúdo Central do Modal com Trava Anti-Rolagem e Organização Limpa */}
+            <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto no-scrollbar space-y-3 bg-slate-100/70 dark:bg-stone-950/60">
+              
+              {/* 1. BLOCOS DE VALORES MACRO: CARDS DESTACADOS COM CONTORNOS FINOS DE AÇO */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Card Total Líquido a Pagar */}
+                <div className="bg-gradient-to-b from-amber-50 to-amber-100/70 dark:from-amber-950/40 dark:to-stone-900 border-2 border-amber-500/80 rounded-xl p-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider">
+                      TOTAL LÍQUIDO A PAGAR
+                    </span>
+                    <DollarSign className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-['Outfit'] text-amber-800 dark:text-amber-300 mt-1">
+                    {formatCurrencyBRL(totals.totalLiquido)}
+                  </div>
+                  <div className="text-[9.5px] font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5 truncate">
+                    SUBTOTAL: {formatCurrencyBRL(totals.totalBruto)} • DESC: {formatCurrencyBRL(totals.totalDesconto)}
+                  </div>
+                </div>
+
+                {/* Card Valor Recebido */}
+                <div className="bg-white dark:bg-stone-800 border-2 border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider">
+                      VALOR RECEBIDO (R$)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setValorPagoInput(totals.totalLiquido.toFixed(2).replace('.', ','))}
+                      className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-stone-700 text-sky-700 dark:text-sky-300 border border-slate-300 dark:border-stone-600 hover:bg-sky-50 uppercase cursor-pointer"
+                      title="Copiar valor exato líquido"
+                    >
+                      VALOR EXATO
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={valorPagoInput}
+                    onChange={e => setValorPagoInput(e.target.value)}
+                    placeholder={totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00'}
+                    className="w-full text-2xl sm:text-3xl font-black font-['Outfit'] text-zinc-900 dark:text-white bg-transparent outline-none mt-1 border-b border-slate-300 dark:border-stone-600 focus:border-amber-500 font-mono"
+                  />
+                  <div className="text-[9.5px] font-bold text-slate-500 dark:text-stone-400 mt-0.5">
+                    DIGITE O VALOR EFETIVAMENTE PAGO PELO CLIENTE
+                  </div>
+                </div>
+
+                {/* Card Troco */}
+                <div className="bg-gradient-to-b from-emerald-50 to-emerald-100/70 dark:from-emerald-950/40 dark:to-stone-900 border-2 border-emerald-500/80 rounded-xl p-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-emerald-900 dark:text-emerald-300 tracking-wider">
+                      TROCO A DEVOLVER
+                    </span>
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className={`text-2xl sm:text-3xl font-black font-['Outfit'] mt-1 ${totals.troco > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-stone-500'}`}>
+                    {formatCurrencyBRL(totals.troco)}
+                  </div>
+                  <div className="text-[9.5px] font-bold text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
+                    {totals.troco > 0 ? 'CALCULADO AUTOMATICAMENTE' : 'SEM TROCO A DEVOLVER'}
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* 2. GRADE DE BOTÕES DE FORMA DE PAGAMENTO REATIVOS */}
+              <div className="bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                    <span>FORMA DE PAGAMENTO:</span>
+                  </span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 font-mono uppercase">
+                    {formaPagamento === 'a_vista' && 'À VISTA (DINHEIRO)'}
+                    {formaPagamento === 'pix' && 'PIX INSTANTÂNEO'}
+                    {formaPagamento === 'cartao_debito' && 'CARTÃO DE DÉBITO'}
+                    {formaPagamento === 'cartao_credito' && 'CARTÃO DE CRÉDITO'}
+                    {formaPagamento === 'prazo' && 'A PRAZO (PARCELADO)'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                  {[
+                    { key: 'a_vista', label: 'À VISTA' },
+                    { key: 'pix', label: 'PIX' },
+                    { key: 'cartao_debito', label: 'DÉBITO' },
+                    { key: 'cartao_credito', label: 'CRÉDITO' },
+                    { key: 'prazo', label: 'A PRAZO' },
+                  ].map(method => {
+                    const isSelected = formaPagamento === method.key;
+                    return (
+                      <button
+                        key={method.key}
+                        type="button"
+                        onClick={() => setFormaPagamento(method.key as any)}
+                        className={`py-2 px-2 rounded-lg text-xs font-black uppercase transition cursor-pointer text-center border shadow-2xs ${
+                          isSelected
+                            ? 'bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-white border-amber-600 ring-2 ring-amber-300 dark:ring-amber-800'
+                            : 'bg-slate-100 dark:bg-stone-700 hover:bg-slate-200 dark:hover:bg-stone-600 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-600'
+                        }`}
+                      >
+                        {method.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Bloco Condição para Pagamento a Prazo (Expande dinamicamente) */}
+                {formaPagamento === 'prazo' && (
+                  <div className="mt-2 pt-2.5 border-t border-slate-200 dark:border-stone-700 space-y-2.5 animate-in fade-in duration-150">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                          PRAZO:
+                        </label>
+                        <select
+                          value={prazoCondicao}
+                          onChange={e => setPrazoCondicao(e.target.value)}
+                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                        >
+                          <option value="30 DIAS">30 DIAS</option>
+                          <option value="30/60 DIAS">30/60 DIAS</option>
+                          <option value="30/60/90 DIAS">30/60/90 DIAS</option>
+                          <option value="SAFRA (FECHAMENTO)">SAFRA (FECHAMENTO)</option>
+                          <option value="PERSONALIZADO">PERSONALIZADO</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                          TIPO COBRANÇA *:
+                        </label>
+                        <select
+                          value={tipoCobranca}
+                          onChange={e => setTipoCobranca(e.target.value as 'carteira' | 'boleto')}
+                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                        >
+                          <option value="carteira">💳 CARTEIRA (CONTA INTERNA)</option>
+                          <option value="boleto">📄 BOLETO BANCÁRIO</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                          DATA 1ª PARCELA:
+                        </label>
+                        <input
+                          type="date"
+                          value={dataPrimeiraParcela}
+                          onChange={e => setDataPrimeiraParcela(e.target.value)}
+                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                          QTDE/PARCELAS:
+                        </label>
+                        <select
+                          value={qtdeParcelas}
+                          onChange={e => setQtdeParcelas(parseInt(e.target.value) || 1)}
+                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                        >
+                          <option value={1}>1x (Parcela Única)</option>
+                          <option value={2}>2x Mensais</option>
+                          <option value={3}>3x Mensais</option>
+                          <option value={4}>4x Mensais</option>
+                          <option value={6}>6x Mensais</option>
+                          <option value={12}>12x Anual</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Inteligência de busca da conta bancária prioritária do LocalStorage */}
+                    {tipoCobranca === 'boleto' && (
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-800 text-[10px] text-sky-800 dark:text-sky-300 shadow-2xs">
+                        <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                        <span className="font-bold text-slate-500 dark:text-stone-400 uppercase">BANCO EMISSOR DO BOLETO:</span>
+                        <span className="font-mono text-xs font-black uppercase text-sky-950 dark:text-sky-100">{prioritaryAccount.rawText}</span>
+                        <span className="ml-auto inline-flex items-center px-1.5 py-0.2 rounded bg-sky-600 text-white text-[9px] font-black uppercase tracking-wider">
+                          ⭐ CONTA PRIORITÁRIA
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Tabela de Parcelas Previstas */}
+                    {parcelas.length > 0 && (
+                      <div className="bg-slate-50 dark:bg-stone-900 rounded-lg border border-slate-200 dark:border-stone-700 overflow-hidden max-h-28 overflow-y-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-slate-200 dark:bg-stone-800 text-[9.5px] font-black uppercase text-slate-700 dark:text-stone-300 border-b border-slate-300 dark:border-stone-700 sticky top-0">
+                            <tr>
+                              <th className="py-1 px-2.5">PARCELA</th>
+                              <th className="py-1 px-2.5">VENCIMENTO</th>
+                              <th className="py-1 px-2.5 text-right">VALOR</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-semibold text-[10.5px]">
+                            {parcelas.map(p => (
+                              <tr key={p.numero} className="even:bg-white dark:even:bg-stone-850 odd:bg-slate-50 dark:odd:bg-stone-900">
+                                <td className="py-1 px-2.5 text-slate-700 dark:text-stone-300">{p.numero}ª Parcela</td>
+                                <td className="py-1 px-2.5 text-slate-700 dark:text-stone-300">{formatDateBR(p.vencimento)}</td>
+                                <td className="py-1 px-2.5 text-right font-black font-mono text-zinc-900 dark:text-white">{formatCurrencyBRL(p.valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. SELETOR DE IMPRESSÃO FIXO */}
+              <div className="bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2">
+                <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
+                  <Printer className="w-3.5 h-3.5 text-slate-500" />
+                  <span>SELETOR DE FORMATO DE SAÍDA / IMPRESSÃO *:</span>
+                </span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormatoImpressao('a4')}
+                    className={`p-2.5 rounded-lg border text-left flex items-start gap-2.5 transition cursor-pointer ${
+                      formatoImpressao === 'a4'
+                        ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500 ring-2 ring-sky-300 dark:ring-sky-800 shadow-2xs'
+                        : 'bg-slate-50 dark:bg-stone-900/60 border-slate-300 dark:border-stone-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <FileText className={`w-5 h-5 shrink-0 mt-0.5 ${formatoImpressao === 'a4' ? 'text-sky-600' : 'text-slate-400'}`} />
+                    <div>
+                      <div className="text-xs font-black uppercase text-zinc-900 dark:text-white flex items-center gap-1.5">
+                        <span>🖨️ FOLHA A4 RETRATO</span>
+                        {formatoImpressao === 'a4' && (
+                          <span className="px-1.5 py-0.2 rounded bg-sky-600 text-white text-[8px] font-black uppercase">
+                            SELECIONADO
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5">
+                        Espelho formal de pedido e nota de venda com cabeçalho da empresa, tabela completa e campo para assinatura.
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormatoImpressao('termica')}
+                    className={`p-2.5 rounded-lg border text-left flex items-start gap-2.5 transition cursor-pointer ${
+                      formatoImpressao === 'termica'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-300 dark:ring-emerald-800 shadow-2xs'
+                        : 'bg-slate-50 dark:bg-stone-900/60 border-slate-300 dark:border-stone-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Receipt className={`w-5 h-5 shrink-0 mt-0.5 ${formatoImpressao === 'termica' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <div>
+                      <div className="text-xs font-black uppercase text-zinc-900 dark:text-white flex items-center gap-1.5">
+                        <span>📟 TÉRMICA 80MM (CUPOM RÁPIDO)</span>
+                        {formatoImpressao === 'termica' && (
+                          <span className="px-1.5 py-0.2 rounded bg-emerald-600 text-white text-[8px] font-black uppercase">
+                            SELECIONADO
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5">
+                        Cupom não fiscal compacto em bobina de 80mm otimizado para impressoras térmicas rápidas de balcão.
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* 4. BOTÃO CONFIRMAR NO RODAPÉ ACETINADO */}
+            <div className="p-2.5 sm:p-3 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase tracking-wider"
+              >
+                CANCELAR / VOLTAR AO PDV
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmarEImprimir}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] transition active:scale-95 cursor-pointer uppercase tracking-wider"
+              >
+                <Printer className="w-4 h-4 stroke-[2.5]" />
+                <span>CONFIRMAR E IMPRIMIR DOCUMENTO</span>
+              </button>
+            </div>
+
           </div>
-        )}
-      </section>
+        </div>
+      )}
 
       {/* =====================================================================
           5. MODAL DE COMPROVANTE DUPLO • A4 RETRATO & TÉRMICA 80MM (ANTI-SANDBOX)
