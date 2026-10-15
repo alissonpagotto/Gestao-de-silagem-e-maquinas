@@ -378,14 +378,31 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       });
 
       // Evitar duplicidades com contratos ou ordens de serviços já cadastradas
-      const existingOrders = new Set(matchedSales.map((s: any) => s.orderNumber || s.id));
+      const existingOrders = new Set(
+        matchedSales.flatMap((s: any) => [
+          String(s.id || ''),
+          String(s.orderNumber || ''),
+          String(s.numeroPedido || ''),
+          String(s.numeroVenda || ''),
+          `srv_${s.id}`
+        ]).filter(Boolean)
+      );
+
       const matchedServices = allServices.filter((srv: any) => {
-        if (existingOrders.has(srv.orderNumber || srv.id)) return false;
+        const srvId = String(srv.id || '');
+        const cleanSrvId = srvId.replace(/^srv_/, '');
+        const srvOrder = String(srv.orderNumber || '');
+
+        if (existingOrders.has(srvId) || existingOrders.has(cleanSrvId) || (srvOrder && existingOrders.has(srvOrder))) {
+          return false;
+        }
+
         const srvClientId = srv.clientId;
         const srvClientName = (srv.clientName || srv.cliente || '').trim().toLowerCase();
         const srvFarmName = (srv.farmName || srv.fazenda || '').trim().toLowerCase();
 
         return (clientId && srvClientId === clientId) ||
+               (cleanClientCpf && cleanDigits(srv.clientCpfCnpj || srv.cpfCnpj || '') === cleanClientCpf) ||
                (clientNameNorm && srvClientName && (srvClientName === clientNameNorm || srvClientName.includes(clientNameNorm))) ||
                (clientFarmNorm && srvFarmName && clientFarmNorm === srvFarmName);
       }).map((srv: any) => ({
@@ -414,7 +431,21 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       }));
 
       const combined = [...matchedSales, ...matchedServices];
-      return combined.sort((a, b) => {
+
+      // 1. FIM DA DUPLICIDADE NO HISTÓRICO DE COMPRAS DO CLIENTE (PRINT 3):
+      // Trava anti-duplicação mandatória por ID antes de renderizar a tabela na tela do cliente:
+      const historicoUnico = combined;
+      const historicoFiltrado = historicoUnico.filter((venda, index, self) => 
+        self.findIndex(v => {
+          const vCleanId = String(v.id || '').replace(/^srv_/, '');
+          const vendaCleanId = String(venda.id || '').replace(/^srv_/, '');
+          const vOrder = String(v.orderNumber || v.numeroPedido || '').trim();
+          const vendaOrder = String(venda.orderNumber || venda.numeroPedido || '').trim();
+          return (v.id === venda.id) || (vCleanId && vCleanId === vendaCleanId) || (vOrder && vendaOrder && vOrder === vendaOrder);
+        }) === index
+      );
+
+      return historicoFiltrado.sort((a, b) => {
         const dateA = new Date(a.data || a.date || a.criadoEm || 0).getTime();
         const dateB = new Date(b.data || b.date || b.criadoEm || 0).getTime();
         return dateB - dateA;
@@ -425,20 +456,22 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     }
   }, [activeClient, isOpen]);
 
-  // Filtro de busca textual no histórico
+  // Filtro de busca textual no histórico com trava anti-duplicação mandatória
   const filteredPurchases = useMemo(() => {
-    if (!historicoSearch.trim()) return clientPurchases;
-    const q = historicoSearch.toLowerCase().trim();
-    return clientPurchases.filter(p => {
-      const order = String(p.orderNumber || p.id || '').toLowerCase();
-      const forma = String(p.forma || p.formaPagamento || '').toLowerCase();
-      const dateStr = String(p.data || p.date || '').toLowerCase();
-      const hasItem = Array.isArray(p.itens) && p.itens.some((it: any) => 
-        String(it.descricao || '').toLowerCase().includes(q) ||
-        String(it.codigo || '').toLowerCase().includes(q)
-      );
-      return order.includes(q) || forma.includes(q) || dateStr.includes(q) || hasItem;
-    });
+    const list = !historicoSearch.trim() ? clientPurchases : (() => {
+      const q = historicoSearch.toLowerCase().trim();
+      return clientPurchases.filter(p => {
+        const order = String(p.orderNumber || p.numeroPedido || p.id || '').toLowerCase();
+        const forma = String(p.forma || p.formaPagamento || '').toLowerCase();
+        const dateStr = String(p.data || p.date || '').toLowerCase();
+        const hasItem = Array.isArray(p.itens) && p.itens.some((it: any) => 
+          String(it.descricao || '').toLowerCase().includes(q) ||
+          String(it.codigo || '').toLowerCase().includes(q)
+        );
+        return order.includes(q) || forma.includes(q) || dateStr.includes(q) || hasItem;
+      });
+    })();
+    return list.filter((venda, index, self) => self.findIndex(v => v.id === venda.id) === index);
   }, [clientPurchases, historicoSearch]);
 
   const totalGasto = useMemo(() => {
