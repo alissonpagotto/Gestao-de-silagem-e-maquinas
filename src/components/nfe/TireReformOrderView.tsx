@@ -1241,14 +1241,14 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {pendingTires.length === 0 ? (
-                      <tr>
+                      <tr key="empty_pending_tires_row">
                         <td colSpan={9} className="py-6 text-center text-xs text-stone-400 font-medium">
                           Nenhum pneu acumulado. Retorne à Gestão de Frotas e arraste os pneus para a caixa de Reforma.
                         </td>
                       </tr>
                     ) : (
                       pendingTires.map((t, idx) => (
-                        <tr key={`${t.id || 'pending_tire'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                        <tr key={`pending_tire_${t.id || idx}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                           <td className="py-2 px-3 text-center font-bold text-stone-500">
                             {idx + 1}
                           </td>
@@ -1496,19 +1496,19 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {filteredOrders.length === 0 ? (
-                    <tr>
+                    <tr key="empty_filtered_orders_row">
                       <td colSpan={9} className="py-6 text-center text-xs text-stone-400 font-medium uppercase">
                         NENHUM PEDIDO DE REFORMA REGISTRADO. USE A GESTÃO DE FROTAS PARA ARRASTAR PNEUS E GERAR UMA NOVA ORDEM.
                       </td>
                     </tr>
                   ) : (
-                    filteredOrders.map((order) => {
+                    filteredOrders.map((order, orderIdx) => {
                       const orderSum = order.totalValor !== undefined && order.totalValor !== null
                         ? order.totalValor
                         : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
 
                       return (
-                        <tr key={order.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition uppercase whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
+                        <tr key={`reform_order_${order.id || orderIdx}_${orderIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition uppercase whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
                           <td className="py-1 px-2.5 font-mono font-black text-amber-700 dark:text-amber-400 whitespace-nowrap">
                             {order.orderNumber}
                           </td>

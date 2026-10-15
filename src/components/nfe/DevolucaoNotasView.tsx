@@ -403,14 +403,14 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {filteredNotas.length === 0 ? (
-                  <tr>
+                  <tr key="empty_devolucao_rows">
                     <td colSpan={8} className="py-8 text-center text-xs text-stone-400 font-medium">
                       Nenhuma nota de devolução registrada no momento.
                     </td>
                   </tr>
                 ) : (
-                  filteredNotas.map((dev) => (
-                    <tr key={dev.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  filteredNotas.map((dev, devIdx) => (
+                    <tr key={`devolucao_doc_${dev.id || devIdx}_${devIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                       <td className="py-2.5 px-3 font-mono font-black text-rose-700 dark:text-rose-400">
                         {dev.devolucaoNumber}
                       </td>

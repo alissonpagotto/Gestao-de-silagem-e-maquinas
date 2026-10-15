@@ -1152,14 +1152,14 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-slate-800 dark:text-stone-200">
               {filteredDocuments.length === 0 ? (
-                <tr>
+                <tr key="empty_fiscal_category_docs">
                   <td colSpan={7} className="py-8 text-center text-slate-400 font-bold uppercase text-xs">
                     Nenhum documento registrado nesta categoria. Clique no botão acima para lançar.
                   </td>
                 </tr>
               ) : (
-                filteredDocuments.map((doc) => (
-                  <tr key={doc.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                filteredDocuments.map((doc, docIdx) => (
+                  <tr key={`fiscal_doc_${doc.id || docIdx}_${docIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-1 px-2 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {doc.number}
                     </td>
@@ -1531,7 +1531,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
                       {formItems.length === 0 ? (
-                        <tr>
+                        <tr key="empty_form_items_row">
                           <td colSpan={7} className="py-3 text-center text-slate-400 font-bold uppercase text-[11px]">
                             Nenhum item inserido ainda. Adicione acima.
                           </td>

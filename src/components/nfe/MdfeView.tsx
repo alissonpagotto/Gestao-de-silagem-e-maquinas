@@ -486,13 +486,13 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-[11px] font-medium text-slate-800 dark:text-stone-200">
               {filteredManifestos.length === 0 ? (
-                <tr>
+                <tr key="empty_mdfe_manifestos_row">
                   <td colSpan={9} className="py-6 text-center text-slate-500 uppercase text-xs font-semibold">
                     NENHUM MANIFESTO ELETRÔNICO (MDF-E) ENCONTRADO
                   </td>
                 </tr>
               ) : (
-                filteredManifestos.map((m) => {
+                filteredManifestos.map((m, mIdx) => {
                   const statusColors = {
                     'EM VIAGEM': 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700',
                     'AUTORIZADO': 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700',
@@ -502,7 +502,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
 
                   return (
                     <tr 
-                      key={m.id}
+                      key={`mdfe_${m.id || mIdx}_${mIdx}`}
                       onClick={() => handleOpenViewModal(m)}
                       className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition cursor-pointer group border-b border-slate-200 dark:border-stone-800"
                     >

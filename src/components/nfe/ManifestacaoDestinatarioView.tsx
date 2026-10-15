@@ -692,13 +692,13 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-[11px] font-medium text-slate-800 dark:text-stone-200">
               {filteredNotas.length === 0 ? (
-                <tr>
+                <tr key="empty_manifestacao_notas_row">
                   <td colSpan={7} className="py-6 text-center text-slate-500 uppercase text-xs font-semibold">
                     NENHUMA NOTA FISCAL ENCONTRADA NA CONSULTA DA SEFAZ
                   </td>
                 </tr>
               ) : (
-                filteredNotas.map((n) => {
+                filteredNotas.map((n, nIdx) => {
                   const statusBadges = {
                     PENDENTE: 'bg-slate-100 text-slate-800 border-slate-300 dark:bg-stone-800 dark:text-stone-200 dark:border-stone-700',
                     CIENCIA: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700',
@@ -717,7 +717,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
 
                   return (
                     <tr 
-                      key={n.id}
+                      key={`manif_${n.id || n.chaveAcesso || nIdx}_${nIdx}`}
                       onClick={() => handleOpenDetailModal(n)}
                       className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition cursor-pointer group border-b border-slate-200 dark:border-stone-800"
                     >

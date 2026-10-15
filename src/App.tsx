@@ -3467,42 +3467,54 @@ export default function App() {
                 companyProfile={companyProfile}
                 viewMode="import"
                 inventory={inventory}
-                onSaveInventory={handleSaveInventory}
+                onSaveInventory={(inv) => {
+                  setTimeout(() => handleSaveInventory(inv), 0);
+                }}
                 suppliers={suppliers}
-                onSaveSuppliers={handleSaveSuppliers}
+                onSaveSuppliers={(sups) => {
+                  setTimeout(() => handleSaveSuppliers(sups), 0);
+                }}
                 costCenters={costCenters}
-                onSaveCostCenters={(updatedCostCenters) => setCostCenters(updatedCostCenters)}
+                onSaveCostCenters={(updatedCostCenters) => {
+                  setTimeout(() => setCostCenters(updatedCostCenters), 0);
+                }}
                 categories={categories}
-                onNavigate={(tab) => setActiveTab(tab)}
+                onNavigate={(tab) => {
+                  setTimeout(() => setActiveTab(tab), 0);
+                }}
                 onDeleteExpense={(idOrNumber) => {
-                  setExpenses((prev) => prev.filter((e) => e.id !== idOrNumber && e.invoiceNumber !== idOrNumber));
+                  setTimeout(() => {
+                    setExpenses((prev) => prev.filter((e) => e.id !== idOrNumber && e.invoiceNumber !== idOrNumber));
+                  }, 0);
                 }}
                 onAddExpenseFromNfe={(newExpOrList) => {
-                  const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];
-                  const createdList: Expense[] = list.map((newExp, idx) => {
-                    const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
-                    const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
-                    return {
-                      id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
-                      description: newExp.description || 'Despesa Importada via NF-e',
-                      amount: newExp.amount || 0,
-                      categoryId: newExp.categoryId || 'cat_combustivel',
-                      categoryName: newExp.categoryName || cat?.name || 'Combustível & Arla (Diesel)',
-                      categoryColor: newExp.categoryColor || cat?.color || '#d97706',
-                      dueDate: newExp.dueDate || new Date().toISOString().split('T')[0],
-                      paymentDate: newExp.paymentDate,
-                      status: newExp.status || 'pendente',
-                      paymentMethod: newExp.paymentMethod || 'boleto',
-                      supplier: newExp.supplier || 'Fornecedor NF-e',
-                      invoiceNumber: newExp.invoiceNumber || 'NF-e',
-                      costCenterId: newExp.costCenterId || cc?.id,
-                      costCenterName: newExp.costCenterName || cc?.name,
-                      notes: newExp.notes,
-                      nfeItems: newExp.nfeItems,
-                      createdAt: newExp.createdAt || new Date().toISOString(),
-                    };
-                  });
-                  handleSaveExpense(createdList.length === 1 ? createdList[0] : createdList);
+                  setTimeout(() => {
+                    const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];
+                    const createdList: Expense[] = list.map((newExp, idx) => {
+                      const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
+                      const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
+                      return {
+                        id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
+                        description: newExp.description || 'Despesa Importada via NF-e',
+                        amount: newExp.amount || 0,
+                        categoryId: newExp.categoryId || 'cat_combustivel',
+                        categoryName: newExp.categoryName || cat?.name || 'Combustível & Arla (Diesel)',
+                        categoryColor: newExp.categoryColor || cat?.color || '#d97706',
+                        dueDate: newExp.dueDate || new Date().toISOString().split('T')[0],
+                        paymentDate: newExp.paymentDate,
+                        status: newExp.status || 'pendente',
+                        paymentMethod: newExp.paymentMethod || 'boleto',
+                        supplier: newExp.supplier || 'Fornecedor NF-e',
+                        invoiceNumber: newExp.invoiceNumber || 'NF-e',
+                        costCenterId: newExp.costCenterId || cc?.id,
+                        costCenterName: newExp.costCenterName || cc?.name,
+                        notes: newExp.notes,
+                        nfeItems: newExp.nfeItems,
+                        createdAt: newExp.createdAt || new Date().toISOString(),
+                      };
+                    });
+                    handleSaveExpense(createdList.length === 1 ? createdList[0] : createdList);
+                  }, 0);
                 }}
               />
             </div>

@@ -6609,12 +6609,38 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                {unifiedEntries.map((entry, idx) => {
-                  const isXml = entry.sourceType === 'xml';
-                  return (
-                    <tr 
-                      key={`unified_entry_${entry.sourceType}_${entry.id || 'doc'}_${idx}`} 
-                      id={`row-doc-${entry.id || idx}`}
+                {unifiedEntries.length === 0 ? (
+                  <tr key="unified_entries_empty_row">
+                    <td colSpan={6} className="py-6 text-center text-stone-400 uppercase">
+                      <ReceiptText className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                      <p className="font-semibold text-xs">NENHUMA NOTA OU ENTRADA REGISTRADA ATÉ O MOMENTO.</p>
+                      <div className="mt-3 flex items-center justify-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>Importar XML</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenManualEntryModal}
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Nova Entrada Manual</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  unifiedEntries.map((entry, idx) => {
+                    const isXml = entry.sourceType === 'xml';
+                    return (
+                      <tr 
+                        key={`unified_entry_${entry.sourceType}_${entry.id || 'doc'}_${idx}`} 
+                        id={`row-doc-${entry.id || idx}`}
                       onClick={(e) => {
                         const target = e.target as HTMLElement;
                         if (target && target.closest('button')) {
@@ -6772,33 +6798,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </td>
                     </tr>
                   );
-                })}
-                {unifiedEntries.length === 0 && (
-                  <tr key="unified_entries_empty_row">
-                    <td colSpan={6} className="py-6 text-center text-stone-400 uppercase">
-                      <ReceiptText className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                      <p className="font-semibold text-xs">NENHUMA NOTA OU ENTRADA REGISTRADA ATÉ O MOMENTO.</p>
-                      <div className="mt-3 flex items-center justify-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
-                        >
-                          <Upload className="w-3 h-3" />
-                          <span>Importar XML</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleOpenManualEntryModal}
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Nova Entrada Manual</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                })
+              )}
               </tbody>
             </table>
           </div>
