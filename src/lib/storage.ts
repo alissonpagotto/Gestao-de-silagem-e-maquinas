@@ -1453,7 +1453,7 @@ export function ensureStockServicesInitialized(): string[] {
       .map(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase())
       .filter(Boolean);
 
-    const uniqueServices = Array.from(new Set(serviceNames.length > 0 ? serviceNames : DEFAULT_STOCK_SERVICES));
+    const uniqueServices = Array.from(new Set(serviceNames));
 
     try {
       localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(uniqueServices));
@@ -1463,17 +1463,17 @@ export function ensureStockServicesInitialized(): string[] {
     return uniqueServices;
   } catch (e) {
     console.warn('Erro ao inicializar serviços no estoque:', e);
-    return DEFAULT_STOCK_SERVICES;
+    return [];
   }
 }
 
 /**
  * Lê reativamente a lista de serviços cadastrados no estoque do LocalStorage,
- * filtrando diretamente os itens onde tipo_item === 'SERVIÇO' da chave 'colaca_silagem_estoque_produtos'.
+ * filtrando diretamente os itens onde tipo_item === 'SERVIÇO' da chave 'agrocontrol_produtos'.
  */
 export function getServicesFromStockLocalStorage(): string[] {
   try {
-    const raw = localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -1491,50 +1491,40 @@ export function getServicesFromStockLocalStorage(): string[] {
           .map((item: any) => normalizeStockServiceName(item.nome_comercial || item.name || item.nome || ''))
           .filter(Boolean);
 
-        if (services.length > 0) {
-          return Array.from(new Set(services));
-        }
+        return Array.from(new Set(services));
       }
     }
   } catch (err) {
     console.warn('Erro ao ler serviços do estoque no LocalStorage:', err);
   }
-  return ensureStockServicesInitialized();
+  return [];
 }
 
 export function getStoredInventory(): InventoryItem[] {
   try {
     const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
-    const parsed = raw ? JSON.parse(raw) : INITIAL_INVENTORY;
-    const baseList = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_INVENTORY;
-    const withDiesel = ensureDieselProductsInInventory(baseList);
-    const finalized = ensureServicesInInventory(withDiesel);
-
-    try {
-      localStorage.setItem('agrocontrol_produtos', JSON.stringify(finalized));
-      localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
-      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
-    } catch (_) {}
-
-    return finalized;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    return [];
   } catch (e) {
-    const fallback = ensureServicesInInventory(ensureDieselProductsInInventory(INITIAL_INVENTORY));
-    return fallback;
+    return [];
   }
 }
 
 export function saveStoredInventory(items: InventoryItem[]): void {
   try {
-    const withDiesel = ensureDieselProductsInInventory(items);
-    const finalized = ensureServicesInInventory(withDiesel);
-    localStorage.setItem('agrocontrol_produtos', JSON.stringify(finalized));
-    localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
-    window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: finalized }));
-    window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: finalized }));
+    const cleanItems = Array.isArray(items) ? items : [];
+    localStorage.setItem('agrocontrol_produtos', JSON.stringify(cleanItems));
+    localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(cleanItems));
+    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(cleanItems));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: cleanItems }));
+    window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: cleanItems }));
     
     // Sincroniza também a lista de serviços do estoque
-    const serviceNames = finalized
+    const serviceNames = cleanItems
       .filter(i => (i.tipo_item === 'SERVIÇO' || i.category === 'SERVIÇO' || i.categoria === 'SERVIÇO'))
       .map(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase())
       .filter(Boolean);
