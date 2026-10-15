@@ -321,6 +321,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('silagem_documentos_entrada_updated', handleCustomSync);
+    window.addEventListener('agrocontrol_vendas_updated', handleCustomSync);
+    window.addEventListener('agrocontrol_vendas_change', handleCustomSync);
+    window.addEventListener('colaca_services_updated', handleCustomSync);
 
     return () => {
       isMounted = false;
@@ -337,6 +340,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('silagem_documentos_entrada_updated', handleCustomSync);
+      window.removeEventListener('agrocontrol_vendas_updated', handleCustomSync);
+      window.removeEventListener('agrocontrol_vendas_change', handleCustomSync);
+      window.removeEventListener('colaca_services_updated', handleCustomSync);
     };
   }, [refreshDashboardData, debouncedRefresh]);
 
@@ -376,6 +382,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     const months = [];
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
+    let agrocontrolVendasList: any[] = [];
+    try {
+      const raw = localStorage.getItem('agrocontrol_vendas') || localStorage.getItem('agrocontrol_pdv_vendas');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) agrocontrolVendasList = parsed;
+      }
+    } catch {}
+
+    const existingIds = new Set([
+      ...orders.map(o => o.orderNumber || o.id),
+      ...services.map(s => s.orderNumber || s.id)
+    ]);
+
     for (let i = 5; i >= 0; i--) {
       const now = new Date();
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -391,8 +411,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       const servicesRev = services
         .filter(s => s.startDate?.startsWith(monthPrefix) && s.status !== 'cancelado')
         .reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+
+      const pdvRev = agrocontrolVendasList
+        .filter(v => (v.data || v.date)?.startsWith(monthPrefix) && v.status !== 'cancelado' && !existingIds.has(v.orderNumber || v.id))
+        .reduce((sum, v) => sum + (Number(v.valorLiquido ?? v.totalLiquido ?? v.totalAmount) || 0), 0);
         
-      const revenue = ordersRev + servicesRev;
+      const revenue = ordersRev + servicesRev + pdvRev;
       
       const expensesTotal = activeExpenses
         .filter(e => e.dueDate?.startsWith(monthPrefix))
@@ -473,9 +497,26 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       return [];
     }
 
+    let agrocontrolVendasList: any[] = [];
+    try {
+      const raw = localStorage.getItem('agrocontrol_vendas') || localStorage.getItem('agrocontrol_pdv_vendas');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) agrocontrolVendasList = parsed;
+      }
+    } catch {}
+
+    const existingIds = new Set([
+      ...orders.map(o => o.orderNumber || o.id),
+      ...services.map(s => s.orderNumber || s.id)
+    ]);
+
     const totalServRev = services.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
     const totalOrdersRev = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-    const totalRev = totalServRev + totalOrdersRev;
+    const pdvTotalRev = (Array.isArray(agrocontrolVendasList) ? agrocontrolVendasList : [])
+      .filter(v => v.status !== 'cancelado' && !existingIds.has(v.orderNumber || v.id))
+      .reduce((sum, v) => sum + (Number(v.valorLiquido ?? v.totalLiquido ?? v.totalAmount) || 0), 0);
+    const totalRev = totalServRev + totalOrdersRev + pdvTotalRev;
     const totalAreaHectares = services.reduce((acc, s) => acc + (s.areaHectares || 0), 0);
     const totalTons = services.reduce((acc, s) => acc + (s.tonsEstimated || 0), 0) + orders.reduce((acc, o) => acc + (o.quantityTons || 0), 0);
     

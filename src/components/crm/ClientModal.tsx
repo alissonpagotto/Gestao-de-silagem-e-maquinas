@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   ChevronDown, 
@@ -11,7 +11,13 @@ import {
   Copy, 
   Inbox,
   ExternalLink,
-  UserCheck
+  UserCheck,
+  Receipt,
+  ShoppingBag,
+  Calendar,
+  DollarSign,
+  Package,
+  ChevronRight
 } from 'lucide-react';
 import { Client, ClientFormSubmission } from '../../types';
 import { 
@@ -20,7 +26,8 @@ import {
   formatPhone, 
   cleanDigits, 
   fetchAddressByCep, 
-  fetchCompanyByCnpj 
+  fetchCompanyByCnpj,
+  formatCurrencyBRL
 } from '../../lib/formatters';
 import { 
   getClientSubmissions, 
@@ -76,10 +83,14 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [pendingSubmissions, setPendingSubmissions] = useState<ClientFormSubmission[]>([]);
   const [isImportDropdownOpen, setIsImportDropdownOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'cadastro' | 'historico'>('cadastro');
+  const [historicoSearch, setHistoricoSearch] = useState('');
 
   // Refresh pending client submissions when modal is opened
   useEffect(() => {
     if (isOpen) {
+      setActiveTab('cadastro');
+      setHistoricoSearch('');
       try {
         const subs = getClientSubmissions();
         setPendingSubmissions(subs.filter(s => s.status === 'pendente'));
@@ -330,6 +341,125 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
   const activeClient = currentClient || editingClient;
 
+  // Carregamento reativo do Histórico de Compras a partir de 'agrocontrol_vendas'
+  const clientPurchases = useMemo(() => {
+    if (!activeClient) return [];
+    try {
+      const raw = localStorage.getItem('agrocontrol_vendas') || 
+                  localStorage.getItem('agrocontrol_pdv_vendas') || 
+                  localStorage.getItem('colaca_silagem_vendas_pdv') || 
+                  '[]';
+      const parsed = JSON.parse(raw);
+      const allSales: any[] = Array.isArray(parsed) ? parsed : [];
+      
+      const rawServices = localStorage.getItem('colaca_silagem_services') || localStorage.getItem('silagem_facil_clean_v1_services') || '[]';
+      let allServices: any[] = [];
+      try {
+        const parsedServices = JSON.parse(rawServices);
+        allServices = Array.isArray(parsedServices) ? parsedServices : [];
+      } catch {}
+
+      const cleanClientCpf = cleanDigits(activeClient.cpfCnpj || (activeClient as any).document || '');
+      const clientNameNorm = (activeClient.nome || activeClient.name || '').trim().toLowerCase();
+      const clientFarmNorm = (activeClient.fazenda || activeClient.farmName || '').trim().toLowerCase();
+      const clientId = activeClient.id;
+
+      // Filtrar vendas de 'agrocontrol_vendas'
+      const matchedSales = allSales.filter((s: any) => {
+        const saleClientId = s.clientId;
+        const saleClientCpf = cleanDigits(s.clienteCpfCnpj || s.cpfCnpj || '');
+        const saleClientName = (s.cliente || s.clientName || s.client || '').trim().toLowerCase();
+        const saleFarmName = (s.fazenda || s.farmName || '').trim().toLowerCase();
+
+        return (clientId && saleClientId === clientId) ||
+               (cleanClientCpf && saleClientCpf && cleanClientCpf === saleClientCpf) ||
+               (clientNameNorm && saleClientName && (saleClientName === clientNameNorm || saleClientName.includes(clientNameNorm) || clientNameNorm.includes(saleClientName))) ||
+               (clientFarmNorm && saleFarmName && clientFarmNorm === saleFarmName);
+      });
+
+      // Evitar duplicidades com contratos ou ordens de serviços já cadastradas
+      const existingOrders = new Set(matchedSales.map((s: any) => s.orderNumber || s.id));
+      const matchedServices = allServices.filter((srv: any) => {
+        if (existingOrders.has(srv.orderNumber || srv.id)) return false;
+        const srvClientId = srv.clientId;
+        const srvClientName = (srv.clientName || srv.cliente || '').trim().toLowerCase();
+        const srvFarmName = (srv.farmName || srv.fazenda || '').trim().toLowerCase();
+
+        return (clientId && srvClientId === clientId) ||
+               (clientNameNorm && srvClientName && (srvClientName === clientNameNorm || srvClientName.includes(clientNameNorm))) ||
+               (clientFarmNorm && srvFarmName && clientFarmNorm === srvFarmName);
+      }).map((srv: any) => ({
+        id: srv.id,
+        orderNumber: srv.orderNumber || `CTR-${srv.id.slice(-5)}`,
+        data: srv.startDate || srv.date,
+        date: srv.startDate || srv.date,
+        hora: '12:00',
+        cliente: srv.clientName,
+        fazenda: srv.farmName,
+        valorLiquido: srv.totalAmount || srv.ratePerUnit || 0,
+        totalLiquido: srv.totalAmount || srv.ratePerUnit || 0,
+        status: srv.status === 'concluido' ? 'concluido' : 'pendente',
+        formaPagamento: 'prazo',
+        forma: 'CONTRATO / FATURAMENTO A PRAZO',
+        itens: [{
+          id: srv.id,
+          codigo: 'CTR-01',
+          descricao: srv.serviceType || 'Serviço de Silagem & Colheita',
+          unidade: srv.areaUnit || (srv.tonsEstimated ? 'TON' : 'UN'),
+          quantidade: srv.areaQuantity || srv.tonsEstimated || 1,
+          precoUnitario: srv.ratePerUnit || srv.totalAmount || 0,
+          totalLiquido: srv.totalAmount || 0
+        }],
+        qtdItens: srv.areaQuantity || srv.tonsEstimated || 1
+      }));
+
+      const combined = [...matchedSales, ...matchedServices];
+      return combined.sort((a, b) => {
+        const dateA = new Date(a.data || a.date || a.criadoEm || 0).getTime();
+        const dateB = new Date(b.data || b.date || b.criadoEm || 0).getTime();
+        return dateB - dateA;
+      });
+    } catch (e) {
+      console.warn('Erro ao carregar histórico de compras do cliente:', e);
+      return [];
+    }
+  }, [activeClient, isOpen]);
+
+  // Filtro de busca textual no histórico
+  const filteredPurchases = useMemo(() => {
+    if (!historicoSearch.trim()) return clientPurchases;
+    const q = historicoSearch.toLowerCase().trim();
+    return clientPurchases.filter(p => {
+      const order = String(p.orderNumber || p.id || '').toLowerCase();
+      const forma = String(p.forma || p.formaPagamento || '').toLowerCase();
+      const dateStr = String(p.data || p.date || '').toLowerCase();
+      const hasItem = Array.isArray(p.itens) && p.itens.some((it: any) => 
+        String(it.descricao || '').toLowerCase().includes(q) ||
+        String(it.codigo || '').toLowerCase().includes(q)
+      );
+      return order.includes(q) || forma.includes(q) || dateStr.includes(q) || hasItem;
+    });
+  }, [clientPurchases, historicoSearch]);
+
+  const totalGasto = useMemo(() => {
+    return clientPurchases.reduce((acc, p) => acc + (Number(p.valorLiquido ?? p.totalLiquido ?? p.totalAmount ?? 0)), 0);
+  }, [clientPurchases]);
+
+  const ticketMedio = clientPurchases.length > 0 ? totalGasto / clientPurchases.length : 0;
+
+  const dataUltimaCompra = useMemo(() => {
+    if (clientPurchases.length === 0) return '—';
+    const rawDate = clientPurchases[0].data || clientPurchases[0].date;
+    if (!rawDate) return '—';
+    try {
+      const [y, m, d] = rawDate.split('T')[0].split('-');
+      if (y && m && d) return `${d}/${m}/${y}`;
+      return rawDate;
+    } catch {
+      return rawDate;
+    }
+  }, [clientPurchases]);
+
   const handleCancel = () => {
     if (activeClient) {
       setName(activeClient.nome || activeClient.name);
@@ -579,7 +709,42 @@ export const ClientModal: React.FC<ClientModalProps> = ({
           </div>
         )}
 
-        {/* Form */}
+        {/* Sub-Aba Navigation: DADOS CADASTRAIS vs HISTÓRICO DE COMPRAS */}
+        <div className="flex items-center px-4 sm:px-5 bg-slate-200 border-b border-slate-300 gap-1.5 pt-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab('cadastro')}
+            className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-t-md border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'cadastro'
+                ? 'bg-zinc-100 text-zinc-900 border-zinc-300 -mb-px pb-2 shadow-xs'
+                : 'bg-slate-200 hover:bg-slate-100 text-slate-600 border-transparent hover:text-slate-900'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Dados Cadastrais</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('historico')}
+            className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-t-md border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'historico'
+                ? 'bg-zinc-100 text-zinc-900 border-zinc-300 -mb-px pb-2 shadow-xs'
+                : 'bg-slate-200 hover:bg-slate-100 text-slate-600 border-transparent hover:text-slate-900'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Histórico de Compras</span>
+            <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeTab === 'historico' ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'
+            }`}>
+              {clientPurchases.length}
+            </span>
+          </button>
+        </div>
+
+        {activeTab === 'cadastro' ? (
+        /* Form */
         <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-zinc-100 overflow-y-auto flex-1">
           
           {/* Card 1: Identificação & Contato Principal */}
@@ -955,6 +1120,205 @@ export const ClientModal: React.FC<ClientModalProps> = ({
           </div>
 
         </form>
+        ) : (
+          <div className="p-3 sm:p-4 space-y-3 bg-zinc-100 overflow-y-auto flex-1 flex flex-col justify-between">
+            <div className="space-y-3">
+              {/* 4 Cards de Resumo */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="bg-white p-3 rounded-xl border border-zinc-300 shadow-2xs">
+                  <div className="flex items-center justify-between text-zinc-500 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Total Comprado</span>
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+                  <p className="text-base sm:text-lg font-black text-emerald-700">
+                    {formatCurrencyBRL(totalGasto)}
+                  </p>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-zinc-300 shadow-2xs">
+                  <div className="flex items-center justify-between text-zinc-500 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Pedidos / Vendas</span>
+                    <Receipt className="w-3.5 h-3.5 text-zinc-700" />
+                  </div>
+                  <p className="text-base sm:text-lg font-black text-zinc-800">
+                    {clientPurchases.length}
+                  </p>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-zinc-300 shadow-2xs">
+                  <div className="flex items-center justify-between text-zinc-500 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Ticket Médio</span>
+                    <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                  <p className="text-base sm:text-lg font-black text-blue-700">
+                    {formatCurrencyBRL(ticketMedio)}
+                  </p>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-zinc-300 shadow-2xs">
+                  <div className="flex items-center justify-between text-zinc-500 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Última Compra</span>
+                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <p className="text-base sm:text-lg font-black text-zinc-800">
+                    {dataUltimaCompra}
+                  </p>
+                </div>
+              </div>
+
+              {/* Barra de Filtro / Busca */}
+              <div className="bg-white p-2.5 rounded-xl border border-zinc-300 shadow-2xs flex items-center justify-between gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={historicoSearch}
+                    onChange={(e) => setHistoricoSearch(e.target.value)}
+                    placeholder="Buscar por número do pedido, produto, serviço ou forma de pagamento..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-300 bg-zinc-50 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+                  />
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  {historicoSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setHistoricoSearch('')}
+                      className="text-xs text-zinc-400 hover:text-zinc-700 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <span className="text-[11px] font-bold text-zinc-500 whitespace-nowrap">
+                  {filteredPurchases.length} {filteredPurchases.length === 1 ? 'registro' : 'registros'}
+                </span>
+              </div>
+
+              {/* Tabela de Vendas */}
+              {filteredPurchases.length === 0 ? (
+                <div className="bg-white p-8 rounded-xl border border-zinc-300 text-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-zinc-100 text-zinc-400 mx-auto flex items-center justify-center">
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                    Nenhuma compra registrada no histórico do PDV
+                  </p>
+                  <p className="text-[11px] text-zinc-500 max-w-md mx-auto">
+                    As vendas de balcão e contratos emitidos para este cliente através do Frente de Caixa serão sincronizados automaticamente nesta tela.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-zinc-300 overflow-hidden shadow-2xs">
+                  <div className="overflow-x-auto max-h-[46vh]">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 z-10 bg-zinc-100">
+                        <tr className="border-b border-zinc-300 text-[10px] font-bold text-zinc-600 uppercase tracking-wider">
+                          <th className="py-2.5 px-3">Nº Pedido</th>
+                          <th className="py-2.5 px-3">Data & Hora</th>
+                          <th className="py-2.5 px-3">Itens / Produtos Adquiridos</th>
+                          <th className="py-2.5 px-3">Pagamento</th>
+                          <th className="py-2.5 px-3 text-right">Total Líquido</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 text-xs">
+                        {filteredPurchases.map((sale: any) => {
+                          const orderId = sale.orderNumber || sale.id;
+                          const dateDisplay = (() => {
+                            const rawDate = sale.data || sale.date;
+                            if (!rawDate) return '—';
+                            try {
+                              const [y, m, d] = rawDate.split('T')[0].split('-');
+                              const timePart = sale.hora || sale.time || '';
+                              return `${d}/${m}/${y}${timePart ? ` • ${timePart}` : ''}`;
+                            } catch {
+                              return rawDate;
+                            }
+                          })();
+                          const valorNum = Number(sale.valorLiquido ?? sale.totalLiquido ?? sale.totalAmount ?? 0);
+                          const isPrazo = sale.formaPagamento === 'prazo' || sale.status === 'pendente';
+                          const itemsList = Array.isArray(sale.itens) ? sale.itens : [];
+
+                          return (
+                            <tr key={orderId} className="hover:bg-zinc-50 transition">
+                              <td className="py-2.5 px-3 font-mono font-bold text-[11px] text-zinc-900 whitespace-nowrap">
+                                <span className="px-1.5 py-0.5 rounded bg-zinc-100 border border-zinc-200">
+                                  {orderId}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-zinc-600 whitespace-nowrap font-medium">
+                                {dateDisplay}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {itemsList.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {itemsList.map((it: any, idx: number) => (
+                                      <div key={idx} className="flex items-center space-x-1.5 text-[11px] text-zinc-800">
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                        <span className="font-bold text-zinc-900">{it.quantidade} {it.unidade || 'UN'}</span>
+                                        <span className="text-zinc-500">•</span>
+                                        <span className="truncate max-w-xs">{it.descricao || 'Produto/Serviço'}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-[11px] text-zinc-400 italic">Venda PDV balcão</span>
+                                )}
+                                {Array.isArray(sale.fretes) && sale.fretes.length > 0 && (
+                                  <div className="mt-1 text-[10px] text-blue-700 font-semibold flex items-center space-x-1">
+                                    <span>+ Frete Vinculado: {sale.fretes.map((f: any) => f.veiculoIdentificacao).join(', ')}</span>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-zinc-700 font-medium">
+                                <div className="truncate max-w-[150px]">
+                                  {sale.forma || sale.formaPagamento || 'À VISTA'}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-black text-xs text-zinc-900 whitespace-nowrap">
+                                {formatCurrencyBRL(valorNum)}
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  isPrazo 
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300' 
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                }`}>
+                                  {isPrazo ? 'A PRAZO / PENDENTE' : 'CONCLUÍDO / PAGO'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer do Histórico */}
+            <div className="pt-2.5 border-t border-zinc-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mt-2">
+              <span className="text-xs text-zinc-600 font-medium">
+                Total de compras sincronizadas no PDV: <strong className="text-zinc-900">{clientPurchases.length}</strong>
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('cadastro')}
+                  className="px-4 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300"
+                >
+                  Voltar aos Dados Cadastrais
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-900"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
