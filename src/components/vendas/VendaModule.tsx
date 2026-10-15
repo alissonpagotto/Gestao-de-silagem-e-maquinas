@@ -172,19 +172,73 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     };
   }, [companyProfile?.id]);
 
+  const [salesUpdateTick, setSalesUpdateTick] = useState(0);
+  useEffect(() => {
+    const handleSalesUpdate = () => setSalesUpdateTick(t => t + 1);
+    window.addEventListener('agrocontrol_vendas_updated', handleSalesUpdate);
+    window.addEventListener('agrocontrol_vendas_change', handleSalesUpdate);
+    window.addEventListener('vendas_updated', handleSalesUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_vendas_updated', handleSalesUpdate);
+      window.removeEventListener('agrocontrol_vendas_change', handleSalesUpdate);
+      window.removeEventListener('vendas_updated', handleSalesUpdate);
+    };
+  }, []);
+
   // Filtragem exclusiva de Vendas (serviceTab === 'venda' ou serviceType com 'venda')
   const salesRecords = useMemo(() => {
-    return localServices.filter((srv) => {
+    const list = localServices.filter((srv) => {
       const typeStr = (srv.serviceType || '').toLowerCase();
       const tabStr = (srv.serviceTab || '').toLowerCase();
       return typeStr.includes('venda') || tabStr === 'venda';
     });
-  }, [localServices]);
+
+    try {
+      const raw = localStorage.getItem('agrocontrol_vendas') || localStorage.getItem('agrocontrol_pdv_vendas');
+      if (raw) {
+        const pdvList = JSON.parse(raw);
+        if (Array.isArray(pdvList)) {
+          pdvList.forEach((v: any) => {
+            const vId = v.orderNumber || v.numeroPedido || v.id;
+            if (!list.some(s => (s.orderNumber || s.id) === vId)) {
+              let dIso = v.date || '';
+              if (!dIso && v.data && v.data.includes('/')) {
+                const parts = v.data.split('/');
+                if (parts.length === 3) dIso = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              }
+              if (!dIso && v.criadoEm) dIso = v.criadoEm.split('T')[0];
+              if (!dIso) dIso = new Date().toISOString().split('T')[0];
+
+              list.unshift({
+                id: String(v.id || Date.now()),
+                orderNumber: v.numeroPedido || v.orderNumber || `PDV-${v.id}`,
+                clientName: v.cliente || v.clientName || 'Consumidor Final',
+                farmName: v.fazenda || v.farmName || '',
+                serviceTab: 'venda',
+                serviceType: 'Venda Balcão PDV',
+                date: dIso,
+                startDate: dIso,
+                totalAmount: Number(v.valorLiquido ?? v.totalLiquido ?? v.totalAmount ?? 0),
+                status: v.status === 'pendente' ? 'em_andamento' : 'concluido',
+                ratePerUnit: Number(v.valorLiquido ?? v.totalLiquido ?? v.totalAmount ?? 0),
+              } as ServiceOrder);
+            }
+          });
+        }
+      }
+    } catch {}
+
+    return list;
+  }, [localServices, salesUpdateTick]);
 
   // Vendas filtradas pelo período selecionado
   const periodSales = useMemo(() => {
     return salesRecords.filter((srv) => {
-      const srvDate = srv.startDate || srv.date || ((srv as any).createdAt ? (srv as any).createdAt.split('T')[0] : '');
+      let srvDate = srv.startDate || srv.date || ((srv as any).createdAt ? (srv as any).createdAt.split('T')[0] : '');
+      if (srvDate && srvDate.includes('/')) {
+        const parts = srvDate.split('/');
+        if (parts.length === 3) srvDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
       if (!srvDate) return true;
       if (startDate && srvDate < startDate) return false;
       if (endDate && srvDate > endDate) return false;

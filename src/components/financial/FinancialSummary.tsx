@@ -589,6 +589,35 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   const currentMonthStart = `${currentYear}-${String(currentMonthNum + 1).padStart(2, '0')}-01`;
   const currentMonthEnd = getLastDayOfMonth(currentYear, currentMonthNum);
 
+  // Carregamento reativo das receitas financeiras consolidadas e PDV (Print 3)
+  const [receitasConsolidadas, setReceitasConsolidadas] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('agrocontrol_financeiro_consolidado') || 
+                  localStorage.getItem('agrocontrol_receitas_liquidadas') || '[]';
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const raw = localStorage.getItem('agrocontrol_financeiro_consolidado') || 
+                    localStorage.getItem('agrocontrol_receitas_liquidadas') || '[]';
+        setReceitasConsolidadas(JSON.parse(raw));
+      } catch {}
+    };
+    window.addEventListener('agrocontrol_financeiro_consolidado_updated', handleUpdate);
+    window.addEventListener('agrocontrol_receitas_liquidadas_updated', handleUpdate);
+    window.addEventListener('agrocontrol_vendas_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_financeiro_consolidado_updated', handleUpdate);
+      window.removeEventListener('agrocontrol_receitas_liquidadas_updated', handleUpdate);
+      window.removeEventListener('agrocontrol_vendas_updated', handleUpdate);
+    };
+  }, []);
+
   const currentMonthRevenue = useMemo(() => {
     const ordersRev = orders
       .filter((o) => {
@@ -602,8 +631,19 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         return d >= currentMonthStart && d <= currentMonthEnd;
       })
       .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
-    return ordersRev + servicesRev;
-  }, [orders, services, currentMonthStart, currentMonthEnd]);
+    const receitasRev = receitasConsolidadas
+      .filter((r) => {
+        let d = r.date || '';
+        if (!d && r.data && r.data.includes('/')) {
+          const parts = r.data.split('/');
+          if (parts.length === 3) d = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        if (!d) d = r.createdAt ? r.createdAt.split('T')[0] : '';
+        return d >= currentMonthStart && d <= currentMonthEnd;
+      })
+      .reduce((acc, curr) => acc + (Number(curr.valor ?? curr.totalLiquido ?? curr.amount ?? curr.totalAmount) || 0), 0);
+    return ordersRev + servicesRev + receitasRev;
+  }, [orders, services, receitasConsolidadas, currentMonthStart, currentMonthEnd]);
 
   const currentMonthExpenses = useMemo(() => {
     return expenses
@@ -627,8 +667,19 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         return (!startDate || d >= startDate) && (!endDate || d <= endDate);
       })
       .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
-    return ordersRev + servicesRev;
-  }, [orders, services, startDate, endDate]);
+    const receitasRev = receitasConsolidadas
+      .filter((r) => {
+        let d = r.date || '';
+        if (!d && r.data && r.data.includes('/')) {
+          const parts = r.data.split('/');
+          if (parts.length === 3) d = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        if (!d) d = r.createdAt ? r.createdAt.split('T')[0] : '';
+        return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+      })
+      .reduce((acc, curr) => acc + (Number(curr.valor ?? curr.totalLiquido ?? curr.amount ?? curr.totalAmount) || 0), 0);
+    return ordersRev + servicesRev + receitasRev;
+  }, [orders, services, receitasConsolidadas, startDate, endDate]);
 
   const periodExpenses = useMemo(() => {
     return expenses
@@ -641,7 +692,8 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   // Global / DRE Metrics
   const currentSeason = Array.isArray(seasons) && seasons.length > 0 ? seasons[0] : null;
   const totalRevenue = (orders || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0) +
-                       (services || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0);
+                       (services || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0) +
+                       receitasConsolidadas.reduce((acc, curr) => acc + (Number(curr.valor ?? curr.totalLiquido ?? curr.amount ?? curr.totalAmount) || 0), 0);
 
   const directCosts = (expenses || [])
     .filter((e) => ['cat_combustivel', 'cat_insumos', 'cat_mao_de_obra', 'cat_lona_embalagem'].includes(e.categoryId))

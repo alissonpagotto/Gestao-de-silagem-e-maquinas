@@ -1514,20 +1514,32 @@ export const PdvView: React.FC<PdvViewProps> = ({
         const matched = productCatalog.find(p => 
           p.barcode.toLowerCase() === q ||
           p.code.toLowerCase() === q ||
-          p.name.toLowerCase() === q
-        ) || (suggestedProducts.length === 1 ? suggestedProducts[0] : null);
+          p.name.toLowerCase() === q ||
+          (descResolved && p.name.trim().toLowerCase() === descResolved.trim().toLowerCase())
+        ) || (suggestedProducts.length === 1 ? suggestedProducts[0] : null) ||
+        stockItems.find((p: any) => 
+          (p.codigo && String(p.codigo).toLowerCase() === q) ||
+          (p.code && String(p.code).toLowerCase() === q) ||
+          (p.nome_comercial && String(p.nome_comercial).toLowerCase() === q) ||
+          (p.name && String(p.name).toLowerCase() === q) ||
+          (p.item && String(p.item).toLowerCase() === q) ||
+          (descResolved && (p.nome_comercial || p.name || p.item || '').trim().toLowerCase() === descResolved.trim().toLowerCase())
+        );
         return matched?.id;
       })()
     );
 
+    const matchedProductObj = productCatalog.find(p => String(p.id) === String(resolvedProductId)) || 
+                              stockItems.find((p: any) => String(p.id) === String(resolvedProductId)) || 
+                              selectedProduct;
     const chosenId = resolvedProductId ? String(resolvedProductId) : `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-    const matchedProductObj = productCatalog.find(p => String(p.id) === String(resolvedProductId)) || selectedProduct;
-    const cat = matchedProductObj?.category || (matchedProductObj?.rawItem as any)?.category || (matchedProductObj?.rawItem as any)?.categoria || '';
+    const cat = matchedProductObj?.category || (matchedProductObj as any)?.categoria || (matchedProductObj?.rawItem as any)?.category || (matchedProductObj?.rawItem as any)?.categoria || '';
+    const finalCod = cod || (matchedProductObj as any)?.code || (matchedProductObj as any)?.codigo || `COD-${String(items.length + 1).padStart(3, '0')}`;
 
     const newItem: PdvItem = {
       id: chosenId,
       productId: resolvedProductId ? String(resolvedProductId) : undefined,
-      codigo: cod || `COD-${String(items.length + 1).padStart(3, '0')}`,
+      codigo: finalCod,
       descricao: descResolved,
       unidade: un,
       quantidade: qtd,
@@ -2004,7 +2016,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   };
 
   // Confirmar Venda 100% Offline e Executar Bypass de Impressão na aba '_blank'
-  const handleConfirmarEImprimir = () => {
+  const handleConfirmarEImprimir = async () => {
     if (items.length === 0) return;
 
     try {
@@ -2023,6 +2035,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
       const now = new Date();
       const dateStr = now.toISOString().split('T')[0];
+      const dataFormatadaPtBr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
       const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
       const clientNameResolved = clientSearch.trim() || (isContract ? 'PRODUTOR RURAL (CONTRATO)' : 'CONSUMIDOR FINAL (PDV BALCÃO)');
@@ -2048,7 +2061,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
       const totalLiquido = Number(totals.totalLiquido || 0);
 
       const carrinho = items.map(item => ({
-        id: String(item.id || item.productId || ''),
+        id: String(item.productId || item.id || ''),
+        productId: item.productId ? String(item.productId) : undefined,
         codigo: String(item.codigo || ''),
         descricao: String(item.descricao || ''),
         qtd: Number(item.quantidade ?? (item as any).qtd ?? 1),
@@ -2059,8 +2073,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
       const novaVenda: any = {
         id: Date.now().toString(), // Garante um ID único e estável para todas as tabelas
         numeroPedido: `PDV-${Math.floor(100000 + Math.random() * 900000)}`,
-        data: new Date().toLocaleDateString('pt-BR'),
-        hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        data: dataFormatadaPtBr, // Formato padrão DD/MM/AAAA para bater com o filtro superior
+        date: dateStr, // Formato AAAA-MM-DD para consultas ISO
+        hora: timeStr,
         cliente: clienteSelecionado?.nome || clientSearch.trim() || "CONSUMIDOR FINAL / BALCÃO",
         clienteCpfCnpj: clienteSelecionado?.cpfCnpj || (clienteSelecionado as any)?.document || "",
         itens: carrinho.map(item => ({ 
@@ -2081,7 +2096,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       // Aliases compatíveis para o Dashboard, Relatórios e Cupom:
       novaVenda.orderNumber = novaVenda.numeroPedido;
       novaVenda.numeroVenda = novaVenda.numeroPedido;
-      novaVenda.date = new Date().toISOString().split('T')[0];
+      novaVenda.data_formatada = dataFormatadaPtBr;
       novaVenda.valorBruto = Number(totalBruto);
       novaVenda.valorLiquido = Number(totalLiquido);
       novaVenda.totalAmount = Number(totalLiquido);
@@ -2091,11 +2106,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
       novaVenda.farmName = farmNameResolved;
       novaVenda.status = formaPagamentoAtiva === "A PRAZO" ? "pendente" : "concluido";
       novaVenda.fretes = [...fretesVinculados];
-      novaVenda.criadoEm = new Date().toISOString();
+      novaVenda.criadoEm = now.toISOString();
       novaVenda.createdAt = novaVenda.criadoEm;
 
-      // 2. SALVAMENTO COMPULSÓRIO EM LOTE (TODAS AS CHAVES DO LOCALSTORAGE):
-      // A) DASHBOARD VENDAS:
+      // 1. FORCE A GRAVAÇÃO PARALELA E SÍNCRONA DAS SEGUINTES CHAVES:
+
+      // A) BLINDAGEM DO DASHBOARD VENDAS (PRINT 1):
       try {
         const vendasAtuais = JSON.parse(localStorage.getItem('agrocontrol_vendas') || '[]');
         vendasAtuais.unshift(novaVenda);
@@ -2105,42 +2121,25 @@ export const PdvView: React.FC<PdvViewProps> = ({
         window.dispatchEvent(new CustomEvent('agrocontrol_vendas_updated', { detail: vendasAtuais }));
         window.dispatchEvent(new CustomEvent('agrocontrol_vendas_change', { detail: vendasAtuais }));
         window.dispatchEvent(new CustomEvent('vendas_updated', { detail: vendasAtuais }));
-      } catch (errVendas) {
-        console.error('Erro ao salvar vendas no LocalStorage:', errVendas);
+      } catch (e) {
+        console.error("Erro Dashboard:", e);
       }
 
-      // B) FINANCEIRO (CONTAS A RECEBER):
-      if (formaPagamentoAtiva === "A PRAZO") {
-        try {
-          const receberAtuais = JSON.parse(localStorage.getItem('agrocontrol_financeiro_receber') || localStorage.getItem('agrocontrol_receber') || '[]');
-          receberAtuais.unshift({ ...novaVenda, status: "PENDENTE" });
-          localStorage.setItem('agrocontrol_financeiro_receber', JSON.stringify(receberAtuais));
-          localStorage.setItem('agrocontrol_receber', JSON.stringify(receberAtuais));
-          window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_receber_updated', { detail: receberAtuais }));
-          window.dispatchEvent(new CustomEvent('agrocontrol_receber_updated', { detail: receberAtuais }));
-          window.dispatchEvent(new CustomEvent('financeiro_receber_updated', { detail: receberAtuais }));
-        } catch (errReceber) {
-          console.error('Erro ao salvar contas a receber:', errReceber);
-        }
-      }
-
-      // 3. LOGÍSTICA DE BAIXA REATIVA PURIFICADA POR ID (ESTOQUE REAL):
+      // B) BAIXA REAL E UNIFICADA DO ESTOQUE (PRINT 2):
       try {
         const produtosAtuais = JSON.parse(localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos') || '[]');
         carrinho.forEach(item => {
-          if (!item.id && !item.codigo) return;
           const pEstoque = produtosAtuais.find((p: any) => 
             (item.id && String(p.id) === String(item.id)) || 
-            (item.codigo && p.codigo && String(p.codigo) === String(item.codigo)) ||
-            (item.codigo && p.code && String(p.code) === String(item.codigo)) ||
-            (item.codigo && String(p.id) === String(item.codigo))
+            (item.productId && String(p.id) === String(item.productId)) ||
+            (item.codigo && p.codigo && String(p.codigo).trim().toUpperCase() === String(item.codigo).trim().toUpperCase()) ||
+            (item.codigo && String(p.id) === String(item.codigo)) ||
+            (item.descricao && (p.nome_comercial || p.name || p.item) && String(p.nome_comercial || p.name || p.item).trim().toUpperCase() === String(item.descricao).trim().toUpperCase())
           );
           if (pEstoque && pEstoque.categoria !== "SERVIÇOS" && pEstoque.category !== "SERVIÇOS") {
-            const qtdVendida = Number(item.qtd || item.quantidade || 1);
-            const saldoAtual = Number(pEstoque.quantity ?? pEstoque.quantidade_atual ?? 0);
-            const novoSaldo = Math.max(0, saldoAtual - qtdVendida); // Impede estoque negativo acidental
-            pEstoque.quantity = novoSaldo;
-            pEstoque.quantidade_atual = novoSaldo;
+            const qtdVenda = Number(item.qtd || item.quantidade || 1);
+            pEstoque.quantity = Number(pEstoque.quantity || pEstoque.quantidade_atual || 0) - qtdVenda;
+            pEstoque.quantidade_atual = pEstoque.quantity;
           }
         });
         localStorage.setItem('agrocontrol_produtos', JSON.stringify(produtosAtuais));
@@ -2148,60 +2147,172 @@ export const PdvView: React.FC<PdvViewProps> = ({
         saveStoredInventory(produtosAtuais);
         window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: produtosAtuais }));
         window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: produtosAtuais }));
+        window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: produtosAtuais }));
+        window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: produtosAtuais }));
         window.dispatchEvent(new CustomEvent('inventory_updated', { detail: produtosAtuais }));
         setStockItems(produtosAtuais);
-      } catch (errEstoque) {
-        console.error('Erro ao dar baixa no estoque:', errEstoque);
+      } catch (e) {
+        console.error("Erro Estoque:", e);
       }
 
-      // Compatibilidade estrita: persistir em contratos de serviços SOMENTE se for contrato de silagem
-      if (isContract) {
-        try {
-          const totalTons = items.reduce((acc, it) => (it.unidade && it.unidade.includes('TON')) ? acc + it.quantidade : acc, 0);
-          const totalHa = items.reduce((acc, it) => (it.unidade && it.unidade.includes('HA')) ? acc + it.quantidade : acc, 0);
-
-          const newSaleOrder: ServiceOrder = {
-            id: novaVenda.id,
-            orderNumber: novaVenda.numeroPedido,
-            clientName: clientNameResolved,
-            clientId: selectedClientId || undefined,
-            farmName: farmNameResolved,
-            serviceTab: 'venda',
-            serviceType: 'Contrato de Prestação de Serviços de Silagem',
-            date: dateStr,
-            startDate: dateStr,
-            completionDate: dateStr,
-            status: formaPagamentoAtiva === 'A PRAZO' ? 'em_andamento' : 'concluido',
-            ratePerUnit: totals.totalLiquido,
-            totalAmount: totals.totalLiquido,
-            tonsEstimated: totalTons > 0 ? totalTons : undefined,
-            areaQuantity: totalHa > 0 ? totalHa : undefined,
-            areaUnit: totalHa > 0 ? 'hectares' : undefined,
-            notes: `Contrato de Prestação de Serviços de Silagem emitido via PDV Slim • Pagamento: ${formaPagamentoAtiva} • Produtor/Cliente: ${clientNameResolved} • Fazenda: ${farmNameResolved} • Itens: ${items.map(i => `${i.quantidade} ${i.unidade || 'UN'} - ${i.descricao}`).join('; ')}`,
+      // C) INTEGRAÇÃO COMPULSÓRIA DO FINANCEIRO (PRINT 3):
+      try {
+        if (formaPagamentoAtiva !== "A PRAZO") {
+          // Venda à vista (dinheiro ou PIX): lança receita imediatamente para alimentar os cards do Print 3
+          const receitaItem = {
+            id: `rec_${novaVenda.id}`,
+            vendaId: novaVenda.id,
+            numeroPedido: novaVenda.numeroPedido,
+            data: novaVenda.data, // DD/MM/AAAA
+            date: dateStr, // AAAA-MM-DD
+            hora: novaVenda.hora,
+            cliente: novaVenda.cliente,
+            valor: Number(novaVenda.totalLiquido),
+            totalLiquido: Number(novaVenda.totalLiquido),
+            totalAmount: Number(novaVenda.totalLiquido),
+            amount: Number(novaVenda.totalLiquido),
+            formaPagamento: formaPagamentoAtiva,
+            tipo: 'receita',
+            type: 'entrada',
+            status: 'liquidado',
+            descricao: `Venda PDV à Vista - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`,
+            createdAt: now.toISOString()
           };
 
-          const rawServices = localStorage.getItem('colaca_silagem_services');
-          const parsed = rawServices ? JSON.parse(rawServices) : [];
-          const existingServices = Array.isArray(parsed) ? parsed : [];
-          if (!existingServices.some(s => s.id === newSaleOrder.id || s.orderNumber === newSaleOrder.orderNumber)) {
-            const updated = [newSaleOrder, ...existingServices];
-            localStorage.setItem('colaca_silagem_services', JSON.stringify(updated));
-            window.dispatchEvent(new CustomEvent('colaca_services_updated', { detail: updated }));
-          }
+          try {
+            const consolidado = JSON.parse(localStorage.getItem('agrocontrol_financeiro_consolidado') || '[]');
+            consolidado.unshift(receitaItem);
+            localStorage.setItem('agrocontrol_financeiro_consolidado', JSON.stringify(consolidado));
+          } catch (eCons) {}
 
-          onSaveService(newSaleOrder);
-        } catch (e) {
-          console.warn('Erro ao persistir contrato de serviço no LocalStorage:', e);
+          try {
+            const liquidadas = JSON.parse(localStorage.getItem('agrocontrol_receitas_liquidadas') || '[]');
+            liquidadas.unshift(receitaItem);
+            localStorage.setItem('agrocontrol_receitas_liquidadas', JSON.stringify(liquidadas));
+          } catch (eLiq) {}
+
+          window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_consolidado_updated', { detail: receitaItem }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_receitas_liquidadas_updated', { detail: receitaItem }));
+        } else {
+          // Venda a prazo: insere na chave 'agrocontrol_financeiro_receber' com status "PENDENTE"
+          const receberAtuais = JSON.parse(localStorage.getItem('agrocontrol_financeiro_receber') || localStorage.getItem('agrocontrol_receber') || '[]');
+          receberAtuais.unshift({ 
+            ...novaVenda, 
+            status: "PENDENTE",
+            tipo: "receber",
+            valor: Number(novaVenda.totalLiquido),
+            totalLiquido: Number(novaVenda.totalLiquido),
+            totalAmount: Number(novaVenda.totalLiquido),
+            amount: Number(novaVenda.totalLiquido),
+            descricao: `Venda PDV a Prazo - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`
+          });
+          localStorage.setItem('agrocontrol_financeiro_receber', JSON.stringify(receberAtuais));
+          localStorage.setItem('agrocontrol_receber', JSON.stringify(receberAtuais));
+          window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_receber_updated', { detail: receberAtuais }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_receber_updated', { detail: receberAtuais }));
+          window.dispatchEvent(new CustomEvent('financeiro_receber_updated', { detail: receberAtuais }));
         }
+      } catch (eFin) {
+        console.error("Erro Financeiro:", eFin);
       }
 
-      // D) ATUALIZAÇÃO DO DRE LOGÍSTICO DA FROTA: Se houver frete vinculado, injetar no veículo
-      if (fretesVinculados.length > 0) {
-        try {
-          injectFreightRevenueIntoFleetVehicles(fretesVinculados, novaVenda.numeroPedido, clientNameResolved, dateStr);
-        } catch (errFrete) {
-          console.warn('Erro ao injetar frete na frota:', errFrete);
+      // D) BLOCO RATEIO DE FRETE NA FROTA:
+      try {
+        if (fretesVinculados && fretesVinculados.length > 0) {
+          const frotasAtuais = JSON.parse(localStorage.getItem('agrocontrol_frotas_veiculos') || localStorage.getItem('agrocontrol_frotas') || '[]');
+          fretesVinculados.forEach((f: any) => {
+            const veiculo = frotasAtuais.find((v: any) => String(v.id) === String(f.veiculoId || f.vehicleId));
+            if (veiculo) {
+              if (!veiculo.historico_receitas) veiculo.historico_receitas = [];
+              veiculo.historico_receitas.push({ 
+                data: novaVenda.data, 
+                vendaId: novaVenda.id, 
+                numeroPedido: novaVenda.numeroPedido,
+                cliente: novaVenda.cliente,
+                valor: Number(f.totalFrete || f.valorTotalFrete || 0) 
+              });
+            }
+          });
+          localStorage.setItem('agrocontrol_frotas_veiculos', JSON.stringify(frotasAtuais));
+          localStorage.setItem('agrocontrol_frotas', JSON.stringify(frotasAtuais));
+          try {
+            injectFreightRevenueIntoFleetVehicles(fretesVinculados, novaVenda.numeroPedido, clientNameResolved, dateStr);
+          } catch (errInj) {}
         }
+      } catch (e) {
+        console.error("Erro Frete Frota:", e);
+      }
+
+      // E) BLOCO HISTÓRICO DO CLIENTE SEM DUPLICIDADE:
+      try {
+        if (selectedClientId || novaVenda.cliente) {
+          const clientesAtuais = JSON.parse(localStorage.getItem('agrocontrol_clientes') || localStorage.getItem('colaca_silagem_clientes') || '[]');
+          const clienteIndex = clientesAtuais.findIndex((c: any) => 
+            (selectedClientId && String(c.id) === String(selectedClientId)) ||
+            (c.nome && c.nome.trim().toUpperCase() === String(novaVenda.cliente).trim().toUpperCase()) ||
+            (c.name && c.name.trim().toUpperCase() === String(novaVenda.cliente).trim().toUpperCase())
+          );
+
+          if (clienteIndex >= 0) {
+            const cli = clientesAtuais[clienteIndex];
+            if (!cli.historico_vendas) cli.historico_vendas = [];
+            const jaConsta = cli.historico_vendas.some((v: any) => v.id === novaVenda.id || v.numeroPedido === novaVenda.numeroPedido);
+            if (!jaConsta) {
+              cli.historico_vendas.unshift(novaVenda);
+              if (!cli.historico_compras) cli.historico_compras = [];
+              cli.historico_compras.unshift(novaVenda);
+              cli.ultimaCompra = novaVenda.data;
+              cli.totalGasto = Number(cli.totalGasto || 0) + Number(novaVenda.totalLiquido || 0);
+
+              localStorage.setItem('agrocontrol_clientes', JSON.stringify(clientesAtuais));
+              localStorage.setItem('colaca_silagem_clientes', JSON.stringify(clientesAtuais));
+              window.dispatchEvent(new CustomEvent('agrocontrol_clientes_updated', { detail: clientesAtuais }));
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Erro Cliente:", e);
+      }
+
+      // Persistência em Serviços e Vendas (para alimentar instantaneamente o Dashboard de Vendas do Print 1)
+      try {
+        const totalTons = items.reduce((acc, it) => (it.unidade && it.unidade.includes('TON')) ? acc + it.quantidade : acc, 0);
+        const totalHa = items.reduce((acc, it) => (it.unidade && it.unidade.includes('HA')) ? acc + it.quantidade : acc, 0);
+
+        const newSaleOrder: ServiceOrder = {
+          id: novaVenda.id,
+          orderNumber: novaVenda.numeroPedido,
+          clientName: clientNameResolved,
+          clientId: selectedClientId || undefined,
+          farmName: farmNameResolved,
+          serviceTab: 'venda',
+          serviceType: isContract ? 'Contrato de Prestação de Serviços de Silagem' : 'Venda Balcão PDV',
+          date: dateStr,
+          startDate: dateStr,
+          completionDate: dateStr,
+          status: formaPagamentoAtiva === 'A PRAZO' ? 'em_andamento' : 'concluido',
+          ratePerUnit: totals.totalLiquido,
+          totalAmount: totals.totalLiquido,
+          tonsEstimated: totalTons > 0 ? totalTons : undefined,
+          areaQuantity: totalHa > 0 ? totalHa : undefined,
+          areaUnit: totalHa > 0 ? 'hectares' : undefined,
+          notes: `${isContract ? 'Contrato de Prestação de Serviços' : 'Venda Balcão PDV'} • Pagamento: ${formaPagamentoAtiva} • Produtor/Cliente: ${clientNameResolved} • Fazenda: ${farmNameResolved} • Itens: ${items.map(i => `${i.quantidade} ${i.unidade || 'UN'} - ${i.descricao}`).join('; ')}`,
+        };
+
+        const rawServices = localStorage.getItem('colaca_silagem_services') || localStorage.getItem('agrocontrol_servicos');
+        const parsed = rawServices ? JSON.parse(rawServices) : [];
+        const existingServices = Array.isArray(parsed) ? parsed : [];
+        if (!existingServices.some(s => s.id === newSaleOrder.id || s.orderNumber === newSaleOrder.orderNumber)) {
+          const updated = [newSaleOrder, ...existingServices];
+          localStorage.setItem('colaca_silagem_services', JSON.stringify(updated));
+          localStorage.setItem('agrocontrol_servicos', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('colaca_services_updated', { detail: updated }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_servicos_updated', { detail: updated }));
+        }
+
+        onSaveService(newSaleOrder);
+      } catch (eServ) {
+        console.warn('Erro ao persistir serviço de venda:', eServ);
       }
 
       const cobrancaLabel = tipoCobranca === 'carteira' ? 'CARTEIRA (CONTA INTERNA)' : 'BOLETO BANCÁRIO';
@@ -2247,21 +2358,14 @@ export const PdvView: React.FC<PdvViewProps> = ({
         }
       }
 
+      // 3. LIMPEZA E EMISSÃO DE DOCUMENTOS:
       setLastFinishedSale(saleRecord);
       setActivePrintFormat(formatoImpressao);
-      handleLimparPdv();
       setIsCheckoutModalOpen(false);
+      handleLimparPdv();
       exitPdvFullscreen();
 
-      // 3. DIRETRIZ SILENCIOSA MANDATÓRIA (SLIM DESIGN PRO): Reset com foco imediato no primeiro input
-      setTimeout(() => {
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-          searchInputRef.current.select();
-        }
-      }, 50);
-
-      // Bypass de Sandbox / Pop-up: Abrir aba '_blank' com o layout de impressão correto
+      // Decolagem da nova aba de impressão casada (A4 ou 80mm)
       try {
         const printHtml = generatePrintableSaleHtml(saleRecord, formatoImpressao, companyProfile);
         const printWindow = window.open('', '_blank');
@@ -2276,6 +2380,15 @@ export const PdvView: React.FC<PdvViewProps> = ({
         console.warn('Aviso de impressão de pop-up:', e);
         setIsReceiptOpen(true);
       }
+
+      // Retorno do cursor piscando para o campo de descrição de produtos [F3]
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }, 60);
+
     } catch (error) {
       console.error('Erro ao finalizar venda PDV:', error);
       handleLimparPdv();

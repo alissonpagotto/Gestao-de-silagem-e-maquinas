@@ -69,6 +69,34 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     }
   }, [inventory]);
 
+  useEffect(() => {
+    const handleStockUpdate = (e: any) => {
+      try {
+        const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLocalInventory(parsed);
+          }
+        } else if (e?.detail && Array.isArray(e.detail)) {
+          setLocalInventory(e.detail);
+        }
+      } catch {}
+    };
+    window.addEventListener('agrocontrol_produtos_updated', handleStockUpdate);
+    window.addEventListener('colaca_silagem_estoque_produtos_updated', handleStockUpdate);
+    window.addEventListener('silagem_inventory_changed', handleStockUpdate);
+    window.addEventListener('silagem_inventory_updated', handleStockUpdate);
+    window.addEventListener('inventory_updated', handleStockUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_produtos_updated', handleStockUpdate);
+      window.removeEventListener('colaca_silagem_estoque_produtos_updated', handleStockUpdate);
+      window.removeEventListener('silagem_inventory_changed', handleStockUpdate);
+      window.removeEventListener('silagem_inventory_updated', handleStockUpdate);
+      window.removeEventListener('inventory_updated', handleStockUpdate);
+    };
+  }, []);
+
   const onSaveInventoryRef = useRef(onSaveInventory);
   useEffect(() => {
     onSaveInventoryRef.current = onSaveInventory;
