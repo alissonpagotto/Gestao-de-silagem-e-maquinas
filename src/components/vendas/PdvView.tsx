@@ -48,6 +48,9 @@ export interface PdvItem {
   descricao: string;
   unidade: string;
   quantidade: number;
+  qtd?: number;
+  categoria?: string;
+  category?: string;
   precoUnitario: number;
   percentualDesconto: number;
   valorDesconto: number;
@@ -122,6 +125,7 @@ export interface CatalogProduct {
   barcode: string;
   name: string;
   unit: string;
+  category?: string;
   price: number;
   salePrice: number;
   unitCost: number;
@@ -1190,6 +1194,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
         barcode: item.barcode || (item as any).codigo_barras || '',
         name,
         unit,
+        category: (item as any).category || (item as any).categoria || '',
         price: activePrice > 0 ? activePrice : (sale > 0 ? sale : cost),
         salePrice: sale,
         unitCost: cost,
@@ -1515,13 +1520,20 @@ export const PdvView: React.FC<PdvViewProps> = ({
       })()
     );
 
+    const chosenId = resolvedProductId ? String(resolvedProductId) : `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    const matchedProductObj = productCatalog.find(p => String(p.id) === String(resolvedProductId)) || selectedProduct;
+    const cat = matchedProductObj?.category || (matchedProductObj?.rawItem as any)?.category || (matchedProductObj?.rawItem as any)?.categoria || '';
+
     const newItem: PdvItem = {
-      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      productId: resolvedProductId,
+      id: chosenId,
+      productId: resolvedProductId ? String(resolvedProductId) : undefined,
       codigo: cod || `COD-${String(items.length + 1).padStart(3, '0')}`,
       descricao: descResolved,
       unidade: un,
       quantidade: qtd,
+      qtd: qtd,
+      categoria: cat,
+      category: cat,
       precoUnitario: preco,
       percentualDesconto: descPct,
       valorDesconto: valorDesc,
@@ -1529,7 +1541,26 @@ export const PdvView: React.FC<PdvViewProps> = ({
       totalLiquido: totalLiquido
     };
 
-    setItems(prev => [...prev, newItem]);
+    setItems(prev => {
+      const existingIdx = prev.findIndex(it => String(it.id) === String(chosenId));
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        const existing = copy[existingIdx];
+        const novaQtd = existing.quantidade + qtd;
+        const novoTotalBruto = Math.round(novaQtd * preco * 100) / 100;
+        const novoValorDesc = Math.round(novoTotalBruto * (descPct / 100) * 100) / 100;
+        copy[existingIdx] = {
+          ...existing,
+          quantidade: novaQtd,
+          qtd: novaQtd,
+          totalBruto: novoTotalBruto,
+          valorDesconto: novoValorDesc,
+          totalLiquido: Math.max(0, novoTotalBruto - novoValorDesc)
+        };
+        return copy;
+      }
+      return [...prev, newItem];
+    });
 
     // Limpar campos de entrada para o próximo item e resetar quantidade de volta para "1,00"
     setInputBusca('');
@@ -2115,57 +2146,59 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     // B) BAIXA REAL NO ESTOQUE: Varra o array de itens vendidos na chave 'agrocontrol_produtos' e SUBTRAIA (-)
     try {
-      const rawProdutos = localStorage.getItem('agrocontrol_produtos') || 
-                           localStorage.getItem('colaca_silagem_estoque_produtos') || 
-                           localStorage.getItem('silagem_facil_clean_v1_inventory');
-      let produtosList: any[] = [];
+      const rawProdutos = localStorage.getItem('agrocontrol_produtos');
+      let produtosAtuais: any[] = [];
       if (rawProdutos) {
-        try { produtosList = JSON.parse(rawProdutos); } catch (_) {}
+        try { produtosAtuais = JSON.parse(rawProdutos); } catch (_) {}
       }
-      if (!Array.isArray(produtosList) || produtosList.length === 0) {
-        produtosList = getStoredInventory();
+      if (!Array.isArray(produtosAtuais) || produtosAtuais.length === 0) {
+        produtosAtuais = getStoredInventory();
       }
 
-      if (Array.isArray(produtosList) && produtosList.length > 0) {
+      if (Array.isArray(produtosAtuais) && produtosAtuais.length > 0) {
         let stockUpdated = false;
-        items.forEach(soldItem => {
-          const itemDesc = (soldItem.descricao || '').trim().toUpperCase();
-          const itemCod = (soldItem.codigo || '').trim().toUpperCase();
-          const pIndex = produtosList.findIndex(p => {
-            const pId = String(p.id || '').trim();
-            const pCode = String(p.code || p.codigo_produto || '').trim().toUpperCase();
-            const pBarcode = String(p.barcode || p.codigo_barras || '').trim().toUpperCase();
-            const pName = String(p.nome_comercial || p.name || p.nome || '').trim().toUpperCase();
-            
-            return (soldItem.productId && pId === soldItem.productId) ||
-                   (pId && pId === soldItem.id) ||
-                   (pCode && pCode === itemCod) ||
-                   (pBarcode && pBarcode === itemCod) ||
-                   (pName && (pName === itemDesc || itemDesc.includes(pName) || pName.includes(itemDesc)));
-          });
+        const carrinho = items;
+        carrinho.forEach((item: any) => {
+          // 1. COMPARAÇÃO DE ID COM PARSE COMPULSÓRIO (EVITAR CONFLITO STRING/NUMBER):
+          const produtoEstoque = produtosAtuais.find(p => 
+            String(p.id) === String(item.id) ||
+            (item.productId && String(p.id) === String(item.productId)) ||
+            (item.codigo && (
+              String(p.code || p.codigo_produto || '').trim().toUpperCase() === String(item.codigo).trim().toUpperCase() ||
+              String(p.barcode || p.codigo_barras || '').trim().toUpperCase() === String(item.codigo).trim().toUpperCase()
+            )) ||
+            (item.descricao && (
+              String(p.nome_comercial || p.name || p.nome || '').trim().toUpperCase() === String(item.descricao).trim().toUpperCase()
+            ))
+          );
 
-          if (pIndex >= 0) {
-            const prod = { ...produtosList[pIndex] };
-            const currentQty = Number(prod.quantity ?? prod.quantidade_atual ?? prod.quantidade ?? 0);
-            const soldQty = Number(soldItem.quantidade) || 0;
-            const newQty = Math.max(0, Math.round((currentQty - soldQty) * 100) / 100);
-            
-            prod.quantity = newQty;
-            prod.quantidade_atual = newQty;
-            produtosList[pIndex] = prod;
-            stockUpdated = true;
+          if (produtoEstoque) {
+            // Se o produto vendido for um serviço (Categoria: "Serviços", como "SERVIÇO DE VOLCANIZAÇÃO" visto no Print 3), ignore a subtração física
+            const categoria = String(produtoEstoque.category || produtoEstoque.categoria || item.categoria || item.category || '').trim().toUpperCase();
+            const descricao = String(produtoEstoque.name || produtoEstoque.nome || produtoEstoque.nome_comercial || item.descricao || '').trim().toUpperCase();
+            const isServico = categoria === 'SERVIÇOS' || categoria === 'SERVICOS' || categoria === 'SERVIÇO' || categoria === 'SERVICO' ||
+                              categoria.includes('SERVIÇ') || categoria.includes('SERVIC') ||
+                              descricao.startsWith('SERVIÇO') || descricao.startsWith('SERVICO') ||
+                              descricao.includes('VOLCANIZAÇÃO') || descricao.includes('VULCANIZAÇÃO') ||
+                              descricao.includes('CONTRATO');
+
+            if (!isServico) {
+              // 2. SUBTRAÇÃO REAL E TRAVA DE QUANTIDADE:
+              produtoEstoque.quantity = Number(produtoEstoque.quantity || 0) - Number(item.qtd || item.quantidade || 1);
+              produtoEstoque.quantidade_atual = Number(produtoEstoque.quantity); // Sincroniza ambas as propriedades de saldo
+              stockUpdated = true;
+            }
           }
         });
 
-        if (stockUpdated) {
-          saveStoredInventory(produtosList);
-          localStorage.setItem('agrocontrol_produtos', JSON.stringify(produtosList));
-          localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(produtosList));
-          window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: produtosList }));
-          window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: produtosList }));
-          window.dispatchEvent(new CustomEvent('inventory_updated', { detail: produtosList }));
-          setStockItems(produtosList);
-        }
+        // 3. PERSISTÊNCIA ESPELHADA IMEDIATA:
+        localStorage.setItem('agrocontrol_produtos', JSON.stringify(produtosAtuais));
+        localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(produtosAtuais));
+        saveStoredInventory(produtosAtuais);
+        window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: produtosAtuais }));
+        window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: produtosAtuais }));
+        window.dispatchEvent(new CustomEvent('inventory_updated', { detail: produtosAtuais }));
+        setStockItems(produtosAtuais);
       }
     } catch (errStock) {
       console.warn('Erro ao processar baixa de estoque no PDV:', errStock);
