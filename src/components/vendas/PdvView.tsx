@@ -2115,15 +2115,16 @@ export const PdvView: React.FC<PdvViewProps> = ({
     // 3. SINCRO-BAIXA REAL DO ESTOQUE COM PURIFICAÇÃO DE PRODUTO (PRINT 4):
     const produtosAtuais = JSON.parse(localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos') || '[]');
     novaVenda.itens.forEach((item: any) => {
+      const descricaoLimpa = item.descricao ? String(item.descricao).replace('• UN •', '').trim() : '';
       const pEstoque = produtosAtuais.find((p: any) => 
         String(p.id) === String(item.id) || 
         String(p.codigo) === String(item.codigo) || 
         (p.code && String(p.code) === String(item.codigo)) ||
         (p.codigo_produto && String(p.codigo_produto) === String(item.codigo)) ||
         (item.codigo && (String(p.id) === String(item.codigo) || String(p.codigo) === String(item.id))) ||
-        (p.item && p.item === item.descricao.replace('• UN •', '').trim()) ||
-        (p.name && p.name === item.descricao.replace('• UN •', '').trim()) ||
-        (p.nome_comercial && p.nome_comercial === item.descricao.replace('• UN •', '').trim())
+        (p.item && String(p.item).toUpperCase() === descricaoLimpa.toUpperCase()) ||
+        (p.name && String(p.name).toUpperCase() === descricaoLimpa.toUpperCase()) ||
+        (p.nome_comercial && String(p.nome_comercial).toUpperCase() === descricaoLimpa.toUpperCase())
       );
       if (pEstoque && pEstoque.categoria !== "SERVIÇOS" && pEstoque.category !== "SERVIÇOS") {
         // Captura o saldo atual independente de qual chave ele use
@@ -3642,7 +3643,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] transition active:scale-95 cursor-pointer uppercase tracking-wider ml-auto"
               >
                 <Printer className="w-4 h-4 stroke-[2.5]" />
-                <span>CONFIRMAR E IMPRIMIR DOCUMENTO</span>
+                <span>FINALIZAR VENDA E IMPRIMIR</span>
               </button>
             </div>
 
