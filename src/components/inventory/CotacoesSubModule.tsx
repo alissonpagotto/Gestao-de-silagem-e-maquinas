@@ -234,33 +234,41 @@ function generateCotacaoWhatsAppText(
 export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
   allItems,
 }) => {
-  // 1. CARREGAMENTO REATIVO DE PRODUTOS CADASTRADOS (agrocontrol_produtos)
+  // 1. CARREGAMENTO REATIVO EXCLUSIVO DE PRODUTOS CADASTRADOS (agrocontrol_produtos)
   const [storedProducts, setStoredProducts] = useState<InventoryItem[]>(() => {
     try {
-      const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
+      const raw = localStorage.getItem('agrocontrol_produtos');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (_) {}
-    return allItems || [];
+    return [];
   });
 
   useEffect(() => {
     const handleProductsUpdate = () => {
       try {
-        const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
+        const raw = localStorage.getItem('agrocontrol_produtos');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setStoredProducts(parsed);
+            return;
           }
         }
-      } catch (_) {}
+        setStoredProducts([]);
+      } catch (_) {
+        setStoredProducts([]);
+      }
     };
 
     window.addEventListener('agrocontrol_produtos_updated', handleProductsUpdate);
-    window.addEventListener('storage', handleProductsUpdate);
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key === 'agrocontrol_produtos') {
+        handleProductsUpdate();
+      }
+    });
     return () => {
       window.removeEventListener('agrocontrol_produtos_updated', handleProductsUpdate);
       window.removeEventListener('storage', handleProductsUpdate);
@@ -268,9 +276,8 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
   }, []);
 
   const availableProducts = useMemo(() => {
-    if (storedProducts && storedProducts.length > 0) return storedProducts;
-    return allItems || [];
-  }, [storedProducts, allItems]);
+    return storedProducts;
+  }, [storedProducts]);
 
   const companyProfile = useMemo(() => {
     try {

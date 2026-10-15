@@ -610,10 +610,24 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   }, [items]);
 
-  // Produtos do estoque para busca rápida
-  const [stockItems, setStockItems] = useState<InventoryItem[]>([]);
+  // Produtos do estoque para busca rápida consumindo única e exclusivamente 'agrocontrol_produtos'
+  const [stockItems, setStockItems] = useState<InventoryItem[]>(() => getStoredInventory());
   useEffect(() => {
-    setStockItems(getStoredInventory());
+    const syncRealStock = () => {
+      setStockItems(getStoredInventory());
+    };
+    syncRealStock();
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'agrocontrol_produtos') {
+        syncRealStock();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('agrocontrol_produtos_updated', syncRealStock);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('agrocontrol_produtos_updated', syncRealStock);
+    };
   }, []);
 
   // Campos do Painel Superior de Entrada
@@ -1104,25 +1118,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
     searchInputRef.current?.focus();
   }, []);
 
-  // Catálogo combinado de produtos (Contratos de Prestação de Serviços de Silagem + Commodities + Estoque)
+  // Catálogo consumindo única e exclusivamente o estoque real ('agrocontrol_produtos') - Fim dos dados fakes/mockados
   const productCatalog = useMemo<CatalogProduct[]>(() => {
-    const commodities: CatalogProduct[] = [
-      // 1. Contratos de Prestação de Serviços de Silagem
-      { id: 'ctr_corte_ensilagem_ton', code: 'CTR-01', barcode: '7892001', name: 'CONTRATO: CORTE, ENSILAGEM & TRANSPORTE (POR TONELADA)', unit: 'TON', price: 45.00, salePrice: 45.00, unitCost: 32.00, wholesalePrice: 40.50, promoPrice: 38.25 },
-      { id: 'ctr_corte_ensilagem_ha', code: 'CTR-02', barcode: '7892002', name: 'CONTRATO: PRESTAÇÃO DE SERVIÇO DE CORTE E ENSILAGEM (POR HECTARE)', unit: 'HA', price: 1250.00, salePrice: 1250.00, unitCost: 900.00, wholesalePrice: 1125.00, promoPrice: 1062.50 },
-      { id: 'ctr_embalagem_sacas', code: 'CTR-03', barcode: '7892003', name: 'CONTRATO: EMBALAGEM / ENSACAMENTO DE SILAGEM', unit: 'TON', price: 65.00, salePrice: 65.00, unitCost: 48.00, wholesalePrice: 58.50, promoPrice: 55.25 },
-      { id: 'ctr_fechamento_silo', code: 'CTR-04', barcode: '7892004', name: 'CONTRATO: COMPACTAÇÃO E FECHAMENTO DE SILO TRINCHEIRA', unit: 'UN', price: 1800.00, salePrice: 1800.00, unitCost: 1300.00, wholesalePrice: 1620.00, promoPrice: 1530.00 },
-      { id: 'ctr_inoculante_ha', code: 'CTR-05', barcode: '7892005', name: 'CONTRATO: APLICAÇÃO DE INOCULANTE BACTERIANO EM ÁREA', unit: 'HA', price: 85.00, salePrice: 85.00, unitCost: 60.00, wholesalePrice: 76.50, promoPrice: 72.25 },
-      { id: 'ctr_fornecimento_prog', code: 'CTR-06', barcode: '7892006', name: 'CONTRATO: FORNECIMENTO PROGRAMADO DE SILAGEM DE MILHO', unit: 'TON', price: 380.00, salePrice: 380.00, unitCost: 280.00, wholesalePrice: 342.00, promoPrice: 323.00 },
-
-      // 2. Commodities e Insumos Rápidos de Silagem
-      { id: 'com_silagem_milho', code: 'SIL-01', barcode: '7891001', name: 'SILAGEM DE MILHO PLANTA INTEIRA', unit: 'TON', price: 380.00, salePrice: 380.00, unitCost: 280.00, wholesalePrice: 342.00, promoPrice: 323.00 },
-      { id: 'com_silagem_sorgo', code: 'SIL-02', barcode: '7891002', name: 'SILAGEM DE SORGO FORRAGEIRO', unit: 'TON', price: 320.00, salePrice: 320.00, unitCost: 230.00, wholesalePrice: 288.00, promoPrice: 272.00 },
-      { id: 'com_silagem_capim', code: 'SIL-03', barcode: '7891003', name: 'SILAGEM DE CAPIM AÇU', unit: 'TON', price: 260.00, salePrice: 260.00, unitCost: 180.00, wholesalePrice: 234.00, promoPrice: 221.00 },
-      { id: 'com_frete_ton', code: 'SRV-01', barcode: '7891004', name: 'TRANSPORTE / FRETE DE SILAGEM', unit: 'TON', price: 45.00, salePrice: 45.00, unitCost: 32.00, wholesalePrice: 40.50, promoPrice: 38.25 },
-      { id: 'com_lona_200', code: 'INS-01', barcode: '7891005', name: 'LONA PLÁSTICA DUPLA FACE 200 MICRAS', unit: 'M', price: 18.50, salePrice: 18.50, unitCost: 13.00, wholesalePrice: 16.65, promoPrice: 15.72 },
-      { id: 'com_inoculante', code: 'INS-02', barcode: '7891006', name: 'INOCULANTE BACTERIANO P/ SILAGEM 1L', unit: 'L', price: 145.00, salePrice: 145.00, unitCost: 105.00, wholesalePrice: 130.50, promoPrice: 123.25 },
-    ];
+    if (!stockItems || stockItems.length === 0) return [];
 
     const stockMapped: CatalogProduct[] = stockItems.map(item => {
       const name = (item.nome_comercial || item.name || '').toUpperCase();
@@ -1170,7 +1168,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       };
     });
 
-    return [...commodities, ...stockMapped];
+    return stockMapped;
   }, [stockItems, tabelaPreco]);
 
   // Itens filtrados para sugestão de autocomplete

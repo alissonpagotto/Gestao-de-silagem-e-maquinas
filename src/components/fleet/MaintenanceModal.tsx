@@ -234,9 +234,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     return 'venda';
   });
 
-  // --- CARREGAMENTO GLOBAL E SINCRONIZAÇÃO DE FUNCIONÁRIOS E ESTOQUE ---
+  // --- CARREGAMENTO GLOBAL E SINCRONIZAÇÃO DE FUNCIONÁRIOS E ESTOQUE EXCLUSIVO 'agrocontrol_produtos' ---
   const [storedEmployees, setStoredEmployees] = useState<Employee[]>([]);
-  const [storedInventory, setStoredInventory] = useState<InventoryItem[]>([]);
+  const [storedInventory, setStoredInventory] = useState<InventoryItem[]>(() => getStoredInventory());
 
   useEffect(() => {
     if (isOpen) {
@@ -246,17 +246,25 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (inventory && inventory.length > 0) {
-      setStoredInventory(inventory);
-    }
-  }, [inventory]);
+    const handleStockUpdate = () => {
+      setStoredInventory(getStoredInventory());
+    };
+    window.addEventListener('agrocontrol_produtos_updated', handleStockUpdate);
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key === 'agrocontrol_produtos') {
+        handleStockUpdate();
+      }
+    });
+    return () => {
+      window.removeEventListener('agrocontrol_produtos_updated', handleStockUpdate);
+      window.removeEventListener('storage', handleStockUpdate);
+    };
+  }, []);
 
-  // Lista consolidada de itens de estoque (prioriza o estado mais recente em storedInventory)
+  // Lista consolidada de itens de estoque exclusivo de 'agrocontrol_produtos' (Fim de dados fakes)
   const allInventoryList = useMemo(() => {
-    if (storedInventory.length > 0) return storedInventory;
-    if (inventory && inventory.length > 0) return inventory;
-    return getStoredInventory();
-  }, [inventory, storedInventory]);
+    return storedInventory;
+  }, [storedInventory]);
 
   // Alteração do Preço Padrão da OS: salva preferência e recalcula itens da tabela automaticamente
   const handleDefaultPriceTypeChange = (newType: DefaultOsPriceType) => {

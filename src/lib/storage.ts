@@ -1502,7 +1502,7 @@ export function getServicesFromStockLocalStorage(): string[] {
 
 export function getStoredInventory(): InventoryItem[] {
   try {
-    const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = localStorage.getItem('agrocontrol_produtos');
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
