@@ -568,6 +568,37 @@ export const PdvView: React.FC<PdvViewProps> = ({
   // Modo de operação no PDV: Venda Balcão ou Lançamento de Contrato de Silagem
   const [operacaoTipo, setOperacaoTipo] = useState<'venda_balcao' | 'contrato_silagem'>('venda_balcao');
 
+  // Modo Expansão Tela Cheia do PDV (Foco Total de Caixa)
+  const [isPdvFullscreen, setIsPdvFullscreen] = useState<boolean>(false);
+
+  const togglePdvFullscreen = () => {
+    const next = !isPdvFullscreen;
+    setIsPdvFullscreen(next);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('agrocontrol_pdv_fullscreen', { detail: { fullscreen: next } }));
+    }, 0);
+  };
+
+  const exitPdvFullscreen = () => {
+    if (!isPdvFullscreen) return;
+    setIsPdvFullscreen(false);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('agrocontrol_pdv_fullscreen', { detail: { fullscreen: false } }));
+    }, 0);
+  };
+
+  useEffect(() => {
+    const handlePdvFullscreenSync = (e: any) => {
+      if (typeof e?.detail?.fullscreen === 'boolean') {
+        setIsPdvFullscreen(e.detail.fullscreen);
+      }
+    };
+    window.addEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreenSync);
+    return () => {
+      window.removeEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreenSync);
+    };
+  }, []);
+
   // Clientes e Produtores rurais carregados e sincronizados reativamente de 'agrocontrol_clientes'
   const [agroClientes, setAgroClientes] = useState<Client[]>(() => loadAgrocontrolClientes(clients));
 
@@ -2225,6 +2256,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setActivePrintFormat(formatoImpressao);
     handleLimparPdv();
     setIsCheckoutModalOpen(false);
+    exitPdvFullscreen();
 
     // Bypass de Sandbox: Abrir aba '_blank' com o layout de impressão correto
     try {
@@ -2251,10 +2283,18 @@ export const PdvView: React.FC<PdvViewProps> = ({
         e.preventDefault();
         handleOpenCheckoutModal();
       }
-      // Esc: Fechar Modal de Fechamento se aberto
-      else if (e.key === 'Escape' && isCheckoutModalOpen) {
-        e.preventDefault();
-        setIsCheckoutModalOpen(false);
+      // Esc: Fechar Modal de Fechamento se aberto, ou sair da Tela Cheia
+      else if (e.key === 'Escape') {
+        if (isCheckoutModalOpen) {
+          e.preventDefault();
+          setIsCheckoutModalOpen(false);
+        } else if (isReceiptOpen) {
+          e.preventDefault();
+          setIsReceiptOpen(false);
+        } else if (isPdvFullscreen) {
+          e.preventDefault();
+          exitPdvFullscreen();
+        }
       }
       // F3: Focar Busca de Produtos
       else if (e.key === 'F3') {
@@ -2381,7 +2421,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
   return (
     <div 
       id="pdv-frente-de-caixa-container"
-      className="w-full h-[calc(100vh-175px)] max-h-[calc(100vh-170px)] flex flex-col justify-between overflow-hidden global antialiased select-none gap-1.5"
+      className={`w-full ${isPdvFullscreen ? 'h-full max-h-none py-1' : 'h-[calc(100vh-175px)] max-h-[calc(100vh-170px)]'} flex flex-col justify-between overflow-hidden global antialiased select-none gap-1.5`}
     >
       {/* Alerta Não-Bloqueante de Validação */}
       {warningMessage && (
@@ -2410,7 +2450,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
         <form onSubmit={handleAdicionarItem} className="space-y-1.5">
           {/* Linha de Identificação de Operação, Cliente (Agrocontrol) & Atalhos Rápidos */}
           <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-stone-300">
-            {/* Seletor Rápido de Modo de Operação (Venda Balcão vs Contrato de Silagem) */}
+            {/* Seletor Rápido de Modo de Operação (Venda Balcão) + Botão de Expansão Tela Cheia VENDA PDV */}
             <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-stone-800 p-0.5 rounded-md border border-slate-300 dark:border-stone-700 shrink-0">
               <button
                 type="button"
@@ -2428,16 +2468,15 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
               <button
                 type="button"
-                onClick={() => setOperacaoTipo('contrato_silagem')}
-                className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded transition cursor-pointer flex items-center gap-1 ${
-                  operacaoTipo === 'contrato_silagem'
-                    ? 'bg-emerald-600 text-white shadow-2xs'
-                    : 'text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-700'
+                onClick={togglePdvFullscreen}
+                className={`px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded transition cursor-pointer flex items-center gap-1 border shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] ${
+                  isPdvFullscreen
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs font-black ring-1 ring-emerald-400'
+                    : 'bg-gradient-to-b from-slate-100 via-white to-slate-200 text-slate-800 border-slate-300 dark:from-stone-800 dark:to-stone-900 dark:text-white dark:border-stone-700 hover:bg-slate-200 hover:text-slate-900'
                 }`}
-                title="Contrato de Prestação de Serviços de Silagem"
+                title={isPdvFullscreen ? "Sair do Modo Tela Cheia (Restaurar Menus)" : "Ativar Modo Expansão Tela Cheia (Foco Total de Caixa)"}
               >
-                <FileCheck2 className="w-3 h-3" />
-                <span>CONTRATO DE SILAGEM</span>
+                <span>{isPdvFullscreen ? '✕ SAIR TELA CHEIA' : '📟 VENDA PDV'}</span>
               </button>
             </div>
 
@@ -2643,6 +2682,18 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F2] FINALIZAR</span>
                 <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F4] LIMPAR</span>
               </div>
+
+              {isPdvFullscreen && (
+                <button
+                  type="button"
+                  onClick={exitPdvFullscreen}
+                  className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-2xs transition cursor-pointer flex items-center gap-1 shrink-0 ml-1"
+                  title="Sair do modo tela cheia e restaurar menus laterais (ESC)"
+                >
+                  <X className="w-3 h-3" />
+                  <span>✕ SAIR TELA CHEIA (ESC)</span>
+                </button>
+              )}
             </div>
           </div>
 

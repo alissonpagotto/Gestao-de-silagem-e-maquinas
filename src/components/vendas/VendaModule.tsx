@@ -45,6 +45,15 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
+  const [isPdvFullscreen, setIsPdvFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handlePdvFullscreen = (e: any) => {
+      setIsPdvFullscreen(!!e?.detail?.fullscreen);
+    };
+    window.addEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreen);
+    return () => window.removeEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreen);
+  }, []);
 
   // Filtro por Período e Atalhos Rápidos (Gabarito Mestre de Relatórios)
   const [quickPeriod, setQuickPeriod] = useState<'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses'>('mes_atual');
@@ -284,57 +293,61 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   return (
     <div 
       id="venda-module-root"
-      className={`w-full max-w-none antialiased ${activeTab === 'pdv' ? 'space-y-1 overflow-hidden global' : 'space-y-2.5'}`}
+      className={`w-full max-w-none antialiased ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full overflow-hidden' : activeTab === 'pdv' ? 'space-y-1 overflow-hidden global' : 'space-y-2.5'}`}
     >
       {/* 1. CABEÇALHO PADRONIZADO SLIM COM TÍTULO */}
-      <header className="no-print flex items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
-        <div>
-          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-            Venda
-          </h1>
-        </div>
-      </header>
+      {(!isPdvFullscreen || activeTab !== 'pdv') && (
+        <header className="no-print flex items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
+          <div>
+            <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
+              Venda
+            </h1>
+          </div>
+        </header>
+      )}
 
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
-      <div className="w-full flex flex-col">
+      <div className={`w-full flex flex-col ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full' : ''}`}>
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
-        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
-          <nav 
-            aria-label="Abas de Venda e PDV"
-            className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
-          >
-            <button
-              type="button"
-              id="tab-dashboard-vendas"
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                activeTab === 'dashboard'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-              }`}
+        {(!isPdvFullscreen || activeTab !== 'pdv') && (
+          <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+            <nav 
+              aria-label="Abas de Venda e PDV"
+              className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
             >
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>DASHBOARD VENDAS</span>
-            </button>
+              <button
+                type="button"
+                id="tab-dashboard-vendas"
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'dashboard'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>DASHBOARD VENDAS</span>
+              </button>
 
-            <button
-              type="button"
-              id="tab-pdv-frente-caixa"
-              onClick={() => setActiveTab('pdv')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
-                activeTab === 'pdv'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-              }`}
-            >
-              <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span>PDV</span>
-            </button>
-          </nav>
-        </div>
+              <button
+                type="button"
+                id="tab-pdv-frente-caixa"
+                onClick={() => setActiveTab('pdv')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'pdv'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                <span>PDV</span>
+              </button>
+            </nav>
+          </div>
+        )}
 
         {/* MOLDURA GERAL INTEGRADA (ALINHAMENTO SETA VERDE) */}
-        <div className={`w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global ${activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3'}`}>
+        <div className={`w-full ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full border-0 rounded-none p-0 bg-[#b9cde3] dark:bg-stone-900' : 'border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global ' + (activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3')}`}>
           {activeTab === 'pdv' ? (
             <PdvView
               clients={clients}

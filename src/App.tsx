@@ -1493,6 +1493,24 @@ export default function App() {
   // Controle de Janela Desktop (Maximizar tela cheia e Minimizar painel)
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const [isWindowMinimized, setIsWindowMinimized] = useState(false);
+  // Controle do Modo Expansão Tela Cheia do PDV (Foco Total de Caixa)
+  const [isPdvFullscreen, setIsPdvFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handlePdvFullscreen = (e: any) => {
+      setIsPdvFullscreen(!!e?.detail?.fullscreen);
+    };
+    window.addEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreen);
+    return () => {
+      window.removeEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreen);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'venda' && isPdvFullscreen) {
+      setIsPdvFullscreen(false);
+    }
+  }, [activeTab, isPdvFullscreen]);
 
   useEffect(() => {
     const handleSessionSync = (e: any) => {
@@ -3016,22 +3034,23 @@ export default function App() {
   return (
     <div 
       id="desktop-outer-frame-container"
-      className={`h-screen w-screen overflow-hidden bg-[#eef2f6] dark:bg-[#0c0d0e] ${isWindowMaximized ? 'p-0' : 'p-2.5 sm:p-3 lg:p-3.5'} flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100 transition-all duration-150`}
+      className={`h-screen w-screen overflow-hidden bg-[#eef2f6] dark:bg-[#0c0d0e] ${isPdvFullscreen || isWindowMaximized ? 'p-0' : 'p-2.5 sm:p-3 lg:p-3.5'} flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100 transition-all duration-150`}
     >
       {/* Moldura da Janela Desktop (Container Principal de Software) */}
       <div 
         id="desktop-window-mother-frame"
         className={`flex-1 w-full h-full min-h-0 flex flex-col ${
-          isWindowMaximized 
+          isPdvFullscreen || isWindowMaximized 
             ? 'rounded-none border-0 shadow-none' 
             : 'rounded-lg border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15),0_12px_28px_-6px_rgba(0,0,0,0.25)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1),inset_-1px_-1px_0px_rgba(0,0,0,0.4),0_12px_28px_-6px_rgba(0,0,0,0.6)]'
         } bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-925 dark:to-stone-950 overflow-hidden relative transition-all duration-150 ${isWindowMinimized ? 'max-h-[64px] flex-none' : ''}`}
       >
         {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
-        <header
-          id="desktop-window-titlebar"
-          className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 shadow-[0_1px_0px_0px_rgba(255,255,255,0.9)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
-        >
+        {!isPdvFullscreen && (
+          <header
+            id="desktop-window-titlebar"
+            className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 shadow-[0_1px_0px_0px_rgba(255,255,255,0.9)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
+          >
           {/* Lado Esquerdo: Linha Única Direta e Enxuta (Gabarito Simplificado) */}
           <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[11px] font-semibold text-slate-600 dark:text-stone-300 truncate">
             {/* Botão de menu mobile */}
@@ -3167,6 +3186,7 @@ export default function App() {
             </div>
           </div>
         </header>
+        )}
 
         {/* Barra de Restauração quando Minimizado */}
         {isWindowMinimized && (
@@ -3221,21 +3241,23 @@ export default function App() {
 
         {/* Workspace Interno da Janela (Sidebar + Conteúdo Principal) */}
         <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-[#b9cde3] dark:bg-stone-950">
-          {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isOpenMobile={isMobileSidebarOpen}
-            onCloseMobile={() => setIsMobileSidebarOpen(false)}
-            companyProfile={companyProfile}
-            menuOrder={menuOrder}
-            isDarkMode={isDarkMode}
-            setIsDarkMode={setIsDarkMode}
-            onLogout={handleLogout}
-          />
+          {/* Left Fixed Sidebar - Ocultado no Modo Tela Cheia do PDV */}
+          {!isPdvFullscreen && (
+            <Sidebar
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              isOpenMobile={isMobileSidebarOpen}
+              onCloseMobile={() => setIsMobileSidebarOpen(false)}
+              companyProfile={companyProfile}
+              menuOrder={menuOrder}
+              isDarkMode={isDarkMode}
+              setIsDarkMode={setIsDarkMode}
+              onLogout={handleLogout}
+            />
+          )}
 
           {/* Backdrop for mobile sidebar */}
-          {isMobileSidebarOpen && (
+          {!isPdvFullscreen && isMobileSidebarOpen && (
             <div
               onClick={() => setIsMobileSidebarOpen(false)}
               className="absolute inset-0 z-30 bg-black/50 lg:hidden backdrop-blur-xs"
@@ -3244,12 +3266,12 @@ export default function App() {
 
           {/* Main Body Area with left padding for desktop sidebar */}
           <div 
-            className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-[#b9cde3] dark:bg-stone-950"
+            className={`${isPdvFullscreen ? 'pl-0' : 'lg:pl-64'} flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-[#b9cde3] dark:bg-stone-950`}
           >
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 
               id="crm-main-content"
-              className={`flex-1 min-h-0 overflow-y-auto p-2 sm:p-2.5 lg:p-3 ${activeTab === 'configuracoes' ? 'pb-2 lg:pb-2 overflow-hidden' : 'pb-20 lg:pb-3.5'} w-full max-w-none bg-[#b9cde3] dark:bg-stone-950`}
+              className={`flex-1 min-h-0 overflow-y-auto ${isPdvFullscreen ? 'p-0 pb-0' : activeTab === 'configuracoes' ? 'p-2 sm:p-2.5 lg:p-3 pb-2 lg:pb-2 overflow-hidden' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3.5'} w-full max-w-none bg-[#b9cde3] dark:bg-stone-950`}
             >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (
