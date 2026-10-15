@@ -1533,7 +1533,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
                               stockItems.find((p: any) => String(p.id) === String(resolvedProductId)) || 
                               selectedProduct;
     const chosenId = resolvedProductId ? String(resolvedProductId) : `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-    const cat = matchedProductObj?.category || (matchedProductObj as any)?.categoria || (matchedProductObj?.rawItem as any)?.category || (matchedProductObj?.rawItem as any)?.categoria || '';
+    const cat = matchedProductObj?.category || (matchedProductObj as any)?.categoria || ((matchedProductObj as any)?.rawItem as any)?.category || ((matchedProductObj as any)?.rawItem as any)?.categoria || '';
     const finalCod = cod || (matchedProductObj as any)?.code || (matchedProductObj as any)?.codigo || `COD-${String(items.length + 1).padStart(3, '0')}`;
 
     const newItem: PdvItem = {
@@ -2137,7 +2137,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
             (item.descricao && (p.nome_comercial || p.name || p.item) && String(p.nome_comercial || p.name || p.item).trim().toUpperCase() === String(item.descricao).trim().toUpperCase())
           );
           if (pEstoque && pEstoque.categoria !== "SERVIÇOS" && pEstoque.category !== "SERVIÇOS") {
-            const qtdVenda = Number(item.qtd || item.quantidade || 1);
+            const qtdVenda = Number(item.qtd || (item as any).quantidade || 1);
             pEstoque.quantity = Number(pEstoque.quantity || pEstoque.quantidade_atual || 0) - qtdVenda;
             pEstoque.quantidade_atual = pEstoque.quantity;
           }
@@ -2397,20 +2397,19 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   };
 
-  // Teclas de Atalho do PDV (F2, F3, F4, F5, Esc)
+  // Teclas de Atalho do PDV Base (F2, F3, F4, F5, Esc) - Ativo quando o modal de fechamento NÃO está aberto
   useEffect(() => {
+    if (isCheckoutModalOpen) return;
+
     const handleKeyDown = async (e: KeyboardEvent) => {
       // F2: Finalizar Venda (Abre modal de fechamento)
       if (e.key === 'F2') {
         e.preventDefault();
         handleOpenCheckoutModal();
       }
-      // Esc: Fechar Modal de Fechamento se aberto, ou sair da Tela Cheia
+      // Esc: Fechar Comprovante ou sair da Tela Cheia
       else if (e.key === 'Escape') {
-        if (isCheckoutModalOpen) {
-          e.preventDefault();
-          setIsCheckoutModalOpen(false);
-        } else if (isReceiptOpen) {
+        if (isReceiptOpen) {
           e.preventDefault();
           setIsReceiptOpen(false);
         } else if (isPdvFullscreen) {
@@ -2452,16 +2451,86 @@ export const PdvView: React.FC<PdvViewProps> = ({
           handlePrintSafe();
         }
       }
-      // F1 / Alt+1: Selecionar À VISTA (Dinheiro) se Modal de Fechamento estiver aberto
-      else if (isCheckoutModalOpen && (e.key === 'F1' || (e.altKey && e.key === '1'))) {
-        e.preventDefault();
-        handleAcionarAVista();
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [items, totals, formaPagamento, lastFinishedSale, confirmDialog, formatoImpressao, isCheckoutModalOpen]);
+  }, [items, lastFinishedSale, confirmDialog, formatoImpressao, isCheckoutModalOpen, isReceiptOpen, isPdvFullscreen]);
+
+  // =========================================================================
+  // OUVINTE EXCLUSIVO DE ATALHOS NO MODAL 'CONCLUIR E EMITIR COMPROVANTE'
+  // Ativo exclusivamente quando 'isCheckoutModalOpen' estiver aberto
+  // =========================================================================
+  useEffect(() => {
+    if (!isCheckoutModalOpen) return;
+
+    const handleModalKeyDown = (e: KeyboardEvent) => {
+      // [F2] FINALIZAR VENDA E IMPRIMIR
+      if (e.key === 'F2') {
+        e.preventDefault();
+        handleConfirmarEImprimir();
+      }
+      // [ESC] CANCELAR / VOLTAR AO PDV
+      else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isSaveDraftModalOpen) {
+          setIsSaveDraftModalOpen(false);
+        } else {
+          setIsCheckoutModalOpen(false);
+        }
+      }
+      // [F4] SALVAR RASCUNHO VENDA
+      else if (e.key === 'F4') {
+        e.preventDefault();
+        handleSaveVendaRascunho();
+      }
+      // [F5] À VISTA
+      else if (e.key === 'F5') {
+        e.preventDefault();
+        handleAcionarAVista();
+      }
+      // [F6] PIX
+      else if (e.key === 'F6') {
+        e.preventDefault();
+        setFormaPagamento('pix');
+        setTimeout(() => {
+          valorPagoInputRef.current?.focus();
+          valorPagoInputRef.current?.select();
+        }, 30);
+      }
+      // [F7] DÉBITO
+      else if (e.key === 'F7') {
+        e.preventDefault();
+        setFormaPagamento('cartao_debito');
+        setTimeout(() => {
+          valorPagoInputRef.current?.focus();
+          valorPagoInputRef.current?.select();
+        }, 30);
+      }
+      // [F8] CRÉDITO
+      else if (e.key === 'F8') {
+        e.preventDefault();
+        setFormaPagamento('cartao_credito');
+        setTimeout(() => {
+          valorPagoInputRef.current?.focus();
+          valorPagoInputRef.current?.select();
+        }, 30);
+      }
+      // [F9] A PRAZO
+      else if (e.key === 'F9') {
+        e.preventDefault();
+        setFormaPagamento('prazo');
+      }
+      // [F10] ALTERNAR FORMATO DE IMPRESSÃO (A4 <-> TÉRMICA 80MM)
+      else if (e.key === 'F10') {
+        e.preventDefault();
+        setFormatoImpressao(prev => (prev === 'a4' ? 'termica' : 'a4'));
+      }
+    };
+
+    window.addEventListener('keydown', handleModalKeyDown);
+    return () => window.removeEventListener('keydown', handleModalKeyDown);
+  }, [isCheckoutModalOpen, isSaveDraftModalOpen, handleConfirmarEImprimir, handleSaveVendaRascunho, handleAcionarAVista]);
 
   // Funções Anti-Sandbox para Impressão, Download e Cópia Segura
   const handlePrintSafe = () => {
@@ -3554,11 +3623,11 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
                   {[
-                    { key: 'a_vista', label: 'À VISTA' },
-                    { key: 'pix', label: 'PIX' },
-                    { key: 'cartao_debito', label: 'DÉBITO' },
-                    { key: 'cartao_credito', label: 'CRÉDITO' },
-                    { key: 'prazo', label: 'A PRAZO' },
+                    { key: 'a_vista', label: '[F5] À VISTA' },
+                    { key: 'pix', label: '[F6] PIX' },
+                    { key: 'cartao_debito', label: '[F7] DÉBITO' },
+                    { key: 'cartao_credito', label: '[F8] CRÉDITO' },
+                    { key: 'prazo', label: '[F9] A PRAZO' },
                   ].map(method => {
                     const isSelected = formaPagamento === method.key;
                     return (
@@ -3709,7 +3778,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     <FileText className={`w-5 h-5 shrink-0 mt-0.5 ${formatoImpressao === 'a4' ? 'text-sky-600' : 'text-slate-400'}`} />
                     <div>
                       <div className="text-xs font-black uppercase text-zinc-900 dark:text-white flex items-center gap-1.5">
-                        <span>🖨️ FOLHA A4 RETRATO</span>
+                        <span>📄 FOLHA A4 RETRATO [F10]</span>
                         {formatoImpressao === 'a4' && (
                           <span className="px-1.5 py-0.2 rounded bg-sky-600 text-white text-[8px] font-black uppercase">
                             SELECIONADO
@@ -3734,7 +3803,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     <Receipt className={`w-5 h-5 shrink-0 mt-0.5 ${formatoImpressao === 'termica' ? 'text-emerald-600' : 'text-slate-400'}`} />
                     <div>
                       <div className="text-xs font-black uppercase text-zinc-900 dark:text-white flex items-center gap-1.5">
-                        <span>📟 TÉRMICA 80MM (CUPOM RÁPIDO)</span>
+                        <span>📟 TÉRMICA 80MM [F10]</span>
                         {formatoImpressao === 'termica' && (
                           <span className="px-1.5 py-0.2 rounded bg-emerald-600 text-white text-[8px] font-black uppercase">
                             SELECIONADO
@@ -3759,7 +3828,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   onClick={() => setIsCheckoutModalOpen(false)}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase tracking-wider"
                 >
-                  CANCELAR / VOLTAR AO PDV
+                  ✕ [ESC] CANCELAR
                 </button>
 
                 <button
@@ -3768,7 +3837,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   className="bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400 font-bold text-xs uppercase px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] cursor-pointer whitespace-nowrap"
                   title="Salvar venda temporária e liberar PDV"
                 >
-                  <span>💾 SALVAR RASCUNHO VENDA</span>
+                  <span>💾 [F4] SALVAR RASCUNHO</span>
                 </button>
               </div>
 
@@ -3777,8 +3846,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 onClick={handleConfirmarEImprimir}
                 className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] transition active:scale-95 cursor-pointer uppercase tracking-wider ml-auto"
               >
-                <Printer className="w-4 h-4 stroke-[2.5]" />
-                <span>FINALIZAR VENDA E IMPRIMIR</span>
+                <span>🖨️ [F2] FINALIZAR VENDA E IMPRIMIR</span>
               </button>
             </div>
 

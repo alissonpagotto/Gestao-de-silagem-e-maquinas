@@ -561,7 +561,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 max-h-[82vh] overflow-y-auto bg-white dark:bg-stone-900 flex-1 scrollbar-none">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 max-h-[82vh] overflow-y-auto bg-[#cad4e6] dark:bg-stone-900 flex-1 scrollbar-none">
           
           {/* Row 1: Categoria & Data */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

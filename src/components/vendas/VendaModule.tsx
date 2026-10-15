@@ -16,7 +16,7 @@ import {
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
-import { ServiceFormModal } from '../services/ServiceFormModal';
+import { SaleDetailsEditModal } from './SaleDetailsEditModal';
 import { PdvView } from './PdvView';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
@@ -93,7 +93,9 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     setEndDate(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
   };
 
-  // Modal State for "+ Nova Venda" & Edição
+  // Modal Exclusivo de Detalhes e Edição da Venda (Desvinculação de Serviços)
+  const [isSaleEditModalOpen, setIsSaleEditModalOpen] = useState(false);
+  const [selectedSaleForEdit, setSelectedSaleForEdit] = useState<ServiceOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
@@ -296,19 +298,18 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     };
   }, [periodSales]);
 
-  // Abrir Modal para Nova Venda
+  // Abrir PDV para Nova Venda
   const handleOpenNew = () => {
-    setEditRecord(null);
-    setIsModalOpen(true);
+    setActiveTab('pdv');
   };
 
-  // Abrir Modal para Editar Venda
+  // Abrir Modal Exclusivo para Editar Venda (Desvinculação de Serviços)
   const handleOpenEdit = (record: ServiceOrder) => {
-    setEditRecord(record);
-    setIsModalOpen(true);
+    setSelectedSaleForEdit(record);
+    setIsSaleEditModalOpen(true);
   };
 
-  // Salvar Venda (Novo ou Editado)
+  // Salvar Venda (Fallback)
   const handleSaveService = (savedService: ServiceOrder) => {
     if (!onSaveServices) return;
 
@@ -329,7 +330,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     setEditRecord(recordToSave);
   };
 
-  // Excluir Venda
+  // Excluir Venda com Estorno Reativo de Estoque
   const handleDeleteService = async (id: string, clientName: string) => {
     const isConfirmed = await confirm({
       title: 'Excluir Venda',
@@ -339,8 +340,44 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
       variant: 'danger',
     });
 
-    if (isConfirmed && onSaveServices) {
-      onSaveServices(services.filter((s) => s.id !== id));
+    if (isConfirmed) {
+      if (onSaveServices) {
+        onSaveServices(services.filter((s) => s.id !== id));
+      }
+      try {
+        const rawV = localStorage.getItem('agrocontrol_vendas') || localStorage.getItem('agrocontrol_pdv_vendas') || '[]';
+        const list = JSON.parse(rawV);
+        if (Array.isArray(list)) {
+          const removed = list.find((v: any) => String(v.id) === String(id) || v.orderNumber === id || v.numeroPedido === id);
+          if (removed && removed.itens && Array.isArray(removed.itens)) {
+            try {
+              const rawP = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos') || '[]';
+              const prods = JSON.parse(rawP);
+              if (Array.isArray(prods)) {
+                removed.itens.forEach((it: any) => {
+                  const p = prods.find((prod: any) => String(prod.id) === String(it.id) || (it.codigo && prod.codigo === it.codigo));
+                  if (p && p.categoria !== 'SERVIÇOS' && p.category !== 'SERVIÇOS') {
+                    p.quantity = Number(p.quantity || 0) + Number(it.qtd || 1);
+                    p.quantidade_atual = p.quantity;
+                  }
+                });
+                localStorage.setItem('agrocontrol_produtos', JSON.stringify(prods));
+                localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(prods));
+                window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: prods }));
+                window.dispatchEvent(new CustomEvent('inventory_updated', { detail: prods }));
+              }
+            } catch {}
+          }
+          const updatedVendas = list.filter((v: any) => String(v.id) !== String(id) && v.orderNumber !== id && v.numeroPedido !== id);
+          localStorage.setItem('agrocontrol_vendas', JSON.stringify(updatedVendas));
+          localStorage.setItem('agrocontrol_pdv_vendas', JSON.stringify(updatedVendas));
+          localStorage.setItem('colaca_silagem_vendas_pdv', JSON.stringify(updatedVendas));
+          window.dispatchEvent(new CustomEvent('agrocontrol_vendas_updated', { detail: updatedVendas }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_vendas_change', { detail: updatedVendas }));
+          window.dispatchEvent(new CustomEvent('vendas_updated', { detail: updatedVendas }));
+        }
+      } catch {}
+      setSalesUpdateTick(t => t + 1);
     }
   };
 
@@ -734,24 +771,32 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
         </div>
       </div>
 
-      {/* 5. MODAL DE CADASTRO / EDIÇÃO */}
-      <ServiceFormModal
-        isOpen={isModalOpen}
+      {/* 5. JANELA EXCLUSIVA DE VISUALIZAÇÃO E EDIÇÃO DA VENDA RÁPIDA (SLIM DESIGN PRO) */}
+      <SaleDetailsEditModal
+        isOpen={isSaleEditModalOpen}
         onClose={() => {
-          setIsModalOpen(false);
-          setEditRecord(null);
+          setIsSaleEditModalOpen(false);
+          setSelectedSaleForEdit(null);
         }}
-        onSave={handleSaveService}
-        activeTab="venda"
-        clients={clients}
-        machineries={machineries}
-        employees={employees}
+        saleRecord={selectedSaleForEdit}
         companyProfile={companyProfile}
-        nextNumber={`#VND-${String(salesRecords.length + 1).padStart(3, '0')}`}
-        editRecord={editRecord}
-        onSaveClient={(newClient) => {
-          if (onSaveClients) {
-            onSaveClients([newClient, ...clients]);
+        onSaveSuccess={(updatedSale) => {
+          setSalesUpdateTick(t => t + 1);
+          if (onSaveServices && selectedSaleForEdit) {
+            const updated = services.map(s => {
+              if (s.id === selectedSaleForEdit.id || (s.orderNumber && s.orderNumber === selectedSaleForEdit.orderNumber)) {
+                return {
+                  ...s,
+                  clientName: updatedSale.cliente,
+                  startDate: updatedSale.date,
+                  date: updatedSale.date,
+                  totalAmount: updatedSale.totalLiquido,
+                  ratePerUnit: updatedSale.totalLiquido,
+                };
+              }
+              return s;
+            });
+            onSaveServices(updated);
           }
         }}
       />
