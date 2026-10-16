@@ -1105,7 +1105,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }}
       >
         <div 
-          className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+          className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header 3D Metálico Acetinado */}
@@ -1118,8 +1118,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
                   {initialData?.id ? 'EDITAR PRODUTO NO ESTOQUE' : 'CADASTRAR NOVO PRODUTO NO ESTOQUE'}
                 </h3>
-                <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
-                  Identificação, parametrização fiscal, formação de preços e controle de almoxarifado
+                <p className="text-[11px] text-slate-600 dark:text-stone-400 font-bold uppercase tracking-wide">
+                  IDENTIFICAÇÃO, PARAMETRIZAÇÃO FISCAL, FORMAÇÃO DE PREÇOS E CONTROLE DE ALMOXARIFADO
                 </p>
               </div>
             </div>
@@ -1151,14 +1151,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Formulário em 3 Colunas Horizontais Paralelas - Slim Design sem Rolagem */}
-          <form onSubmit={handleSubmit} className="p-2.5 sm:p-3 space-y-1.5 overflow-hidden overflow-y-hidden flex flex-col justify-between flex-1 min-h-0">
+          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-between flex-1 min-h-0">
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch flex-1 min-h-0">
               
               {/* ============================================================== */}
               {/* COLUNA 1: IDENTIFICAÇÃO */}
               {/* ============================================================== */}
-              <div className="p-2 sm:p-2.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
+              <div className="p-3 sm:p-3.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wider pb-1 mb-1.5 border-b border-slate-300 dark:border-stone-700">
                     <Package className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
@@ -1169,8 +1169,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 1: Nome do Produto + Código Interno */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-8 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Nome do Produto <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          NOME DO PRODUTO <span className="text-rose-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1183,8 +1183,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-4 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Código Interno
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          CÓDIGO INTERNO
                         </label>
                         <input
                           type="text"
@@ -1199,17 +1199,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 2: Categoria no Estoque */}
                     <div className="flex flex-col justify-end">
                       <div className="flex items-center justify-between mb-0.5">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400">
-                          Categoria no Estoque <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
+                          CATEGORIA NO ESTOQUE <span className="text-rose-500">*</span>
                         </label>
                         <button
                           type="button"
                           onClick={() => setIsCategoryManagerOpen(true)}
-                          className="inline-flex items-center space-x-1 text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline cursor-pointer"
+                          className="inline-flex items-center space-x-1 text-[10px] font-bold uppercase text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline cursor-pointer"
                           title="Gerenciar categorias de estoque"
                         >
                           <Settings className="w-3 h-3" />
-                          <span>Gerenciar</span>
+                          <span>GERENCIAR</span>
                         </button>
                       </div>
 
@@ -1253,8 +1253,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 3: Unidade de Medida + Marca */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-5 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Unidade de Medida <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          UNIDADE DE MEDIDA <span className="text-rose-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1284,8 +1284,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-7 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Marca
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          MARCA
                         </label>
                         <input
                           type="text"
@@ -1308,10 +1308,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-7 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate">
-                            Cód. de Barras / GTIN
+                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate">
+                            CÓD. DE BARRAS / GTIN
                           </label>
-                          <label className="inline-flex items-center space-x-1 cursor-pointer text-[10px] font-bold text-stone-600 dark:text-stone-400 select-none shrink-0">
+                          <label className="inline-flex items-center space-x-1 cursor-pointer text-[10px] font-black uppercase text-stone-600 dark:text-stone-400 select-none shrink-0">
                             <input
                               type="checkbox"
                               checked={semGtin}
@@ -1321,7 +1321,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               }}
                               className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3 h-3 cursor-pointer"
                             />
-                            <span>Sem GTIN</span>
+                            <span>SEM GTIN</span>
                           </label>
                         </div>
 
@@ -1346,8 +1346,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-5 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Ref. Fábrica
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          REF. FÁBRICA
                         </label>
                         <input
                           type="text"
@@ -1652,7 +1652,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {/* ============================================================== */}
               {/* COLUNA 2: FISCAL E VALORES */}
               {/* ============================================================== */}
-              <div className="p-2 sm:p-2.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
+              <div className="p-3 sm:p-3.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between pb-1 mb-1 border-b border-slate-300 dark:border-stone-700">
                     <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wider">
@@ -1666,8 +1666,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 1: Código NCM + Grupo Fiscal */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-5 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Código NCM
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          CÓDIGO NCM
                         </label>
                         <input
                           type="text"
@@ -1681,13 +1681,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-7 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Grupo Fiscal
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          GRUPO FISCAL
                         </label>
                         <select
                           value={grupoFiscal}
                           onChange={(e) => setGrupoFiscal(e.target.value as any)}
-                          className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer uppercase"
                         >
                           <option value="TRIBUTADO">TRIBUTADO</option>
                           <option value="SUBSTITUICAO">SUBSTITUICAO</option>
@@ -1698,13 +1698,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                     {/* Linha 2: Grupo IPI */}
                     <div className="flex flex-col justify-end">
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-0.5">
-                        Grupo IPI
+                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                        GRUPO IPI
                       </label>
                       <select
                         value={grupoIpi}
                         onChange={(e) => setGrupoIpi(e.target.value as any)}
-                        className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                        className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer uppercase"
                       >
                         <option value="NAO TRIBUTADO">NAO TRIBUTADO</option>
                         <option value="TRIBUTADO">TRIBUTADO</option>
@@ -1712,27 +1712,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </div>
 
                     {/* Composição de Custos do XML (Apenas Leitura) */}
-                    <div className="pt-1 pb-1 border-t border-stone-200/80 dark:border-stone-700/60 space-y-1">
+                    <div className="pt-1.5 pb-1 border-t border-stone-200/80 dark:border-stone-700/60 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center space-x-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center space-x-1">
                           <Receipt className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
-                          <span>Composição de Custos do XML</span>
+                          <span>COMPOSIÇÃO DE CUSTOS DO XML</span>
                         </span>
                         {freteDiluidoItem > 0 && (
-                          <span className="text-[9px] font-semibold text-stone-500 dark:text-stone-400">
-                            Frete: R$ {formatCurrencyPtBr(freteDiluidoItem)}/un
+                          <span className="text-[9.5px] font-bold uppercase text-stone-500 dark:text-stone-400">
+                            FRETE: R$ {formatCurrencyPtBr(freteDiluidoItem)}/UN
                           </span>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {/* 1. Valor Total de Impostos (R$) */}
                         <div className="flex flex-col justify-end">
                           <label 
-                            className="block text-[10px] font-semibold text-stone-700 dark:text-stone-300 truncate mb-0.5"
+                            className="block text-[10.5px] font-bold uppercase text-stone-700 dark:text-stone-300 truncate mb-0.5"
                             title="Soma de ICMS, IPI, PIS, COFINS, IBS e CBS"
                           >
-                            Impostos (R$)
+                            IMPOSTOS (R$)
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-400 dark:text-stone-500 font-bold text-xs">
@@ -1751,10 +1751,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         {/* 2. Custo Líquido (Sem Imposto) (R$) */}
                         <div className="flex flex-col justify-end">
                           <label 
-                            className="block text-[10px] font-semibold text-stone-700 dark:text-stone-300 truncate mb-0.5"
+                            className="block text-[10.5px] font-bold uppercase text-stone-700 dark:text-stone-300 truncate mb-0.5"
                             title="Valor do produto subtraindo os impostos"
                           >
-                            Custo Líq. (R$)
+                            CUSTO LÍQ. (R$)
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-400 dark:text-stone-500 font-bold text-xs">
@@ -1773,10 +1773,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         {/* 3. Custo Real (Com Imposto + Frete) (R$) */}
                         <div className="flex flex-col justify-end">
                           <label 
-                            className="block text-[10px] font-semibold text-sky-800 dark:text-sky-300 truncate mb-0.5"
+                            className="block text-[10.5px] font-bold uppercase text-sky-800 dark:text-sky-300 truncate mb-0.5"
                             title="Custo Nominal real base para margem"
                           >
-                            Custo Real (R$)
+                            CUSTO REAL (R$)
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-sky-600 dark:text-sky-400 font-bold text-xs">
@@ -1797,11 +1797,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 3: Custo Nominal (R$) + Preço de Venda Sugerido (R$) */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Custo Nominal (R$)
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          CUSTO NOMINAL (R$)
                           {custoComImposto > 0 && (
-                            <span className="ml-1 text-[9px] font-semibold text-sky-600 dark:text-sky-400">
-                              (Base Real)
+                            <span className="ml-1 text-[9px] font-bold uppercase text-sky-600 dark:text-sky-400">
+                              (BASE REAL)
                             </span>
                           )}
                         </label>
@@ -1821,8 +1821,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Preço de Venda (R$)
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          PREÇO DE VENDA (R$)
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400 font-bold text-xs">
@@ -1842,8 +1842,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                     {/* Linha 4: Margem de Lucro Sugerida (%) */}
                     <div className="flex flex-col justify-end">
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-0.5">
-                        Margem de Lucro Sugerida (%)
+                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                        MARGEM DE LUCRO SUGERIDA (%)
                       </label>
                       <div className="relative">
                         <input
@@ -1864,11 +1864,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate" title="% Desconto Atacado">
-                            % Desconto Atacado
+                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="% Desconto Máximo Atacado">
+                            % DESCONTO ATACADO
                           </label>
-                          <span className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1 rounded">
-                            % ATAC.
+                          <span className="text-[9px] font-black uppercase text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1.5 py-0.2 rounded">
+                            % DESCONTO MAX ATAC.
                           </span>
                         </div>
                         <div className="relative">
@@ -1888,10 +1888,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate" title="Valor de Atacado">
-                            Valor de Atacado
+                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="Valor de Atacado">
+                            VALOR DE ATACADO
                           </label>
-                          <span className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1 rounded">
+                          <span className="text-[9px] font-black uppercase text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1.5 py-0.2 rounded">
                             V. ATAC.
                           </span>
                         </div>
@@ -1915,10 +1915,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate" title="% Desconto Promoção">
-                            % Desconto Promo.
+                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="% Desconto Promoção">
+                            % DESCONTO PROMOÇÃO
                           </label>
-                          <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1 rounded">
+                          <span className="text-[9px] font-black uppercase text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.2 rounded">
                             % PROMO.
                           </span>
                         </div>
@@ -1939,10 +1939,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate" title="Valor Promocional">
-                            Valor Promocional
+                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="Valor Promocional">
+                            VALOR PROMOCIONAL
                           </label>
-                          <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1 rounded">
+                          <span className="text-[9px] font-black uppercase text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.2 rounded">
                             V. PROMO
                           </span>
                         </div>
@@ -1968,22 +1968,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {/* ============================================================== */}
               {/* COLUNA 3: CONTROLE E ALMOXARIFADO */}
               {/* ============================================================== */}
-              <div className="p-2 sm:p-2.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
+              <div className="p-3 sm:p-3.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between pb-1 mb-1 border-b border-slate-300 dark:border-stone-700">
                     <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wider">
                       <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
                       <span>3. CONTROLE E ALMOXARIFADO</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 dark:text-stone-400">Saldo & Local</span>
+                    <span className="text-[10px] text-slate-400 dark:text-stone-400 font-bold uppercase">SALDO & LOCAL</span>
                   </div>
 
                   <div className="space-y-1.5">
                     {/* Linha 1: Quantidade Inicial + Estoque Mínimo (2 Colunas) */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Qtd. Inicial ({unidadeMedida || 'UN'})
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          QTD. INICIAL ({unidadeMedida || 'UN'})
                         </label>
                         <input
                           type="number"
@@ -1997,8 +1997,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          Estoque Mínimo
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                          ESTOQUE MÍNIMO
                         </label>
                         <input
                           type="number"
@@ -2015,19 +2015,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 2: Endereçamento no Almoxarifado / Gôndola (5 Campos Menores) */}
                     <div className="pt-0.5 border-t border-stone-200/80 dark:border-stone-700/60">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="flex items-center space-x-1 text-[11px] font-semibold text-slate-600 dark:text-stone-400">
+                        <label className="flex items-center space-x-1 text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
                           <MapPin className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
-                          <span>Endereçamento Físico</span>
+                          <span>ENDEREÇAMENTO FÍSICO</span>
                         </label>
-                        <span className="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1 py-0.2 rounded">
-                          Gôndola / Prateleira
+                        <span className="text-[9px] font-black uppercase text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1 py-0.2 rounded">
+                          GÔNDOLA / PRATELEIRA
                         </span>
                       </div>
 
                       <div className="grid grid-cols-5 gap-1">
                         {/* 1. Setor */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Setor">
+                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Setor">
                             SETOR
                           </label>
                           <input
@@ -2044,7 +2044,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                         {/* 2. Rua */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Rua">
+                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Rua">
                             RUA
                           </label>
                           <input
@@ -2061,7 +2061,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                         {/* 3. Estante */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Estante">
+                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Estante">
                             ESTANTE
                           </label>
                           <input
@@ -2078,7 +2078,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                         {/* 4. Nível */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Nível">
+                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Nível">
                             NÍVEL
                           </label>
                           <input
@@ -2095,7 +2095,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                         {/* 5. Box */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Box">
+                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Box">
                             BOX
                           </label>
                           <input
@@ -2115,14 +2115,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       <div className="mt-1 py-1 px-2.5 rounded-lg bg-stone-900 dark:bg-stone-950 border border-stone-800 text-white flex items-center justify-between shadow-inner">
                         <div className="flex items-center space-x-1.5">
                           <Barcode className="w-3 h-3 text-emerald-400 shrink-0" />
-                          <span className="text-[9px] font-bold text-stone-400 uppercase tracking-wider">
-                            Endereço Formatado:
+                          <span className="text-[9px] font-black uppercase text-stone-400 tracking-wider">
+                            ENDEREÇO FORMATADO:
                           </span>
                         </div>
                         <div className="text-xs font-black font-mono tracking-widest text-emerald-400">
                           {enderecoFormatado || '00.00.00.00.00'}
                         </div>
-                        <span className="text-[8px] font-semibold text-stone-400 tracking-wider hidden sm:inline">
+                        <span className="text-[8px] font-black uppercase text-stone-400 tracking-wider hidden sm:inline">
                           SET.RUA.EST.NÍV.BOX
                         </span>
                       </div>
@@ -2132,11 +2132,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {showGallonCapacity && (
                       <div className="flex flex-col justify-end animate-in fade-in duration-150 pt-0.5 border-t border-stone-200/80 dark:border-stone-700/60">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="flex items-center space-x-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
+                          <label className="flex items-center space-x-1 text-xs font-bold uppercase text-sky-700 dark:text-sky-300">
                             <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
-                            <span>Capacidade do Galão (L)</span>
+                            <span>CAPACIDADE DO GALÃO (L)</span>
                           </label>
-                          <span className="text-[9px] text-sky-600 dark:text-sky-400 font-semibold">Automático</span>
+                          <span className="text-[9px] text-sky-600 dark:text-sky-400 font-bold uppercase">AUTOMÁTICO</span>
                         </div>
                         <input
                           type="number"
@@ -2161,11 +2161,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLabelPrintModalOpen(true)}
-                className="px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-stone-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                className="px-3.5 py-1.5 text-xs font-bold uppercase text-slate-800 dark:text-stone-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
                 title="Imprimir Etiqueta de Gôndola / Almoxarifado com Código de Barras e Endereço"
               >
                 <Printer className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                <span>Imprimir Etiqueta</span>
+                <span>IMPRIMIR ETIQUETA</span>
               </button>
 
               {/* Botões Cancelar e Salvar à direita */}
@@ -2174,25 +2174,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="button"
                   onClick={onClose}
                   disabled={isSaving}
-                  className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95 disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-bold uppercase text-slate-700 dark:text-stone-300 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95 disabled:opacity-50"
                 >
-                  Cancelar
+                  CANCELAR
                 </button>
 
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-bold uppercase text-white bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
                 >
                   {isSaving ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando no Supabase...</span>
+                      <span>SALVANDO NO SUPABASE...</span>
                     </>
                   ) : (
                     <>
                       <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Salvar Produto no Estoque</span>
+                      <span>SALVAR PRODUTO NO ESTOQUE</span>
                     </>
                   )}
                 </button>
