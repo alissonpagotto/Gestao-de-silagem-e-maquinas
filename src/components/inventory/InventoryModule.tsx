@@ -25,7 +25,9 @@ import {
   Clock,
   Printer,
   ShoppingCart,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
 import { 
@@ -62,6 +64,107 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const [activeTab, setActiveTab] = useState<'inventario' | 'relatorios' | 'compras' | 'cotacoes'>('inventario');
 
   const [localInventory, setLocalInventory] = useState<InventoryItem[]>(inventory);
+
+  // Mapa reativo de fotos de produtos vindos da gaveta isolada 'agrocontrol_fotos_produtos'
+  const [fotosMap, setFotosMap] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem('agrocontrol_fotos_produtos');
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      const map: Record<string, string> = {};
+      if (Array.isArray(parsed)) {
+        parsed.forEach((f: any) => {
+          const id = String(f.idProduto || f.id || '').trim();
+          const img = f.imagem || f.fotoBase64 || '';
+          if (id && img) map[id] = img;
+        });
+      } else if (parsed && typeof parsed === 'object') {
+        Object.entries(parsed).forEach(([k, v]: [string, any]) => {
+          const img = typeof v === 'string' ? v : (v?.imagem || v?.fotoBase64 || '');
+          if (k && img) map[String(k).trim()] = img;
+        });
+      }
+      return map;
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    const carregarFotos = () => {
+      try {
+        const raw = localStorage.getItem('agrocontrol_fotos_produtos');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const map: Record<string, string> = {};
+        if (Array.isArray(parsed)) {
+          parsed.forEach((f: any) => {
+            const id = String(f.idProduto || f.id || '').trim();
+            const img = f.imagem || f.fotoBase64 || '';
+            if (id && img) map[id] = img;
+          });
+        } else if (parsed && typeof parsed === 'object') {
+          Object.entries(parsed).forEach(([k, v]: [string, any]) => {
+            const img = typeof v === 'string' ? v : (v?.imagem || v?.fotoBase64 || '');
+            if (k && img) map[String(k).trim()] = img;
+          });
+        }
+        setFotosMap(map);
+      } catch (err) {
+        console.warn('Erro ao carregar agrocontrol_fotos_produtos na tabela:', err);
+      }
+    };
+
+    const handleFotosUpdated = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        const map: Record<string, string> = {};
+        e.detail.forEach((f: any) => {
+          const id = String(f.idProduto || f.id || '').trim();
+          const img = f.imagem || f.fotoBase64 || '';
+          if (id && img) map[id] = img;
+        });
+        setFotosMap(map);
+      } else {
+        carregarFotos();
+      }
+    };
+
+    window.addEventListener('agrocontrol_fotos_produtos_updated', handleFotosUpdated);
+    window.addEventListener('storage', carregarFotos);
+    return () => {
+      window.removeEventListener('agrocontrol_fotos_produtos_updated', handleFotosUpdated);
+      window.removeEventListener('storage', carregarFotos);
+    };
+  }, []);
+
+  // Busca reativa da foto pelo ID/Código na gaveta isolada ou fallback legado
+  const getFotoForProduct = (item: any): string => {
+    const itemId = String(item.id || '').trim();
+    const itemCode = String(item.code || item.codigo || '').trim();
+
+    if (itemId && fotosMap[itemId]) return fotosMap[itemId];
+    if (itemCode && fotosMap[itemCode]) return fotosMap[itemCode];
+
+    // Leitura direta sob demanda
+    try {
+      const raw = localStorage.getItem('agrocontrol_fotos_produtos');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((f: any) => {
+            const fid = String(f.idProduto || f.id || '').trim();
+            return (itemId && fid === itemId) || (itemCode && fid === itemCode);
+          });
+          if (match && (match.imagem || match.fotoBase64)) return match.imagem || match.fotoBase64;
+        } else if (parsed && typeof parsed === 'object') {
+          if (itemId && parsed[itemId]) return typeof parsed[itemId] === 'string' ? parsed[itemId] : (parsed[itemId].imagem || parsed[itemId].fotoBase64 || '');
+          if (itemCode && parsed[itemCode]) return typeof parsed[itemCode] === 'string' ? parsed[itemCode] : (parsed[itemCode].imagem || parsed[itemCode].fotoBase64 || '');
+        }
+      }
+    } catch {}
+
+    return item.imagemBase64 || item.fotoUrl || '';
+  };
 
   useEffect(() => {
     if (inventory) {
@@ -505,7 +608,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           >
             <button
               type="button"
-              id="tab-inventario-geral"
+              id="tab-estoque-geral"
               onClick={() => setActiveTab('inventario')}
               className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeTab === 'inventario'
@@ -514,7 +617,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               }`}
             >
               <Package className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>INVENTÁRIO GERAL</span>
+              <span>ESTOQUE GERAL</span>
             </button>
 
             <button
@@ -668,6 +771,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
               <tr>
+                {/* 0. MINIATURA DE FOTO */}
+                <th className="py-1.5 px-1.5 text-center text-zinc-800 dark:text-white font-black w-7 min-w-[28px] max-w-[32px]">
+                  <span className="sr-only">Foto</span>
+                  <Camera className="w-3.5 h-3.5 mx-auto text-slate-500 dark:text-stone-400" />
+                </th>
+
                 {/* 1. ITEM & LOCAL */}
                 <th className={`py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[22%] min-w-[180px]' : 'w-[28%] min-w-[200px]'}`}>
                   ITEM & LOCAL
@@ -740,7 +849,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={showSpecialPrices ? 12 : 8} className="py-8 text-center text-black/70 dark:text-stone-400 font-bold">
+                  <td colSpan={showSpecialPrices ? 13 : 9} className="py-8 text-center text-black/70 dark:text-stone-400 font-bold">
                     Nenhum item encontrado no estoque.
                   </td>
                 </tr>
@@ -751,6 +860,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   const effectiveSale = item.preco_venda_varejo !== undefined ? item.preco_venda_varejo : item.salePrice;
                   const displayName = item.nome_comercial || item.name;
                   const displayCat = item.categoria || item.category || 'outro';
+
+                  const fotoBase64 = getFotoForProduct(item);
+                  const isService = item.categoria === 'SERVIÇOS' || item.categoria === 'servicos' || displayCat.toLowerCase().includes('servi');
 
                   const isLow = effectiveQty <= item.minQuantity;
                   const itemTotal = effectiveQty * effectiveCost;
@@ -782,6 +894,27 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
                   return (
                     <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
+                      {/* 0. MINIATURA DE FOTO (Busca reativa na chave isolada 'agrocontrol_fotos_produtos') */}
+                      <td className="py-1 px-1.5 align-middle w-7 min-w-[28px] max-w-[32px] text-center">
+                        <div className="flex items-center justify-center">
+                          {fotoBase64 ? (
+                            <img 
+                              src={fotoBase64} 
+                              alt={displayName} 
+                              className="w-5 h-5 object-cover rounded bg-slate-100 border border-slate-300 shadow-xs flex-shrink-0" 
+                            />
+                          ) : isService ? (
+                            <div className="w-5 h-5 rounded bg-slate-100 dark:bg-stone-800 border border-slate-200 dark:border-stone-700 flex items-center justify-center flex-shrink-0 text-slate-400 dark:text-stone-500" title="Mão de Obra / Serviço">
+                              <Wrench className="w-3 h-3 text-slate-400 dark:text-stone-500" />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded bg-slate-100 dark:bg-stone-800 border border-slate-200 dark:border-stone-700 flex items-center justify-center flex-shrink-0 text-slate-300 dark:text-stone-600" title="Sem foto">
+                              <ImageIcon className="w-3 h-3 text-slate-300 dark:text-stone-600" />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       {/* 1. ITEM & LOCAL (Achatamento em linha única contínua com whitespace-nowrap) */}
                       <td className="py-1 px-2.5 align-middle whitespace-nowrap">
                         <div className="flex items-center space-x-1.5 whitespace-nowrap">
