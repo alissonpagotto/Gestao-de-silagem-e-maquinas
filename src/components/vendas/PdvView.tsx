@@ -33,7 +33,8 @@ import {
   Copy,
   FileText,
   CheckCheck,
-  Truck
+  Truck,
+  Settings
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredInventory, saveStoredInventory, getActiveCompanyId, getStoredClients, getStoredMachineries, STORAGE_KEYS } from '../../lib/storage';
@@ -131,6 +132,8 @@ export interface CatalogProduct {
   unitCost: number;
   wholesalePrice?: number;
   promoPrice?: number;
+  fotoUrl?: string;
+  imagemBase64?: string;
   rawItem?: any;
 }
 
@@ -677,6 +680,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   // Tabela de Preços Ativa e Objeto de Produto Selecionado
   const [tabelaPreco, setTabelaPreco] = useState<PriceTable>('venda');
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
 
   // Sugestões de autocomplete na busca
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
@@ -1200,6 +1204,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
         unitCost: cost,
         wholesalePrice: atacado,
         promoPrice: promo,
+        fotoUrl: (item as any).fotoUrl || (item as any).imagemBase64 || '',
+        imagemBase64: (item as any).imagemBase64 || (item as any).fotoUrl || '',
         rawItem: item,
       };
     });
@@ -1243,6 +1249,204 @@ export const PdvView: React.FC<PdvViewProps> = ({
       );
     }).slice(0, 12);
   }, [clientSearch, agroClientes]);
+
+  // Item ativo para visualização da foto no painel direito (Área Rosa do PDV)
+  const activeVisualProduct = useMemo(() => {
+    // 1. Se o operador clicou em um item específico da tabela do carrinho
+    if (selectedCartItemId) {
+      const foundInCart = items.find(it => it.id === selectedCartItemId);
+      if (foundInCart) {
+        const match = productCatalog.find(p => 
+          String(p.id) === String(foundInCart.productId || foundInCart.id) ||
+          (p.code && String(p.code).toUpperCase() === String(foundInCart.codigo).toUpperCase()) ||
+          (p.name && String(p.name).toUpperCase() === String(foundInCart.descricao).toUpperCase())
+        );
+        if (match) return match;
+
+        try {
+          const raw = localStorage.getItem('agrocontrol_produtos');
+          if (raw) {
+            const list = JSON.parse(raw);
+            const foundAgro = list.find((p: any) => 
+              String(p.id) === String(foundInCart.productId || foundInCart.id) ||
+              (p.code && String(p.code).toUpperCase() === String(foundInCart.codigo).toUpperCase()) ||
+              (p.name && String(p.name).toUpperCase() === String(foundInCart.descricao).toUpperCase())
+            );
+            if (foundAgro) {
+              return {
+                id: foundAgro.id || foundInCart.id,
+                name: foundAgro.name || foundAgro.nome_comercial || foundInCart.descricao,
+                code: foundAgro.code || foundAgro.codigo_produto || foundInCart.codigo,
+                category: foundAgro.category || foundAgro.categoria || foundInCart.categoria || '',
+                fotoUrl: foundAgro.fotoUrl || foundAgro.imagemBase64 || (foundInCart as any).fotoUrl || '',
+                imagemBase64: foundAgro.imagemBase64 || foundAgro.fotoUrl || (foundInCart as any).imagemBase64 || '',
+              };
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        return {
+          id: foundInCart.id,
+          name: foundInCart.descricao,
+          code: foundInCart.codigo,
+          category: foundInCart.categoria || '',
+          fotoUrl: (foundInCart as any).fotoUrl || '',
+          imagemBase64: (foundInCart as any).imagemBase64 || '',
+        };
+      }
+    }
+
+    // 2. Se houver um produto selecionado na barra de busca [F3]
+    if (selectedProduct) {
+      try {
+        const raw = localStorage.getItem('agrocontrol_produtos');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const foundAgro = list.find((p: any) => 
+            String(p.id) === String(selectedProduct.id) || 
+            (p.code && String(p.code).toUpperCase() === String(selectedProduct.code).toUpperCase()) ||
+            (p.name && String(p.name).toUpperCase() === String(selectedProduct.name).toUpperCase()) ||
+            (p.barcode && String(p.barcode).toUpperCase() === String(selectedProduct.barcode).toUpperCase())
+          );
+          if (foundAgro) {
+            return {
+              id: foundAgro.id || selectedProduct.id,
+              name: foundAgro.name || foundAgro.nome_comercial || selectedProduct.name,
+              code: foundAgro.code || foundAgro.codigo_produto || selectedProduct.code,
+              category: foundAgro.category || foundAgro.categoria || selectedProduct.category,
+              fotoUrl: foundAgro.fotoUrl || foundAgro.imagemBase64 || selectedProduct.fotoUrl || selectedProduct.imagemBase64 || '',
+              imagemBase64: foundAgro.imagemBase64 || foundAgro.fotoUrl || selectedProduct.imagemBase64 || selectedProduct.fotoUrl || '',
+            };
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+      return selectedProduct;
+    }
+
+    // 3. Se houver sugestão ativa no inputBusca
+    if (showSuggestions && suggestedProducts.length > 0) {
+      const p = suggestedProducts[selectedSuggestionIndex] || suggestedProducts[0];
+      return p;
+    }
+
+    // 4. Se houver texto digitado no campo de busca ou código ou leitor de código de barras
+    const q = (inputBusca || inputCodigo || inputDescricao).trim().toLowerCase();
+    if (q) {
+      const match = productCatalog.find(p => 
+        p.code.toLowerCase() === q ||
+        p.barcode.toLowerCase() === q ||
+        p.name.toLowerCase() === q ||
+        p.name.toLowerCase().includes(q)
+      );
+      if (match) return match;
+    }
+
+    // 5. Se houver itens já inseridos no carrinho (conforme print com PNEU PIRELLI)
+    if (items.length > 0) {
+      const lastItem = items[items.length - 1];
+      const match = productCatalog.find(p => 
+        String(p.id) === String(lastItem.productId || lastItem.id) || 
+        (p.code && String(p.code).toUpperCase() === String(lastItem.codigo).toUpperCase()) ||
+        (p.name && String(p.name).toUpperCase() === String(lastItem.descricao).toUpperCase())
+      );
+      if (match) return match;
+
+      try {
+        const raw = localStorage.getItem('agrocontrol_produtos');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const foundAgro = list.find((p: any) => 
+            String(p.id) === String(lastItem.productId || lastItem.id) || 
+            (p.code && String(p.code).toUpperCase() === String(lastItem.codigo).toUpperCase()) ||
+            (p.name && String(p.name).toUpperCase() === String(lastItem.descricao).toUpperCase())
+          );
+          if (foundAgro) {
+            return {
+              id: foundAgro.id || lastItem.id,
+              name: foundAgro.name || foundAgro.nome_comercial || lastItem.descricao,
+              code: foundAgro.code || foundAgro.codigo_produto || lastItem.codigo,
+              category: foundAgro.category || foundAgro.categoria || lastItem.categoria || '',
+              fotoUrl: foundAgro.fotoUrl || foundAgro.imagemBase64 || '',
+              imagemBase64: foundAgro.imagemBase64 || foundAgro.fotoUrl || '',
+            };
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      return {
+        id: lastItem.id,
+        name: lastItem.descricao,
+        code: lastItem.codigo,
+        category: lastItem.categoria || '',
+        fotoUrl: (lastItem as any).fotoUrl || '',
+        imagemBase64: (lastItem as any).imagemBase64 || '',
+      };
+    }
+
+    return null;
+  }, [
+    selectedCartItemId, 
+    items, 
+    selectedProduct, 
+    showSuggestions, 
+    suggestedProducts, 
+    selectedSuggestionIndex, 
+    inputBusca, 
+    inputCodigo, 
+    inputDescricao, 
+    productCatalog
+  ]);
+
+  // Foto selecionada reativa para exibição no painel da direita (Área Rosa)
+  const fotoSelecionada = useMemo(() => {
+    if (!activeVisualProduct) return '';
+    const directPhoto = (activeVisualProduct as any).fotoUrl || (activeVisualProduct as any).imagemBase64;
+    if (directPhoto) return directPhoto;
+
+    // Busca compulsória direta do LocalStorage 'agrocontrol_produtos'
+    try {
+      const raw = localStorage.getItem('agrocontrol_produtos');
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const match = list.find((p: any) => 
+            (activeVisualProduct.id && String(p.id) === String(activeVisualProduct.id)) ||
+            (activeVisualProduct.code && p.code && String(p.code).toUpperCase() === String(activeVisualProduct.code).toUpperCase()) ||
+            (activeVisualProduct.name && p.name && String(p.name).toUpperCase() === String(activeVisualProduct.name).toUpperCase()) ||
+            (activeVisualProduct.name && p.nome_comercial && String(p.nome_comercial).toUpperCase() === String(activeVisualProduct.name).toUpperCase())
+          );
+          if (match && (match.fotoUrl || match.imagemBase64)) {
+            return match.fotoUrl || match.imagemBase64;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar foto do produto:', e);
+    }
+
+    return '';
+  }, [activeVisualProduct]);
+
+  // Identifica se o item é um serviço ou contrato
+  const isServicoItem = useMemo(() => {
+    if (!activeVisualProduct) return false;
+    const cat = String(activeVisualProduct.category || '').toUpperCase();
+    const name = String(activeVisualProduct.name || '').toUpperCase();
+    return (
+      cat.includes('SERVI') ||
+      name.includes('SERVI') ||
+      name.includes('CONTRATO') ||
+      name.includes('SILAGEM') ||
+      name.includes('VOLCANIZ') ||
+      name.includes('VULCANIZ')
+    );
+  }, [activeVisualProduct]);
 
   // Totais do PDV com Soma Reativa do Frete Vinculado
   const totals = useMemo(() => {
@@ -1574,6 +1778,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
       return [...prev, newItem];
     });
 
+    // Seleciona o item recém inserido para exibição imediata da foto no painel direito
+    setSelectedCartItemId(chosenId);
+
     // Limpar campos de entrada para o próximo item e resetar quantidade de volta para "1,00"
     setInputBusca('');
     setInputCodigo('');
@@ -1639,9 +1846,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setMasterAuthError('');
   };
 
-  // Remover item da grade
   const handleRemoverItem = (id: string) => {
     setItems(prev => prev.filter(it => it.id !== id));
+    setSelectedCartItemId(prev => (prev === id ? null : prev));
   };
 
   // =========================================================================
@@ -2935,6 +3142,13 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                         }`}
                       >
                         <div className="flex items-center gap-1.5 truncate">
+                          {(p.fotoUrl || p.imagemBase64 || p.rawItem?.fotoUrl || p.rawItem?.imagemBase64) && (
+                            <img
+                              src={p.fotoUrl || p.imagemBase64 || p.rawItem?.fotoUrl || p.rawItem?.imagemBase64}
+                              alt={p.name}
+                              className="w-5 h-5 rounded object-cover shrink-0 border border-slate-300 dark:border-stone-700 bg-white"
+                            />
+                          )}
                           <span className="font-mono text-[10px] font-bold text-slate-500">[{p.code}]</span>
                           <span className="font-bold text-zinc-900 dark:text-white truncate">{p.name}</span>
                         </div>
@@ -3098,13 +3312,41 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
       {/* =====================================================================
           2. GRADE CENTRAL DOS ITENS LANÇADOS (CABEÇALHO PRETO & LINHAS AZUIS)
          ===================================================================== */}
-      <section 
-        aria-label="Grade de Itens do Cupom"
-        className="flex-1 min-h-[160px] bg-white dark:bg-stone-900 rounded-xl border border-slate-400 dark:border-stone-800 overflow-hidden flex flex-col shadow-2xs"
-      >
-        <div className="flex-1 overflow-y-auto max-h-[calc(100vh-340px)] scrollbar-none flex flex-col">
-          {items.length === 0 ? (
-            <div className="flex-1 flex flex-col">
+      {/* =====================================================================
+          2. GRADE CENTRAL DO PDV: TABELA DE ITENS (COL 9) + PAINEL FOTO (COL 3)
+         ===================================================================== */}
+      <div className="flex-1 min-h-[160px] grid grid-cols-12 gap-2 overflow-hidden items-stretch">
+        {/* LADO ESQUERDO: COLUNA 9 - TABELA DE PRODUTOS INSERIDOS NO CARRINHO */}
+        <section 
+          aria-label="Grade de Itens do Cupom"
+          className="col-span-12 lg:col-span-9 bg-white dark:bg-stone-900 rounded-xl border border-slate-400 dark:border-stone-800 overflow-hidden flex flex-col shadow-2xs min-h-0"
+        >
+          <div className="flex-1 overflow-y-auto max-h-[calc(100vh-340px)] scrollbar-none flex flex-col">
+            {items.length === 0 ? (
+              <div className="flex-1 flex flex-col">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 z-10 bg-zinc-950 text-white font-black text-[10px] tracking-wider uppercase border-b border-zinc-800">
+                    <tr>
+                      <th className="py-1 px-2 w-10 text-center">ITEM</th>
+                      <th className="py-1 px-2.5 w-24">CÓDIGO (F3)</th>
+                      <th className="py-1 px-2.5">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+                      <th className="py-1 px-1.5 w-12 text-center">UN</th>
+                      <th className="py-1 px-2 w-16 text-right">QTDE</th>
+                      <th className="py-1 px-2 w-24 text-right">PREÇO UNIT.</th>
+                      <th className="py-1 px-1.5 w-16 text-right">% DESC.</th>
+                      <th className="py-1 px-2 w-20 text-right">R$ DESC.</th>
+                      <th className="py-1 px-2.5 w-24 text-right">TOTAL BRUTO</th>
+                      <th className="py-1 px-2.5 w-24 text-right text-amber-300">TOTAL LÍQUIDO</th>
+                      <th className="py-1 px-1.5 w-10 text-center">AÇÃO</th>
+                    </tr>
+                  </thead>
+                </table>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 dark:text-stone-500 font-bold gap-2">
+                  <ShoppingCart className="w-10 h-10 text-slate-300 dark:text-stone-600 stroke-[1.5]" />
+                  <span className="text-xs uppercase tracking-wide">CAIXA LIVRE • DIGITE O CÓDIGO OU BUSQUE O PRODUTO PARA INICIAR A VENDA</span>
+                </div>
+              </div>
+            ) : (
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-zinc-950 text-white font-black text-[10px] tracking-wider uppercase border-b border-zinc-800">
                   <tr>
@@ -3121,82 +3363,119 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     <th className="py-1 px-1.5 w-10 text-center">AÇÃO</th>
                   </tr>
                 </thead>
+                <tbody className="divide-y divide-sky-100 dark:divide-stone-800 font-semibold text-zinc-900 dark:text-stone-100">
+                  {items.map((it, idx) => (
+                    <tr 
+                      key={it.id} 
+                      onClick={() => setSelectedCartItemId(it.id)}
+                      className={`even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-sky-100/70 dark:hover:bg-sky-950/40 transition border-b border-slate-200 dark:border-stone-800 cursor-pointer ${
+                        selectedCartItemId === it.id ? 'bg-sky-100/90 dark:bg-sky-950/70 ring-1 ring-sky-500' : ''
+                      }`}
+                    >
+                      <td className="py-1 px-2 text-center font-mono text-[10px] text-slate-500">
+                        {String(idx + 1).padStart(2, '0')}
+                      </td>
+                      <td className="py-1 px-2.5 font-mono text-[11px] font-bold text-slate-700 dark:text-stone-300">
+                        {it.codigo}
+                      </td>
+                      <td className="py-1 px-2.5 font-bold text-xs uppercase truncate max-w-[280px]" title={it.descricao}>
+                        {it.descricao}
+                      </td>
+                      <td className="py-1 px-1.5 text-center font-bold text-slate-600 dark:text-stone-400 text-[11px]">
+                        {it.unidade}
+                      </td>
+                      <td className="py-1 px-2 text-right font-black text-xs">
+                        {it.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-1 px-2 text-right font-semibold text-xs">
+                        {formatCurrencyBRL(it.precoUnitario)}
+                      </td>
+                      <td className="py-1 px-1.5 text-right font-medium text-slate-500 text-[11px]">
+                        {it.percentualDesconto > 0 ? `${it.percentualDesconto}%` : '-'}
+                      </td>
+                      <td className="py-1 px-2 text-right font-medium text-slate-500 text-[11px]">
+                        {it.valorDesconto > 0 ? formatCurrencyBRL(it.valorDesconto) : '-'}
+                      </td>
+                      <td className="py-1 px-2.5 text-right font-semibold text-xs text-slate-700 dark:text-stone-300">
+                        {formatCurrencyBRL(it.totalBruto)}
+                      </td>
+                      <td className="py-1 px-2.5 text-right font-black text-xs text-emerald-700 dark:text-emerald-400">
+                        {formatCurrencyBRL(it.totalLiquido)}
+                      </td>
+                      <td className="py-1 px-1.5 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoverItem(it.id);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                          title="Remover item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 dark:text-stone-500 font-bold gap-2">
-                <ShoppingCart className="w-10 h-10 text-slate-300 dark:text-stone-600 stroke-[1.5]" />
-                <span className="text-xs uppercase tracking-wide">CAIXA LIVRE • DIGITE O CÓDIGO OU BUSQUE O PRODUTO PARA INICIAR A VENDA</span>
-              </div>
+            )}
+          </div>
+        </section>
+
+        {/* LADO DIREITO: COLUNA 3 - PAINEL VERTICAL DA FOTO GRANDE (ÁREA ROSA) */}
+        <div className="hidden lg:flex col-span-3 flex-col h-full min-h-0">
+          <div className="w-full h-full border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-900 p-3 flex flex-col items-center justify-between shadow-xs select-none">
+            {/* Topo do painel: label fixa micro */}
+            <div className="w-full flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-stone-800 shrink-0">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
+                📸 IDENTIFICAÇÃO VISUAL DO ITEM
+              </span>
+              {activeVisualProduct?.code && (
+                <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-stone-500 uppercase">
+                  [{activeVisualProduct.code}]
+                </span>
+              )}
             </div>
-          ) : (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 z-10 bg-zinc-950 text-white font-black text-[10px] tracking-wider uppercase border-b border-zinc-800">
-                <tr>
-                  <th className="py-1 px-2 w-10 text-center">ITEM</th>
-                  <th className="py-1 px-2.5 w-24">CÓDIGO (F3)</th>
-                  <th className="py-1 px-2.5">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
-                  <th className="py-1 px-1.5 w-12 text-center">UN</th>
-                  <th className="py-1 px-2 w-16 text-right">QTDE</th>
-                  <th className="py-1 px-2 w-24 text-right">PREÇO UNIT.</th>
-                  <th className="py-1 px-1.5 w-16 text-right">% DESC.</th>
-                  <th className="py-1 px-2 w-20 text-right">R$ DESC.</th>
-                  <th className="py-1 px-2.5 w-24 text-right">TOTAL BRUTO</th>
-                  <th className="py-1 px-2.5 w-24 text-right text-amber-300">TOTAL LÍQUIDO</th>
-                  <th className="py-1 px-1.5 w-10 text-center">AÇÃO</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sky-100 dark:divide-stone-800 font-semibold text-zinc-900 dark:text-stone-100">
-                {items.map((it, idx) => (
-                  <tr 
-                    key={it.id} 
-                    className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-sky-100/70 dark:hover:bg-sky-950/40 transition border-b border-slate-200 dark:border-stone-800"
-                  >
-                    <td className="py-1 px-2 text-center font-mono text-[10px] text-slate-500">
-                      {String(idx + 1).padStart(2, '0')}
-                    </td>
-                    <td className="py-1 px-2.5 font-mono text-[11px] font-bold text-slate-700 dark:text-stone-300">
-                      {it.codigo}
-                    </td>
-                    <td className="py-1 px-2.5 font-bold text-xs uppercase truncate max-w-[280px]" title={it.descricao}>
-                      {it.descricao}
-                    </td>
-                    <td className="py-1 px-1.5 text-center font-bold text-slate-600 dark:text-stone-400 text-[11px]">
-                      {it.unidade}
-                    </td>
-                    <td className="py-1 px-2 text-right font-black text-xs">
-                      {it.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-1 px-2 text-right font-semibold text-xs">
-                      {formatCurrencyBRL(it.precoUnitario)}
-                    </td>
-                    <td className="py-1 px-1.5 text-right font-medium text-slate-500 text-[11px]">
-                      {it.percentualDesconto > 0 ? `${it.percentualDesconto}%` : '-'}
-                    </td>
-                    <td className="py-1 px-2 text-right font-medium text-slate-500 text-[11px]">
-                      {it.valorDesconto > 0 ? formatCurrencyBRL(it.valorDesconto) : '-'}
-                    </td>
-                    <td className="py-1 px-2.5 text-right font-semibold text-xs text-slate-700 dark:text-stone-300">
-                      {formatCurrencyBRL(it.totalBruto)}
-                    </td>
-                    <td className="py-1 px-2.5 text-right font-black text-xs text-emerald-700 dark:text-emerald-400">
-                      {formatCurrencyBRL(it.totalLiquido)}
-                    </td>
-                    <td className="py-1 px-1.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoverItem(it.id)}
-                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
-                        title="Remover item"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+
+            {/* Centro: Foto do Produto ou Silhueta Padrão */}
+            <div className="w-full flex-1 flex flex-col items-center justify-center my-2 min-h-0">
+              {fotoSelecionada ? (
+                <img 
+                  src={fotoSelecionada} 
+                  alt={activeVisualProduct?.name || 'Foto do Produto'} 
+                  className="w-full h-[280px] object-contain object-center rounded border border-slate-200 dark:border-stone-700 p-2 bg-slate-50 dark:bg-stone-800" 
+                />
+              ) : (
+                <div className="w-full h-[280px] rounded border border-dashed border-slate-200 dark:border-stone-800 p-4 bg-slate-50 dark:bg-stone-800/50 flex flex-col items-center justify-center text-center">
+                  <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-stone-800 flex items-center justify-center text-slate-400 dark:text-stone-500 mb-1">
+                    {isServicoItem ? (
+                      <Settings className="w-7 h-7 stroke-[1.6]" />
+                    ) : (
+                      <Package className="w-7 h-7 stroke-[1.6]" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-stone-400 font-bold mt-2 uppercase tracking-wide text-center">
+                    FOTO NÃO CADASTRADA OU ITEM DE SERVIÇO
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Rodapé: Identificação Técnica com Nome e Código */}
+            <div className="w-full pt-1.5 border-t border-slate-200 dark:border-stone-800 flex flex-col items-center justify-center text-center shrink-0">
+              <span className="text-xs font-black text-slate-800 dark:text-white tracking-wide text-center uppercase line-clamp-2">
+                {activeVisualProduct?.name || 'NENHUM PRODUTO SELECIONADO'}
+              </span>
+              {activeVisualProduct?.code && (
+                <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-stone-400 mt-0.5 uppercase">
+                  CÓD: {activeVisualProduct.code}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
 
       {/* =====================================================================
           3. BLOCO INFERIOR DE FECHAMENTO E TOTAIS (CARDS HORIZONTAIS)

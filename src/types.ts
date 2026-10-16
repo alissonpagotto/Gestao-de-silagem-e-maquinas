@@ -812,6 +812,8 @@ export interface InventoryItem {
     currentKm?: number;
     notes?: string;
   };
+  fotoUrl?: string;
+  imagemBase64?: string;
   createdAt?: string;
   updatedAt?: string;
 }

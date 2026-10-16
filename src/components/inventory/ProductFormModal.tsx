@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   Package, 
@@ -14,7 +14,8 @@ import {
   CircleDot,
   Plus,
   Trash2,
-  Pencil
+  Pencil,
+  Camera
 } from 'lucide-react';
 import { InventoryItem, TireItem } from '../../types';
 import { 
@@ -373,6 +374,62 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Foto do Produto (Upload em Base64 - Offline LocalStorage)
+  const [fotoBase64, setFotoBase64] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Conversão de arquivo de imagem para Base64 compacta
+  const handleImageUpload = (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFormError('SELECIONE UM ARQUIVO DE IMAGEM VÁLIDO (JPG OU PNG).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (!result) return;
+
+      // Se a imagem for maior que 300KB, comprime via canvas para manter o LocalStorage ultra-leve e veloz
+      if (file.size > 300 * 1024) {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 800;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL('image/jpeg', 0.85);
+            setFotoBase64(compressed);
+            setFormError('');
+          } else {
+            setFotoBase64(result);
+            setFormError('');
+          }
+        };
+        img.src = result;
+      } else {
+        setFotoBase64(result);
+        setFormError('');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Verifica dinamicamente se a unidade é galão ou o nome contém 'Galão'
   const showGallonCapacity = useMemo(() => {
     const unitNorm = (unidadeMedida || '')
@@ -593,6 +650,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setTirePressurePsi(String(initialPressure));
       setTireCurrentKm(initialKm !== '' ? String(initialKm) : '');
       setTireNotes(initialTireNotes);
+
+      // Foto do produto salva
+      const initialFoto = (initialData as any)?.fotoUrl || (initialData as any)?.imagemBase64 || '';
+      setFotoBase64(initialFoto);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   }, [isOpen, initialData]);
 
@@ -883,6 +947,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         tireModel: isPneuCategory ? (tireModel.trim() ? tireModel.trim().toUpperCase() : undefined) : undefined,
         tireSize: isPneuCategory ? (tireSize.trim() ? tireSize.trim().toUpperCase() : undefined) : undefined,
         tireNotes: isPneuCategory ? (tireNotes.trim() ? tireNotes.trim().toUpperCase() : undefined) : undefined,
+        fotoUrl: fotoBase64 || undefined,
+        imagemBase64: fotoBase64 || undefined,
         createdAt: initialData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -946,6 +1012,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
         const productAgroToSave = {
           ...newProduct,
+          fotoUrl: fotoBase64 || undefined,
+          imagemBase64: fotoBase64 || undefined,
           marca: marcaTratada,
           brand: marcaTratada,
           ...(isPneuCategory ? {
@@ -963,6 +1031,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           agroList[existingAgroIdx] = {
             ...agroList[existingAgroIdx],
             ...productAgroToSave,
+            fotoUrl: fotoBase64 || undefined,
+            imagemBase64: fotoBase64 || undefined,
           };
         } else {
           agroList.unshift(productAgroToSave);
@@ -989,6 +1059,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           stockList[idx] = {
             ...stockList[idx],
             ...newProduct,
+            fotoUrl: fotoBase64 || undefined,
+            imagemBase64: fotoBase64 || undefined,
             marca: marcaTratada,
             brand: marcaTratada,
             categoria: newProduct.categoria,
@@ -997,6 +1069,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         } else {
           stockList.unshift({
             ...newProduct,
+            fotoUrl: fotoBase64 || undefined,
+            imagemBase64: fotoBase64 || undefined,
             marca: marcaTratada,
             brand: marcaTratada,
           });
@@ -1071,11 +1145,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       localizacao_fisica: endFmt,
       quantity: typeof quantidadeAtual === 'number' ? quantidadeAtual : 0,
       minQuantity: typeof minQuantity === 'number' ? minQuantity : 0,
+      fotoUrl: fotoBase64 || undefined,
+      imagemBase64: fotoBase64 || undefined,
     };
   }, [
     initialData?.id,
     codigoInterno,
     nome,
+    fotoBase64,
     categoria,
     unidadeMedida,
     marca,
@@ -1151,7 +1228,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Formulário em 3 Colunas Horizontais Paralelas - Slim Design sem Rolagem */}
-          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-between flex-1 min-h-0">
+          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-between flex-1 min-h-0 bg-[#cad4e6] dark:bg-stone-900">
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch flex-1 min-h-0">
               
@@ -2149,6 +2226,79 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         />
                       </div>
                     )}
+
+                    {/* Central de Upload e Visualização da Foto do Produto */}
+                    <div className="pt-2 border-t border-stone-200/80 dark:border-stone-700/60">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="flex items-center space-x-1 text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
+                          <Camera className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <span>FOTO DO PRODUTO</span>
+                        </label>
+                        <span className="text-[9px] font-black uppercase text-slate-400 dark:text-stone-400">
+                          CATÁLOGO & PDV
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handleImageUpload(e.dataTransfer.files[0]);
+                          }
+                        }}
+                        className="w-full h-[220px] border-2 border-dashed border-slate-300 rounded bg-slate-50 flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-slate-100/80 transition-all select-none group relative overflow-hidden"
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png, image/jpeg, image/jpg"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleImageUpload(e.target.files[0]);
+                            }
+                          }}
+                        />
+
+                        {fotoBase64 ? (
+                          <div className="w-full h-full relative flex items-center justify-center">
+                            <img
+                              src={fotoBase64}
+                              alt="Foto do Produto"
+                              className="w-full h-full object-contain object-center rounded"
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFotoBase64('');
+                                if (fileInputRef.current) fileInputRef.current.value = '';
+                              }}
+                              className="text-[9px] font-bold uppercase p-1 bg-red-600 hover:bg-red-700 text-white rounded shadow-sm absolute top-2 right-2 cursor-pointer z-10"
+                              title="Remover Foto"
+                            >
+                              ✕ REMOVER FOTO
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <Camera className="text-slate-400 size-8 group-hover:text-blue-500 transition-colors" />
+                            <span className="text-[11px] font-bold text-slate-500 mt-2">
+                              📸 CLIQUE OU ARRASTE A FOTO DO PRODUTO AQUI
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-semibold mt-0.5">
+                              FORMATOS ACEITOS: JPG, PNG • MÁXIMO 1MB
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
