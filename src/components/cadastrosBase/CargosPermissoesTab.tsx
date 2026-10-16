@@ -76,8 +76,7 @@ import {
   getStoredCargosPermissoes, 
   saveStoredCargosPermissoes, 
   consolidateCargosList,
-  INITIAL_CARGOS_PERMISSOES,
-  CADASTROS_STORAGE_KEYS 
+  INITIAL_CARGOS_PERMISSOES
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredEmployees, saveStoredEmployees } from '../../lib/storage';
 import { CargoEmployeesModal } from './CargoEmployeesModal';
@@ -718,9 +717,6 @@ export const CargosPermissoesTab: React.FC = () => {
                   MATRIZ DE CONTROLE
                 </span>
               </div>
-              <p className="text-xs text-zinc-500 dark:text-stone-400">
-                Gerenciamento de níveis de acesso por função com persistência local em <code>{CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES}</code>.
-              </p>
             </div>
           </div>
 

@@ -29,9 +29,9 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
 
   const allowedTabs = useMemo(() => {
     const list: CadastrosSubTab[] = [];
-    if (hasCadastrosBaseSubPermission('centros_custo')) list.push('centros_custo');
-    if (hasCadastrosBaseSubPermission('plano_contas')) list.push('plano_contas');
     if (hasCadastrosBaseSubPermission('cargos_permissoes')) list.push('cargos_permissoes');
+    if (hasCadastrosBaseSubPermission('plano_contas')) list.push('plano_contas');
+    if (hasCadastrosBaseSubPermission('centros_custo')) list.push('centros_custo');
     return list.length > 0 ? list : ['cargos_permissoes' as CadastrosSubTab];
   }, []);
 
@@ -82,25 +82,25 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
             aria-label="Abas de Cadastros Base"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
-            {/* Card 1: Centros de Custo */}
-            {hasCadastrosBaseSubPermission('centros_custo') ? (
+            {/* Card 1: Cargos, Setores & Permissões */}
+            {hasCadastrosBaseSubPermission('cargos_permissoes') ? (
               <button
                 type="button"
-                id="tab-card-centros-custo"
-                onClick={() => setActiveTab('centros_custo')}
+                id="tab-card-cargos-permissoes"
+                onClick={() => setActiveTab('cargos_permissoes')}
                 className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                  activeTab === 'centros_custo'
+                  activeTab === 'cargos_permissoes'
                     ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
-                <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'centros_custo' ? 'text-zinc-900 dark:text-white' : 'text-blue-600 dark:text-blue-400'}`} />
-                <span>Centros de Custo</span>
+                <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cargos_permissoes' ? 'text-zinc-900 dark:text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
+                <span>Cargos, Setores & Permissões</span>
               </button>
             ) : (
               <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
                 <Lock className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Centros de Custo (Bloqueado)</span>
+                <span>Cargos & Permissões (Bloqueado)</span>
               </div>
             )}
 
@@ -126,25 +126,25 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
               </div>
             )}
 
-            {/* Card 3: Cargos, Setores & Permissões */}
-            {hasCadastrosBaseSubPermission('cargos_permissoes') ? (
+            {/* Card 3: Centros de Custo */}
+            {hasCadastrosBaseSubPermission('centros_custo') ? (
               <button
                 type="button"
-                id="tab-card-cargos-permissoes"
-                onClick={() => setActiveTab('cargos_permissoes')}
+                id="tab-card-centros-custo"
+                onClick={() => setActiveTab('centros_custo')}
                 className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
-                  activeTab === 'cargos_permissoes'
+                  activeTab === 'centros_custo'
                     ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
-                <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cargos_permissoes' ? 'text-zinc-900 dark:text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
-                <span>Cargos, Setores & Permissões</span>
+                <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'centros_custo' ? 'text-zinc-900 dark:text-white' : 'text-blue-600 dark:text-blue-400'}`} />
+                <span>Centros de Custo</span>
               </button>
             ) : (
               <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none">
                 <Lock className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Cargos & Permissões (Bloqueado)</span>
+                <span>Centros de Custo (Bloqueado)</span>
               </div>
             )}
           </nav>
@@ -153,9 +153,9 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
         <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
           {/* Renderização do Sub-menu ativo */}
-          {activeTab === 'centros_custo' && <CentrosCustoTab />}
-          {activeTab === 'plano_contas' && <PlanoContasTab />}
           {activeTab === 'cargos_permissoes' && <CargosPermissoesTab />}
+          {activeTab === 'plano_contas' && <PlanoContasTab />}
+          {activeTab === 'centros_custo' && <CentrosCustoTab />}
         </div>
       </div>
     </div>

@@ -21,8 +21,7 @@ import { PlanoContaCategoria, FormaPagamentoItem, PlanoContasEFormasData } from 
 import { 
   getStoredPlanoContas, 
   saveStoredPlanoContas, 
-  INITIAL_PLANO_CONTAS_E_FORMAS, 
-  CADASTROS_STORAGE_KEYS 
+  INITIAL_PLANO_CONTAS_E_FORMAS
 } from '../../lib/cadastrosBaseStorage';
 
 export const PlanoContasTab: React.FC = () => {
@@ -276,9 +275,6 @@ export const PlanoContasTab: React.FC = () => {
               <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
                 Plano de Contas & Formas de Pagamento
               </h3>
-              <p className="text-xs text-zinc-500 dark:text-stone-400">
-                Estrutura contábil e modalidades de recebimento/pagamento salvas em <code>{CADASTROS_STORAGE_KEYS.PLANO_CONTAS}</code>.
-              </p>
             </div>
           </div>
 

@@ -17,8 +17,7 @@ import { CostCenter } from '../../types';
 import { 
   getStoredCentrosCusto, 
   saveStoredCentrosCusto, 
-  INITIAL_CENTROS_CUSTO, 
-  CADASTROS_STORAGE_KEYS 
+  INITIAL_CENTROS_CUSTO
 } from '../../lib/cadastrosBaseStorage';
 
 export const CentrosCustoTab: React.FC = () => {
@@ -174,12 +173,9 @@ export const CentrosCustoTab: React.FC = () => {
               <Building className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-                Centros de Custo & Talhões
+              <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase">
+                CENTROS DE CUSTO
               </h3>
-              <p className="text-xs text-zinc-500 dark:text-stone-400">
-                Segmentação de custos operacionais e administrativos gravados localmente em <code>{CADASTROS_STORAGE_KEYS.CENTROS_CUSTO}</code>.
-              </p>
             </div>
           </div>
 
