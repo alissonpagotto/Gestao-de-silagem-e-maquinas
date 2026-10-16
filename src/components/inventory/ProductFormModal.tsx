@@ -621,22 +621,117 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialGallonCap = initialData?.gallonSizeLiters ?? initialData?.volume_litros_embalagem;
       setCapacidadeGalao(initialGallonCap !== undefined && initialGallonCap !== null ? Number(initialGallonCap) : 20);
 
-      // Inicialização dos parâmetros técnicos do pneu (Gestão de Frotas)
-      const tireParams = initialData?.tireParameters;
-      const initialFire = (tireParams?.fireNumber || initialData?.fireNumber || '').toUpperCase();
-      const initialMarcaGeral = (initialData?.brand || initialData?.marca || '').toUpperCase();
-      const initialTireBrandRaw = (tireParams?.brand || '').toUpperCase();
+      // 3. CARREGAMENTO REATIVO NA EDIÇÃO (PREENCHIMENTO DE RETORNO):
+      // Recupera o objeto do LocalStorage ou do initialData e preenche todos os inputs
+      let itemFresh = initialData;
+      if (initialData?.id) {
+        try {
+          const raw = localStorage.getItem('agrocontrol_produtos');
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const found = list.find((p: any) => 
+                String(p.id) === String(initialData.id) ||
+                (p.code && initialData.code && String(p.code).toUpperCase() === String(initialData.code).toUpperCase()) ||
+                (p.name && initialData.name && String(p.name).toUpperCase() === String(initialData.name).toUpperCase()) ||
+                (p.nome_comercial && initialData.nome_comercial && String(p.nome_comercial).toUpperCase() === String(initialData.nome_comercial).toUpperCase())
+              );
+              if (found) {
+                itemFresh = { ...initialData, ...found };
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Erro ao ler agrocontrol_produtos no modal:', e);
+        }
+      }
+
+      const pneuParamsObj = (itemFresh as any)?.pneuParams;
+      const tireParamsObj = itemFresh?.tireParameters;
+
+      const initialFire = (
+        pneuParamsObj?.numeroFogo || 
+        (itemFresh as any)?.numeroFogo || 
+        (tireParamsObj as any)?.numeroFogo || 
+        tireParamsObj?.fireNumber || 
+        itemFresh?.fireNumber || 
+        ''
+      ).toUpperCase();
+
+      const initialMarcaGeral = (
+        pneuParamsObj?.marcaPneu || 
+        (itemFresh as any)?.marcaPneu || 
+        itemFresh?.brand || 
+        itemFresh?.marca || 
+        ''
+      ).toUpperCase();
+
+      const initialTireBrandRaw = (
+        pneuParamsObj?.marcaPneu || 
+        (itemFresh as any)?.marcaPneu || 
+        (tireParamsObj as any)?.marcaPneu || 
+        tireParamsObj?.brand || 
+        ''
+      ).toUpperCase();
+
       const resolvedTireBrand = (initialTireBrandRaw && initialTireBrandRaw !== 'SELECIONE...')
         ? initialTireBrandRaw
         : (initialMarcaGeral && initialMarcaGeral !== 'SELECIONE...' ? initialMarcaGeral : '');
 
-      const initialTireModel = (tireParams?.model || initialData?.tireModel || '').toUpperCase();
-      const initialTireSize = (tireParams?.size || initialData?.tireSize || '').toUpperCase();
-      const initialTread = tireParams?.treadDepthMm ?? initialData?.treadDepthMm ?? 12.0;
-      const initialRetread = tireParams?.retreadCount ?? initialData?.retreadCount ?? 0;
-      const initialPressure = tireParams?.pressurePsi ?? initialData?.pressurePsi ?? 110;
-      const initialKm = tireParams?.currentKm ?? initialData?.currentKm ?? '';
-      const initialTireNotes = (tireParams?.notes || initialData?.tireNotes || '').toUpperCase();
+      const initialTireModel = (
+        pneuParamsObj?.modeloBanda || 
+        (itemFresh as any)?.modeloBanda || 
+        (tireParamsObj as any)?.modeloBanda || 
+        tireParamsObj?.model || 
+        itemFresh?.tireModel || 
+        ''
+      ).toUpperCase();
+
+      const initialTireSize = (
+        pneuParamsObj?.medidaDimensao || 
+        (itemFresh as any)?.medidaDimensao || 
+        (tireParamsObj as any)?.medidaDimensao || 
+        tireParamsObj?.size || 
+        itemFresh?.tireSize || 
+        ''
+      ).toUpperCase();
+
+      const initialTread = pneuParamsObj?.sulcoActual ?? 
+                           (itemFresh as any)?.sulcoActual ?? 
+                           (tireParamsObj as any)?.sulcoActual ?? 
+                           tireParamsObj?.treadDepthMm ?? 
+                           itemFresh?.treadDepthMm ?? 
+                           12.0;
+
+      const initialRetread = pneuParamsObj?.recapagens ?? 
+                            (itemFresh as any)?.recapagens ?? 
+                            (tireParamsObj as any)?.recapagens ?? 
+                            tireParamsObj?.retreadCount ?? 
+                            itemFresh?.retreadCount ?? 
+                            0;
+
+      const initialPressure = pneuParamsObj?.pressaoPsi ?? 
+                             (itemFresh as any)?.pressaoPsi ?? 
+                             (tireParamsObj as any)?.pressaoPsi ?? 
+                             tireParamsObj?.pressurePsi ?? 
+                             itemFresh?.pressurePsi ?? 
+                             110;
+
+      const initialKm = pneuParamsObj?.kmEstimado ?? 
+                        (itemFresh as any)?.kmEstimado ?? 
+                        (tireParamsObj as any)?.kmEstimado ?? 
+                        tireParamsObj?.currentKm ?? 
+                        itemFresh?.currentKm ?? 
+                        '';
+
+      const initialTireNotes = (
+        pneuParamsObj?.observacoesPneu || 
+        (itemFresh as any)?.observacoesPneu || 
+        (tireParamsObj as any)?.observacoesPneu || 
+        tireParamsObj?.notes || 
+        itemFresh?.tireNotes || 
+        ''
+      ).toUpperCase();
 
       setTireFireNumber(initialFire);
       setTireBrand(resolvedTireBrand);
@@ -646,13 +741,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setTireModel(initialTireModel);
       setTireSize(initialTireSize);
       setTireTreadDepthMm(String(initialTread));
-      setTireRetreadCount(initialRetread);
+      setTireRetreadCount(Number(initialRetread) || 0);
       setTirePressurePsi(String(initialPressure));
-      setTireCurrentKm(initialKm !== '' ? String(initialKm) : '');
+      setTireCurrentKm(initialKm !== '' && initialKm !== null && initialKm !== undefined ? String(initialKm) : '');
       setTireNotes(initialTireNotes);
 
-      // Foto do produto salva
-      const initialFoto = (initialData as any)?.fotoUrl || (initialData as any)?.imagemBase64 || '';
+      // Foto do produto salva (Base64 offline)
+      const initialFoto = (itemFresh as any)?.imagemBase64 || (itemFresh as any)?.fotoUrl || '';
       setFotoBase64(initialFoto);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -925,7 +1020,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         localizacao_fisica: enderecoFormatado || 'Depósito Principal',
         gallonSizeLiters: parsedGallonLiters,
         volume_litros_embalagem: parsedGallonLiters,
-        // Parâmetros Técnicos do Pneu (Gestão de Frotas)
+        // Parâmetros Técnicos do Pneu (Gestão de Frotas e Almoxarifado)
         tireParameters: isPneuCategory ? {
           fireNumber: tireFireNumber.trim().toUpperCase(),
           brand: (marcaTratada || 'MICHELIN').toUpperCase(),
@@ -938,6 +1033,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           currentKm: parseFloat(tireCurrentKm) || 0,
           notes: tireNotes.trim() ? tireNotes.trim().toUpperCase() : undefined,
         } : undefined,
+        pneuParams: isPneuCategory ? {
+          numeroFogo: tireFireNumber.trim().toUpperCase(),
+          marcaPneu: (marcaTratada || 'MICHELIN').toUpperCase(),
+          modeloBanda: (tireModel.trim() || cleanNome).toUpperCase(),
+          medidaDimensao: (tireSize.trim() || '295/80 R 22.5').toUpperCase(),
+          sulcoActual: parseFloat(tireTreadDepthMm) || 12.0,
+          recapagens: tireRetreadCount,
+          pressaoPsi: parseFloat(tirePressurePsi) || 110,
+          kmEstimado: parseFloat(tireCurrentKm) || 0,
+          observacoesPneu: tireNotes.trim() ? tireNotes.trim().toUpperCase() : '',
+        } : undefined,
+        numeroFogo: isPneuCategory ? tireFireNumber.trim().toUpperCase() : undefined,
+        marcaPneu: isPneuCategory ? (marcaTratada || 'MICHELIN').toUpperCase() : undefined,
+        modeloBanda: isPneuCategory ? (tireModel.trim() || cleanNome).toUpperCase() : undefined,
+        medidaDimensao: isPneuCategory ? (tireSize.trim() || '295/80 R 22.5').toUpperCase() : undefined,
+        sulcoActual: isPneuCategory ? (parseFloat(tireTreadDepthMm) || 12.0) : undefined,
+        recapagens: isPneuCategory ? tireRetreadCount : undefined,
+        pressaoPsi: isPneuCategory ? (parseFloat(tirePressurePsi) || 110) : undefined,
+        kmEstimado: isPneuCategory ? (parseFloat(tireCurrentKm) || 0) : undefined,
+        observacoesPneu: isPneuCategory ? (tireNotes.trim() ? tireNotes.trim().toUpperCase() : '') : undefined,
         fireNumber: isPneuCategory ? tireFireNumber.trim().toUpperCase() : undefined,
         treadDepthMm: isPneuCategory ? (parseFloat(tireTreadDepthMm) || 12.0) : undefined,
         originalTreadDepthMm: isPneuCategory ? 18.0 : undefined,
@@ -996,22 +1111,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       }
 
+      // Parâmetros do pneu consolidados para persistência
+      const pneuParamsConsolidado = isPneuCategory ? {
+        numeroFogo: tireFireNumber.trim().toUpperCase(),
+        marcaPneu: (marcaTratada || 'MICHELIN').toUpperCase(),
+        modeloBanda: (tireModel.trim() || cleanNome).toUpperCase(),
+        medidaDimensao: (tireSize.trim() || '295/80 R 22.5').toUpperCase(),
+        sulcoActual: parseFloat(tireTreadDepthMm) || 12.0,
+        recapagens: tireRetreadCount,
+        pressaoPsi: parseFloat(tirePressurePsi) || 110,
+        kmEstimado: parseFloat(tireCurrentKm) || 0,
+        observacoesPneu: tireNotes.trim() ? tireNotes.trim().toUpperCase() : '',
+      } : undefined;
+
       // 3. PERSISTÊNCIA COMPLETA: Salva o objeto atualizado no array da chave 'agrocontrol_produtos' do LocalStorage
       try {
         const rawAgro = localStorage.getItem('agrocontrol_produtos');
         let agroList: any[] = rawAgro ? JSON.parse(rawAgro) : [];
         if (!Array.isArray(agroList)) agroList = [];
 
-        const existingAgroIdx = agroList.findIndex((p: any) => 
-          p.id === newProduct.id || 
-          (p.code && newProduct.code && p.code === newProduct.code) ||
-          (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
-          (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase()) ||
-          (isPneuCategory && p.fireNumber && newProduct.fireNumber && p.fireNumber.toUpperCase() === newProduct.fireNumber.toUpperCase())
-        );
-
         const productAgroToSave = {
           ...newProduct,
+          pneuParams: pneuParamsConsolidado,
+          ...(pneuParamsConsolidado || {}),
           fotoUrl: fotoBase64 || undefined,
           imagemBase64: fotoBase64 || undefined,
           marca: marcaTratada,
@@ -1027,19 +1149,35 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           } : {})
         };
 
-        if (existingAgroIdx >= 0) {
-          agroList[existingAgroIdx] = {
-            ...agroList[existingAgroIdx],
-            ...productAgroToSave,
-            fotoUrl: fotoBase64 || undefined,
-            imagemBase64: fotoBase64 || undefined,
-          };
-        } else {
-          agroList.unshift(productAgroToSave);
+        let matchFound = false;
+        const updatedAgroList = agroList.map((p: any) => {
+          if (
+            String(p.id) === String(newProduct.id) || 
+            (p.code && newProduct.code && String(p.code) === String(newProduct.code)) ||
+            (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
+            (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase()) ||
+            (isPneuCategory && p.fireNumber && newProduct.fireNumber && p.fireNumber.toUpperCase() === newProduct.fireNumber.toUpperCase()) ||
+            (isPneuCategory && p.numeroFogo && newProduct.fireNumber && p.numeroFogo.toUpperCase() === newProduct.fireNumber.toUpperCase())
+          ) {
+            matchFound = true;
+            return {
+              ...p,
+              ...productAgroToSave,
+              pneuParams: pneuParamsConsolidado,
+              ...(pneuParamsConsolidado || {}),
+              fotoUrl: fotoBase64 || undefined,
+              imagemBase64: fotoBase64 || undefined,
+            };
+          }
+          return p;
+        });
+
+        if (!matchFound) {
+          updatedAgroList.unshift(productAgroToSave);
         }
 
-        localStorage.setItem('agrocontrol_produtos', JSON.stringify(agroList));
-        window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: agroList }));
+        localStorage.setItem('agrocontrol_produtos', JSON.stringify(updatedAgroList));
+        window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: updatedAgroList }));
       } catch (errAgro) {
         console.warn('Aviso ao persistir produto em agrocontrol_produtos:', errAgro);
       }
@@ -1050,33 +1188,48 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         let stockList: any[] = rawStock ? JSON.parse(rawStock) : [];
         if (!Array.isArray(stockList)) stockList = [];
 
-        const idx = stockList.findIndex((p: any) => 
-          p.id === newProduct.id || 
-          (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
-          (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase())
-        );
-        if (idx >= 0) {
-          stockList[idx] = {
-            ...stockList[idx],
+        let stockFound = false;
+        const updatedStockList = stockList.map((p: any) => {
+          if (
+            String(p.id) === String(newProduct.id) || 
+            (p.code && newProduct.code && String(p.code) === String(newProduct.code)) ||
+            (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
+            (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase()) ||
+            (isPneuCategory && p.fireNumber && newProduct.fireNumber && p.fireNumber.toUpperCase() === newProduct.fireNumber.toUpperCase()) ||
+            (isPneuCategory && p.numeroFogo && newProduct.fireNumber && p.numeroFogo.toUpperCase() === newProduct.fireNumber.toUpperCase())
+          ) {
+            stockFound = true;
+            return {
+              ...p,
+              ...newProduct,
+              pneuParams: pneuParamsConsolidado,
+              ...(pneuParamsConsolidado || {}),
+              fotoUrl: fotoBase64 || undefined,
+              imagemBase64: fotoBase64 || undefined,
+              marca: marcaTratada,
+              brand: marcaTratada,
+              categoria: newProduct.categoria,
+              category: newProduct.category,
+            };
+          }
+          return p;
+        });
+
+        if (!stockFound) {
+          updatedStockList.unshift({
             ...newProduct,
+            pneuParams: pneuParamsConsolidado,
+            ...(pneuParamsConsolidado || {}),
             fotoUrl: fotoBase64 || undefined,
             imagemBase64: fotoBase64 || undefined,
             marca: marcaTratada,
             brand: marcaTratada,
             categoria: newProduct.categoria,
             category: newProduct.category,
-          };
-        } else {
-          stockList.unshift({
-            ...newProduct,
-            fotoUrl: fotoBase64 || undefined,
-            imagemBase64: fotoBase64 || undefined,
-            marca: marcaTratada,
-            brand: marcaTratada,
           });
         }
-        localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(stockList));
-        window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: stockList }));
+        localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(updatedStockList));
+        window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: updatedStockList }));
       } catch (errStock) {
         console.warn('Aviso ao persistir produto no LocalStorage:', errStock);
       }

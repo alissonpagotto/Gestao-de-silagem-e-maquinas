@@ -812,6 +812,26 @@ export interface InventoryItem {
     currentKm?: number;
     notes?: string;
   };
+  pneuParams?: {
+    numeroFogo?: string;
+    marcaPneu?: string;
+    modeloBanda?: string;
+    medidaDimensao?: string;
+    sulcoActual?: number;
+    recapagens?: number;
+    pressaoPsi?: number;
+    kmEstimado?: number;
+    observacoesPneu?: string;
+  };
+  numeroFogo?: string;
+  marcaPneu?: string;
+  modeloBanda?: string;
+  medidaDimensao?: string;
+  sulcoActual?: number;
+  recapagens?: number;
+  pressaoPsi?: number;
+  kmEstimado?: number;
+  observacoesPneu?: string;
   fotoUrl?: string;
   imagemBase64?: string;
   createdAt?: string;
