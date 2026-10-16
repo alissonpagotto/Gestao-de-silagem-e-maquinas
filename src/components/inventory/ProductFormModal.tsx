@@ -378,7 +378,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [fotoBase64, setFotoBase64] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Conversão de arquivo de imagem para Base64 compacta
+  // 1. COMPRESSÃO COMPULSÓRIA DA IMAGEM EM CANVAS (REDUÇÃO DE PESO):
+  // Reduz para largura máxima de 400px com qualidade 0.7 (70%), enxugando o arquivo para ~30KB
   const handleImageUpload = (file: File) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -391,12 +392,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const result = e.target?.result as string;
       if (!result) return;
 
-      // Se a imagem for maior que 300KB, comprime via canvas para manter o LocalStorage ultra-leve e veloz
-      if (file.size > 300 * 1024) {
-        const img = new window.Image();
-        img.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        try {
           const canvas = document.createElement('canvas');
-          const maxDim = 800;
+          const maxDim = 400; // Largura máxima de 400px
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -408,24 +408,30 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               h = maxDim;
             }
           }
-          canvas.width = w;
-          canvas.height = h;
+          canvas.width = Math.max(1, w);
+          canvas.height = Math.max(1, h);
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            ctx.drawImage(img, 0, 0, w, h);
-            const compressed = canvas.toDataURL('image/jpeg', 0.85);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // Qualidade em 0.7 (70%)
+            const compressed = canvas.toDataURL('image/jpeg', 0.7);
             setFotoBase64(compressed);
             setFormError('');
           } else {
             setFotoBase64(result);
             setFormError('');
           }
-        };
-        img.src = result;
-      } else {
+        } catch (errCanvas) {
+          console.warn('Erro na compressão canvas, utilizando fallback:', errCanvas);
+          setFotoBase64(result);
+          setFormError('');
+        }
+      };
+      img.onerror = () => {
         setFotoBase64(result);
         setFormError('');
-      }
+      };
+      img.src = result;
     };
     reader.readAsDataURL(file);
   };
@@ -621,20 +627,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialGallonCap = initialData?.gallonSizeLiters ?? initialData?.volume_litros_embalagem;
       setCapacidadeGalao(initialGallonCap !== undefined && initialGallonCap !== null ? Number(initialGallonCap) : 20);
 
-      // 3. CARREGAMENTO REATIVO NA EDIÇÃO (PREENCHIMENTO DE RETORNO):
+      // 3. REABERTURA REATIVA INTEGRAL (MÉTODO COMPULSÓRIO CARREGAMENTO):
       // Recupera o objeto do LocalStorage ou do initialData e preenche todos os inputs
       let itemFresh = initialData;
-      if (initialData?.id) {
+      if (initialData?.id || initialData?.code || initialData?.name || initialData?.nome_comercial) {
         try {
-          const raw = localStorage.getItem('agrocontrol_produtos');
+          const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
           if (raw) {
             const list = JSON.parse(raw);
             if (Array.isArray(list)) {
               const found = list.find((p: any) => 
-                String(p.id) === String(initialData.id) ||
+                (initialData?.id && String(p.id) === String(initialData.id)) ||
+                (initialData?.id && String(p.code) === String(initialData.id)) ||
                 (p.code && initialData.code && String(p.code).toUpperCase() === String(initialData.code).toUpperCase()) ||
                 (p.name && initialData.name && String(p.name).toUpperCase() === String(initialData.name).toUpperCase()) ||
-                (p.nome_comercial && initialData.nome_comercial && String(p.nome_comercial).toUpperCase() === String(initialData.nome_comercial).toUpperCase())
+                (p.nome_comercial && initialData.nome_comercial && String(p.nome_comercial).toUpperCase() === String(initialData.nome_comercial).toUpperCase()) ||
+                (p.item && initialData.name && String(p.item).toUpperCase() === String(initialData.name).toUpperCase())
               );
               if (found) {
                 itemFresh = { ...initialData, ...found };
@@ -646,8 +654,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       }
 
-      const pneuParamsObj = (itemFresh as any)?.pneuParams;
-      const tireParamsObj = itemFresh?.tireParameters;
+      // Restauração da Marca: herança unificada pelo campo MARCA de 1. IDENTIFICAÇÃO
+      const initialMarca = (
+        itemFresh?.marca || 
+        itemFresh?.brand || 
+        initialData?.marca || 
+        initialData?.brand || 
+        (itemFresh as any)?.pneuParams?.marcaPneu || 
+        (initialData as any)?.pneuParams?.marcaPneu || 
+        ''
+      ).toUpperCase();
+      setMarca(initialMarca);
+
+      const pneuParamsObj = (itemFresh as any)?.pneuParams || (initialData as any)?.pneuParams;
+      const tireParamsObj = itemFresh?.tireParameters || initialData?.tireParameters;
 
       const initialFire = (
         pneuParamsObj?.numeroFogo || 
@@ -655,28 +675,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         (tireParamsObj as any)?.numeroFogo || 
         tireParamsObj?.fireNumber || 
         itemFresh?.fireNumber || 
+        (initialData as any)?.fireNumber || 
         ''
       ).toUpperCase();
-
-      const initialMarcaGeral = (
-        pneuParamsObj?.marcaPneu || 
-        (itemFresh as any)?.marcaPneu || 
-        itemFresh?.brand || 
-        itemFresh?.marca || 
-        ''
-      ).toUpperCase();
-
-      const initialTireBrandRaw = (
-        pneuParamsObj?.marcaPneu || 
-        (itemFresh as any)?.marcaPneu || 
-        (tireParamsObj as any)?.marcaPneu || 
-        tireParamsObj?.brand || 
-        ''
-      ).toUpperCase();
-
-      const resolvedTireBrand = (initialTireBrandRaw && initialTireBrandRaw !== 'SELECIONE...')
-        ? initialTireBrandRaw
-        : (initialMarcaGeral && initialMarcaGeral !== 'SELECIONE...' ? initialMarcaGeral : '');
 
       const initialTireModel = (
         pneuParamsObj?.modeloBanda || 
@@ -684,6 +685,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         (tireParamsObj as any)?.modeloBanda || 
         tireParamsObj?.model || 
         itemFresh?.tireModel || 
+        (initialData as any)?.tireModel || 
         ''
       ).toUpperCase();
 
@@ -693,6 +695,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         (tireParamsObj as any)?.medidaDimensao || 
         tireParamsObj?.size || 
         itemFresh?.tireSize || 
+        (initialData as any)?.tireSize || 
         ''
       ).toUpperCase();
 
@@ -701,6 +704,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                            (tireParamsObj as any)?.sulcoActual ?? 
                            tireParamsObj?.treadDepthMm ?? 
                            itemFresh?.treadDepthMm ?? 
+                           (initialData as any)?.treadDepthMm ?? 
                            12.0;
 
       const initialRetread = pneuParamsObj?.recapagens ?? 
@@ -708,6 +712,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             (tireParamsObj as any)?.recapagens ?? 
                             tireParamsObj?.retreadCount ?? 
                             itemFresh?.retreadCount ?? 
+                            (initialData as any)?.retreadCount ?? 
                             0;
 
       const initialPressure = pneuParamsObj?.pressaoPsi ?? 
@@ -715,6 +720,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                              (tireParamsObj as any)?.pressaoPsi ?? 
                              tireParamsObj?.pressurePsi ?? 
                              itemFresh?.pressurePsi ?? 
+                             (initialData as any)?.pressurePsi ?? 
                              110;
 
       const initialKm = pneuParamsObj?.kmEstimado ?? 
@@ -722,6 +728,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         (tireParamsObj as any)?.kmEstimado ?? 
                         tireParamsObj?.currentKm ?? 
                         itemFresh?.currentKm ?? 
+                        (initialData as any)?.currentKm ?? 
                         '';
 
       const initialTireNotes = (
@@ -730,14 +737,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         (tireParamsObj as any)?.observacoesPneu || 
         tireParamsObj?.notes || 
         itemFresh?.tireNotes || 
+        (initialData as any)?.tireNotes || 
         ''
       ).toUpperCase();
 
       setTireFireNumber(initialFire);
-      setTireBrand(resolvedTireBrand);
-      if (!marca && resolvedTireBrand) {
-        setMarca(resolvedTireBrand);
-      }
+      setTireBrand(initialMarca);
       setTireModel(initialTireModel);
       setTireSize(initialTireSize);
       setTireTreadDepthMm(String(initialTread));
@@ -746,9 +751,41 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setTireCurrentKm(initialKm !== '' && initialKm !== null && initialKm !== undefined ? String(initialKm) : '');
       setTireNotes(initialTireNotes);
 
-      // Foto do produto salva (Base64 offline)
-      const initialFoto = (itemFresh as any)?.imagemBase64 || (itemFresh as any)?.fotoUrl || '';
-      setFotoBase64(initialFoto);
+      // 3. CARREGAMENTO REATIVO NA EDIÇÃO (MONTAGEM EM DOIS NÍVEIS):
+      // Busca secundária na chave 'agrocontrol_fotos_produtos' localizando pelo ID do produto ativo
+      const activeProdId = String(itemFresh?.id || initialData?.id || '').trim();
+      let fotoEncontrada = '';
+      if (activeProdId) {
+        try {
+          const rawFotos = localStorage.getItem('agrocontrol_fotos_produtos');
+          if (rawFotos) {
+            const parsed = JSON.parse(rawFotos);
+            if (Array.isArray(parsed)) {
+              const match = parsed.find((f: any) => 
+                String(f.idProduto || f.id || '').toUpperCase() === activeProdId.toUpperCase()
+              );
+              if (match && (match.imagem || match.fotoBase64)) {
+                fotoEncontrada = match.imagem || match.fotoBase64;
+              }
+            } else if (parsed && typeof parsed === 'object') {
+              if (parsed[activeProdId]) {
+                fotoEncontrada = typeof parsed[activeProdId] === 'string' ? parsed[activeProdId] : (parsed[activeProdId].imagem || '');
+              }
+            }
+          }
+        } catch (eFotos) {
+          console.warn('Erro ao ler agrocontrol_fotos_produtos:', eFotos);
+        }
+      }
+
+      // Se encontrar a imagem correspondente na gaveta de fotos, injeta na miniatura do quadro na hora; fallback legado seguro
+      const fotoFinal = fotoEncontrada || 
+                        (itemFresh as any)?.imagemBase64 || 
+                        (itemFresh as any)?.fotoUrl || 
+                        (initialData as any)?.imagemBase64 || 
+                        (initialData as any)?.fotoUrl || 
+                        '';
+      setFotoBase64(fotoFinal);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -911,13 +948,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       return;
     }
 
-    // Tratamento estrito em CAIXA ALTA com redundância inteligente:
-    // marca: (marcaPneu && marcaPneu !== "SELECIONE...") ? marcaPneu.toUpperCase() : marcaGeralDoProduto.toUpperCase()
-    const marcaPneu = (tireBrand || '').trim();
-    const marcaGeralDoProduto = (marca || '').trim();
-    const marcaTratada = (marcaPneu && marcaPneu !== "SELECIONE..." && marcaPneu !== "")
-      ? marcaPneu.toUpperCase()
-      : (marcaGeralDoProduto && marcaGeralDoProduto !== "SELECIONE..." ? marcaGeralDoProduto.toUpperCase() : "");
+    // A partir de agora, a rotina de pneus deve ler e herdar de forma automática a propriedade 'marca' preenchida no campo "MARCA" do bloco superior "1. IDENTIFICAÇÃO".
+    const marcaTratada = (marca || '').trim().toUpperCase();
 
     const custoNominalFloat = parseCurrencyPtBr(custoNominalDisplay);
     const precoVendaFloat = parseCurrencyPtBr(precoVendaDisplay);
@@ -1035,7 +1067,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         } : undefined,
         pneuParams: isPneuCategory ? {
           numeroFogo: tireFireNumber.trim().toUpperCase(),
-          marcaPneu: (marcaTratada || 'MICHELIN').toUpperCase(),
           modeloBanda: (tireModel.trim() || cleanNome).toUpperCase(),
           medidaDimensao: (tireSize.trim() || '295/80 R 22.5').toUpperCase(),
           sulcoActual: parseFloat(tireTreadDepthMm) || 12.0,
@@ -1045,7 +1076,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           observacoesPneu: tireNotes.trim() ? tireNotes.trim().toUpperCase() : '',
         } : undefined,
         numeroFogo: isPneuCategory ? tireFireNumber.trim().toUpperCase() : undefined,
-        marcaPneu: isPneuCategory ? (marcaTratada || 'MICHELIN').toUpperCase() : undefined,
         modeloBanda: isPneuCategory ? (tireModel.trim() || cleanNome).toUpperCase() : undefined,
         medidaDimensao: isPneuCategory ? (tireSize.trim() || '295/80 R 22.5').toUpperCase() : undefined,
         sulcoActual: isPneuCategory ? (parseFloat(tireTreadDepthMm) || 12.0) : undefined,
@@ -1062,8 +1092,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         tireModel: isPneuCategory ? (tireModel.trim() ? tireModel.trim().toUpperCase() : undefined) : undefined,
         tireSize: isPneuCategory ? (tireSize.trim() ? tireSize.trim().toUpperCase() : undefined) : undefined,
         tireNotes: isPneuCategory ? (tireNotes.trim() ? tireNotes.trim().toUpperCase() : undefined) : undefined,
-        fotoUrl: fotoBase64 || undefined,
-        imagemBase64: fotoBase64 || undefined,
+        fotoUrl: undefined,
+        imagemBase64: undefined,
         createdAt: initialData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -1111,10 +1141,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       }
 
-      // Parâmetros do pneu consolidados para persistência
+      // Parâmetros do pneu consolidados para persistência (Nota: Removida a chave marca interna daqui)
       const pneuParamsConsolidado = isPneuCategory ? {
         numeroFogo: tireFireNumber.trim().toUpperCase(),
-        marcaPneu: (marcaTratada || 'MICHELIN').toUpperCase(),
         modeloBanda: (tireModel.trim() || cleanNome).toUpperCase(),
         medidaDimensao: (tireSize.trim() || '295/80 R 22.5').toUpperCase(),
         sulcoActual: parseFloat(tireTreadDepthMm) || 12.0,
@@ -1124,30 +1153,68 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         observacoesPneu: tireNotes.trim() ? tireNotes.trim().toUpperCase() : '',
       } : undefined;
 
-      // 3. PERSISTÊNCIA COMPLETA: Salva o objeto atualizado no array da chave 'agrocontrol_produtos' do LocalStorage
+      // 2. DIVISÃO DAS GAVETAS DE PERSISTÊNCIA (SEPARAÇÃO DE CHAVES FOTO VS PARÂMETROS):
+      // CHAVE 1 ('agrocontrol_produtos'): Salve estritamente os dados textuais, de custos, o bloco 'pneuParams' unificado e remova a string da foto daqui.
+      const productAgroToSave: any = {
+        ...newProduct,
+        pneuParams: pneuParamsConsolidado,
+        ...(pneuParamsConsolidado || {}),
+        marca: marcaTratada,
+        brand: marcaTratada,
+        ...(isPneuCategory ? {
+          tireBrand: marcaTratada,
+          fireNumber: tireFireNumber.trim().toUpperCase(),
+          tireParameters: {
+            ...(newProduct.tireParameters || {}),
+            brand: (marcaTratada || 'MICHELIN').toUpperCase(),
+            fireNumber: tireFireNumber.trim().toUpperCase(),
+          }
+        } : {})
+      };
+      delete productAgroToSave.fotoUrl;
+      delete productAgroToSave.imagemBase64;
+
+      // CHAVE 2 ('agrocontrol_fotos_produtos'): Crie um objeto isolado para guardar apenas as fotos associadas ao ID: { idProduto: String(idAtivo), imagem: fotoComprimidaBase64 }
+      try {
+        const prodIdStr = String(prodId);
+        const rawFotos = localStorage.getItem('agrocontrol_fotos_produtos');
+        let fotosList: any[] = [];
+        if (rawFotos) {
+          try {
+            const parsed = JSON.parse(rawFotos);
+            if (Array.isArray(parsed)) {
+              fotosList = parsed;
+            } else if (parsed && typeof parsed === 'object') {
+              fotosList = Object.entries(parsed).map(([idProduto, imagem]) => ({ idProduto, imagem }));
+            }
+          } catch {
+            fotosList = [];
+          }
+        }
+
+        if (fotoBase64) {
+          const idx = fotosList.findIndex((f: any) => String(f.idProduto || f.id) === prodIdStr);
+          const fotoObj = { idProduto: prodIdStr, imagem: fotoBase64 };
+          if (idx >= 0) {
+            fotosList[idx] = fotoObj;
+          } else {
+            fotosList.push(fotoObj);
+          }
+        } else {
+          fotosList = fotosList.filter((f: any) => String(f.idProduto || f.id) !== prodIdStr);
+        }
+
+        localStorage.setItem('agrocontrol_fotos_produtos', JSON.stringify(fotosList));
+        window.dispatchEvent(new CustomEvent('agrocontrol_fotos_produtos_updated', { detail: fotosList }));
+      } catch (errFoto) {
+        console.warn('Aviso ao persistir foto em agrocontrol_fotos_produtos:', errFoto);
+      }
+
+      // CHAVE 1 ('agrocontrol_produtos'): Salva o array de produtos enxuto e livre de fotos no LocalStorage
       try {
         const rawAgro = localStorage.getItem('agrocontrol_produtos');
         let agroList: any[] = rawAgro ? JSON.parse(rawAgro) : [];
         if (!Array.isArray(agroList)) agroList = [];
-
-        const productAgroToSave = {
-          ...newProduct,
-          pneuParams: pneuParamsConsolidado,
-          ...(pneuParamsConsolidado || {}),
-          fotoUrl: fotoBase64 || undefined,
-          imagemBase64: fotoBase64 || undefined,
-          marca: marcaTratada,
-          brand: marcaTratada,
-          ...(isPneuCategory ? {
-            tireBrand: marcaTratada,
-            fireNumber: tireFireNumber.trim().toUpperCase(),
-            tireParameters: {
-              ...(newProduct.tireParameters || {}),
-              brand: (marcaTratada || 'MICHELIN').toUpperCase(),
-              fireNumber: tireFireNumber.trim().toUpperCase(),
-            }
-          } : {})
-        };
 
         let matchFound = false;
         const updatedAgroList = agroList.map((p: any) => {
@@ -1160,14 +1227,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             (isPneuCategory && p.numeroFogo && newProduct.fireNumber && p.numeroFogo.toUpperCase() === newProduct.fireNumber.toUpperCase())
           ) {
             matchFound = true;
-            return {
+            const updated = {
               ...p,
               ...productAgroToSave,
               pneuParams: pneuParamsConsolidado,
               ...(pneuParamsConsolidado || {}),
-              fotoUrl: fotoBase64 || undefined,
-              imagemBase64: fotoBase64 || undefined,
             };
+            delete updated.fotoUrl;
+            delete updated.imagemBase64;
+            return updated;
+          }
+          if (p.fotoUrl || p.imagemBase64) {
+            const cleanP = { ...p };
+            delete cleanP.fotoUrl;
+            delete cleanP.imagemBase64;
+            return cleanP;
           }
           return p;
         });
@@ -1182,7 +1256,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         console.warn('Aviso ao persistir produto em agrocontrol_produtos:', errAgro);
       }
 
-      // Atualização imediata na chave 'colaca_silagem_estoque_produtos' no LocalStorage
+      // Sincronização na chave secundária 'colaca_silagem_estoque_produtos' também sem foto
       try {
         const rawStock = localStorage.getItem('colaca_silagem_estoque_produtos');
         let stockList: any[] = rawStock ? JSON.parse(rawStock) : [];
@@ -1199,29 +1273,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             (isPneuCategory && p.numeroFogo && newProduct.fireNumber && p.numeroFogo.toUpperCase() === newProduct.fireNumber.toUpperCase())
           ) {
             stockFound = true;
-            return {
+            const updated = {
               ...p,
-              ...newProduct,
+              ...productAgroToSave,
               pneuParams: pneuParamsConsolidado,
               ...(pneuParamsConsolidado || {}),
-              fotoUrl: fotoBase64 || undefined,
-              imagemBase64: fotoBase64 || undefined,
               marca: marcaTratada,
               brand: marcaTratada,
               categoria: newProduct.categoria,
               category: newProduct.category,
             };
+            delete updated.fotoUrl;
+            delete updated.imagemBase64;
+            return updated;
+          }
+          if (p.fotoUrl || p.imagemBase64) {
+            const cleanP = { ...p };
+            delete cleanP.fotoUrl;
+            delete cleanP.imagemBase64;
+            return cleanP;
           }
           return p;
         });
 
         if (!stockFound) {
           updatedStockList.unshift({
-            ...newProduct,
+            ...productAgroToSave,
             pneuParams: pneuParamsConsolidado,
             ...(pneuParamsConsolidado || {}),
-            fotoUrl: fotoBase64 || undefined,
-            imagemBase64: fotoBase64 || undefined,
             marca: marcaTratada,
             brand: marcaTratada,
             categoria: newProduct.categoria,
@@ -1234,7 +1313,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         console.warn('Aviso ao persistir produto no LocalStorage:', errStock);
       }
 
-      onSuccess(newProduct);
+      onSuccess({
+        ...productAgroToSave,
+        imagemBase64: fotoBase64 || undefined,
+        fotoUrl: fotoBase64 || undefined,
+      });
       onClose();
     } catch (err: any) {
       console.error('Erro ao cadastrar produto:', err);
@@ -1605,9 +1688,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           </span>
                         </div>
 
-                        {/* Linha 1: [Nome: Nº de Fogo / Matrícula *] | [Seletor: Marca (Dropdown) + Botões de Ação] */}
+                        {/* Linha 1: [Nome: Nº de Fogo / Matrícula *] (Marca herdada automaticamente de 1. IDENTIFICAÇÃO) */}
                         <div className="grid grid-cols-12 gap-1.5">
-                          <div className="col-span-6 flex flex-col justify-end">
+                          <div className="col-span-12 flex flex-col justify-end">
                             <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-0.5 truncate">
                               Nº de Fogo / Matrícula <span className="text-rose-500">*</span>
                             </label>
@@ -1619,151 +1702,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               required={isPneuCategory}
                               className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition uppercase"
                             />
-                          </div>
-                          <div className="col-span-6 flex flex-col justify-end">
-                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-0.5 truncate">
-                              Marca
-                            </label>
-                            <div className="flex flex-row items-center gap-1 relative">
-                              <select
-                                id="select-marca-pneu-tecnico"
-                                value={tireBrand ? tireBrand.toUpperCase() : ''}
-                                onChange={(e) => setMarcaPneu(e.target.value)}
-                                className="flex-1 min-w-0 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition uppercase"
-                              >
-                                <option value="">SELECIONE...</option>
-                                {/* Garante que caso tireBrand esteja preenchida (ex: ALLIANCE) e não conste na lista padrão, seja renderizada selecionada */}
-                                {tireBrand && tireBrand.toUpperCase() !== 'SELECIONE...' && !tireBrandOptions.some((b) => b.toUpperCase() === tireBrand.toUpperCase()) && (
-                                  <option value={tireBrand.toUpperCase()}>{tireBrand.toUpperCase()}</option>
-                                )}
-                                {/* Redundância inteligente: se marca geral existe e difere, também inclui como opção válida */}
-                                {marca && marca.toUpperCase() !== 'SELECIONE...' && !tireBrandOptions.some((b) => b.toUpperCase() === marca.toUpperCase()) && (!tireBrand || tireBrand.toUpperCase() !== marca.toUpperCase()) && (
-                                  <option value={marca.toUpperCase()}>{marca.toUpperCase()}</option>
-                                )}
-                                {tireBrandOptions.map((b) => (
-                                  <option key={b} value={b.toUpperCase()}>{b.toUpperCase()}</option>
-                                ))}
-                              </select>
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => setIsBrandManagerOpen(!isBrandManagerOpen)}
-                                  className="h-7.5 px-1.5 flex items-center justify-center rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/60 dark:hover:bg-rose-800 text-rose-700 dark:text-rose-200 border border-rose-300/80 dark:border-rose-800 transition cursor-pointer"
-                                  title="Adicionar ou gerenciar marcas de pneus"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                                {tireBrand && (
-                                  <button
-                                    type="button"
-                                    onClick={handleDeleteSelectedBrand}
-                                    className="h-7.5 px-1.5 flex items-center justify-center rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/60 dark:hover:bg-rose-800 text-rose-600 dark:text-rose-300 border border-rose-300/80 dark:border-rose-800 transition cursor-pointer"
-                                    title={`Excluir marca "${tireBrand}"`}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Mini-popover para cadastro/gestão rápida de marca com confirmação segura */}
-                              {isBrandManagerOpen && (
-                                <div className="absolute right-0 top-full mt-1 z-30 w-56 p-2 bg-white dark:bg-stone-850 rounded-xl shadow-xl border border-rose-200 dark:border-rose-800 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100">
-                                  <div className="flex items-center justify-between pb-1 mb-1 border-b border-stone-200 dark:border-stone-700">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Nova Marca de Pneu</span>
-                                    <button 
-                                      type="button" 
-                                      onClick={() => {
-                                        setIsBrandManagerOpen(false);
-                                        setBrandToDeleteConfirm(null);
-                                      }}
-                                      className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                  <div className="flex gap-1 mb-1.5">
-                                    <input
-                                      type="text"
-                                      placeholder="NOME DA MARCA..."
-                                      value={newBrandInput}
-                                      onChange={(e) => setNewBrandInput(e.target.value.toUpperCase())}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault();
-                                          handleAddBrand();
-                                        }
-                                      }}
-                                      className="flex-1 h-6.5 px-1.5 text-xs rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-rose-500 uppercase"
-                                      autoFocus
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddBrand()}
-                                      className="h-6.5 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition flex items-center justify-center cursor-pointer active:scale-95"
-                                      title="Adicionar nova marca"
-                                    >
-                                      <Check className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                  </div>
-
-                                  {/* Mini-badge de Confirmação Local de Exclusão */}
-                                  {brandToDeleteConfirm && (
-                                    <div className="mb-1.5 p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 animate-in fade-in">
-                                      <p className="text-[10px] font-bold leading-tight mb-1">
-                                        Tem certeza que deseja excluir esta marca?
-                                      </p>
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span className="text-[10.5px] font-extrabold text-rose-700 dark:text-rose-300 truncate max-w-[110px]" title={brandToDeleteConfirm}>
-                                          "{brandToDeleteConfirm}"
-                                        </span>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              executeRemoveBrand(brandToDeleteConfirm);
-                                              setBrandToDeleteConfirm(null);
-                                            }}
-                                            className="px-2 py-0.5 text-[9.5px] font-bold rounded bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition cursor-pointer active:scale-95"
-                                          >
-                                            Sim
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => setBrandToDeleteConfirm(null)}
-                                            className="px-2 py-0.5 text-[9.5px] font-semibold rounded bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-300 transition cursor-pointer"
-                                          >
-                                            Não
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  <div className="max-h-28 overflow-y-auto space-y-0.5 custom-scrollbar">
-                                    {tireBrandOptions.map((b) => (
-                                      <div 
-                                        key={b} 
-                                        className={`flex items-center justify-between px-1.5 py-0.5 text-[11px] rounded transition ${
-                                          brandToDeleteConfirm === b 
-                                            ? 'bg-rose-100/80 dark:bg-rose-900/50 font-bold text-rose-700 dark:text-rose-300' 
-                                            : 'hover:bg-stone-100 dark:hover:bg-stone-800'
-                                        }`}
-                                      >
-                                        <span className="truncate uppercase font-semibold">{b.toUpperCase()}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRequestRemoveBrand(b)}
-                                          className="text-stone-400 hover:text-rose-600 p-0.5 cursor-pointer transition"
-                                          title={`Excluir ${b}`}
-                                        >
-                                          <Trash2 className="w-2.5 h-2.5" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
                           </div>
                         </div>
 
