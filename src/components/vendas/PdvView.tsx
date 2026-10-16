@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredInventory, saveStoredInventory, getActiveCompanyId, getStoredClients, getStoredMachineries, STORAGE_KEYS } from '../../lib/storage';
+import { registrarVendaNoCaixa } from '../../lib/caixaStorage';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -2400,6 +2401,20 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
           window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_consolidado_updated', { detail: receitaItem }));
           window.dispatchEvent(new CustomEvent('agrocontrol_receitas_liquidadas_updated', { detail: receitaItem }));
+
+          // Conexão compulsória automática com o Caixa Operacional (Fluxo de Caixa):
+          try {
+            registrarVendaNoCaixa({
+              id: novaVenda.id,
+              numeroPedido: novaVenda.numeroPedido,
+              cliente: novaVenda.cliente,
+              valor: Number(novaVenda.totalLiquido),
+              formaPagamento: formaPagamentoAtiva,
+              dataHora: `${dataFormatadaPtBr} ${timeStr}`
+            });
+          } catch (eCx) {
+            console.warn("Erro ao integrar com caixa operacional:", eCx);
+          }
         } else {
           // Venda a prazo: insere na chave 'agrocontrol_financeiro_receber' com status "PENDENTE"
           const receberAtuais = JSON.parse(localStorage.getItem('agrocontrol_financeiro_receber') || localStorage.getItem('agrocontrol_receber') || '[]');
@@ -2418,6 +2433,20 @@ export const PdvView: React.FC<PdvViewProps> = ({
           window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_receber_updated', { detail: receberAtuais }));
           window.dispatchEvent(new CustomEvent('agrocontrol_receber_updated', { detail: receberAtuais }));
           window.dispatchEvent(new CustomEvent('financeiro_receber_updated', { detail: receberAtuais }));
+
+          // Também registra no Caixa Operacional para apuração de Carteira / Boleto:
+          try {
+            registrarVendaNoCaixa({
+              id: novaVenda.id,
+              numeroPedido: novaVenda.numeroPedido,
+              cliente: novaVenda.cliente,
+              valor: Number(novaVenda.totalLiquido),
+              formaPagamento: tipoCobrancaAtiva ? `A PRAZO (${tipoCobrancaAtiva})` : 'A PRAZO (CARTEIRA)',
+              dataHora: `${dataFormatadaPtBr} ${timeStr}`
+            });
+          } catch (eCx) {
+            console.warn("Erro ao integrar venda a prazo com caixa operacional:", eCx);
+          }
         }
       } catch (eFin) {
         console.error("Erro Financeiro:", eFin);

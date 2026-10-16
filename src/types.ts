@@ -134,7 +134,8 @@ export interface Client {
   email?: string;
   areaHectares?: number;
   accessRoute?: string;
-  cattleType: 'leite' | 'corte' | 'misto' | 'confinamento' | 'outro';
+  cattleType: 'leite' | 'corte' | 'misto' | 'confinamento' | 'outro' | string;
+  atividade?: string;
   headCount?: number;
   monthlyDemandTons?: number;
   status: 'lead' | 'contatado' | 'proposta' | 'cliente_ativo' | 'inativo';
@@ -400,6 +401,7 @@ export interface FinanceiroSubPermissions {
   contas_bancarias?: boolean;     // [ ] Contas Bancárias
   a_pagar?: boolean;              // [ ] A Pagar
   a_receber?: boolean;            // [ ] A Receber
+  fluxo_caixa?: boolean;          // [ ] Fluxo de Caixa
   acertos_terceiros?: boolean;    // [ ] Acertos Terceiros
   acertos_agenciadores?: boolean; // [ ] Acertos Agenciadores
   exportar?: boolean;             // [ ] Exportar

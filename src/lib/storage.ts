@@ -563,6 +563,56 @@ export function saveStoredClients(clients: Client[]): void {
   }
 }
 
+export const DEFAULT_ATIVIDADES: string[] = [
+  "GADO DE LEITE",
+  "CONFINAMENTO DE CORTE",
+  "GADO MISTO",
+  "CRIA & RECRU DE CORTE",
+  "EQUINOS / OVINOS / OUTRO"
+];
+
+export function getStoredAtividades(): string[] {
+  try {
+    const raw = localStorage.getItem('agrocontrol_atividades');
+    if (!raw) {
+      localStorage.setItem('agrocontrol_atividades', JSON.stringify(DEFAULT_ATIVIDADES));
+      return DEFAULT_ATIVIDADES;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const cleaned = Array.from(new Set(parsed.map((item: any) => String(item).trim().toUpperCase()).filter(Boolean)));
+      return cleaned.length > 0 ? cleaned : DEFAULT_ATIVIDADES;
+    }
+    localStorage.setItem('agrocontrol_atividades', JSON.stringify(DEFAULT_ATIVIDADES));
+    return DEFAULT_ATIVIDADES;
+  } catch (e) {
+    return DEFAULT_ATIVIDADES;
+  }
+}
+
+export function saveStoredAtividades(atividades: string[]): string[] {
+  try {
+    const unique = Array.from(new Set(atividades.map(a => String(a).trim().toUpperCase()).filter(Boolean)));
+    localStorage.setItem('agrocontrol_atividades', JSON.stringify(unique));
+    window.dispatchEvent(new CustomEvent('agrocontrol_atividades_updated', { detail: unique }));
+    return unique;
+  } catch (e) {
+    console.error('Failed to save atividades', e);
+    return atividades;
+  }
+}
+
+export function addAtividadeIfNew(novaAtividade: string): string[] {
+  const current = getStoredAtividades();
+  const trimmedUpper = (novaAtividade || '').trim().toUpperCase();
+  if (!trimmedUpper) return current;
+  if (!current.includes(trimmedUpper)) {
+    const updated = [...current, trimmedUpper];
+    return saveStoredAtividades(updated);
+  }
+  return current;
+}
+
 export function getStoredOrders(): SilageOrder[] {
   try {
     const raw = localStorage.getItem('agrocontrol_pedidos') ||

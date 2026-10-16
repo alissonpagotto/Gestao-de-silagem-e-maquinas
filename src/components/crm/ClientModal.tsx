@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   ChevronDown, 
@@ -17,7 +17,8 @@ import {
   Calendar,
   DollarSign,
   Package,
-  ChevronRight
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { Client, ClientFormSubmission } from '../../types';
 import { 
@@ -35,6 +36,33 @@ import {
   markSubmissionImported 
 } from '../../lib/clientSubmissions';
 import { isValidUUID, generateUUID } from '../../lib/supabaseService';
+import { 
+  getStoredAtividades, 
+  addAtividadeIfNew, 
+  DEFAULT_ATIVIDADES 
+} from '../../lib/storage';
+
+export const ATIVIDADES_PADRAO = DEFAULT_ATIVIDADES;
+
+export const mapCattleTypeToAtividade = (type?: string): string => {
+  if (!type) return 'GADO DE LEITE';
+  const lower = type.toLowerCase();
+  if (lower === 'leite') return 'GADO DE LEITE';
+  if (lower === 'confinamento') return 'CONFINAMENTO DE CORTE';
+  if (lower === 'misto') return 'GADO MISTO';
+  if (lower === 'corte') return 'CRIA & RECRU DE CORTE';
+  if (lower === 'outro') return 'EQUINOS / OVINOS / OUTRO';
+  return type.toUpperCase();
+};
+
+export const mapAtividadeToCattleType = (act: string): 'leite' | 'corte' | 'misto' | 'confinamento' | 'outro' => {
+  const upper = (act || '').toUpperCase();
+  if (upper.includes('LEITE')) return 'leite';
+  if (upper.includes('CONFINAMENTO')) return 'confinamento';
+  if (upper.includes('MISTO')) return 'misto';
+  if (upper.includes('CORTE') || upper.includes('CRIA') || upper.includes('RECRU') || upper.includes('RECRIA')) return 'corte';
+  return 'outro';
+};
 
 export interface ClientModalProps {
   isOpen: boolean;
@@ -66,11 +94,39 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   const [state, setState] = useState('PR');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [cattleType, setCattleType] = useState<'leite' | 'corte' | 'misto' | 'confinamento' | 'outro'>('leite');
+  const [cattleType, setCattleType] = useState<string>('leite');
+  const [atividade, setAtividade] = useState<string>('GADO DE LEITE');
+  const [atividadesList, setAtividadesList] = useState<string[]>(() => getStoredAtividades());
+  const [isAtividadeDropdownOpen, setIsAtividadeDropdownOpen] = useState(false);
+  const atividadeContainerRef = useRef<HTMLDivElement>(null);
   const [headCount, setHeadCount] = useState<string>('');
   const [monthlyDemandTons, setMonthlyDemandTons] = useState<string>('');
   const [status, setStatus] = useState<'lead' | 'contatado' | 'proposta' | 'cliente_ativo' | 'inativo'>('cliente_ativo');
   const [notes, setNotes] = useState('');
+
+  // Sincronização reativa de atividades de 'agrocontrol_atividades'
+  useEffect(() => {
+    const syncAtividades = () => {
+      setAtividadesList(getStoredAtividades());
+    };
+    window.addEventListener('agrocontrol_atividades_updated', syncAtividades);
+    window.addEventListener('storage', syncAtividades);
+    return () => {
+      window.removeEventListener('agrocontrol_atividades_updated', syncAtividades);
+      window.removeEventListener('storage', syncAtividades);
+    };
+  }, []);
+
+  // Fechar dropdown de atividade ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (atividadeContainerRef.current && !atividadeContainerRef.current.contains(e.target as Node)) {
+        setIsAtividadeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Lookup loading states
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
@@ -168,7 +224,14 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     if (submission.neighborhood) setNeighborhood(submission.neighborhood);
     if (submission.city) setCity(submission.city);
     if (submission.state) setState(submission.state);
-    if (submission.cattleType) setCattleType(submission.cattleType);
+    if ((submission as any).atividade) {
+      const act = String((submission as any).atividade).trim().toUpperCase();
+      setAtividade(act);
+      setCattleType(mapAtividadeToCattleType(act));
+    } else if (submission.cattleType) {
+      setCattleType(submission.cattleType);
+      setAtividade(mapCattleTypeToAtividade(submission.cattleType));
+    }
     if (submission.headCount) setHeadCount(submission.headCount.toString());
     if (submission.monthlyDemandTons) setMonthlyDemandTons(submission.monthlyDemandTons.toString());
     if (submission.notes) setNotes(submission.notes);
@@ -198,7 +261,11 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       setState(editingClient.state);
       setPhone(formatPhone(editingClient.phone));
       setEmail(editingClient.email || '');
-      setCattleType(editingClient.cattleType);
+      const clientAtividade = (editingClient as any).atividade
+        ? String((editingClient as any).atividade).trim().toUpperCase()
+        : mapCattleTypeToAtividade(editingClient.cattleType);
+      setAtividade(clientAtividade);
+      setCattleType(mapAtividadeToCattleType(clientAtividade));
       setHeadCount(editingClient.headCount ? editingClient.headCount.toString() : '');
       setMonthlyDemandTons(editingClient.monthlyDemandTons ? editingClient.monthlyDemandTons.toString() : '');
       setStatus(editingClient.status);
@@ -216,6 +283,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       setState('PR');
       setPhone('');
       setEmail('');
+      setAtividade('GADO DE LEITE');
       setCattleType('leite');
       setHeadCount('');
       setMonthlyDemandTons('');
@@ -334,7 +402,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     setHeadCount(countStr);
     const count = parseInt(countStr);
     if (!isNaN(count) && count > 0) {
-      const factor = cattleType === 'leite' ? 0.55 : cattleType === 'confinamento' ? 0.45 : 0.40;
+      const upper = (atividade || '').toUpperCase();
+      const factor = upper.includes('LEITE') ? 0.55 : upper.includes('CONFINAMENTO') ? 0.45 : 0.40;
       setMonthlyDemandTons((count * factor).toFixed(0));
     }
   };
@@ -506,7 +575,11 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       setState(activeClient.state);
       setPhone(formatPhone(activeClient.phone));
       setEmail(activeClient.email || '');
-      setCattleType(activeClient.cattleType);
+      const clientAtividade = (activeClient as any).atividade
+        ? String((activeClient as any).atividade).trim().toUpperCase()
+        : mapCattleTypeToAtividade(activeClient.cattleType);
+      setAtividade(clientAtividade);
+      setCattleType(mapAtividadeToCattleType(clientAtividade));
       setHeadCount(activeClient.headCount ? activeClient.headCount.toString() : '');
       setMonthlyDemandTons(activeClient.monthlyDemandTons ? activeClient.monthlyDemandTons.toString() : '');
       setStatus(activeClient.status);
@@ -523,6 +596,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       setState('PR');
       setPhone('');
       setEmail('');
+      setAtividade('GADO DE LEITE');
       setCattleType('leite');
       setHeadCount('');
       setMonthlyDemandTons('');
@@ -547,6 +621,14 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       ? activeClient.id
       : generateUUID();
 
+    const finalAtividade = (atividade || 'GADO DE LEITE').trim().toUpperCase();
+    const mappedCattle = mapAtividadeToCattleType(finalAtividade);
+
+    // Inclusão permanente de novos termos na chave 'agrocontrol_atividades' do LocalStorage
+    if (finalAtividade) {
+      addAtividadeIfNew(finalAtividade);
+    }
+
     const client: Client = {
       id: clientId,
       name: name.trim(),
@@ -562,7 +644,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       state: state.trim() || 'PR',
       phone: phone.trim(),
       email: email.trim() || undefined,
-      cattleType,
+      cattleType: mappedCattle,
+      atividade: finalAtividade,
       headCount: headCount ? parseInt(headCount) : undefined,
       monthlyDemandTons: monthlyDemandTons ? parseFloat(monthlyDemandTons) : undefined,
       status,
@@ -572,6 +655,24 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       createdAt: activeClient?.createdAt || nowIso,
       updatedAt: isUpdating ? nowIso : undefined,
     };
+
+    // Sincronização direta e reativa na chave oficial 'agrocontrol_clientes' do LocalStorage
+    try {
+      const rawAgro = localStorage.getItem('agrocontrol_clientes') || '[]';
+      const parsedAgro = JSON.parse(rawAgro);
+      if (Array.isArray(parsedAgro)) {
+        const idx = parsedAgro.findIndex((c: any) => c.id === client.id);
+        if (idx >= 0) {
+          parsedAgro[idx] = { ...parsedAgro[idx], ...client, atividade: finalAtividade };
+        } else {
+          parsedAgro.unshift({ ...client, atividade: finalAtividade });
+        }
+        localStorage.setItem('agrocontrol_clientes', JSON.stringify(parsedAgro));
+        window.dispatchEvent(new CustomEvent('agrocontrol_clientes_updated', { detail: parsedAgro }));
+      }
+    } catch (err) {
+      console.warn('Erro ao persistir agrocontrol_clientes:', err);
+    }
 
     // Update internal state so the form reflects the saved client
     setCurrentClient(client);
@@ -1012,22 +1113,63 @@ export const ClientModal: React.FC<ClientModalProps> = ({
           <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-zinc-300 shadow-2xs">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
-                  ATIVIDADE PECUÁRIA
+                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                  ATIVIDADE
                 </label>
-                <div className="relative">
-                  <select
-                    value={cattleType}
-                    onChange={(e) => setCattleType(e.target.value as any)}
-                    className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium appearance-none pr-8 cursor-pointer"
-                  >
-                    <option value="leite">Gado de Leite</option>
-                    <option value="confinamento">Confinamento de Corte</option>
-                    <option value="misto">Gado Misto</option>
-                    <option value="corte">Cria & Recria de Corte</option>
-                    <option value="outro">Equinos / Ovinos / Outro</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-black absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div ref={atividadeContainerRef} className="relative w-full">
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={atividade}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setAtividade(val);
+                        setCattleType(mapAtividadeToCattleType(val));
+                        setIsAtividadeDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsAtividadeDropdownOpen(true)}
+                      placeholder="SELECIONE OU DIGITE"
+                      className="w-full px-3 py-1 pr-8 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black font-medium uppercase focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsAtividadeDropdownOpen(prev => !prev)}
+                      tabIndex={-1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-500 hover:text-zinc-800 transition cursor-pointer"
+                      title="Alternar lista de atividades"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isAtividadeDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {isAtividadeDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1">
+                      {atividadesList.map((item) => {
+                        const isSelected = atividade.trim().toUpperCase() === item;
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => {
+                              setAtividade(item);
+                              setCattleType(mapAtividadeToCattleType(item));
+                              setIsAtividadeDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-xs font-semibold uppercase transition flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-emerald-50 text-emerald-800 font-bold'
+                                : 'text-zinc-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            <span>{item}</span>
+                            {isSelected && (
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1039,7 +1181,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   type="number"
                   value={headCount}
                   onChange={(e) => handleHeadCountChange(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  className="w-full px-3 py-1 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
                 />
               </div>
 
@@ -1051,7 +1193,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   type="number"
                   value={monthlyDemandTons}
                   onChange={(e) => setMonthlyDemandTons(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  className="w-full px-3 py-1 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
                 />
               </div>
             </div>

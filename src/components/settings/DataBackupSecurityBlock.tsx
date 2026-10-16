@@ -46,6 +46,9 @@ const AGROCONTROL_SYNC_ENTITIES: Record<string, string[]> = {
   agrocontrol_subscribers_data: ['silagem_master_subscribers_v1'],
   agrocontrol_site_settings: ['landingPageSettings'],
   agrocontrol_plans_data: ['silagem_master_plans_v1'],
+  agrocontrol_atividades: [],
+  agrocontrol_caixa_operacional: [],
+  agrocontrol_historico_caixas: [],
 };
 
 /**

@@ -17,9 +17,10 @@ import {
   Layers
 } from 'lucide-react';
 import { Client, SilageOrder } from '../../types';
-import { formatCurrencyBRL, formatDateBR, saveStoredClients } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, saveStoredClients, getStoredAtividades } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchClientes, mapRowToClient, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { mapCattleTypeToAtividade } from './ClientModal';
 
 interface CrmModuleProps {
   clients: Client[];
@@ -148,8 +149,22 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCattleType, setSelectedCattleType] = useState<string>('todos');
+  const [selectedAtividade, setSelectedAtividade] = useState<string>('todos');
+  const [atividadesList, setAtividadesList] = useState<string[]>(() => getStoredAtividades());
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
+
+  // Sincronização reativa instantânea de 'agrocontrol_atividades'
+  useEffect(() => {
+    const syncAtividades = () => {
+      setAtividadesList(getStoredAtividades());
+    };
+    window.addEventListener('agrocontrol_atividades_updated', syncAtividades);
+    window.addEventListener('storage', syncAtividades);
+    return () => {
+      window.removeEventListener('agrocontrol_atividades_updated', syncAtividades);
+      window.removeEventListener('storage', syncAtividades);
+    };
+  }, []);
 
   const filteredClients = localClients.filter((c) => {
     const clientName = c.nome || c.name || '';
@@ -160,23 +175,44 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
       (c.city || c.cidade || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchSearch) return false;
-    if (selectedCattleType !== 'todos' && c.cattleType !== selectedCattleType) {
-      return false;
+    if (selectedAtividade !== 'todos') {
+      const clientAtiv = (c.atividade || (c.cattleType ? mapCattleTypeToAtividade(c.cattleType) : '')).trim().toUpperCase();
+      if (clientAtiv !== selectedAtividade.trim().toUpperCase()) {
+        return false;
+      }
     }
     return true;
   });
 
-  const getCattleBadge = (type: Client['cattleType']) => {
-    switch (type) {
-      case 'leite':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">Gado de Leite</span>;
-      case 'confinamento':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Confinamento</span>;
-      case 'corte':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">Corte</span>;
-      default:
-        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-700">Misto/Outro</span>;
+  const getCattleBadge = (clientOrType: any) => {
+    let text = '';
+    if (typeof clientOrType === 'object' && clientOrType !== null) {
+      text = clientOrType.atividade || (clientOrType.cattleType ? mapCattleTypeToAtividade(clientOrType.cattleType) : 'MISTO/OUTRO');
+    } else if (typeof clientOrType === 'string') {
+      text = mapCattleTypeToAtividade(clientOrType);
+    } else {
+      text = 'MISTO/OUTRO';
     }
+    const upper = (text || 'MISTO/OUTRO').toUpperCase();
+
+    let colorClass = 'bg-slate-100 text-slate-700 border-slate-300';
+    if (upper.includes('LEITE')) {
+      colorClass = 'bg-blue-100 text-blue-800 border-blue-200';
+    } else if (upper.includes('CONFINAMENTO')) {
+      colorClass = 'bg-amber-100 text-amber-800 border-amber-200';
+    } else if (upper.includes('CORTE') || upper.includes('CRIA') || upper.includes('RECRU')) {
+      colorClass = 'bg-rose-100 text-rose-800 border-rose-200';
+    } else if (upper.includes('LAVOURA') || upper.includes('MILHO') || upper.includes('SOJA')) {
+      colorClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    } else if (upper.includes('SUINO') || upper.includes('AVES') || upper.includes('EQUINO')) {
+      colorClass = 'bg-orange-100 text-orange-800 border-orange-200';
+    }
+
+    return (
+      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${colorClass}`}>
+        {upper}
+      </span>
+    );
   };
 
   const getWhatsAppLink = (client: Client) => {
@@ -274,15 +310,14 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
         <div className="flex items-center space-x-2">
           <span className="text-stone-500 font-semibold text-xs">Atividade:</span>
           <select
-            value={selectedCattleType}
-            onChange={(e) => setSelectedCattleType(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-medium text-stone-800 dark:text-stone-200 text-xs"
+            value={selectedAtividade}
+            onChange={(e) => setSelectedAtividade(e.target.value)}
+            className="px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-medium text-stone-800 dark:text-stone-200 text-xs cursor-pointer focus:ring-1 focus:ring-emerald-500"
           >
             <option value="todos">Todas as Atividades</option>
-            <option value="leite">Gado de Leite</option>
-            <option value="confinamento">Confinamento</option>
-            <option value="misto">Misto</option>
-            <option value="corte">Corte</option>
+            {atividadesList.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -332,7 +367,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                               </span>
                             )}
                           </div>
-                          {getCattleBadge(client.cattleType)}
+                          {getCattleBadge(client)}
                         </div>
 
                         <div className="text-[10px] text-black space-y-0.5 bg-white/80 dark:bg-stone-800/80 p-1.5 rounded-lg border border-slate-300 dark:border-stone-700">
@@ -460,7 +495,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                     </td>
                     <td className="py-1 px-2.5 align-middle">
                       <div className="flex items-center space-x-1.5 whitespace-nowrap">
-                        {getCattleBadge(client.cattleType)}
+                        {getCattleBadge(client)}
                         <span className="text-slate-500 dark:text-stone-400 text-[11px] font-medium">{client.headCount || 0} cab.</span>
                       </div>
                     </td>

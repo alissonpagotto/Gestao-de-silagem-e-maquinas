@@ -46,6 +46,7 @@ import { fetchContasAPagar, toValidUUID, isSupabaseConfigured } from '../../lib/
 import { BankAccountsTab } from './BankAccountsTab';
 import { PayablesTab } from './PayablesTab';
 import { ReceivablesTab } from './ReceivablesTab';
+import { FluxoCaixaTab } from './FluxoCaixaTab';
 import { ThirdPartySettlementsTab } from './ThirdPartySettlementsTab';
 import { BrokerSettlementsTab } from './BrokerSettlementsTab';
 import { FinancialExportTab } from './FinancialExportTab';
@@ -60,6 +61,7 @@ export type FinancialTabType =
   | 'contas' 
   | 'a_pagar' 
   | 'a_receber' 
+  | 'fluxo_caixa'
   | 'acertos' 
   | 'acertos_agenciadores'
   | 'exportar';
@@ -153,6 +155,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     if (hasFinanceiroSubPermission('contas_bancarias')) list.push('contas');
     if (hasFinanceiroSubPermission('a_pagar')) list.push('a_pagar');
     if (hasFinanceiroSubPermission('a_receber')) list.push('a_receber');
+    if (hasFinanceiroSubPermission('fluxo_caixa')) list.push('fluxo_caixa');
     if (hasFinanceiroSubPermission('acertos_terceiros')) list.push('acertos');
     if (hasFinanceiroSubPermission('acertos_agenciadores')) list.push('acertos_agenciadores');
     if (hasFinanceiroSubPermission('exportar')) list.push('exportar');
@@ -849,6 +852,27 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
               </div>
             )}
 
+            {/* Aba Fluxo de Caixa */}
+            {hasFinanceiroSubPermission('fluxo_caixa') ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('fluxo_caixa')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                  activeTab === 'fluxo_caixa'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Fluxo de Caixa</span>
+              </button>
+            ) : (
+              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Fluxo de Caixa (Bloqueado)</span>
+              </div>
+            )}
+
             {/* Aba Acertos Terceiros */}
             {hasFinanceiroSubPermission('acertos_terceiros') ? (
               <button
@@ -1336,6 +1360,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           companyProfile={companyProfile}
           onSaveOrders={onSaveOrders}
           onSaveServices={onSaveServices}
+        />
+      )}
+
+      {/* ABA: Fluxo de Caixa */}
+      {activeTab === 'fluxo_caixa' && (
+        <FluxoCaixaTab
+          companyProfile={companyProfile}
         />
       )}
 
