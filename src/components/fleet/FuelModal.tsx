@@ -945,7 +945,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-2.5 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-zinc-900 dark:text-zinc-100">
+      <div className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-zinc-900 dark:text-zinc-100">
         
         {/* Header - Moldura Metálica 3D Acetinada */}
         <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
@@ -1807,7 +1807,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Rodapé com Ações Bem Definido */}
-        <div className="px-4 py-2 bg-[#d0d0d0] dark:bg-zinc-800 border-t border-zinc-300 dark:border-zinc-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto">
+        <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-t border-slate-400 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto rounded-b-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
           <div className="w-full sm:w-auto">
             {validationError ? (
               <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-500 animate-in fade-in">
@@ -1826,23 +1826,23 @@ export const FuelModal: React.FC<FuelModalProps> = ({
             <button
               type="button"
               onClick={() => onClose()}
-              className="pointer-events-auto cursor-pointer px-3.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white transition shadow-2xs"
+              className="pointer-events-auto cursor-pointer px-3.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-200 text-xs font-bold uppercase tracking-wider hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white transition shadow-2xs"
             >
-              Cancelar
+              CANCELAR
             </button>
             <button
               id="btn-salvar-abastecimento"
               type="submit"
               form="fuel-form"
               disabled={isLoading}
-              className={`px-4 py-1.5 rounded-xl text-white text-xs font-bold shadow-xs transition flex items-center space-x-1.5 ${
+              className={`px-4 py-1.5 rounded-xl text-white text-xs font-bold uppercase tracking-wider shadow-xs transition flex items-center space-x-1.5 ${
                 isLoading
                   ? 'opacity-50 cursor-not-allowed bg-zinc-400 dark:bg-zinc-600 pointer-events-none select-none'
                   : 'pointer-events-auto cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700'
               }`}
             >
               <Save className="w-3.5 h-3.5 pointer-events-none" />
-              <span>{isLoading ? 'Salvando...' : 'Salvar Abastecimento'}</span>
+              <span>{isLoading ? 'SALVANDO...' : 'SALVAR ABASTECIMENTO'}</span>
             </button>
           </div>
         </div>
