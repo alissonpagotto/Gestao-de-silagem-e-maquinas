@@ -742,7 +742,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
       <div className="w-full flex flex-col">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
-        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+        <div className="w-full bg-[#edf4ff] dark:bg-stone-850 border-b border-[#edf4ff] dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-[#edf4ff] dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
             aria-label="Abas do Financeiro" 
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
@@ -939,7 +939,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-[#edf4ff] dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
 
       {/* ABA: Consolidado */}
       {activeTab === 'consolidado' && (
