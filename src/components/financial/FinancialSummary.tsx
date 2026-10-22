@@ -1043,7 +1043,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {/* Card Entradas (Mês Atual) */}
-            <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
+            <div className="crm-card bg-[#f5f0d9] dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
                   <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
@@ -1060,7 +1060,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             </div>
 
             {/* Card Saídas (Mês Atual) */}
-            <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
+            <div className="crm-card bg-[#fec591] dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
                   <ArrowDownRight className="w-4 h-4 stroke-[2.5]" />
@@ -1077,7 +1077,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             </div>
 
             {/* Card Saldo Real (Mês Atual) */}
-            <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
+            <div className="crm-card bg-[#c4d398] dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
                   <DollarSign className="w-4 h-4 stroke-[2.5]" />
