@@ -1332,6 +1332,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           onAddExpenseFromBankBill={handleAddExpenseFromBankBillInternal}
           onLinkExpensesToAccount={handleLinkExpensesToAccountInternal}
           categories={categories}
+          orders={orders}
+          services={services}
+          onSaveOrders={onSaveOrders}
+          onSaveServices={onSaveServices}
+          onSettleExpense={handleSettleExpenseInternal}
         />
       )}
 

@@ -8,6 +8,9 @@ import {
   CheckCircle2, 
   ArrowUpRight, 
   ArrowDownRight, 
+  ArrowDownLeft,
+  ArrowLeftRight,
+  SlidersHorizontal,
   Trash2, 
   Edit2, 
   DollarSign, 
@@ -17,14 +20,18 @@ import {
   Link2,
   Star 
 } from 'lucide-react';
-import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts } from '../../lib/storage';
+import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard, PaymentMethod, SilageOrder, ServiceOrder } from '../../types';
+import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts, getStoredOrders, saveStoredOrders, getStoredServices, saveStoredServices } from '../../lib/storage';
 import { upsertContaBancaria, deleteContaBancaria } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BankAccountModal } from './BankAccountModal';
 import { BankLogoIcon } from './BankLogoIcon';
 import { BankAccountStatementModal } from './BankAccountStatementModal';
 import { BankIntegrationCard } from './BankIntegrationCard';
+import { PayTitleQuickModal } from './PayTitleQuickModal';
+import { ReceiveTitleQuickModal } from './ReceiveTitleQuickModal';
+import { TransferFundsModal } from './TransferFundsModal';
+import { AdjustBalanceModal } from './AdjustBalanceModal';
 import { getBankTheme } from './bankThemes';
 
 interface BankAccountsTabProps {
@@ -37,6 +44,11 @@ interface BankAccountsTabProps {
   onAddExpenseFromBankBill?: (expense: Partial<Expense>) => void;
   onLinkExpensesToAccount?: (expenseIds: string[], accountId: string) => void;
   categories?: ExpenseCategory[];
+  orders?: SilageOrder[];
+  services?: ServiceOrder[];
+  onSaveOrders?: (orders: SilageOrder[]) => void;
+  onSaveServices?: (services: ServiceOrder[]) => void;
+  onSettleExpense?: (params: any) => void;
 }
 
 /**
@@ -122,10 +134,21 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   onAddExpenseFromBankBill,
   onLinkExpensesToAccount,
   categories = [],
+  orders = [],
+  services = [],
+  onSaveOrders,
+  onSaveServices,
+  onSettleExpense,
 }) => {
   const { confirm } = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
+
+  // Estados dos 4 botões operacionais rápidos
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
 
   // Leitura inicial das contas bancárias diretamente do LocalStorage
   const [localAccounts, setLocalAccounts] = useState<BankAccount[]>(() => {
@@ -194,6 +217,368 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const handleOpenStatement = (accountId?: string) => {
     setStatementAccountId(accountId || (effectiveAccounts[0]?.id || 'todas'));
     setIsStatementOpen(true);
+  };
+
+  // 1. Processamento da ação operacional rápida: PAGAR TÍTULO
+  const handleConfirmPayTitle = (params: {
+    expenseId?: string;
+    description: string;
+    supplier: string;
+    amount: number;
+    paymentDate: string;
+    bankAccountId: string;
+    bankAccountName: string;
+    paidByEmployeeId: string;
+    paidByEmployeeName: string;
+    paymentMethod: PaymentMethod;
+    notes?: string;
+    authenticationCode?: string;
+  }) => {
+    try {
+      const activeCompanyId = getActiveCompanyId();
+
+      // Debita o saldo da conta bancária
+      const updatedAccounts = effectiveAccounts.map((acc) => {
+        if (acc.id === params.bankAccountId) {
+          const upd = {
+            ...acc,
+            balance: (acc.balance || 0) - params.amount,
+          };
+          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          return upd;
+        }
+        return acc;
+      });
+
+      // Gravação em espelho compulsória nas 3 chaves oficiais
+      localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
+      saveStoredBankAccounts(updatedAccounts);
+      setLocalAccounts(updatedAccounts);
+      if (onSaveAccounts) onSaveAccounts(updatedAccounts);
+
+      // Atualiza ou cria despesa
+      const currentStoredExpenses = getStoredExpenses();
+      let updatedExpenses: Expense[] = [];
+      if (params.expenseId) {
+        updatedExpenses = currentStoredExpenses.map((exp) => {
+          if (exp.id === params.expenseId) {
+            return {
+              ...exp,
+              status: 'pago' as const,
+              paymentDate: params.paymentDate,
+              bankAccountId: params.bankAccountId,
+              bankAccountName: params.bankAccountName,
+              paidByEmployeeId: params.paidByEmployeeId,
+              paidByEmployeeName: params.paidByEmployeeName,
+              paymentMethod: params.paymentMethod,
+              paymentAuthenticationCode: params.authenticationCode,
+              notes: params.notes ? `${exp.notes || ''} | ${params.notes}`.trim() : exp.notes,
+            };
+          }
+          return exp;
+        });
+      } else {
+        const newExpense: Expense = {
+          id: `exp_pay_${Date.now()}`,
+          description: params.description,
+          supplier: params.supplier,
+          creditSupplier: params.supplier,
+          amount: params.amount,
+          date: params.paymentDate,
+          dueDate: params.paymentDate,
+          paymentDate: params.paymentDate,
+          status: 'pago',
+          categoryId: 'despesa_operacional',
+          categoryColor: '#10b981',
+          categoryName: 'Operacional / Baixa Bancária',
+          bankAccountId: params.bankAccountId,
+          bankAccountName: params.bankAccountName,
+          paidByEmployeeId: params.paidByEmployeeId,
+          paidByEmployeeName: params.paidByEmployeeName,
+          paymentMethod: params.paymentMethod,
+          paymentAuthenticationCode: params.authenticationCode,
+          notes: params.notes,
+          createdAt: new Date().toISOString(),
+        };
+        updatedExpenses = [newExpense, ...currentStoredExpenses];
+      }
+      saveStoredExpenses(updatedExpenses);
+
+      // Se foi fornecido o handler de baixa do Financeiro
+      if (onSettleExpense && params.expenseId) {
+        onSettleExpense({
+          expenseId: params.expenseId,
+          paymentDate: params.paymentDate,
+          paidByEmployeeId: params.paidByEmployeeId,
+          paidByEmployeeName: params.paidByEmployeeName,
+          bankAccountId: params.bankAccountId,
+          bankAccountName: params.bankAccountName,
+          creditSupplier: params.supplier,
+          paymentMethod: params.paymentMethod,
+          authenticationCode: params.authenticationCode,
+          notes: params.notes,
+        });
+      }
+
+      // Registra no extrato da conta
+      const newTx: BankTransaction = {
+        id: `tx_pay_${Date.now()}`,
+        bankAccountId: params.bankAccountId,
+        bankAccountName: params.bankAccountName,
+        date: params.paymentDate,
+        description: `PAGAMENTO: ${params.supplier} - ${params.description}`,
+        type: 'saida',
+        amount: params.amount,
+        category: 'Pagamento de Título',
+        paidByEmployeeId: params.paidByEmployeeId,
+        paidByEmployeeName: params.paidByEmployeeName,
+        sourceType: 'baixa_pagamento',
+        expenseId: params.expenseId,
+        notes: params.notes,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedTxs = [newTx, ...transactions];
+      if (onSaveTransactions) onSaveTransactions(updatedTxs);
+
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('silagem_expenses_updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.warn('Erro ao processar baixa de pagamento:', err);
+    }
+  };
+
+  // 2. Processamento da ação operacional rápida: RECEBER TÍTULO
+  const handleConfirmReceiveTitle = (params: {
+    receivableId?: string;
+    sourceType?: 'silage_order' | 'service_order' | 'direct';
+    clientName: string;
+    description: string;
+    amount: number;
+    receiptDate: string;
+    bankAccountId: string;
+    bankAccountName: string;
+    paymentMethod: PaymentMethod;
+    documentNumber?: string;
+    notes?: string;
+  }) => {
+    try {
+      const activeCompanyId = getActiveCompanyId();
+
+      // Credita na conta bancária
+      const updatedAccounts = effectiveAccounts.map((acc) => {
+        if (acc.id === params.bankAccountId) {
+          const upd = {
+            ...acc,
+            balance: (acc.balance || 0) + params.amount,
+          };
+          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          return upd;
+        }
+        return acc;
+      });
+
+      localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
+      saveStoredBankAccounts(updatedAccounts);
+      setLocalAccounts(updatedAccounts);
+      if (onSaveAccounts) onSaveAccounts(updatedAccounts);
+
+      // Atualiza pedido ou ordem de serviço
+      if (params.sourceType === 'silage_order' && params.receivableId) {
+        const storedOrders = getStoredOrders();
+        const updatedOrders = storedOrders.map((o) => {
+          if (o.id === params.receivableId) {
+            return {
+              ...o,
+              paymentStatus: 'pago' as const,
+              paymentMethod: params.paymentMethod,
+              paidAmount: params.amount,
+              paymentDate: params.receiptDate,
+              bankAccountId: params.bankAccountId,
+              bankAccountName: params.bankAccountName,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return o;
+        });
+        saveStoredOrders(updatedOrders);
+        if (onSaveOrders) onSaveOrders(updatedOrders);
+      } else if (params.sourceType === 'service_order' && params.receivableId) {
+        const storedServices = getStoredServices();
+        const updatedServices = storedServices.map((s) => {
+          if (s.id === params.receivableId) {
+            return {
+              ...s,
+              status: 'finalizado' as const,
+              paymentStatus: 'pago' as const,
+              paymentMethod: params.paymentMethod,
+              paidAmount: params.amount,
+              paymentDate: params.receiptDate,
+              bankAccountId: params.bankAccountId,
+              bankAccountName: params.bankAccountName,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return s;
+        });
+        saveStoredServices(updatedServices);
+        if (onSaveServices) onSaveServices(updatedServices);
+      }
+
+      // Registra transação no extrato
+      const newTx: BankTransaction = {
+        id: `tx_rec_${Date.now()}`,
+        bankAccountId: params.bankAccountId,
+        bankAccountName: params.bankAccountName,
+        date: params.receiptDate,
+        description: `RECEBIMENTO: ${params.clientName} - ${params.description}`,
+        type: 'entrada',
+        amount: params.amount,
+        category: 'Recebimento de Título',
+        sourceType: 'receita',
+        notes: params.notes,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedTxs = [newTx, ...transactions];
+      if (onSaveTransactions) onSaveTransactions(updatedTxs);
+
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('agrocontrol_pedidos_updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.warn('Erro ao processar recebimento de título:', err);
+    }
+  };
+
+  // 3. Processamento da ação operacional rápida: TRANSFERIR
+  const handleConfirmTransfer = (params: {
+    sourceAccountId: string;
+    destAccountId: string;
+    amount: number;
+    date: string;
+    description: string;
+    documentNumber?: string;
+  }) => {
+    try {
+      const activeCompanyId = getActiveCompanyId();
+      const source = effectiveAccounts.find(a => a.id === params.sourceAccountId);
+      const dest = effectiveAccounts.find(a => a.id === params.destAccountId);
+      if (!source || !dest) return;
+
+      const updatedAccounts = effectiveAccounts.map((acc) => {
+        if (acc.id === params.sourceAccountId) {
+          const upd = { ...acc, balance: (acc.balance || 0) - params.amount };
+          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          return upd;
+        }
+        if (acc.id === params.destAccountId) {
+          const upd = { ...acc, balance: (acc.balance || 0) + params.amount };
+          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          return upd;
+        }
+        return acc;
+      });
+
+      localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
+      saveStoredBankAccounts(updatedAccounts);
+      setLocalAccounts(updatedAccounts);
+      if (onSaveAccounts) onSaveAccounts(updatedAccounts);
+
+      const nowIso = new Date().toISOString();
+      const txSource: BankTransaction = {
+        id: `tx_trf_out_${Date.now()}`,
+        bankAccountId: source.id,
+        bankAccountName: source.name,
+        date: params.date,
+        description: `TRANSFERÊNCIA ENVIADA PARA ${dest.name.toUpperCase()} (${dest.bankName.toUpperCase()})`,
+        type: 'saida',
+        amount: params.amount,
+        category: 'Transferência Entre Contas',
+        notes: params.description,
+        createdAt: nowIso,
+      };
+
+      const txDest: BankTransaction = {
+        id: `tx_trf_in_${Date.now() + 1}`,
+        bankAccountId: dest.id,
+        bankAccountName: dest.name,
+        date: params.date,
+        description: `TRANSFERÊNCIA RECEBIDA DE ${source.name.toUpperCase()} (${source.bankName.toUpperCase()})`,
+        type: 'entrada',
+        amount: params.amount,
+        category: 'Transferência Entre Contas',
+        notes: params.description,
+        createdAt: nowIso,
+      };
+
+      const updatedTxs = [txSource, txDest, ...transactions];
+      if (onSaveTransactions) onSaveTransactions(updatedTxs);
+
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.warn('Erro ao processar transferência entre contas:', err);
+    }
+  };
+
+  // 4. Processamento da ação operacional rápida: AJUSTE DE SALDO
+  const handleConfirmAdjustBalance = (params: {
+    accountId: string;
+    newBalance: number;
+    difference: number;
+    date: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    try {
+      const activeCompanyId = getActiveCompanyId();
+      const targetAcc = effectiveAccounts.find(a => a.id === params.accountId);
+      if (!targetAcc) return;
+
+      const updatedAccounts = effectiveAccounts.map((acc) => {
+        if (acc.id === params.accountId) {
+          const upd = { ...acc, balance: params.newBalance };
+          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          return upd;
+        }
+        return acc;
+      });
+
+      localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
+      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
+      saveStoredBankAccounts(updatedAccounts);
+      setLocalAccounts(updatedAccounts);
+      if (onSaveAccounts) onSaveAccounts(updatedAccounts);
+
+      const isPositive = params.difference >= 0;
+      const newTx: BankTransaction = {
+        id: `tx_adj_${Date.now()}`,
+        bankAccountId: targetAcc.id,
+        bankAccountName: targetAcc.name,
+        date: params.date,
+        description: `AJUSTE DE SALDO: ${params.reason.toUpperCase()}${params.notes ? ` (${params.notes.toUpperCase()})` : ''}`,
+        type: isPositive ? 'entrada' : 'saida',
+        amount: Math.abs(params.difference),
+        category: 'Ajuste de Saldo / Conciliação',
+        notes: `SALDO ANTERIOR: ${formatCurrencyBRL(targetAcc.balance)} -> NOVO SALDO: ${formatCurrencyBRL(params.newBalance)}`,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedTxs = [newTx, ...transactions];
+      if (onSaveTransactions) onSaveTransactions(updatedTxs);
+
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.warn('Erro ao processar ajuste de saldo:', err);
+    }
   };
 
   const handleSaveAccount = (accountData: Omit<BankAccount, 'id'> & { id?: string }) => {
@@ -537,6 +922,57 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
   return (
     <div className="flex flex-col gap-2 sm:gap-2.5 h-full overflow-hidden justify-start">
+      {/* BLOCO DE BOTÕES DE AÇÃO RÁPIDA (CONTRATO MASTER AGROCONTROL) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap shrink-0">
+        {/* 1º PAGAR TÍTULO */}
+        <button
+          type="button"
+          id="btn-op-pagar-titulo"
+          onClick={() => setIsPayModalOpen(true)}
+          className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#1e5631] hover:bg-[#184627] text-white font-bold text-xs rounded-lg border border-[#164224] transition shadow-2xs cursor-pointer active:scale-95 uppercase tracking-wide shrink-0"
+          title="Pagar título pendente ou registrar baixa de despesa"
+        >
+          <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+          <span>PAGAR TÍTULO</span>
+        </button>
+
+        {/* 2º RECEBER TÍTULO */}
+        <button
+          type="button"
+          id="btn-op-receber-titulo"
+          onClick={() => setIsReceiveModalOpen(true)}
+          className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#1e5631] hover:bg-[#184627] text-white font-bold text-xs rounded-lg border border-[#164224] transition shadow-2xs cursor-pointer active:scale-95 uppercase tracking-wide shrink-0"
+          title="Receber título pendente ou registrar recebimento"
+        >
+          <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+          <span>RECEBER TÍTULO</span>
+        </button>
+
+        {/* 3º TRANSFERIR */}
+        <button
+          type="button"
+          id="btn-op-transferir"
+          onClick={() => setIsTransferModalOpen(true)}
+          className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-850 text-stone-800 dark:text-stone-200 font-bold text-xs rounded-lg border border-stone-300 dark:border-stone-700 transition shadow-2xs cursor-pointer active:scale-95 uppercase tracking-wide shrink-0"
+          title="Transferência entre contas bancárias"
+        >
+          <ArrowLeftRight className="w-3.5 h-3.5 stroke-[2]" />
+          <span>TRANSFERIR</span>
+        </button>
+
+        {/* 4º AJUSTE DE SALDO */}
+        <button
+          type="button"
+          id="btn-op-ajuste-saldo"
+          onClick={() => setIsAdjustModalOpen(true)}
+          className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-850 text-stone-800 dark:text-stone-200 font-bold text-xs rounded-lg border border-stone-300 dark:border-stone-700 transition shadow-2xs cursor-pointer active:scale-95 uppercase tracking-wide shrink-0"
+          title="Ajuste de saldo e conciliação bancária"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2]" />
+          <span>AJUSTE DE SALDO</span>
+        </button>
+      </div>
+
       {/* Header & Total Balance */}
       <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:px-3.5 sm:py-2 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-black shrink-0">
         <div className="space-y-0.5">
@@ -884,6 +1320,46 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         transactions={transactions}
         employees={employees}
         onAddTransaction={handleAddTransaction}
+      />
+
+      {/* 1º Modal Rápido: Pagar Título */}
+      <PayTitleQuickModal
+        isOpen={isPayModalOpen}
+        onClose={() => setIsPayModalOpen(false)}
+        expenses={expenses}
+        accounts={effectiveAccounts}
+        employees={employees}
+        defaultAccountId={statementAccountId !== 'todas' ? statementAccountId : undefined}
+        onConfirmPayment={handleConfirmPayTitle}
+      />
+
+      {/* 2º Modal Rápido: Receber Título */}
+      <ReceiveTitleQuickModal
+        isOpen={isReceiveModalOpen}
+        onClose={() => setIsReceiveModalOpen(false)}
+        accounts={effectiveAccounts}
+        defaultAccountId={statementAccountId !== 'todas' ? statementAccountId : undefined}
+        orders={orders}
+        services={services}
+        onConfirmReceipt={handleConfirmReceiveTitle}
+      />
+
+      {/* 3º Modal Rápido: Transferir Entre Contas */}
+      <TransferFundsModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        accounts={effectiveAccounts}
+        defaultSourceAccountId={statementAccountId !== 'todas' ? statementAccountId : undefined}
+        onTransfer={handleConfirmTransfer}
+      />
+
+      {/* 4º Modal Rápido: Ajuste de Saldo */}
+      <AdjustBalanceModal
+        isOpen={isAdjustModalOpen}
+        onClose={() => setIsAdjustModalOpen(false)}
+        accounts={effectiveAccounts}
+        defaultAccountId={statementAccountId !== 'todas' ? statementAccountId : undefined}
+        onAdjustBalance={handleConfirmAdjustBalance}
       />
     </div>
   );
