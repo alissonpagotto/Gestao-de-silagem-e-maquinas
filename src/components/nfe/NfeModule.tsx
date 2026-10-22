@@ -5482,7 +5482,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             type="button"
             id="btn-nova-entrada-manual-topo"
             onClick={handleOpenManualEntryModal}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap uppercase tracking-wide"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg border border-[#52cdb8] dark:bg-emerald-700 dark:hover:bg-emerald-600 dark:border-emerald-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap uppercase tracking-wide"
             title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Nota avulsa, Cupom sem valor fiscal, Nota de Produtor, Outros)"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />

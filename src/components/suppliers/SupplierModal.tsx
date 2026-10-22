@@ -386,8 +386,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden`}>
-      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden`}>
+      <div className="w-full max-w-[80vw] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header - Moldura Metálica 3D Acetinada */}
         <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 relative rounded-t-lg shrink-0 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
@@ -518,13 +518,13 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 bg-zinc-100 dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
+        <form onSubmit={handleSubmit} className="p-3.5 sm:p-5 space-y-3 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto scrollbar-none flex-1">
           
           {/* Card 1: Dados Principais & Fiscais */}
-          <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">
-            {/* Linha 1: CNPJ/CPF (Auto-preenchimento), Razão Social / Nome (espaço amplo), Nome Fantasia */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="col-span-1">
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-3">
+            {/* Linha 1: CNPJ/CPF (Auto-preenchimento), Razão Social / Nome, Nome Fantasia */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-3">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
                     CNPJ OU CPF (AUTO-PREENCHIMENTO)
@@ -537,11 +537,11 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
-                          className="text-[10px] font-bold bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white px-2 py-0.5 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-xs"
+                          className="text-[10px] font-bold bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white px-2 py-0.5 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-xs uppercase"
                           title="Fichas preenchidas online aguardando importação"
                         >
                           <Inbox className="w-3 h-3 text-amber-300" />
-                          <span>{pendingSubmissions.length} ficha{pendingSubmissions.length > 1 ? 's' : ''}</span>
+                          <span>{pendingSubmissions.length} FICHA{pendingSubmissions.length > 1 ? 'S' : ''}</span>
                         </button>
 
                         {isImportDropdownOpen && (
@@ -575,9 +575,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     )}
 
                     {isLoadingCnpj && (
-                      <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1">
+                      <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1 uppercase">
                         <Loader2 className="w-3 h-3 animate-spin text-zinc-700 dark:text-stone-300" />
-                        <span>Buscando...</span>
+                        <span>BUSCANDO...</span>
                       </span>
                     )}
                   </div>
@@ -603,7 +603,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
               </div>
 
               {/* Razão Social / Nome Amplo */}
-              <div className="col-span-1 lg:col-span-2">
+              <div className="col-span-1 md:col-span-5">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   RAZÃO SOCIAL / NOME <span className="text-rose-600">*</span>
                 </label>
@@ -616,7 +616,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 />
               </div>
 
-              <div className="col-span-1">
+              <div className="col-span-1 md:col-span-4">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   NOME FANTASIA
                 </label>
@@ -630,8 +630,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             </div>
 
             {/* Linha 2: Categoria Principal, Inscrição Estadual (IE), Inscrição Municipal (IM) e WhatsApp / Telefone */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="md:col-span-3">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   CATEGORIA PRINCIPAL
                 </label>
@@ -654,7 +654,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 </div>
               </div>
 
-              <div>
+              <div className="md:col-span-3">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   INSCRIÇÃO ESTADUAL (IE)
                 </label>
@@ -667,7 +667,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-3">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   INSCRIÇÃO MUNICIPAL (IM)
                 </label>
@@ -680,7 +680,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-3">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   WHATSAPP / TELEFONE
                 </label>
@@ -696,17 +696,17 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
           </div>
 
           {/* Card 2: Endereço & Localização */}
-          <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-3">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
                     CEP
                   </label>
                   {isLoadingCep && (
-                    <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1">
+                    <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1 uppercase">
                       <Loader2 className="w-3 h-3 animate-spin text-zinc-700 dark:text-stone-300" />
-                      <span>Buscando...</span>
+                      <span>BUSCANDO...</span>
                     </span>
                   )}
                 </div>
@@ -730,7 +730,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="col-span-1 md:col-span-9">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   ENDEREÇO / LOGRADOURO
                 </label>
@@ -743,8 +743,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-5">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   BAIRRO / COMUNIDADE
                 </label>
@@ -756,7 +756,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 />
               </div>
 
-              <div>
+              <div className="col-span-1 md:col-span-5">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   CIDADE
                 </label>
@@ -768,7 +768,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 />
               </div>
 
-              <div>
+              <div className="col-span-1 md:col-span-2">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   ESTADO (UF)
                 </label>
@@ -784,9 +784,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
           </div>
 
           {/* Card 3: Informações Complementares & Observações */}
-          <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-4">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   E-MAIL COMERCIAL
                 </label>
@@ -798,7 +798,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="col-span-1 md:col-span-8">
                 <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   OBSERVAÇÕES / DADOS BANCÁRIOS / PIX
                 </label>
@@ -813,20 +813,20 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="pt-2.5 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="pt-2.5 pb-1 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             {/* Auditoria Automática (Canto inferior esquerdo) */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 uppercase">
               <span className="inline-flex items-center space-x-1">
-                <span className="font-bold text-zinc-900 dark:text-stone-200">Cadastrado em:</span>
+                <span className="font-bold text-zinc-900 dark:text-stone-200">CADASTRADO EM:</span>
                 <span>
                   {activeSupplier?.createdAt ? (formatDateTimeBR(activeSupplier.createdAt) || '—') : formatDateTimeBR(registrationTimestamp)}
                 </span>
               </span>
               <span className="text-zinc-400 dark:text-stone-600 hidden sm:inline">•</span>
               <span className="inline-flex items-center space-x-1">
-                <span className="font-bold text-zinc-900 dark:text-stone-200">Alterado em:</span>
+                <span className="font-bold text-zinc-900 dark:text-stone-200">ALTERADO EM:</span>
                 <span>
-                  {activeSupplier?.updatedAt ? (formatDateTimeBR(activeSupplier.updatedAt) || 'Sem alterações') : 'Sem alterações'}
+                  {activeSupplier?.updatedAt ? (formatDateTimeBR(activeSupplier.updatedAt) || 'SEM ALTERAÇÕES') : 'SEM ALTERAÇÕES'}
                 </span>
               </span>
             </div>
@@ -837,25 +837,25 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 type="button"
                 onClick={handleCancel}
                 title="Descartar alterações não salvas"
-                className="px-4 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-200 dark:border-stone-700"
+                className="px-4 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-200 dark:border-stone-700 uppercase"
               >
-                Cancelar
+                CANCELAR
               </button>
               
               <button
                 type="button"
                 onClick={onClose}
                 title="Fechar janela de cadastro"
-                className="px-4 py-2 rounded-xl bg-zinc-200 dark:bg-stone-700 hover:bg-zinc-300 dark:hover:bg-stone-600 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-300 dark:border-stone-600"
+                className="px-4 py-2 rounded-xl bg-zinc-200 dark:bg-stone-700 hover:bg-zinc-300 dark:hover:bg-stone-600 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-300 dark:border-stone-600 uppercase"
               >
-                Sair
+                SAIR
               </button>
 
               <button
                 type="submit"
-                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer uppercase"
               >
-                Salvar Fornecedor
+                SALVAR FORNECEDOR
               </button>
             </div>
           </div>
