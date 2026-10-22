@@ -148,7 +148,7 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-slate-50 dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
           {/* Renderização do Sub-menu ativo */}
           {activeTab === 'cargos_permissoes' && <CargosPermissoesTab />}
           {activeTab === 'plano_contas' && <PlanoContasTab />}

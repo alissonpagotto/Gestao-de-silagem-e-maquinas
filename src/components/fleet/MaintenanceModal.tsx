@@ -1342,7 +1342,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overflow-y-hidden">
       <div 
-        className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#c8dbee] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
@@ -1462,11 +1462,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           </button>
         </div>
 
-        {/* Form Body com Estrutura Flexível: Topo e Base Fixos, Centro Rolável em Modo Claro bg-[#c8dbee] */}
-        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#c8dbee] dark:bg-stone-900">
+        {/* Form Body com Estrutura Flexível: Topo e Base Fixos, Centro Rolável em Modo Claro bg-[#edf4ff] */}
+        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#edf4ff] dark:bg-stone-900">
           
           {/* Conteúdo Central com Rolagem Vertical Independente */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-[#c8dbee] dark:bg-stone-900">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-[#edf4ff] dark:bg-stone-900">
 
             {/* Banner de Feedback de Ação */}
             {feedbackBanner && (

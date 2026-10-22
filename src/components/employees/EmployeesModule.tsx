@@ -3525,7 +3525,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             </div>
 
             <div className="flex-1 flex overflow-hidden relative">
-              <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#cad4e6] dark:bg-stone-900 text-xs">
+              <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#edf4ff] dark:bg-stone-900 text-xs">
               
               {/* SECTION 1: DADOS BÁSICOS & FOTO */}
               <div className="space-y-2">

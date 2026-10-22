@@ -1464,7 +1464,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Formulário em 3 Colunas Horizontais Paralelas - Slim Design sem Rolagem */}
-          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-between flex-1 min-h-0 bg-[#e0e6f1] dark:bg-stone-900">
+          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-between flex-1 min-h-0 bg-[#edf4ff] dark:bg-stone-900">
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch flex-1 min-h-0">
               

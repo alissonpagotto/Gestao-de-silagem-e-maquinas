@@ -3274,7 +3274,7 @@ export default function App() {
         )}
 
         {/* Workspace Interno da Janela (Sidebar + Conteúdo Principal) */}
-        <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-[#b9cde3] dark:bg-stone-950">
+        <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-[#edf4ff] dark:bg-stone-950">
           {/* Left Fixed Sidebar - Ocultado no Modo Tela Cheia do PDV */}
           {!isPdvFullscreen && (
             <Sidebar

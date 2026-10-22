@@ -923,7 +923,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   return (
     <div className="flex flex-col gap-2 sm:gap-2.5 h-full overflow-hidden justify-start">
       {/* BLOCO DE BOTÕES DE AÇÃO RÁPIDA (CONTRATO MASTER AGROCONTROL) */}
-      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap shrink-0 bg-[#c8dbee] border border-[#403e3e] rounded-xl p-2 sm:px-3 sm:py-2 dark:bg-transparent dark:border-transparent">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap shrink-0 bg-[#edf4ff] border border-[#403e3e] rounded-xl p-2 sm:px-3 sm:py-2 dark:bg-transparent dark:border-transparent">
         {/* 1º PAGAR TÍTULO */}
         <button
           type="button"
@@ -974,7 +974,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       </div>
 
       {/* Header & Total Balance */}
-      <div className="bg-[#c8dbee] border border-[#c8dbee] dark:bg-stone-900 dark:border-stone-800 rounded-xl p-2.5 sm:px-3.5 sm:py-2 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-black shrink-0">
+      <div className="bg-[#edf4ff] border border-[#edf4ff] dark:bg-stone-900 dark:border-stone-800 rounded-xl p-2.5 sm:px-3.5 sm:py-2 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-black shrink-0">
         <div className="space-y-0.5">
           <div className="flex items-center space-x-2">
             <span className="text-[10.5px] font-black text-black uppercase tracking-wider">

@@ -484,7 +484,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         </div>
 
         {/* BLOCO INFERIOR DE CONTEÚDO ENVOLVIDO NA MOLDURA PADRONIZADA (COLADO À BASE DAS ABAS) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden p-3 sm:p-4 space-y-3">
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden p-3 sm:p-4 space-y-3">
           {/* RENDERIZAÇÃO DA ABA ATIVA: FUNÇÃO RESTRITA, AGENDA DE SERVIÇOS, FORMULÁRIOS DE CAMPO OU LISTAGEM DE SERVIÇOS */}
           {!isServiceTabAllowed(activeTab) ? (
             <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">

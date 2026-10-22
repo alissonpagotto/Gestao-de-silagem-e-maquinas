@@ -780,7 +780,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             {/* ======================================================== */}
             {/* COLUNA DA ESQUERDA (60% da Largura): DADOS DA CONTA */}
             {/* ======================================================== */}
-            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-stone-800 bg-[#cdcdcd] dark:bg-transparent">
+            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-stone-800 bg-[#edf4ff] dark:bg-transparent">
               
               {/* Mensagem de Erro de Validação */}
               {validationError && (
@@ -1145,7 +1145,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             {/* ======================================================== */}
             <div 
               id="painel-cartoes-corporativos"
-              className="lg:col-span-5 flex flex-col bg-[#cdcdcd] dark:bg-stone-900/50 overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-1.5"
+              className="lg:col-span-5 flex flex-col bg-[#edf4ff] dark:bg-stone-900/50 overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-1.5"
             >
               {/* Cabeçalho do Painel Lateral de Cartões */}
               <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200 dark:border-stone-700 shrink-0">

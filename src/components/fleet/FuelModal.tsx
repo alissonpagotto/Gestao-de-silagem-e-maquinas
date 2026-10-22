@@ -972,8 +972,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Corpo do Modal com Respiro Elegante e Simetria */}
-        <div className="overflow-y-auto flex-1 bg-[#d0d0d0] dark:bg-zinc-900">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full bg-[#d0d0d0] dark:bg-zinc-900">
+        <div className="overflow-y-auto flex-1 bg-[#edf4ff] dark:bg-zinc-900">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full bg-[#edf4ff] dark:bg-zinc-900">
             
             {/* Coluna Esquerda: Formulário com Cards e Inputs Bem Definidos */}
             <div className="lg:col-span-7 flex flex-col">

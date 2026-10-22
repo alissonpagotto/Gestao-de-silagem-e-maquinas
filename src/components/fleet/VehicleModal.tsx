@@ -1808,7 +1808,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
         {/* Tabs Bar with Sticky Vehicle Plate Tag & Print Action Buttons */}
         <div 
-          className="p-2 sm:p-2.5 bg-[#cdcdcd] dark:bg-zinc-800 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2 shrink-0"
+          className="p-2 sm:p-2.5 bg-[#edf4ff] dark:bg-zinc-800 border-b border-zinc-200 dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 shrink-0"
         >
           {/* Central Tabs & Persistent Plate Tag */}
           <div className="flex flex-wrap items-center gap-2">
@@ -1896,11 +1896,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         {activeTab === 'dados' && (
           <form 
             onSubmit={handleSubmit} 
-            className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5 bg-[#cdcdcd] dark:bg-stone-900"
+            className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5 bg-[#edf4ff] dark:bg-stone-900"
           >
             
             {/* SEÇÃO 1: IDENTIFICAÇÃO BÁSICA (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2.5">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2.5">
               <div className="flex items-center space-x-1.5">
                 <Truck className="w-4 h-4 text-zinc-700" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
@@ -2329,7 +2329,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
             {/* SEÇÃO: VÍNCULO DE REBOQUE / IMPLEMENTO (CARD BRANCO COMPACTO) */}
             {!isReboqueCategory ? (
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
                   <Link2 className="w-4 h-4 text-zinc-700" />
@@ -2601,7 +2601,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             )}
 
             {/* SEÇÃO 2: PROPRIEDADE & NO NOME DE QUEM (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
                   <Building className="w-4 h-4 text-zinc-700" />
@@ -2746,7 +2746,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 3: CONTROLE DE PESO (TARA & LOTAÇÃO) E MEDIÇÕES (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
                   <Weight className="w-4 h-4 text-zinc-700" />
