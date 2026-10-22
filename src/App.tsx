@@ -1490,8 +1490,25 @@ export default function App() {
   const [activeSession, setActiveSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
-  // Controle de Janela Desktop (Maximizar tela cheia e Minimizar painel)
-  const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+  // Controle de Janela Desktop (Maximizar tela cheia e Minimizar painel - Modo Tela Cheia Padrão Obrigatório)
+  const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('agrocontrol_window_maximized');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleWindowMaximize = () => {
+    setIsWindowMaximized(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('agrocontrol_window_maximized', String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [isWindowMinimized, setIsWindowMinimized] = useState(false);
   // Controle do Modo Expansão Tela Cheia do PDV (Foco Total de Caixa)
   const [isPdvFullscreen, setIsPdvFullscreen] = useState(false);
@@ -3051,7 +3068,7 @@ export default function App() {
   return (
     <div 
       id="desktop-outer-frame-container"
-      className={`h-screen w-screen overflow-hidden bg-[#eef2f6] dark:bg-[#0c0d0e] ${isPdvFullscreen || isWindowMaximized ? 'p-0' : 'p-2.5 sm:p-3 lg:p-3.5'} flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100 transition-all duration-150`}
+      className={`h-screen w-screen overflow-hidden bg-[#edf4ff] dark:bg-[#0c0d0e] ${isPdvFullscreen || isWindowMaximized ? 'p-0' : 'p-2.5 sm:p-3 lg:p-3.5'} flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100 transition-all duration-150`}
     >
       {/* Moldura da Janela Desktop (Container Principal de Software) */}
       <div 
@@ -3171,7 +3188,7 @@ export default function App() {
               {/* Maximizar [ ▢ ] */}
               <button
                 type="button"
-                onClick={() => setIsWindowMaximized(prev => !prev)}
+                onClick={toggleWindowMaximize}
                 className={`w-5.5 h-4.5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
                   isWindowMaximized
                     ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
