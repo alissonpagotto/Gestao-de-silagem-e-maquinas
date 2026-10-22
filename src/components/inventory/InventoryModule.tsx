@@ -589,11 +589,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
           <button
             type="button"
+            id="btn-novo-produto"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#059669] hover:bg-[#047857] text-white border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap uppercase"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>+ Novo Produto</span>
+            <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            <span>+ NOVO PRODUTO</span>
           </button>
         </div>
       </header>

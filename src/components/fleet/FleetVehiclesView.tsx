@@ -637,14 +637,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Lado Direito: CADASTRAR VEÍCULO, Imprimir Lista, Sincronizar Leituras, View Toggle */}
           <div className="flex items-center flex-wrap gap-2 shrink-0">
             
-            {/* Botão CADASTRAR VEÍCULO (Reposicionado no canto direito superior conforme gabarito rosa, sem o '+' redundante na string) */}
+            {/* Botão + CADASTRAR VEÍCULO (Padrão Verde Oficial AgroControl) */}
             <button
+              type="button"
+              id="btn-cadastrar-veiculo"
               onClick={onOpenNewVehicle}
               title="Cadastrar Novo Veículo ou Máquina na Frota"
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+              className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] border border-emerald-700/60 text-white text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 text-slate-700 dark:text-stone-300 stroke-[2.5]" />
-              <span>CADASTRAR VEÍCULO</span>
+              <Plus className="w-4 h-4 text-white stroke-[2.5]" />
+              <span>+ CADASTRAR VEÍCULO</span>
             </button>
 
             {/* Botão Imprimir Lista de Veículos (3D Metálico) */}

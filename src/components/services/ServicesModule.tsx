@@ -223,35 +223,35 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         return {
           dateColumn: 'DATA DO CORTE',
           quantityColumn: 'ÁREA / UNIDADE',
-          newButtonLabel: '+ Novo Corte',
+          newButtonLabel: '+ NOVO CORTE',
           serviceTypeName: 'Ensilagem',
         };
       case 'colheita':
         return {
           dateColumn: 'DATA DA COLHEITA',
           quantityColumn: 'HECTARES (ha)',
-          newButtonLabel: '+ Nova Colheita',
+          newButtonLabel: '+ NOVA COLHEITA',
           serviceTypeName: 'Colheita',
         };
       case 'trator':
         return {
           dateColumn: 'DATA DO SERVIÇO',
           quantityColumn: 'HORAS / ÁREA',
-          newButtonLabel: '+ Novo Serviço de Trator',
+          newButtonLabel: '+ NOVO SERVIÇO DE TRATOR',
           serviceTypeName: 'Serviço de Trator',
         };
       case 'maquina':
         return {
           dateColumn: 'DATA DA OPERAÇÃO',
           quantityColumn: 'HORAS / ÁREA',
-          newButtonLabel: '+ Novo Serviço de Máquina',
+          newButtonLabel: '+ NOVO SERVIÇO DE MÁQUINA',
           serviceTypeName: 'Serviço de Máquina',
         };
       case 'frete':
         return {
           dateColumn: 'DATA DO FRETE',
           quantityColumn: 'KM / HORAS',
-          newButtonLabel: '+ Novo Serviço de Frete',
+          newButtonLabel: '+ NOVO SERVIÇO DE FRETE',
           serviceTypeName: 'Serviço de Frete',
         };
       case 'orcamento':
@@ -259,7 +259,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         return {
           dateColumn: 'DATA DO ORÇAMENTO',
           quantityColumn: 'QUANTIDADE',
-          newButtonLabel: '+ Novo Orçamento',
+          newButtonLabel: '+ NOVO ORÇAMENTO',
           serviceTypeName: 'Orçamento Agrícola',
         };
     }
@@ -434,11 +434,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              id="btn-novo-servico"
               onClick={handleOpenNew}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white text-xs font-bold rounded-lg border border-slate-600/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.15)] transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:ring-offset-1"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1 active:scale-95 whitespace-nowrap uppercase"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>{tabConfig.newButtonLabel || '+ Novo'}</span>
+              <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+              <span>{(tabConfig.newButtonLabel || '+ NOVO CORTE').toUpperCase()}</span>
             </button>
           </div>
         )}
