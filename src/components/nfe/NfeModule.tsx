@@ -5492,9 +5492,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </header>
 
       {/* 2. ESTRUTURA INTEGRADA DE PONTA A PONTA: MOLDURA MDI TRIDIMENSIONAL ACETINADA E BLOCO SÓLIDO */}
-      <div className="w-full border border-slate-400 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-xs">
+      <div className="w-full border border-[#edf4ff] dark:border-stone-700 rounded-xl overflow-hidden bg-[#edf4ff] dark:bg-stone-900 shadow-xs">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (CONTRATO MASTER) */}
-        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
+        <div className="w-full bg-[#edf4ff] dark:bg-stone-850 border-b border-[#edf4ff] dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
           <nav 
             aria-label="Abas de Notas e Entradas"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
@@ -5615,7 +5615,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
-        <div className="w-full bg-[#b9cde3] dark:bg-stone-900 p-3 sm:p-4">
+        <div className="w-full bg-[#edf4ff] dark:bg-stone-900 border-[#edf4ff] dark:border-stone-700 p-3 sm:p-4">
           
           {/* SEGUNDA LINHA DE SUB-ABAS FISCAIS (ALÍVIO DE ESCALA SLIM DESIGN PRO) */}
           {activeMainFiscalTab === 'notas_fiscais' && (

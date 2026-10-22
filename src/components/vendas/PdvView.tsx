@@ -3789,22 +3789,99 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
                 {/* Linha horizontal fina de inputs utilizando o padrão de contorno de aço */}
                 <div className="bg-slate-100 dark:bg-stone-850 p-2 border border-slate-300 dark:border-stone-700 rounded flex flex-wrap lg:flex-nowrap items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-stone-300 uppercase mb-2">
-                  {/* CAMPO 1 (Dropdown Slim): VEÍCULO FRETE */}
-                  <div className="flex-1 min-w-[200px]">
+                  {/* CAMPO 1 (Dropdown Slim / Combobox Autocomplete): VEÍCULO FRETE */}
+                  <div ref={vehicleContainerRef} className="flex-1 min-w-[200px] relative">
                     <label className="block text-[9px] font-black uppercase text-slate-500 dark:text-stone-400 mb-0.5 whitespace-nowrap">
                       VEÍCULO FRETE:
                     </label>
-                    <select
-                      value={veiculoFreteId}
-                      onChange={e => setVeiculoFreteId(e.target.value)}
-                      className="w-full px-2 py-1 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-[11px] font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 uppercase truncate"
-                    >
-                      {availableVehicles.map((veh: any, vIdx: number) => (
-                        <option key={veh.id || `veh_${vIdx}`} value={veh.id}>
-                          {getVehicleIdentificationText(veh)}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        value={veiculoSearchText}
+                        onChange={e => {
+                          const val = e.target.value.toUpperCase();
+                          setVeiculoSearchText(val);
+                          setIsVehicleDropdownOpen(true);
+                          const matched = availableVehicles.find(v => 
+                            getVehicleIdentificationText(v).toUpperCase() === val ||
+                            (v.licensePlateOrSerial || v.plate || '').toUpperCase() === val
+                          );
+                          if (matched) {
+                            setVeiculoFreteId(matched.id);
+                          }
+                        }}
+                        onFocus={() => setIsVehicleDropdownOpen(true)}
+                        placeholder="DIGITE PLACA, MODELO OU MARCA..."
+                        className="w-full pl-2 pr-7 py-1 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-[11px] font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 uppercase truncate"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setIsVehicleDropdownOpen(prev => !prev)}
+                        className="absolute right-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-stone-200 p-0.5 cursor-pointer"
+                        title="Abrir lista de veículos da frota"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Dropdown com listagem reduzida em UPPERCASE */}
+                    {isVehicleDropdownOpen && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-md shadow-xl max-h-48 overflow-y-auto no-scrollbar py-0.5">
+                        {filteredVehicles.length > 0 ? (
+                          filteredVehicles.map((veh: any, idx: number) => {
+                            const isSelected = veh.id === veiculoFreteId;
+                            const plate = veh.licensePlateOrSerial || veh.plate || veh.plateOrSerial || 'S/ PLACA';
+                            const model = veh.model || veh.name || veh.brand || 'VEÍCULO';
+                            const fleet = veh.fleetNumber || veh.numero_frota;
+                            const brand = veh.brand || '';
+                            const type = veh.categoryType || veh.type || veh.tipo || '';
+
+                            return (
+                              <div
+                                key={veh.id || `veh_opt_${idx}`}
+                                onClick={() => {
+                                  setVeiculoFreteId(veh.id);
+                                  setVeiculoSearchText(getVehicleIdentificationText(veh));
+                                  setIsVehicleDropdownOpen(false);
+                                }}
+                                className={`px-2 py-1 text-[10px] font-bold cursor-pointer transition flex items-center justify-between border-b border-slate-100 dark:border-stone-800 last:border-0 uppercase ${
+                                  isSelected
+                                    ? 'bg-amber-100/90 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
+                                    : 'hover:bg-slate-100 dark:hover:bg-stone-800 text-slate-800 dark:text-stone-200'
+                                }`}
+                              >
+                                <div className="truncate flex items-center gap-1.5">
+                                  <span className="font-mono font-black text-amber-700 dark:text-amber-400">
+                                    [{plate.toUpperCase()}]
+                                  </span>
+                                  <span className="truncate">
+                                    {model.toUpperCase()}
+                                    {brand && !model.toLowerCase().includes(brand.toLowerCase()) ? ` - ${brand.toUpperCase()}` : ''}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0 ml-2">
+                                  {type && (
+                                    <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300">
+                                      {type.toUpperCase()}
+                                    </span>
+                                  )}
+                                  {fleet && (
+                                    <span className="text-[9px] px-1 py-0.2 rounded bg-amber-200/70 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-mono">
+                                      #{fleet}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="px-2 py-2 text-[10px] text-slate-400 italic text-center uppercase">
+                            NENHUM VEÍCULO ENCONTRADO
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* CAMPO 2 (Dropdown Slim): TIPO CÁLCULO */}
