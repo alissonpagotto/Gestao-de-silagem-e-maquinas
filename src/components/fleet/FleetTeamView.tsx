@@ -861,22 +861,15 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
             <span className="hidden sm:inline">WhatsApp</span>
           </button>
 
-          {/* Add Employee Button */}
-          <button
-            onClick={() => openNewEmployeeModal()}
-            className="inline-flex items-center space-x-1.5 px-3 py-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-800 dark:text-stone-200 rounded-xl text-xs font-bold border border-stone-200 dark:border-stone-700 shadow-xs transition cursor-pointer"
-          >
-            <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Novo Funcionário</span>
-          </button>
-
           {/* Add Team Button */}
           <button
+            type="button"
+            id="btn-criar-nova-equipe"
             onClick={openNewTeamModal}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap uppercase tracking-wide border border-emerald-700/60"
           >
-            <Plus className="w-4 h-4" />
-            <span>Criar Nova Equipe</span>
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>+ CRIAR NOVA EQUIPE</span>
           </button>
         </div>
       </div>
