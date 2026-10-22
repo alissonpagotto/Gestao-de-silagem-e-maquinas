@@ -3531,24 +3531,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
             )}
 
-            {/* Quick Action Highlight Banner: Imprimir Cadastro */}
-            <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center space-x-2">
-                <Printer className="w-4 h-4 text-amber-700 shrink-0" />
-                <p className="text-xs text-amber-900 font-medium">
-                  Pronto para colher assinatura física? Imprima a ficha A4 com termo de responsabilidade e dados cadastrais.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handlePrintCurrentModalEmployee}
-                className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Imprimir cadastro do funcionário para assinatura</span>
-              </button>
-            </div>
-
             <div className="flex-1 flex overflow-hidden relative">
               <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#edf4ff] dark:bg-stone-900 text-xs">
               
@@ -4659,28 +4641,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-slate-300 dark:border-stone-700">
                 <button
                   type="button"
+                  id="btn-imprimir-cadastro-funcionario-rodape"
                   onClick={handlePrintCurrentModalEmployee}
-                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-400 text-amber-900 bg-amber-50 hover:bg-amber-100 text-xs font-bold transition cursor-pointer shadow-2xs"
+                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-lg border border-amber-400 text-amber-900 bg-amber-50 hover:bg-amber-100 text-xs font-bold transition cursor-pointer shadow-2xs uppercase tracking-wide"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir cadastro do funcionário para assinatura</span>
+                  <Printer className="w-3.5 h-3.5 text-amber-700" />
+                  <span>IMPRIMIR CADASTRO DO FUNCIONÁRIO PARA ASSINATURA</span>
                 </button>
 
                 <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
+                    className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] uppercase"
                   >
-                    Cancelar
+                    CANCELAR
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 min-w-[130px]"
+                    className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 min-w-[130px] uppercase"
                   >
                     {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />}
-                    <span>{isSubmitting ? 'Salvando...' : (editingEmployee ? 'Salvar Alterações' : 'Cadastrar Colaborador')}</span>
+                    <span>{isSubmitting ? 'SALVANDO...' : (editingEmployee ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR COLABORADOR')}</span>
                   </button>
                 </div>
               </div>
