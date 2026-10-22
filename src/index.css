@@ -988,6 +988,53 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
   background-color: #edf4ff !important;
 }
 
+/* Customização de Fundo e Cores - Modal de Folha de Pagamento (Modo Dia / Claro) */
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) {
+  background-color: #edf4ff !important;
+  border-color: #edf4ff !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
+  background-color: #edf4ff !important;
+  border-color: #edf4ff !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) {
+  background-color: #edf4ff !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
+  background-color: #edf4ff !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(2) {
+  background-color: #e0e6f1 !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
+  color: #070707 !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > label:nth-of-type(1) {
+  color: #000000 !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(1) {
+  color: #030303 !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > label:nth-of-type(1) {
+  color: #121212 !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > label:nth-of-type(1) {
+  color: #070707 !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div#payroll-edit-modal-overlay:nth-of-type(6) > div:nth-of-type(1) > form:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(1) {
+  color: #000000 !important;
+}
+
 html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) {
   background-color: #edf4ff !important;
   border-color: #edf4ff !important;

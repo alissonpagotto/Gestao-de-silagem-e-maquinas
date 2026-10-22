@@ -2533,10 +2533,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 {/* ======================================================== */}
                 {/* COLUNA DA ESQUERDA: Painel de Lançamentos (Slim/Compact) */}
                 {/* ======================================================== */}
-                <div className="overflow-y-hidden p-2 space-y-1.5 bg-[#e8f1f8] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col justify-between">
+                <div className="overflow-y-hidden p-2 space-y-1.5 bg-[#edf4ff] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col justify-between">
                   
                   {/* 1. Colaborador & Informações de Enquadramento */}
-                  <div className="bg-white dark:bg-stone-800 rounded-xl p-2 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-1">
+                  <div className="bg-[#edf4ff] dark:bg-stone-800 rounded-xl p-2 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-semibold text-stone-900 dark:text-stone-100">
                         Colaborador / Funcionário <span className="text-rose-600">*</span>
@@ -2600,7 +2600,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
 
                   {/* 2. Bloco de Proventos com Grid 2 Colunas para os Inputs */}
-                  <div className="p-2 bg-blue-50/90 dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1 shadow-2xs">
+                  <div className="p-2 bg-[#edf4ff] dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <span className="text-xs font-bold uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
@@ -2902,7 +2902,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
 
                   {/* 3. Bloco de Deduções (Descontos & Impostos) */}
-                  <div className="p-2 bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-1 shadow-2xs">
+                  <div className="p-2 bg-[#edf4ff] dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-1 shadow-2xs">
                     <div className="flex items-center justify-between pb-0.5">
                       <span className="text-xs font-bold uppercase text-stone-900 dark:text-stone-100 tracking-wider block">
                         Deduções (Descontos & Impostos)
@@ -3354,7 +3354,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 {/* ======================================================== */}
                 {/* COLUNA DA DIREITA: Espelho do Holerite em Tempo Real    */}
                 {/* ======================================================== */}
-                <div className="overflow-y-auto p-3 sm:p-5 bg-stone-200/90 dark:bg-stone-950 flex flex-col items-center">
+                <div className="overflow-y-auto p-3 sm:p-5 bg-[#edf4ff] dark:bg-stone-950 flex flex-col items-center">
                   <LivePayslipPreview
                     companyProfile={companyProfile}
                     employee={employees.find(e => e.id === selectedEmployeeId)}
@@ -3394,7 +3394,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               {/* ======================================================== */}
               {/* BARRA INFERIOR DE AÇÕES (Fixa no rodapé do modal)        */}
               {/* ======================================================== */}
-              <div className="px-4 py-2.5 bg-white dark:bg-stone-850 border-t border-stone-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+              <div className="px-4 py-2.5 bg-[#e0e6f1] dark:bg-stone-850 border-t border-stone-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-stone-500 font-bold uppercase">Colaborador:</span>
