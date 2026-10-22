@@ -713,8 +713,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden`}>
-      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden`}>
+      <div className="w-full max-w-[80vw] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header - Moldura Metálica 3D Acetinada */}
         <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 text-slate-800 flex items-center justify-between relative shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
@@ -844,31 +844,31 @@ export const ClientModal: React.FC<ClientModalProps> = ({
         )}
 
         {/* Sub-Aba Navigation: DADOS CADASTRAIS vs HISTÓRICO DE COMPRAS */}
-        <div className="flex items-center px-4 sm:px-5 bg-slate-200 border-b border-slate-300 gap-1.5 pt-1.5 shrink-0">
+        <div className="flex items-center px-4 sm:px-5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-850 dark:to-stone-900 border-b border-slate-300 dark:border-stone-700 gap-2 pt-2 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('cadastro')}
-            className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-t-md border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'cadastro'
-                ? 'bg-zinc-100 text-zinc-900 border-zinc-300 -mb-px pb-2 shadow-xs'
-                : 'bg-slate-200 hover:bg-slate-100 text-slate-600 border-transparent hover:text-slate-900'
+                ? 'bg-[#edf4ff] dark:bg-stone-900 text-zinc-900 dark:text-white border-slate-300 dark:border-stone-700 -mb-px pb-2 shadow-xs'
+                : 'bg-slate-200/60 hover:bg-slate-200 text-slate-700 dark:text-stone-400 border-transparent hover:text-slate-900'
             }`}
           >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Dados Cadastrais</span>
+            <UserCheck className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <span>DADOS CADASTRAIS</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('historico')}
-            className={`px-3.5 py-1.5 text-xs font-bold uppercase rounded-t-md border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'historico'
-                ? 'bg-zinc-100 text-zinc-900 border-zinc-300 -mb-px pb-2 shadow-xs'
-                : 'bg-slate-200 hover:bg-slate-100 text-slate-600 border-transparent hover:text-slate-900'
+                ? 'bg-[#edf4ff] dark:bg-stone-900 text-zinc-900 dark:text-white border-slate-300 dark:border-stone-700 -mb-px pb-2 shadow-xs'
+                : 'bg-slate-200/60 hover:bg-slate-200 text-slate-700 dark:text-stone-400 border-transparent hover:text-slate-900'
             }`}
           >
             <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Histórico de Compras</span>
+            <span>HISTÓRICO DE COMPRAS</span>
             <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               activeTab === 'historico' ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'
             }`}>
@@ -879,15 +879,15 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
         {activeTab === 'cadastro' ? (
         /* Form */
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-zinc-100 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-3.5 sm:p-5 space-y-3 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto scrollbar-none flex-1">
           
           {/* Card 1: Identificação & Contato Principal */}
-          <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-zinc-300 shadow-2xs space-y-2.5">
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-3">
             {/* Linha 1: CPF/CNPJ (Busca Automática), Nome do Produtor, Nome da Fazenda */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-3">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider">
                     CPF OU CNPJ (AUTO-BUSCA)
                   </label>
                   
@@ -898,34 +898,34 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
-                          className="text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-white px-2 py-0.5 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-xs"
+                          className="text-[10px] font-bold bg-zinc-800 dark:bg-stone-700 hover:bg-zinc-700 text-white px-2 py-0.5 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-xs uppercase"
                           title="Fichas preenchidas online aguardando importação"
                         >
                           <Inbox className="w-3 h-3 text-amber-300" />
-                          <span>{pendingSubmissions.length} ficha{pendingSubmissions.length > 1 ? 's' : ''}</span>
+                          <span>{pendingSubmissions.length} FICHA{pendingSubmissions.length > 1 ? 'S' : ''}</span>
                         </button>
 
                         {isImportDropdownOpen && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsImportDropdownOpen(false)} />
-                            <div className="absolute left-0 mt-1 w-64 bg-white text-stone-900 rounded-xl shadow-xl border border-stone-200 z-20 overflow-hidden py-1">
-                              <div className="px-3 py-1.5 border-b border-stone-100 bg-stone-50">
-                                <p className="text-[10px] font-bold text-stone-600 uppercase">Fichas Online Recebidas</p>
+                            <div className="absolute left-0 mt-1 w-64 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 z-20 overflow-hidden py-1">
+                              <div className="px-3 py-1.5 border-b border-stone-100 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/80">
+                                <p className="text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase">Fichas Online Recebidas</p>
                               </div>
-                              <div className="max-h-48 overflow-y-auto divide-y divide-stone-100">
+                              <div className="max-h-48 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-700">
                                 {pendingSubmissions.map(sub => (
                                   <button
                                     key={sub.id}
                                     type="button"
                                     onClick={() => applySubmission(sub)}
-                                    className="w-full px-3 py-2 text-left hover:bg-zinc-100 transition flex flex-col cursor-pointer"
+                                    className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-stone-700 transition flex flex-col cursor-pointer"
                                   >
                                     <div className="flex items-center justify-between">
-                                      <span className="font-bold text-xs text-stone-900">{sub.name}</span>
-                                      <span className="text-[10px] text-stone-500">{sub.city}/{sub.state}</span>
+                                      <span className="font-bold text-xs text-stone-900 dark:text-stone-100">{sub.name}</span>
+                                      <span className="text-[10px] text-stone-500 dark:text-stone-400">{sub.city}/{sub.state}</span>
                                     </div>
-                                    <span className="text-[11px] text-stone-600 font-medium">{sub.farmName}</span>
-                                    <span className="text-[10px] text-zinc-700">{sub.cpfCnpj || sub.phone}</span>
+                                    <span className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">{sub.farmName}</span>
+                                    <span className="text-[10px] text-zinc-700 dark:text-stone-400">{sub.cpfCnpj || sub.phone}</span>
                                   </button>
                                 ))}
                               </div>
@@ -936,9 +936,9 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                     )}
 
                     {isLoadingCnpj && (
-                      <span className="text-[10px] text-zinc-700 font-bold flex items-center space-x-1">
-                        <Loader2 className="w-3 h-3 animate-spin text-zinc-700" />
-                        <span>Buscando...</span>
+                      <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1 uppercase">
+                        <Loader2 className="w-3 h-3 animate-spin text-zinc-700 dark:text-stone-300" />
+                        <span>BUSCANDO...</span>
                       </span>
                     )}
                   </div>
@@ -950,22 +950,22 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                     onChange={(e) => handleCpfCnpjChange(e.target.value)}
                     placeholder="000.000.000-00"
                     maxLength={18}
-                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 pr-8"
+                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 pr-8"
                   />
                   <button
                     type="button"
                     onClick={() => searchCnpj()}
                     disabled={isLoadingCnpj}
                     title="Buscar dados deste CNPJ na Receita ou importar ficha do cliente"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-700 hover:text-emerald-700 rounded-md transition cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-700 dark:text-stone-400 hover:text-emerald-700 dark:hover:text-emerald-400 rounded-md transition cursor-pointer"
                   >
                     <Search className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="col-span-1 md:col-span-5">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   NOME DO PRODUTOR / RESPONSÁVEL <span className="text-rose-600">*</span>
                 </label>
                 <input
@@ -973,12 +973,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="col-span-1 md:col-span-4">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   NOME DA FAZENDA / PROPRIEDADE <span className="text-rose-600">*</span>
                 </label>
                 <input
@@ -986,27 +986,27 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   required
                   value={farmName}
                   onChange={(e) => setFarmName(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
             {/* Linha 2: Inscrição Estadual (IE) / CADPRO e Telefone / WhatsApp */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="md:col-span-6">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   INSCRIÇÃO ESTADUAL (IE) / CADPRO
                 </label>
                 <input
                   type="text"
                   value={stateRegistration}
                   onChange={(e) => setStateRegistration(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="md:col-span-6">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   WHATSAPP / TELEFONE
                 </label>
                 <input
@@ -1014,24 +1014,24 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(formatPhone(e.target.value))}
                   maxLength={15}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 2: CEP, Endereço, Cidade e UF */}
-          <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-zinc-300 shadow-2xs space-y-2.5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-3">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider">
                     CEP
                   </label>
                   {isLoadingCep && (
-                    <span className="text-[10px] text-zinc-700 font-bold flex items-center space-x-1">
-                      <Loader2 className="w-3 h-3 animate-spin text-zinc-700" />
-                      <span>Buscando...</span>
+                    <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1 uppercase">
+                      <Loader2 className="w-3 h-3 animate-spin text-zinc-700 dark:text-stone-300" />
+                      <span>BUSCANDO...</span>
                     </span>
                   )}
                 </div>
@@ -1042,60 +1042,60 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                     onChange={(e) => handleCepChange(e.target.value)}
                     placeholder="00000-000"
                     maxLength={9}
-                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 pr-8"
+                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 pr-8"
                   />
                   <button
                     type="button"
                     onClick={() => searchCep()}
                     disabled={isLoadingCep}
                     title="Buscar endereço deste CEP"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-700 hover:text-emerald-700 rounded-md transition cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-700 dark:text-stone-400 hover:text-emerald-700 dark:hover:text-emerald-400 rounded-md transition cursor-pointer"
                   >
                     <Search className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="col-span-1 md:col-span-9">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   ENDEREÇO / LINHA RURAL
                 </label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-5">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   BAIRRO / COMUNIDADE
                 </label>
                 <input
                   type="text"
                   value={neighborhood}
                   onChange={(e) => setNeighborhood(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="col-span-1 md:col-span-5">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   CIDADE
                 </label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   UF / ESTADO
                 </label>
                 <input
@@ -1103,17 +1103,17 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   value={state}
                   onChange={(e) => setState(e.target.value.toUpperCase())}
                   maxLength={2}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 3: Atividade Pecuária, Cabeças & Demanda */}
-          <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-zinc-300 shadow-2xs">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-3.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                   ATIVIDADE
                 </label>
                 <div ref={atividadeContainerRef} className="relative w-full">
@@ -1129,7 +1129,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                       }}
                       onFocus={() => setIsAtividadeDropdownOpen(true)}
                       placeholder="SELECIONE OU DIGITE"
-                      className="w-full px-3 py-1 pr-8 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black font-medium uppercase focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-full px-3 py-1.5 sm:py-2 pr-8 text-xs sm:text-sm rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white font-medium uppercase focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     />
                     <button
                       type="button"
@@ -1143,7 +1143,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   </div>
 
                   {isAtividadeDropdownOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1">
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1">
                       {atividadesList.map((item) => {
                         const isSelected = atividade.trim().toUpperCase() === item;
                         return (
@@ -1157,8 +1157,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                             }}
                             className={`w-full text-left px-3 py-1.5 text-xs font-semibold uppercase transition flex items-center justify-between cursor-pointer ${
                               isSelected
-                                ? 'bg-emerald-50 text-emerald-800 font-bold'
-                                : 'text-zinc-700 hover:bg-slate-100'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold'
+                                : 'text-zinc-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700'
                             }`}
                           >
                             <span>{item}</span>
@@ -1174,129 +1174,129 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   Nº DE CABEÇAS
                 </label>
                 <input
                   type="number"
                   value={headCount}
                   onChange={(e) => handleHeadCountChange(e.target.value)}
-                  className="w-full px-3 py-1 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   DEMANDA ESTIMADA (TON/MÊS)
                 </label>
                 <input
                   type="number"
                   value={monthlyDemandTons}
                   onChange={(e) => setMonthlyDemandTons(e.target.value)}
-                  className="w-full px-3 py-1 text-xs sm:text-sm rounded-xl border border-zinc-300 bg-white text-black focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 4: CRM, E-mail & Observações */}
-          <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-zinc-300 shadow-2xs space-y-2.5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+          <div className="bg-white dark:bg-stone-800 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-3.5">
+              <div className="col-span-1 md:col-span-5">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   STATUS NO FUNIL CRM
                 </label>
                 <div className="relative">
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none pr-8 cursor-pointer"
+                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none pr-8 cursor-pointer uppercase"
                   >
-                    <option value="lead">Lead / Novo Contato</option>
-                    <option value="contatado">Contatado / Em Qualificação</option>
-                    <option value="proposta">Proposta / Cotação Enviada</option>
-                    <option value="cliente_ativo">Cliente Ativo (Comprando)</option>
-                    <option value="inativo">Inativo / Pausado</option>
+                    <option value="lead">LEAD / NOVO CONTATO</option>
+                    <option value="contatado">CONTATADO / EM QUALIFICAÇÃO</option>
+                    <option value="proposta">PROPOSTA / COTAÇÃO ENVIADA</option>
+                    <option value="cliente_ativo">CLIENTE ATIVO (COMPRANDO)</option>
+                    <option value="inativo">INATIVO / PAUSADO</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-black absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-black dark:text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <div className="col-span-1 md:col-span-7">
+                <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                   E-MAIL (OPCIONAL)
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider mb-1">
                 OBSERVAÇÕES TÉCNICAS / PREFERÊNCIAS
               </label>
               <textarea
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none h-14 sm:h-16 leading-relaxed"
+                className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none h-14 sm:h-16 leading-relaxed"
               />
             </div>
           </div>
 
           {/* Footer */}
-          <div className="pt-2.5 border-t border-zinc-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="pt-2.5 pb-1 border-t border-zinc-300 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             {/* Auditoria Automática (Canto inferior esquerdo) */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-zinc-700">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-zinc-700 dark:text-stone-400 uppercase">
               <span className="inline-flex items-center space-x-1">
-                <span className="font-bold text-zinc-900">Cadastrado em:</span>
-                <span className="text-zinc-700">
+                <span className="font-bold text-zinc-900 dark:text-stone-200">CADASTRADO EM:</span>
+                <span className="text-zinc-700 dark:text-stone-400">
                   {activeClient ? (formatDateTimeBR(activeClient.createdAt) || '—') : formatDateTimeBR(new Date().toISOString())}
                 </span>
               </span>
-              <span className="text-zinc-400 hidden sm:inline">•</span>
+              <span className="text-zinc-400 dark:text-stone-600 hidden sm:inline">•</span>
               <span className="inline-flex items-center space-x-1">
-                <span className="font-bold text-zinc-900">Alterado em:</span>
-                <span className="text-zinc-700">
-                  {activeClient?.updatedAt ? (formatDateTimeBR(activeClient.updatedAt) || 'Sem alterações') : 'Sem alterações'}
+                <span className="font-bold text-zinc-900 dark:text-stone-200">ALTERADO EM:</span>
+                <span className="text-zinc-700 dark:text-stone-400">
+                  {activeClient?.updatedAt ? (formatDateTimeBR(activeClient.updatedAt) || 'SEM ALTERAÇÕES') : 'SEM ALTERAÇÕES'}
                 </span>
               </span>
             </div>
 
-            {/* Ações (Canto inferior direito: [Cancelar] [Sair] [Atualizar Cliente]) */}
+            {/* Ações (Canto inferior direito: [CANCELAR] [SAIR] [SALVAR CLIENTE]) */}
             <div className="flex items-center justify-end space-x-2 sm:space-x-2.5">
               <button
                 type="button"
                 onClick={handleCancel}
                 title="Descartar alterações não salvas"
-                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-400"
+                className="px-4 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300 dark:border-stone-700 uppercase"
               >
-                Cancelar
+                CANCELAR
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 title="Fechar janela de cadastro"
-                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-400"
+                className="px-4 py-2 rounded-xl bg-zinc-200 dark:bg-stone-700 hover:bg-zinc-300 dark:hover:bg-stone-600 text-zinc-800 dark:text-stone-200 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300 dark:border-stone-600 uppercase"
               >
-                Sair
+                SAIR
               </button>
               <button
                 type="submit"
-                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-900"
+                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-900 uppercase"
               >
-                {activeClient ? 'Atualizar Cliente' : 'Salvar Cliente'}
+                {activeClient ? 'ATUALIZAR CLIENTE' : 'SALVAR CLIENTE'}
               </button>
             </div>
           </div>
 
         </form>
         ) : (
-          <div className="p-3 sm:p-4 space-y-3 bg-zinc-100 overflow-y-auto flex-1 flex flex-col justify-between">
+          <div className="p-3.5 sm:p-5 space-y-3 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto flex-1 flex flex-col justify-between">
             <div className="space-y-3">
               {/* 4 Cards de Resumo */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -1479,16 +1479,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('cadastro')}
-                  className="px-4 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300"
+                  className="px-4 py-2 rounded-xl bg-zinc-200 dark:bg-stone-700 hover:bg-zinc-300 dark:hover:bg-stone-600 text-zinc-800 dark:text-stone-200 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300 dark:border-stone-600 uppercase"
                 >
-                  Voltar aos Dados Cadastrais
+                  VOLTAR AOS DADOS CADASTRAIS
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-900"
+                  className="px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-900 uppercase"
                 >
-                  Fechar
+                  FECHAR
                 </button>
               </div>
             </div>
