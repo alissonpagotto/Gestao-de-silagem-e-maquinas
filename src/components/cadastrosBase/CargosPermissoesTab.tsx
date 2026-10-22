@@ -754,11 +754,12 @@ export const CargosPermissoesTab: React.FC = () => {
             {/* BOTÃO + NOVO CARGO: ABRE O PAINEL DE 3 COLUNAS EM MODO EXPANDIDO */}
             <button
               type="button"
+              id="btn-novo-cargo"
               onClick={handleOpenCreateModal}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95 uppercase tracking-wide"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Novo Cargo</span>
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ NOVO CARGO</span>
             </button>
           </div>
         </div>
