@@ -3,7 +3,7 @@ import {
   Building2, 
   FileSpreadsheet, 
   ShieldCheck, 
-  Database,
+  ClipboardList,
   Lock
 } from 'lucide-react';
 import { CargosPermissoesTab } from './CargosPermissoesTab';
@@ -61,7 +61,7 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div className="flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-            <Database className="w-3.5 h-3.5 stroke-[2.2]" />
+            <ClipboardList className="w-3.5 h-3.5 stroke-[2.2]" />
           </div>
           <div className="flex items-center space-x-2">
             <h1 className="text-base sm:text-lg font-black tracking-tight text-zinc-900 dark:text-white uppercase">

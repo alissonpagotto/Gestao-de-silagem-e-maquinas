@@ -49,7 +49,7 @@ import {
   FileHeart,
   CalendarX2,
   UserX,
-  Database,
+  ClipboardList,
   MapPin,
   Phone,
   CreditCard,
@@ -1861,7 +1861,7 @@ export const CargosPermissoesTab: React.FC = () => {
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
                           <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.cadastros_base ? 'bg-violet-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
-                            <Database className="w-3.5 h-3.5" />
+                            <ClipboardList className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
