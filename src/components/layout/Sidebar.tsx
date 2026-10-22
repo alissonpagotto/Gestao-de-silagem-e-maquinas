@@ -5,7 +5,9 @@ import {
   Sun,
   Moon,
   Lock,
-  Building
+  Building,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { CompanyProfile, SimulatedUserSession } from '../../types';
 import { 
@@ -30,6 +32,8 @@ export interface SidebarProps {
   setIsDarkMode?: (val: boolean | ((prev: boolean) => boolean)) => void;
   onOpenCustomizeShortcuts?: () => void;
   onLogout?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -42,7 +46,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isDarkMode,
   setIsDarkMode,
   onLogout,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
+  const handleToggleCollapse = () => {
+    if (onToggleCollapse) {
+      onToggleCollapse();
+    }
+  };
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
 
   // Leitura reativa da chave local dos dados da empresa ('dadosEmpresa' ou perfil oficial)
@@ -252,7 +263,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Redireciona caso a tela ativa seja ocultada pelo perfil selecionado
   useEffect(() => {
     if (isModuleHidden(activeTab)) {
-      setActiveTab('dashboard');
+      const timer = setTimeout(() => {
+        setActiveTab('dashboard');
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [userSession, activeTab]);
 
@@ -291,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside 
         id="main-sidebar"
         className={`
-          no-print absolute inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r border-slate-300 dark:border-stone-800 shadow-[1px_0_0px_0px_rgba(255,255,255,0.9)] dark:shadow-[1px_0_0px_0px_rgba(255,255,255,0.05)] flex flex-col transition-transform duration-300 ease-in-out h-full max-h-full overflow-hidden
+          no-print absolute inset-y-0 left-0 z-40 ${isCollapsed ? 'w-16' : 'w-64'} bg-zinc-200 dark:bg-stone-900 border-r border-slate-300 dark:border-stone-800 shadow-[1px_0_0px_0px_rgba(255,255,255,0.9)] dark:shadow-[1px_0_0px_0px_rgba(255,255,255,0.05)] flex flex-col transition-all duration-200 ease-in-out h-full max-h-full overflow-hidden
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -299,65 +313,118 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="shrink-0 bg-zinc-200 dark:bg-stone-900">
           
           {/* Brand Header */}
-          <div className="p-3.5 sm:p-4 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex items-center space-x-3 cursor-pointer bg-slate-100/80 dark:bg-stone-900" onClick={() => handleSelect('home')}>
-            {companyProfile?.logoUrl && !logoError ? (
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
-                <img 
-                  src={companyProfile.logoUrl} 
-                  alt="Logo" 
-                  className="max-w-full max-h-full object-contain"
-                  referrerPolicy="no-referrer"
-                  onError={() => {
-                    queueMicrotask(() => setLogoError(true));
-                  }}
-                />
-              </div>
-            ) : (
-              /* Badge circular de branding do assinante (COLAÇA SILAGEM - CS) com gradiente metálico e luz interna 3D */
+          {isCollapsed ? (
+            <div className="p-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center bg-slate-100/80 dark:bg-stone-900 gap-1.5">
+              {/* Logo / Badge CS */}
               <div 
-                className="w-10 h-10 rounded-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-750 dark:via-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_1px_rgba(255,255,255,0.9),inset_-1px_-1px_1px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center shrink-0 select-none transition-transform hover:scale-105"
-                title="Colaça Silagem (CS)"
+                className="cursor-pointer"
+                onClick={() => handleSelect('home')}
+                title="COLAÇA SILAGEM LTDA - TELA INICIAL"
               >
-                <span className="text-emerald-700 dark:text-emerald-400 font-black text-xs tracking-tight drop-shadow-[0_1px_0px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_0px_rgba(0,0,0,0.5)]">
-                  CS
-                </span>
+                {companyProfile?.logoUrl && !logoError ? (
+                  <div className="w-8 h-8 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-0.5 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+                    <img 
+                      src={companyProfile.logoUrl} 
+                      alt="Logo" 
+                      className="max-w-full max-h-full object-contain"
+                      referrerPolicy="no-referrer"
+                      onError={() => {
+                        queueMicrotask(() => setLogoError(true));
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    className="w-8 h-8 rounded-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-750 dark:via-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_1px_rgba(255,255,255,0.9),inset_-1px_-1px_1px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center shrink-0 select-none transition-transform hover:scale-105"
+                    title="COLAÇA SILAGEM LTDA"
+                  >
+                    <span className="text-emerald-700 dark:text-emerald-400 font-black text-[11px] tracking-tight drop-shadow-[0_1px_0px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_0px_rgba(0,0,0,0.5)]">
+                      CS
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-            <div className="min-w-0">
-              <h2 className="text-sm font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title="COLAÇA SILAGEM LTDA">
-                {companyProfile?.tradeName ? (companyProfile.tradeName.toUpperCase().includes('COLAÇA') ? 'COLAÇA SILAGEM LTDA' : companyProfile.tradeName) : 'COLAÇA SILAGEM LTDA'}
-              </h2>
-              <p 
-                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[170px]"
-                title="SERVIÇOS DE SILAGEM"
+
+              {/* Botão Micro de Expandir Menu Lateral */}
+              <button
+                id="btn-expand-sidebar-toggle"
+                type="button"
+                onClick={handleToggleCollapse}
+                title="EXPANDIR MENU LATERAL"
+                aria-label="Expandir Menu Lateral"
+                className="p-1 rounded bg-slate-200/90 dark:bg-stone-800 hover:bg-slate-300 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white transition shadow-2xs cursor-pointer shrink-0 border border-slate-300/90 dark:border-stone-700"
               >
-                {dadosEmpresa?.ramoAtividade?.toUpperCase().includes('PRESTAÇÃO') || dadosEmpresa?.ramoAtividade?.toUpperCase().includes('GESTÃO') ? 'SERVIÇOS DE SILAGEM' : (dadosEmpresa?.ramoAtividade?.toUpperCase() || 'SERVIÇOS DE SILAGEM')}
-              </p>
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <div className="p-3 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex items-center justify-between bg-slate-100/80 dark:bg-stone-900 gap-1.5">
+              <div 
+                className="flex items-center space-x-2.5 cursor-pointer min-w-0 flex-1"
+                onClick={() => handleSelect('home')}
+                title="TELA INICIAL (AGROCONTROL)"
+              >
+                {companyProfile?.logoUrl && !logoError ? (
+                  <div className="w-9 h-9 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+                    <img 
+                      src={companyProfile.logoUrl} 
+                      alt="Logo" 
+                      className="max-w-full max-h-full object-contain"
+                      referrerPolicy="no-referrer"
+                      onError={() => {
+                        queueMicrotask(() => setLogoError(true));
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    className="w-9 h-9 rounded-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-750 dark:via-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_1px_rgba(255,255,255,0.9),inset_-1px_-1px_1px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center shrink-0 select-none transition-transform hover:scale-105"
+                    title="COLAÇA SILAGEM (CS)"
+                  >
+                    <span className="text-emerald-700 dark:text-emerald-400 font-black text-xs tracking-tight drop-shadow-[0_1px_0px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_0px_rgba(0,0,0,0.5)]">
+                      CS
+                    </span>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xs font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title="COLAÇA SILAGEM LTDA">
+                    {companyProfile?.tradeName ? (companyProfile.tradeName.toUpperCase().includes('COLAÇA') ? 'COLAÇA SILAGEM LTDA' : companyProfile.tradeName) : 'COLAÇA SILAGEM LTDA'}
+                  </h2>
+                  <p 
+                    className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[140px]"
+                    title="SERVIÇOS DE SILAGEM"
+                  >
+                    {dadosEmpresa?.ramoAtividade?.toUpperCase().includes('PRESTAÇÃO') || dadosEmpresa?.ramoAtividade?.toUpperCase().includes('GESTÃO') ? 'SERVIÇOS DE SILAGEM' : (dadosEmpresa?.ramoAtividade?.toUpperCase() || 'SERVIÇOS DE SILAGEM')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Botão Micro de Encolher Sidebar */}
+              <button
+                id="btn-collapse-sidebar-toggle"
+                type="button"
+                onClick={handleToggleCollapse}
+                title="RECOLHER MENU LATERAL"
+                aria-label="Recolher Menu Lateral"
+                className="p-1 rounded bg-slate-200/80 dark:bg-stone-800 hover:bg-slate-300 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white transition shadow-2xs cursor-pointer shrink-0 border border-slate-300/90 dark:border-stone-700"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Navigation Section Header: Título MENU PRINCIPAL com botão interativo Home */}
-          <div className="px-3 pt-2.5 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
-            <button
-              type="button"
-              id="sidebar-nav-home-trigger"
-              onClick={() => handleSelect('home')}
-              title="Ir para a Tela Inicial (AGROCONTROL)"
-              className="shrink-0 text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider hover:bg-slate-200/90 dark:hover:bg-white/15 cursor-pointer rounded p-1 transition-all select-none"
-            >
-              MENU PRINCIPAL
-            </button>
-
-            <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
+          {isCollapsed ? (
+            <div className="py-1 px-1 flex flex-col items-center justify-center gap-1 border-b border-slate-300/60 dark:border-stone-700/60">
               {/* Notificações / Sininho */}
               <button
                 type="button"
                 onClick={() => handleSelect('funcionarios')}
-                title="Notificações e Avisos de CNH"
-                className="relative p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
+                title="NOTIFICAÇÕES E AVISOS DE CNH"
+                className="relative p-1 rounded-md text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
               >
-                <Bell className="w-4 h-4" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                <Bell className="w-3.5 h-3.5" />
+                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
               </button>
 
               {/* Alternar Tema Claro / Escuro */}
@@ -366,23 +433,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   id="btn-theme-toggle"
                   type="button"
                   onClick={() => setIsDarkMode(prev => !prev)}
-                  title={isDarkMode ? 'Mudar para modo claro (Light)' : 'Mudar para modo escuro (Dark)'}
+                  title={isDarkMode ? 'MUDAR PARA MODO CLARO' : 'MUDAR PARA MODO ESCURO'}
                   aria-label="Alternar tema claro e escuro"
-                  className="p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
+                  className="p-1 rounded-md text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
                 >
                   {isDarkMode ? (
-                    <Sun className="w-4 h-4 fill-amber-400/20 text-amber-300" />
+                    <Sun className="w-3.5 h-3.5 fill-amber-400/20 text-amber-300" />
                   ) : (
-                    <Moon className="w-4 h-4 text-zinc-700 dark:text-white" />
+                    <Moon className="w-3.5 h-3.5 text-zinc-700 dark:text-white" />
                   )}
                 </button>
               )}
             </div>
-          </div>
+          ) : (
+            <div className="px-3 pt-2.5 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
+              <button
+                type="button"
+                id="sidebar-nav-home-trigger"
+                onClick={() => handleSelect('home')}
+                title="TELA INICIAL (AGROCONTROL)"
+                className="shrink-0 text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider hover:bg-slate-200/90 dark:hover:bg-white/15 cursor-pointer rounded p-1 transition-all select-none"
+              >
+                MENU PRINCIPAL
+              </button>
+
+              <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
+                {/* Notificações / Sininho */}
+                <button
+                  type="button"
+                  onClick={() => handleSelect('funcionarios')}
+                  title="NOTIFICAÇÕES E AVISOS DE CNH"
+                  className="relative p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
+                >
+                  <Bell className="w-4 h-4" />
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                </button>
+
+                {/* Alternar Tema Claro / Escuro */}
+                {setIsDarkMode && (
+                  <button
+                    id="btn-theme-toggle"
+                    type="button"
+                    onClick={() => setIsDarkMode(prev => !prev)}
+                    title={isDarkMode ? 'MUDAR PARA MODO CLARO' : 'MUDAR PARA MODO ESCURO'}
+                    aria-label="Alternar tema claro e escuro"
+                    className="p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
+                  >
+                    {isDarkMode ? (
+                      <Sun className="w-4 h-4 fill-amber-400/20 text-amber-300" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-zinc-700 dark:text-white" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 1. EXPANDIR A MOLDURA MÃE 3D PARA 100% DA ALTURA DA BARRA LATERAL (RETÂNGULO VERDE): */}
-        <div className="flex-1 min-h-0 flex flex-col px-2.5 py-1 overflow-hidden">
+        <div className={`flex-1 min-h-0 flex flex-col ${isCollapsed ? 'px-1.5' : 'px-2.5'} py-1 overflow-hidden`}>
           {/* MOLDURA MÃE TRIDIMENSIONAL ÚNICA EXPANDIDA (FICHÁRIO METÁLICO EM RELEVO) */}
           <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-800/90 dark:to-stone-900 border-2 border-slate-400/90 dark:border-stone-700 rounded-lg p-1 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.4)] overflow-hidden">
             {/* Topo do Container: 13 Categorias Ativas */}
@@ -412,8 +522,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       id={`sidebar-nav-${item.id}`}
                       onClick={() => handleSelect(item.id)}
+                      title={isRestricted ? `${item.label.toUpperCase()} (ACESSO BLOQUEADO)` : item.label.toUpperCase()}
                       className={`
-                        w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
+                        w-full flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-2.5'} py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
                         ${
                           isRestricted
                             ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
@@ -423,7 +534,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }
                       `}
                     >
-                      <div className="flex items-center space-x-2.5 truncate">
+                      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-2.5 truncate'}`}>
                         <Icon 
                           className={`w-4 h-4 shrink-0 transition ${
                             isRestricted 
@@ -433,21 +544,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
                           }`} 
                         />
-                        <span 
-                          className={`truncate text-[11px] font-bold uppercase tracking-wider ${
-                            isRestricted
-                              ? 'text-zinc-500 dark:text-stone-400'
-                              : isActive 
-                                ? 'text-slate-900 font-bold dark:text-white' 
-                                : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-200 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
-                          }`}
-                        >
-                          {item.label}
-                        </span>
+                        {!isCollapsed && (
+                          <span 
+                            className={`truncate text-[11px] font-bold uppercase tracking-wider ${
+                              isRestricted
+                                ? 'text-zinc-500 dark:text-stone-400'
+                                : isActive 
+                                  ? 'text-slate-900 font-bold dark:text-white' 
+                                  : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-200 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                        )}
                       </div>
 
-                      {isRestricted && (
-                        <span title="Acesso Bloqueado para este Cargo">
+                      {!isCollapsed && isRestricted && (
+                        <span title="ACESSO BLOQUEADO PARA ESTE CARGO">
                           <Lock className="w-3.5 h-3.5 text-rose-500" />
                         </span>
                       )}
@@ -464,7 +577,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={`empty-folder-line-${idx}`}
                   className="py-0.5 border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
                 >
-                  <div className="w-full flex items-center px-2.5 py-1.5 h-[27px] rounded-md" />
+                  <div className={`w-full flex items-center ${isCollapsed ? 'px-1' : 'px-2.5'} py-1.5 h-[27px] rounded-md`} />
                 </div>
               ))}
             </div>
@@ -482,8 +595,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id="sidebar-nav-configuracoes"
               type="button"
               onClick={() => handleSelect('configuracoes')}
+              title="DADOS DA EMPRESA"
               className={`
-                w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
+                w-full flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-2.5'} py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
                 ${
                   isEmpresaActive
                     ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
@@ -491,19 +605,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }
               `}
             >
-              <div className="flex items-center space-x-2.5 truncate">
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-2.5 truncate'}`}>
                 <Building 
                   className={`w-4 h-4 shrink-0 transition ${
                     isEmpresaActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
                   }`} 
                 />
-                <span 
-                  className={`truncate text-[11px] font-bold uppercase tracking-wider ${
-                    isEmpresaActive ? 'text-slate-900 font-bold dark:text-white' : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
-                  }`}
-                >
-                  Dados da Empresa
-                </span>
+                {!isCollapsed && (
+                  <span 
+                    className={`truncate text-[11px] font-bold uppercase tracking-wider ${
+                      isEmpresaActive ? 'text-slate-900 font-bold dark:text-white' : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
+                    }`}
+                  >
+                    Dados da Empresa
+                  </span>
+                )}
               </div>
             </button>
           )}

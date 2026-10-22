@@ -1564,6 +1564,23 @@ export default function App() {
     }
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('colaca_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('colaca_sidebar_collapsed', String(next));
+      } catch (e) {}
+      return next;
+    });
+  };
 
   // Modals
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -3253,6 +3270,8 @@ export default function App() {
               isDarkMode={isDarkMode}
               setIsDarkMode={setIsDarkMode}
               onLogout={handleLogout}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={toggleSidebarCollapse}
             />
           )}
 
@@ -3266,7 +3285,7 @@ export default function App() {
 
           {/* Main Body Area with left padding for desktop sidebar */}
           <div 
-            className={`${isPdvFullscreen ? 'pl-0' : 'lg:pl-64'} flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-[#b9cde3] dark:bg-stone-950`}
+            className={`${isPdvFullscreen ? 'pl-0' : isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'} flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-[#b9cde3] dark:bg-stone-950 transition-all duration-200`}
           >
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 

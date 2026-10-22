@@ -583,6 +583,26 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     };
   }, []);
   const [vacationQuickFilter, setVacationQuickFilter] = useState<'all' | 'expired' | 'warning'>('all');
+  const [showCnhColumn, setShowCnhColumn] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_col_cnh_visivel');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleCnhColumn = () => {
+    setShowCnhColumn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('agrocontrol_col_cnh_visivel', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [singleEmployeePrintOptions, setSingleEmployeePrintOptions] = useState<PrintDocumentOptions | null>(null);
@@ -3159,6 +3179,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               <AlertTriangle className="w-3 h-3 shrink-0" />
               <span>Férias a Vencer ({vacationAlertsSummary.warningCount})</span>
             </button>
+
+            {/* Botão de Alternância da Coluna CNH / Status */}
+            <button
+              type="button"
+              onClick={handleToggleCnhColumn}
+              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition cursor-pointer uppercase whitespace-nowrap sm:ml-auto ${
+                showCnhColumn
+                  ? 'bg-white dark:bg-stone-900 hover:bg-slate-100 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-700'
+                  : 'bg-amber-500 hover:bg-amber-600 text-stone-950 border-amber-600 shadow-2xs font-black'
+              }`}
+              title={showCnhColumn ? 'OCULTAR COLUNA CNH / STATUS' : 'EXIBIR COLUNA CNH / STATUS'}
+            >
+              <CreditCard className="w-3 h-3 shrink-0" />
+              <span>{showCnhColumn ? 'OCULTAR CNH' : 'EXIBIR CNH'}</span>
+            </button>
           </div>
         </div>
 
@@ -3171,14 +3206,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <th className="py-1.5 px-3 whitespace-nowrap">Cargo / Regime</th>
                 <th className="py-1.5 px-3 whitespace-nowrap">Salário Base</th>
                 <th className="py-1.5 px-3 whitespace-nowrap">Comissão</th>
-                <th className="py-1.5 px-3 whitespace-nowrap">CNH / Status</th>
+                {showCnhColumn && (
+                  <th className="py-1.5 px-3 whitespace-nowrap">
+                    <div className="flex items-center space-x-1.5 whitespace-nowrap">
+                      <span>CNH / STATUS</span>
+                      <button
+                        type="button"
+                        onClick={handleToggleCnhColumn}
+                        className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-slate-700 dark:text-stone-200 border border-slate-300 dark:border-stone-600 transition cursor-pointer"
+                        title="ENCOLHER / OCULTAR COLUNA CNH"
+                      >
+                        OCULTAR
+                      </button>
+                    </div>
+                  </th>
+                )}
                 <th className="py-1.5 px-3 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {displayedEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
+                  <td colSpan={showCnhColumn ? 6 : 5} className="py-6 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
                     {vacationQuickFilter === 'expired'
                       ? 'Nenhum colaborador com Férias Vencidas no momento.'
                       : vacationQuickFilter === 'warning'
@@ -3296,19 +3345,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     )}
                   </td>
 
-                  <td className="py-1 px-3 align-middle whitespace-nowrap">
-                    <div className="flex items-center space-x-1.5 whitespace-nowrap">
-                      {emp.cnhNumber ? (
-                        <div className="inline-flex items-center space-x-1 text-xs whitespace-nowrap">
-                          <CreditCard className="w-3 h-3 text-slate-500 shrink-0" />
-                          <span className="font-bold text-black dark:text-stone-200 whitespace-nowrap">
-                            Cat. {emp.cnhCategory || 'B'}
-                          </span>
-                        </div>
-                      ) : null}
-                      <span className="whitespace-nowrap">{getCnhBadge(emp)}</span>
-                    </div>
-                  </td>
+                  {showCnhColumn && (
+                    <td className="py-1 px-3 align-middle whitespace-nowrap">
+                      <div className="flex items-center space-x-1.5 whitespace-nowrap">
+                        {emp.cnhNumber ? (
+                          <div className="inline-flex items-center space-x-1 text-xs whitespace-nowrap">
+                            <CreditCard className="w-3 h-3 text-slate-500 shrink-0" />
+                            <span className="font-bold text-black dark:text-stone-200 whitespace-nowrap">
+                              Cat. {emp.cnhCategory || 'B'}
+                            </span>
+                          </div>
+                        ) : null}
+                        <span className="whitespace-nowrap">{getCnhBadge(emp)}</span>
+                      </div>
+                    </td>
+                  )}
 
                   <td className="py-1 px-3 text-right align-middle whitespace-nowrap">
                     <div className="flex items-center justify-end space-x-1 whitespace-nowrap">
