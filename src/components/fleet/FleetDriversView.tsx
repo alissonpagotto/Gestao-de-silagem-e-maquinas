@@ -492,8 +492,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       {/* Compact Search & Filter Toolbar (conforme simetria da aba de Veículos) */}
       <div className="bg-white dark:bg-stone-900 p-2 sm:p-2.5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col lg:flex-row items-center justify-between gap-2.5 no-print print:hidden">
         
-        {/* Lado Esquerdo: Busca + Botão Cadastrar Motorista + Botão Imprimir Lista */}
-        <div className="flex flex-1 items-center gap-2 max-w-2xl min-w-0 w-full lg:w-auto">
+        {/* Lado Esquerdo: Busca */}
+        <div className="flex flex-1 items-center gap-2 max-w-md min-w-0 w-full lg:w-auto">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
@@ -504,8 +504,11 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               className="w-full pl-8.5 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-sky-600"
             />
           </div>
+        </div>
 
-          {/* 1. Botão "+ CADASTRAR MOTORISTA" (3D Metálico - Redireciona para RH) */}
+        {/* Lado Direito: Botões (+ CADASTRAR MOTORISTA, IMPRIMIR LISTA), Dropdown 'Todos os Motoristas' + View Toggle */}
+        <div className="flex items-center flex-wrap gap-2 shrink-0 w-full lg:w-auto justify-between lg:justify-end">
+          {/* 1. Botão "+ CADASTRAR MOTORISTA" (Padrão Verde Oficial AgroControl - Redireciona para RH) */}
           <button
             type="button"
             id="btn-cadastrar-motorista-frota"
@@ -517,9 +520,9 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               }
             }}
             title="Cadastrar Novo Motorista (Centralizado no Módulo RH)"
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+            className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] border border-emerald-700/60 text-white text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
           >
-            <Plus className="w-4 h-4 text-slate-700 dark:text-stone-300 stroke-[2.5]" />
+            <Plus className="w-4 h-4 text-white stroke-[2.5]" />
             <span>+ CADASTRAR MOTORISTA</span>
           </button>
 
@@ -534,10 +537,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
             <span>IMPRIMIR LISTA</span>
           </button>
-        </div>
 
-        {/* Lado Direito: Dropdown 'Todos os Motoristas (13)' + View Toggle */}
-        <div className="flex items-center space-x-2 shrink-0 w-full lg:w-auto justify-between lg:justify-end">
           <select
             value={filterCnh}
             onChange={(e) => setFilterCnh(e.target.value as any)}
