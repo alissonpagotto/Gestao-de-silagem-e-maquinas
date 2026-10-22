@@ -665,11 +665,11 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#b9cde3] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-[#edf4ff] dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
           {activeTab === 'inventario' ? (
             <>
               {/* GRADE DE CARDS (VALOR TOTAL, ALERTAS, DIESEL EM TANQUE) EM MOLDURA UNIFICADA */}
-              <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+              <div className="border border-[#edf4ff] dark:border-stone-700/80 rounded bg-[#edf4ff] dark:bg-stone-850 p-2 shadow-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
                   {/* Card 1: Valor Total */}
                   <div className="flex items-center justify-between px-2 py-1">
