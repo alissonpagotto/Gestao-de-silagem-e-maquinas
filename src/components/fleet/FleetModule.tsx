@@ -94,6 +94,7 @@ interface FleetModuleProps {
   onSaveBankAccounts?: (accounts: BankAccount[]) => void;
   onNavigate?: (tab: string) => void;
   onNavigateToFiscal?: () => void;
+  onNavigateToNewDriverEmployee?: () => void;
 }
 
 export const FleetModule: React.FC<FleetModuleProps> = ({
@@ -124,6 +125,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   onSaveBankAccounts,
   onNavigate,
   onNavigateToFiscal,
+  onNavigateToNewDriverEmployee,
 }) => {
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
@@ -1301,6 +1303,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
               onNavigateToVehicle={(vId) => {
                 setActiveSubTab('veiculos');
               }}
+              onNavigateToNewDriverEmployee={onNavigateToNewDriverEmployee}
             />
           )}
 

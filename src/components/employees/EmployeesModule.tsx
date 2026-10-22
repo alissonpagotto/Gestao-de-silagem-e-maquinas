@@ -555,6 +555,7 @@ interface EmployeesModuleProps {
   onDeleteEmployee?: (id: string) => Promise<void> | void;
   externalNewEmployeeTrigger?: number;
   externalPrintEmployeesTrigger?: number;
+  defaultRole?: string;
 }
 
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
@@ -565,6 +566,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   onDeleteEmployee,
   externalNewEmployeeTrigger,
   externalPrintEmployeesTrigger,
+  defaultRole,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
@@ -1523,11 +1525,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     return detectAccountOrPixType(bankAccount);
   }, [bankAccount]);
 
-  const handleOpenNew = () => {
+  const handleOpenNew = (presetRole?: string) => {
     setEditingEmployee(null);
     setRegistrationType('Funcionário');
     setName('');
-    setRole1('Operador de Forrageira');
+    const resolvedRole = presetRole || defaultRole || 'Operador de Forrageira';
+    setRole1(resolvedRole);
     setRole2('');
     setBrokerCommissionType('Porcentagem (%) sobre o valor do pedido');
     setBrokerCommissionValue('5,00');
@@ -1548,7 +1551,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCommissionPerAlqueire('0,00');
     setCommissionPerHectare('0,00');
     setCnhNumber('');
-    setCnhCategory('B');
+    const isDriverRole = resolvedRole.toLowerCase().includes('motorista');
+    setCnhCategory(isDriverRole ? 'E' : 'B');
     setCnhExpiration('');
     setCnhUpgradeDT(false);
     setCnhUpgradeCategory('A');
@@ -1567,18 +1571,39 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setGeneralDocs(null);
     setSignedRegistrationDoc(null);
     setIsModalOpen(true);
+
+    if (isDriverRole) {
+      setTimeout(() => {
+        const cnhSection = document.getElementById('secao-cnh-funcionario');
+        if (cnhSection) {
+          cnhSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+    }
   };
 
-  // Listeners para triggers externos vindos da linha do cabeçalho principal
+  // Listeners para triggers externos vindos da linha do cabeçalho principal ou navegação entre módulos
   const lastNewTriggerRef = useRef(externalNewEmployeeTrigger);
   useEffect(() => {
     if (externalNewEmployeeTrigger !== undefined && externalNewEmployeeTrigger !== lastNewTriggerRef.current) {
       lastNewTriggerRef.current = externalNewEmployeeTrigger;
       if (externalNewEmployeeTrigger > 0) {
-        handleOpenNew();
+        handleOpenNew(defaultRole);
       }
     }
-  }, [externalNewEmployeeTrigger]);
+  }, [externalNewEmployeeTrigger, defaultRole]);
+
+  // Listener para eventos globais de cadastro direto de colaborador/motorista
+  useEffect(() => {
+    const handleGlobalNewDriver = (e: any) => {
+      const targetRole = e?.detail?.role || 'Motorista';
+      handleOpenNew(targetRole);
+    };
+    window.addEventListener('agrocontrol_open_new_employee', handleGlobalNewDriver);
+    return () => {
+      window.removeEventListener('agrocontrol_open_new_employee', handleGlobalNewDriver);
+    };
+  }, []);
 
   const lastPrintTriggerRef = useRef(externalPrintEmployeesTrigger);
   useEffect(() => {
@@ -4130,7 +4155,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               )}
 
               {/* SECTION 4: CNH & MELHORAR CATEGORIA (DT) - FIXAMENTE EXPANDIDA */}
-              <div className="border border-stone-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white/70 dark:bg-stone-800/70 shadow-2xs">
+              <div id="secao-cnh-funcionario" className="border border-stone-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white/70 dark:bg-stone-800/70 shadow-2xs scroll-mt-6">
                 {/* Cabeçalho Fixo (Não Colapsável) */}
                 <div className="w-full px-3.5 py-2.5 bg-white/90 dark:bg-stone-800/90 flex items-center justify-between text-xs font-bold text-black dark:text-stone-100 border-b border-stone-200 dark:border-stone-700 select-none">
                   <div className="flex items-center space-x-2">

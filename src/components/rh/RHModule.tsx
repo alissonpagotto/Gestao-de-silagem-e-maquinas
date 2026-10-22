@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Users, 
   FileText, 
@@ -87,6 +87,8 @@ interface RHModuleProps {
   onSaveCertificates?: (certificates: MedicalCertificateRecord[]) => void;
   onSaveAbsences?: (absences: AbsenceRecord[]) => void;
   onNavigateToEmployees?: () => void;
+  externalNewEmployeeTrigger?: number;
+  defaultEmployeeRole?: string;
 }
 
 export type RHTabType = 
@@ -120,6 +122,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
   onSaveCertificates,
   onSaveAbsences,
   onNavigateToEmployees,
+  externalNewEmployeeTrigger: propExternalNewEmployeeTrigger,
+  defaultEmployeeRole,
 }) => {
   const allowedRhTabs = useMemo<RHTabType[]>(() => {
     const list: RHTabType[] = [];
@@ -145,6 +149,13 @@ export const RHModule: React.FC<RHModuleProps> = ({
       setActiveTab(allowedRhTabs[0]);
     }
   }, [allowedRhTabs, activeTab]);
+
+  // Sincroniza activeTab reativamente se initialSubTab for atualizado externamente
+  useEffect(() => {
+    if (initialSubTab && allowedRhTabs.includes(initialSubTab)) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab, allowedRhTabs]);
 
   const [tabRefreshEpoch, setTabRefreshEpoch] = useState<number>(0);
   const [currentMonthRef, setCurrentMonthRef] = useState<string>('09/2026');
@@ -466,9 +477,20 @@ export const RHModule: React.FC<RHModuleProps> = ({
     setActiveTab('adiantamentos');
   };
 
-  // Triggers para acionar ações de Funcionários a partir do cabeçalho superior
+  // Triggers para acionar ações de Funcionários a partir do cabeçalho superior ou de módulos externos
   const [externalNewEmployeeTrigger, setExternalNewEmployeeTrigger] = useState(0);
   const [externalPrintEmployeesTrigger, setExternalPrintEmployeesTrigger] = useState(0);
+
+  const lastExternalPropTriggerRef = useRef(propExternalNewEmployeeTrigger);
+  useEffect(() => {
+    if (propExternalNewEmployeeTrigger !== undefined && propExternalNewEmployeeTrigger !== lastExternalPropTriggerRef.current) {
+      lastExternalPropTriggerRef.current = propExternalNewEmployeeTrigger;
+      if (propExternalNewEmployeeTrigger > 0) {
+        setActiveTab('funcionarios');
+        setExternalNewEmployeeTrigger(prev => prev + 1);
+      }
+    }
+  }, [propExternalNewEmployeeTrigger]);
 
   return (
     <div className="w-full max-w-none space-y-3 sm:space-y-4">
@@ -695,6 +717,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           onDeleteEmployee={onDeleteEmployee}
           externalNewEmployeeTrigger={externalNewEmployeeTrigger}
           externalPrintEmployeesTrigger={externalPrintEmployeesTrigger}
+          defaultRole={defaultEmployeeRole}
         />
       )}
 

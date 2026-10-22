@@ -126,7 +126,7 @@ import { PaymentSettlementData } from './components/financial/PaymentSettlementM
 import { NfeModule } from './components/nfe/NfeModule';
 import { FleetModule } from './components/fleet/FleetModule';
 import { EmployeesModule } from './components/employees/EmployeesModule';
-import { RHModule } from './components/rh/RHModule';
+import { RHModule, RHTabType } from './components/rh/RHModule';
 import { ServicesModule } from './components/services/ServicesModule';
 import { VendaModule } from './components/vendas/VendaModule';
 import { InventoryModule } from './components/inventory/InventoryModule';
@@ -1485,6 +1485,28 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState<string>(getResolvedActiveTab);
+
+  // Estados reativos para ponte de redirecionamento de cadastro de motorista para o módulo RH
+  const [rhInitialSubTab, setRhInitialSubTab] = useState<RHTabType | undefined>(undefined);
+  const [rhAutoOpenNewEmployeeTrigger, setRhAutoOpenNewEmployeeTrigger] = useState<number>(0);
+  const [rhDefaultEmployeeRole, setRhDefaultEmployeeRole] = useState<string | undefined>(undefined);
+
+  const handleNavigateToNewDriverEmployee = useCallback(() => {
+    setActiveTab('rh');
+    setRhInitialSubTab('funcionarios');
+    setRhDefaultEmployeeRole('Motorista');
+    setRhAutoOpenNewEmployeeTrigger((prev) => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalDriverNav = () => {
+      handleNavigateToNewDriverEmployee();
+    };
+    window.addEventListener('agrocontrol_navigate_new_driver', handleGlobalDriverNav);
+    return () => {
+      window.removeEventListener('agrocontrol_navigate_new_driver', handleGlobalDriverNav);
+    };
+  }, [handleNavigateToNewDriverEmployee]);
 
   // Sessão Ativa / Simulação de Cargo para Controle de Nível de Acesso (Modo Offline)
   const [activeSession, setActiveSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
@@ -3566,13 +3588,15 @@ export default function App() {
               advances={advances}
               services={services}
               companyProfile={companyProfile}
-              initialSubTab={activeTab === 'funcionarios' ? 'funcionarios' : undefined}
+              initialSubTab={rhInitialSubTab || (activeTab === 'funcionarios' ? 'funcionarios' : undefined)}
               onSaveEmployees={handleSaveEmployees}
               onDeleteEmployee={handleDeleteEmployee}
               onSavePayrolls={handleSavePayrolls}
               onSaveVacations={handleSaveVacations}
               onSaveLeaves={handleSaveLeaves}
               onSaveAdvances={handleSaveAdvances}
+              externalNewEmployeeTrigger={rhAutoOpenNewEmployeeTrigger}
+              defaultEmployeeRole={rhDefaultEmployeeRole}
             />
           )}
 
@@ -3686,6 +3710,7 @@ export default function App() {
               }}
               onNavigate={(tab) => setActiveTab(tab)}
               onNavigateToFiscal={() => setActiveTab('fiscal')}
+              onNavigateToNewDriverEmployee={handleNavigateToNewDriverEmployee}
             />
           )}
 
