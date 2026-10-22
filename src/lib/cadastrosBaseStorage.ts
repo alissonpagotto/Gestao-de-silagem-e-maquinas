@@ -603,9 +603,15 @@ export function getStoredCargosPermissoes(): CargoPermissao[] {
 export function saveStoredCargosPermissoes(cargos: CargoPermissao[]): void {
   try {
     const consolidated = consolidateCargosList(cargos);
-    localStorage.setItem(CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES, JSON.stringify(consolidated));
+    const jsonStr = JSON.stringify(consolidated);
+    localStorage.setItem(CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES, jsonStr);
+    localStorage.setItem('agrocontrol_cargos_permissoes', jsonStr);
+    localStorage.setItem('agrocontrol_cargos', jsonStr);
+    localStorage.setItem('cargos_permissoes', jsonStr);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('colaca_silagem_cargos_updated', { detail: consolidated }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_cargos_updated', { detail: consolidated }));
+      window.dispatchEvent(new CustomEvent('cargos_permissoes_updated', { detail: consolidated }));
     }
   } catch (err) {
     console.error('Erro ao salvar cargos_permissoes no localStorage:', err);
