@@ -860,8 +860,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     }
   }, [isBroker, receivesCommission]);
 
-  // CNH Details (Collapsible / Extended)
-  const [showCnhFields, setShowCnhFields] = useState<boolean>(false);
+  // CNH Details (Permanently Visible)
   const [cnhNumber, setCnhNumber] = useState<string>('');
   const [cnhCategory, setCnhCategory] = useState<string>('B');
   const [cnhExpiration, setCnhExpiration] = useState<string>('');
@@ -1547,7 +1546,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setExperienceContractDoc(null);
     setGeneralDocs(null);
     setSignedRegistrationDoc(null);
-    setShowCnhFields(false);
     setIsModalOpen(true);
   };
 
@@ -1715,8 +1713,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       uploadedAt: new Date().toISOString(),
     } : null);
     setSignedRegistrationDoc(fichaDoc);
-
-    setShowCnhFields(Boolean(emp.cnhNumber || emp.cnhExpiration || emp.cnhUpgradeDT));
     setIsModalOpen(true);
   };
 
@@ -4082,118 +4078,116 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 </div>
               )}
 
-              {/* SECTION 4: CNH & MELHORAR CATEGORIA (DT) */}
-              <div className="border border-stone-300 rounded-xl overflow-hidden bg-white/70">
-                <button
-                  type="button"
-                  onClick={() => setShowCnhFields(!showCnhFields)}
-                  className="w-full px-3.5 py-2.5 bg-white/80 flex items-center justify-between text-xs font-bold text-black hover:bg-white transition cursor-pointer"
-                >
+              {/* SECTION 4: CNH & MELHORAR CATEGORIA (DT) - FIXAMENTE EXPANDIDA */}
+              <div className="border border-stone-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white/70 dark:bg-stone-800/70 shadow-2xs">
+                {/* Cabeçalho Fixo (Não Colapsável) */}
+                <div className="w-full px-3.5 py-2.5 bg-white/90 dark:bg-stone-800/90 flex items-center justify-between text-xs font-bold text-black dark:text-stone-100 border-b border-stone-200 dark:border-stone-700 select-none">
                   <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4 text-[#0963cb]" />
-                    <span>Carteira de Habilitação (CNH) & Opção de Melhorar Categoria (DT)</span>
+                    <CreditCard className="w-4 h-4 text-[#0963cb] shrink-0" />
+                    <span className="uppercase tracking-wide font-black">
+                      CARTEIRA DE HABILITAÇÃO (CNH) & OPÇÃO DE MELHORAR CATEGORIA (DT)
+                    </span>
                   </div>
-                  {showCnhFields ? <ChevronUp className="w-4 h-4 text-black" /> : <ChevronDown className="w-4 h-4 text-black" />}
-                </button>
+                </div>
 
-                {showCnhFields && (
-                  <div className="p-4 bg-white space-y-4 border-t border-stone-300 animate-fade-in">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
-                          Nº CNH
-                        </label>
-                        <input
-                          type="text"
-                          value={cnhNumber}
-                          onChange={(e) => setCnhNumber(e.target.value.toUpperCase())}
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
-                          CATEGORIA CNH ATUAL
-                        </label>
-                        <select
-                          value={cnhCategory}
-                          onChange={(e) => setCnhCategory(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                        >
-                          <option value="A">A (Moto / Veículo 2 rodas)</option>
-                          <option value="B">B (Carro / Utilitário leve)</option>
-                          <option value="C">C (Caminhão / Trator agrícola)</option>
-                          <option value="D">D (Ônibus / Van)</option>
-                          <option value="E">E (Carreta / Articulado)</option>
-                          <option value="AB">AB (Moto + Carro)</option>
-                          <option value="AC">AC (Moto + Caminhão)</option>
-                          <option value="AD">AD (Moto + Ônibus)</option>
-                          <option value="AE">AE (Moto + Carreta)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
-                          VALIDADE CNH
-                        </label>
-                        <input
-                          type="date"
-                          value={cnhExpiration}
-                          onChange={(e) => setCnhExpiration(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                        />
-                      </div>
+                {/* Conteúdo Permanentemente Visível */}
+                <div className="p-3 bg-white dark:bg-stone-850 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-200 uppercase tracking-wider mb-1">
+                        Nº CNH
+                      </label>
+                      <input
+                        type="text"
+                        value={cnhNumber}
+                        onChange={(e) => setCnhNumber(e.target.value.toUpperCase())}
+                        placeholder="EX: 00000000000"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-stone-300 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
+                      />
                     </div>
 
-                    {/* Sub-bloco: Melhorar categoria (DT) */}
-                    <div className="p-3 bg-sky-50/80 border border-sky-200 rounded-xl space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="cnh-upgrade-checkbox"
-                            checked={cnhUpgradeDT}
-                            onChange={(e) => setCnhUpgradeDT(e.target.checked)}
-                            className="w-4 h-4 text-[#0963cb] rounded border-stone-300 focus:ring-[#0963cb] cursor-pointer"
-                          />
-                          <label htmlFor="cnh-upgrade-checkbox" className="text-xs font-bold text-black cursor-pointer">
-                            Melhorar categoria (DT)
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-200 uppercase tracking-wider mb-1">
+                        CATEGORIA CNH ATUAL
+                      </label>
+                      <select
+                        value={cnhCategory}
+                        onChange={(e) => setCnhCategory(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-stone-300 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase font-bold"
+                      >
+                        <option value="A">A (MOTO / VEÍCULO 2 RODAS)</option>
+                        <option value="B">B (CARRO / UTILITÁRIO LEVE)</option>
+                        <option value="C">C (CAMINHÃO / TRATOR AGRÍCOLA)</option>
+                        <option value="D">D (ÔNIBUS / VAN)</option>
+                        <option value="E">E (CARRETA / ARTICULADO)</option>
+                        <option value="AB">AB (MOTO + CARRO)</option>
+                        <option value="AC">AC (MOTO + CAMINHÃO)</option>
+                        <option value="AD">AD (MOTO + ÔNIBUS)</option>
+                        <option value="AE">AE (MOTO + CARRETA)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-200 uppercase tracking-wider mb-1">
+                        VALIDADE CNH
+                      </label>
+                      <input
+                        type="date"
+                        value={cnhExpiration}
+                        onChange={(e) => setCnhExpiration(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-stone-300 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sub-bloco: MELHORAR CATEGORIA (DT) */}
+                  <div className="p-2.5 bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="cnh-upgrade-checkbox"
+                          checked={cnhUpgradeDT}
+                          onChange={(e) => setCnhUpgradeDT(e.target.checked)}
+                          className="w-4 h-4 text-[#0963cb] rounded border-stone-300 focus:ring-[#0963cb] cursor-pointer"
+                        />
+                        <label htmlFor="cnh-upgrade-checkbox" className="text-xs font-bold text-black dark:text-stone-100 uppercase tracking-wide cursor-pointer">
+                          MELHORAR CATEGORIA (DT)
+                        </label>
+                      </div>
+                      <span className="text-[10px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wide">
+                        INCENTIVO DE EVOLUÇÃO / PLANO DE HABILITAÇÃO
+                      </span>
+                    </div>
+
+                    {cnhUpgradeDT && (
+                      <div className="pt-2 border-t border-sky-200 dark:border-sky-800/50 grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in">
+                        <div>
+                          <label className="block text-[10px] font-bold text-black dark:text-stone-200 uppercase tracking-wider mb-1">
+                            CATEGORIA ALVO / ASSOCIAÇÃO (DT):
                           </label>
+                          <select
+                            value={cnhUpgradeCategory}
+                            onChange={(e) => setCnhUpgradeCategory(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-sky-300 dark:border-sky-700 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase font-bold"
+                          >
+                            <option value="A">A (HABILITAÇÃO PARA MOTOCICLETAS)</option>
+                            <option value="A + C">A + C (MOTO + CAMINHÃO)</option>
+                            <option value="A + D">A + D (MOTO + ÔNIBUS/VAN)</option>
+                            <option value="A + E">A + E (MOTO + CARRETA/BITREM)</option>
+                            <option value="C">C (CAMINHÃO / TRATOR)</option>
+                            <option value="D">D (ÔNIBUS / VAN)</option>
+                            <option value="E">E (CARRETA / ARTICULADO)</option>
+                            <option value="Outra Associação">OUTRA ASSOCIAÇÃO PERSONALIZADA</option>
+                          </select>
                         </div>
-                        <span className="text-[11px] text-sky-800 font-medium">
-                          Incentivo de evolução / plano de habilitação
-                        </span>
+                        <div className="flex items-center text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase leading-snug pt-1 sm:pt-4">
+                          INDICA QUE O COLABORADOR ESTÁ EM PROCESSO DE ALTERAÇÃO OU EVOLUÇÃO DE CATEGORIA JUNTO AO DETRAN.
+                        </div>
                       </div>
-
-                      {cnhUpgradeDT && (
-                        <div className="pt-2 border-t border-sky-200 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fade-in">
-                          <div>
-                            <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
-                              Categoria Alvo / Associação (DT):
-                            </label>
-                            <select
-                              value={cnhUpgradeCategory}
-                              onChange={(e) => setCnhUpgradeCategory(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white border border-sky-300 rounded-lg text-black text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                            >
-                              <option value="A">A (Habilitação para Motocicletas)</option>
-                              <option value="A + C">A + C (Moto + Caminhão)</option>
-                              <option value="A + D">A + D (Moto + Ônibus/Van)</option>
-                              <option value="A + E">A + E (Moto + Carreta/Bitrem)</option>
-                              <option value="C">C (Caminhão / Trator)</option>
-                              <option value="D">D (Ônibus / Van)</option>
-                              <option value="E">E (Carreta / Articulado)</option>
-                              <option value="Outra Associação">Outra Associação Personalizada</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center text-[11px] text-stone-700 pt-3">
-                            Indica que o colaborador está em processo de alteração ou evolução de categoria junto ao DETRAN.
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
               {/* SECTION 5: INFORMAÇÕES DE PAGAMENTO / RECEBIMENTO */}
