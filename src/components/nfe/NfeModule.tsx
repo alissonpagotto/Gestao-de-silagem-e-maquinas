@@ -5482,11 +5482,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             type="button"
             id="btn-nova-entrada-manual-topo"
             onClick={handleOpenManualEntryModal}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-bold rounded-lg border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap uppercase tracking-wide"
             title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Nota avulsa, Cupom sem valor fiscal, Nota de Produtor, Outros)"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Nova Entrada Manual</span>
+            <span>+ NOVA ENTRADA MANUAL</span>
           </button>
         </div>
       </header>
@@ -5808,8 +5808,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           </div>
         </form>
 
-        <div className="flex items-center space-x-2 shrink-0">
-          {parsedData ? (
+        {parsedData && (
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               type="button"
               id="btn-fechar-painel-nfe"
@@ -5819,30 +5819,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <X className="w-3.5 h-3.5" />
               <span>Fechar Detalhes da Nota</span>
             </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                id="btn-carregar-xml-toolbar"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-bold rounded-lg border border-stone-200 dark:border-stone-700 transition cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Carregar XML</span>
-              </button>
-              <button
-                type="button"
-                id="btn-nova-entrada-manual-toolbar"
-                onClick={handleOpenManualEntryModal}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition cursor-pointer shadow-2xs"
-                title="Cadastrar entrada manual"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Nova Entrada Manual</span>
-              </button>
-            </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 2. PAINEL DADOS EXTRAÍDOS DA NOTA - APARECE DINAMICAMENTE LOGO ACIMA DA TABELA DE HISTÓRICO */}
@@ -6611,27 +6589,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {unifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={6} className="py-6 text-center text-stone-400 uppercase">
+                    <td colSpan={6} className="py-8 text-center text-stone-400 uppercase">
                       <ReceiptText className="w-6 h-6 mx-auto mb-1 opacity-50" />
                       <p className="font-semibold text-xs">NENHUMA NOTA OU ENTRADA REGISTRADA ATÉ O MOMENTO.</p>
-                      <div className="mt-3 flex items-center justify-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
-                        >
-                          <Upload className="w-3 h-3" />
-                          <span>Importar XML</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleOpenManualEntryModal}
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Nova Entrada Manual</span>
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ) : (
