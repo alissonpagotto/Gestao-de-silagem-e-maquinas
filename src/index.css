@@ -974,6 +974,11 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
   border-color: #c8dbee !important;
 }
 
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#agrocontrol-home-root:nth-of-type(1) {
+  background-color: #edf4ff !important;
+  background-image: none !important;
+}
+
 html.dark div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) {
   background-color: #1c1917 !important;
 }
