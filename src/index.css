@@ -975,13 +975,17 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
 }
 
 html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#main-dashboard-view:nth-of-type(1) > div#top-shortcut-cards-row:nth-of-type(2) {
-  background-color: #b9cde3 !important;
-  border-color: #b9cde3 !important;
+  background-color: #edf4ff !important;
+  border-color: #edf4ff !important;
 }
 
 html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#venda-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) {
-  background-color: #c8dbee !important;
-  border-color: #c8dbee !important;
+  background-color: #edf4ff !important;
+  border-color: #edf4ff !important;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#venda-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
+  border-color: #edf4ff !important;
 }
 
 html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#agrocontrol-home-root:nth-of-type(1) {
