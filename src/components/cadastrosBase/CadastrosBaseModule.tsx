@@ -64,12 +64,9 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
             <Database className="w-3.5 h-3.5 stroke-[2.2]" />
           </div>
           <div className="flex items-center space-x-2">
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-zinc-900 dark:text-white">
-              Cadastros Base
+            <h1 className="text-base sm:text-lg font-black tracking-tight text-zinc-900 dark:text-white uppercase">
+              CONFIGURAÇÕES DO SISTEMA — ESTRUTURAÇÃO & GOVERNANÇA
             </h1>
-            <span className="text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-700/50">
-              ESTRUTURAÇÃO & GOVERNANÇA
-            </span>
           </div>
         </div>
       </header>
@@ -79,7 +76,7 @@ export const CadastrosBaseModule: React.FC<CadastrosBaseModuleProps> = ({
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
         <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
-            aria-label="Abas de Cadastros Base"
+            aria-label="Abas de Configurações do Sistema"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
             {/* Card 1: Cargos, Setores & Permissões */}

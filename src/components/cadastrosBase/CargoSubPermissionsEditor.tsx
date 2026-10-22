@@ -68,7 +68,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
     { id: 'relatorios' as const, label: 'Relatórios', count: countRelatorios, total: 8, active: Boolean(permissoes.relatorios), icon: FileSpreadsheet },
     { id: 'clientes' as const, label: 'Clientes', count: countClientes, total: 4, active: Boolean(permissoes.clientes), icon: Users },
     { id: 'fornecedores' as const, label: 'Fornecedores', count: countFornecedores, total: 3, active: Boolean(permissoes.fornecedores), icon: Truck },
-    { id: 'cadastros' as const, label: 'Cadastros Base', count: countCadastros, total: 3, active: Boolean(permissoes.cadastros_base), icon: Database },
+    { id: 'cadastros' as const, label: 'Configurações', count: countCadastros, total: 3, active: Boolean(permissoes.cadastros_base), icon: Database },
     { id: 'empresa' as const, label: 'Empresa', count: countEmpresa, total: 7, active: Boolean(permissoes.empresa), icon: Building },
     { id: 'servicos' as const, label: 'Serviços', count: countServicos, total: 7, active: Boolean(permissoes.servicos), icon: Tractor },
     { id: 'frotas' as const, label: 'Frotas', count: countFrotas, total: 7, active: Boolean(permissoes.frotas), icon: Truck },
@@ -351,7 +351,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
         {(activeModuleFocus === 'cadastros' || activeModuleFocus === 'all') &&
           renderModuleCard(
             'mod-cadastros',
-            'Módulo Cadastros Base',
+            'Módulo Configurações',
             Boolean(permissoes.cadastros_base),
             'cadastros_base',
             'sub_cadastros',

@@ -1865,7 +1865,7 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                              <span className="truncate">Acesso ao Módulo Cadastros Base</span>
+                              <span className="truncate">Acesso ao Módulo Configurações</span>
                               <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
                                 permissoes.cadastros_base ? 'bg-violet-200 text-violet-900' : 'bg-zinc-200 text-zinc-600'
                               }`}>
