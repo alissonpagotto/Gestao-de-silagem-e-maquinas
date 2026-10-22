@@ -284,7 +284,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
   return (
     <div 
       id="card-integracao-contas-banco"
-      className="bg-white rounded-xl border border-stone-200 shadow-2xs px-3 py-1.5 sm:px-3.5 sm:py-2 text-black transition-all"
+      className="bg-[#c8dbee] rounded-xl border border-[#9a9a9a] dark:bg-stone-900 dark:border-stone-800 shadow-2xs px-3 py-1.5 sm:px-3.5 sm:py-2 text-black dark:text-white transition-all"
     >
       {/* Notificação Temporária de Ações */}
       {importNotification && (
