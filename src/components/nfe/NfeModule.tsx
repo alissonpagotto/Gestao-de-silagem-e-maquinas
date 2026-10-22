@@ -5783,7 +5783,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       )}
 
       {/* Barra de Ações: Campo de Busca Rápida de NF-e e Ações de XML */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="bg-[#edf4ff] dark:bg-stone-900 border border-[#edf4ff] dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <form onSubmit={handleSearchNfe} className="flex-1 w-full">
           <div className="relative flex items-center w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">

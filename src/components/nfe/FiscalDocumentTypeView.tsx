@@ -1070,7 +1070,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   return (
     <div className="flex flex-col gap-3">
       {/* 1. TOPO DA ABA COM CONTROLES E BOTÃO DE LANÇAMENTO */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl p-3 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 select-none">
+      <div className="bg-[#edf4ff] dark:bg-stone-900 border border-[#edf4ff] dark:border-stone-800 rounded-xl p-3 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 select-none">
         <div className="flex items-center space-x-2.5">
           <div className="p-2 rounded-lg bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-800 dark:text-stone-200">
             <IconComp className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
