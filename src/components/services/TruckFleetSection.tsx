@@ -37,7 +37,7 @@ interface TruckFleetSectionProps {
   totalVolumeGeralM3: number;
   horasTambor: number | '';
   horasMotor: number | '';
-  unidadeArea: 'hectares' | 'alqueires' | 'hora' | 'horas';
+  unidadeArea: 'sacas' | 'hectares' | 'alqueires' | 'hora' | 'horas';
   onAddTruck: () => void;
   onRemoveTruck: (id: string) => void;
   onUpdateTruck: (id: string, updates: Partial<ServiceTruckItem>) => void;

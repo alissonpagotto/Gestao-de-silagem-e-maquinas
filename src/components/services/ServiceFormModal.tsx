@@ -147,7 +147,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   const [freightDriverName, setFreightDriverName] = useState<string>('');
 
   // 2. Área e Unidades (Corte e Colheita)
-  const [unidadeArea, setUnidadeArea] = useState<'hectares' | 'alqueires' | 'hora'>('hectares');
+  const [unidadeArea, setUnidadeArea] = useState<'sacas' | 'hectares' | 'alqueires' | 'hora'>('hectares');
   const [quantidadeArea, setQuantidadeArea] = useState<number | ''>('');
   const [valorPorHectare, setValorPorHectare] = useState<string | number>('');
   const [pesoPorM3, setPesoPorM3] = useState<number | ''>('');
@@ -200,11 +200,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   // 🚨 DIRETIVA DE SEGURANÇA MÁXIMA: A aba "alqueires" permanece 100% congelada com a regra e fórmula original
   const applyForageOperatorCommission = (
     emp: Employee | undefined,
-    targetUnit: 'hectares' | 'alqueires' | 'hora'
+    targetUnit: 'sacas' | 'hectares' | 'alqueires' | 'hora'
   ) => {
     if (!emp) return;
 
-    if (targetUnit === 'hectares') {
+    if (targetUnit === 'hectares' || targetUnit === 'sacas') {
       // 1. Modalidade "Por Hectare (ha)"
       const taxaHa = getEmpCommissionPerHectare(emp);
       if (taxaHa > 0) {
@@ -797,6 +797,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     const taxa = parseCurrencyToFloat(valorPorHectare);
     return qtd * taxa;
   }, [quantidadeArea, valorPorHectare]);
+
 
   // 2. Faturamento do Trator (Cobrança Máquina ao Cliente) - Zerado se Neutro
   const subtotalTrator = useMemo(() => {
@@ -1400,7 +1401,6 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         : activeTab === 'maquina'
         ? (equipmentCategory === 'pesadas' ? parseCurrencyToFloat(heavyMachineHourlyRate) : (truckBillingMode === 'horas' ? parseCurrencyToFloat(truckServiceHourlyRate) : (truckBillingMode === 'somente_km' ? parseCurrencyToFloat(truckServiceRateOnlyKm) : parseCurrencyToFloat(truckServiceRatePerLoad))))
         : parseCurrencyToFloat(valorPorHectare),
-      tonsEstimated: estimativaToneladas > 0 ? estimativaToneladas : undefined,
       densityKg: typeof pesoPorM3 === 'number' ? pesoPorM3 : undefined,
       weightPerM3Kg: typeof pesoPorM3 === 'number' ? pesoPorM3 : undefined,
       subtotalArea: (isFreight || activeTab === 'maquina') ? subtotalServicoMaquina : valorBaseArea,
@@ -3340,12 +3340,40 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             {(activeTab === 'corte' || activeTab === 'colheita') && (
               <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-300 dark:border-slate-700 pb-2">
-                  <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                    Área & Produção (Valor Base)
+                  <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider shrink-0">
+                    ÁREA & PRODUÇÃO (VALOR BASE)
                   </span>
 
-                  {/* Toggle Hectares / Alqueires / Hora - 3D Metálico Acetinado */}
-                  <div className="inline-flex rounded-lg p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] self-start sm:self-auto text-xs gap-1">
+                  {/* Toggle Sacas / Hectares / Alqueires / Hora - 3D Metálico Acetinado */}
+                  <div className="inline-flex rounded-lg p-0.5 sm:p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] self-start sm:self-auto text-xs gap-1 shrink-0">
+                    {/* 1º [ POR SACAS ] - Exclusiva Colheita */}
+                    {activeTab === 'colheita' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUnidadeArea('sacas');
+                          if (modoCobrancaTrator === 'area_alq') {
+                            setModoCobrancaTrator('area_ha');
+                          }
+                          if (modoComissaoOperador === 'area_alq') {
+                            setModoComissaoOperador('area_ha');
+                          }
+                          const op = getSelectedForageOperator(operadorForrageiraId, operadorForrageiraNome);
+                          if (op) {
+                            applyForageOperatorCommission(op, 'sacas');
+                          }
+                        }}
+                        className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap font-bold ${
+                          unidadeArea === 'sacas'
+                            ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
+                            : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                        }`}
+                      >
+                        POR SACAS
+                      </button>
+                    )}
+
+                    {/* 2º [ POR HECTARE (HA) ] */}
                     <button
                       type="button"
                       onClick={() => {
@@ -3367,25 +3395,29 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           applyForageOperatorCommission(op, 'hectares');
                         }
                       }}
-                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap ${
                         unidadeArea === 'hectares'
-                          ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                          ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
                           : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                       }`}
                     >
-                      Por Hectare (ha)
+                      POR HECTARE (HA)
                     </button>
+
+                    {/* 3º [ POR ALQUEIRE (ALQ) ] */}
                     <button
                       type="button"
                       onClick={() => setUnidadeArea('alqueires')}
-                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap ${
                         unidadeArea === 'alqueires'
-                          ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                          ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
                           : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                       }`}
                     >
-                      Por Alqueire (alq)
+                      POR ALQUEIRE (ALQ)
                     </button>
+
+                    {/* 4º [ POR HORA (H) ] */}
                     <button
                       type="button"
                       onClick={() => {
@@ -3395,13 +3427,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           applyForageOperatorCommission(op, 'hora');
                         }
                       }}
-                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap ${
                         unidadeArea === 'hora'
-                          ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                          ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
                           : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                       }`}
                     >
-                      Por Hora (h)
+                      POR HORA (H)
                     </button>
                   </div>
                 </div>
@@ -3409,23 +3441,35 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 {/* Linha 1: Quantidade, Valor Unitário com Máscara BRL e Subtotal da Área */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
-                      {unidadeArea === 'hectares' ? 'Quantidade (ha)' : unidadeArea === 'alqueires' ? 'Quantidade (alq)' : 'Quantidade (horas)'}
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                      {unidadeArea === 'sacas'
+                        ? 'QUANTIDADE (SACAS)'
+                        : unidadeArea === 'hectares'
+                        ? 'QUANTIDADE (HA)'
+                        : unidadeArea === 'alqueires'
+                        ? 'QUANTIDADE (ALQ)'
+                        : 'QUANTIDADE (HORAS)'}
                     </label>
                     <input
                       type="number"
-                      step="0.1"
+                      step={unidadeArea === 'sacas' ? '1' : '0.1'}
                       value={quantidadeArea}
                       onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       onChange={(e) => setQuantidadeArea(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="Ex: 15.5"
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder={unidadeArea === 'sacas' ? 'EX: 1500' : 'EX: 15.5'}
+                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
-                      R$ / {unidadeArea === 'hectares' ? 'Hectare' : unidadeArea === 'alqueires' ? 'Alqueire' : 'Hora'}
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                      {unidadeArea === 'sacas'
+                        ? 'R$ / SACA'
+                        : unidadeArea === 'hectares'
+                        ? 'R$ / HECTARE'
+                        : unidadeArea === 'alqueires'
+                        ? 'R$ / ALQUEIRE'
+                        : 'R$ / HORA'}
                     </label>
                     <input
                       type="text"
@@ -3433,17 +3477,17 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       onChange={(e) => setValorPorHectare(maskCurrencyBRLInput(e.target.value))}
                       onBlur={() => setValorPorHectare(formatCurrencyBRLOnBlur(valorPorHectare))}
                       placeholder="R$ 0,00"
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors"
+                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
-                      Subtotal Área (Base)
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                      SUBTOTAL ÁREA (BASE)
                     </label>
                     <div className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed">
                       <span>{formatCurrencyBRL(valorBaseArea)}</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">Base Frota</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal uppercase">BASE FROTA</span>
                     </div>
                   </div>
                 </div>
@@ -4099,7 +4143,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   : undefined
               }
               valorBaseArea={valorBaseArea}
-              unidadeAreaLabel={unidadeArea === 'hectares' ? 'ha' : unidadeArea === 'alqueires' ? 'alq' : 'h'}
+              unidadeAreaLabel={unidadeArea === 'sacas' ? 'sc' : unidadeArea === 'hectares' ? 'ha' : unidadeArea === 'alqueires' ? 'alq' : 'h'}
               quantidadeArea={quantidadeArea}
               volumeTotalFrotaM3={totalVolumeGeralM3}
               unidadeArea={unidadeArea}
@@ -4206,11 +4250,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white text-xs font-bold uppercase rounded-lg shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
               title="Salvar alterações no pedido sem fechar a janela"
             >
               <Check className="w-4 h-4 stroke-[2.5]" />
-              <span>{savedOrder || editRecord ? '✓ ✓ Salvar Alterações' : '✓ ✓ Salvar Pedido'}</span>
+              <span>{savedOrder || editRecord ? '✓ ✓ SALVAR ALTERAÇÕES' : '✓ ✓ SALVAR PEDIDO'}</span>
             </button>
           </div>
 
@@ -4245,7 +4289,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           operatorName={operadorForrageiraNome}
           tractorOperatorName={operadorTratorNome}
           unidadeArea={unidadeArea}
-          unidadeAreaLabel={unidadeArea === 'hectares' ? 'Hectares (ha)' : unidadeArea === 'alqueires' ? 'Alqueires (alq)' : 'Horas (h)'}
+          unidadeAreaLabel={unidadeArea === 'sacas' ? 'Sacas (sc)' : unidadeArea === 'hectares' ? 'Hectares (ha)' : unidadeArea === 'alqueires' ? 'Alqueires (alq)' : 'Horas (h)'}
           quantidadeArea={quantidadeArea}
           valorBaseArea={valorBaseArea}
           valorHectare={typeof valorPorHectare === 'number' ? valorPorHectare : (Number(valorPorHectare) || '')}

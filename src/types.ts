@@ -851,6 +851,8 @@ export interface ServiceOrder {
   serviceTab?: string;
   areaHectares?: number;
   tonsEstimated?: number;
+  produtividadeEstimadaSacasHa?: number;
+  totalEstimadoSacas?: number;
   tonsHarvested?: number; // Toneladas colhidas (compatibilidade)
   hoursWorked?: number; // Horas trabalhadas (compatibilidade)
   densityKg?: number; // Peso por m³ (Kg) da silagem para cubagem
@@ -895,7 +897,7 @@ export interface ServiceOrder {
   machineTotalAmount?: number;
 
   // Unidade de Área e Valores Base
-  areaUnit?: 'hectares' | 'alqueires' | 'hora';
+  areaUnit?: 'sacas' | 'hectares' | 'alqueires' | 'hora';
   areaQuantity?: number;
   ratePerAreaUnit?: number;
   baseServiceAmount?: number;

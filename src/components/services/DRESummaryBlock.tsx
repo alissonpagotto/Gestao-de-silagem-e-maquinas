@@ -33,7 +33,7 @@ interface DRESummaryBlockProps {
   fretePrancha?: number | string;
   totalPedido: number;
   volumeTotalFrotaM3?: number;
-  unidadeArea?: 'hectares' | 'alqueires' | 'hora' | 'horas';
+  unidadeArea?: 'sacas' | 'hectares' | 'alqueires' | 'hora' | 'horas';
   totalFrotasPorHora?: number;
   subtotalServicoMaquina?: number;
   descricaoServicoMaquina?: string;

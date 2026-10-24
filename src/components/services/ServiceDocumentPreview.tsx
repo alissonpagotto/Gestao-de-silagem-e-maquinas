@@ -46,7 +46,7 @@ export interface ServiceDocumentPreviewProps {
   tractorOperatorName: string;
 
   // Operacional Área / Forrageira
-  unidadeArea: 'hectares' | 'alqueires' | 'hora';
+  unidadeArea: 'sacas' | 'hectares' | 'alqueires' | 'hora';
   unidadeAreaLabel: string;
   quantidadeArea: number | '';
   valorBaseArea: number;
