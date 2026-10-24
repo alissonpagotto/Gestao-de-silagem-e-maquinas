@@ -149,6 +149,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   // 2. Área e Unidades (Corte e Colheita)
   const [unidadeArea, setUnidadeArea] = useState<'sacas' | 'hectares' | 'alqueires' | 'hora'>('hectares');
   const [quantidadeArea, setQuantidadeArea] = useState<number | ''>('');
+  const [areaAlqueiresHectares, setAreaAlqueiresHectares] = useState<number | ''>('');
   const [valorPorHectare, setValorPorHectare] = useState<string | number>('');
   const [pesoPorM3, setPesoPorM3] = useState<number | ''>('');
 
@@ -357,7 +358,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setStatus(editRecord.status || 'agendado');
 
       setUnidadeArea(editRecord.areaUnit || 'hectares');
-      setQuantidadeArea(editRecord.areaQuantity ?? editRecord.areaHectares ?? '');
+      setQuantidadeArea(
+        editRecord.areaUnit === 'sacas'
+          ? (editRecord.totalEstimadoSacas ?? editRecord.areaQuantity ?? '')
+          : (editRecord.areaQuantity ?? editRecord.areaHectares ?? '')
+      );
+      setAreaAlqueiresHectares(editRecord.areaHectares ?? '');
       setValorPorHectare(
         editRecord.ratePerAreaUnit !== undefined 
           ? maskCurrencyBRLInput(editRecord.ratePerAreaUnit) 
@@ -557,6 +563,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
       setUnidadeArea('hectares');
       setQuantidadeArea('');
+      setAreaAlqueiresHectares('');
       setValorPorHectare('');
       setPesoPorM3('');
 
@@ -621,8 +628,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     if (client) {
       setClientName(client.nome || client.name);
       setFarmName(client.fazenda || client.farmName || '');
-      if (client.areaHectares && !quantidadeArea) {
-        setQuantidadeArea(client.areaHectares);
+      if (client.areaHectares) {
+        if (unidadeArea === 'sacas') {
+          if (!areaAlqueiresHectares) setAreaAlqueiresHectares(client.areaHectares);
+        } else {
+          if (!quantidadeArea) setQuantidadeArea(client.areaHectares);
+        }
       }
     }
   };
@@ -636,7 +647,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     setClientName(newClient.nome || newClient.name);
     setFarmName(newClient.fazenda || newClient.farmName || '');
     if (newClient.areaHectares) {
-      setQuantidadeArea(newClient.areaHectares);
+      if (unidadeArea === 'sacas') {
+        if (!areaAlqueiresHectares) setAreaAlqueiresHectares(newClient.areaHectares);
+      } else {
+        if (!quantidadeArea) setQuantidadeArea(newClient.areaHectares);
+      }
     }
     setIsQuickClientOpen(false);
   };
@@ -804,6 +819,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     const taxa = parseCurrencyToFloat(valorPorHectare);
     return qtd * taxa;
   }, [quantidadeArea, valorPorHectare]);
+
+  // Produtividade Reversa: [QUANTIDADE DE SACAS POR ALQUEIRE OU HECTARE] = QUANTIDADE TOTAL DE SACAS / QUANTIDADE DE ALQUEIRES OU HECTARES
+  const sacasPorAlqueireOuHectare = useMemo(() => {
+    const qtdSacas = typeof quantidadeArea === 'number' ? quantidadeArea : 0;
+    const area = typeof areaAlqueiresHectares === 'number' ? areaAlqueiresHectares : 0;
+    if (area <= 0 || qtdSacas <= 0) return 0;
+    return Number((qtdSacas / area).toFixed(2));
+  }, [quantidadeArea, areaAlqueiresHectares]);
 
 
   // 2. Faturamento do Trator (Cobrança Máquina ao Cliente) - Zerado se Neutro
@@ -1418,6 +1441,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       densityKg: typeof pesoPorM3 === 'number' ? pesoPorM3 : undefined,
       weightPerM3Kg: typeof pesoPorM3 === 'number' ? pesoPorM3 : undefined,
       subtotalArea: (isFreight || activeTab === 'maquina') ? subtotalServicoMaquina : valorBaseArea,
+      areaHectares: typeof areaAlqueiresHectares === 'number'
+        ? areaAlqueiresHectares
+        : (unidadeArea === 'hectares' || unidadeArea === 'alqueires'
+            ? (typeof quantidadeArea === 'number' ? quantidadeArea : undefined)
+            : undefined),
+      totalEstimadoSacas: unidadeArea === 'sacas' && typeof quantidadeArea === 'number' ? quantidadeArea : undefined,
+      produtividadeEstimadaSacasHa: unidadeArea === 'sacas' && sacasPorAlqueireOuHectare > 0 ? sacasPorAlqueireOuHectare : undefined,
+      tonsEstimated: estimativaToneladas > 0 ? estimativaToneladas : undefined,
 
       // Frete Prancha
       fretePrancha: parseCurrencyToFloat(fretePrancha),
@@ -3452,59 +3483,139 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   </div>
                 </div>
 
-                {/* Linha 1: Quantidade, Valor Unitário com Máscara BRL e Subtotal da Área */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
-                      {unidadeArea === 'sacas'
-                        ? 'QUANTIDADE (SACAS)'
-                        : unidadeArea === 'hectares'
-                        ? 'QUANTIDADE (HA)'
-                        : unidadeArea === 'alqueires'
-                        ? 'QUANTIDADE (ALQ)'
-                        : 'QUANTIDADE (HORAS)'}
-                    </label>
-                    <input
-                      type="number"
-                      step={unidadeArea === 'sacas' ? '1' : '0.1'}
-                      value={quantidadeArea}
-                      onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                      onChange={(e) => setQuantidadeArea(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder={unidadeArea === 'sacas' ? 'EX: 1500' : 'EX: 15.5'}
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
-                    />
-                  </div>
+                {/* Linha 1: Quantidade, Valor Unitário com Máscara BRL, Subtotal e Produtividade */}
+                {unidadeArea === 'sacas' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
+                    {/* 1. QUANTIDADE DE ALQUEIRES OU HECTARES (EXTREMA ESQUERDA) */}
+                    <div>
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                        QUANTIDADE DE ALQUEIRES OU HECTARES
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={areaAlqueiresHectares}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        onChange={(e) => setAreaAlqueiresHectares(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="EX: 10.5"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
-                      {unidadeArea === 'sacas'
-                        ? 'R$ / SACA'
-                        : unidadeArea === 'hectares'
-                        ? 'R$ / HECTARE'
-                        : unidadeArea === 'alqueires'
-                        ? 'R$ / ALQUEIRE'
-                        : 'R$ / HORA'}
-                    </label>
-                    <input
-                      type="text"
-                      value={valorPorHectare}
-                      onChange={(e) => setValorPorHectare(maskCurrencyBRLInput(e.target.value))}
-                      onBlur={() => setValorPorHectare(formatCurrencyBRLOnBlur(valorPorHectare))}
-                      placeholder="R$ 0,00"
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
-                    />
-                  </div>
+                    {/* 2. QUANTIDADE TOTAL DE SACAS */}
+                    <div>
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                        QUANTIDADE TOTAL DE SACAS
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={quantidadeArea}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        onChange={(e) => setQuantidadeArea(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="EX: 1500"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
-                      SUBTOTAL ÁREA (BASE)
-                    </label>
-                    <div className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed">
-                      <span>{formatCurrencyBRL(valorBaseArea)}</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal uppercase">BASE FROTA</span>
+                    {/* 3. R$ / SACA */}
+                    <div>
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                        R$ / SACA
+                      </label>
+                      <input
+                        type="text"
+                        value={valorPorHectare}
+                        onChange={(e) => setValorPorHectare(maskCurrencyBRLInput(e.target.value))}
+                        onBlur={() => setValorPorHectare(formatCurrencyBRLOnBlur(valorPorHectare))}
+                        placeholder="R$ 0,00"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
+                      />
+                    </div>
+
+                    {/* 4. SUBTOTAL ÁREA (BASE) */}
+                    <div>
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                        SUBTOTAL ÁREA (BASE)
+                      </label>
+                      <div className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed">
+                        <span>{formatCurrencyBRL(valorBaseArea)}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal uppercase">BASE FROTA</span>
+                      </div>
+                    </div>
+
+                    {/* 5. QUANTIDADE DE SACAS POR ALQUEIRE OU HECTARE (EXTREMA DIREITA) */}
+                    <div>
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                        QUANTIDADE DE SACAS POR ALQUEIRE OU HECTARE
+                      </label>
+                      <div 
+                        className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed"
+                        title={typeof areaAlqueiresHectares === 'number' && areaAlqueiresHectares > 0 ? `Cálculo: ${quantidadeArea || 0} sacas ÷ ${areaAlqueiresHectares} área = ${sacasPorAlqueireOuHectare.toFixed(2)} sc/área` : 'Informe a quantidade de alqueires ou hectares e a quantidade total de sacas'}
+                      >
+                        <span>
+                          {sacasPorAlqueireOuHectare > 0
+                            ? `${sacasPorAlqueireOuHectare.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} SC/ÁREA`
+                            : '0,0 SC/ÁREA'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-normal uppercase">
+                          PROD
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                        {unidadeArea === 'hectares'
+                          ? 'QUANTIDADE (HA)'
+                          : unidadeArea === 'alqueires'
+                          ? 'QUANTIDADE (ALQ)'
+                          : 'QUANTIDADE (HORAS)'}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={quantidadeArea}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        onChange={(e) => setQuantidadeArea(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="EX: 15.5"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                        {unidadeArea === 'hectares'
+                          ? 'R$ / HECTARE'
+                          : unidadeArea === 'alqueires'
+                          ? 'R$ / ALQUEIRE'
+                          : 'R$ / HORA'}
+                      </label>
+                      <input
+                        type="text"
+                        value={valorPorHectare}
+                        onChange={(e) => setValorPorHectare(maskCurrencyBRLInput(e.target.value))}
+                        onBlur={() => setValorPorHectare(formatCurrencyBRLOnBlur(valorPorHectare))}
+                        placeholder="R$ 0,00"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                        SUBTOTAL ÁREA (BASE)
+                      </label>
+                      <div className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed">
+                        <span>{formatCurrencyBRL(valorBaseArea)}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal uppercase">BASE FROTA</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Linha 2: Frete Prancha (R$) com Máscara BRL, Peso por Saca/m³ (Kg) e Estimativa de Produção Automatizada */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-2 border-t border-slate-300 dark:border-slate-700">
@@ -3551,7 +3662,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase">BLOQUEADO (AUTO)</span>
                     </label>
                     <div 
-                      className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed" 
+                      className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed" 
                       title={unidadeArea === 'sacas' ? `Fórmula: (${quantidadeArea || 0} sacas × ${pesoPorM3 || 60} kg) / 1000 = ${estimativaToneladas.toFixed(2)} ton` : `Fórmula: (${totalVolumeGeralM3.toFixed(1)} m³ × ${pesoPorM3 || 0} kg) / 1000 = ${estimativaToneladas.toFixed(2)} ton`}
                     >
                       <span>{estimativaToneladas > 0 ? `${estimativaToneladas.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ton` : '0,0 ton'}</span>
