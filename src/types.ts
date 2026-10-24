@@ -853,6 +853,7 @@ export interface ServiceOrder {
   tonsEstimated?: number;
   produtividadeEstimadaSacasHa?: number;
   totalEstimadoSacas?: number;
+  subUnidadeAreaSacas?: 'HA' | 'ALQ';
   tonsHarvested?: number; // Toneladas colhidas (compatibilidade)
   hoursWorked?: number; // Horas trabalhadas (compatibilidade)
   densityKg?: number; // Peso por m³ (Kg) da silagem para cubagem

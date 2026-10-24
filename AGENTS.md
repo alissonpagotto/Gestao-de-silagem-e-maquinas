@@ -11,3 +11,7 @@
 
 3. **Preservação de Design e Estilo**:
    - Nunca alterar cores, fontes, temas, espaçamentos ou layout visual da aplicação sem solicitação explícita do usuário.
+
+4. **Política de Gestão de Mídias e Imagens de Suporte (Anti-Acúmulo de Artefatos)**:
+   - Capturas de tela e imagens fornecidas pelo usuário servem exclusivamente como referências visuais instantâneas e temporárias em memória de escopo (runtime).
+   - Bloqueio estrito de salvamento: nunca consolidar ou duplicar capturas de tela no diretório de artefatos estáticos (`.aistudio/artifacts/`) nem no código-fonte do projeto.
