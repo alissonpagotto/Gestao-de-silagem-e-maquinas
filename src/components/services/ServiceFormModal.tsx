@@ -146,13 +146,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   const [freightDriverId, setFreightDriverId] = useState<string>('');
   const [freightDriverName, setFreightDriverName] = useState<string>('');
 
-  // 2. Área e Unidades (Corte e Colheita)
-  const [unidadeArea, setUnidadeArea] = useState<'sacas' | 'hectares' | 'alqueires' | 'hora'>('hectares');
+  // 2. Área e Unidades (Corte e Colheita) - Padrão Nova Colheita: [ POR SACAS ] e unidade [ ALQ ]
+  const [unidadeArea, setUnidadeArea] = useState<'sacas' | 'hectares' | 'alqueires' | 'hora'>(
+    activeTab === 'colheita' ? 'sacas' : 'hectares'
+  );
   const [quantidadeArea, setQuantidadeArea] = useState<number | ''>('');
   const [areaAlqueiresHectares, setAreaAlqueiresHectares] = useState<number | ''>('');
-  const [subUnidadeSacasArea, setSubUnidadeSacasArea] = useState<'HA' | 'ALQ'>('HA');
+  const [subUnidadeSacasArea, setSubUnidadeSacasArea] = useState<'HA' | 'ALQ'>('ALQ');
   const [valorPorHectare, setValorPorHectare] = useState<string | number>('');
-  const [pesoPorM3, setPesoPorM3] = useState<number | ''>('');
+  const [pesoPorM3, setPesoPorM3] = useState<number | ''>(activeTab === 'colheita' ? 60 : '');
 
   // 3. Bloco Forrageira / Ensiladeira (Borda Amarela)
   const [forrageiraId, setForrageiraId] = useState('');
@@ -358,14 +360,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setServiceDate(editRecord.startDate || new Date().toISOString().split('T')[0]);
       setStatus(editRecord.status || 'agendado');
 
-      setUnidadeArea(editRecord.areaUnit || 'hectares');
+      setUnidadeArea(editRecord.areaUnit || (activeTab === 'colheita' ? 'sacas' : 'hectares'));
       setQuantidadeArea(
-        editRecord.areaUnit === 'sacas'
+        (editRecord.areaUnit || (activeTab === 'colheita' ? 'sacas' : 'hectares')) === 'sacas'
           ? (editRecord.totalEstimadoSacas ?? editRecord.areaQuantity ?? '')
           : (editRecord.areaQuantity ?? editRecord.areaHectares ?? '')
       );
       setAreaAlqueiresHectares(editRecord.areaHectares ?? '');
-      setSubUnidadeSacasArea(editRecord.subUnidadeAreaSacas || 'HA');
+      setSubUnidadeSacasArea(editRecord.subUnidadeAreaSacas || 'ALQ');
       setValorPorHectare(
         editRecord.ratePerAreaUnit !== undefined 
           ? maskCurrencyBRLInput(editRecord.ratePerAreaUnit) 
@@ -563,12 +565,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setFreightDriverId('');
       setFreightDriverName('');
 
-      setUnidadeArea('hectares');
+      const defaultUnit = activeTab === 'colheita' ? 'sacas' : 'hectares';
+      setUnidadeArea(defaultUnit);
       setQuantidadeArea('');
       setAreaAlqueiresHectares('');
-      setSubUnidadeSacasArea('HA');
+      setSubUnidadeSacasArea('ALQ');
       setValorPorHectare('');
-      setPesoPorM3('');
+      setPesoPorM3(defaultUnit === 'sacas' ? 60 : '');
 
       // Forrageira
       setForrageiraId('');
@@ -622,7 +625,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setSavedOrder(null);
       setSaveSuccessMessage(null);
     }
-  }, [isOpen, editRecord, nextNumber]);
+  }, [isOpen, editRecord, nextNumber, activeTab]);
 
   // Sincroniza dados do cliente ao selecionar no select
   const handleSelectClient = (selectedId: string) => {
