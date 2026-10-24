@@ -35,13 +35,22 @@ export const isForrageira = (m: Machinery): boolean => {
 
 export const isColheitadeira = (m: Machinery): boolean => {
   if (!m) return false;
-  const cat = String(m.categoriaVeiculo || m.categoria || m.categoryType || m.type || (m as any).tipo || '').trim().toUpperCase();
+  const anyM = m as any;
+  const tipoModelo = String(anyM.TIPO_MODELO_TIPO || anyM.tipo_modelo_tipo || '').trim().toUpperCase();
+  const cat = String(anyM.CATEGORIA || m.categoriaVeiculo || m.categoria || m.categoryType || m.type || anyM.tipo || '').trim().toUpperCase();
   const name = String(m.name || '').trim().toUpperCase();
-  const model = String(m.model || '').trim().toUpperCase();
-  const fleetNumber = String(m.fleetNumber || '').trim().toUpperCase();
-  const plate = String(m.licensePlateOrSerial || m.plate || '').trim().toUpperCase();
+  const model = String(m.model || anyM.modelo || '').trim().toUpperCase();
+  const fleetNumber = String(m.fleetNumber || anyM.prefixo || '').trim().toUpperCase();
+  const plate = String(m.licensePlateOrSerial || m.plate || anyM.placa || '').trim().toUpperCase();
 
-  // 1. Eliminação estrita de itens de forrageiras ('FORR'), ensiladeiras, caminhões, tratores e ônibus
+  // 1. Diretriz do Contrato Master: validação direta por TIPO_MODELO_TIPO ou CATEGORIA
+  if (tipoModelo === 'COLHEITADEIRA' || cat === 'COLHEITADEIRA') {
+    if (!fleetNumber.startsWith('FORR') && !plate.startsWith('FORR')) {
+      return true;
+    }
+  }
+
+  // 2. Eliminação estrita de itens de forrageiras ('FORR'), ensiladeiras, caminhões, tratores e ônibus
   if (
     fleetNumber.startsWith('FORR') ||
     plate.startsWith('FORR') ||
@@ -57,16 +66,18 @@ export const isColheitadeira = (m: Machinery): boolean => {
     cat.includes('ÔNIBUS') ||
     cat.includes('ONIBUS')
   ) {
-    if (!cat.includes('COLHEITADEIRA')) return false;
+    if (!cat.includes('COLHEITADEIRA') && !tipoModelo.includes('COLHEITADEIRA')) return false;
     if (fleetNumber.startsWith('FORR') || plate.startsWith('FORR') || name.startsWith('FORR') || model.includes('JAGUAR')) {
       return false;
     }
   }
 
-  // 2. Filtragem pelo tipo de veículo cuja categoria ou identificação corresponda a COLHEITADEIRA
+  // 3. Filtragem pelo tipo de veículo cuja categoria ou identificação corresponda a COLHEITADEIRA
   return (
     cat === 'COLHEITADEIRA' ||
     cat.includes('COLHEITADEIRA') ||
+    tipoModelo === 'COLHEITADEIRA' ||
+    tipoModelo.includes('COLHEITADEIRA') ||
     fleetNumber.startsWith('COLH') ||
     plate.startsWith('COLH') ||
     name.startsWith('COLH') ||

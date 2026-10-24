@@ -637,16 +637,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Lado Direito: CADASTRAR VEÍCULO, Imprimir Lista, Sincronizar Leituras, View Toggle */}
           <div className="flex items-center flex-wrap gap-2 shrink-0">
             
-            {/* Botão + CADASTRAR VEÍCULO (Padrão Verde Oficial AgroControl) */}
+            {/* Botão + CADASTRAR VEÍCULO (Padrão Verde Oficial AgroControl: bg-[#059669]) */}
             <button
               type="button"
               id="btn-cadastrar-veiculo"
               onClick={onOpenNewVehicle}
-              title="Cadastrar Novo Veículo ou Máquina na Frota"
+              title="CADASTRAR NOVO VEÍCULO OU MÁQUINA NA FROTA"
               className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] border border-emerald-700/60 text-white text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Plus className="w-4 h-4 text-white stroke-[2.5]" />
-              <span>+ CADASTRAR VEÍCULO</span>
+              <span className="text-white font-bold uppercase tracking-wider">+ CADASTRAR VEÍCULO</span>
             </button>
 
             {/* Botão Imprimir Lista de Veículos (3D Metálico) */}

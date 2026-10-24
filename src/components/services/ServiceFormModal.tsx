@@ -48,7 +48,9 @@ import {
   getStoredBrokerSettlements, 
   saveStoredBrokerSettlements,
   getStoredSettlements,
-  saveStoredSettlements
+  saveStoredSettlements,
+  getCompanyFrotas,
+  getStoredMachineries
 } from '../../lib/storage';
 import { parseCurrencyToFloat, maskCurrencyBRLInput, formatCurrencyBRLOnBlur } from '../../lib/formatters';
 // Cadastro Unificado de Cliente (Modal Completo Oficial "Novo Produtor Rural / Pecuarista")
@@ -318,27 +320,76 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     return list.length > 0 ? list : machineries;
   }, [machineries]);
 
+  // Sincronização reativa dos dados armazenados na chave correspondente à listagem de veículos da 'GESTÃO DE FROTAS'
+  const [frotasVeiculos, setFrotasVeiculos] = useState<Machinery[]>(() => {
+    const stored = getCompanyFrotas();
+    return stored && stored.length > 0 ? stored : machineries;
+  });
+
+  useEffect(() => {
+    const syncFrotas = () => {
+      const stored = getCompanyFrotas();
+      if (stored && stored.length > 0) {
+        setFrotasVeiculos(stored);
+      }
+    };
+    syncFrotas();
+    window.addEventListener('storage', syncFrotas);
+    window.addEventListener('colaca_silagem_frotas_veiculos_updated', syncFrotas);
+    window.addEventListener('agrocontrol_frotas_updated', syncFrotas);
+    return () => {
+      window.removeEventListener('storage', syncFrotas);
+      window.removeEventListener('colaca_silagem_frotas_veiculos_updated', syncFrotas);
+      window.removeEventListener('agrocontrol_frotas_updated', syncFrotas);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (machineries && machineries.length > 0) {
+      setFrotasVeiculos((prev) => {
+        const map = new Map<string, Machinery>();
+        prev.forEach((m) => map.set(m.id, m));
+        machineries.forEach((m) => map.set(m.id, m));
+        return Array.from(map.values());
+      });
+    }
+  }, [machineries]);
+
+  const activeFleet = useMemo(() => {
+    if (frotasVeiculos && frotasVeiculos.length > 0) return frotasVeiculos;
+    return machineries;
+  }, [frotasVeiculos, machineries]);
+
   // Lista estritamente filtrada de Forrageiras disponíveis
   const forrageirasDisponiveis = useMemo(() => {
-    return machineries.filter((m) => {
+    return activeFleet.filter((m) => {
       if (!isForrageira(m)) return false;
       return m.id === forrageiraId || !selectedMachineryIds.has(m.id);
     });
-  }, [machineries, forrageiraId, selectedMachineryIds]);
+  }, [activeFleet, forrageiraId, selectedMachineryIds]);
 
-  // Lista estritamente filtrada de Colheitadeiras disponíveis ordenada alfabeticamente (A-Z)
+  // Lista estritamente filtrada de Colheitadeiras disponíveis da frota real ordenada alfabeticamente (A-Z)
+  // Regra do Contrato Master: [COLHEITADEIRAS_VALIDAS] = arrayFrotas.filter(v => v.TIPO_MODELO_TIPO === "COLHEITADEIRA" || v.CATEGORIA === "COLHEITADEIRA");
   const colheitadeirasDisponiveis = useMemo(() => {
-    return machineries
-      .filter((m) => {
-        if (!isColheitadeira(m)) return false;
-        return m.id === forrageiraId || !selectedMachineryIds.has(m.id);
+    return activeFleet
+      .filter((v) => {
+        const anyV = v as any;
+        const tipoModelo = String(anyV.TIPO_MODELO_TIPO || anyV.tipo_modelo_tipo || '').trim().toUpperCase();
+        const categoria = String(anyV.CATEGORIA || v.categoriaVeiculo || v.categoria || v.categoryType || v.type || '').trim().toUpperCase();
+        const isValidColheitadeira = 
+          tipoModelo === 'COLHEITADEIRA' || 
+          categoria === 'COLHEITADEIRA' || 
+          isColheitadeira(v);
+
+        if (!isValidColheitadeira) return false;
+        return v.id === forrageiraId || !selectedMachineryIds.has(v.id);
       })
       .sort((a, b) => {
         const nameA = String(a.name || a.model || a.fleetNumber || '').trim().toUpperCase();
         const nameB = String(b.name || b.model || b.fleetNumber || '').trim().toUpperCase();
         return nameA.localeCompare(nameB, 'pt-BR');
       });
-  }, [machineries, forrageiraId, selectedMachineryIds]);
+  }, [activeFleet, forrageiraId, selectedMachineryIds]);
 
   // Lista dinâmica da máquina principal (Colheitadeiras para colheita, Forrageiras para corte)
   const maquinasPrincipaisDisponiveis = useMemo(() => {
@@ -704,7 +755,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return;
     }
 
-    const mach = machineries.find((m) => m.id === id);
+    const mach = activeFleet.find((m) => m.id === id) || machineries.find((m) => m.id === id);
     if (!mach) return;
 
     const nomeFormatado = formatMachineryOptionLabel(mach);
@@ -3892,7 +3943,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       </label>
                       <span className="text-[10px] text-zinc-500 font-semibold uppercase">
                         {(activeTab as string) === 'colheita'
-                          ? `${forrageirasDisponiveis.length} COLHEITADEIRA(S) DISPONÍVEL(IS)`
+                          ? `${colheitadeirasDisponiveis.length} COLHEITADEIRA(S) DISPONÍVEL(IS)`
                           : `${forrageirasDisponiveis.length} forrageira(s) disponível(is)`}
                       </span>
                     </div>
@@ -3913,7 +3964,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         <option value="">
                           {(activeTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma --"}
                         </option>
-                        {forrageirasDisponiveis.map((m) => (
+                        {maquinasPrincipaisDisponiveis.map((m) => (
                           <option key={m.id} value={m.id}>
                             {formatMachineryOptionLabel(m)}
                           </option>
