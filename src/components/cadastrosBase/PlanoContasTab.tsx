@@ -292,19 +292,19 @@ export const PlanoContasTab: React.FC = () => {
               <button
                 type="button"
                 onClick={handleOpenCreateCat}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap shadow-xs transition cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Nova Conta / Categoria</span>
+                <span>+ NOVA CONTA / CATEGORIA</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleOpenCreateForma}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap shadow-xs transition cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Nova Forma de Pagamento</span>
+                <span>+ NOVA FORMA DE PAGAMENTO</span>
               </button>
             )}
           </div>
@@ -316,27 +316,27 @@ export const PlanoContasTab: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveSubSection('contas')}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition cursor-pointer ${
                 activeSubSection === 'contas'
-                  ? 'bg-white dark:bg-stone-900 text-zinc-900 dark:text-white shadow-2xs'
-                  : 'text-zinc-600 dark:text-stone-400 hover:text-zinc-900'
+                  ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
+                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400/80 font-medium shadow-[inset_0px_1px_2px_rgba(0,0,0,0.05)]'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Plano de Contas ({data.categorias.length})</span>
+              <span>PLANO DE CONTAS ({data.categorias.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveSubSection('formas')}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition cursor-pointer ${
                 activeSubSection === 'formas'
-                  ? 'bg-white dark:bg-stone-900 text-zinc-900 dark:text-white shadow-2xs'
-                  : 'text-zinc-600 dark:text-stone-400 hover:text-zinc-900'
+                  ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
+                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400/80 font-medium shadow-[inset_0px_1px_2px_rgba(0,0,0,0.05)]'
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Formas de Pagamento ({data.formasPagamento.length})</span>
+              <span>FORMAS DE PAGAMENTO ({data.formasPagamento.length})</span>
             </button>
           </div>
 

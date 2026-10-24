@@ -2396,7 +2396,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
           {/* CORPO DO FORMULÁRIO COM ROLAGEM (COMPACTO) */}
           <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 space-y-3 modal-body-scroll w-full bg-zinc-100"
+            className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 space-y-3 modal-body-scroll w-full bg-[#edf4ff] dark:bg-stone-900"
           >
             
             {/* ALERTA DE CONFIRMAÇÃO / PERSISTÊNCIA AO SALVAR */}
