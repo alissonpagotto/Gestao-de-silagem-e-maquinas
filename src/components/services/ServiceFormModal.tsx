@@ -757,6 +757,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     );
   };
 
+  // Peso padrão de saca (60 kg) quando unidadeArea é 'sacas'
+  useEffect(() => {
+    if (unidadeArea === 'sacas') {
+      setPesoPorM3((prev) => (prev === '' || prev === 400 || !prev ? 60 : prev));
+    }
+  }, [unidadeArea]);
+
   // Sincronização em tempo real das Horas da Forrageira com os caminhões que utilizam 'tambor' ou 'motor'
   useEffect(() => {
     setTrucks((prevTrucks) => {
@@ -930,13 +937,20 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
   // =========================================================================
   // CÁLCULO AUTOMATIZADO DE ESTIMATIVA DE TONELADAS
-  // Fórmula: Toneladas = (Total Transportado em m³ * Peso por m³ (Kg)) / 1000
+  // Modo Sacas: ESTIMATIVA DE PRODUÇÃO = (QUANTIDADE (SACAS) * PESO POR SACA (KG)) / 1000
+  // Modo Geral: Toneladas = (Total Transportado em m³ * Peso por m³ (Kg)) / 1000
   // =========================================================================
   const estimativaToneladas = useMemo(() => {
+    if (unidadeArea === 'sacas') {
+      const qtdSacas = typeof quantidadeArea === 'number' ? quantidadeArea : 0;
+      const pesoSaca = typeof pesoPorM3 === 'number' && pesoPorM3 > 0 ? pesoPorM3 : 60;
+      if (qtdSacas <= 0) return 0;
+      return Number(((qtdSacas * pesoSaca) / 1000).toFixed(2));
+    }
     const densidade = typeof pesoPorM3 === 'number' ? pesoPorM3 : 0;
     if (totalVolumeGeralM3 <= 0 || densidade <= 0) return 0;
     return Number(((totalVolumeGeralM3 * densidade) / 1000).toFixed(2));
-  }, [totalVolumeGeralM3, pesoPorM3]);
+  }, [unidadeArea, quantidadeArea, totalVolumeGeralM3, pesoPorM3]);
 
   // =========================================================================
   // COMISSÕES DOS OPERADORES (INFORMATIVAS - DRE)
@@ -3492,15 +3506,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   </div>
                 </div>
 
-                {/* Linha 2: Frete Prancha (R$) com Máscara BRL, Peso por m³ (Kg) e Estimativa de Produção Automatizada */}
+                {/* Linha 2: Frete Prancha (R$) com Máscara BRL, Peso por Saca/m³ (Kg) e Estimativa de Produção Automatizada */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-2 border-t border-slate-300 dark:border-slate-700">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between uppercase">
                       <span className="flex items-center gap-1.5">
                         <Truck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                        Frete Prancha (R$)
+                        FRETE PRANCHA (R$)
                       </span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">(Soma ao Total)</span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold uppercase">(SOMA AO TOTAL)</span>
                     </label>
                     <input
                       type="text"
@@ -3508,36 +3522,43 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       onChange={(e) => setFretePrancha(maskCurrencyBRLInput(e.target.value))}
                       onBlur={() => setFretePrancha(formatCurrencyBRLOnBlur(fretePrancha))}
                       placeholder="R$ 0,00"
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors"
+                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Peso por m³ (Kg)</span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">Densidade</span>
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between uppercase">
+                      <span>{unidadeArea === 'sacas' ? 'PESO POR SACA (KG)' : 'PESO POR M³ (KG)'}</span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold uppercase">
+                        {unidadeArea === 'sacas' ? 'PADRÃO 60 KG' : 'DENSIDADE'}
+                      </span>
                     </label>
                     <input
                       type="number"
-                      step="10"
+                      step={unidadeArea === 'sacas' ? '1' : '10'}
                       min="0"
                       value={pesoPorM3}
                       onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       onChange={(e) => setPesoPorM3(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="Ex: 400"
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder={unidadeArea === 'sacas' ? 'EX: 60' : 'EX: 400'}
+                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Estimativa de Produção</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Bloqueado (Auto)</span>
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between uppercase">
+                      <span>ESTIMATIVA DE PRODUÇÃO</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase">BLOQUEADO (AUTO)</span>
                     </label>
-                    <div className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed" title={`Fórmula: (${totalVolumeGeralM3.toFixed(1)} m³ × ${pesoPorM3 || 0} kg) / 1000`}>
+                    <div 
+                      className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed" 
+                      title={unidadeArea === 'sacas' ? `Fórmula: (${quantidadeArea || 0} sacas × ${pesoPorM3 || 60} kg) / 1000 = ${estimativaToneladas.toFixed(2)} ton` : `Fórmula: (${totalVolumeGeralM3.toFixed(1)} m³ × ${pesoPorM3 || 0} kg) / 1000 = ${estimativaToneladas.toFixed(2)} ton`}
+                    >
                       <span>{estimativaToneladas > 0 ? `${estimativaToneladas.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ton` : '0,0 ton'}</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-normal">
-                        {totalVolumeGeralM3 > 0 ? `${totalVolumeGeralM3.toFixed(1)} m³` : '0 m³'}
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-normal uppercase">
+                        {unidadeArea === 'sacas' 
+                          ? `${quantidadeArea || 0} SC`
+                          : (totalVolumeGeralM3 > 0 ? `${totalVolumeGeralM3.toFixed(1)} m³` : '0 m³')}
                       </span>
                     </div>
                   </div>
@@ -3665,7 +3686,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       <Scissors className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                      Ensiladeira / Forrageira
+                      {(activeTab as string) === 'colheita' ? 'COLHEITADEIRA' : 'Ensiladeira / Forrageira'}
                     </span>
                     {!(forrageiraId || forrageiraNome.trim()) && (
                       <span className="text-[10px] uppercase font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded shadow-2xs">
@@ -3687,24 +3708,26 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         type="button"
                         onClick={handleClearForrageira}
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-2 py-0.5 rounded-md shadow-2xs transition cursor-pointer ml-1"
-                        title="Não utilizar forrageira e zerar custos"
+                        title={(activeTab as string) === 'colheita' ? "Não utilizar colheitadeira e zerar custos" : "Não utilizar forrageira e zerar custos"}
                       >
                         <X className="w-3.5 h-3.5" />
-                        <span>Remover Forrageira</span>
+                        <span>{(activeTab as string) === 'colheita' ? 'REMOVER COLHEITADEIRA' : 'Remover Forrageira'}</span>
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Seleção de Forrageira (APENAS FORRAGEIRAS com OPÇÃO NEUTRA e REGRA DE EXCLUSÃO) */}
+                {/* Seleção de Forrageira / Colheitadeira */}
                 <div className="space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider">
-                        Selecione uma Forrageira / Ensiladeira
+                        {(activeTab as string) === 'colheita' ? 'SELECIONE UMA COLHEITADEIRA' : 'Selecione uma Forrageira / Ensiladeira'}
                       </label>
-                      <span className="text-[10px] text-zinc-500 font-semibold">
-                        {forrageirasDisponiveis.length} forrageira(s) disponível(is)
+                      <span className="text-[10px] text-zinc-500 font-semibold uppercase">
+                        {(activeTab as string) === 'colheita'
+                          ? `${forrageirasDisponiveis.length} COLHEITADEIRA(S) DISPONÍVEL(IS)`
+                          : `${forrageirasDisponiveis.length} forrageira(s) disponível(is)`}
                       </span>
                     </div>
                     <div className="relative">
@@ -3712,16 +3735,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         type="text"
                         value={forrageiraNome}
                         onChange={(e) => setForrageiraNome(e.target.value)}
-                        placeholder="-- Não Utilizar Forrageira / Nenhuma (Clique para escolher) --"
+                        placeholder={(activeTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma (Clique para escolher) --"}
                         className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm text-zinc-900 placeholder-zinc-400 font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
                       />
                       <select
                         value={forrageiraId}
                         onChange={(e) => handleSelectForrageira(e.target.value)}
                         className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                        title="Selecionar forrageira cadastrada"
+                        title={(activeTab as string) === 'colheita' ? "Selecionar colheitadeira cadastrada" : "Selecionar forrageira cadastrada"}
                       >
-                        <option value="">-- Não Utilizar Forrageira / Nenhuma --</option>
+                        <option value="">
+                          {(activeTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma --"}
+                        </option>
                         {forrageirasDisponiveis.map((m) => (
                           <option key={m.id} value={m.id}>
                             {formatMachineryOptionLabel(m)}
@@ -3733,11 +3758,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                   {!(forrageiraId || forrageiraNome.trim()) ? (
                     <div className="p-3.5 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-700 shadow-2xs">
-                      <p className="font-bold text-zinc-800">
-                        Nenhuma forrageira selecionada para este serviço.
+                      <p className="font-bold text-zinc-800 uppercase">
+                        {(activeTab as string) === 'colheita'
+                          ? 'NENHUMA COLHEITADEIRA SELECIONADA PARA ESTE SERVIÇO.'
+                          : 'Nenhuma forrageira selecionada para este serviço.'}
                       </p>
-                      <p className="text-[11px] mt-0.5 text-zinc-600">
-                        Os custos de cobrança e comissão da forrageira estão zerados e não afetarão o DRE final. Para selecionar uma máquina, clique no seletor acima.
+                      <p className="text-[11px] mt-0.5 text-zinc-600 uppercase">
+                        {(activeTab as string) === 'colheita'
+                          ? 'OS CUSTOS DE COBRANÇA E COMISSÃO DA COLHEITADEIRA ESTÃO ZERADOS E NÃO AFETARÃO O DRE FINAL. PARA SELECIONAR UMA MÁQUINA, CLIQUE NO SELETOR ACIMA.'
+                          : 'Os custos de cobrança e comissão da forrageira estão zerados e não afetarão o DRE final. Para selecionar uma máquina, clique no seletor acima.'}
                       </p>
                     </div>
                   ) : (
@@ -3746,7 +3775,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
                           <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                            <span>Operador da Forrageira (Principal)</span>
+                            <span>{(activeTab as string) === 'colheita' ? 'OPERADOR DA COLHEITADEIRA (PRINCIPAL)' : 'Operador da Forrageira (Principal)'}</span>
                             <span className="text-[10px] text-zinc-700 bg-zinc-100 border border-zinc-200 font-bold px-1.5 py-0.2 rounded shadow-2xs">Autocompletado</span>
                           </label>
                           <div className="relative">
@@ -3778,7 +3807,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                   }
                                 }}
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                title="Selecionar operador de forrageira"
+                                title={(activeTab as string) === 'colheita' ? "Selecionar operador de colheitadeira" : "Selecionar operador de forrageira"}
                               >
                                 <option value="">-- Escolher Operador --</option>
                                 {employees.map((emp) => (
@@ -3793,7 +3822,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                         <div>
                           <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                            <span>Segundo Operador (Opcional)</span>
+                            <span>{(activeTab as string) === 'colheita' ? 'SEGUNDO OPERADOR (OPCIONAL)' : 'Segundo Operador (Opcional)'}</span>
                             <span className="text-[10px] text-zinc-500 font-semibold">Inicia Vazio</span>
                           </label>
                           <div className="relative">
@@ -3816,7 +3845,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                   setSegundoOperadorForrageiraNome(emp ? emp.name : '');
                                 }}
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                title="Selecionar segundo operador de forrageira"
+                                title={(activeTab as string) === 'colheita' ? "Selecionar segundo operador de colheitadeira" : "Selecionar segundo operador de forrageira"}
                               >
                                 <option value="">-- Nenhum segundo operador --</option>
                                 {employees.map((emp) => (
@@ -3868,7 +3897,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <span className="text-xs font-bold text-zinc-900 uppercase tracking-wide flex items-center gap-1.5">
                             <Calculator className="w-3.5 h-3.5 text-zinc-700" />
-                            Comissão do Operador da Forrageira (Independente)
+                            {(activeTab as string) === 'colheita' ? 'COMISSÃO DO OPERADOR DA COLHEITADEIRA (INDEPENDENTE)' : 'Comissão do Operador da Forrageira (Independente)'}
                           </span>
 
                           {/* Botões de Alternância (Toggles): 4 Opções de Comissão da Forrageira - 3D Metálico Acetinado */}
