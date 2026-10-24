@@ -65,6 +65,7 @@ import { PrintReportHeader } from '../common/PrintReportHeader';
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { 
   isForrageira, 
+  isColheitadeira,
   findLinkedOperator, 
   formatEmployeeOptionLabel,
   formatMachineryOptionLabel,
@@ -324,6 +325,25 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return m.id === forrageiraId || !selectedMachineryIds.has(m.id);
     });
   }, [machineries, forrageiraId, selectedMachineryIds]);
+
+  // Lista estritamente filtrada de Colheitadeiras disponíveis ordenada alfabeticamente (A-Z)
+  const colheitadeirasDisponiveis = useMemo(() => {
+    return machineries
+      .filter((m) => {
+        if (!isColheitadeira(m)) return false;
+        return m.id === forrageiraId || !selectedMachineryIds.has(m.id);
+      })
+      .sort((a, b) => {
+        const nameA = String(a.name || a.model || a.fleetNumber || '').trim().toUpperCase();
+        const nameB = String(b.name || b.model || b.fleetNumber || '').trim().toUpperCase();
+        return nameA.localeCompare(nameB, 'pt-BR');
+      });
+  }, [machineries, forrageiraId, selectedMachineryIds]);
+
+  // Lista dinâmica da máquina principal (Colheitadeiras para colheita, Forrageiras para corte)
+  const maquinasPrincipaisDisponiveis = useMemo(() => {
+    return (activeTab as string) === 'colheita' ? colheitadeirasDisponiveis : forrageirasDisponiveis;
+  }, [activeTab, colheitadeirasDisponiveis, forrageirasDisponiveis]);
 
   // Lista filtrada de Colaboradores cujo Tipo de Cadastro ou Função seja "Agenciador"
   const agenciadoresDisponiveis = useMemo(() => {

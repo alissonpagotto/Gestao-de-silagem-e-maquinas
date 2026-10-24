@@ -1,10 +1,25 @@
 import { Machinery, Employee, ServiceTruckItem } from '../../types';
 
 export const isForrageira = (m: Machinery): boolean => {
-  const cat = (m.categoryType || '').toLowerCase();
-  const name = (m.name || '').toLowerCase();
-  const model = (m.model || '').toLowerCase();
-  if (cat.includes('caminhao') || cat.includes('caminhão') || cat.includes('trator')) return false;
+  if (!m) return false;
+  const cat = String(m.categoriaVeiculo || m.categoria || m.categoryType || (m as any).tipo || '').toLowerCase();
+  const name = String(m.name || '').toLowerCase();
+  const model = String(m.model || '').toLowerCase();
+  const fleetNumber = String(m.fleetNumber || '').toLowerCase();
+  const plate = String(m.licensePlateOrSerial || m.plate || '').toLowerCase();
+
+  if (
+    cat.includes('caminhao') ||
+    cat.includes('caminhão') ||
+    cat.includes('trator') ||
+    cat.includes('colheitadeira') ||
+    name.includes('colheitadeira') ||
+    model.includes('colheitadeira') ||
+    fleetNumber.startsWith('colh') ||
+    plate.startsWith('colh')
+  ) {
+    return false;
+  }
   return (
     cat.includes('forrageira') ||
     cat.includes('ensiladeira') ||
@@ -12,7 +27,51 @@ export const isForrageira = (m: Machinery): boolean => {
     name.includes('ensiladeira') ||
     model.includes('claas') ||
     model.includes('jaguar') ||
-    model.includes('forrageira')
+    model.includes('forrageira') ||
+    fleetNumber.startsWith('forr') ||
+    plate.startsWith('forr')
+  );
+};
+
+export const isColheitadeira = (m: Machinery): boolean => {
+  if (!m) return false;
+  const cat = String(m.categoriaVeiculo || m.categoria || m.categoryType || m.type || (m as any).tipo || '').trim().toUpperCase();
+  const name = String(m.name || '').trim().toUpperCase();
+  const model = String(m.model || '').trim().toUpperCase();
+  const fleetNumber = String(m.fleetNumber || '').trim().toUpperCase();
+  const plate = String(m.licensePlateOrSerial || m.plate || '').trim().toUpperCase();
+
+  // 1. Eliminação estrita de itens de forrageiras ('FORR'), ensiladeiras, caminhões, tratores e ônibus
+  if (
+    fleetNumber.startsWith('FORR') ||
+    plate.startsWith('FORR') ||
+    name.startsWith('FORR') ||
+    model.startsWith('FORR') ||
+    cat.includes('FORRAGEIRA') ||
+    cat.includes('ENSILADEIRA') ||
+    model.includes('JAGUAR') ||
+    name.includes('JAGUAR') ||
+    cat.includes('CAMINHÃO') ||
+    cat.includes('CAMINHAO') ||
+    cat.includes('TRATOR') ||
+    cat.includes('ÔNIBUS') ||
+    cat.includes('ONIBUS')
+  ) {
+    if (!cat.includes('COLHEITADEIRA')) return false;
+    if (fleetNumber.startsWith('FORR') || plate.startsWith('FORR') || name.startsWith('FORR') || model.includes('JAGUAR')) {
+      return false;
+    }
+  }
+
+  // 2. Filtragem pelo tipo de veículo cuja categoria ou identificação corresponda a COLHEITADEIRA
+  return (
+    cat === 'COLHEITADEIRA' ||
+    cat.includes('COLHEITADEIRA') ||
+    fleetNumber.startsWith('COLH') ||
+    plate.startsWith('COLH') ||
+    name.startsWith('COLH') ||
+    name.includes('COLHEITADEIRA') ||
+    model.includes('COLHEITADEIRA')
   );
 };
 
