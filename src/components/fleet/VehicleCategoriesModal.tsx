@@ -35,18 +35,20 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
 
   const handleAddCategory = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const trimmed = newCategoryName.trim();
+    const trimmed = newCategoryName.trim().toUpperCase();
     if (!trimmed) {
       setErrorMsg('Informe o nome da categoria para incluir.');
       return;
     }
 
-    if (categories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+    if (categories.some(c => c.toUpperCase() === trimmed)) {
       setErrorMsg('Esta categoria já existe na lista.');
       return;
     }
 
-    const updated = [...categories, trimmed];
+    const updated = [...categories.map(c => c.toUpperCase()), trimmed]
+      .filter((v, i, a) => v && a.indexOf(v) === i)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
     onSaveCategories(updated);
     setNewCategoryName('');
     setErrorMsg('');
@@ -63,24 +65,27 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
       setErrorMsg('A lista precisa ter pelo menos uma categoria.');
       return;
     }
-    const updated = categories.filter(c => c !== catToDelete);
+    const updated = categories
+      .filter(c => c.toUpperCase() !== catToDelete.toUpperCase())
+      .map(c => c.toUpperCase())
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
     onSaveCategories(updated);
     setErrorMsg('');
   };
 
   const handleStartEdit = (index: number, currentName: string) => {
     setEditingIndex(index);
-    setEditingName(currentName);
+    setEditingName(currentName.toUpperCase());
     setErrorMsg('');
   };
 
   const handleSaveEdit = (index: number) => {
-    const trimmed = editingName.trim();
+    const trimmed = editingName.trim().toUpperCase();
     if (!trimmed) {
       setErrorMsg('O nome da categoria não pode ficar vazio.');
       return;
     }
-    if (categories.some((c, i) => i !== index && c.toLowerCase() === trimmed.toLowerCase())) {
+    if (categories.some((c, i) => i !== index && c.toUpperCase() === trimmed)) {
       setErrorMsg('Já existe outra categoria com este nome.');
       return;
     }
@@ -88,7 +93,11 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
     const updated = [...categories];
     const oldName = updated[index];
     updated[index] = trimmed;
-    onSaveCategories(updated);
+    const sorted = updated
+      .map(c => c.toUpperCase())
+      .filter((v, i, a) => v && a.indexOf(v) === i)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    onSaveCategories(sorted);
     setEditingIndex(null);
     setEditingName('');
     setErrorMsg('');
@@ -100,7 +109,8 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
 
   const handleRestoreDefaults = () => {
     if (window.confirm('Deseja restaurar as categorias padrão do sistema? Suas categorias personalizadas serão reiniciadas.')) {
-      onSaveCategories(DEFAULT_VEHICLE_SYSTEM_CATEGORIES);
+      const sortedDefaults = [...DEFAULT_VEHICLE_SYSTEM_CATEGORIES].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      onSaveCategories(sortedDefaults);
       setErrorMsg('');
       setSuccessMsg('Categorias padrão restauradas com sucesso!');
       setTimeout(() => setSuccessMsg(''), 2500);
@@ -169,8 +179,8 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
                   setNewCategoryName(e.target.value);
                   if (errorMsg) setErrorMsg('');
                 }}
-                placeholder="Ex: Pá Carregadeira, Colhedora de Grãos..."
-                className="flex-1 px-3.5 py-2 text-sm rounded-xl border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-600"
+                placeholder="EX: RETROESCAVADEIRA, MOTONIVELADORA, COLHEITADEIRA..."
+                className="flex-1 px-3.5 py-2 text-sm uppercase font-semibold rounded-xl border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-600"
               />
               <button
                 type="submit"
@@ -212,7 +222,7 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
                           type="text"
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          className="flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-500 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none"
+                          className="flex-1 px-3 py-1.5 text-xs font-semibold uppercase rounded-lg border border-cyan-500 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSaveEdit(idx);
@@ -240,8 +250,8 @@ export const VehicleCategoriesModal: React.FC<VehicleCategoriesModalProps> = ({
                       <>
                         <div className="flex items-center space-x-2.5 min-w-0">
                           <span className="w-2 h-2 rounded-full bg-cyan-600 dark:bg-cyan-400 shrink-0" />
-                          <span className="text-sm font-semibold text-stone-800 dark:text-stone-200 truncate">
-                            {cat}
+                          <span className="text-sm font-semibold uppercase text-stone-800 dark:text-stone-200 truncate">
+                            {cat.toUpperCase()}
                           </span>
                         </div>
 

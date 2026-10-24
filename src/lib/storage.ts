@@ -2231,68 +2231,77 @@ export const saveStoredEmployeeRoles = (list: string[]) => saveStoredList(STORAG
 export const getStoredMachineryTypes = () => getStoredList(STORAGE_KEYS.MACHINERY_TYPES, DEFAULT_MACHINERY_TYPES);
 export const saveStoredMachineryTypes = (list: string[]) => saveStoredList(STORAGE_KEYS.MACHINERY_TYPES, list);
 
+export const MANDATORY_VEHICLE_SYSTEM_CATEGORIES = [
+  'COLHEITADEIRA',
+  'TRATOR ESTEIRA',
+  'RETROESCAVADEIRA',
+  'MOTONIVELADORA',
+  'PÁ CARREGADEIRA',
+  'MINI CARREGADEIRA'
+];
+
 export const DEFAULT_VEHICLE_SYSTEM_CATEGORIES = [
-  'Ensiladeira Autopropelida',
-  'Caminhão (Basculante / Graneleiro)',
-  'Trator Agrícola',
-  'Reboque',
-  'Veículo Utilitário / Apoio',
-  'Ônibus / Van de Equipe',
-  'Tração Caminhão Trator (Cavalo)',
-  'Implemento'
+  'CAMINHÃO (BASCULANTE / GRANELEIRO)',
+  'COLHEITADEIRA',
+  'ENSILADEIRA AUTOPROPELIDA',
+  'IMPLEMENTO',
+  'MINI CARREGADEIRA',
+  'MOTONIVELADORA',
+  'ÔNIBUS / VAN DE EQUIPE',
+  'PÁ CARREGADEIRA',
+  'REBOQUE',
+  'RETROESCAVADEIRA',
+  'TRAÇÃO CAMINHÃO TRATOR (CAVALO)',
+  'TRATOR AGRÍCOLA',
+  'TRATOR ESTEIRA',
+  'VEÍCULO UTILITÁRIO / APOIO'
 ];
 
 export const getStoredVehicleSystemCategories = (): string[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES);
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES) : null;
+    let list: string[] = [];
+
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, JSON.stringify(DEFAULT_VEHICLE_SYSTEM_CATEGORIES));
-      return DEFAULT_VEHICLE_SYSTEM_CATEGORIES;
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, JSON.stringify(DEFAULT_VEHICLE_SYSTEM_CATEGORIES));
-      return DEFAULT_VEHICLE_SYSTEM_CATEGORIES;
-    }
-
-    // Se a lista gravada for a lista antiga padrão legada, atualiza para o novo padrão
-    const legacyOld = [
-      'Forrageira / Ensiladeira',
-      'Ensiladeira Autopropelida',
-      'Caminhão (Basculante / Silagem / Graneleiro)',
-      'Trator Agrícola',
-      'Transbordo / Reboque / Carreta',
-      'Veículo Utilitário / Apoio',
-      'Ônibus / Van de Equipe',
-      'Outro Equipamento'
-    ];
-    const isExactLegacy = parsed.length === legacyOld.length && parsed.every(p => legacyOld.includes(p));
-    if (isExactLegacy) {
-      localStorage.setItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, JSON.stringify(DEFAULT_VEHICLE_SYSTEM_CATEGORIES));
-      return DEFAULT_VEHICLE_SYSTEM_CATEGORIES;
+      list = [...DEFAULT_VEHICLE_SYSTEM_CATEGORIES];
+    } else {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        list = [...DEFAULT_VEHICLE_SYSTEM_CATEGORIES];
+      } else {
+        list = parsed.map((c: any) => String(c || '').trim().toUpperCase()).filter(Boolean);
+      }
     }
 
-    // Garante que todas as categorias padrão obrigatórias existam (seed), preservando categorias personalizadas do usuário
-    let updated = [...parsed];
-    let changed = false;
+    // Injeta compulsoriamente todas as categorias padrão e novas categorias mandatórias caso ainda não existam
     DEFAULT_VEHICLE_SYSTEM_CATEGORIES.forEach(defCat => {
-      const exists = updated.some(c => c.trim().toLowerCase() === defCat.trim().toLowerCase());
+      const upper = defCat.toUpperCase();
+      const exists = list.some(c => c.toUpperCase() === upper);
       if (!exists) {
-        updated.push(defCat);
-        changed = true;
+        list.push(upper);
       }
     });
 
-    if (changed) {
-      localStorage.setItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, JSON.stringify(updated));
+    // Remove duplicados, trava compulsoriamente em CAIXA ALTA (UPPERCASE) e ordena estritamente A-Z (pt-BR)
+    const uniqueSorted = Array.from(new Set(list.map(c => c.trim().toUpperCase())))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, JSON.stringify(uniqueSorted));
     }
-    return updated;
+    return uniqueSorted;
   } catch (e) {
     console.error('Failed to load vehicle categories', e);
-    return DEFAULT_VEHICLE_SYSTEM_CATEGORIES;
+    return [...DEFAULT_VEHICLE_SYSTEM_CATEGORIES].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }
 };
-export const saveStoredVehicleSystemCategories = (list: string[]) => saveStoredList(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, list);
+export const saveStoredVehicleSystemCategories = (list: string[]): void => {
+  const sanitized = Array.from(new Set(list.map(c => String(c || '').trim().toUpperCase())))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  saveStoredList(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, sanitized);
+};
 
 export const DEFAULT_VEHICLE_OWNERSHIP_REGIMES = [
   'Próprio',

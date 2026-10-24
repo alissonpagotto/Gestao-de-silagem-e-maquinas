@@ -137,7 +137,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [year, setYear] = useState('');
   const [renavam, setRenavam] = useState('');
   const [color, setColor] = useState('');
-  const [categoryType, setCategoryType] = useState<string>('Ensiladeira Autopropelida');
+  const [categoryType, setCategoryType] = useState<string>('ENSILADEIRA AUTOPROPELIDA');
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   
@@ -147,7 +147,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
   const isReboqueCategory = useMemo(() => {
     const norm = (categoryType || '').trim().toLowerCase();
-    return norm === 'reboque' || norm === 'transbordo / reboque / carreta';
+    return norm === 'reboque' || norm.includes('reboque') || norm.includes('carreta');
   }, [categoryType]);
 
   // Validação Estrita de Número de Frota (Proibido Repetir):
@@ -183,9 +183,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
   useEffect(() => {
     const loadedCats = getStoredVehicleSystemCategories();
-    setCategoriesList(loadedCats);
-    if (!editingVehicle && loadedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType === 'Forrageira / Ensiladeira' || categoryType.toLowerCase() === 'veiculo')) {
-      setCategoryType(loadedCats[0]);
+    // Ordenação alfabética rigorosa A-Z e travamento compulsório em UPPERCASE
+    const sortedCats = [...loadedCats]
+      .map(c => c.trim().toUpperCase())
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    setCategoriesList(sortedCats);
+    if (!editingVehicle && sortedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType.toLowerCase().includes('ensiladeira') || categoryType.toLowerCase() === 'veiculo')) {
+      const defaultMatch = sortedCats.find(c => c.includes('ENSILADEIRA')) || sortedCats[0];
+      setCategoryType(defaultMatch);
     }
 
     const loadedRegimes = getStoredVehicleOwnershipRegimes();
@@ -196,8 +203,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   }, [isOpen]);
 
   const handleSaveCategories = (updated: string[]) => {
-    setCategoriesList(updated);
-    saveStoredVehicleSystemCategories(updated);
+    const sorted = [...updated]
+      .map(c => c.trim().toUpperCase())
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    setCategoriesList(sorted);
+    saveStoredVehicleSystemCategories(sorted);
   };
 
   const handleSaveRegimes = (updated: string[]) => {
@@ -858,17 +870,24 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setRenavam(editingVehicle.renavam || '');
       setColor(editingVehicle.color || '');
       const categoryMap: Record<string, string> = {
-        forrageira: 'Ensiladeira Autopropelida',
-        ensiladeira: 'Ensiladeira Autopropelida',
-        caminhao: 'Caminhão (Basculante / Graneleiro)',
-        trator: 'Trator Agrícola',
-        reboque: 'Reboque',
-        utilitario: 'Veículo Utilitário / Apoio',
-        onibus: 'Ônibus / Van de Equipe',
-        cavalo: 'Tração Caminhão Trator (Cavalo)',
-        implemento: 'Implemento',
-        outro: 'Outro Equipamento',
-        veiculo: 'Caminhão (Basculante / Graneleiro)'
+        forrageira: 'ENSILADEIRA AUTOPROPELIDA',
+        ensiladeira: 'ENSILADEIRA AUTOPROPELIDA',
+        caminhao: 'CAMINHÃO (BASCULANTE / GRANELEIRO)',
+        trator: 'TRATOR AGRÍCOLA',
+        reboque: 'REBOQUE',
+        utilitario: 'VEÍCULO UTILITÁRIO / APOIO',
+        onibus: 'ÔNIBUS / VAN DE EQUIPE',
+        cavalo: 'TRAÇÃO CAMINHÃO TRATOR (CAVALO)',
+        implemento: 'IMPLEMENTO',
+        outro: 'OUTRO EQUIPAMENTO',
+        veiculo: 'CAMINHÃO (BASCULANTE / GRANELEIRO)',
+        colheitadeira: 'COLHEITADEIRA',
+        'trator esteira': 'TRATOR ESTEIRA',
+        retroescavadeira: 'RETROESCAVADEIRA',
+        motoniveladora: 'MOTONIVELADORA',
+        'pa carregadeira': 'PÁ CARREGADEIRA',
+        'pá carregadeira': 'PÁ CARREGADEIRA',
+        'mini carregadeira': 'MINI CARREGADEIRA'
       };
       const rawEditCat = String(
         (editingVehicle as any).categoriaVeiculo ||
@@ -878,8 +897,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         (editingVehicle as any).type ||
         ''
       ).trim();
-      const mappedEditCat = categoryMap[rawEditCat.toLowerCase()] || rawEditCat;
-      const safeEditCat = mappedEditCat && mappedEditCat.toLowerCase() !== 'veiculo' ? mappedEditCat : (categoriesList[0] || 'Ensiladeira Autopropelida');
+      const mappedEditCat = (categoryMap[rawEditCat.toLowerCase()] || rawEditCat).toUpperCase();
+      const safeEditCat = mappedEditCat && mappedEditCat.toLowerCase() !== 'veiculo' ? mappedEditCat : (categoriesList[0] || 'ENSILADEIRA AUTOPROPELIDA');
       setCategoryType(safeEditCat);
       setStatus(editingVehicle.status || 'disponivel');
       const ownershipMap: Record<string, string> = {
@@ -1109,7 +1128,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setYear(new Date().getFullYear().toString());
       setRenavam('');
       setColor('');
-      setCategoryType(categoriesList[0] || 'Ensiladeira Autopropelida');
+      setCategoryType(categoriesList[0] || 'ENSILADEIRA AUTOPROPELIDA');
       setStatus('disponivel');
       setOwnership('proprio');
 
@@ -2051,7 +2070,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 {/* Categoria do Veículo - Lista Editável */}
                 <div>
                   <div className="flex items-center justify-between mb-0.5">
-                    <label className="block text-[11px] font-bold text-zinc-700">
+                    <label className="block text-[11px] font-bold text-zinc-700 uppercase">
                       Categoria do Veículo
                     </label>
                     <button
@@ -2071,24 +2090,24 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         if (e.target.value === '__manage__') {
                           setIsCategoriesModalOpen(true);
                         } else {
-                          const val = e.target.value;
+                          const val = e.target.value.toUpperCase();
                           setCategoryType(val);
-                          const isNowReboque = val.trim().toLowerCase() === 'reboque' || val.trim().toLowerCase() === 'transbordo / reboque / carreta';
+                          const isNowReboque = val.trim().toLowerCase() === 'reboque' || val.trim().toLowerCase().includes('reboque') || val.trim().toLowerCase().includes('carreta');
                           if (isNowReboque) {
                             setHasCoupledTrailer(false);
                             setCompositionType('reboque');
                           }
                         }
                       }}
-                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer uppercase"
                     >
                       {categoriesList.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
+                        <option key={cat} value={cat.toUpperCase()}>
+                          {cat.toUpperCase()}
                         </option>
                       ))}
-                      {!categoriesList.includes(categoryType) && categoryType && (
-                        <option value={categoryType}>{categoryType}</option>
+                      {!categoriesList.some(c => c.toUpperCase() === categoryType?.toUpperCase()) && categoryType && (
+                        <option value={categoryType.toUpperCase()}>{categoryType.toUpperCase()}</option>
                       )}
                       <option disabled>──────────</option>
                       <option value="__manage__">+ Incluir ou Excluir Categorias da Lista...</option>
