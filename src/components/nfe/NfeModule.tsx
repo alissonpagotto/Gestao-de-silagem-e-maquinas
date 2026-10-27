@@ -164,7 +164,15 @@ interface ParsedNfeItem {
   wholesalePrice?: number;         // V. Atacado (R$) - Preço de Venda em Atacado
   promoMarkupPercent?: number;     // % Promo. (% Margem/Markup Promoção)
   promoPrice?: number;             // V. Promo (R$) - Preço Promocional
-  // Novos campos de composição fiscal e custos calculados do XML
+  // Composição fiscal e custos calculados do XML
+  vProdOriginal?: number;
+  vUnComOriginal?: number;
+  vICMS?: number;
+  vIPI?: number;
+  vPIS?: number;
+  vCOFINS?: number;
+  vIBS?: number;
+  vCBS?: number;
   valorImpostosTotal?: number;
   valor_impostos_total?: number;
   custoSemImposto?: number;
@@ -3725,8 +3733,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         // 1. Somar os impostos do item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS
         const vICMS = getTaxSum(det, 'vICMS') + getTaxSum(det, 'vICMSST');
         const vIPI = getTaxSum(det, 'vIPI');
-        const vPIS = getTaxSum(det, 'vPIS');
-        const vCOFINS = getTaxSum(det, 'vCOFINS');
+        const vPIS = getTaxSum(det, 'vPIS') + getTaxSum(det, 'vPISST');
+        const vCOFINS = getTaxSum(det, 'vCOFINS') + getTaxSum(det, 'vCOFINSST');
         const vIBS = getTaxSum(det, 'vIBS');
         const vCBS = getTaxSum(det, 'vCBS');
         const totalItemImpostos = vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS;
@@ -3749,18 +3757,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         // 3. Custo Líquido (Sem Imposto): Exibe o valor do produto subtraindo os impostos incidentes/recuperáveis
         const custoSemImpostoCalc = Math.max(0, vUnCom - valorImpostosUnitario);
 
-        // 4. Custo Real Final = (vProd + vIPI + Frete_Diluído) / qCom
-        const custoRealFinalCalc = qCom > 0
-          ? ((vProd + vIPI + freteDiluidoItemTotal) / qCom)
-          : (vProd + vIPI + freteDiluidoItemTotal);
+        // 4. MOTOR REATIVO DE CUSTO COM IMPOSTO COMPULSÓRIO (CONTRATO MASTER AGROCONTROL):
+        // CUSTO_REAL = vProd + vIPI + vICMS + vPIS + vCOFINS + vIBS + vCBS (+ freteDiluidoItemTotal)
+        const custoRealTotal = vProd + totalItemImpostos + freteDiluidoItemTotal;
+        const custoRealFinalCalc = qCom > 0 ? (custoRealTotal / qCom) : custoRealTotal;
 
         const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
-        const valorImpostosTotalRound = round2(valorImpostosUnitario);
+        const round4 = (num: number) => Math.round((num + Number.EPSILON) * 10000) / 10000;
+        const totalImpostosRound = round2(totalItemImpostos);
         const custoSemImpostoRound = round2(custoSemImpostoCalc);
-        const custoComImpostoRound = round2(custoRealFinalCalc);
+        const custoComImpostoRound = round4(custoRealFinalCalc);
         const freteDiluidoRound = round2(freteDiluidoUnitario);
 
-        const itemDesc = getTag(prod, 'xProd') || 'Item NF-e';
+        const itemDesc = (getTag(prod, 'xProd') || 'Item NF-e').toUpperCase();
         const defaultCat = normalizeToInventoryCategory(deduceItemCategory(itemDesc));
 
         return {
@@ -3768,14 +3777,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           description: itemDesc,
           ncm: getTag(prod, 'NCM') || '',
           quantity: qCom,
-          unit: getTag(prod, 'uCom') || getTag(prod, 'uTrib') || 'UN',
-          unitPrice: vUnCom,
-          totalPrice: vProd || round2(qCom * vUnCom),
+          unit: (getTag(prod, 'uCom') || getTag(prod, 'uTrib') || 'UN').toUpperCase(),
+          // V. UNIT (R$) absorve compulsóriamente todos os impostos da nota fiscal:
+          unitPrice: custoComImpostoRound,
+          totalPrice: round2(custoRealTotal),
           barcode,
           category: defaultCat,
           categoria: defaultCat,
-          valorImpostosTotal: valorImpostosTotalRound,
-          valor_impostos_total: valorImpostosTotalRound,
+          vProdOriginal: round2(vProd),
+          vUnComOriginal: round4(vUnCom),
+          vICMS: round2(vICMS),
+          vIPI: round2(vIPI),
+          vPIS: round2(vPIS),
+          vCOFINS: round2(vCOFINS),
+          vIBS: round2(vIBS),
+          vCBS: round2(vCBS),
+          valorImpostosTotal: totalImpostosRound,
+          valor_impostos_total: totalImpostosRound,
           custoSemImposto: custoSemImpostoRound,
           custo_sem_imposto: custoSemImpostoRound,
           custoComImposto: custoComImpostoRound,
@@ -6693,55 +6711,60 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[9px] font-black border-b border-zinc-200 dark:border-stone-700 sticky top-0 z-10 whitespace-nowrap">
                             <tr>
                               {/* 1. Área Verde: Identificação & De-Para (Ultracompactas e Enxutas) */}
-                              <th className="py-1 px-1 w-10 text-center bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 shrink-0">
-                                Cód
+                              <th className="py-1 px-1 w-9 text-center bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 shrink-0 uppercase">
+                                CÓD
                               </th>
-                              <th className="py-1 px-1.5 w-[22%] min-w-[110px] max-w-[150px] bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 truncate">
-                                Descrição do Produto
+                              <th className="py-1 px-1.5 w-[20%] min-w-[110px] max-w-[150px] bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 truncate uppercase">
+                                DESCRIÇÃO DO PRODUTO
                               </th>
-                              <th className="py-1 px-1.5 w-[22%] min-w-[120px] max-w-[160px] bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-300 dark:border-emerald-700 truncate">
-                                Produto no Sistema (De-Para)
+                              <th className="py-1 px-1.5 w-[18%] min-w-[120px] max-w-[160px] bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-300 dark:border-emerald-700 truncate uppercase">
+                                PRODUTO NO SISTEMA (DE-PARA)
                               </th>
 
                               {/* 2. Área Amarela: 1º. QTD (Quantidade + Unidade) */}
-                              <th className="py-1 px-1 w-[11%] min-w-[70px] text-right bg-amber-100/90 dark:bg-amber-950/50 text-amber-950 dark:text-amber-200 border-r border-amber-200 dark:border-amber-800">
-                                Qtd
+                              <th className="py-1 px-1 w-[8%] min-w-[65px] text-right bg-amber-100/90 dark:bg-amber-950/50 text-amber-950 dark:text-amber-200 border-r border-amber-200 dark:border-amber-800 whitespace-nowrap uppercase">
+                                QTD
                               </th>
 
-                              {/* 3. 2º. V. UNIT (R$) */}
-                              <th className="py-1 px-1 w-[11%] min-w-[72px] text-right bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700">
-                                V. Unit (R$)
+                              {/* 3. Coluna Discriminada: VALOR TRIBUTADO */}
+                              <th className="py-1 px-1 w-[11%] min-w-[76px] text-right bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 border-r border-amber-200/80 dark:border-amber-800/80 whitespace-nowrap uppercase font-black" title="Soma dos Impostos do Item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS">
+                                VALOR TRIBUTADO
                               </th>
 
-                              {/* 4. 3º. V. TOTAL (R$) */}
-                              <th className="py-1 px-1 w-[11%] min-w-[72px] text-right bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700">
-                                V. Total (R$)
+                              {/* 4. 2º. CUSTO COM IMPOSTO (R$) */}
+                              <th className="py-1 px-1 w-[11%] min-w-[80px] text-right bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase font-black" title="Custo Real Unitário com Impostos Integrados: CUSTO_REAL = (vProd + vIPI + vICMS + vPIS + vCOFINS + vIBS + vCBS) / Qtd">
+                                CUSTO COM IMPOSTO
                               </th>
 
-                              {/* 5. Nova Coluna: % CÁLC. (Margem / Markup de Lucro) - Entre V. Total e V. Final */}
-                              <th className="py-1 px-1 w-[10%] min-w-[65px] text-right bg-purple-100/90 dark:bg-purple-950/50 text-purple-950 dark:text-purple-200 border-r border-purple-200 dark:border-purple-800">
-                                % Cálc.
+                              {/* 5. 3º. V. TOTAL (R$) */}
+                              <th className="py-1 px-1 w-[10%] min-w-[72px] text-right bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase">
+                                V. TOTAL (R$)
                               </th>
 
-                              {/* 6. Área Rosa: 4º. V. FINAL (R$) */}
-                              <th className="py-1 px-1 w-[13%] min-w-[78px] text-right bg-rose-100/90 dark:bg-rose-950/50 text-rose-950 dark:text-rose-200">
-                                V. Final (R$)
+                              {/* 6. Nova Coluna: % CÁLC. (Margem / Markup de Lucro) - Entre V. Total e V. Final */}
+                              <th className="py-1 px-1 w-[9%] min-w-[60px] text-right bg-purple-100/90 dark:bg-purple-950/50 text-purple-950 dark:text-purple-200 border-r border-purple-200 dark:border-purple-800 whitespace-nowrap uppercase">
+                                % CÁLC.
+                              </th>
+
+                              {/* 7. Área Rosa: 4º. V. FINAL (R$) */}
+                              <th className="py-1 px-1 w-[11%] min-w-[76px] text-right bg-rose-100/90 dark:bg-rose-950/50 text-rose-950 dark:text-rose-200 whitespace-nowrap uppercase">
+                                V. FINAL (R$)
                               </th>
 
                               {/* Opcionais: Atacado & Promoção com Porcentagens de Margem */}
                               {showExtraPrices && (
                                 <>
-                                  <th className="py-1 px-1 text-right w-[6%] min-w-[50px] bg-cyan-100/90 dark:bg-cyan-950/50 text-cyan-950 dark:text-cyan-200 border-l border-cyan-200 dark:border-cyan-800">
-                                    % Atac.
+                                  <th className="py-1 px-1 text-right w-[6%] min-w-[50px] bg-cyan-100/90 dark:bg-cyan-950/50 text-cyan-950 dark:text-cyan-200 border-l border-cyan-200 dark:border-cyan-800 whitespace-nowrap uppercase">
+                                    % ATAC.
                                   </th>
-                                  <th className="py-1 px-1 text-right w-[7%] min-w-[65px] bg-cyan-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700">
-                                    V. Atacado (R$)
+                                  <th className="py-1 px-1 text-right w-[7%] min-w-[65px] bg-cyan-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase">
+                                    V. ATACADO (R$)
                                   </th>
-                                  <th className="py-1 px-1 text-right w-[6%] min-w-[50px] bg-orange-100/90 dark:bg-orange-950/50 text-orange-950 dark:text-orange-200 border-l border-orange-200 dark:border-orange-800">
-                                    % Promo.
+                                  <th className="py-1 px-1 text-right w-[6%] min-w-[50px] bg-orange-100/90 dark:bg-orange-950/50 text-orange-950 dark:text-orange-200 border-l border-orange-200 dark:border-orange-800 whitespace-nowrap uppercase">
+                                    % PROMO.
                                   </th>
-                                  <th className="py-1 px-1 text-right w-[7%] min-w-[65px] bg-orange-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700">
-                                    V. Promo (R$)
+                                  <th className="py-1 px-1 text-right w-[7%] min-w-[65px] bg-orange-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase">
+                                    V. PROMO (R$)
                                   </th>
                                 </>
                               )}
@@ -6751,7 +6774,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             {parsedData.items.map((item, idx) => (
                               <tr key={`parsed_nfe_item_${item.code || 'item'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800">
                                 {/* CÓD & NCM (Área Verde - Super Enxuta) */}
-                                <td className="py-0.5 px-1 font-mono text-black text-[9px] text-center align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-10">
+                                <td className="py-0.5 px-1 font-mono text-black text-[9px] text-center align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-9 whitespace-nowrap">
                                   <div className="font-bold text-black dark:text-stone-100 truncate" title={item.code || '-'}>
                                     {item.code || '-'}
                                   </div>
@@ -6763,14 +6786,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 </td>
 
                                 {/* DESCRIÇÃO DO PRODUTO (Área Verde - Compacta com max-w e botão Lápis de edição) */}
-                                <td className="py-0.5 px-1 align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-[22%] min-w-[110px] max-w-[150px]">
+                                <td className="py-0.5 px-1 align-top bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-[20%] min-w-[110px] max-w-[150px]">
                                   <div className="flex items-center space-x-1">
                                     <input
                                       type="text"
                                       value={item.description}
-                                      onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                                      className="flex-1 min-w-0 h-6 px-1.5 text-[10px] rounded border border-emerald-200/80 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 focus:ring-1 focus:ring-emerald-500 font-medium truncate"
-                                      placeholder="Descrição do produto"
+                                      onChange={(e) => handleItemChange(idx, 'description', e.target.value.toUpperCase())}
+                                      className="flex-1 min-w-0 h-6 px-1.5 text-[10px] rounded border border-emerald-200/80 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 focus:ring-1 focus:ring-emerald-500 font-medium truncate uppercase"
+                                      placeholder="DESCRIÇÃO DO PRODUTO"
                                       title={item.description}
                                     />
                                     <button
@@ -6782,10 +6805,29 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                       <Pencil className="w-3 h-3" />
                                     </button>
                                   </div>
+
+                                  {/* Micro Linha de Suporte Discriminada de Tributos na Linha */}
+                                  {item.valorImpostosTotal !== undefined && item.valorImpostosTotal > 0 ? (
+                                    <div className="flex items-center gap-1 mt-0.5 text-[8px] font-mono leading-none whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">
+                                      <span className="font-black text-amber-950 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/60 px-1 py-0.5 rounded border border-amber-300 dark:border-amber-800 shrink-0 uppercase">
+                                        TRIB: {formatCurrencyBRL(item.valorImpostosTotal)}
+                                      </span>
+                                      {item.vICMS ? <span className="text-zinc-600 dark:text-zinc-400 font-semibold shrink-0 uppercase">ICMS: {formatCurrencyBRL(item.vICMS)}</span> : null}
+                                      {item.vIPI ? <span className="text-zinc-600 dark:text-zinc-400 font-semibold shrink-0 uppercase">IPI: {formatCurrencyBRL(item.vIPI)}</span> : null}
+                                      {item.vPIS ? <span className="text-zinc-600 dark:text-zinc-400 font-semibold shrink-0 uppercase">PIS: {formatCurrencyBRL(item.vPIS)}</span> : null}
+                                      {item.vCOFINS ? <span className="text-zinc-600 dark:text-zinc-400 font-semibold shrink-0 uppercase">COF: {formatCurrencyBRL(item.vCOFINS)}</span> : null}
+                                      {item.vIBS ? <span className="text-zinc-600 dark:text-zinc-400 font-semibold shrink-0 uppercase">IBS: {formatCurrencyBRL(item.vIBS)}</span> : null}
+                                      {item.vCBS ? <span className="text-zinc-600 dark:text-zinc-400 font-semibold shrink-0 uppercase">CBS: {formatCurrencyBRL(item.vCBS)}</span> : null}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1 mt-0.5 text-[7.5px] font-mono text-zinc-400 dark:text-zinc-500 whitespace-nowrap py-0.5 uppercase">
+                                      <span>TRIBUTOS NÃO DESTACADOS</span>
+                                    </div>
+                                  )}
                                 </td>
 
                                 {/* PRODUTO NO SISTEMA DE-PARA (Área Verde - Compacta com max-w) */}
-                                <td className="py-0.5 px-1 align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-200/60 dark:border-emerald-900/40 w-[22%] min-w-[120px] max-w-[160px]">
+                                <td className="py-0.5 px-1 align-top bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-200/60 dark:border-emerald-900/40 w-[18%] min-w-[120px] max-w-[160px]">
                                   {item.linkedInventoryId ? (
                                     (() => {
                                       const linked = localInventory.find(p => p.id === item.linkedInventoryId);
@@ -6793,8 +6835,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                         <div className="flex items-center justify-between gap-1 h-6 px-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded">
                                           <div className="min-w-0 flex-1 flex items-center space-x-1">
                                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                            <span className="text-[9px] font-bold text-black dark:text-stone-100 truncate" title={linked?.nome_comercial || linked?.name}>
-                                              {linked?.code ? `[${linked.code}] ` : ''}{linked?.nome_comercial || linked?.name || 'Vinculado'}
+                                            <span className="text-[9px] font-bold text-black dark:text-stone-100 truncate uppercase" title={linked?.nome_comercial || linked?.name}>
+                                              {linked?.code ? `[${linked.code}] ` : ''}{linked?.nome_comercial || linked?.name || 'VINCULADO'}
                                             </span>
                                             <span className="text-[8px] text-emerald-900 dark:text-emerald-300 font-bold shrink-0 bg-emerald-100 dark:bg-emerald-900/60 px-0.5 rounded">
                                               {linked?.quantidade_atual !== undefined ? linked.quantidade_atual : (linked?.quantity || 0)}
@@ -6832,11 +6874,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                             handleLinkProduct(idx, e.target.value);
                                           }
                                         }}
-                                        className="flex-1 min-w-0 h-6 px-1 text-[9px] rounded border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-stone-900 text-black dark:text-stone-100 focus:ring-1 focus:ring-[#0963cb] font-medium truncate"
+                                        className="flex-1 min-w-0 h-6 px-1 text-[9px] rounded border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-stone-900 text-black dark:text-stone-100 focus:ring-1 focus:ring-[#0963cb] font-medium truncate uppercase"
                                       >
-                                        <option value="">Vincular estoque...</option>
+                                        <option value="">VINCULAR ESTOQUE...</option>
                                         <option value="__NEW__" className="font-bold text-[#0963cb]">
-                                          + Cadastrar Novo
+                                          + CADASTRAR NOVO
                                         </option>
                                         {localInventory.map((inv) => (
                                           <option key={inv.id} value={inv.id}>
@@ -6866,7 +6908,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 </td>
 
                                 {/* 1º. QTD (Quantidade + Unidade de medida) - Área Amarela */}
-                                <td className="py-0.5 px-1 text-right align-middle bg-amber-50/40 dark:bg-amber-950/20 border-r border-amber-200/60 dark:border-amber-800/40">
+                                <td className="py-0.5 px-1 text-right align-top bg-amber-50/40 dark:bg-amber-950/20 border-r border-amber-200/60 dark:border-amber-800/40 whitespace-nowrap">
                                   <div className="flex items-center justify-end space-x-0.5">
                                     <input
                                       type="number"
@@ -6884,22 +6926,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   </div>
                                 </td>
 
-                                {/* 2º. V. UNIT (R$) (Valor unitário do item) */}
-                                <td className="py-0.5 px-1 text-right align-middle border-r border-stone-200/60 dark:border-stone-800">
+                                {/* 2º. VALOR TRIBUTADO (Soma dos Impostos do Item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS) */}
+                                <td className="py-0.5 px-1 text-right align-top bg-amber-50/40 dark:bg-amber-950/20 border-r border-amber-200/60 dark:border-amber-800/40 whitespace-nowrap">
+                                  <span className="text-[10px] font-mono font-black text-amber-950 dark:text-amber-200 block" title={`Valor Tributado Total: ${formatCurrencyBRL(item.valorImpostosTotal || 0)}`}>
+                                    {formatCurrencyBRL(item.valorImpostosTotal || 0)}
+                                  </span>
+                                  {item.vProdOriginal !== undefined && item.vProdOriginal > 0 && (
+                                    <span className="text-[7.5px] font-mono text-zinc-500 dark:text-zinc-400 block uppercase" title="Valor Bruto de Tabela do Produto (vProd)">
+                                      BRUTO: {formatCurrencyBRL(item.vProdOriginal)}
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* 3º. CUSTO COM IMPOSTO (V. UNIT Integrado: CUSTO_REAL = vProd + vIPI + vICMS + vPIS + vCOFINS + vIBS + vCBS) */}
+                                <td className="py-0.5 px-1 text-right align-top border-r border-stone-200/60 dark:border-stone-800 whitespace-nowrap">
                                   <input
                                     type="number"
                                     step="any"
                                     min="0"
                                     value={item.unitPrice}
                                     onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                                    className="w-full max-w-[78px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-[#0963cb] ml-auto block"
+                                    className="w-full max-w-[78px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-[#0963cb] ml-auto block"
                                     placeholder="0.00"
-                                    title="Valor Unitário Original da NF (V. Unit)"
+                                    title="Custo Unitário Real Integrando Impostos (Custo com Imposto)"
                                   />
                                 </td>
 
-                                {/* 3º. V. TOTAL (R$) (Valor total calculado) */}
-                                <td className="py-0.5 px-1 text-right align-middle border-r border-stone-200/60 dark:border-stone-800">
+                                {/* 4º. V. TOTAL (R$) (Valor total calculado com impostos) */}
+                                <td className="py-0.5 px-1 text-right align-top border-r border-stone-200/60 dark:border-stone-800 whitespace-nowrap">
                                   <input
                                     type="number"
                                     step="any"
@@ -6908,7 +6962,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     onChange={(e) => handleItemChange(idx, 'totalPrice', e.target.value)}
                                     className="w-full max-w-[80px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-[#0963cb] ml-auto block"
                                     placeholder="0.00"
-                                    title="Valor Total do Item na NF (V. Total)"
+                                    title="Valor Total do Item na NF com Impostos (V. Total)"
                                   />
                                 </td>
 
