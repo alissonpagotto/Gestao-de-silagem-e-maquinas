@@ -436,7 +436,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
               type="button"
               id="btn-novo-servico"
               onClick={handleOpenNew}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1 active:scale-95 whitespace-nowrap uppercase"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1 active:scale-95 whitespace-nowrap uppercase"
             >
               <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
               <span>{(tabConfig.newButtonLabel || '+ NOVO CORTE').toUpperCase()}</span>

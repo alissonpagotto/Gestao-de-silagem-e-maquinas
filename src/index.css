@@ -1678,7 +1678,13 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     visibility: visible !important;
   }
 }
+div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-of-type(2) > button#btn-novo-servico:nth-of-type(1),
+button#btn-novo-servico {
+  background-color: #059669 !important;
+  background-image: none !important;
+}
 
-
-
+button#btn-novo-servico:hover {
+  background-color: #047857 !important;
+}
 
