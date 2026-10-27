@@ -3452,10 +3452,32 @@ const LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA = 'silagem_facil_documentos_entrada_
 export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
   // Lê estritamente primeiro da chave agrocontrol_notas_entradas
   const agro = getStoredList<DocumentoEntradaRecord>(AGROCONTROL_NOTAS_ENTRADAS_KEY, []);
-  if (agro.length > 0) return agro;
-  const current = getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
-  if (current.length > 0) return current;
-  return getStoredList<DocumentoEntradaRecord>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
+  let list = agro.length > 0 ? agro : getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
+  if (list.length === 0) {
+    list = getStoredList<DocumentoEntradaRecord>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
+  }
+
+  // Purga defensiva de notas mockadas
+  const isMockNota = (d: any) => {
+    if (!d || typeof d !== 'object') return false;
+    const emit = String(d.fornecedor_nome || d.emitente_nome || d.fornecedor || d.emitente || '').toUpperCase();
+    if (
+      emit.includes('VALE VERDE') ||
+      emit.includes('IPIRANGA') ||
+      emit.includes('YARA BRASIL') ||
+      emit.includes('FANTASMA') ||
+      emit.includes('TRATORPARTS')
+    ) return true;
+    const id = String(d.id || '');
+    if (['manif_001', 'manif_002', 'manif_003', 'manif_004', 'doc_001', 'doc_002'].includes(id)) return true;
+    return false;
+  };
+
+  const cleaned = list.filter(d => !isMockNota(d));
+  if (cleaned.length !== list.length) {
+    saveStoredDocumentosEntrada(cleaned);
+  }
+  return cleaned;
 };
 
 export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[]): void => {

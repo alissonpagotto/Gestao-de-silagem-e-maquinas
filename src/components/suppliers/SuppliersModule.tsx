@@ -240,9 +240,8 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
           <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
             {filteredSuppliers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-400 dark:text-stone-500">
-                  <Building className="w-6 h-6 text-slate-300 dark:text-stone-600 mx-auto mb-1" />
-                  <span>Nenhum fornecedor encontrado</span>
+                <td colSpan={5} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                  NENHUM REGISTRO ENCONTRADO
                 </td>
               </tr>
             ) : (

@@ -633,28 +633,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                     <tbody className="divide-y divide-slate-100 dark:divide-stone-800 bg-white dark:bg-stone-900">
                       {filteredSales.length === 0 ? (
                         <tr className="bg-white dark:bg-stone-900">
-                          <td colSpan={7} className="px-4 py-8 text-center bg-white dark:bg-stone-900">
-                            <div className="flex flex-col items-center justify-center space-y-2">
-                              <div className="p-2.5 bg-slate-100 dark:bg-stone-800 rounded-full text-slate-600 dark:text-stone-300 border border-slate-200 dark:border-stone-700">
-                                <ShoppingCart className="w-5 h-5" />
-                              </div>
-                              <p className="text-xs font-black text-slate-900 dark:text-white uppercase">
-                                Nenhuma venda encontrada
-                              </p>
-                              <p className="text-[11px] text-slate-500 dark:text-stone-400 max-w-sm">
-                                {searchTerm || statusFilter !== 'todos' 
-                                  ? 'Tente ajustar os filtros ou o termo de busca para visualizar os registros.' 
-                                  : 'Cadastre a primeira venda de silagem clicando no botão abaixo.'}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={handleOpenNew}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 text-xs font-bold rounded border border-slate-400 dark:border-stone-600 shadow-2xs transition active:scale-95 cursor-pointer uppercase"
-                              >
-                                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                                <span>Cadastrar Venda</span>
-                              </button>
-                            </div>
+                          <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                            NENHUM REGISTRO ENCONTRADO
                           </td>
                         </tr>
                       ) : (

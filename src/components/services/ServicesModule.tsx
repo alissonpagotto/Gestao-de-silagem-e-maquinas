@@ -616,22 +616,8 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                     <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
                       {filteredServices.length === 0 ? (
                         <tr className="bg-white dark:bg-stone-900">
-                          <td colSpan={7} className="px-4 py-8 text-center bg-white dark:bg-stone-900">
-                            <p className="text-xs font-bold text-zinc-500 dark:text-stone-400 uppercase">
-                              {activeTab === 'trator' 
-                                ? 'NENHUM SERVIÇO DE TRATOR ENCONTRADO' 
-                                : activeTab === 'corte'
-                                ? 'NENHUM SERVIÇO DE CORTE DE SILAGEM ENCONTRADO'
-                                : activeTab === 'colheita'
-                                ? 'NENHUM SERVIÇO DE COLHEITA DE GRÃOS ENCONTRADO'
-                                : activeTab === 'maquina'
-                                ? 'NENHUM SERVIÇO DE MÁQUINA ENCONTRADO'
-                                : activeTab === 'frete'
-                                ? 'NENHUM SERVIÇO DE FRETE ENCONTRADO'
-                                : activeTab === 'orcamento'
-                                ? 'NENHUM ORÇAMENTO ENCONTRADO'
-                                : 'NENHUM SERVIÇO ENCONTRADO'}
-                            </p>
+                          <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                            NENHUM REGISTRO ENCONTRADO
                           </td>
                         </tr>
                       ) : (

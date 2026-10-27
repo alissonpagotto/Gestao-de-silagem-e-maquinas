@@ -97,11 +97,15 @@ export function isMockStorageRecord(item: any): boolean {
     'sup_rec_1',
     'sup_rec_2',
     'sup_rec_3',
-    'maint_os_rhx3e15_30048'
+    'maint_os_rhx3e15_30048',
+    'veh_forr_05_2023',
+    'veh_colh_02_2022',
+    'veh_trator_jd_6110',
+    'veh_evd_2j61'
   ].includes(id)) {
     return true;
   }
-  const name = String(item.name || item.nome || item.razaoSocial || item.emitente || item.emitenteNome || item.condutor || item.motoristaNome || '').trim().toUpperCase();
+  const name = String(item.name || item.nome || item.razaoSocial || item.emitente || item.emitenteNome || item.fornecedor_nome || item.fornecedor || item.condutor || item.motoristaNome || '').trim().toUpperCase();
   if ([
     'ALISSON PAGOTTO',
     'AUDIRLEI REOLAN',
@@ -122,6 +126,15 @@ export function isMockStorageRecord(item: any): boolean {
     'TRATORPARTS PEÇAS AGRÍCOLAS LTDA',
     'TRATORPARTS REVENDA DE PEÇAS AGRÍCOLAS'
   ].includes(name)) {
+    return true;
+  }
+  if (
+    name.includes('VALE VERDE') ||
+    name.includes('IPIRANGA') ||
+    name.includes('YARA BRASIL') ||
+    name.includes('FANTASMA') ||
+    name.includes('TRATORPARTS')
+  ) {
     return true;
   }
   return false;

@@ -850,8 +850,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={showSpecialPrices ? 13 : 9} className="py-8 text-center text-black/70 dark:text-stone-400 font-bold">
-                    Nenhum item encontrado no estoque.
+                  <td colSpan={showSpecialPrices ? 13 : 9} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (

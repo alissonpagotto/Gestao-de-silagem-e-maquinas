@@ -751,7 +751,7 @@ export function VacationReceiptModal({
   const companyName = company?.tradeName || company?.companyName || company?.corporateName || 'COLACA SILAGEM LTDA';
   const companyCnpj = company?.cnpjCpf || '46.097.636/0001-02';
 
-  const employeeName = sourceVacation.employeeName || employee?.name || 'ALISSON PAGOTTO DA SILVA';
+  const employeeName = sourceVacation.employeeName || employee?.name || '-';
   const employeeRole = employee?.role || (employee as any)?.cargo || 'Colaborador';
   const employeeCpf = employee?.cpf || (employee as any)?.document || (employee as any)?.cpfCnpj || 'Não Informado';
 

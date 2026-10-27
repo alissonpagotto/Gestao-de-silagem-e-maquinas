@@ -475,8 +475,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
             {filteredExpenses.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-black/75 dark:text-stone-400">
-                  Nenhum lançamento encontrado com os filtros atuais.
+                <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                  NENHUM REGISTRO ENCONTRADO
                 </td>
               </tr>
             ) : (
@@ -640,8 +640,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       {/* Mobile Card List View */}
       <div className="divide-y divide-zinc-100 dark:divide-stone-800 md:hidden bg-white dark:bg-stone-900">
         {filteredExpenses.length === 0 ? (
-          <div className="py-10 text-center text-black/75 dark:text-stone-400 text-xs">
-            Nenhum lançamento encontrado.
+          <div className="py-6 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+            NENHUM REGISTRO ENCONTRADO
           </div>
         ) : (
           filteredExpenses.map((exp) => (

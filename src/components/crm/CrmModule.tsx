@@ -465,8 +465,8 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-stone-500">
-                    Nenhum cliente encontrado com os filtros atuais.
+                  <td colSpan={6} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (
