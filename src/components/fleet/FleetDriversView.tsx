@@ -778,12 +778,12 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>
           </div>
-        )}
 
         {/* Rodapé Corporativo Exclusivo para Impressão */}
         <div className="hidden print:block mt-6 pt-3 border-t-2 border-black text-center text-[10px] text-gray-700 uppercase font-semibold">

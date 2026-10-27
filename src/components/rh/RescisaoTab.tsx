@@ -1129,8 +1129,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
                   </tr>
                   );
-                })}
-              </tbody>
+                })
+              )}
+            </tbody>
             </table>
           </div>
       </div>

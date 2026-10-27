@@ -716,6 +716,11 @@ export function saveStoredMachineries(machines: Machinery[]): void {
     localStorage.setItem('agrocontrol_frotas_veiculos', json);
     localStorage.setItem('agrocontrol_veiculos', json);
     localStorage.setItem('agrocontrol_frotas', json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: machines }));
+      window.dispatchEvent(new CustomEvent('colaca_silagem_frotas_veiculos_updated', { detail: machines }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_frotas_veiculos_updated', { detail: machines }));
+    }
   } catch (e) {
     console.error('Failed to save machineries', e);
   }

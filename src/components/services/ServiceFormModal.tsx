@@ -3950,10 +3950,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     <div className="relative">
                       <input
                         type="text"
-                        value={forrageiraNome}
-                        onChange={(e) => setForrageiraNome(e.target.value)}
+                        value={forrageiraNome ? forrageiraNome.toUpperCase() : ''}
+                        onChange={(e) => setForrageiraNome(e.target.value.toUpperCase())}
                         placeholder={(activeTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma (Clique para escolher) --"}
-                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm text-zinc-900 placeholder-zinc-400 font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
+                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm text-zinc-900 placeholder-zinc-400 font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors uppercase"
                       />
                       <select
                         value={forrageiraId}
@@ -3966,7 +3966,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         </option>
                         {maquinasPrincipaisDisponiveis.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {formatMachineryOptionLabel(m)}
+                            {formatMachineryOptionLabel(m).toUpperCase()}
                           </option>
                         ))}
                       </select>
