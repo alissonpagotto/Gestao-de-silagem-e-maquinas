@@ -1522,6 +1522,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       onSaveSuppliers(updated);
     }
     saveStoredSuppliers(updated);
+    try {
+      localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Estado local do inventário sincronizado com props ou storage
@@ -3338,46 +3343,62 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Salva / valida dados do fornecedor vindo do SupplierModal
   const handleSaveSupplierFromModal = (savedSupplier: Supplier) => {
-    const existingIndex = localSuppliers.findIndex(s => s.id === savedSupplier.id || (s.name && s.name.toLowerCase() === savedSupplier.name.toLowerCase()));
+    // Normalização compulsória em CAIXA ALTA (UPPERCASE)
+    const upperSupplier: Supplier = {
+      ...savedSupplier,
+      name: (savedSupplier.name || '').trim().toUpperCase(),
+      tradeName: savedSupplier.tradeName ? savedSupplier.tradeName.trim().toUpperCase() : undefined,
+      category: savedSupplier.category ? savedSupplier.category.trim().toUpperCase() : 'COMBUSTÍVEL',
+      stateRegistration: savedSupplier.stateRegistration ? savedSupplier.stateRegistration.trim().toUpperCase() : undefined,
+      municipalRegistration: savedSupplier.municipalRegistration ? savedSupplier.municipalRegistration.trim().toUpperCase() : undefined,
+      address: savedSupplier.address ? savedSupplier.address.trim().toUpperCase() : undefined,
+      neighborhood: savedSupplier.neighborhood ? savedSupplier.neighborhood.trim().toUpperCase() : undefined,
+      city: savedSupplier.city ? savedSupplier.city.trim().toUpperCase() : undefined,
+      state: savedSupplier.state ? savedSupplier.state.trim().toUpperCase() : 'PR',
+      notes: savedSupplier.notes ? savedSupplier.notes.trim().toUpperCase() : undefined,
+      email: savedSupplier.email ? savedSupplier.email.trim().toUpperCase() : undefined,
+    };
+
+    const existingIndex = localSuppliers.findIndex(s => s.id === upperSupplier.id || (s.name && s.name.toUpperCase() === upperSupplier.name));
     let updated: Supplier[];
     if (existingIndex >= 0) {
       updated = [...localSuppliers];
-      updated[existingIndex] = savedSupplier;
+      updated[existingIndex] = upperSupplier;
     } else {
-      updated = [savedSupplier, ...localSuppliers];
+      updated = [upperSupplier, ...localSuppliers];
     }
     saveSuppliers(updated);
-    setSupplierForModal(savedSupplier);
-    setManualSupplier(savedSupplier.name);
+    setSupplierForModal(upperSupplier);
+    setManualSupplier(upperSupplier.name);
 
     if (parsedData) {
       setParsedData(prev => {
         if (!prev) return prev;
         return {
           ...prev,
-          supplier: savedSupplier.name,
-          supplierTradeName: savedSupplier.tradeName || prev.supplierTradeName,
-          supplierCnpj: savedSupplier.cnpjOrCpf ? cleanDigits(savedSupplier.cnpjOrCpf) : prev.supplierCnpj,
-          supplierIe: savedSupplier.stateRegistration || prev.supplierIe,
-          supplierIm: savedSupplier.municipalRegistration || prev.supplierIm,
-          supplierAddress: savedSupplier.address || prev.supplierAddress,
-          supplierNeighborhood: savedSupplier.neighborhood || prev.supplierNeighborhood,
-          supplierCity: savedSupplier.city || prev.supplierCity,
-          supplierState: savedSupplier.state || prev.supplierState,
-          supplierZipCode: savedSupplier.zipCode || prev.supplierZipCode,
-          supplierPhone: savedSupplier.phone || prev.supplierPhone,
+          supplier: upperSupplier.name,
+          supplierTradeName: upperSupplier.tradeName || prev.supplierTradeName,
+          supplierCnpj: upperSupplier.cnpjOrCpf ? cleanDigits(upperSupplier.cnpjOrCpf) : prev.supplierCnpj,
+          supplierIe: upperSupplier.stateRegistration || prev.supplierIe,
+          supplierIm: upperSupplier.municipalRegistration || prev.supplierIm,
+          supplierAddress: upperSupplier.address || prev.supplierAddress,
+          supplierNeighborhood: upperSupplier.neighborhood || prev.supplierNeighborhood,
+          supplierCity: upperSupplier.city || prev.supplierCity,
+          supplierState: upperSupplier.state || prev.supplierState,
+          supplierZipCode: upperSupplier.zipCode || prev.supplierZipCode,
+          supplierPhone: upperSupplier.phone || prev.supplierPhone,
         };
       });
     }
 
     setSupplierValidationNotice({
       isNew: false,
-      name: savedSupplier.name,
-      cnpjOrCpf: savedSupplier.cnpjOrCpf,
+      name: upperSupplier.name,
+      cnpjOrCpf: upperSupplier.cnpjOrCpf,
     });
 
-    setSuccessMessage(`Fornecedor "${savedSupplier.name}" validado e salvo com sucesso!`);
-    setTimeout(() => setSuccessMessage(''), 4000);
+    setSuccessMessage("FORNECEDOR CADASTRADO E SALVO COM SUCESSO!");
+    setTimeout(() => setSuccessMessage(''), 4500);
   };
 
   // Dados consolidados e análise de estorno para a nota fiscal selecionada para exclusão
@@ -3976,20 +3997,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
         const newSupplier: Supplier = {
           id: `sup_nfe_${Date.now()}`,
-          name: result.supplier,
-          tradeName: result.supplierTradeName || undefined,
-          category: inferredCat,
+          name: (result.supplier || '').toUpperCase(),
+          tradeName: result.supplierTradeName ? result.supplierTradeName.toUpperCase() : undefined,
+          category: inferredCat.toUpperCase(),
           cnpjOrCpf: result.supplierCnpj ? formatCpfCnpj(result.supplierCnpj) : undefined,
-          stateRegistration: result.supplierIe || undefined,
-          municipalRegistration: result.supplierIm || undefined,
+          stateRegistration: result.supplierIe ? result.supplierIe.toUpperCase() : undefined,
+          municipalRegistration: result.supplierIm ? result.supplierIm.toUpperCase() : undefined,
           phone: result.supplierPhone ? formatPhone(result.supplierPhone) : '',
           email: '',
           zipCode: result.supplierZipCode ? formatCep(result.supplierZipCode) : undefined,
-          address: result.supplierAddress || undefined,
-          neighborhood: result.supplierNeighborhood || undefined,
-          city: result.supplierCity || undefined,
-          state: result.supplierState || 'PR',
-          notes: `Cadastrado automaticamente via leitura XML da NF-e ${result.invoiceNumber}`,
+          address: result.supplierAddress ? result.supplierAddress.toUpperCase() : undefined,
+          neighborhood: result.supplierNeighborhood ? result.supplierNeighborhood.toUpperCase() : undefined,
+          city: result.supplierCity ? result.supplierCity.toUpperCase() : undefined,
+          state: result.supplierState ? result.supplierState.toUpperCase() : 'PR',
+          notes: `Cadastrado automaticamente via leitura XML da NF-e ${result.invoiceNumber}`.toUpperCase(),
           createdAt: new Date().toISOString(),
         };
 

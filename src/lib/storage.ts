@@ -929,7 +929,7 @@ export function resetAllSystemData(): void {
 
 export function getStoredSuppliers(): Supplier[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SUPPLIERS);
+    const raw = localStorage.getItem('agrocontrol_fornecedores') || localStorage.getItem(STORAGE_KEYS.SUPPLIERS);
     if (!raw) return INITIAL_SUPPLIERS;
     return JSON.parse(raw);
   } catch (e) {
@@ -939,6 +939,7 @@ export function getStoredSuppliers(): Supplier[] {
 
 export function saveStoredSuppliers(suppliers: Supplier[]): void {
   try {
+    localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(suppliers));
     localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(suppliers));
   } catch (e) {
     console.error('Failed to save suppliers', e);
@@ -3805,7 +3806,10 @@ export const getCompanyRhFerias = (companyId?: string): VacationRecord[] => getC
 
 export const saveCompanyFornecedores = (fornecedores: Supplier[], companyId?: string): void => {
   saveCompanyData('fornecedores', fornecedores, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(fornecedores)); } catch {}
+  try {
+    localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(fornecedores));
+    localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(fornecedores));
+  } catch {}
 };
 export const getCompanyFornecedores = (companyId?: string): Supplier[] => getCompanyData<Supplier>('fornecedores', getStoredSuppliers, companyId);
 

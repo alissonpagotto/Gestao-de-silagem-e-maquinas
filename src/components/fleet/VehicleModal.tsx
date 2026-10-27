@@ -2969,7 +2969,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 4: CONTROLE DE COMPRA, NOTA FISCAL & FINANCIAMENTO (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                 <div className="flex items-center space-x-1.5">
                   <Receipt className="w-4 h-4 text-zinc-700" />
@@ -3215,7 +3215,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 5: CONTROLE PATRIMONIAL, IMPOSTOS & TAXAS (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-zinc-200">
                 <div className="flex items-center space-x-1.5">
                   <ShieldCheck className="w-4 h-4 text-zinc-700" />
@@ -3384,10 +3384,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 6: MOTORISTAS / OPERADORES (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 bg-white rounded-xl border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 bg-[#edf4ff] dark:bg-stone-850 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold flex items-center space-x-1.5 text-zinc-800">
-                  <Users className="w-4 h-4 text-zinc-700" />
+                <label className="text-[13px] font-bold flex items-center space-x-1.5 text-[#080808] dark:text-stone-200">
+                  <Users className="w-4 h-4 text-zinc-700 dark:text-stone-300" />
                   <span>6. Motoristas & Operadores Vinculados (Múltiplos)</span>
                 </label>
                 <span className="text-[10px] font-semibold text-zinc-500">
@@ -3486,31 +3486,31 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 7: MÉDIAS DE CONSUMO AUTOMÁTICAS (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-5 h-5 rounded-md bg-zinc-800 text-white flex items-center justify-center">
                     <Fuel className="w-3 h-3 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800 dark:text-stone-200">
                       7. Médias de Consumo de Combustível
                     </h4>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-300">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-300 dark:border-stone-700">
                   Cálculo Automático
                 </span>
               </div>
 
               {/* Metric Badges */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-between">
+                <div className="p-2 bg-zinc-50 dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-zinc-600">
+                    <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400">
                       Média por Km (km/L)
                     </span>
-                    <div className="text-base font-black text-zinc-900 font-['Outfit']">
+                    <div className="text-base font-black text-zinc-900 dark:text-stone-100 font-['Outfit']">
                       {consumptionMetrics.avgKmPerLiter !== null 
                         ? `${consumptionMetrics.avgKmPerLiter.toLocaleString('pt-BR')} km/L` 
                         : (editingVehicle?.averageConsumptionKmPerLiter 
@@ -3521,12 +3521,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   <Gauge className="w-5 h-5 text-zinc-400" />
                 </div>
 
-                <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-between">
+                <div className="p-2 bg-zinc-50 dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-zinc-600">
+                    <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400">
                       Média por Horas (L/h)
                     </span>
-                    <div className="text-base font-black text-zinc-900 font-['Outfit']">
+                    <div className="text-base font-black text-zinc-900 dark:text-stone-100 font-['Outfit']">
                       {consumptionMetrics.avgLitersPerHour !== null 
                         ? `${consumptionMetrics.avgLitersPerHour.toLocaleString('pt-BR')} L/h` 
                         : (editingVehicle?.averageConsumptionLitersPerHour 
@@ -3540,22 +3540,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 8: OBSERVAÇÕES (CARD BRANCO COMPACTO) */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-1">
-              <label className="block text-[11px] font-bold text-zinc-800">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#edf4ff] dark:bg-stone-850 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-1">
+              <label className="block text-[11px] font-bold text-zinc-800 dark:text-stone-200">
                 8. Observações Adicionais
               </label>
               <textarea
                 rows={1.5}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 resize-none shadow-xs"
+                className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 resize-none shadow-xs"
                 placeholder="Anotações gerais sobre o veículo..."
               />
             </div>
 
             {/* Actions / Rodapé Compacto */}
             <div 
-              className="p-2.5 sm:p-3 bg-white rounded-xl border border-zinc-200 shadow-xs flex items-center justify-end space-x-2"
+              className="p-2.5 sm:p-3 bg-[#edf4ff] dark:bg-stone-850 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-xs flex items-center justify-end space-x-2"
             >
               <button
                 type="button"

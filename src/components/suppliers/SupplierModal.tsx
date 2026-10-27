@@ -69,6 +69,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSuccessSaved, setIsSuccessSaved] = useState(false);
 
   // Share & external form state
   const [isShareDropdownOpen, setIsShareDropdownOpen] = useState(false);
@@ -133,20 +134,20 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   };
 
   const applySubmission = (submission: SupplierFormSubmission) => {
-    if (submission.name) setName(submission.name);
-    if (submission.tradeName) setTradeName(submission.tradeName);
-    if (submission.category) setCategory(submission.category);
+    if (submission.name) setName(submission.name.toUpperCase());
+    if (submission.tradeName) setTradeName(submission.tradeName.toUpperCase());
+    if (submission.category) setCategory(submission.category.toUpperCase());
     if (submission.cnpjOrCpf) setCnpjOrCpf(formatCpfCnpj(submission.cnpjOrCpf));
-    if (submission.stateRegistration) setStateRegistration(submission.stateRegistration);
-    if (submission.municipalRegistration) setMunicipalRegistration(submission.municipalRegistration);
+    if (submission.stateRegistration) setStateRegistration(submission.stateRegistration.toUpperCase());
+    if (submission.municipalRegistration) setMunicipalRegistration(submission.municipalRegistration.toUpperCase());
     if (submission.phone) setPhone(formatPhone(submission.phone));
-    if (submission.email) setEmail(submission.email);
+    if (submission.email) setEmail(submission.email.toUpperCase());
     if (submission.zipCode) setZipCode(formatCep(submission.zipCode));
-    if (submission.address) setAddress(submission.address);
-    if (submission.neighborhood) setNeighborhood(submission.neighborhood);
-    if (submission.city) setCity(submission.city);
-    if (submission.state) setState(submission.state);
-    if (submission.notes) setNotes(submission.notes);
+    if (submission.address) setAddress(submission.address.toUpperCase());
+    if (submission.neighborhood) setNeighborhood(submission.neighborhood.toUpperCase());
+    if (submission.city) setCity(submission.city.toUpperCase());
+    if (submission.state) setState(submission.state.toUpperCase());
+    if (submission.notes) setNotes(submission.notes.toUpperCase());
 
     markSupplierSubmissionImported(submission.id);
     setPendingSubmissions(prev => prev.filter(s => s.id !== submission.id));
@@ -154,30 +155,30 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
     setFeedback({
       type: 'success',
-      message: `✅ Ficha respondida pelo fornecedor "${submission.name}" importada com sucesso!`
+      message: `Ficha respondida pelo fornecedor "${submission.name.toUpperCase()}" importada com sucesso!`
     });
     setTimeout(() => setFeedback(null), 4500);
   };
 
   const populateForm = (sup: Supplier) => {
-    setName(sup.name || '');
-    setTradeName(sup.tradeName || '');
-    setCategory(sup.category || 'Combustível');
+    setName((sup.name || '').toUpperCase());
+    setTradeName((sup.tradeName || '').toUpperCase());
+    setCategory((sup.category || 'Combustível').toUpperCase());
     setCnpjOrCpf(sup.cnpjOrCpf ? formatCpfCnpj(sup.cnpjOrCpf) : '');
-    setStateRegistration(sup.stateRegistration || '');
-    setMunicipalRegistration(sup.municipalRegistration || '');
+    setStateRegistration((sup.stateRegistration || '').toUpperCase());
+    setMunicipalRegistration((sup.municipalRegistration || '').toUpperCase());
     setPhone(sup.phone ? formatPhone(sup.phone) : '');
-    setEmail(sup.email || '');
+    setEmail((sup.email || '').toUpperCase());
     setZipCode(sup.zipCode ? formatCep(sup.zipCode) : '');
-    setAddress(sup.address || '');
-    setNeighborhood(sup.neighborhood || '');
-    setCity(sup.city || '');
-    setState(sup.state || 'PR');
-    setNotes(sup.notes || '');
+    setAddress((sup.address || '').toUpperCase());
+    setNeighborhood((sup.neighborhood || '').toUpperCase());
+    setCity((sup.city || '').toUpperCase());
+    setState((sup.state || 'PR').toUpperCase());
+    setNotes((sup.notes || '').toUpperCase());
   };
 
   const resetForm = () => {
-    setName(initialName || '');
+    setName((initialName || '').toUpperCase());
     setTradeName('');
     setCategory('Combustível');
     setCnpjOrCpf('');
@@ -195,6 +196,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setIsSuccessSaved(false);
       try {
         const subs = getSupplierSubmissions();
         setPendingSubmissions(subs.filter(s => s.status === 'pendente'));
@@ -245,16 +247,16 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
       try {
         const res = await fetchCompanyByCnpj(digits);
         if (res && res.success) {
-          if (res.corporateName && !name) setName(res.corporateName);
-          if (res.tradeName && !tradeName) setTradeName(res.tradeName);
+          if (res.corporateName && !name) setName(res.corporateName.toUpperCase());
+          if (res.tradeName && !tradeName) setTradeName(res.tradeName.toUpperCase());
           if (res.phone && !phone) setPhone(formatPhone(res.phone));
-          if (res.email && !email) setEmail(res.email);
+          if (res.email && !email) setEmail(res.email.toUpperCase());
           if (res.zipCode && !zipCode) setZipCode(formatCep(res.zipCode));
-          if (res.street && !address) setAddress(`${res.street}${res.number ? ', ' + res.number : ''}`);
-          if (res.neighborhood && !neighborhood) setNeighborhood(res.neighborhood);
-          if (res.city && !city) setCity(res.city);
-          if (res.state && !state) setState(res.state);
-          setFeedback({ type: 'success', message: `✅ Dados complementados: ${res.corporateName}` });
+          if (res.street && !address) setAddress(`${res.street}${res.number ? ', ' + res.number : ''}`.toUpperCase());
+          if (res.neighborhood && !neighborhood) setNeighborhood(res.neighborhood.toUpperCase());
+          if (res.city && !city) setCity(res.city.toUpperCase());
+          if (res.state && !state) setState(res.state.toUpperCase());
+          setFeedback({ type: 'success', message: `Dados complementados: ${res.corporateName.toUpperCase()}` });
         }
       } catch {
         // Ignora silenciosamente erro de rede/CORS para prosseguir 100% offline com os dados manuais
@@ -298,11 +300,11 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
     try {
       const res = await fetchAddressByCep(digits);
       if (res.success) {
-        if (res.street) setAddress(res.street);
-        if (res.neighborhood) setNeighborhood(res.neighborhood);
-        if (res.city) setCity(res.city);
-        if (res.state) setState(res.state);
-        setFeedback({ type: 'success', message: `✅ CEP localizado: ${res.city}/${res.state}` });
+        if (res.street) setAddress(res.street.toUpperCase());
+        if (res.neighborhood) setNeighborhood(res.neighborhood.toUpperCase());
+        if (res.city) setCity(res.city.toUpperCase());
+        if (res.state) setState(res.state.toUpperCase());
+        setFeedback({ type: 'success', message: `CEP localizado: ${res.city.toUpperCase()}/${res.state.toUpperCase()}` });
       } else {
         setFeedback({ type: 'error', message: res.message || 'CEP não localizado.' });
       }
@@ -327,8 +329,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setFeedback({ type: 'error', message: 'Por favor, informe a Razão Social ou Nome do fornecedor.' });
+    const upperName = name.trim().toUpperCase();
+    if (!upperName) {
+      setFeedback({ type: 'error', message: 'POR FAVOR, INFORME A RAZÃO SOCIAL OU NOME DO FORNECEDOR.' });
       setTimeout(() => setFeedback(null), 3500);
       return;
     }
@@ -337,34 +340,100 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
     const isEditing = !!activeSupplier;
     const supplierId = activeSupplier?.id || `sup_${Date.now()}`;
 
+    // Captura compulsória de todos os campos em CAIXA ALTA (UPPERCASE)
+    const upperTradeName = tradeName.trim() ? tradeName.trim().toUpperCase() : undefined;
+    const upperCategory = (category || 'Combustível').trim().toUpperCase();
+    const upperCnpjOrCpf = cnpjOrCpf.trim() ? cnpjOrCpf.trim().toUpperCase() : undefined;
+    const upperStateReg = stateRegistration.trim() ? stateRegistration.trim().toUpperCase() : undefined;
+    const upperMunReg = municipalRegistration.trim() ? municipalRegistration.trim().toUpperCase() : undefined;
+    const upperPhone = phone.trim() ? phone.trim().toUpperCase() : '';
+    const upperEmail = email.trim() ? email.trim().toUpperCase() : undefined;
+    const upperZip = zipCode.trim() ? zipCode.trim().toUpperCase() : undefined;
+    const upperAddress = address.trim() ? address.trim().toUpperCase() : undefined;
+    const upperNeighborhood = neighborhood.trim() ? neighborhood.trim().toUpperCase() : undefined;
+    const upperCity = city.trim() ? city.trim().toUpperCase() : undefined;
+    const upperState = state.trim() ? state.trim().toUpperCase() : 'PR';
+    const upperNotes = notes.trim() ? notes.trim().toUpperCase() : undefined;
+
     const savedSupplier: Supplier = {
       id: supplierId,
-      name: name.trim(),
-      tradeName: tradeName.trim() || undefined,
-      category,
-      cnpjOrCpf: cnpjOrCpf.trim() || undefined,
-      stateRegistration: stateRegistration.trim() || undefined,
-      municipalRegistration: municipalRegistration.trim() || undefined,
-      phone: phone.trim(),
-      email: email.trim() || undefined,
-      zipCode: zipCode.trim() || undefined,
-      address: address.trim() || undefined,
-      neighborhood: neighborhood.trim() || undefined,
-      city: city.trim() || undefined,
-      state: state.trim() || undefined,
-      notes: notes.trim() || undefined,
+      name: upperName,
+      tradeName: upperTradeName,
+      category: upperCategory,
+      cnpjOrCpf: upperCnpjOrCpf,
+      stateRegistration: upperStateReg,
+      municipalRegistration: upperMunReg,
+      phone: upperPhone,
+      email: upperEmail,
+      zipCode: upperZip,
+      address: upperAddress,
+      neighborhood: upperNeighborhood,
+      city: upperCity,
+      state: upperState,
+      notes: upperNotes,
       createdAt: activeSupplier?.createdAt || registrationTimestamp,
       updatedAt: isEditing ? now : undefined,
     };
 
-    // Save and keep modal OPEN on screen
+    // 1. MOTOR DE PERSISTÊNCIA SÍNCRONA NO LOCALSTORAGE (Chaves 'agrocontrol_fornecedores' e 'silagem_facil_clean_v1_suppliers')
+    try {
+      const AGROCONTROL_KEY = 'agrocontrol_fornecedores';
+      const LEGACY_KEY = 'silagem_facil_clean_v1_suppliers';
+
+      let currentSuppliers: Supplier[] = [];
+      const rawAgro = localStorage.getItem(AGROCONTROL_KEY);
+      const rawLegacy = localStorage.getItem(LEGACY_KEY);
+      const raw = rawAgro || rawLegacy;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) currentSuppliers = parsed;
+        } catch {
+          currentSuppliers = [];
+        }
+      }
+
+      const digitsNew = cleanDigits(savedSupplier.cnpjOrCpf || '');
+      const existingIdx = currentSuppliers.findIndex(s =>
+        s.id === savedSupplier.id ||
+        (digitsNew && cleanDigits(s.cnpjOrCpf || '') === digitsNew) ||
+        (s.name && s.name.trim().toUpperCase() === savedSupplier.name)
+      );
+
+      let updatedList: Supplier[];
+      if (existingIdx >= 0) {
+        updatedList = [...currentSuppliers];
+        updatedList[existingIdx] = {
+          ...currentSuppliers[existingIdx],
+          ...savedSupplier,
+        };
+      } else {
+        updatedList = [savedSupplier, ...currentSuppliers];
+      }
+
+      localStorage.setItem(AGROCONTROL_KEY, JSON.stringify(updatedList));
+      localStorage.setItem(LEGACY_KEY, JSON.stringify(updatedList));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.error('Erro na persistência de fornecedores no LocalStorage:', err);
+    }
+
+    // Notifica callback pai (NfeModule, ExpenseModal, SuppliersModule)
     onSave(savedSupplier);
     setActiveSupplier(savedSupplier);
+
+    // 2. FEEDBACK VISUAL DE SUCESSO (Retorno Reativo ao Operador)
+    setIsSuccessSaved(true);
     setFeedback({
       type: 'success',
-      message: isEditing ? '✅ Dados do fornecedor atualizados com sucesso!' : '✅ Fornecedor cadastrado com sucesso!'
+      message: 'FORNECEDOR CADASTRADO E SALVO COM SUCESSO!'
     });
-    setTimeout(() => setFeedback(null), 3500);
+
+    // 3. Fechamento automático imediato para prosseguir o fluxo da NF-e sem perda de tempo
+    setTimeout(() => {
+      setIsSuccessSaved(false);
+      onClose();
+    }, 900);
   };
 
   const formatDateTimeBR = (dateStr?: string) => {
@@ -498,19 +567,19 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
           </div>
         </div>
 
-        {/* Feedback message */}
+        {/* Feedback message / Toast de Notificação */}
         {feedback && (
-          <div className={`px-5 py-2 text-xs sm:text-sm font-bold text-white flex items-center justify-between shadow-xs transition ${
-            feedback.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+          <div className={`px-5 py-2.5 text-xs sm:text-sm font-black uppercase tracking-wide text-white flex items-center justify-between shadow-md transition animate-in fade-in slide-in-from-top-1 duration-150 ${
+            feedback.type === 'success' ? 'bg-[#059669]' : 'bg-rose-600'
           }`}>
-            <div className="flex items-center space-x-2">
-              {feedback.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-100 flex-shrink-0" />}
+            <div className="flex items-center space-x-2.5">
+              {feedback.type === 'success' && <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0 animate-in zoom-in" />}
               <span>{feedback.message}</span>
             </div>
             <button 
               type="button"
               onClick={() => setFeedback(null)} 
-              className="text-white/80 hover:text-white px-2 py-0.5 rounded-sm hover:bg-white/20 transition cursor-pointer"
+              className="text-white/80 hover:text-white px-2 py-0.5 rounded-sm hover:bg-white/20 transition cursor-pointer font-bold"
             >
               ✕
             </button>
@@ -611,8 +680,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                   type="text"
                   required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
+                  onChange={(e) => setName(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
@@ -623,8 +692,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="text"
                   value={tradeName}
-                  onChange={(e) => setTradeName(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
+                  onChange={(e) => setTradeName(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
             </div>
@@ -661,9 +730,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="text"
                   value={stateRegistration}
-                  onChange={(e) => setStateRegistration(formatIE(e.target.value))}
+                  onChange={(e) => setStateRegistration(formatIE(e.target.value).toUpperCase())}
                   maxLength={18}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
@@ -674,9 +743,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="text"
                   value={municipalRegistration}
-                  onChange={(e) => setMunicipalRegistration(e.target.value)}
+                  onChange={(e) => setMunicipalRegistration(e.target.value.toUpperCase())}
                   maxLength={20}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
@@ -737,8 +806,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="text"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
+                  onChange={(e) => setAddress(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
             </div>
@@ -751,8 +820,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="text"
                   value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
+                  onChange={(e) => setNeighborhood(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
@@ -763,8 +832,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="text"
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
+                  onChange={(e) => setCity(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
@@ -793,8 +862,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
+                  onChange={(e) => setEmail(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
@@ -805,8 +874,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                 <textarea
                   rows={2}
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15 resize-none h-10 sm:h-11 leading-snug"
+                  onChange={(e) => setNotes(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-zinc-900/15 resize-none h-10 sm:h-11 leading-snug"
                 />
               </div>
             </div>
@@ -853,9 +922,21 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
               <button
                 type="submit"
-                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer uppercase"
+                disabled={isSuccessSaved}
+                className={`px-5 sm:px-6 py-2 rounded-xl text-white text-xs sm:text-sm font-black tracking-wider shadow-md transition-all cursor-pointer uppercase inline-flex items-center justify-center space-x-2 ${
+                  isSuccessSaved
+                    ? 'bg-[#059669] ring-2 ring-emerald-300 ring-offset-2 scale-[1.02]'
+                    : 'bg-[#059669] hover:bg-[#047857] active:bg-[#065f46]'
+                }`}
               >
-                SALVAR FORNECEDOR
+                {isSuccessSaved ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white animate-in zoom-in duration-150" />
+                    <span>SALVAR FORNECEDOR</span>
+                  </>
+                ) : (
+                  <span>SALVAR FORNECEDOR</span>
+                )}
               </button>
             </div>
           </div>
