@@ -18,6 +18,7 @@ import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/s
 import { useConfirm } from '../../context/ConfirmContext';
 import { SaleDetailsEditModal } from './SaleDetailsEditModal';
 import { PdvView } from './PdvView';
+import { FiscalEmissoesView } from './FiscalEmissoesView';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 
@@ -99,8 +100,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
-  // Tab State: Dashboard ou PDV
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pdv'>('dashboard');
+  // Tab State: Dashboard, PDV ou Fiscal / Emissões
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pdv' | 'fiscal'>('dashboard');
 
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
 
@@ -412,7 +413,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 onClick={() => setActiveTab('dashboard')}
                 className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'dashboard'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
@@ -424,14 +425,28 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 type="button"
                 id="tab-pdv-frente-caixa"
                 onClick={() => setActiveTab('pdv')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'pdv'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 <span>PDV</span>
+              </button>
+
+              <button
+                type="button"
+                id="tab-fiscal-emissoes"
+                onClick={() => setActiveTab('fiscal')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'fiscal'
+                    ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <FileCheck2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>FISCAL / EMISSÕES</span>
               </button>
             </nav>
           </div>
@@ -446,6 +461,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               onSaveService={handleSaveService}
               salesCount={salesRecords.length}
             />
+          ) : activeTab === 'fiscal' ? (
+            <FiscalEmissoesView companyProfile={companyProfile} />
           ) : (
             <>
               {/* BLOCO DE FILTROS SUPERIOR (FILTRAR POR PERÍODO...) */}

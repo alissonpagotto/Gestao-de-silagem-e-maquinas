@@ -137,6 +137,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               valid.push('venda');
             }
           }
+          if (!valid.includes('faturamento')) {
+            const vendaIndex = valid.indexOf('venda');
+            if (vendaIndex !== -1) {
+              valid.splice(vendaIndex + 1, 0, 'faturamento');
+            } else {
+              valid.push('faturamento');
+            }
+          }
           if (!valid.includes('fiscal')) {
             const finIndex = valid.indexOf('financeiro');
             if (finIndex !== -1) {
@@ -239,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Mapeamento de tab para a chave de permissão correspondente
   const getModulePermissionKey = (id: string): ModulePermissionKey | null => {
     if (id === 'servicos') return 'servicos';
-    if (id === 'financeiro' || id === 'despesas') return 'financeiro';
+    if (id === 'financeiro' || id === 'despesas' || id === 'faturamento') return 'financeiro';
     if (id === 'frotas') return 'frotas';
     if (id === 'rh' || id === 'funcionarios') return 'rh';
     if (id === 'estoque' || id === 'almoxarifado' || id === 'fiscal') return 'estoque';
@@ -508,6 +516,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isActive = 
                   isCadastrosBaseActive ||
                   activeTab === item.id ||
+                  (item.id === 'faturamento' && (activeTab === 'faturamento' || activeTab === 'faturamento_fiscal')) ||
                   (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
                   (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
                   (item.id === 'financeiro' && activeTab === 'despesas') ||
