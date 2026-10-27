@@ -75,39 +75,60 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     return url;
   };
 
+  const sanitizeProfile = (prof?: CompanyProfile): CompanyProfile => {
+    const base = prof || {} as CompanyProfile;
+    const isMockCorporate = !!base.corporateName && base.corporateName.toUpperCase().trim() === 'COLAÇA SILAGEM LTDA';
+    const isMockTrade = !!base.tradeName && base.tradeName.toUpperCase().trim() === 'COLAÇA SILAGEM';
+    const isMockSector = !!base.activitySector && (
+      base.activitySector.toUpperCase().trim() === 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' ||
+      base.activitySector.toUpperCase().trim() === 'PRESTACAO DE SERVICO DE SILAGEM' ||
+      base.activitySector.toUpperCase().trim() === 'GESTÃO AGRÍCOLA' ||
+      base.activitySector.toUpperCase().trim() === 'GESTAO AGRICOLA'
+    );
+    return {
+      ...base,
+      corporateName: isMockCorporate ? '' : (base.corporateName || ''),
+      tradeName: isMockTrade ? '' : (base.tradeName || ''),
+      activitySector: isMockSector ? '' : (base.activitySector || ''),
+    };
+  };
+
+  const initialCleaned = sanitizeProfile(companyProfile);
+
   // Form State initialized from props
   const [formData, setFormData] = useState<CompanyProfile>({
-    ...companyProfile,
-    logoUrl: cleanLogoUrl(companyProfile.logoUrl),
-    cnpjCpf: formatCpfCnpj(companyProfile.cnpjCpf || ''),
-    stateRegistration: formatIE(companyProfile.stateRegistration || ''),
-    phone: formatPhone(companyProfile.phone || ''),
-    zipCode: formatCep(companyProfile.zipCode || ''),
-    representativeName: companyProfile.representativeName || '',
-    representativeCpf: companyProfile.representativeCpf ? formatCpfCnpj(companyProfile.representativeCpf) : '',
-    bankName: companyProfile.bankName || '',
-    bankAgency: companyProfile.bankAgency || '',
-    bankAccount: companyProfile.bankAccount || '',
-    pixKeyType: companyProfile.pixKeyType || 'cnpj',
-    pixKey: companyProfile.pixKey || '',
+    ...initialCleaned,
+    logoUrl: cleanLogoUrl(initialCleaned.logoUrl),
+    cnpjCpf: formatCpfCnpj(initialCleaned.cnpjCpf || ''),
+    stateRegistration: formatIE(initialCleaned.stateRegistration || ''),
+    phone: formatPhone(initialCleaned.phone || ''),
+    zipCode: formatCep(initialCleaned.zipCode || ''),
+    representativeName: initialCleaned.representativeName || '',
+    representativeCpf: initialCleaned.representativeCpf ? formatCpfCnpj(initialCleaned.representativeCpf) : '',
+    bankName: initialCleaned.bankName || '',
+    bankAgency: initialCleaned.bankAgency || '',
+    bankAccount: initialCleaned.bankAccount || '',
+    pixKeyType: initialCleaned.pixKeyType || 'cnpj',
+    pixKey: initialCleaned.pixKey || '',
   });
 
   // Mantém os campos do formulário sempre reativos e preenchidos quando o perfil for atualizado/cadastrado
   useEffect(() => {
+    const cleaned = sanitizeProfile(companyProfile);
     setFormData({
-      ...companyProfile,
-      logoUrl: cleanLogoUrl(companyProfile.logoUrl),
-      cnpjCpf: formatCpfCnpj(companyProfile.cnpjCpf || ''),
-      stateRegistration: formatIE(companyProfile.stateRegistration || ''),
-      phone: formatPhone(companyProfile.phone || ''),
-      zipCode: formatCep(companyProfile.zipCode || ''),
-      representativeName: companyProfile.representativeName || '',
-      representativeCpf: companyProfile.representativeCpf ? formatCpfCnpj(companyProfile.representativeCpf) : '',
-      bankName: companyProfile.bankName || '',
-      bankAgency: companyProfile.bankAgency || '',
-      bankAccount: companyProfile.bankAccount || '',
-      pixKeyType: companyProfile.pixKeyType || 'cnpj',
-      pixKey: companyProfile.pixKey || '',
+      ...cleaned,
+      logoUrl: cleanLogoUrl(cleaned.logoUrl),
+      cnpjCpf: formatCpfCnpj(cleaned.cnpjCpf || ''),
+      stateRegistration: formatIE(cleaned.stateRegistration || ''),
+      phone: formatPhone(cleaned.phone || ''),
+      zipCode: formatCep(cleaned.zipCode || ''),
+      representativeName: cleaned.representativeName || '',
+      representativeCpf: cleaned.representativeCpf ? formatCpfCnpj(cleaned.representativeCpf) : '',
+      bankName: cleaned.bankName || '',
+      bankAgency: cleaned.bankAgency || '',
+      bankAccount: cleaned.bankAccount || '',
+      pixKeyType: cleaned.pixKeyType || 'cnpj',
+      pixKey: cleaned.pixKey || '',
     });
   }, [companyProfile]);
 
@@ -116,14 +137,15 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     let isMounted = true;
     fetchCloudCompanyProfile().then((cloudProfile) => {
       if (cloudProfile && isMounted) {
+        const cleanedCloud = sanitizeProfile(cloudProfile);
         setFormData(prev => ({
           ...prev,
-          ...cloudProfile,
-          logoUrl: cleanLogoUrl(cloudProfile.logoUrl || prev.logoUrl),
-          cnpjCpf: formatCpfCnpj(cloudProfile.cnpjCpf || prev.cnpjCpf || ''),
-          stateRegistration: formatIE(cloudProfile.stateRegistration || prev.stateRegistration || ''),
-          phone: formatPhone(cloudProfile.phone || prev.phone || ''),
-          zipCode: formatCep(cloudProfile.zipCode || prev.zipCode || ''),
+          ...cleanedCloud,
+          logoUrl: cleanLogoUrl(cleanedCloud.logoUrl || prev.logoUrl),
+          cnpjCpf: formatCpfCnpj(cleanedCloud.cnpjCpf || prev.cnpjCpf || ''),
+          stateRegistration: formatIE(cleanedCloud.stateRegistration || prev.stateRegistration || ''),
+          phone: formatPhone(cleanedCloud.phone || prev.phone || ''),
+          zipCode: formatCep(cleanedCloud.zipCode || prev.zipCode || ''),
         }));
       }
     });
@@ -315,7 +337,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     if (e) e.preventDefault();
     setIsSavingCloud(true);
     try {
-      const activeSector = formData.activitySector || 'Prestação de serviço de Silagem';
+      const activeSector = formData.activitySector || '';
       if (typeof localStorage !== 'undefined') {
         const existingRaw = localStorage.getItem('dadosEmpresa');
         const existing = existingRaw ? JSON.parse(existingRaw) : {};
@@ -397,17 +419,17 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5 shrink-0">
+        <div className="flex items-center space-x-1.5 shrink-0 flex-wrap gap-y-1">
           {onOpenReorderMenu && (
             <button
               type="button"
               id="btn-settings-organize-menu"
               onClick={onOpenReorderMenu}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold uppercase border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
               title="Personalizar Ordem do Menu Lateral"
             >
-              <ArrowUpDown className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
-              <span>ORGANIZAR MENU</span>
+              <ArrowUpDown className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+              <span className="text-white font-bold uppercase tracking-wider">ORGANIZAR MENU</span>
             </button>
           )}
 
@@ -417,41 +439,42 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
               const el = document.getElementById('card-backup-seguranca-sistema') || document.getElementById('card-backup-seguranca-safra');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold uppercase border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
             title="Ir para Central de Segurança e Backup de Dados"
           >
-            <span>♻️ BACKUP DO SISTEMA</span>
+            <RotateCcw className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            <span className="text-white font-bold uppercase tracking-wider">BACKUP DO SISTEMA</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsTestPrintOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold uppercase border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
             title="Testar Impressão de Relatórios e Comprovantes"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
-            <span>TESTAR IMPRESSÃO</span>
+            <Printer className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            <span className="text-white font-bold uppercase tracking-wider">TESTAR IMPRESSÃO</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsPasswordModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-xl text-xs font-bold uppercase border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold uppercase border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
             title="Alterar Senha de Acesso"
           >
-            <KeyRound className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
-            <span>SENHA</span>
+            <KeyRound className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            <span className="text-white font-bold uppercase tracking-wider">SENHA</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleSave()}
             disabled={isSavingCloud}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-550 text-white rounded-xl text-xs font-bold uppercase border border-emerald-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.4)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold uppercase border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
             title="Salvar Alterações da Empresa"
           >
             <Save className="w-3.5 h-3.5 text-white stroke-[2.5]" />
-            <span>{isSavingCloud ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}</span>
+            <span className="text-white font-bold uppercase tracking-wider">{isSavingCloud ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}</span>
           </button>
         </div>
       </div>
@@ -621,7 +644,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={formData.activitySector !== undefined ? formData.activitySector : 'Prestação de serviço de Silagem'}
+                  value={formData.activitySector || ''}
                   onChange={(e) => handleChange('activitySector', e.target.value)}
                   placeholder="Ex: Prestação de serviço de Silagem"
                   className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"

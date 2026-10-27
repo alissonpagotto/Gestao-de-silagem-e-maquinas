@@ -21,8 +21,8 @@ import {
 export const DEFAULT_FORAGE_HARVESTER_LOGO = '';
 
 export const INITIAL_COMPANY_PROFILE: CompanyProfile = {
-  corporateName: 'COLAÇA SILAGEM LTDA',
-  tradeName: 'COLAÇA SILAGEM',
+  corporateName: '',
+  tradeName: '',
   cnpjCpf: '',
   stateRegistration: '',
   phone: '',
@@ -34,7 +34,7 @@ export const INITIAL_COMPANY_PROFILE: CompanyProfile = {
   neighborhood: '',
   city: '',
   state: 'PR',
-  activitySector: 'Prestação de serviço de Silagem',
+  activitySector: '',
   logoUrl: '',
 };
 

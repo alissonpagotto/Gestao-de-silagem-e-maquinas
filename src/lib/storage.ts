@@ -1829,8 +1829,20 @@ export function getStoredCompanyProfile(): CompanyProfile {
     ) {
       profile.logoUrl = '';
     }
-    if (!profile.activitySector || profile.activitySector === 'GESTÃO AGRÍCOLA') {
-      profile.activitySector = 'Prestação de serviço de Silagem';
+    // Remove dados pré-fixados de teste legados para permitir que o usuário cadastre sua própria empresa
+    if (profile.corporateName && profile.corporateName.toUpperCase().trim() === 'COLAÇA SILAGEM LTDA') {
+      profile.corporateName = '';
+    }
+    if (profile.tradeName && profile.tradeName.toUpperCase().trim() === 'COLAÇA SILAGEM') {
+      profile.tradeName = '';
+    }
+    if (profile.activitySector && (
+      profile.activitySector.toUpperCase().trim() === 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' ||
+      profile.activitySector.toUpperCase().trim() === 'PRESTACAO DE SERVICO DE SILAGEM' ||
+      profile.activitySector.toUpperCase().trim() === 'GESTÃO AGRÍCOLA' ||
+      profile.activitySector.toUpperCase().trim() === 'GESTAO AGRICOLA'
+    )) {
+      profile.activitySector = '';
     }
     return profile;
   } catch (e) {
