@@ -51,29 +51,18 @@ export function getStoredNotasDevolucao(): NotaDevolucao[] {
     const raw = localStorage.getItem(NOTAS_DEVOLUCAO_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(d => d && d.id !== 'dev_mock_1');
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem(NOTAS_DEVOLUCAO_KEY, JSON.stringify(cleaned));
+        }
+        return cleaned;
+      }
     }
   } catch (e) {
     console.warn('Erro ao carregar notas de devolução:', e);
   }
-  return [
-    {
-      id: 'dev_mock_1',
-      devolucaoNumber: 'DEV-2026-001',
-      originInvoiceNumber: 'NF-e 048291',
-      issueDate: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0],
-      supplierName: 'Tratorparts Peças Agrícolas Ltda',
-      supplierCnpj: '19.876.543/0001-21',
-      reason: 'Peça Incompatível com a Frota',
-      items: [
-        { id: 'item_1', description: 'Filtro de Ar Primário Mod. F-892', quantity: 2, unit: 'UN', unitPrice: 280, totalPrice: 560 },
-      ],
-      totalAmount: 560,
-      status: 'Autorizada',
-      notes: 'Devolução de filtros recebidos com especificação divergente do trator.',
-      createdAt: new Date().toISOString(),
-    }
-  ];
+  return [];
 }
 
 export function saveStoredNotasDevolucao(notas: NotaDevolucao[]): void {

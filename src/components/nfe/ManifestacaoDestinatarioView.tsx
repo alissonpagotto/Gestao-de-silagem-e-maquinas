@@ -75,124 +75,34 @@ export interface NotaManifestacaoSefaz {
 
 export const MANIFESTACOES_STORAGE_KEY = 'agrocontrol_manifestacoes_sefaz';
 
-const INITIAL_NOTAS_MANIFESTACAO: NotaManifestacaoSefaz[] = [
-  {
-    id: 'manif_001',
-    chaveAcesso: '35261001234567000188550010000458121098765432',
-    numero: '045812',
-    serie: '1',
-    dataEmissao: new Date().toISOString(),
-    emitenteNome: 'DISTRIBUIDORA DE PECAS E FILTROS VALE VERDE LTDA',
-    emitenteCnpj: '01.234.567/0001-88',
-    emitenteUf: 'SP',
-    emitenteMunicipio: 'Ribeirão Preto',
-    destinatarioCnpj: '12.345.678/0001-99',
-    destinatarioNome: 'AGROCONTROL SILAGEM & GRAOS S/A',
-    valorTotal: 14850.00,
-    statusManifestacao: 'PENDENTE',
-    categoriaGeral: 'PEÇAS & MANUTENÇÃO',
-    vencimento: new Date(Date.now() + 86400000 * 20).toISOString().split('T')[0],
-    itens: [
-      { id: 'item_1', codigo: 'FILT-098', descricao: 'ELEMENTO FILTRANTE DE AR PRIMARIO TRATOR JD', ncm: '84213100', cfop: '5102', unidade: 'UN', quantidade: 6, valorUnitario: 350.00, valorTotal: 2100.00 },
-      { id: 'item_2', codigo: 'OLEO-15W40', descricao: 'OLEO LUBRIFICANTE MINERAL 15W40 CI-4 TAMBOR 200L', ncm: '27101932', cfop: '5102', unidade: 'TB', quantidade: 2, valorUnitario: 4200.00, valorTotal: 8400.00 },
-      { id: 'item_3', codigo: 'LAM-SIL', descricao: 'FACA ROTATIVA DE CORTE SILAGEM TRITURADOR', ncm: '82084000', cfop: '5102', unidade: 'PC', quantidade: 15, valorUnitario: 290.00, valorTotal: 4350.00 }
-    ],
-    efetivadoEstoque: false,
-    efetivadoFinanceiro: false,
-    xmlDisponivel: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'manif_002',
-    chaveAcesso: '35261098765432000144550010000098211087654321',
-    numero: '009821',
-    serie: '1',
-    dataEmissao: new Date(Date.now() - 86400000 * 2).toISOString(),
-    emitenteNome: 'IPIRANGA COMBUSTIVEIS & DERIVADOS S/A',
-    emitenteCnpj: '98.765.432/0001-44',
-    emitenteUf: 'SP',
-    emitenteMunicipio: 'Paulinia',
-    destinatarioCnpj: '12.345.678/0001-99',
-    destinatarioNome: 'AGROCONTROL SILAGEM & GRAOS S/A',
-    valorTotal: 58900.00,
-    statusManifestacao: 'CIENCIA',
-    protocoloManifestacao: '135260012398745',
-    dataManifestacao: new Date(Date.now() - 86400000 * 1).toISOString(),
-    categoriaGeral: 'COMBUSTÍVEL & ARLA',
-    vencimento: new Date(Date.now() + 86400000 * 15).toISOString().split('T')[0],
-    itens: [
-      { id: 'item_4', codigo: 'DSL-S10', descricao: 'OLEO DIESEL B S10 GRANEL TRUCK', ncm: '27101921', cfop: '5653', unidade: 'LT', quantidade: 10000, valorUnitario: 5.89, valorTotal: 58900.00 }
-    ],
-    efetivadoEstoque: false,
-    efetivadoFinanceiro: false,
-    xmlDisponivel: true,
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
-  },
-  {
-    id: 'manif_003',
-    chaveAcesso: '31260955667788000122550010000321001076543210',
-    numero: '032100',
-    serie: '2',
-    dataEmissao: new Date(Date.now() - 86400000 * 4).toISOString(),
-    emitenteNome: 'YARA BRASIL FERTILIZANTES S/A',
-    emitenteCnpj: '55.667.788/0001-22',
-    emitenteUf: 'MG',
-    emitenteMunicipio: 'Uberaba',
-    destinatarioCnpj: '12.345.678/0001-99',
-    destinatarioNome: 'AGROCONTROL SILAGEM & GRAOS S/A',
-    valorTotal: 84600.00,
-    statusManifestacao: 'CONFIRMADA',
-    protocoloManifestacao: '131260098745123',
-    dataManifestacao: new Date(Date.now() - 86400000 * 3).toISOString(),
-    categoriaGeral: 'FERTILIZANTES & QUÍMICOS',
-    vencimento: new Date(Date.now() + 86400000 * 28).toISOString().split('T')[0],
-    itens: [
-      { id: 'item_5', codigo: 'NPK-041408', descricao: 'ADUBO NPK 04-14-08 GRANULADO BIG BAG 1000KG', ncm: '31052000', cfop: '6102', unidade: 'TON', quantidade: 24, valorUnitario: 3525.00, valorTotal: 84600.00 }
-    ],
-    efetivadoEstoque: true,
-    efetivadoFinanceiro: true,
-    xmlDisponivel: true,
-    createdAt: new Date(Date.now() - 86400000 * 4).toISOString()
-  },
-  {
-    id: 'manif_004',
-    chaveAcesso: '41260933221100000199550010000011501065432109',
-    numero: '001150',
-    serie: '1',
-    dataEmissao: new Date(Date.now() - 86400000 * 6).toISOString(),
-    emitenteNome: 'COMERCIO DE EQUIPAMENTOS FANTASMA LTDA',
-    emitenteCnpj: '33.221.100/0001-99',
-    emitenteUf: 'PR',
-    emitenteMunicipio: 'Curitiba',
-    destinatarioCnpj: '12.345.678/0001-99',
-    destinatarioNome: 'AGROCONTROL SILAGEM & GRAOS S/A',
-    valorTotal: 39500.00,
-    statusManifestacao: 'DESCONHECIDA',
-    protocoloManifestacao: '141260077441122',
-    dataManifestacao: new Date(Date.now() - 86400000 * 5).toISOString(),
-    categoriaGeral: 'DIVERSOS',
-    vencimento: new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0],
-    itens: [
-      { id: 'item_6', codigo: 'DIV-99', descricao: 'EQUIPAMENTOS ELETRONICOS DIVERSOS', ncm: '85176279', cfop: '6102', unidade: 'UN', quantidade: 5, valorUnitario: 7900.00, valorTotal: 39500.00 }
-    ],
-    efetivadoEstoque: false,
-    efetivadoFinanceiro: false,
-    xmlDisponivel: false,
-    createdAt: new Date(Date.now() - 86400000 * 6).toISOString()
-  }
-];
+const INITIAL_NOTAS_MANIFESTACAO: NotaManifestacaoSefaz[] = [];
 
 export const getStoredManifestacoes = (): NotaManifestacaoSefaz[] => {
   try {
     const raw = localStorage.getItem(MANIFESTACOES_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(MANIFESTACOES_STORAGE_KEY, JSON.stringify(INITIAL_NOTAS_MANIFESTACAO));
-      return INITIAL_NOTAS_MANIFESTACAO;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_NOTAS_MANIFESTACAO;
+    if (!Array.isArray(parsed)) return [];
+    const cleaned = parsed.filter(n => {
+      if (!n || typeof n !== 'object') return false;
+      const id = String(n.id || '');
+      if (['manif_001', 'manif_002', 'manif_003', 'manif_004'].includes(id)) return false;
+      const emitente = String(n.emitenteNome || '').toUpperCase();
+      if (
+        emitente.includes('VALE VERDE') ||
+        emitente.includes('IPIRANGA COMBUSTIVEIS') ||
+        emitente.includes('IPIRANGA COMBUSTÍVEIS') ||
+        emitente.includes('YARA BRASIL') ||
+        emitente.includes('FANTASMA')
+      ) return false;
+      return true;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(MANIFESTACOES_STORAGE_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
-    return INITIAL_NOTAS_MANIFESTACAO;
+    return [];
   }
 };
 
@@ -693,8 +603,8 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-[11px] font-medium text-slate-800 dark:text-stone-200">
               {filteredNotas.length === 0 ? (
                 <tr key="empty_manifestacao_notas_row">
-                  <td colSpan={7} className="py-6 text-center text-slate-500 uppercase text-xs font-semibold">
-                    NENHUMA NOTA FISCAL ENCONTRADA NA CONSULTA DA SEFAZ
+                  <td colSpan={7} className="py-4 text-center text-slate-500 uppercase text-xs font-semibold">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (

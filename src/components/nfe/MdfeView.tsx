@@ -66,118 +66,32 @@ export interface MdfeRecord {
 
 export const MDFE_STORAGE_KEY = 'agrocontrol_mdfe';
 
-const INITIAL_MDFE_DATA: MdfeRecord[] = [
-  {
-    id: 'mdfe_001',
-    numero: '000124',
-    serie: '1',
-    chaveAcesso: '35261012345678000190580010000001241098765432',
-    dataEmissao: new Date().toISOString(),
-    ufCarregamento: 'SP',
-    ufDescarregamento: 'GO',
-    municipiosCarregamento: 'Ribeirão Preto',
-    municipiosDescarregamento: 'Rio Verde',
-    veiculoPlaca: 'BRA2E19',
-    veiculoRntrc: '12345678',
-    veiculoTipo: 'TRUCK',
-    motoristaNome: 'CARLOS EDUARDO SILVA',
-    motoristaCpf: '123.456.789-00',
-    valorTotalCarga: 142800.00,
-    pesoBrutoTotalKg: 24500,
-    qtdCte: 2,
-    qtdNfe: 1,
-    status: 'EM VIAGEM',
-    seguroResponsavel: 'EMITENTE',
-    seguroApolice: 'APOL-98721-2026',
-    seguradoraNome: 'PORTO SEGURO CIA DE SEGUROS GERAIS',
-    protocoloAutorizacao: '135260098761234',
-    dataAutorizacao: new Date().toISOString(),
-    observacoes: 'TRANSPORTE DE INSUMOS E VOLUMOSO SILAGEM PARA CONFINAMENTO',
-    documentosVinculados: [
-      { tipo: 'CTE', chave: '35261012345678000190570010000045211098765431', numero: '004521', emitente: 'TRANSPORTADORA AGROCARGA LTDA', valor: 8500.00, pesoKg: 12500 },
-      { tipo: 'CTE', chave: '35261012345678000190570010000045221098765432', numero: '004522', emitente: 'TRANSPORTADORA AGROCARGA LTDA', valor: 7800.00, pesoKg: 12000 },
-      { tipo: 'NFE', chave: '35261012345678000190550010000018901098765433', numero: '001890', emitente: 'AGROVITA INSUMOS AGRICOLAS S/A', valor: 126500.00, pesoKg: 24500 }
-    ],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'mdfe_002',
-    numero: '000123',
-    serie: '1',
-    chaveAcesso: '31260998765432000111580010000001231087654321',
-    dataEmissao: new Date(Date.now() - 86400000 * 3).toISOString(),
-    ufCarregamento: 'MG',
-    ufDescarregamento: 'SP',
-    municipiosCarregamento: 'Uberaba',
-    municipiosDescarregamento: 'Barretos',
-    veiculoPlaca: 'FXT9J41',
-    veiculoRntrc: '87654321',
-    veiculoTipo: 'CARRETA',
-    motoristaNome: 'ROBERTO SANTANA PINTO',
-    motoristaCpf: '234.567.890-11',
-    valorTotalCarga: 89450.00,
-    pesoBrutoTotalKg: 18200,
-    qtdCte: 1,
-    qtdNfe: 1,
-    status: 'ENCERRADO',
-    seguroResponsavel: 'EMITENTE',
-    seguroApolice: 'APOL-77412-2026',
-    seguradoraNome: 'TOKIO MARINE SEGURADORA S/A',
-    protocoloAutorizacao: '131260045612345',
-    dataAutorizacao: new Date(Date.now() - 86400000 * 3).toISOString(),
-    dataEncerramento: new Date(Date.now() - 86400000 * 1).toISOString(),
-    observacoes: 'FRETE DE PEÇAS E MATERIAIS PARA MANUTENÇÃO DE MAQUINÁRIO',
-    documentosVinculados: [
-      { tipo: 'CTE', chave: '31260998765432000111570010000031121087654322', numero: '003112', emitente: 'LOGISTICA CERRADO EIRELI', valor: 6200.00, pesoKg: 18200 },
-      { tipo: 'NFE', chave: '31260998765432000111550010000088191087654323', numero: '008819', emitente: 'TRATORES E IMPLEMENTOS TRIANGULO', valor: 83250.00, pesoKg: 18200 }
-    ],
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: 'mdfe_003',
-    numero: '000122',
-    serie: '1',
-    chaveAcesso: '41260911223344000155580010000001221076543210',
-    dataEmissao: new Date(Date.now() - 86400000 * 5).toISOString(),
-    ufCarregamento: 'PR',
-    ufDescarregamento: 'MS',
-    municipiosCarregamento: 'Cascavel',
-    municipiosDescarregamento: 'Dourados',
-    veiculoPlaca: 'RTY4A88',
-    veiculoRntrc: '44556677',
-    veiculoTipo: 'BITREM',
-    motoristaNome: 'MARCOS VINICIUS ALMEIDA',
-    motoristaCpf: '345.678.901-22',
-    valorTotalCarga: 195200.00,
-    pesoBrutoTotalKg: 31000,
-    qtdCte: 3,
-    qtdNfe: 2,
-    status: 'AUTORIZADO',
-    seguroResponsavel: 'EMITENTE',
-    seguroApolice: 'APOL-33100-2026',
-    seguradoraNome: 'SOMPO SEGUROS S/A',
-    protocoloAutorizacao: '141260012399887',
-    dataAutorizacao: new Date(Date.now() - 86400000 * 5).toISOString(),
-    observacoes: 'DISTRIBUIÇÃO DE SEMENTES SELECIONADAS E FERTILIZANTES',
-    documentosVinculados: [
-      { tipo: 'CTE', chave: '41260911223344000155570010000099011076543211', numero: '009901', emitente: 'EXPRESSO SUL BRASIL', valor: 11400.00, pesoKg: 31000 },
-      { tipo: 'NFE', chave: '41260911223344000155550010000077441076543212', numero: '007744', emitente: 'SEMENTES OURO VERDE LTDA', valor: 183800.00, pesoKg: 31000 }
-    ],
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  }
-];
+const INITIAL_MDFE_DATA: MdfeRecord[] = [];
 
 export const getStoredMdfe = (): MdfeRecord[] => {
   try {
     const raw = localStorage.getItem(MDFE_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(MDFE_STORAGE_KEY, JSON.stringify(INITIAL_MDFE_DATA));
-      return INITIAL_MDFE_DATA;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_MDFE_DATA;
+    if (!Array.isArray(parsed)) return [];
+    const cleaned = parsed.filter(m => {
+      if (!m || typeof m !== 'object') return false;
+      const id = String(m.id || '');
+      if (['mdfe_001', 'mdfe_002', 'mdfe_003'].includes(id)) return false;
+      const condutor = String(m.motoristaNome || '').toUpperCase();
+      if (
+        condutor.includes('CARLOS EDUARDO SILVA') ||
+        condutor.includes('ROBERTO SANTANA PINTO') ||
+        condutor.includes('MARCOS VINICIUS ALMEIDA')
+      ) return false;
+      return true;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(MDFE_STORAGE_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
-    return INITIAL_MDFE_DATA;
+    return [];
   }
 };
 
@@ -487,8 +401,8 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-[11px] font-medium text-slate-800 dark:text-stone-200">
               {filteredManifestos.length === 0 ? (
                 <tr key="empty_mdfe_manifestos_row">
-                  <td colSpan={9} className="py-6 text-center text-slate-500 uppercase text-xs font-semibold">
-                    NENHUM MANIFESTO ELETRÔNICO (MDF-E) ENCONTRADO
+                  <td colSpan={9} className="py-4 text-center text-slate-500 uppercase text-xs font-semibold">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (
