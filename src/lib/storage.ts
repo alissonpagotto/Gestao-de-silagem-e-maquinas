@@ -2007,10 +2007,18 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
 export function saveStoredCompanyProfile(profile: CompanyProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILE, JSON.stringify(profile));
+    if (profile.logoUrl && profile.logoUrl.trim()) {
+      localStorage.setItem('agrocontrol_empresa_logo', profile.logoUrl.trim());
+    } else {
+      localStorage.removeItem('agrocontrol_empresa_logo');
+    }
     if (typeof window !== 'undefined') {
       queueMicrotask(() => {
         try {
           window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profile }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: profile }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: profile.logoUrl || '' }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: profile.logoUrl || '' }));
         } catch (_) {}
       });
     }

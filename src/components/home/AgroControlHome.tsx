@@ -7,11 +7,13 @@ import {
   Layers, 
   ShieldCheck, 
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  Building2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
+import { getStoredCompanyProfile } from '../../lib/storage';
 import { EnsiladeiraVector } from './EnsiladeiraVector';
-import { ColacaSilagemEmblem } from './ColacaSilagemEmblem';
 
 export interface AgroControlHomeProps {
   onNavigate: (tab: string) => void;
@@ -324,6 +326,72 @@ export function calculateRealIndicators(): IndicatorValues {
   };
 }
 
+export function getReactiveCompanyLogo(overrideProfile?: CompanyProfile): string {
+  if (typeof window === 'undefined') return '';
+
+  const sanitizeLogo = (val?: string | null): string => {
+    if (!val || typeof val !== 'string') return '';
+    const trimmed = val.trim();
+    if (!trimmed) return '';
+    if (
+      trimmed.includes('a7f3d0') ||
+      trimmed.includes('15803d') ||
+      trimmed.includes('viewBox="0 0 200 160"') ||
+      trimmed.startsWith('/upload/') ||
+      trimmed.startsWith('/_upload/') ||
+      trimmed.includes('/_upload/') ||
+      trimmed.includes('/upload/')
+    ) {
+      return '';
+    }
+    return trimmed;
+  };
+
+  // 1. Prioridade máxima: chave direta 'agrocontrol_empresa_logo' do Contrato Master
+  try {
+    const directLogo = localStorage.getItem('agrocontrol_empresa_logo');
+    const cleanedDirect = sanitizeLogo(directLogo);
+    if (cleanedDirect) return cleanedDirect;
+  } catch (_) {}
+
+  // 2. Chave 'dadosEmpresa' da tela Dados da Empresa
+  try {
+    const rawDados = localStorage.getItem('dadosEmpresa');
+    if (rawDados) {
+      const parsed = JSON.parse(rawDados);
+      const cleaned = sanitizeLogo(parsed?.logoUrl || parsed?.logo);
+      if (cleaned) return cleaned;
+    }
+  } catch (_) {}
+
+  // 3. Chaves de perfil corporativo persistido
+  try {
+    const rawProfile = localStorage.getItem('silagem_facil_clean_v1_company_profile') ||
+                       localStorage.getItem('colaca_silagem_company_profile') ||
+                       localStorage.getItem('agrocontrol_empresa');
+    if (rawProfile) {
+      const parsed = JSON.parse(rawProfile);
+      const cleaned = sanitizeLogo(parsed?.logoUrl || parsed?.logo);
+      if (cleaned) return cleaned;
+    }
+  } catch (_) {}
+
+  // 4. Prop recebida do componente pai
+  if (overrideProfile?.logoUrl) {
+    const cleaned = sanitizeLogo(overrideProfile.logoUrl);
+    if (cleaned) return cleaned;
+  }
+
+  // 5. getStoredCompanyProfile()
+  try {
+    const stored = getStoredCompanyProfile();
+    const cleaned = sanitizeLogo(stored?.logoUrl);
+    if (cleaned) return cleaned;
+  } catch (_) {}
+
+  return '';
+}
+
 export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   onNavigate,
   companyProfile,
@@ -331,8 +399,40 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   const [imgError, setImgError] = useState(false);
   const [clientLogoError, setClientLogoError] = useState(false);
 
+  // Leitura reativa e síncrona do logotipo da empresa via LocalStorage
+  const [companyLogo, setCompanyLogo] = useState<string>(() => getReactiveCompanyLogo(companyProfile));
+
   // Leitura reativa e dinâmica dos indicadores do painel comercial diretamente do LocalStorage
   const [indicators, setIndicators] = useState<IndicatorValues>(() => calculateRealIndicators());
+
+  // Sincronização em tempo real de logotipo e perfil corporativo
+  useEffect(() => {
+    const updateLogo = () => {
+      try {
+        setCompanyLogo(getReactiveCompanyLogo(companyProfile));
+        setClientLogoError(false);
+      } catch (e) {
+        console.error('Erro ao atualizar logotipo reativo:', e);
+      }
+    };
+
+    updateLogo();
+
+    const logoEvents = [
+      'storage',
+      'agrocontrol_logo_updated',
+      'agrocontrol_empresa_logo_updated',
+      'agrocontrol_company_profile_updated',
+      'colaca_company_profile_live_change',
+      'company_profile_updated'
+    ];
+
+    logoEvents.forEach((ev) => window.addEventListener(ev, updateLogo));
+
+    return () => {
+      logoEvents.forEach((ev) => window.removeEventListener(ev, updateLogo));
+    };
+  }, [companyProfile]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -391,24 +491,37 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       
       {/* =========================================================================
           FAIXA 1: TOPO NOBRE (OCUPAR 40% DA ALTURA DA PÁGINA)
-          Centralização absoluta do escudo/logotipo oficial do assinante (COLAÇA SILAGEM)
-          ampliado em escala máxima (w-[580px] max-w-[95vw] h-auto) para preenchimento
-          completo dos 40% do topo da tela, sem poluição de textos
+          Renderização síncrona e reativa do logotipo oficial da empresa via LocalStorage
+          ('agrocontrol_empresa_logo').
+          Se nenhum logotipo estiver anexado, o emblema estático 'COLAÇA SILAGEM' foi
+          100% REMOVIDO, exibindo silhueta neutra e elegante em Slim Design Pro.
          ========================================================================= */}
       <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-6xl mx-auto px-4 overflow-hidden">
-        {companyProfile?.logoUrl && !clientLogoError ? (
+        {companyLogo && !clientLogoError ? (
           <div className="w-full h-full flex items-center justify-center py-1 px-2">
             <img 
-              src={companyProfile.logoUrl} 
-              alt="COLAÇA SILAGEM"
+              src={companyLogo} 
+              alt="LOGOTIPO DA EMPRESA"
               className="w-[580px] max-w-[95vw] h-auto max-h-[96%] object-contain mb-2 sm:mb-3 mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
               referrerPolicy="no-referrer"
               onError={() => setClientLogoError(true)}
             />
           </div>
         ) : (
-          <div className="w-full h-full flex items-center justify-center py-1 px-2">
-            <ColacaSilagemEmblem className="w-[580px] max-w-[95vw] h-auto max-h-[96%] mb-2 sm:mb-3 mx-auto block drop-shadow-md transition-transform hover:scale-[1.01] duration-150" />
+          <div 
+            onClick={() => onNavigate('configuracoes')}
+            className="w-full max-w-md h-[82%] max-h-48 mx-auto my-auto flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-blue-300/80 dark:border-blue-800/60 bg-white/60 dark:bg-stone-900/40 hover:bg-white/90 dark:hover:bg-stone-900/70 hover:border-blue-500 dark:hover:border-blue-600 transition-all cursor-pointer group shadow-2xs select-none"
+            title="CLIQUE PARA CONFIGURAR LOGOTIPO EM DADOS DA EMPRESA"
+          >
+            <div className="w-12 h-12 rounded-xl bg-blue-100/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 flex items-center justify-center mb-2 text-blue-600 dark:text-blue-400 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-2xs">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+              LOGOTIPO DA EMPRESA NÃO CONFIGURADO
+            </span>
+            <span className="text-[9.5px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 mt-1 group-hover:underline">
+              CLIQUE AQUI PARA ANEXAR O LOGOTIPO EM DADOS DA EMPRESA
+            </span>
           </div>
         )}
       </div>

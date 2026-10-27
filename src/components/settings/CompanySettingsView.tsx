@@ -317,6 +317,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           ...prev,
           logoUrl: base64
         }));
+        try {
+          localStorage.setItem('agrocontrol_empresa_logo', base64);
+          window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: base64 }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: base64 }));
+        } catch (_) {}
       }
     };
     reader.readAsDataURL(file);
@@ -328,6 +333,19 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       ...prev,
       logoUrl: ''
     }));
+    try {
+      localStorage.removeItem('agrocontrol_empresa_logo');
+      const existingRaw = localStorage.getItem('dadosEmpresa');
+      if (existingRaw) {
+        const existing = JSON.parse(existingRaw);
+        existing.logoUrl = '';
+        localStorage.setItem('dadosEmpresa', JSON.stringify(existing));
+      }
+      window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: '' }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: '' }));
+      window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: { ...formData, logoUrl: '' } }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: { ...formData, logoUrl: '' } }));
+    } catch (_) {}
   };
 
   const [isSavingCloud, setIsSavingCloud] = useState(false);
@@ -350,8 +368,15 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           activitySector: activeSector,
           logoUrl: formData.logoUrl || ''
         }));
+        if (formData.logoUrl && formData.logoUrl.trim()) {
+          localStorage.setItem('agrocontrol_empresa_logo', formData.logoUrl.trim());
+        } else {
+          localStorage.removeItem('agrocontrol_empresa_logo');
+        }
         window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: formData }));
         window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: formData }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: formData.logoUrl || '' }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: formData.logoUrl || '' }));
       }
       await saveCloudCompanyProfile(formData);
       onSaveCompanyProfile(formData);
@@ -363,8 +388,15 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       console.error('Erro ao salvar configurações fiscais na nuvem:', err);
       onSaveCompanyProfile(formData);
       if (typeof window !== 'undefined') {
+        if (formData.logoUrl && formData.logoUrl.trim()) {
+          localStorage.setItem('agrocontrol_empresa_logo', formData.logoUrl.trim());
+        } else {
+          localStorage.removeItem('agrocontrol_empresa_logo');
+        }
         window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: formData }));
         window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: formData }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: formData.logoUrl || '' }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: formData.logoUrl || '' }));
       }
       setSavedSuccess(true);
     } finally {
@@ -522,7 +554,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 {formData.logoUrl && !logoError ? (
                   <img 
                     src={formData.logoUrl} 
-                    alt="COLACA SILAGEM" 
+                    alt="LOGOTIPO DA EMPRESA" 
                     className="w-full h-full object-contain p-2 drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
                     referrerPolicy="no-referrer"
                     onError={() => {
@@ -532,7 +564,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 ) : (
                   <div className="text-center text-zinc-400 dark:text-stone-500 p-1">
                     <ImageIcon className="w-6 h-6 mx-auto opacity-50 mb-0.5 text-zinc-400" />
-                    <span className="text-[9px] font-bold tracking-tight uppercase">COLACA SILAGEM</span>
+                    <span className="text-[9px] font-bold tracking-tight uppercase">ANEXAR LOGOTIPO</span>
                   </div>
                 )}
 

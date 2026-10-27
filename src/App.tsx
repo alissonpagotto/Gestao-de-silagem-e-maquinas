@@ -3722,6 +3722,13 @@ export default function App() {
                 setCompanyProfile(updated);
                 saveStoredCompanyProfile(updated);
                 saveCloudCompanyProfile(updated, activeTenantId);
+                if (updated.logoUrl && updated.logoUrl.trim()) {
+                  localStorage.setItem('agrocontrol_empresa_logo', updated.logoUrl.trim());
+                } else {
+                  localStorage.removeItem('agrocontrol_empresa_logo');
+                }
+                window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: updated.logoUrl || '' }));
+                window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: updated.logoUrl || '' }));
               }}
               categories={categories}
               costCenters={costCenters}
