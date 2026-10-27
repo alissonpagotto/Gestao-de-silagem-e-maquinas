@@ -634,39 +634,30 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           }
         `}</style>
 
-        {/* Empty State */}
-        {driversList.length === 0 && (
-          <div className="bg-white rounded-2xl border border-zinc-300 p-12 text-center shadow-xs">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-700 flex items-center justify-center mx-auto mb-3 border border-zinc-300">
-              <UserCheck className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
-              Nenhum motorista encontrado
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
-              Não há motoristas cadastrados que correspondam aos filtros ou termo de busca aplicados.
-            </p>
-          </div>
-        )}
-
         {/* Drivers Table / List View */}
-        {driversList.length > 0 && (
-          <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' ? 'block' : 'hidden print:block'}`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50/75 dark:bg-stone-800/40 text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider text-[11px]">
-                    <th className="py-2 px-3">Motorista / Cargo</th>
-                    <th className="py-2 px-3">CNH & Categoria</th>
-                    <th className="py-2 px-3">Validade CNH</th>
-                    <th className="py-2 px-3">Veículo Habitual</th>
-                    <th className="py-2 px-3">Contato / WhatsApp</th>
-                    <th className="py-2 px-3 text-center">Status</th>
-                    <th className="py-2 px-3 text-right no-print print:hidden">Ações</th>
+        <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' || driversList.length === 0 ? 'block' : 'hidden print:block'}`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50/75 dark:bg-stone-800/40 text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-2 px-3">Motorista / Cargo</th>
+                  <th className="py-2 px-3">CNH & Categoria</th>
+                  <th className="py-2 px-3">Validade CNH</th>
+                  <th className="py-2 px-3">Veículo Habitual</th>
+                  <th className="py-2 px-3">Contato / WhatsApp</th>
+                  <th className="py-2 px-3 text-center">Status</th>
+                  <th className="py-2 px-3 text-right no-print print:hidden">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
+                {driversList.length === 0 ? (
+                  <tr key="empty_drivers_row">
+                    <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 uppercase">
+                      NENHUM REGISTRO ENCONTRADO
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
-                  {driversList.map((driver) => {
+                ) : (
+                  driversList.map((driver) => {
                     const isExpired = cnhReport.expired.some(e => e.id === driver.id);
                     const isExpiring = cnhReport.expiringSoon.some(e => e.id === driver.id);
                     const dName = String(driver.name || '').trim().toLowerCase();

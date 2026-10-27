@@ -148,21 +148,23 @@ export function getStoredReformSuppliers(): Supplier[] {
     const raw = localStorage.getItem(SUPPLIERS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(s => s && !['sup_rec_1', 'sup_rec_2', 'sup_rec_3'].includes(s.id));
+        if (cleaned.length > 0) return cleaned;
+      }
     }
     const standardRaw = localStorage.getItem('silagem_facil_clean_v1_suppliers');
     if (standardRaw) {
       const parsedStd = JSON.parse(standardRaw);
-      if (Array.isArray(parsedStd) && parsedStd.length > 0) return parsedStd;
+      if (Array.isArray(parsedStd)) {
+        const cleanedStd = parsedStd.filter(s => s && !['sup_rec_1', 'sup_rec_2', 'sup_rec_3'].includes(s.id));
+        if (cleanedStd.length > 0) return cleanedStd;
+      }
     }
   } catch (e) {
     console.warn('Erro ao carregar fornecedores:', e);
   }
-  return [
-    { id: 'sup_rec_1', name: 'Bandag Recapagens & Pneus Ltda', tradeName: 'Bandag Recapadora', category: 'Pneus & Recapagem', cnpjOrCpf: '12.345.678/0001-90', phone: '(44) 3622-1020' },
-    { id: 'sup_rec_2', name: 'Tipler Reforma de Pneus Agrícolas e Rodoviários', tradeName: 'Tipler Recapagem', category: 'Pneus & Recapagem', cnpjOrCpf: '23.456.789/0001-01', phone: '(44) 3649-5500' },
-    { id: 'sup_rec_3', name: 'Vipal Pneus & Reformadora Regional', tradeName: 'Vipal Reformadora', category: 'Pneus & Recapagem', cnpjOrCpf: '34.567.890/0001-12', phone: '(44) 3624-8899' },
-  ];
+  return [];
 }
 
 /**
@@ -1242,8 +1244,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {pendingTires.length === 0 ? (
                       <tr key="empty_pending_tires_row">
-                        <td colSpan={9} className="py-6 text-center text-xs text-stone-400 font-medium">
-                          Nenhum pneu acumulado. Retorne à Gestão de Frotas e arraste os pneus para a caixa de Reforma.
+                        <td colSpan={9} className="py-4 text-center text-xs text-stone-500 font-semibold uppercase">
+                          NENHUM REGISTRO ENCONTRADO
                         </td>
                       </tr>
                     ) : (
@@ -1497,8 +1499,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {filteredOrders.length === 0 ? (
                     <tr key="empty_filtered_orders_row">
-                      <td colSpan={9} className="py-6 text-center text-xs text-stone-400 font-medium uppercase">
-                        NENHUM PEDIDO DE REFORMA REGISTRADO. USE A GESTÃO DE FROTAS PARA ARRASTAR PNEUS E GERAR UMA NOVA ORDEM.
+                      <td colSpan={9} className="py-4 text-center text-xs text-stone-500 font-semibold uppercase">
+                        NENHUM REGISTRO ENCONTRADO
                       </td>
                     </tr>
                   ) : (

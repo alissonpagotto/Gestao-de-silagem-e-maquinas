@@ -973,46 +973,28 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
       {/* 4. TABELA DE HISTÓRICO DE RESCISÕES */}
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        {filteredTerminations.length === 0 ? (
-          <div className="py-12 px-4 text-center space-y-3 bg-white/40 dark:bg-stone-900/40">
-            <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 dark:bg-stone-800 flex items-center justify-center text-slate-500 dark:text-stone-400">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-black dark:text-white">
-                Nenhum registro de rescisão encontrado
-              </p>
-              <p className="text-xs text-black/70 dark:text-stone-400 mt-0.5">
-                {searchTerm || statusFilter !== 'all'
-                  ? 'Nenhum resultado corresponde aos filtros selecionados.'
-                  : 'Clique no botão abaixo para simular, calcular e emitir a primeira rescisão.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenNewTermination}
-              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nova Rescisão</span>
-            </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
-                <tr>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Colaborador (Nome e Cargo)</th>
-                  <th className="py-2.5 px-3">Data de Admissão</th>
-                  <th className="py-2.5 px-3">Data de Desligamento</th>
-                  <th className="py-2.5 px-3">Tipo de Rescisão</th>
-                  <th className="py-2.5 px-3 text-right">Valor Líquido Rescisório (R$)</th>
-                  <th className="py-2.5 px-3 text-center">Ações</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
+              <tr>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Colaborador (Nome e Cargo)</th>
+                <th className="py-2.5 px-3">Data de Admissão</th>
+                <th className="py-2.5 px-3">Data de Desligamento</th>
+                <th className="py-2.5 px-3">Tipo de Rescisão</th>
+                <th className="py-2.5 px-3 text-right">Valor Líquido Rescisório (R$)</th>
+                <th className="py-2.5 px-3 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-medium">
+              {filteredTerminations.length === 0 ? (
+                <tr key="empty_terminations_row">
+                  <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase">
+                    NENHUM REGISTRO ENCONTRADO
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-medium">
-                {filteredTerminations.map((t) => {
+              ) : (
+                filteredTerminations.map((t) => {
                   const isRowIntegrated = t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t);
                   const effectiveRowStatus = isRowIntegrated ? 'integrado' : t.status;
                   return (
@@ -1151,7 +1133,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </tbody>
             </table>
           </div>
-        )}
       </div>
 
       {/* ========================================================================= */}

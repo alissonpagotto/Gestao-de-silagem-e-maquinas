@@ -818,8 +818,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800/60 font-medium bg-[#87AFE3] dark:bg-stone-900 text-black dark:text-white">
                 {filteredVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-14 text-center text-stone-400">
-                      Nenhum veículo encontrado com os filtros selecionados.
+                    <td colSpan={9} className="py-4 text-center text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase">
+                      NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
                 ) : (

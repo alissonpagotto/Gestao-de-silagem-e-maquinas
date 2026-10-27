@@ -76,6 +76,57 @@ function parseObjectSafe(raw: string | null): Record<string, any> | null {
   }
 }
 
+export function isMockStorageRecord(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const id = String(item.id || item.uuid || '');
+  if ([
+    'emp-alisson-pagotto',
+    'emp-audirlei-reolan',
+    'emp-cassiano-silva',
+    'emp-diego-santos',
+    'emp-marcos-antonio-pereira',
+    'emp-vitor-hugo-santos',
+    'manif_001',
+    'manif_002',
+    'manif_003',
+    'manif_004',
+    'mdfe_001',
+    'mdfe_002',
+    'mdfe_003',
+    'dev_mock_1',
+    'sup_rec_1',
+    'sup_rec_2',
+    'sup_rec_3',
+    'maint_os_rhx3e15_30048'
+  ].includes(id)) {
+    return true;
+  }
+  const name = String(item.name || item.nome || item.razaoSocial || item.emitente || item.emitenteNome || item.condutor || item.motoristaNome || '').trim().toUpperCase();
+  if ([
+    'ALISSON PAGOTTO',
+    'AUDIRLEI REOLAN',
+    'CASSIANO SILVA',
+    'DIEGO SANTOS',
+    'MARCOS ANTONIO PEREIRA',
+    'VITOR HUGO SANTOS',
+    'DISTRIBUIDORA DE PECAS E FILTROS VALE VERDE LTDA',
+    'DISTRIBUIDORA DE PEÇAS E FILTROS VALE VERDE LTDA',
+    'IPIRANGA COMBUSTIVEIS & DERIVADOS S/A',
+    'IPIRANGA COMBUSTÍVEIS & DERIVADOS S/A',
+    'YARA BRASIL FERTILIZANTES S/A',
+    'COMERCIO DE EQUIPAMENTOS FANTASMA LTDA',
+    'COMÉRCIO DE EQUIPAMENTOS FANTASMA LTDA',
+    'CARLOS EDUARDO SILVA',
+    'ROBERTO SANTANA PINTO',
+    'MARCOS VINICIUS ALMEIDA',
+    'TRATORPARTS PEÇAS AGRÍCOLAS LTDA',
+    'TRATORPARTS REVENDA DE PEÇAS AGRÍCOLAS'
+  ].includes(name)) {
+    return true;
+  }
+  return false;
+}
+
 // Unifica e deduplica itens de array por chave identificadora (id, uuid, codigo, chNFe, placa, etc.)
 function mergeAndDeduplicate(arrays: any[][]): any[] {
   const map = new Map<string, any>();
@@ -84,7 +135,7 @@ function mergeAndDeduplicate(arrays: any[][]): any[] {
   for (const arr of arrays) {
     if (!Array.isArray(arr)) continue;
     for (const item of arr) {
-      if (!item || typeof item !== 'object') continue;
+      if (!item || typeof item !== 'object' || isMockStorageRecord(item)) continue;
       const key = 
         item.id || 
         item.uuid || 
@@ -657,7 +708,14 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
         const raw = localStorage.getItem(k);
         const parsed = parseArraySafe(raw);
         if (parsed.length > 0) {
-          collectedArrays.push(parsed);
+          const cleaned = parsed.filter(item => !isMockStorageRecord(item));
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(k, JSON.stringify(cleaned));
+            synchronizedKeysCount++;
+          }
+          if (cleaned.length > 0) {
+            collectedArrays.push(cleaned);
+          }
         }
       }
 

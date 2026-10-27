@@ -516,14 +516,14 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <span>Imprimir Lista</span>
             </button>
 
-            {/* Botão + Novo Cadastro reposicionado */}
+            {/* Botão + NOVO CADASTRO reposicionado */}
             <button
               type="button"
               onClick={() => setExternalNewEmployeeTrigger(prev => prev + 1)}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#059669] hover:bg-[#047857] text-white border border-emerald-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer uppercase tracking-wider"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Novo Cadastro</span>
+              <span>+ NOVO CADASTRO</span>
             </button>
           </div>
         )}

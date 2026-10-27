@@ -2527,7 +2527,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           <button
             type="button"
             onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 border border-emerald-600/80 dark:border-emerald-500 text-white font-bold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] border border-emerald-600 text-white font-bold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5 text-emerald-100 stroke-[2.5]" />
             <span>+ PROGRAMAR FÉRIAS</span>
@@ -3025,8 +3025,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-slate-500 text-xs font-semibold">
-                    Nenhum período aquisitivo encontrado para o filtro selecionado.
+                  <td colSpan={6} className="py-4 text-center text-slate-500 text-xs font-semibold uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}

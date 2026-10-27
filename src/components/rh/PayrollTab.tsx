@@ -2475,8 +2475,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-black/75 dark:text-stone-400 text-xs">
-                    Nenhuma folha de pagamento lançada para a competência {currentMonthRef}.
+                  <td colSpan={9} className="py-4 text-center text-black/75 dark:text-stone-400 text-xs font-semibold uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}

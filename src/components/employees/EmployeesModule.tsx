@@ -3252,12 +3252,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {displayedEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={showCnhColumn ? 6 : 5} className="py-6 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
-                    {vacationQuickFilter === 'expired'
-                      ? 'Nenhum colaborador com Férias Vencidas no momento.'
-                      : vacationQuickFilter === 'warning'
-                        ? 'Nenhum colaborador com Férias Próximas a Vencer no momento.'
-                        : 'Nenhum colaborador encontrado.'}
+                  <td colSpan={showCnhColumn ? 6 : 5} className="py-4 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : displayedEmployees.map((emp) => {

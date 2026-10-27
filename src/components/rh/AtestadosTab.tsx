@@ -470,8 +470,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-black/70 dark:text-stone-400 font-medium">
-                    Nenhum atestado encontrado para os filtros selecionados.
+                  <td colSpan={8} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}

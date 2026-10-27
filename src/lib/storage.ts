@@ -765,9 +765,37 @@ export function getStoredEmployees(): Employee[] {
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
     let modified = false;
 
+    const isMockEmployee = (emp: any) => {
+      if (!emp) return false;
+      const id = String(emp.id || '');
+      if ([
+        'emp-alisson-pagotto',
+        'emp-audirlei-reolan',
+        'emp-cassiano-silva',
+        'emp-diego-santos',
+        'emp-marcos-antonio-pereira',
+        'emp-vitor-hugo-santos'
+      ].includes(id)) return true;
+      const name = String(emp.name || '').trim().toUpperCase();
+      if ([
+        'ALISSON PAGOTTO',
+        'AUDIRLEI REOLAN',
+        'CASSIANO SILVA',
+        'DIEGO SANTOS',
+        'MARCOS ANTONIO PEREIRA',
+        'VITOR HUGO SANTOS',
+        'ALISSON PAG'
+      ].includes(name)) return true;
+      return false;
+    };
+
     // Filtra colaboradores excluídos, inativos, demitidos e registros sem dados essenciais
     const filtered = parsed.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
+      if (isMockEmployee(emp)) {
+        modified = true;
+        return false;
+      }
       const st = String(emp.status || '').toLowerCase().trim();
       if (
         st === 'excluido' ||
@@ -777,11 +805,6 @@ export function getStoredEmployees(): Employee[] {
         emp.active === false ||
         Boolean(emp.terminationDate)
       ) {
-        modified = true;
-        return false;
-      }
-      // Ignora o registro antigo/duplicado de ALISSON PAG sem CPF
-      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
         modified = true;
         return false;
       }
@@ -795,15 +818,12 @@ export function getStoredEmployees(): Employee[] {
         modified = true;
         updatedEmp = { ...updatedEmp, photoUrl: undefined, foto_url: undefined };
       }
-      if (!updatedEmp.admissionDate && !(updatedEmp as any).data_admissao) {
-        const initMatch = INITIAL_EMPLOYEES.find(ie => ie.id === updatedEmp.id || (ie.name && updatedEmp.name && ie.name.trim().toUpperCase() === updatedEmp.name.trim().toUpperCase()));
-        if (initMatch?.admissionDate) {
-          updatedEmp.admissionDate = initMatch.admissionDate;
-          modified = true;
-        }
-      }
       return updatedEmp;
     });
+
+    if (modified || cleaned.length !== parsed.length) {
+      saveStoredEmployees(cleaned);
+    }
     return cleaned;
   } catch (e) {
     return INITIAL_EMPLOYEES;
@@ -818,7 +838,36 @@ export function getStoredAllEmployees(): Employee[] {
     if (!raw) return INITIAL_EMPLOYEES;
     const parsed: Employee[] = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
-    return parsed;
+
+    const isMock = (emp: any) => {
+      if (!emp) return false;
+      const id = String(emp.id || '');
+      if ([
+        'emp-alisson-pagotto',
+        'emp-audirlei-reolan',
+        'emp-cassiano-silva',
+        'emp-diego-santos',
+        'emp-marcos-antonio-pereira',
+        'emp-vitor-hugo-santos'
+      ].includes(id)) return true;
+      const name = String(emp.name || '').trim().toUpperCase();
+      if ([
+        'ALISSON PAGOTTO',
+        'AUDIRLEI REOLAN',
+        'CASSIANO SILVA',
+        'DIEGO SANTOS',
+        'MARCOS ANTONIO PEREIRA',
+        'VITOR HUGO SANTOS',
+        'ALISSON PAG'
+      ].includes(name)) return true;
+      return false;
+    };
+
+    const cleaned = parsed.filter(emp => !isMock(emp));
+    if (cleaned.length !== parsed.length) {
+      saveStoredEmployees(cleaned);
+    }
+    return cleaned;
   } catch (e) {
     return INITIAL_EMPLOYEES;
   }
@@ -1730,7 +1779,11 @@ export function getStoredMaintenanceLogs(): MaintenanceLog[] {
     if (raw === null) return INITIAL_MAINTENANCE_LOGS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_MAINTENANCE_LOGS;
-    return parsed;
+    const cleaned = parsed.filter(m => m && m.id !== 'maint_os_rhx3e15_30048' && m.osNumber !== 'OS-1001');
+    if (cleaned.length !== parsed.length) {
+      saveStoredMaintenanceLogs(cleaned);
+    }
+    return cleaned;
   } catch (e) {
     return INITIAL_MAINTENANCE_LOGS;
   }

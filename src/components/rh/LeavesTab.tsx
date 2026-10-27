@@ -339,8 +339,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-stone-400 text-xs">
-                    Nenhum registro de afastamento encontrado.
+                  <td colSpan={8} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}

@@ -581,8 +581,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-black/75 dark:text-stone-400 text-xs">
-                    Nenhum adiantamento ou vale registrado.
+                  <td colSpan={9} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}

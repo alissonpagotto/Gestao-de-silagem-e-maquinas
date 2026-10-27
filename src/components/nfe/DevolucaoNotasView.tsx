@@ -393,8 +393,8 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {filteredNotas.length === 0 ? (
                   <tr key="empty_devolucao_rows">
-                    <td colSpan={8} className="py-8 text-center text-xs text-stone-400 font-medium">
-                      Nenhuma nota de devolução registrada no momento.
+                    <td colSpan={8} className="py-4 text-center text-xs text-stone-500 font-semibold uppercase">
+                      NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
                 ) : (

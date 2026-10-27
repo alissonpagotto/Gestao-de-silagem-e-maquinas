@@ -792,8 +792,8 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-stone-400">
-                    Nenhuma ordem de manutenção encontrada com os filtros selecionados.
+                  <td colSpan={11} className="py-4 text-center text-xs font-semibold text-stone-500 uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (

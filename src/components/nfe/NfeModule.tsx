@@ -6589,9 +6589,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {unifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={6} className="py-8 text-center text-stone-400 uppercase">
-                      <ReceiptText className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                      <p className="font-semibold text-xs">NENHUMA NOTA OU ENTRADA REGISTRADA ATÉ O MOMENTO.</p>
+                    <td colSpan={6} className="py-4 text-center text-stone-500 font-semibold uppercase text-xs">
+                      NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
                 ) : (

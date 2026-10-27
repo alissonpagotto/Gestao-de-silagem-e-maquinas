@@ -211,8 +211,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
               })}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-medium text-xs py-8">
-              Nenhum registro
+            <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-semibold uppercase text-xs py-8">
+              NENHUM REGISTRO ENCONTRADO
             </div>
           )}
         </div>
@@ -253,8 +253,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
               ))}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-medium text-xs py-8">
-              Nenhum afastamento ativo
+            <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-semibold uppercase text-xs py-8">
+              NENHUM REGISTRO ENCONTRADO
             </div>
           )}
         </div>
@@ -365,8 +365,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
         ) : (
           <div className="py-12 flex flex-col items-center justify-center text-center">
-            <p className="text-black/75 dark:text-stone-400 font-medium text-xs">
-              Nenhuma folha lançada para este mês
+            <p className="text-black/75 dark:text-stone-400 font-semibold uppercase text-xs">
+              NENHUM REGISTRO ENCONTRADO
             </p>
           </div>
         )}

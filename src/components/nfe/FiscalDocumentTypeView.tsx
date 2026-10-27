@@ -1153,8 +1153,8 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-slate-800 dark:text-stone-200">
               {filteredDocuments.length === 0 ? (
                 <tr key="empty_fiscal_category_docs">
-                  <td colSpan={7} className="py-8 text-center text-slate-400 font-bold uppercase text-xs">
-                    Nenhum documento registrado nesta categoria. Clique no botão acima para lançar.
+                  <td colSpan={7} className="py-4 text-center text-slate-500 font-semibold uppercase text-xs">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (

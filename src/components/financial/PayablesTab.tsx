@@ -621,8 +621,8 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-black font-medium text-xs uppercase">
-                    NENHUMA CONTA A PAGAR ENCONTRADA PARA OS FILTROS SELECIONADOS.
+                  <td colSpan={6} className="py-4 text-center text-stone-500 font-semibold text-xs uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}

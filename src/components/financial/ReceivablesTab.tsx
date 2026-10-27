@@ -489,8 +489,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-black font-medium text-xs">
-                    Nenhum título a receber encontrado para os filtros selecionados.
+                  <td colSpan={7} className="py-4 text-center text-stone-500 font-semibold text-xs uppercase">
+                    NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               )}
