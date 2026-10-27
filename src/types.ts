@@ -145,6 +145,15 @@ export interface Client {
   observacoes?: string;
   totalPurchasedTons?: number;
   totalSpent?: number;
+  creditBalance?: number;
+  saldoCredito?: number;
+  creditHistory?: Array<{
+    date: string;
+    amount: number;
+    description: string;
+    invoiceNumber?: string;
+    accessKey?: string;
+  }>;
   createdAt: string;
   updatedAt?: string;
 }

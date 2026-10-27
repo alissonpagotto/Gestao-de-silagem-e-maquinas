@@ -57,7 +57,8 @@ import {
   DocumentoEntradaRecord,
   TipoDocumentoEntrada,
   DocumentoEntradaItem,
-  TireItem
+  TireItem,
+  Client
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -84,6 +85,8 @@ import {
   saveCompanyData,
   getStoredTireInventory,
   saveStoredTireInventory,
+  getStoredClients,
+  saveStoredClients,
   saveActiveNfeDraft,
   clearActiveNfeDraft,
   getActiveNfeDraft
@@ -231,6 +234,134 @@ export const NFE_TRANSACTION_TYPES = [
   'ENTRADA EM GARANTIA',
   'ENTRADA PEÇAS SEGURADORA (SINISTRO)'
 ] as const;
+
+// Categorização de Regras de Negócio Financeiras por Tipo de Transação (Contrato Master AgroControl)
+export const TRANSACTION_PURE_STOCK = [
+  'ENTRADA DE BONIFICAÇÃO, DOAÇÃO OU BRINDE',
+  'ENTRADA DE AMOSTRA GRÁTIS',
+  'RETORNO DE BEM DO ATIVO IMOBILIZADO',
+  'ENTRADA EM GARANTIA',
+  'ENTRADA PEÇAS SEGURADORA (SINISTRO)'
+] as const;
+
+export const TRANSACTION_CLIENT_RETURN = 'DEVOLUÇÃO MERCADORIA DE CLIENTE';
+
+export const isClientReturnOperation = (type?: string): boolean => {
+  return (type || '').trim().toUpperCase() === TRANSACTION_CLIENT_RETURN;
+};
+
+export const isPureStockOperation = (type?: string): boolean => {
+  const t = (type || '').trim().toUpperCase();
+  return TRANSACTION_PURE_STOCK.some(p => p.toUpperCase() === t);
+};
+
+export const isFinancialBlockedOperation = (type?: string): boolean => {
+  return isClientReturnOperation(type) || isPureStockOperation(type);
+};
+
+export const isFinancialActiveOperation = (type?: string): boolean => {
+  return !isFinancialBlockedOperation(type);
+};
+
+// Automação: Injeta o valor da NF-e como Crédito de Saldo no Perfil do Cliente
+export function injectClientCreditFromNfe(
+  clientIdentifier: { name?: string; cnpjOrCpf?: string },
+  creditAmount: number,
+  invoiceNumber: string,
+  accessKey?: string
+): { clientName: string; previousBalance: number; newBalance: number } {
+  const clients = getStoredClients();
+  const rawDigits = cleanDigits(clientIdentifier.cnpjOrCpf || '');
+  const nameQuery = (clientIdentifier.name || '').trim().toLowerCase();
+
+  let targetIndex = clients.findIndex(c => {
+    if (rawDigits && cleanDigits(c.cpfCnpj || '') === rawDigits) return true;
+    if (nameQuery && (c.name || '').trim().toLowerCase() === nameQuery) return true;
+    return false;
+  });
+
+  if (targetIndex === -1 && nameQuery) {
+    targetIndex = clients.findIndex(c => {
+      const cName = (c.name || '').toLowerCase();
+      const cFarm = (c.farmName || '').toLowerCase();
+      return (cName && (cName.includes(nameQuery) || nameQuery.includes(cName))) ||
+             (cFarm && (cFarm.includes(nameQuery) || nameQuery.includes(cFarm)));
+    });
+  }
+
+  let clientName = clientIdentifier.name || 'Cliente da NF-e';
+  let prevBal = 0;
+  let newBal = creditAmount;
+
+  const creditEntry = {
+    date: new Date().toISOString(),
+    amount: creditAmount,
+    description: `Crédito gerado por Devolução de Mercadoria (NF-e ${invoiceNumber})`,
+    invoiceNumber: invoiceNumber,
+    accessKey: accessKey || undefined
+  };
+
+  if (targetIndex !== -1) {
+    const existing = clients[targetIndex];
+    clientName = existing.name;
+    prevBal = Number(existing.creditBalance || existing.saldoCredito || 0);
+    newBal = Math.round((prevBal + creditAmount) * 100) / 100;
+    const history = Array.isArray(existing.creditHistory) ? [...existing.creditHistory, creditEntry] : [creditEntry];
+    clients[targetIndex] = {
+      ...existing,
+      creditBalance: newBal,
+      saldoCredito: newBal,
+      creditHistory: history
+    };
+  } else {
+    // Registra novo cliente com o saldo de crédito na chave de clientes
+    const newClient: Client = {
+      id: `cli_${Date.now()}`,
+      name: clientName,
+      nome: clientName,
+      farmName: 'Propriedade Rural',
+      fazenda: 'Propriedade Rural',
+      cpfCnpj: clientIdentifier.cnpjOrCpf || undefined,
+      city: 'Local',
+      state: 'PR',
+      phone: '',
+      cattleType: 'misto',
+      status: 'cliente_ativo',
+      creditBalance: newBal,
+      saldoCredito: newBal,
+      creditHistory: [creditEntry],
+      createdAt: new Date().toISOString()
+    };
+    clients.push(newClient);
+  }
+
+  saveStoredClients(clients);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrocontrol_clients_updated', { detail: clients }));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_clientes_updated', { detail: clients }));
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  // Persiste também no log histórico de créditos de clientes
+  try {
+    const rawCredits = localStorage.getItem('agrocontrol_clientes_creditos') || localStorage.getItem('silagem_facil_clean_v1_cliente_creditos');
+    const list = rawCredits ? JSON.parse(rawCredits) : [];
+    list.unshift({
+      id: `cred_${Date.now()}`,
+      clientName,
+      cpfCnpj: clientIdentifier.cnpjOrCpf || '',
+      amount: creditAmount,
+      invoiceNumber,
+      accessKey,
+      operation: 'DEVOLUÇÃO MERCADORIA DE CLIENTE',
+      createdAt: new Date().toISOString()
+    });
+    localStorage.setItem('agrocontrol_clientes_creditos', JSON.stringify(list));
+    localStorage.setItem('silagem_facil_clean_v1_cliente_creditos', JSON.stringify(list));
+  } catch (_) {}
+
+  return { clientName, previousBalance: prevBal, newBalance: newBal };
+}
 
 export const normalizeToInventoryCategory = (cat?: string): string => {
   if (!cat) return 'Outros Insumos';
@@ -4856,11 +4987,379 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return 'outro';
   };
 
+  // 1.1 Gravação Direta para Operações com Lançamento Financeiro Bloqueado (Estoque Puro e Devolução de Cliente)
+  const handleDirectSaveNonFinancial = () => {
+    if (!parsedData) return;
+
+    // Bloqueio de Nota Duplicada (ignora a própria nota e suas parcelas em modo de edição)
+    const cleanCurrentNum = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase();
+    const listToCheck = editingExpenseId 
+      ? expenses.filter(e => {
+          if (e.id === editingExpenseId) return false;
+          if (editingExpenseId && e.id.startsWith(editingExpenseId)) return false;
+          const eCleanNum = (e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase();
+          if (cleanCurrentNum && eCleanNum && eCleanNum === cleanCurrentNum) return false;
+          return true;
+        }) 
+      : expenses;
+
+    if (isNfeDuplicate(parsedData, listToCheck)) {
+      setErrorMessage('Nota já importada');
+      setSuccessMessage('');
+      return;
+    }
+
+    // ENTRADA AUTOMÁTICA NO ESTOQUE (Itens Vinculados e Novos Itens Extraídos)
+    let updatedInventory = [...localInventory];
+    const updatedSummary: string[] = [];
+
+    parsedData.items?.forEach((item, idx) => {
+      if (item.linkedInventoryId) {
+        const invIndex = updatedInventory.findIndex(i => i.id === item.linkedInventoryId);
+        if (invIndex !== -1) {
+          const invItem = { ...updatedInventory[invIndex] };
+
+          // Apenas incrementa estoque se NÃO for edição (ou se for novo produto cadastrado nesta sessão)
+          if (!editingExpenseId || sessionCreatedProductIds.has(item.linkedInventoryId)) {
+            const currentQty = Number(invItem.quantity) || 0;
+            const addQty = Number(item.quantity) || 0;
+            invItem.quantity = Math.round((currentQty + addQty) * 100) / 100;
+            invItem.quantidade_atual = invItem.quantity;
+            updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
+
+            // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
+            const descLower = (item.description || '').toLowerCase();
+            const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
+            if (isFuelOrArla && addQty > 0) {
+              sincronizarEntradaCombustivelSupabase({
+                produtoId: invItem.id,
+                descricao: item.description,
+                categoria: 'Combustível & Arla',
+                quantidadeLitros: addQty,
+                custoUnitario: Number(item.unitPrice) || 0
+              });
+            }
+          }
+
+          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+          const newUnitCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
+          if (newUnitCost > 0) {
+            invItem.unitCost = newUnitCost;
+            invItem.preco_custo_inicial = newUnitCost;
+            invItem.custo_nominal = newUnitCost;
+            invItem.custo_com_imposto = newUnitCost;
+            invItem.custo_sem_imposto = item.custoSemImposto ?? item.custo_sem_imposto ?? invItem.custo_sem_imposto ?? 0;
+            invItem.valor_impostos_total = item.valorImpostosTotal ?? item.valor_impostos_total ?? invItem.valor_impostos_total ?? 0;
+            invItem.frete_diluido_item = item.freteDiluidoItem ?? item.frete_diluido_item ?? invItem.frete_diluido_item ?? 0;
+          }
+
+          // Sincronização automática dos preços de venda (V. Final, % Markup, V. Atacado, V. Promo)
+          if (item.markupPercent !== undefined) {
+            invItem.profitMargin = item.markupPercent;
+          }
+          if (item.salePrice !== undefined && Number(item.salePrice) >= 0) {
+            invItem.salePrice = Number(item.salePrice);
+            invItem.preco_venda_varejo = Number(item.salePrice);
+            if (invItem.unitCost > 0 && item.markupPercent === undefined) {
+              invItem.profitMargin = Math.round(((invItem.salePrice - invItem.unitCost) / invItem.unitCost) * 100 * 10) / 10;
+            }
+          } else if (invItem.profitMargin !== undefined && invItem.unitCost > 0) {
+            invItem.salePrice = Math.round((invItem.unitCost * (1 + invItem.profitMargin / 100)) * 100) / 100;
+            invItem.preco_venda_varejo = invItem.salePrice;
+          }
+
+          if (item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0) {
+            invItem.wholesalePrice = Number(item.wholesalePrice);
+          }
+
+          if (item.promoPrice !== undefined && Number(item.promoPrice) >= 0) {
+            invItem.promoPrice = Number(item.promoPrice);
+          }
+
+          updatedInventory[invIndex] = invItem;
+        }
+      } else {
+        if (!editingExpenseId) {
+          const dieselMatch = identificarTipoDiesel(item.description);
+          const autoCat = normalizeToInventoryCategory(
+            item.categoria ||
+            item.category ||
+            parsedData.priorityCategory ||
+            parsedData.categoriaPrioritaria ||
+            (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
+          );
+          const autoUnit = (item.unit || 'UN').toUpperCase();
+          const autoQty = Number(item.quantity) || 1;
+          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+          const autoCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
+          const newProdId = `inv_auto_${Date.now()}_${idx}`;
+
+          const autoProfitMargin = item.markupPercent !== undefined ? item.markupPercent : 30;
+          const autoSalePrice = item.salePrice !== undefined && Number(item.salePrice) >= 0
+            ? Number(item.salePrice)
+            : Math.round((autoCost * (1 + autoProfitMargin / 100)) * 100) / 100;
+
+          const newInvItem: InventoryItem = {
+            id: newProdId,
+            name: item.description,
+            nome_comercial: item.description,
+            fiscalName: item.description,
+            code: item.code || `PRD${Date.now().toString().slice(-4)}`,
+            barcode: item.barcode || undefined,
+            unit: autoUnit,
+            unidade_medida: autoUnit,
+            category: autoCat,
+            categoria: autoCat,
+            unitCost: autoCost,
+            preco_custo_inicial: autoCost,
+            custo_nominal: autoCost,
+            custo_com_imposto: autoCost,
+            custo_sem_imposto: item.custoSemImposto ?? item.custo_sem_imposto ?? 0,
+            valor_impostos_total: item.valorImpostosTotal ?? item.valor_impostos_total ?? 0,
+            frete_diluido_item: item.freteDiluidoItem ?? item.frete_diluido_item ?? 0,
+            profitMargin: autoProfitMargin,
+            salePrice: autoSalePrice,
+            preco_venda_varejo: autoSalePrice,
+            wholesalePrice: item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0 ? Number(item.wholesalePrice) : undefined,
+            promoPrice: item.promoPrice !== undefined && Number(item.promoPrice) >= 0 ? Number(item.promoPrice) : undefined,
+            quantity: autoQty,
+            quantidade_atual: autoQty,
+            minQuantity: 5,
+            maxQuantity: 100,
+            location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal'
+          };
+
+          updatedInventory.push(newInvItem);
+          item.linkedInventoryId = newProdId;
+          updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
+
+          const newDescLower = (item.description || '').toLowerCase();
+          const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
+          if (isNewFuelOrArla && autoQty > 0) {
+            sincronizarEntradaCombustivelSupabase({
+              produtoId: newProdId,
+              descricao: item.description,
+              categoria: 'Combustível & Arla',
+              quantidadeLitros: autoQty,
+              custoUnitario: Number(item.unitPrice) || 0
+            });
+          }
+        }
+      }
+    });
+
+    saveInventory(updatedInventory);
+    updatedInventory.forEach(prod => {
+      upsertEstoqueItem(prod).catch(err => console.warn('Supabase upsertEstoqueItem non-financial XML sync:', err));
+    });
+
+    const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
+    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
+    const selectedCC = localCostCenters.find(c => c.id === selectedCostCenterId) || localCostCenters[0];
+    const isDevolucao = isClientReturnOperation(parsedData.transactionType);
+    const stockNote = updatedSummary.length > 0
+      ? ` Entrada de estoque registrada: ${updatedSummary.join(', ')}.`
+      : '';
+    const itemsJson = JSON.stringify(parsedData.items || []);
+    const itemsEmbed = `<!-- NFE_ITEMS_JSON:${itemsJson} -->`;
+
+    let clientCreditInfo: { clientName: string; previousBalance: number; newBalance: number } | null = null;
+    if (isDevolucao) {
+      // REGRA: Injeta automaticamente o valor total da nota como CRÉDITO SALDO DE CLIENTE
+      clientCreditInfo = injectClientCreditFromNfe(
+        { name: parsedData.supplier, cnpjOrCpf: parsedData.supplierCnpj },
+        Number(parsedData.totalAmount) || 0,
+        cleanInvoiceNumber,
+        parsedData.accessKey
+      );
+    }
+
+    // REGRA DE NEGÓCIO: LANÇAMENTO FINANCEIRO BLOQUEADO NO CONTAS A PAGAR
+    // Não gera parcelas a pagar. Se for edição de nota anterior, remove eventuais parcelas residuais.
+    if (editingExpenseId) {
+      const expensesCleaned = expenses.filter(e => 
+        e.id !== editingExpenseId && 
+        !e.id.startsWith(`${editingExpenseId}_parc_`) &&
+        (e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanInvoiceNumber.toLowerCase()
+      );
+      saveStoredExpenses(expensesCleaned);
+    }
+
+    // UNICIDADE DO REGISTRO FISCAL CONSOLIDADO
+    const singleFiscalRecord: Expense = {
+      id: fiscalRecordId,
+      invoiceNumber: cleanInvoiceNumber,
+      supplier: parsedData.supplier,
+      description: isDevolucao 
+        ? `Devolução Mercadoria Cliente ${cleanInvoiceNumber} - ${parsedData.supplier}`
+        : `${parsedData.transactionType || 'Entrada Sem Custo'} ${cleanInvoiceNumber} - ${parsedData.supplier}`,
+      amount: Number(parsedData.totalAmount) || 0,
+      dueDate: parsedData.dueDate || parsedData.issueDate,
+      status: 'pago' as const,
+      categoryId: 'cat_insumos',
+      categoryName: isDevolucao ? 'Devolução de Cliente' : 'Entrada sem Custo (Estoque)',
+      categoryColor: isDevolucao ? '#0284c7' : '#64748b',
+      paymentMethod: (parsedData.paymentMethod || 'dinheiro') as PaymentMethod,
+      costCenterId: selectedCC?.id,
+      costCenterName: selectedCC?.name || 'Geral',
+      notes: isDevolucao
+        ? `NF-e de Devolução de Mercadoria. Lançamento no Contas a Pagar BLOQUEADO. Valor de ${formatCurrencyBRL(parsedData.totalAmount)} injetado como CRÉDITO SALDO DO CLIENTE (${clientCreditInfo?.clientName || parsedData.supplier}). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`
+        : `NF-e Operacional sem custo financeiro (${parsedData.transactionType}). Lançamento no Contas a Pagar BLOQUEADO (Estoque Puro). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`,
+      nfeItems: parsedData.items,
+      operationNature: parsedData.transactionType || parsedData.operationNature,
+      transactionType: parsedData.transactionType,
+      skipAccountsPayable: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    const currentStoredFiscal = getStoredFiscalRecords();
+    const cleanNumCompare = cleanInvoiceNumber.toLowerCase();
+    const filteredFiscal = currentStoredFiscal.filter(f => 
+      f.id !== fiscalRecordId && 
+      (f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+    );
+    const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
+    saveStoredFiscalRecords(updatedFiscalList);
+
+    setNotasLancadas(prev => {
+      const remaining = prev.filter(f => 
+        f.id !== fiscalRecordId && 
+        (f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+      );
+      return [singleFiscalRecord, ...remaining];
+    });
+
+    const updatedParsedData: ParsedNfeData = {
+      ...parsedData,
+      invoiceNumber: cleanInvoiceNumber,
+      totalAmount: Number(parsedData.totalAmount) || 0,
+      installments: [],
+      costCenterId: selectedCC?.id,
+      costCenterName: selectedCC?.name,
+    };
+    saveCachedNfe(updatedParsedData, fiscalRecordId);
+
+    upsertNotaFiscal({
+      id: fiscalRecordId,
+      number: cleanInvoiceNumber,
+      series: parsedData.series || '1',
+      accessKey: parsedData.accessKey,
+      supplierName: parsedData.supplier,
+      totalAmount: Number(parsedData.totalAmount) || 0,
+      operationNature: parsedData.transactionType || parsedData.operationNature,
+      issueDate: parsedData.issueDate,
+      entryDate: parsedData.entryDate || new Date().toISOString().split('T')[0],
+      items: parsedData.items
+    });
+
+    setCostCenterError(false);
+    setErrorMessage('');
+    if (isDevolucao) {
+      setSuccessMessage(
+        `Devolução NF-e ${cleanInvoiceNumber} confirmada! Entrada física no Estoque realizada e CRÉDITO DE ${formatCurrencyBRL(parsedData.totalAmount)} lançado no saldo do cliente "${clientCreditInfo?.clientName}". Contas a Pagar bloqueado com sucesso!`
+      );
+    } else {
+      setSuccessMessage(
+        `NF-e ${cleanInvoiceNumber} confirmada! Entrada física de ${parsedData.items?.length || 0} produto(s) realizada no Estoque. Lançamento no Contas a Pagar bloqueado com sucesso (zero parcelas geradas).`
+      );
+    }
+
+    // Pergunta se o usuário deseja imprimir etiquetas
+    const itemsForLabels: LabelProductItem[] = (parsedData.items || []).map(item => {
+      const matched = updatedInventory.find(p => 
+        p.id === item.linkedInventoryId ||
+        (item.barcode && p.barcode && String(p.barcode) !== 'SEM GTIN' && String(p.barcode).trim() === String(item.barcode).trim()) ||
+        (item.code && p.code !== undefined && p.code !== null && String(p.code).trim().toUpperCase() === String(item.code).trim().toUpperCase()) ||
+        (p.nome_comercial && String(p.nome_comercial).toLowerCase().trim() === String(item.description || '').toLowerCase().trim()) ||
+        String(p.name || '').toLowerCase().trim() === String(item.description || '').toLowerCase().trim()
+      );
+      const invItem: InventoryItem = matched || {
+        id: `nfe_prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        code: item.code || undefined,
+        name: item.description,
+        nome: item.description,
+        nome_comercial: item.description,
+        category: 'Outros Insumos',
+        unit: item.unit || 'UN',
+        unidade_medida: item.unit || 'UN',
+        barcode: item.barcode || undefined,
+        codigo_barras: item.barcode || undefined,
+        quantity: Number(item.quantity) || 0,
+        minQuantity: 0,
+        unitCost: Number(item.unitPrice) || 0,
+        salePrice: Number(item.salePrice || item.unitPrice * 1.3),
+        endereco_formatado: '00.00.00.00.00',
+        location: 'Barracão Principal'
+      };
+      const exactNotaQty = Math.max(1, Math.round(Number(item.quantity) || 1));
+      return {
+        product: invItem,
+        quantity: exactNotaQty,
+        invoiceQuantity: exactNotaQty
+      };
+    });
+
+    if (itemsForLabels.length > 0) {
+      setPrintPromptState({
+        isOpen: true,
+        title: 'Deseja imprimir as etiquetas de gôndola?',
+        description: `A Nota Fiscal Nº ${cleanInvoiceNumber} (${parsedData.transactionType}) foi importada com sucesso e ${itemsForLabels.length} produto(s) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
+        items: itemsForLabels
+      });
+    }
+
+    if (parsedData.items && parsedData.items.length > 0) {
+      try {
+        const xmlItemsPayload: DocumentoEntradaItem[] = parsedData.items.map((item, idx) => ({
+          id: `item_nfe_${cleanInvoiceNumber}_${idx}_${Date.now()}`,
+          documento_entrada_id: fiscalRecordId,
+          produto_id: item.linkedInventoryId,
+          descricao: item.description,
+          codigo_produto: item.code || undefined,
+          ncm: item.ncm,
+          quantidade: Number(item.quantity) || 1,
+          unidade: item.unit || 'UN',
+          valor_unitario: Number(item.unitPrice) || 0,
+          valor_total: Number(item.totalPrice) || (Number(item.quantity) * Number(item.unitPrice)) || 0,
+          created_at: new Date().toISOString()
+        }));
+
+        const existingAllItems = getStoredDocumentosEntradaItens();
+        const filteredExisting = existingAllItems.filter(i => i.documento_entrada_id !== fiscalRecordId);
+        saveStoredDocumentosEntradaItens([...xmlItemsPayload, ...filteredExisting]);
+      } catch (err) {
+        console.warn('Erro ao salvar itens no colaca_silagem_documentos_entrada_itens:', err);
+      }
+    }
+
+    clearActiveNfeDraft();
+    try {
+      localStorage.removeItem('colaca_silagem_nfe_active_draft');
+      localStorage.removeItem('colaca_silagem_manual_entry_draft');
+    } catch (_) {}
+    setParsedData(null);
+    setXmlContent('');
+    setSearchNfeNumber('');
+    setEditingExpenseId(null);
+    setSelectedCostCenterId('');
+    setCostCenterError(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   // 1. Validação prévia de Centro de Custo e abertura da Janela 2 (Detalhamento de Parcelas)
   const handleProceedToInstallments = () => {
     if (!parsedData) return;
 
-    // BLOQUEIO OBRIGATÓRIO DE CENTRO DE CUSTO
+    // REGRA DE NEGÓCIO: Se for Operação com Lançamento Financeiro Bloqueado (Estoque Puro ou Devolução de Cliente),
+    // executa diretamente o salvamento sem exigir parcelas no Contas a Pagar!
+    if (isFinancialBlockedOperation(parsedData.transactionType)) {
+      handleDirectSaveNonFinancial();
+      return;
+    }
+
+    // BLOQUEIO OBRIGATÓRIO DE CENTRO DE CUSTO PARA OPERAÇÕES FINANCEIRAS ATIVAS (ex: Retorno de Conserto, Compra de Mercadoria, etc.)
     if (!selectedCostCenterId) {
       setCostCenterError(true);
       setErrorMessage('Bloqueio de Validação: Selecione obrigatoriamente a qual Centro de Custo esta despesa pertence.');
@@ -5851,7 +6350,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="btn-fechar-painel-nfe"
               onClick={handleBackToList}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-700 active:bg-red-800 border border-red-700 rounded-lg shadow-2xs transition cursor-pointer uppercase tracking-wider"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-slate-700 hover:bg-slate-800 active:bg-slate-900 border border-slate-600 rounded-lg shadow-2xs transition cursor-pointer uppercase tracking-wider"
               title="FECHAR DETALHES DA NOTA"
             >
               <X className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -5906,7 +6405,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 type="button"
                 id="btn-voltar-para-lista-topo"
                 onClick={handleBackToList}
-                className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-black uppercase tracking-wider rounded-xl border border-red-700 shadow-2xs transition cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white text-xs font-bold uppercase tracking-wider rounded-xl border border-slate-600 shadow-2xs transition cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>FECHAR</span>
@@ -6073,6 +6572,79 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {/* Tarja Informativa Reativa do Tipo de Transação Selecionado */}
+                  {parsedData.transactionType && (
+                    <div className="w-full animate-in fade-in">
+                      {isClientReturnOperation(parsedData.transactionType) ? (
+                        <div className="p-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-sky-950 dark:text-sky-200 shadow-2xs">
+                          <div className="flex items-start space-x-2.5">
+                            <RotateCcw className="w-4 h-4 text-sky-700 dark:text-sky-400 mt-0.5 shrink-0" />
+                            <div className="text-xs">
+                              <span className="font-black uppercase tracking-wider block text-sky-900 dark:text-sky-100">
+                                DEVOLUÇÃO MERCADORIA DE CLIENTE — CRÉDITO AUTOMÁTICO EM SALDO
+                              </span>
+                              <span className="font-medium text-sky-800 dark:text-sky-300">
+                                Esta operação <strong>NÃO gera contas a pagar</strong>. O valor total da nota ({formatCurrencyBRL(parsedData.totalAmount)}) será injetado automaticamente como <strong>CRÉDITO SALDO DE CLIENTE</strong> para abatimento em vendas futuras e dará entrada física no Estoque.
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                            <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase bg-sky-200/90 dark:bg-sky-900 text-sky-950 dark:text-sky-100 border border-sky-300 dark:border-sky-700">
+                              CRÉDITO CLIENTE ATIVO
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase bg-zinc-200 dark:bg-stone-700 text-zinc-800 dark:text-stone-200 border border-zinc-300 dark:border-stone-600">
+                              CONTAS A PAGAR BLOQUEADO
+                            </span>
+                          </div>
+                        </div>
+                      ) : isPureStockOperation(parsedData.transactionType) ? (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-amber-950 dark:text-amber-200 shadow-2xs">
+                          <div className="flex items-start space-x-2.5">
+                            <Package className="w-4 h-4 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
+                            <div className="text-xs">
+                              <span className="font-black uppercase tracking-wider block text-amber-900 dark:text-amber-100">
+                                {parsedData.transactionType} — ESTOQUE PURO SEM CUSTO
+                              </span>
+                              <span className="font-medium text-amber-800 dark:text-amber-300">
+                                Esta operação <strong>NÃO gera parcelas no Contas a Pagar</strong> e zera a condição financeira. Realiza a <strong>entrada física na quantidade do Estoque</strong> e mantém 1 registro consolidado no Histórico Fiscal.
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                            <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase bg-amber-200/90 dark:bg-amber-900 text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700">
+                              ESTOQUE FÍSICO ATIVO
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase bg-zinc-200 dark:bg-stone-700 text-zinc-800 dark:text-stone-200 border border-zinc-300 dark:border-stone-600">
+                              CONTAS A PAGAR BLOQUEADO
+                            </span>
+                          </div>
+                        </div>
+                      ) : parsedData.transactionType === 'RETORNO MERCADORIA DE CONSERTO (ENTRADA)' ? (
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-emerald-950 dark:text-emerald-200 shadow-2xs">
+                          <div className="flex items-start space-x-2.5">
+                            <Wrench className="w-4 h-4 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0" />
+                            <div className="text-xs">
+                              <span className="font-black uppercase tracking-wider block text-emerald-900 dark:text-emerald-100">
+                                RETORNO MERCADORIA DE CONSERTO (ENTRADA) — LANÇAMENTO FINANCEIRO ATIVO
+                              </span>
+                              <span className="font-medium text-emerald-800 dark:text-emerald-300">
+                                Esta operação <strong>mantém o lançamento financeiro ativo</strong> com geração de duplicatas no Contas a Pagar se houver custo cobrado pelo fornecedor, e registra o retorno dos itens no Estoque.
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                            <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase bg-emerald-200/90 dark:bg-emerald-900 text-emerald-950 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-700">
+                              CONTAS A PAGAR ATIVO
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase bg-emerald-100 text-emerald-900 border border-emerald-300">
+                              ESTOQUE ATIVO
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
 
                   {/* Tabela de Produtos da NF-e (100% da Largura da Tela - Formato Lista Enxuta) */}
                   {parsedData.items && parsedData.items.length > 0 && (
@@ -6421,7 +6993,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     </div>
                   )}
 
-                  {/* Card de Validação Financeira & Seleção Obrigatória de Centro de Custo */}
+                  {/* Card de Validação Financeira & Seleção de Centro de Custo */}
                   <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
                     costCenterError 
                       ? 'bg-rose-50/95 dark:bg-rose-950/30 border-rose-500 ring-2 ring-rose-500/30' 
@@ -6434,12 +7006,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           <h4 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-stone-200">
                             Classificação Financeira & Centro de Custo
                           </h4>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white shadow-2xs">
-                            Seleção Obrigatória
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shadow-2xs ${
+                            isFinancialBlockedOperation(parsedData.transactionType)
+                              ? 'bg-slate-700 text-white border border-slate-600'
+                              : 'bg-rose-600 text-white'
+                          }`}>
+                            {isFinancialBlockedOperation(parsedData.transactionType) ? 'Lançamento Financeiro Bloqueado' : 'Seleção Obrigatória'}
                           </span>
                         </div>
                         <p className="text-xs text-zinc-600 dark:text-stone-300 leading-relaxed font-medium">
-                          Antes de finalizar o salvamento da nota importada, informe a qual Centro de Custo esta despesa pertence (Safra, Maquinários, Administrativo ou Geral) para integração com o Contas a Pagar.
+                          {isClientReturnOperation(parsedData.transactionType)
+                            ? 'Para Devolução de Mercadoria de Cliente, o lançamento no Contas a Pagar está bloqueado. O valor total será creditado no saldo do cliente para abatimento em vendas futuras e dará entrada física no estoque.'
+                            : isPureStockOperation(parsedData.transactionType)
+                            ? `Para operações de Estoque Puro (${parsedData.transactionType}), o lançamento no Contas a Pagar está bloqueado. Apenas será realizada a entrada física dos produtos no estoque e o registro fiscal.`
+                            : 'Antes de finalizar o salvamento da nota importada, informe a qual Centro de Custo esta despesa pertence (Safra, Maquinários, Administrativo ou Geral) para integração com o Contas a Pagar.'}
                         </p>
                       </div>
 
@@ -6447,9 +7027,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <div className="flex items-center justify-between gap-1 flex-wrap">
                           <label 
                             htmlFor="select-centro-de-custo-nfe"
-                            className="block text-xs font-black text-zinc-900 dark:text-stone-300"
+                            className="block text-xs font-black text-zinc-900 dark:text-stone-300 uppercase tracking-wider"
                           >
-                            Centro de Custo <span className="text-rose-600 font-black">*</span>
+                            Centro de Custo {!isFinancialBlockedOperation(parsedData.transactionType) && <span className="text-rose-600 font-black">*</span>}
                           </label>
                         </div>
 
@@ -6467,7 +7047,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 : 'border-zinc-300 dark:border-stone-700 focus:ring-2 focus:ring-zinc-500/20'
                             }`}
                           >
-                            <option value="">-- Selecione o Centro de Custo (Obrigatório) --</option>
+                            <option value="">{isFinancialBlockedOperation(parsedData.transactionType) ? '-- Centro de Custo Opcional (Gerencial) --' : '-- Selecione o Centro de Custo (Obrigatório) --'}</option>
                             {localCostCenters.map(cc => (
                               <option key={cc.id} value={cc.id}>
                                 {cc.name} ({cc.type.toUpperCase()})
@@ -6514,7 +7094,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <div>
                           <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Forma de Pagamento:</span>
                           <span className="font-black text-zinc-900 dark:text-stone-200 capitalize">
-                            {parsedData.paymentMethod || 'Boleto Bancário'}
+                            {isFinancialBlockedOperation(parsedData.transactionType)
+                              ? (isClientReturnOperation(parsedData.transactionType) ? 'Crédito do Cliente (Saldo)' : 'Isento / Sem Custo')
+                              : (parsedData.paymentMethod || 'Boleto Bancário')}
                           </span>
                         </div>
                       </div>
@@ -6525,37 +7107,46 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           <div>
                             <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Condição / Parcelas:</span>
                             <span className="font-black text-zinc-900 dark:text-stone-100">
-                              {parsedData.installments && parsedData.installments.length > 1
+                              {isFinancialBlockedOperation(parsedData.transactionType)
+                                ? '0 Parcelas (Bloqueado)'
+                                : parsedData.installments && parsedData.installments.length > 1
                                 ? `${parsedData.installments.length} parcelas identificadas no XML`
                                 : `${userInstallmentCount} parcela(s)`}
                             </span>
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          id="btn-abrir-janela-2-parcelas-inline"
-                          onClick={() => {
-                            if (!selectedCostCenterId) {
-                              setCostCenterError(true);
-                              setErrorMessage('Selecione primeiro o Centro de Custo para detalhar as parcelas.');
-                              const selectEl = document.getElementById('select-centro-de-custo-nfe');
-                              if (selectEl) {
-                                selectEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                selectEl.focus();
+                        {isFinancialBlockedOperation(parsedData.transactionType) ? (
+                          <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-700/60 border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-300 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 uppercase cursor-default">
+                            <ShieldCheck className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400" />
+                            <span>{isClientReturnOperation(parsedData.transactionType) ? 'Parcelas Bloqueadas (Crédito ao Cliente)' : 'Parcelas Bloqueadas (Estoque Puro)'}</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            id="btn-abrir-janela-2-parcelas-inline"
+                            onClick={() => {
+                              if (!selectedCostCenterId) {
+                                setCostCenterError(true);
+                                setErrorMessage('Selecione primeiro o Centro de Custo para detalhar as parcelas.');
+                                const selectEl = document.getElementById('select-centro-de-custo-nfe');
+                                if (selectEl) {
+                                  selectEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  selectEl.focus();
+                                }
+                                return;
                               }
-                              return;
-                            }
-                            setCostCenterError(false);
-                            setErrorMessage('');
-                            setIsInstallmentsModalOpen(true);
-                          }}
-                          className="px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
-                          title="Abrir Janela 2 (Grade de Parcelas com Códigos Contábeis e Vencimentos)"
-                        >
-                          <Layers className="w-3.5 h-3.5" />
-                          <span>Detalhamento de Parcelas (Janela 2)</span>
-                        </button>
+                              setCostCenterError(false);
+                              setErrorMessage('');
+                              setIsInstallmentsModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
+                            title="Abrir Janela 2 (Grade de Parcelas com Códigos Contábeis e Vencimentos)"
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                            <span>Detalhamento de Parcelas (Janela 2)</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -6634,10 +7225,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             id="btn-confirmar-importacao-nfe"
                             onClick={handleProceedToInstallments}
                             className="w-full sm:flex-1 py-3 px-4 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white font-black uppercase tracking-wider rounded-xl shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 text-xs min-h-[46px]"
-                            title="SALVAR ALTERAÇÕES E AVANÇAR PARA DETALHAMENTO DE PARCELAS"
+                            title={isClientReturnOperation(parsedData.transactionType) ? 'CONFIRMAR ENTRADA NO ESTOQUE E GERAR CRÉDITO DO CLIENTE' : isPureStockOperation(parsedData.transactionType) ? 'CONFIRMAR ENTRADA FÍSICA NO ESTOQUE SEM CONTAS A PAGAR' : 'SALVAR ALTERAÇÕES E AVANÇAR PARA DETALHAMENTO DE PARCELAS'}
                           >
                             <Check className="w-5 h-5 stroke-[2.5]" />
-                            <span>SALVAR ALTERAÇÕES DA NOTA</span>
+                            <span>
+                              {isClientReturnOperation(parsedData.transactionType)
+                                ? 'CONFIRMAR DEVOLUÇÃO & GERAR CRÉDITO DO CLIENTE'
+                                : isPureStockOperation(parsedData.transactionType)
+                                ? 'CONFIRMAR ENTRADA DE ESTOQUE (SEM CONTAS A PAGAR)'
+                                : 'SALVAR ALTERAÇÕES DA NOTA'}
+                            </span>
                           </button>
                         </div>
                       </div>
