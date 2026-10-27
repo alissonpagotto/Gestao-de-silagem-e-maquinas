@@ -460,10 +460,10 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
         <button
           type="button"
           onClick={() => setIsNewModalOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-[#059669] hover:bg-[#047857] text-white text-[10px] font-bold uppercase rounded border border-emerald-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white text-[10px] font-bold uppercase rounded border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>+ LANÇAR MDF-E (MANIFESTO)</span>
+          <span>+ NOVO MDF-E</span>
         </button>
       </div>
 
@@ -504,7 +504,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                     <tr 
                       key={`mdfe_${m.id || mIdx}_${mIdx}`}
                       onClick={() => handleOpenViewModal(m)}
-                      className="odd:bg-white even:bg-slate-200/60 dark:odd:bg-stone-900 dark:even:bg-stone-800/50 hover:bg-emerald-50/60 dark:hover:bg-stone-800 transition cursor-pointer group border-b border-slate-200 dark:border-stone-800"
+                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition cursor-pointer group border-b border-slate-200 dark:border-stone-800"
                     >
                       {/* Nº / Série */}
                       <td className="py-1 px-2.5 whitespace-nowrap font-bold text-slate-900 dark:text-white uppercase">

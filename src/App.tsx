@@ -129,7 +129,6 @@ import { EmployeesModule } from './components/employees/EmployeesModule';
 import { RHModule, RHTabType } from './components/rh/RHModule';
 import { ServicesModule } from './components/services/ServicesModule';
 import { VendaModule } from './components/vendas/VendaModule';
-import { FaturamentoFiscalModule } from './components/faturamento/FaturamentoFiscalModule';
 import { InventoryModule } from './components/inventory/InventoryModule';
 import { AlmoxarifadoModule } from './components/inventory/AlmoxarifadoModule';
 import { SuppliersModule } from './components/suppliers/SuppliersModule';
@@ -275,14 +274,6 @@ export default function App() {
               valid.splice(servIndex + 1, 0, 'venda');
             } else {
               valid.push('venda');
-            }
-          }
-          if (!valid.includes('faturamento')) {
-            const vendaIndex = valid.indexOf('venda');
-            if (vendaIndex !== -1) {
-              valid.splice(vendaIndex + 1, 0, 'faturamento');
-            } else {
-              valid.push('faturamento');
             }
           }
           if (!valid.includes('fiscal')) {
@@ -1475,8 +1466,8 @@ export default function App() {
       if (['frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(pathSegment)) {
         return pathSegment === 'frota' ? 'frotas' : pathSegment;
       }
-      if (['financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'faturamento', 'faturamento_fiscal'].includes(pathSegment)) {
-        return pathSegment === 'faturamento_fiscal' ? 'faturamento' : pathSegment;
+      if (['financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe'].includes(pathSegment)) {
+        return pathSegment;
       }
       if (['rh', 'funcionarios', 'folha', 'ferias', 'colaboradores'].includes(pathSegment)) {
         return pathSegment === 'colaboradores' ? 'funcionarios' : pathSegment;
@@ -1589,7 +1580,7 @@ export default function App() {
   }, []);
 
   const getRequiredModulePermission = (tab: string): ModulePermissionKey | null => {
-    if (tab === 'financeiro' || tab === 'despesas' || tab === 'contas' || tab === 'bancos' || tab === 'pagar' || tab === 'receber' || tab === 'faturamento' || tab === 'faturamento_fiscal') return 'financeiro';
+    if (tab === 'financeiro' || tab === 'despesas' || tab === 'contas' || tab === 'bancos' || tab === 'pagar' || tab === 'receber') return 'financeiro';
     if (tab === 'frotas' || tab === 'frota' || tab === 'veiculos' || tab === 'manutencoes' || tab === 'combustivel' || tab === 'motoristas' || tab === 'equipe' || tab === 'rodizio' || tab === 'rodizio_pneus') return 'frotas';
     if (tab === 'rh' || tab === 'funcionarios' || tab === 'folha' || tab === 'colaboradores') return 'rh';
     if (tab === 'estoque' || tab === 'almoxarifado' || tab === 'fiscal' || tab === 'documentos_entrada' || tab === 'entradas' || tab === 'nfe_importar' || tab === 'nfe_notas') return 'estoque';
@@ -3411,16 +3402,6 @@ export default function App() {
             />
           )}
 
-          {/* TAB: Faturamento / Fiscal (Módulo Exclusivo com NF-e, NFS-e, CT-e, NFC-e, MDF-e) */}
-          {(activeTab === 'faturamento' || activeTab === 'faturamento_fiscal') && (
-            <FaturamentoFiscalModule 
-              companyProfile={companyProfile}
-              onNavigate={(tab) => {
-                setTimeout(() => setActiveTab(tab), 0);
-              }}
-            />
-          )}
-
           {/* TAB: Estoque & Insumos */}
           {activeTab === 'estoque' && (
             <InventoryModule
@@ -3760,7 +3741,7 @@ export default function App() {
           )}
 
           {/* Fallback Visual Seguro para MainDashboard se a aba não for reconhecida */}
-          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'faturamento', 'faturamento_fiscal', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
+          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
             <MainDashboard
               expenses={expenses}
               clients={clients}

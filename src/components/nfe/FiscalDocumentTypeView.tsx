@@ -110,9 +110,9 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
   isPlanningOnly: boolean;
 }> = {
   nfe: {
-    title: 'NF-E • NOTA FISCAL ELETRÔNICA (MERCADORIAS / PRODUTOS)',
+    title: 'NFE • NOTA FISCAL ELETRÔNICA (COMPRA DE MERCADORIAS/INSUMOS)',
     subtitle: 'Entrada oficial de produtos com incremento positivo no estoque (+) e contas a pagar',
-    buttonLabel: '+ LANÇAR NF-E (MERCADORIA)',
+    buttonLabel: 'LANÇAR NF-E (COMPRA)',
     defaultPrefix: 'NFE-',
     icon: FileText,
     color: 'emerald',
@@ -123,7 +123,7 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
   cte: {
     title: 'CT-E • CONHECIMENTO DE TRANSPORTE ELETRÔNICO (FRETE / TRANSPORTE)',
     subtitle: 'Frete e transporte vinculado obrigatoriamente a um veículo da frota com rateio no DRE',
-    buttonLabel: '+ LANÇAR CT-E (FRETE / TRANSPORTE)',
+    buttonLabel: 'LANÇAR CT-E (FRETE / TRANSPORTE)',
     defaultPrefix: 'CTE-',
     icon: Truck,
     color: 'sky',
@@ -134,7 +134,7 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
   nfe_c: {
     title: 'NFC-E • NOTA FISCAL DE CONSUMIDOR ELETRÔNICA (CONSUMIDOR FINAL)',
     subtitle: 'Venda a consumidor final e despesas de consumo com lançamento fiscal simplificado',
-    buttonLabel: '+ LANÇAR NFC-E (CONSUMIDOR FINAL)',
+    buttonLabel: 'LANÇAR NFC-E (CONSUMIDOR FINAL)',
     defaultPrefix: 'NFCE-',
     icon: FileSpreadsheet,
     color: 'amber',
@@ -145,7 +145,7 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
   pedido_compra: {
     title: 'PEDIDO DE COMPRA • RESERVA E PLANEJAMENTO DE SUPRIMENTOS',
     subtitle: 'Ordem de compra em planejamento com status PENDENTE sem débito financeiro imediato',
-    buttonLabel: '+ NOVO PEDIDO DE COMPRA',
+    buttonLabel: 'NOVO PEDIDO DE COMPRA',
     defaultPrefix: 'PED-',
     icon: ShoppingBag,
     color: 'indigo',
@@ -156,7 +156,7 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
   nfse: {
     title: 'NFS-E • NOTA FISCAL DE SERVIÇO ELETRÔNICA (SERVIÇOS DE TERCEIROS / MANUTENÇÃO)',
     subtitle: 'Serviços tomados, mecânica/manutenção terceirizada da frota, retenção de ISS municipal e rateio no DRE do trator ou caminhão',
-    buttonLabel: '+ LANÇAR NFS-E (SERVIÇO)',
+    buttonLabel: 'LANÇAR NFS-E (SERVIÇO)',
     defaultPrefix: 'NFSE-',
     icon: Wrench,
     color: 'sky',
@@ -1088,7 +1088,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         <button
           type="button"
           onClick={handleOpenCreateModal}
-          className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-xs font-black uppercase tracking-wider border border-emerald-800 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
+          className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-xs font-black uppercase tracking-wider border border-emerald-800 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>{config.buttonLabel}</span>
@@ -1159,11 +1159,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 </tr>
               ) : (
                 filteredDocuments.map((doc, docIdx) => (
-                  <tr key={`fiscal_doc_${doc.id || docIdx}_${docIdx}`} className="odd:bg-white even:bg-slate-200/60 dark:odd:bg-stone-900 dark:even:bg-stone-800/50 hover:bg-emerald-50/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={`fiscal_doc_${doc.id || docIdx}_${docIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
                     <td className="py-1 px-2 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {doc.number}
                     </td>
-                    <td className="py-1 px-2 font-bold truncate max-w-xs whitespace-nowrap" title={doc.supplierName}>
+                    <td className="py-1 px-2 font-bold truncate max-w-xs" title={doc.supplierName}>
                       {doc.supplierName}
                     </td>
                     <td className="py-1 px-2 whitespace-nowrap">
