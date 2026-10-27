@@ -90,6 +90,8 @@ export interface Expense {
   unit?: string; // 'litros', 'horas', 'unidades', 'sc', 'kg', etc.
   unitPrice?: number;
   nfeItems?: any[]; // Array completo de itens/sub-produtos da NF-e (cProd, xProd, qCom, vUnCom, vProd, etc.)
+  operationNature?: string;
+  transactionType?: string; // Tipo de Transação da NF-e (ex: COMPRA DE MERCADORIA, etc.)
   isRecurring?: boolean;
   accessKey?: string;
   installmentsCount?: number;

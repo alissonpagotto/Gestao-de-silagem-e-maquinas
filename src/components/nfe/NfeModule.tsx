@@ -201,6 +201,7 @@ interface ParsedNfeData {
   entryDate?: string;
   dueDate?: string;
   operationNature?: string;
+  transactionType?: string;        // Tipo de Transação da NF-e (ex: COMPRA DE MERCADORIA, etc.)
   paymentMethod?: PaymentMethod;
   installments?: ParsedNfeInstallment[];
   itemsSummary: string;
@@ -211,6 +212,25 @@ interface ParsedNfeData {
   costCenterName?: string;
   items?: ParsedNfeItem[];
 }
+
+// Matriz Oficial de Tipos de Transação da NF-e (Contrato Master AgroControl)
+export const NFE_TRANSACTION_TYPES = [
+  'COMPRA DE MERCADORIA',
+  'DEVOLUÇÃO MERCADORIA DE CLIENTE',
+  'COMPRA DE BEM PARA O ATIVO IMOBILIZADO',
+  'AQUISIÇÃO DE SERVIÇO DE FRETE',
+  'COMPRA DE ENERGIA ELÉTRICA',
+  'AQUISIÇÃO DE SERVIÇO DE COMUNICAÇÃO',
+  'ENTRADA DE BONIFICAÇÃO, DOAÇÃO OU BRINDE',
+  'RETORNO MERCADORIA DE CONSERTO (ENTRADA)',
+  'OUTRAS ENTRADAS OU PRESTAÇÃO DE SERVIÇOS',
+  'ENTRADA DE AMOSTRA GRÁTIS',
+  'COMPRA DE MATERIAL PARA USO OU CONSUMO',
+  'RETORNO DE BEM DO ATIVO IMOBILIZADO',
+  'COMPRA DE COMBUSTÍVEL',
+  'ENTRADA EM GARANTIA',
+  'ENTRADA PEÇAS SEGURADORA (SINISTRO)'
+] as const;
 
 export const normalizeToInventoryCategory = (cat?: string): string => {
   if (!cat) return 'Outros Insumos';
@@ -312,6 +332,8 @@ function buildNfeDataFromExpense(
       issueDate,
       itemsSummary: `${exp.nfeItems.length} produto(s) registrado(s) na nota`,
       suggestedCategory,
+      operationNature: exp.operationNature || undefined,
+      transactionType: (exp as any).transactionType || exp.operationNature || undefined,
       items: exp.nfeItems
     };
     saveCachedNfe(reconstructed, exp.id);
@@ -338,6 +360,8 @@ function buildNfeDataFromExpense(
           issueDate,
           itemsSummary: `${parsedItems.length} produto(s) registrado(s) na nota`,
           suggestedCategory,
+          operationNature: exp.operationNature || undefined,
+          transactionType: (exp as any).transactionType || exp.operationNature || undefined,
           items: parsedItems
         };
         exp.nfeItems = parsedItems;
@@ -3424,6 +3448,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const nNF = (ide ? getTag(ide, 'nNF') : '') || getTag(xmlDoc, 'nNF') || (accessKey.length === 44 ? accessKey.slice(25, 34).replace(/^0+/, '') : '') || '';
       const serie = (ide ? getTag(ide, 'serie') : '') || getTag(xmlDoc, 'serie') || '';
       const invoiceNumber = nNF ? `NF-e ${nNF}` : (accessKey ? `NF-e ${accessKey.slice(25, 34)}` : 'NF-e S/N');
+      const natOp = (ide ? getTag(ide, 'natOp') : '') || getTag(xmlDoc, 'natOp') || '';
+      let initialTransactionType = '';
+      if (natOp) {
+        const norm = natOp.toUpperCase().trim();
+        const found = NFE_TRANSACTION_TYPES.find(t => norm === t || norm.includes(t) || t.includes(norm));
+        if (found) initialTransactionType = found;
+      }
 
       // 3. Data de Emissão (dhEmi ou dEmi)
       let issueDate = (ide ? (getTag(ide, 'dhEmi') || getTag(ide, 'dEmi')) : '') || getTag(xmlDoc, 'dhEmi') || getTag(xmlDoc, 'dEmi') || '';
@@ -3659,6 +3690,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         suggestedCategory,
         priorityCategory: deducedPriorityCategory,
         categoriaPrioritaria: deducedPriorityCategory,
+        operationNature: natOp || undefined,
+        transactionType: initialTransactionType || undefined,
         items
       };
     } catch (error) {
@@ -5075,6 +5108,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         receiptUrl: inst.documentFileUrl,
         receiptName: inst.documentFileName,
         nfeItems: parsedData.items,
+        operationNature: parsedData.transactionType || parsedData.operationNature,
+        transactionType: parsedData.transactionType,
         createdAt: new Date().toISOString(),
       };
     });
@@ -5101,6 +5136,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       costCenterName: selectedCC?.name || primaryCategory,
       notes: `NF-e Importada via XML. Chave: ${parsedData.accessKey || 'N/A'}. Desdobrada em ${totalParcs} parcela(s) no Contas a Pagar.${stockNote}\n${itemsEmbed}`,
       nfeItems: parsedData.items,
+      operationNature: parsedData.transactionType || parsedData.operationNature,
+      transactionType: parsedData.transactionType,
       createdAt: new Date().toISOString(),
     };
 
@@ -5814,10 +5851,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="btn-fechar-painel-nfe"
               onClick={handleBackToList}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800 rounded-lg transition cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-700 active:bg-red-800 border border-red-700 rounded-lg shadow-2xs transition cursor-pointer uppercase tracking-wider"
+              title="FECHAR DETALHES DA NOTA"
             >
-              <X className="w-3.5 h-3.5" />
-              <span>Fechar Detalhes da Nota</span>
+              <X className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>FECHAR DETALHES DA NOTA</span>
             </button>
           </div>
         )}
@@ -5859,19 +5897,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   setEditingExpenseId(null);
                   setSelectedCostCenterId('');
                 }}
-                className="inline-flex items-center space-x-1 text-xs text-zinc-700 dark:text-stone-300 hover:text-rose-800 transition cursor-pointer font-bold px-2.5 py-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-stone-700"
+                className="inline-flex items-center space-x-1 text-xs text-zinc-700 dark:text-stone-300 hover:text-red-700 transition cursor-pointer font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-stone-700"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Limpar</span>
+                <span>LIMPAR</span>
               </button>
               <button
                 type="button"
                 id="btn-voltar-para-lista-topo"
                 onClick={handleBackToList}
-                className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 hover:bg-zinc-100 text-zinc-800 dark:text-stone-200 text-xs font-black rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs transition cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-black uppercase tracking-wider rounded-xl border border-red-700 shadow-2xs transition cursor-pointer shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
-                <span>Fechar</span>
+                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>FECHAR</span>
               </button>
             </div>
           </div>
@@ -5906,23 +5944,84 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 {/* Conteúdo Principal com 100% de Largura: Cabeçalho da Nota, Tabela de Itens e Resumo Horizontal */}
                 <div className="space-y-4 w-full">
                   
-                  {/* Informações Principais da Nota Fiscal em 4 Colunas */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-stone-800/40 border border-zinc-200 dark:border-stone-700 text-xs sm:text-sm text-zinc-900 dark:text-stone-100">
-                    <div>
-                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Número da NF-e:</span>
-                      <span className="font-black text-zinc-900 dark:text-stone-100 font-mono text-sm">
-                        {parsedData.invoiceNumber} {parsedData.series ? `(Série ${parsedData.series})` : ''}
+                  {/* Informações Principais da Nota Fiscal em 5 Colunas com Tipo de Transação */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-stone-800/40 border border-zinc-200 dark:border-stone-700 text-xs sm:text-sm text-zinc-900 dark:text-stone-100">
+                    
+                    {/* 1. NÚMERO DA NF-E */}
+                    <div className="lg:col-span-2 flex flex-col justify-center">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs uppercase tracking-wider">
+                        NÚMERO DA NF-E:
+                      </span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 font-mono text-sm block truncate">
+                        {parsedData.invoiceNumber} {parsedData.series ? `(SÉRIE ${parsedData.series})` : ''}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Data de Emissão:</span>
-                      <span className="font-black text-zinc-900 dark:text-stone-100 text-sm">
+
+                    {/* 2. TIPO DE TRANSAÇÃO (SELETOR IMEDIATAMENTE AO LADO DIREITO DO NÚMERO DA NF-E) */}
+                    <div className="lg:col-span-3 flex flex-col justify-center">
+                      <label 
+                        htmlFor="select-tipo-transacao-nfe" 
+                        className="text-zinc-700 dark:text-stone-300 font-black text-xs uppercase tracking-wider mb-1 flex items-center space-x-1"
+                      >
+                        <span>TIPO DE TRANSAÇÃO</span>
+                        <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        id="select-tipo-transacao-nfe"
+                        value={parsedData.transactionType || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setParsedData(prev => {
+                            if (!prev) return prev;
+                            const updated: ParsedNfeData = {
+                              ...prev,
+                              transactionType: val,
+                              operationNature: val || prev.operationNature
+                            };
+                            saveCachedNfe(updated, editingExpenseId || undefined);
+                            try {
+                              const draft = getActiveNfeDraft();
+                              if (draft) {
+                                saveActiveNfeDraft({
+                                  ...draft,
+                                  parsedData: updated,
+                                  transactionType: val
+                                });
+                              }
+                            } catch (_) {}
+                            return updated;
+                          });
+                        }}
+                        className="w-full bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-600 rounded-lg px-2.5 py-1.5 text-xs font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition truncate cursor-pointer"
+                        title="SELECIONE O TIPO DE OPERAÇÃO DA NOTA FISCAL"
+                      >
+                        <option value="" className="text-zinc-400 font-bold uppercase">
+                          -- SELECIONE O TIPO DE OPERAÇÃO --
+                        </option>
+                        {NFE_TRANSACTION_TYPES.map((tipo) => (
+                          <option key={tipo} value={tipo} className="text-zinc-900 dark:text-stone-100 font-semibold uppercase">
+                            {tipo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 3. DATA DE EMISSÃO */}
+                    <div className="lg:col-span-2 flex flex-col justify-center">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs uppercase tracking-wider">
+                        DATA DE EMISSÃO:
+                      </span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 text-sm block">
                         {formatDateBR(parsedData.issueDate)}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Emitente / Fornecedor:</span>
-                      <span className="font-black text-zinc-900 dark:text-stone-100 block text-sm truncate" title={parsedData.supplier}>
+
+                    {/* 4. EMITENTE / FORNECEDOR */}
+                    <div className="lg:col-span-3 flex flex-col justify-center">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs uppercase tracking-wider">
+                        EMITENTE / FORNECEDOR:
+                      </span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 block text-sm truncate uppercase" title={parsedData.supplier}>
                         {parsedData.supplier}
                       </span>
                       {parsedData.supplierCnpj && (
@@ -5931,12 +6030,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         </span>
                       )}
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black ${
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
                           supplierValidationNotice?.isNew
                             ? 'bg-amber-100 text-amber-950 border border-amber-300'
                             : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
                         }`}>
-                          {supplierValidationNotice?.isNew ? 'Novo Fornecedor' : 'Fornecedor Cadastrado'}
+                          {supplierValidationNotice?.isNew ? 'NOVO FORNECEDOR' : 'FORNECEDOR CADASTRADO'}
                         </span>
                         <button
                           type="button"
@@ -5950,18 +6049,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             if (s) setSupplierForModal(s);
                             setIsSupplierModalOpen(true);
                           }}
-                          className="text-[11px] font-black text-zinc-800 dark:text-stone-200 hover:text-zinc-950 hover:underline inline-flex items-center gap-1 cursor-pointer bg-white dark:bg-stone-800 px-1.5 py-0.5 rounded border border-zinc-300 dark:border-stone-600"
-                          title="Validar dados e ficha cadastral do fornecedor"
+                          className="text-[10px] font-black text-white bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] px-2 py-0.5 rounded shadow-2xs transition inline-flex items-center gap-1 cursor-pointer uppercase tracking-wider shrink-0"
+                          title="VALIDAR DADOS E FICHA CADASTRAL DO FORNECEDOR"
                         >
-                          <Building2 className="w-3 h-3 text-zinc-700 dark:text-stone-300" />
-                          <span>Validar Ficha</span>
+                          <Building2 className="w-3 h-3 text-white" />
+                          <span>VALIDAR FICHA</span>
                         </button>
                       </div>
                     </div>
-                    <div>
-                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Destinatário:</span>
-                      <span className="font-black text-zinc-900 dark:text-stone-100 block text-sm">
-                        {parsedData.recipient || companyProfile?.name || 'Não informado'}
+
+                    {/* 5. DESTINATÁRIO */}
+                    <div className="lg:col-span-2 flex flex-col justify-center">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs uppercase tracking-wider">
+                        DESTINATÁRIO:
+                      </span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 block text-sm uppercase truncate">
+                        {parsedData.recipient || companyProfile?.tradeName || companyProfile?.corporateName || 'NÃO INFORMADO'}
                       </span>
                       {parsedData.recipientCnpj && (
                         <span className="text-xs text-zinc-500 dark:text-stone-400 font-mono font-bold block">
@@ -6521,20 +6624,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             type="button"
                             id="btn-voltar-para-lista-rodape"
                             onClick={handleBackToList}
-                            className="w-full sm:w-auto px-4 py-3.5 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 font-bold rounded-xl border border-zinc-200 dark:border-stone-700 transition flex items-center justify-center space-x-2 cursor-pointer text-sm min-h-[50px] shadow-2xs"
+                            className="w-full sm:w-auto px-4 py-3 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 font-extrabold uppercase tracking-wider rounded-xl border border-zinc-200 dark:border-stone-700 transition flex items-center justify-center space-x-2 cursor-pointer text-xs min-h-[46px] shadow-2xs"
                           >
-                            <X className="w-4 h-4" />
-                            <span>Cancelar</span>
+                            <X className="w-4 h-4 stroke-[2.5]" />
+                            <span>CANCELAR</span>
                           </button>
                           <button
                             type="button"
                             id="btn-confirmar-importacao-nfe"
                             onClick={handleProceedToInstallments}
-                            className="w-full sm:flex-1 py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black rounded-xl shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 text-sm min-h-[50px]"
-                            title="Salvar alterações e avançar para detalhamento de parcelas"
+                            className="w-full sm:flex-1 py-3 px-4 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white font-black uppercase tracking-wider rounded-xl shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 text-xs min-h-[46px]"
+                            title="SALVAR ALTERAÇÕES E AVANÇAR PARA DETALHAMENTO DE PARCELAS"
                           >
                             <Check className="w-5 h-5 stroke-[2.5]" />
-                            <span>Salvar Alterações da Nota</span>
+                            <span>SALVAR ALTERAÇÕES DA NOTA</span>
                           </button>
                         </div>
                       </div>
