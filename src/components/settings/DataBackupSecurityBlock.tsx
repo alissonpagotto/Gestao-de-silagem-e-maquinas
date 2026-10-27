@@ -86,7 +86,7 @@ export function syncAllAgroControlKeys(): void {
 /**
  * Gera e dispara o download do arquivo JSON de backup contendo todas as chaves 'agrocontrol_*'
  */
-export function exportAgroControlBackup(subscriberName: string = 'COLAÇA SILAGEM LTDA'): { filename: string; totalKeys: number } {
+export function exportAgroControlBackup(subscriberName: string = 'SUA EMPRESA AQUI'): { filename: string; totalKeys: number } {
   // Sincroniza chaves preliminarmente
   syncAllAgroControlKeys();
 
@@ -389,7 +389,7 @@ export const applyAgroControlRestore = handleRestoreBackup;
 
 export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = ({
   className = '',
-  subscriberName = 'COLAÇA SILAGEM LTDA',
+  subscriberName = 'SUA EMPRESA AQUI',
   compact = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -585,10 +585,10 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
               onClick={handleDownloadBackup}
               disabled={isProcessing}
               title="Baixar arquivo JSON com todas as tabelas e dados do sistema salvos no navegador"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider border border-emerald-800 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
             >
-              <Download className="w-3.5 h-3.5 text-emerald-100 stroke-[2.5]" />
-              <span>📥 GERAR BACKUP DO SISTEMA (BAIXAR ARQUIVO)</span>
+              <Download className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+              <span className="text-white font-bold uppercase tracking-wider">GERAR BACKUP DO SISTEMA (BAIXAR ARQUIVO)</span>
             </button>
 
             {/* BOTÃO 2: RESTAURAR BACKUP (ARQUIVO .JSON) */}
@@ -598,10 +598,10 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
               title="Carregar arquivo .JSON e substituir os dados locais da tela"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:text-stone-100 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-200 hover:text-emerald-700 dark:hover:text-emerald-400 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-slate-300 dark:border-stone-700 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
             >
-              <Upload className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300 stroke-[2.5]" />
-              <span>RESTAURAR BACKUP (ARQUIVO .JSON)</span>
+              <Upload className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300 stroke-[2.5]" />
+              <span className="font-bold uppercase tracking-wider">RESTAURAR BACKUP (ARQUIVO .JSON)</span>
             </button>
           </div>
         </div>

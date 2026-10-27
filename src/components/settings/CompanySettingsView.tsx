@@ -179,30 +179,29 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       [field]: value
     }));
 
-    if (field === 'activitySector') {
+    if (field === 'activitySector' || field === 'tradeName' || field === 'corporateName') {
       try {
         if (typeof window !== 'undefined') {
           const existingRaw = localStorage.getItem('dadosEmpresa');
           const existing = existingRaw ? JSON.parse(existingRaw) : {};
-          localStorage.setItem('dadosEmpresa', JSON.stringify({
+          const updated = {
             ...existing,
-            ramoAtividade: value,
-            activitySector: value
-          }));
+            ...(field === 'activitySector' ? { ramoAtividade: value, activitySector: value } : {}),
+            ...(field === 'tradeName' ? { nomeFantasia: value, tradeName: value } : {}),
+            ...(field === 'corporateName' ? { razaoSocial: value, corporateName: value } : {}),
+          };
+          localStorage.setItem('dadosEmpresa', JSON.stringify(updated));
           queueMicrotask(() => {
             window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', {
-              detail: { activitySector: value, ramoAtividade: value }
+              detail: { ...formData, [field]: value }
+            }));
+            window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', {
+              detail: { ...formData, [field]: value }
             }));
           });
         }
-        const stored = getStoredCompanyProfile();
-        if (stored) {
-          queueMicrotask(() => {
-            saveStoredCompanyProfile({ ...stored, activitySector: value, ramoAtividade: value } as any);
-          });
-        }
       } catch (e) {
-        console.warn('Erro ao sincronizar setor em tempo real:', e);
+        console.warn('Erro ao sincronizar identificação da empresa em tempo real:', e);
       }
     }
   };
@@ -343,9 +342,16 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         const existing = existingRaw ? JSON.parse(existingRaw) : {};
         localStorage.setItem('dadosEmpresa', JSON.stringify({
           ...existing,
+          razaoSocial: formData.corporateName || '',
+          corporateName: formData.corporateName || '',
+          nomeFantasia: formData.tradeName || '',
+          tradeName: formData.tradeName || '',
           ramoAtividade: activeSector,
-          activitySector: activeSector
+          activitySector: activeSector,
+          logoUrl: formData.logoUrl || ''
         }));
+        window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: formData }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: formData }));
       }
       await saveCloudCompanyProfile(formData);
       onSaveCompanyProfile(formData);
@@ -356,6 +362,10 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     } catch (err) {
       console.error('Erro ao salvar configurações fiscais na nuvem:', err);
       onSaveCompanyProfile(formData);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: formData }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: formData }));
+      }
       setSavedSuccess(true);
     } finally {
       setIsSavingCloud(false);
@@ -931,7 +941,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
         {/* BLOCO 5: CENTRAL DE SEGURANÇA E BACKUP DE DADOS (100% OFFLINE / LOCALSTORAGE) */}
         <DataBackupSecurityBlock 
-          subscriberName={formData.tradeName || formData.corporateName || 'COLAÇA SILAGEM LTDA'} 
+          subscriberName={formData.tradeName || formData.corporateName || 'SUA EMPRESA AQUI'} 
         />
 
         {/* Barra de Rodapé Compacta: Status Offline Resiliente & Sincronização */}

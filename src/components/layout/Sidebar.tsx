@@ -56,65 +56,170 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
 
-  // Leitura reativa da chave local dos dados da empresa ('dadosEmpresa' ou perfil oficial)
-  const getResolvedDadosEmpresa = (): { ramoAtividade?: string } => {
+  interface ResolvedCompanyInfo {
+    title: string;
+    subtitle: string;
+    logoUrl?: string;
+    initials: string;
+  }
+
+  const resolveCompanyInfo = (propProfile?: CompanyProfile): ResolvedCompanyInfo => {
+    let rawTitle = '';
+    let rawSubtitle = '';
+    let rawLogo = '';
+
+    // 1. Verificar em 'dadosEmpresa' no LocalStorage
     try {
-      const raw = localStorage.getItem('dadosEmpresa');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const val = parsed?.ramoAtividade || parsed?.activitySector || parsed?.setor;
-        if (val && typeof val === 'string' && val.trim()) {
-          return { ramoAtividade: val.trim() };
+      if (typeof localStorage !== 'undefined') {
+        const rawDados = localStorage.getItem('dadosEmpresa');
+        if (rawDados) {
+          const parsed = JSON.parse(rawDados);
+          const titleCandidate = parsed?.nomeFantasia || parsed?.tradeName || parsed?.razaoSocial || parsed?.corporateName;
+          if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim()) {
+            rawTitle = titleCandidate.trim();
+          }
+          const sectorCandidate = parsed?.ramoAtividade || parsed?.activitySector || parsed?.setor;
+          if (sectorCandidate && typeof sectorCandidate === 'string' && sectorCandidate.trim()) {
+            rawSubtitle = sectorCandidate.trim();
+          }
+          if (parsed?.logoUrl && typeof parsed.logoUrl === 'string') {
+            rawLogo = parsed.logoUrl.trim();
+          }
         }
       }
-    } catch (e) {}
+    } catch (_) {}
 
+    // 2. Verificar em getStoredCompanyProfile()
     try {
       const stored = getStoredCompanyProfile();
       if (stored) {
-        const val = (stored as any)?.ramoAtividade || stored?.activitySector;
-        if (val && typeof val === 'string' && val.trim() && val.trim().toUpperCase() !== 'GESTÃO AGRÍCOLA') {
-          return { ramoAtividade: val.trim() };
+        if (!rawTitle) {
+          const titleCandidate = stored.tradeName || stored.corporateName;
+          if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim()) {
+            rawTitle = titleCandidate.trim();
+          }
+        }
+        if (!rawSubtitle) {
+          const sectorCandidate = (stored as any)?.ramoAtividade || stored.activitySector;
+          if (sectorCandidate && typeof sectorCandidate === 'string' && sectorCandidate.trim()) {
+            rawSubtitle = sectorCandidate.trim();
+          }
+        }
+        if (!rawLogo && stored.logoUrl) {
+          rawLogo = stored.logoUrl.trim();
         }
       }
-    } catch (e) {}
+    } catch (_) {}
 
-    const propVal = (companyProfile as any)?.ramoAtividade || companyProfile?.activitySector;
-    if (propVal && typeof propVal === 'string' && propVal.trim() && propVal.trim().toUpperCase() !== 'GESTÃO AGRÍCOLA') {
-      return { ramoAtividade: propVal.trim() };
+    // 3. Verificar na prop companyProfile
+    if (propProfile) {
+      if (!rawTitle) {
+        const titleCandidate = propProfile.tradeName || propProfile.corporateName;
+        if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim()) {
+          rawTitle = titleCandidate.trim();
+        }
+      }
+      if (!rawSubtitle) {
+        const sectorCandidate = (propProfile as any)?.ramoAtividade || propProfile.activitySector;
+        if (sectorCandidate && typeof sectorCandidate === 'string' && sectorCandidate.trim()) {
+          rawSubtitle = sectorCandidate.trim();
+        }
+      }
+      if (!rawLogo && propProfile.logoUrl) {
+        rawLogo = propProfile.logoUrl.trim();
+      }
     }
 
-    return { ramoAtividade: 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' };
+    // Filtragem rigorosa contra resíduos legados de testes
+    const isMockTitle = !rawTitle || 
+      rawTitle.toUpperCase() === 'COLAÇA SILAGEM LTDA' || 
+      rawTitle.toUpperCase() === 'COLAÇA SILAGEM' || 
+      rawTitle.toUpperCase() === 'COLACA SILAGEM LTDA' || 
+      rawTitle.toUpperCase() === 'COLACA SILAGEM';
+
+    const isMockSubtitle = !rawSubtitle ||
+      rawSubtitle.toUpperCase() === 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' ||
+      rawSubtitle.toUpperCase() === 'PRESTACAO DE SERVICO DE SILAGEM' ||
+      rawSubtitle.toUpperCase() === 'SERVIÇOS DE SILAGEM' ||
+      rawSubtitle.toUpperCase() === 'SERVICOS DE SILAGEM' ||
+      rawSubtitle.toUpperCase() === 'GESTÃO AGRÍCOLA' ||
+      rawSubtitle.toUpperCase() === 'GESTAO AGRICOLA';
+
+    const finalTitle = isMockTitle ? 'SUA EMPRESA AQUI' : rawTitle.toUpperCase();
+    const finalSubtitle = isMockSubtitle ? 'SISTEMA ERP OPERACIONAL' : rawSubtitle.toUpperCase();
+
+    // Iniciais dinâmicas
+    let initials = 'SE';
+    if (!isMockTitle && finalTitle) {
+      const parts = finalTitle.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        initials = (parts[0][0] + parts[1][0]).toUpperCase();
+      } else if (parts.length === 1) {
+        initials = parts[0].slice(0, 2).toUpperCase();
+      }
+    }
+
+    // Limpeza de logotipo mockado antigo
+    let finalLogo = rawLogo;
+    if (
+      finalLogo && (
+        finalLogo.includes('a7f3d0') ||
+        finalLogo.includes('15803d') ||
+        finalLogo.includes('viewBox="0 0 200 160"') ||
+        finalLogo.startsWith('/upload/') ||
+        finalLogo.startsWith('/_upload/') ||
+        finalLogo.includes('/_upload/') ||
+        finalLogo.includes('/upload/')
+      )
+    ) {
+      finalLogo = '';
+    }
+
+    return {
+      title: finalTitle,
+      subtitle: finalSubtitle,
+      logoUrl: finalLogo,
+      initials
+    };
   };
 
-  const [dadosEmpresa, setDadosEmpresa] = useState<{ ramoAtividade?: string }>(() => getResolvedDadosEmpresa());
+  const [companyInfo, setCompanyInfo] = useState<ResolvedCompanyInfo>(() => resolveCompanyInfo(companyProfile));
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    const syncDados = () => {
-      queueMicrotask(() => {
-        if (isMounted) setDadosEmpresa(getResolvedDadosEmpresa());
-      });
+    const syncCompany = () => {
+      if (isMounted) {
+        setCompanyInfo(resolveCompanyInfo(companyProfile));
+        setLogoError(false);
+      }
     };
 
     const handleLiveCompanySync = (e: any) => {
-      const sector = e.detail?.ramoAtividade || e.detail?.activitySector;
-      queueMicrotask(() => {
-        if (!isMounted) return;
-        if (typeof sector === 'string') {
-          setDadosEmpresa({ ramoAtividade: sector });
-        } else {
-          syncDados();
-        }
-      });
+      if (!isMounted) return;
+      if (e?.detail) {
+        const detail = e.detail;
+        const simulatedProfile = {
+          corporateName: detail.corporateName || detail.razaoSocial,
+          tradeName: detail.tradeName || detail.nomeFantasia,
+          activitySector: detail.activitySector || detail.ramoAtividade || detail.setor,
+          logoUrl: detail.logoUrl !== undefined ? detail.logoUrl : companyInfo.logoUrl,
+        } as CompanyProfile;
+        setCompanyInfo(resolveCompanyInfo(simulatedProfile));
+        setLogoError(false);
+      } else {
+        syncCompany();
+      }
     };
 
     window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
-    window.addEventListener('storage', syncDados);
+    window.addEventListener('agrocontrol_company_profile_updated', handleLiveCompanySync);
+    window.addEventListener('storage', syncCompany);
     return () => {
       isMounted = false;
       window.removeEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
-      window.removeEventListener('storage', syncDados);
+      window.removeEventListener('agrocontrol_company_profile_updated', handleLiveCompanySync);
+      window.removeEventListener('storage', syncCompany);
     };
   }, [companyProfile]);
 
@@ -282,8 +387,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (onCloseMobile) onCloseMobile();
   };
 
-  const [logoError, setLogoError] = useState(false);
-
   // Build sorted navigation list
   const currentOrder = propMenuOrder || menuOrder;
   const navItems: MenuItemDef[] = currentOrder
@@ -315,16 +418,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Brand Header */}
           {isCollapsed ? (
             <div className="p-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex flex-col items-center justify-center bg-slate-100/80 dark:bg-stone-900 gap-1.5">
-              {/* Logo / Badge CS */}
+              {/* Logo / Badge */}
               <div 
                 className="cursor-pointer"
                 onClick={() => handleSelect('home')}
-                title="COLAÇA SILAGEM LTDA - TELA INICIAL"
+                title={`${companyInfo.title} - TELA INICIAL`}
               >
-                {companyProfile?.logoUrl && !logoError ? (
+                {companyInfo.logoUrl && !logoError ? (
                   <div className="w-8 h-8 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-0.5 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                     <img 
-                      src={companyProfile.logoUrl} 
+                      src={companyInfo.logoUrl} 
                       alt="Logo" 
                       className="max-w-full max-h-full object-contain"
                       referrerPolicy="no-referrer"
@@ -336,10 +439,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ) : (
                   <div 
                     className="w-8 h-8 rounded-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-750 dark:via-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_1px_rgba(255,255,255,0.9),inset_-1px_-1px_1px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center shrink-0 select-none transition-transform hover:scale-105"
-                    title="COLAÇA SILAGEM LTDA"
+                    title={companyInfo.title}
                   >
                     <span className="text-emerald-700 dark:text-emerald-400 font-black text-[11px] tracking-tight drop-shadow-[0_1px_0px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_0px_rgba(0,0,0,0.5)]">
-                      CS
+                      {companyInfo.initials}
                     </span>
                   </div>
                 )}
@@ -362,12 +465,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div 
                 className="flex items-center space-x-2.5 cursor-pointer min-w-0 flex-1"
                 onClick={() => handleSelect('home')}
-                title="TELA INICIAL (AGROCONTROL)"
+                title={`${companyInfo.title} (AGROCONTROL)`}
               >
-                {companyProfile?.logoUrl && !logoError ? (
+                {companyInfo.logoUrl && !logoError ? (
                   <div className="w-9 h-9 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                     <img 
-                      src={companyProfile.logoUrl} 
+                      src={companyInfo.logoUrl} 
                       alt="Logo" 
                       className="max-w-full max-h-full object-contain"
                       referrerPolicy="no-referrer"
@@ -379,22 +482,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ) : (
                   <div 
                     className="w-9 h-9 rounded-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 dark:from-stone-750 dark:via-stone-800 dark:to-stone-900 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_1px_rgba(255,255,255,0.9),inset_-1px_-1px_1px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center shrink-0 select-none transition-transform hover:scale-105"
-                    title="COLAÇA SILAGEM (CS)"
+                    title={`${companyInfo.title} (${companyInfo.initials})`}
                   >
                     <span className="text-emerald-700 dark:text-emerald-400 font-black text-xs tracking-tight drop-shadow-[0_1px_0px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_0px_rgba(0,0,0,0.5)]">
-                      CS
+                      {companyInfo.initials}
                     </span>
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xs font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title="COLAÇA SILAGEM LTDA">
-                    {companyProfile?.tradeName ? (companyProfile.tradeName.toUpperCase().includes('COLAÇA') ? 'COLAÇA SILAGEM LTDA' : companyProfile.tradeName) : 'COLAÇA SILAGEM LTDA'}
+                  <h2 className="text-xs font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']" title={companyInfo.title}>
+                    {companyInfo.title}
                   </h2>
                   <p 
                     className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase truncate max-w-[140px]"
-                    title="SERVIÇOS DE SILAGEM"
+                    title={companyInfo.subtitle}
                   >
-                    {dadosEmpresa?.ramoAtividade?.toUpperCase().includes('PRESTAÇÃO') || dadosEmpresa?.ramoAtividade?.toUpperCase().includes('GESTÃO') ? 'SERVIÇOS DE SILAGEM' : (dadosEmpresa?.ramoAtividade?.toUpperCase() || 'SERVIÇOS DE SILAGEM')}
+                    {companyInfo.subtitle}
                   </p>
                 </div>
               </div>
