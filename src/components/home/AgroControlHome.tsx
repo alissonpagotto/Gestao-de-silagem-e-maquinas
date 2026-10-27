@@ -38,8 +38,8 @@ interface IndicatorValues {
 }
 
 const DEFAULT_INDICATORS: IndicatorValues = {
-  receberVencidos: 26,
-  receberHoje: 1,
+  receberVencidos: 0,
+  receberHoje: 0,
   receberCheques: 0,
   pagarVencidos: 0,
   pagarHoje: 0,
@@ -47,14 +47,282 @@ const DEFAULT_INDICATORS: IndicatorValues = {
   clientesAusentes: 0,
   clientesBloqueados: 0,
   clientesAniversariantes: 0,
-  produtosEstoqueBaixo: 30,
+  produtosEstoqueBaixo: 0,
   produtosVencendoHoje: 0,
   produtosCicloVida: 0,
   outrosEntregas: 0,
-  outrosSemVendas: 74,
-  outrosCobrancasPrevistas: 20964.31,
+  outrosSemVendas: 0,
+  outrosCobrancasPrevistas: 0,
   monitorFiscalStatus: 'ATIVO'
 };
+
+export function calculateRealIndicators(): IndicatorValues {
+  const todayIso = new Date().toISOString().split('T')[0];
+
+  // 1. CONTAS A RECEBER (DÉBITOS VENCIDOS & DÉB. VENCENDO HOJE)
+  // Diretriz do Contrato Master: Deve ler a chave 'agrocontrol_contas_receber' filtrando por vencidos (STATUS === "PENDENTE" && VENCIMENTO < HOJE). Se estiver vazio, exibe obrigatoriamente "0".
+  let itensReceber: any[] = [];
+  try {
+    const raw = localStorage.getItem('agrocontrol_contas_receber') ||
+                localStorage.getItem('agrocontrol_financeiro_receber') ||
+                localStorage.getItem('agrocontrol_receber');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) itensReceber = parsed;
+    }
+  } catch (e) {
+    itensReceber = [];
+  }
+
+  const receberVencidos = itensReceber.filter((item: any) => {
+    const status = String(item.status || item.STATUS || item.paymentStatus || '').trim().toUpperCase();
+    if (status !== 'PENDENTE') return false;
+
+    let venc = String(item.vencimento || item.VENCIMENTO || item.data_vencimento || item.dueDate || item.deliveryDate || item.date || '').trim();
+    if (!venc) return false;
+
+    if (venc.includes('/')) {
+      const parts = venc.split('/');
+      if (parts.length === 3) venc = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    } else if (venc.includes('T')) {
+      venc = venc.split('T')[0];
+    }
+
+    return venc < todayIso;
+  }).length;
+
+  const receberHoje = itensReceber.filter((item: any) => {
+    const status = String(item.status || item.STATUS || item.paymentStatus || '').trim().toUpperCase();
+    if (status !== 'PENDENTE') return false;
+
+    let venc = String(item.vencimento || item.VENCIMENTO || item.data_vencimento || item.dueDate || item.deliveryDate || item.date || '').trim();
+    if (!venc) return false;
+
+    if (venc.includes('/')) {
+      const parts = venc.split('/');
+      if (parts.length === 3) venc = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    } else if (venc.includes('T')) {
+      venc = venc.split('T')[0];
+    }
+
+    return venc === todayIso;
+  }).length;
+
+  let receberCheques = 0;
+  try {
+    const rawCheques = localStorage.getItem('silagem_facil_clean_v1_financeiro_cheques') || localStorage.getItem('agrocontrol_cheques');
+    if (rawCheques) {
+      const cheques = JSON.parse(rawCheques);
+      if (Array.isArray(cheques)) {
+        receberCheques = cheques.filter((c: any) => {
+          const st = String(c.status || '').toUpperCase();
+          const isPending = st !== 'COMPENSADO' && st !== 'DEPOSITADO' && st !== 'CANCELADO';
+          let dt = String(c.bomPara || c.dataVencimento || c.vencimento || '').trim();
+          if (dt.includes('/')) {
+            const p = dt.split('/');
+            if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          } else if (dt.includes('T')) {
+            dt = dt.split('T')[0];
+          }
+          return isPending && dt === todayIso;
+        }).length;
+      }
+    }
+  } catch {}
+
+  // 2. CONTAS A PAGAR
+  let pagarVencidos = 0;
+  let pagarHoje = 0;
+  try {
+    const rawDesp = localStorage.getItem('silagem_facil_clean_v1_expenses') ||
+                    localStorage.getItem('agrocontrol_despesas') ||
+                    localStorage.getItem('agrocontrol_contas_pagar');
+    if (rawDesp) {
+      const despesas = JSON.parse(rawDesp);
+      if (Array.isArray(despesas)) {
+        pagarVencidos = despesas.filter((d: any) => {
+          const st = String(d.status || '').toLowerCase();
+          if (st === 'pago' || st === 'concluido') return false;
+          let dt = String(d.dueDate || d.vencimento || d.data_vencimento || '').trim();
+          if (dt.includes('/')) {
+            const p = dt.split('/');
+            if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          } else if (dt.includes('T')) {
+            dt = dt.split('T')[0];
+          }
+          return dt !== '' && dt < todayIso;
+        }).length;
+
+        pagarHoje = despesas.filter((d: any) => {
+          const st = String(d.status || '').toLowerCase();
+          if (st === 'pago' || st === 'concluido') return false;
+          let dt = String(d.dueDate || d.vencimento || d.data_vencimento || '').trim();
+          if (dt.includes('/')) {
+            const p = dt.split('/');
+            if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          } else if (dt.includes('T')) {
+            dt = dt.split('T')[0];
+          }
+          return dt === todayIso;
+        }).length;
+      }
+    }
+  } catch {}
+
+  // 3. CLIENTES
+  let clientesAusentes = 0;
+  let clientesBloqueados = 0;
+  let clientesAniversariantes = 0;
+  try {
+    const rawCli = localStorage.getItem('agrocontrol_clientes') ||
+                   localStorage.getItem('colaca_silagem_clientes') ||
+                   localStorage.getItem('silagem_facil_clean_v1_clients');
+    if (rawCli) {
+      const clientes = JSON.parse(rawCli);
+      if (Array.isArray(clientes)) {
+        const todayMonthDay = todayIso.slice(5);
+        clientes.forEach((c: any) => {
+          const st = String(c.status || '').toLowerCase();
+          if (st === 'ausente' || st === 'inativo') clientesAusentes++;
+          if (st === 'bloqueado' || c.isBlocked || c.bloqueado) clientesBloqueados++;
+
+          let bDate = String(c.birthDate || c.dataNascimento || c.data_nascimento || '').trim();
+          if (bDate.includes('/')) {
+            const p = bDate.split('/');
+            if (p.length >= 2) bDate = `${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          } else if (bDate.includes('-')) {
+            bDate = bDate.slice(5, 10);
+          }
+          if (bDate && bDate === todayMonthDay) clientesAniversariantes++;
+        });
+      }
+    }
+  } catch {}
+
+  // 4. PRODUTOS (ESTOQUE BAIXO)
+  // Diretriz do Contrato Master: Deve ler a chave 'agrocontrol_produtos' e contar reativamente apenas os itens onde
+  // (QUANTIDADE_ATUAL <= QUANTIDADE_MINIMA). Se as quantidades estão zeradas e não há mínimo configurado, exibe obrigatoriamente "0".
+  let prodsList: any[] = [];
+  try {
+    const rawProds = localStorage.getItem('agrocontrol_produtos') ||
+                    localStorage.getItem('colaca_silagem_estoque_produtos') ||
+                    localStorage.getItem('silagem_facil_clean_v1_inventory');
+    if (rawProds) {
+      const parsed = JSON.parse(rawProds);
+      if (Array.isArray(parsed)) prodsList = parsed;
+    }
+  } catch {}
+
+  const produtosEstoqueBaixo = prodsList.filter((item: any) => {
+    const min = Number(item.QUANTIDADE_MINIMA ?? item.minQuantity ?? item.quantidade_minima ?? item.estoque_minimo ?? 0);
+    // Se não há mínimo configurado (min <= 0), NUNCA considera como estoque baixo
+    if (min <= 0) return false;
+    const current = Number(item.QUANTIDADE_ATUAL ?? item.quantity ?? item.quantidade_atual ?? item.quantidade ?? 0);
+    return current <= min;
+  }).length;
+
+  const produtosVencendoHoje = prodsList.filter((item: any) => {
+    let dt = String(item.data_validade || item.validade || item.expirationDate || '').trim();
+    if (dt.includes('/')) {
+      const p = dt.split('/');
+      if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+    } else if (dt.includes('T')) {
+      dt = dt.split('T')[0];
+    }
+    return dt === todayIso;
+  }).length;
+
+  // 5. OUTROS (PRODUTOS SEM VENDAS, ENTREGAS, COBRANÇAS PREVISTAS)
+  // Cruzamento do array de produtos com o de vendas para PRODUTOS SEM VENDAS
+  let vendasList: any[] = [];
+  try {
+    const rawVendas = localStorage.getItem('agrocontrol_vendas') ||
+                      localStorage.getItem('agrocontrol_pdv_vendas') ||
+                      localStorage.getItem('colaca_silagem_vendas_pdv');
+    if (rawVendas) {
+      const parsed = JSON.parse(rawVendas);
+      if (Array.isArray(parsed)) vendasList = parsed;
+    }
+  } catch {}
+
+  try {
+    const rawOrders = localStorage.getItem('agrocontrol_pedidos') || localStorage.getItem('silagem_facil_clean_v1_orders');
+    if (rawOrders) {
+      const parsed = JSON.parse(rawOrders);
+      if (Array.isArray(parsed)) vendasList = [...vendasList, ...parsed];
+    }
+  } catch {}
+
+  const soldProductKeys = new Set<string>();
+  vendasList.forEach((v: any) => {
+    const items = Array.isArray(v.itens) ? v.itens : Array.isArray(v.items) ? v.items : Array.isArray(v.carrinho) ? v.carrinho : [];
+    items.forEach((it: any) => {
+      if (it.id) soldProductKeys.add(String(it.id).trim().toLowerCase());
+      if (it.productId) soldProductKeys.add(String(it.productId).trim().toLowerCase());
+      if (it.codigo) soldProductKeys.add(String(it.codigo).trim().toLowerCase());
+      if (it.code) soldProductKeys.add(String(it.code).trim().toLowerCase());
+      if (it.descricao) soldProductKeys.add(String(it.descricao).trim().toLowerCase());
+      if (it.name) soldProductKeys.add(String(it.name).trim().toLowerCase());
+      if (it.nome) soldProductKeys.add(String(it.nome).trim().toLowerCase());
+    });
+    if (v.productType) soldProductKeys.add(String(v.productType).trim().toLowerCase());
+    if (v.product_name) soldProductKeys.add(String(v.product_name).trim().toLowerCase());
+  });
+
+  const outrosSemVendas = prodsList.length === 0 ? 0 : prodsList.filter((p: any) => {
+    const pId = p.id ? String(p.id).trim().toLowerCase() : '';
+    const pCode = (p.code || p.codigo || p.codigo_produto) ? String(p.code || p.codigo || p.codigo_produto).trim().toLowerCase() : '';
+    const pName = (p.name || p.nome_comercial || p.item || p.descricao) ? String(p.name || p.nome_comercial || p.item || p.descricao).trim().toLowerCase() : '';
+
+    const hasSold = 
+      (pId && soldProductKeys.has(pId)) ||
+      (pCode && soldProductKeys.has(pCode)) ||
+      (pName && soldProductKeys.has(pName));
+
+    return !hasSold;
+  }).length;
+
+  const outrosEntregas = vendasList.filter((v: any) => {
+    let dt = String(v.deliveryDate || v.dataEntrega || v.data_entrega || '').trim();
+    if (dt.includes('/')) {
+      const p = dt.split('/');
+      if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+    } else if (dt.includes('T')) {
+      dt = dt.split('T')[0];
+    }
+    const st = String(v.status || '').toLowerCase();
+    return dt === todayIso || st === 'em_entrega';
+  }).length;
+
+  const outrosCobrancasPrevistas = itensReceber
+    .filter((item: any) => {
+      const status = String(item.status || item.STATUS || item.paymentStatus || '').trim().toUpperCase();
+      return status === 'PENDENTE' || status === 'EM_ANDAMENTO' || status === 'AGENDADO';
+    })
+    .reduce((acc: number, item: any) => {
+      const val = Number(item.totalAmount ?? item.totalLiquido ?? item.valor ?? item.amount ?? item.valorLiquido ?? 0);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+
+  return {
+    receberVencidos,
+    receberHoje,
+    receberCheques,
+    pagarVencidos,
+    pagarHoje,
+    pagarCheques: 0,
+    clientesAusentes,
+    clientesBloqueados,
+    clientesAniversariantes,
+    produtosEstoqueBaixo,
+    produtosVencendoHoje,
+    produtosCicloVida: 0,
+    outrosEntregas,
+    outrosSemVendas,
+    outrosCobrancasPrevistas,
+    monitorFiscalStatus: 'ATIVO'
+  };
+}
 
 export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   onNavigate,
@@ -63,45 +331,56 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   const [imgError, setImgError] = useState(false);
   const [clientLogoError, setClientLogoError] = useState(false);
 
-  // Leitura reativa dos indicadores do painel comercial no LocalStorage
-  const [indicators, setIndicators] = useState<IndicatorValues>(() => {
-    try {
-      const stored = localStorage.getItem('agrocontrol_home_indicators');
-      if (stored) {
-        return { ...DEFAULT_INDICATORS, ...JSON.parse(stored) };
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return DEFAULT_INDICATORS;
-  });
+  // Leitura reativa e dinâmica dos indicadores do painel comercial diretamente do LocalStorage
+  const [indicators, setIndicators] = useState<IndicatorValues>(() => calculateRealIndicators());
 
   useEffect(() => {
     const handleStorageChange = () => {
       try {
-        const stored = localStorage.getItem('agrocontrol_home_indicators');
-        if (stored) {
-          setIndicators({ ...DEFAULT_INDICATORS, ...JSON.parse(stored) });
-        }
-      } catch (e) {}
+        setIndicators(calculateRealIndicators());
+      } catch (e) {
+        console.error('Erro ao recalcular indicadores:', e);
+      }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('agrocontrol_indicators_updated', handleStorageChange);
+    // Recalcula imediatamente na montagem para garantir sincronismo
+    handleStorageChange();
+
+    const events = [
+      'storage',
+      'agrocontrol_indicators_updated',
+      'agrocontrol_produtos_updated',
+      'colaca_silagem_estoque_produtos_updated',
+      'inventory_updated',
+      'silagem_inventory_updated',
+      'agrocontrol_contas_receber_updated',
+      'agrocontrol_financeiro_receber_updated',
+      'agrocontrol_receber_updated',
+      'financeiro_receber_updated',
+      'agrocontrol_vendas_updated',
+      'agrocontrol_vendas_change',
+      'vendas_updated',
+      'agrocontrol_clientes_updated',
+      'colaca_silagem_clientes_updated',
+      'expenses_updated',
+      'agrocontrol_despesas_updated'
+    ];
+
+    events.forEach((ev) => window.addEventListener(ev, handleStorageChange));
+
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('agrocontrol_indicators_updated', handleStorageChange);
+      events.forEach((ev) => window.removeEventListener(ev, handleStorageChange));
     };
   }, []);
 
-  // Formatação comercial padrão PT-BR: R$ 20.964,31
+  // Formatação comercial padrão PT-BR: R$ #.##0,00
   const formattedCobrancasPrevistas = useMemo(() => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(indicators.outrosCobrancasPrevistas);
+    }).format(indicators.outrosCobrancasPrevistas || 0);
   }, [indicators.outrosCobrancasPrevistas]);
 
   return (
@@ -167,7 +446,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   DÉBITOS VENCIDOS
                 </span>
-                <span className="bg-rose-600 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
+                <span className={`${indicators.receberVencidos > 0 ? 'bg-rose-600 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
                   {indicators.receberVencidos}
                 </span>
               </button>
@@ -180,7 +459,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   DÉB. VENCENDO HOJE
                 </span>
-                <span className="bg-amber-500 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
+                <span className={`${indicators.receberHoje > 0 ? 'bg-amber-500 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
                   {indicators.receberHoje}
                 </span>
               </button>
@@ -338,7 +617,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   ESTOQUE BAIXO
                 </span>
-                <span className="bg-amber-500 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
+                <span className={`${indicators.produtosEstoqueBaixo > 0 ? 'bg-amber-500 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
                   {indicators.produtosEstoqueBaixo}
                 </span>
               </button>
@@ -408,7 +687,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
                 <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
                   PRODUTOS SEM VENDAS
                 </span>
-                <span className="bg-blue-600 text-white font-black text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0">
+                <span className={`${indicators.outrosSemVendas > 0 ? 'bg-blue-600 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
                   {indicators.outrosSemVendas}
                 </span>
               </button>

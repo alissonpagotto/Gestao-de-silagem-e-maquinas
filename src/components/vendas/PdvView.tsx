@@ -2428,8 +2428,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
             amount: Number(novaVenda.totalLiquido),
             descricao: `Venda PDV a Prazo - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`
           });
+          localStorage.setItem('agrocontrol_contas_receber', JSON.stringify(receberAtuais));
           localStorage.setItem('agrocontrol_financeiro_receber', JSON.stringify(receberAtuais));
           localStorage.setItem('agrocontrol_receber', JSON.stringify(receberAtuais));
+          window.dispatchEvent(new CustomEvent('agrocontrol_contas_receber_updated', { detail: receberAtuais }));
           window.dispatchEvent(new CustomEvent('agrocontrol_financeiro_receber_updated', { detail: receberAtuais }));
           window.dispatchEvent(new CustomEvent('agrocontrol_receber_updated', { detail: receberAtuais }));
           window.dispatchEvent(new CustomEvent('financeiro_receber_updated', { detail: receberAtuais }));

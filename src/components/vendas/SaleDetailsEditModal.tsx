@@ -516,8 +516,10 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
               status: 'PENDENTE'
             });
           }
+          localStorage.setItem('agrocontrol_contas_receber', JSON.stringify(receberList));
           localStorage.setItem('agrocontrol_financeiro_receber', JSON.stringify(receberList));
           localStorage.setItem('agrocontrol_receber', JSON.stringify(receberList));
+          window.dispatchEvent(new CustomEvent('agrocontrol_contas_receber_updated', { detail: receberList }));
           window.dispatchEvent(new CustomEvent('agrocontrol_receber_updated', { detail: receberList }));
         }
       } catch (errReceber) {
