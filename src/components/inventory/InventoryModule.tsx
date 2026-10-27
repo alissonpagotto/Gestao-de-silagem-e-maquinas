@@ -389,7 +389,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   }, [allItems]);
 
   const lowStockCount = useMemo(() => {
-    return allItems.filter(item => (item.quantidade_atual ?? item.quantity) <= item.minQuantity).length;
+    return allItems.filter(item => {
+      const min = Number(item.minQuantity ?? (item as any).quantidade_minima ?? (item as any).estoque_minimo ?? 0);
+      if (min <= 0) return false;
+      const current = Number(item.quantidade_atual ?? item.quantity ?? 0);
+      return current <= min;
+    }).length;
   }, [allItems]);
 
   const totalDieselLitros = useMemo(() => {
@@ -421,9 +426,14 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     return Array.from(map.entries()).sort((a, b) => b[1].totalValue - a[1].totalValue);
   }, [allItems]);
 
-  // Itens em Nível Crítico (Abaixo ou igual ao Estoque Mínimo)
+  // Itens em Nível Crítico (Abaixo ou igual ao Estoque Mínimo configurado > 0)
   const criticalItems = useMemo(() => {
-    return allItems.filter(item => (Number(item.quantidade_atual ?? item.quantity ?? 0)) <= (Number(item.minQuantity) || 0));
+    return allItems.filter(item => {
+      const min = Number(item.minQuantity ?? (item as any).quantidade_minima ?? (item as any).estoque_minimo ?? 0);
+      if (min <= 0) return false;
+      const current = Number(item.quantidade_atual ?? item.quantity ?? 0);
+      return current <= min;
+    });
   }, [allItems]);
 
   // Abrir Modal de Cadastro Limpo
@@ -865,7 +875,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   const fotoBase64 = getFotoForProduct(item);
                   const isService = item.categoria === 'SERVIÇOS' || item.categoria === 'servicos' || displayCat.toLowerCase().includes('servi');
 
-                  const isLow = effectiveQty <= item.minQuantity;
+                  const configuredMin = Number(item.minQuantity ?? (item as any).quantidade_minima ?? (item as any).estoque_minimo ?? 0);
+                  const isLow = configuredMin > 0 && effectiveQty <= configuredMin;
                   const itemTotal = effectiveQty * effectiveCost;
 
                   // Valores de margem e precificação derivados/sincronizados
