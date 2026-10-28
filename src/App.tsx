@@ -22,7 +22,8 @@ import {
   PayrollRecord,
   VacationRecord,
   LeaveRecord,
-  SalaryAdvance
+  SalaryAdvance,
+  PaymentMethod
 } from './types';
 import { Subscriber } from './types/masterAdmin';
 import { getStoredSubscribers } from './lib/masterAdminStorage';
@@ -111,6 +112,9 @@ import { AgroControlHome } from './components/home/AgroControlHome';
 import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu, HelpCircle, X, Keyboard } from 'lucide-react';
 import { UserSessionModal } from './components/cadastrosBase/UserSessionModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
+import { DespesasModule } from './components/expenses/DespesasModule';
+import { FuelModal } from './components/fleet/FuelModal';
+import { updateVehicleWithCalculatedMetrics } from './lib/fleetMetrics';
 import { ExpenseReceiptViewer } from './components/expenses/ExpenseReceiptViewer';
 import { ExpenseCategoriesModal } from './components/expenses/ExpenseCategoriesModal';
 import { AiExpenseParserModal } from './components/ai/AiExpenseParserModal';
@@ -196,6 +200,8 @@ import {
   saveCloudExpenses,
   fetchAllClientModulesFromSupabase,
   fetchAbastecimentos,
+  upsertAbastecimento,
+  subtrairCombustivelTanque,
   saveCloudFuelLogs,
   saveCloudMaintenanceLogs,
   fetchCloudMaintenanceLogs,
@@ -276,10 +282,20 @@ export default function App() {
               valid.push('venda');
             }
           }
-          if (!valid.includes('fiscal')) {
+          if (!valid.includes('despesas')) {
             const finIndex = valid.indexOf('financeiro');
             if (finIndex !== -1) {
-              valid.splice(finIndex + 1, 0, 'fiscal');
+              valid.splice(finIndex + 1, 0, 'despesas');
+            } else {
+              valid.push('despesas');
+            }
+          }
+          if (!valid.includes('fiscal')) {
+            const finIndex = valid.indexOf('financeiro');
+            const despIndex = valid.indexOf('despesas');
+            const targetIdx = despIndex !== -1 ? despIndex : finIndex;
+            if (targetIdx !== -1) {
+              valid.splice(targetIdx + 1, 0, 'fiscal');
             } else {
               valid.push('fiscal');
             }
@@ -1466,7 +1482,7 @@ export default function App() {
       if (['frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(pathSegment)) {
         return pathSegment === 'frota' ? 'frotas' : pathSegment;
       }
-      if (['financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe'].includes(pathSegment)) {
+      if (['despesas', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe'].includes(pathSegment)) {
         return pathSegment;
       }
       if (['rh', 'funcionarios', 'folha', 'ferias', 'colaboradores'].includes(pathSegment)) {
@@ -1624,6 +1640,8 @@ export default function App() {
   // Modals
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isGlobalFuelModalOpen, setIsGlobalFuelModalOpen] = useState(false);
+  const [editingFuelLog, setEditingFuelLog] = useState<FuelLog | null>(null);
   const [viewingReceiptExpense, setViewingReceiptExpense] = useState<Expense | null>(null);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [isAiParserOpen, setIsAiParserOpen] = useState(false);
@@ -2024,6 +2042,125 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     handleSaveExpense(duplicated);
+  };
+
+  // Motor Central de Abastecimentos (Bypass Lógico do Controle de Despesas & Gestão de Frotas)
+  const handleSaveFuelLogGlobal = (fuelLog: FuelLog, createExpense: boolean) => {
+    const updatedFuelLogs = editingFuelLog
+      ? fuelLogs.map((f) => (f.id === editingFuelLog.id ? fuelLog : f))
+      : [fuelLog, ...fuelLogs];
+
+    setFuelLogs(updatedFuelLogs);
+    saveCompanyAbastecimentos(updatedFuelLogs, activeTenantId);
+    saveCloudFuelLogs(updatedFuelLogs, activeTenantId).catch((err) => console.warn('Supabase save fuel sync:', err));
+    upsertAbastecimento(fuelLog).catch((err) => console.warn('Supabase save fuel row sync:', err));
+
+    const targetVehicle = machineries.find((m) => m.id === fuelLog.machineryId);
+    if (targetVehicle) {
+      const updatedMachineries = machineries.map((m) => {
+        if (m.id === targetVehicle.id) {
+          const updatedWithLogs = updateVehicleWithCalculatedMetrics(m, updatedFuelLogs);
+          const tankCap = Number((m as any).tank_capacity ?? (m as any).tankCapacity ?? m.fuelCapacityLiters ?? 0);
+
+          let newFuelLevel = m.currentFuelPercentage;
+          let newFuelLiters = m.currentFuelLiters;
+
+          if (fuelLog.currentFuelPercentage !== undefined && fuelLog.currentFuelPercentage !== null) {
+            newFuelLevel = fuelLog.currentFuelPercentage;
+            newFuelLiters = fuelLog.currentFuelLiters;
+          } else if (tankCap > 0 && fuelLog.liters > 0) {
+            const prevPercent =
+              m.currentFuelPercentage !== undefined && m.currentFuelPercentage !== null
+                ? Math.max(0, Math.min(100, Number(m.currentFuelPercentage)))
+                : 50;
+            const prevLiters = (prevPercent / 100) * tankCap;
+            const nextLiters = Math.min(tankCap, prevLiters + fuelLog.liters);
+            newFuelLevel = Math.round((nextLiters / tankCap) * 100);
+            newFuelLiters = nextLiters;
+          }
+
+          const updatedHourMeter =
+            fuelLog.currentHourMeter && fuelLog.currentHourMeter > (m.hourMeter || 0)
+              ? fuelLog.currentHourMeter
+              : updatedWithLogs.hourMeter || m.hourMeter;
+
+          const updatedKm =
+            fuelLog.currentKm && fuelLog.currentKm > (m.currentKm || 0)
+              ? fuelLog.currentKm
+              : updatedWithLogs.currentKm || m.currentKm;
+
+          return {
+            ...updatedWithLogs,
+            currentFuelPercentage: newFuelLevel,
+            currentFuelLiters: newFuelLiters,
+            hourMeter: updatedHourMeter,
+            currentKm: updatedKm,
+            totalFuelExpenses: (m.totalFuelExpenses || 0) + (editingFuelLog ? 0 : fuelLog.totalAmount),
+          };
+        }
+        return m;
+      });
+
+      handleSaveMachineries(updatedMachineries);
+    }
+
+    const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
+    if (!editingFuelLog && origin === 'Tanque Interno (Fazenda)') {
+      const isArlaGalao =
+        fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+      if (!isArlaGalao && (fuelLog.tanque_id || fuelLog.tanqueId)) {
+        const tId = fuelLog.tanque_id || fuelLog.tanqueId!;
+        subtrairCombustivelTanque(tId, fuelLog.liters).catch((tErr) => console.warn(tErr));
+      }
+    }
+
+    // Injeta automaticamente uma linha de custo correspondente no histórico do módulo de DESPESAS para alimentar o DRE:
+    if (createExpense && !editingFuelLog) {
+      const rawMachName = targetVehicle
+        ? targetVehicle.licensePlateOrSerial
+          ? `[${targetVehicle.licensePlateOrSerial}] - ${targetVehicle.model || targetVehicle.name}`
+          : targetVehicle.name
+        : fuelLog.machineryPlateOrName || 'Veículo';
+      const machName = rawMachName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+      const isArlaGalao =
+        fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+
+      const newExp: Expense = {
+        id: `exp_fuel_${fuelLog.id}`,
+        date: fuelLog.date,
+        category: 'COMBUSTÍVEL, ARLA / DIESEL',
+        categoryId: 'cat_combustivel',
+        categoryName: 'COMBUSTÍVEL, ARLA / DIESEL',
+        categoryColor: '#d97706',
+        description:
+          origin === 'Tanque Interno (Fazenda)'
+            ? isArlaGalao
+              ? `CONSUMO GALÃO ARLA 32 - ${machName.toUpperCase()} [ALMOXARIFADO]`
+              : `ABASTECIMENTO TANQUE INTERNO - ${machName.toUpperCase()} (${fuelLog.liters}L) [COMPENSADO PELO ESTOQUE]`
+            : `ABASTECIMENTO FATURADO (${(fuelLog.supplierStation || 'POSTO CONVENIADO').toUpperCase()}) - ${machName.toUpperCase()} (${fuelLog.liters}L)`,
+        amount: fuelLog.totalAmount,
+        dueDate: fuelLog.dueDate || fuelLog.date,
+        paymentMethod: (origin === 'Tanque Interno (Fazenda)' ? 'transferencia' : 'boleto') as PaymentMethod,
+        supplier:
+          origin === 'Tanque Interno (Fazenda)'
+            ? isArlaGalao
+              ? 'ALMOXARIFADO PRINCIPAL'
+              : 'TANQUE DA FAZENDA (ESTOQUE INTERNO)'
+            : (fuelLog.supplierStation || 'POSTO CONVENIADO').toUpperCase(),
+        status: origin === 'Tanque Interno (Fazenda)' ? 'compensado_estoque' : 'pendente',
+        costCenterId: targetVehicle?.id,
+        costCenterName: machName.toUpperCase(),
+        machineryId: targetVehicle?.id,
+        machineryName: machName.toUpperCase(),
+        notes: `ABASTECIMENTO DE ${fuelLog.liters}L DE ${String(fuelLog.fuelType || 'DIESEL').toUpperCase()}. MOTORISTA/OPERADOR: ${String(fuelLog.driverOrOperator || 'N/A').toUpperCase()}.`,
+        createdAt: new Date().toISOString(),
+      };
+
+      handleSaveExpense(newExp);
+    }
+
+    setIsGlobalFuelModalOpen(false);
+    setEditingFuelLog(null);
   };
 
   // Client Handlers (Multi-Tenant Persistência no Supabase)
@@ -3473,8 +3610,8 @@ export default function App() {
             />
           )}
 
-          {/* TAB: Financeiro (Consolidado, Despesas, Contas, A Pagar, A Receber, Acertos, Exportar) */}
-          {(activeTab === 'financeiro' || activeTab === 'despesas' || activeTab === 'contas' || activeTab === 'bancos' || activeTab === 'pagar' || activeTab === 'receber') && (
+          {/* TAB: Financeiro (DRE Consolidado, Contas Bancárias, A Pagar, A Receber, Acertos, Exportar) */}
+          {(activeTab === 'financeiro' || activeTab === 'contas' || activeTab === 'bancos' || activeTab === 'pagar' || activeTab === 'receber') && (
             <FinancialSummary
               expenses={expenses}
               orders={orders}
@@ -3489,7 +3626,6 @@ export default function App() {
               machineries={machineries}
               companyProfile={companyProfile}
               initialSubTab={
-                activeTab === 'despesas' ? 'despesas' :
                 (activeTab === 'contas' || activeTab === 'bancos') ? 'contas' :
                 activeTab === 'pagar' ? 'a_pagar' :
                 activeTab === 'receber' ? 'a_receber' : undefined
@@ -3514,6 +3650,37 @@ export default function App() {
               onOpenAiParser={() => setIsAiParserOpen(true)}
               onSaveOrders={setOrders}
               onSaveServices={setServices}
+            />
+          )}
+
+          {/* TAB MESTRE: Despesas (Controle Central de Custos, Mini-cards Aglutinados e Vínculo com Frotas) */}
+          {activeTab === 'despesas' && (
+            <DespesasModule
+              expenses={expenses}
+              machineries={machineries}
+              seasons={seasons}
+              categories={categories}
+              costCenters={costCenters}
+              employees={employees}
+              fleetTeams={fleetTeams}
+              companyProfile={companyProfile}
+              onNewExpense={() => {
+                setEditingExpense(null);
+                setIsExpenseModalOpen(true);
+              }}
+              onOpenFuelModal={() => {
+                setEditingFuelLog(null);
+                setIsGlobalFuelModalOpen(true);
+              }}
+              onEditExpense={(exp) => {
+                setEditingExpense(exp);
+                setIsExpenseModalOpen(true);
+              }}
+              onDeleteExpense={handleDeleteExpense}
+              onToggleExpenseStatus={handleToggleExpenseStatus}
+              onViewReceipt={(exp) => setViewingReceiptExpense(exp)}
+              onDuplicateExpense={handleDuplicateExpense}
+              onOpenAiParser={() => setIsAiParserOpen(true)}
             />
           )}
 
@@ -3748,7 +3915,7 @@ export default function App() {
           )}
 
           {/* Fallback Visual Seguro para MainDashboard se a aba não for reconhecida */}
-          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
+          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'despesas', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
             <MainDashboard
               expenses={expenses}
               clients={clients}
@@ -3819,11 +3986,32 @@ export default function App() {
         suppliers={suppliers}
         bankAccounts={bankAccounts}
         onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
+        onOpenFuelModal={() => {
+          setIsExpenseModalOpen(false);
+          setEditingFuelLog(null);
+          setIsGlobalFuelModalOpen(true);
+        }}
         onSaveCategories={setCategories}
         onSaveCostCenters={setCostCenters}
         onSaveEmployees={setEmployees}
         onSaveTeams={setFleetTeams}
         onSaveSuppliers={setSuppliers}
+      />
+
+      {/* Global Fuel Modal (Bypass Lógico do Controle de Despesas & Frotas) */}
+      <FuelModal
+        isOpen={isGlobalFuelModalOpen}
+        onClose={() => {
+          setIsGlobalFuelModalOpen(false);
+          setEditingFuelLog(null);
+        }}
+        onSave={handleSaveFuelLogGlobal}
+        editingLog={editingFuelLog}
+        machineries={machineries}
+        employees={employees}
+        fuelLogs={fuelLogs}
+        suppliers={suppliers}
+        bankAccounts={bankAccounts}
       />
 
       {/* Receipt / Invoice Viewer Modal */}
