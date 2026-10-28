@@ -1343,6 +1343,48 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Auto-calibração reativa do motor fiscal: assegura CUSTO_REAL = (vProd + vIPI) / qCom e V. TOTAL = QUANTIDADE * CUSTO_REAL
+  useEffect(() => {
+    if (parsedData?.items && parsedData.items.length > 0) {
+      let changed = false;
+      const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+      const normalizedItems = parsedData.items.map((it) => {
+        const vProd = it.vProdOriginal !== undefined ? it.vProdOriginal : (it.unitPrice && it.quantity ? it.unitPrice * it.quantity : 0);
+        const vIPI = it.vIPI || 0;
+        const q = it.quantity || 1;
+        const expectedCustoReal = q > 0 ? round2((vProd + vIPI) / q) : round2(vProd + vIPI);
+        const expectedTotal = round2(q * expectedCustoReal);
+
+        if (vIPI > 0 && (it.unitPrice !== expectedCustoReal || it.totalPrice !== expectedTotal)) {
+          changed = true;
+          return {
+            ...it,
+            unitPrice: expectedCustoReal,
+            custoComImposto: expectedCustoReal,
+            custo_com_imposto: expectedCustoReal,
+            totalPrice: expectedTotal,
+          };
+        }
+        return it;
+      });
+
+      const totalItemsSum = round2(normalizedItems.reduce((acc, it) => acc + (it.totalPrice || 0), 0));
+      const totalProdSum = round2(normalizedItems.reduce((acc, it) => acc + (it.vProdOriginal || 0), 0));
+
+      if (changed || (totalItemsSum > 0 && parsedData.totalAmount !== totalItemsSum)) {
+        setParsedData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: normalizedItems,
+            productsAmount: (prev.productsAmount && prev.productsAmount > 0) ? prev.productsAmount : totalProdSum,
+            totalAmount: totalItemsSum > 0 ? totalItemsSum : prev.totalAmount,
+          };
+        });
+      }
+    }
+  }, [parsedData?.invoiceNumber, parsedData?.accessKey]);
+
   // Estado para perguntar e imprimir etiquetas de gôndola/almoxarifado após entrada de notas ou peças manuais
   const [printPromptState, setPrintPromptState] = useState<{
     isOpen: boolean;
@@ -3660,14 +3702,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       // NUNCA rejeitar ou bloquear a leitura da nota por divergência de CNPJ.
       // Toda e qualquer NF-e deve ser importada com sucesso independentemente do CNPJ do destinatário ou emitente.
 
-      // 6. Totais com valores padrão
+      // 6. Totais com valores padrão e extração mestre de <vNF> e <vProd>
       const total = getEl(xmlDoc, 'total') || getEl(xmlDoc, 'ICMSTot') || xmlDoc;
-      const vNFStr = getTag(total, 'vNF') || getTag(xmlDoc, 'vNF') || '0';
+      const vNFStr = getTag(total, 'vNF') || getTag(xmlDoc, 'vNF') || getTag(total, 'vNFTot') || getTag(xmlDoc, 'vNFTot') || '0';
       const vProdStr = getTag(total, 'vProd') || getTag(xmlDoc, 'vProd') || '0';
       const vFreteTotalStr = getTag(total, 'vFrete') || getTag(xmlDoc, 'vFrete') || '0';
-      let totalAmount = parseFloat(vNFStr) || parseFloat(vProdStr) || 0;
-      let productsAmount = parseFloat(vProdStr) || totalAmount || 0;
+      let totalAmount = parseFloat(vNFStr) || 0;
+      let productsAmount = parseFloat(vProdStr) || 0;
       const totalFrete = parseFloat(vFreteTotalStr) || 0;
+
+      // Fallback robusto por regex caso a tag venha em nós aninhados do XML
+      if (!totalAmount) {
+        const vNFMatch = cleanXml.match(/<vNF>([^<]+)<\/vNF>/i) || cleanXml.match(/<vNFTot>([^<]+)<\/vNFTot>/i);
+        if (vNFMatch) totalAmount = parseFloat(vNFMatch[1]) || 0;
+      }
+      if (!productsAmount) {
+        const vProdMatch = cleanXml.match(/<total>[\s\S]*?<vProd>([^<]+)<\/vProd>/i) || cleanXml.match(/<vProd>([^<]+)<\/vProd>/i);
+        if (vProdMatch) productsAmount = parseFloat(vProdMatch[1]) || 0;
+      }
 
       // 7. Cobrança e Duplicatas (<cobr> -> <dup>)
       const cobr = getEl(xmlDoc, 'cobr');
@@ -3722,6 +3774,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ? totalAmount 
         : (productsAmount > 0 ? productsAmount : (prelimSumVProd > 0 ? prelimSumVProd : 1));
 
+      const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+      const round4 = (num: number) => Math.round((num + Number.EPSILON) * 10000) / 10000;
+
       const items: ParsedNfeItem[] = detElements.map((det, index) => {
         const prod = getEl(det, 'prod') || det;
         const ean = getTag(prod, 'cEAN') || getTag(prod, 'cEANTrib') || '';
@@ -3730,9 +3785,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const vProd = parseFloat(getTag(prod, 'vProd')) || 0;
         const vUnCom = parseFloat(getTag(prod, 'vUnCom')) || parseFloat(getTag(prod, 'vUnTrib')) || (qCom > 0 ? vProd / qCom : 0);
 
-        // 1. Somar os impostos do item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS
+        // Impostos do item
         const vICMS = getTaxSum(det, 'vICMS') + getTaxSum(det, 'vICMSST');
-        const vIPI = getTaxSum(det, 'vIPI');
+        const vIPI = getTaxSum(det, 'vIPI') || parseFloat(getTag(getEl(det, 'IPI'), 'vIPI')) || 0;
         const vPIS = getTaxSum(det, 'vPIS') + getTaxSum(det, 'vPISST');
         const vCOFINS = getTaxSum(det, 'vCOFINS') + getTaxSum(det, 'vCOFINSST');
         const vIBS = getTaxSum(det, 'vIBS');
@@ -3740,9 +3795,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const totalItemImpostos = vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS;
         const valorImpostosUnitario = qCom > 0 ? (totalItemImpostos / qCom) : totalItemImpostos;
 
-        // 2. Rateio Proporcional de Frete:
-        // Caso a tag geral <vFrete> seja maior que zero, calcula o peso percentual do valor do produto (vProd)
-        // em relação ao total da nota e dilui esse frete no custo do item
+        // Rateio Proporcional de Frete:
         let freteDiluidoItemTotal = 0;
         if (totalFrete > 0) {
           const pesoPercentual = baseParaRateioFrete > 0 
@@ -3754,19 +3807,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         }
         const freteDiluidoUnitario = qCom > 0 ? (freteDiluidoItemTotal / qCom) : freteDiluidoItemTotal;
 
-        // 3. Custo Líquido (Sem Imposto): Exibe o valor do produto subtraindo os impostos incidentes/recuperáveis
+        // Custo Líquido (Sem Imposto): Exibe o valor do produto subtraindo os impostos incidentes/recuperáveis
         const custoSemImpostoCalc = Math.max(0, vUnCom - valorImpostosUnitario);
 
-        // 4. MOTOR REATIVO DE CUSTO COM IMPOSTO COMPULSÓRIO (CONTRATO MASTER AGROCONTROL):
-        // CUSTO_REAL = vProd + vIPI + vICMS + vPIS + vCOFINS + vIBS + vCBS (+ freteDiluidoItemTotal)
-        const custoRealTotal = vProd + totalItemImpostos + freteDiluidoItemTotal;
-        const custoRealFinalCalc = qCom > 0 ? (custoRealTotal / qCom) : custoRealTotal;
+        // =========================================================================
+        // NOVO MOTOR FISCAL EXCLUSIVO DE IPI POR FORA (CONTRATO MASTER AGROCONTROL):
+        // CUSTO_REAL = (vProd + vIPI) / qCom
+        // V. TOTAL = QUANTIDADE * CUSTO_REAL (absorvendo o IPI da linha: vProd + vIPI)
+        // =========================================================================
+        const custoRealUnitario = qCom > 0 ? round2((vProd + vIPI) / qCom) : round2(vProd + vIPI);
+        const valorTotalItem = round2(qCom * custoRealUnitario);
 
-        const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
-        const round4 = (num: number) => Math.round((num + Number.EPSILON) * 10000) / 10000;
         const totalImpostosRound = round2(totalItemImpostos);
         const custoSemImpostoRound = round2(custoSemImpostoCalc);
-        const custoComImpostoRound = round4(custoRealFinalCalc);
+        const custoComImpostoRound = custoRealUnitario;
         const freteDiluidoRound = round2(freteDiluidoUnitario);
 
         const itemDesc = (getTag(prod, 'xProd') || 'Item NF-e').toUpperCase();
@@ -3778,9 +3832,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           ncm: getTag(prod, 'NCM') || '',
           quantity: qCom,
           unit: (getTag(prod, 'uCom') || getTag(prod, 'uTrib') || 'UN').toUpperCase(),
-          // V. UNIT (R$) absorve compulsóriamente todos os impostos da nota fiscal:
           unitPrice: custoComImpostoRound,
-          totalPrice: round2(custoRealTotal),
+          totalPrice: valorTotalItem,
           barcode,
           category: defaultCat,
           categoria: defaultCat,
@@ -3803,10 +3856,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         };
       });
 
-      // Se o total geral não estiver preenchido e houver itens, soma o total dos itens
+      // Se os totais não vieram das tags mestres do XML e houver itens, totaliza a partir dos itens
       if (totalAmount === 0 && items.length > 0) {
-        totalAmount = items.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0);
-        productsAmount = totalAmount;
+        totalAmount = Math.round(items.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0) * 100) / 100;
+      }
+      if (productsAmount === 0 && items.length > 0) {
+        productsAmount = Math.round(items.reduce((acc, curr) => acc + (curr.vProdOriginal || 0), 0) * 100) / 100;
       }
 
       // 10. Sugestão automática de categoria e definição de Categoria Prioritária
@@ -4844,12 +4899,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       updatedItems.reduce((acc, it) => acc + (it.totalPrice || 0), 0) * 100
     ) / 100;
 
+    const newProductsAmount = Math.round(
+      updatedItems.reduce((acc, it) => acc + (it.vProdOriginal || 0), 0) * 100
+    ) / 100;
+
     const updatedParsed: ParsedNfeData = {
       ...parsedData,
       items: updatedItems,
-      productsAmount: newTotalAmount,
-      totalAmount: newTotalAmount,
-      itemsSummary: `${updatedItems.length} produto(s) listado(s)`
+      productsAmount: (parsedData.productsAmount && parsedData.productsAmount > 0) ? parsedData.productsAmount : newProductsAmount,
+      totalAmount: newTotalAmount > 0 ? newTotalAmount : parsedData.totalAmount,
+      itemsSummary: `${updatedItems.length} PRODUTO(S) LISTADO(S)`
     };
 
     setParsedData(updatedParsed);
@@ -6732,7 +6791,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               </th>
 
                               {/* 4. 2º. CUSTO COM IMPOSTO (R$) */}
-                              <th className="py-1 px-1 w-[11%] min-w-[80px] text-right bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase font-black" title="Custo Real Unitário com Impostos Integrados: CUSTO_REAL = (vProd + vIPI + vICMS + vPIS + vCOFINS + vIBS + vCBS) / Qtd">
+                              <th className="py-1 px-1 w-[11%] min-w-[80px] text-right bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase font-black" title="Custo Real Unitário com IPI: CUSTO_REAL = (vProd + vIPI) / qCom">
                                 CUSTO COM IMPOSTO
                               </th>
 
@@ -6938,7 +6997,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   )}
                                 </td>
 
-                                {/* 3º. CUSTO COM IMPOSTO (V. UNIT Integrado: CUSTO_REAL = vProd + vIPI + vICMS + vPIS + vCOFINS + vIBS + vCBS) */}
+                                {/* 3º. CUSTO COM IMPOSTO (V. UNIT Integrado: CUSTO_REAL = (vProd + vIPI) / qCom) */}
                                 <td className="py-0.5 px-1 text-right align-top border-r border-stone-200/60 dark:border-stone-800 whitespace-nowrap">
                                   <input
                                     type="number"
@@ -6948,11 +7007,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                                     className="w-full max-w-[78px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-[#0963cb] ml-auto block"
                                     placeholder="0.00"
-                                    title="Custo Unitário Real Integrando Impostos (Custo com Imposto)"
+                                    title="Custo Real Unitário com IPI: (vProd + vIPI) / qCom"
                                   />
                                 </td>
 
-                                {/* 4º. V. TOTAL (R$) (Valor total calculado com impostos) */}
+                                {/* 4º. V. TOTAL (R$) (V. TOTAL = QUANTIDADE * CUSTO_REAL) */}
                                 <td className="py-0.5 px-1 text-right align-top border-r border-stone-200/60 dark:border-stone-800 whitespace-nowrap">
                                   <input
                                     type="number"
@@ -6962,7 +7021,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     onChange={(e) => handleItemChange(idx, 'totalPrice', e.target.value)}
                                     className="w-full max-w-[80px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-[#0963cb] ml-auto block"
                                     placeholder="0.00"
-                                    title="Valor Total do Item na NF com Impostos (V. Total)"
+                                    title="Valor Total do Item na NF com IPI: QUANTIDADE * CUSTO_REAL"
                                   />
                                 </td>
 
@@ -7157,7 +7216,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       <div className="flex items-center space-x-2">
                         <Calendar className="w-4 h-4 text-zinc-600 dark:text-stone-400" />
                         <div>
-                          <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Vencimento Principal:</span>
+                          <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px] uppercase">VENCIMENTO PRINCIPAL:</span>
                           <span className="font-black text-zinc-900 dark:text-stone-200">
                             {formatDateBR(parsedData.dueDate || parsedData.issueDate)}
                           </span>
@@ -7167,11 +7226,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       <div className="flex items-center space-x-2">
                         <CreditCard className="w-4 h-4 text-zinc-600 dark:text-stone-400" />
                         <div>
-                          <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Forma de Pagamento:</span>
-                          <span className="font-black text-zinc-900 dark:text-stone-200 capitalize">
+                          <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px] uppercase">FORMA DE PAGAMENTO:</span>
+                          <span className="font-black text-zinc-900 dark:text-stone-200 uppercase">
                             {isFinancialBlockedOperation(parsedData.transactionType)
-                              ? (isClientReturnOperation(parsedData.transactionType) ? 'Crédito do Cliente (Saldo)' : 'Isento / Sem Custo')
-                              : (parsedData.paymentMethod || 'Boleto Bancário')}
+                              ? (isClientReturnOperation(parsedData.transactionType) ? 'CRÉDITO DO CLIENTE (SALDO)' : 'ISENTO / SEM CUSTO')
+                              : (parsedData.paymentMethod || 'BOLETO BANCÁRIO').toUpperCase()}
                           </span>
                         </div>
                       </div>
@@ -7180,13 +7239,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <div className="flex items-center space-x-2">
                           <Receipt className="w-4 h-4 text-zinc-700 dark:text-stone-300 shrink-0" />
                           <div>
-                            <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Condição / Parcelas:</span>
-                            <span className="font-black text-zinc-900 dark:text-stone-100">
+                            <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px] uppercase">CONDIÇÃO / PARCELAS:</span>
+                            <span className="font-black text-zinc-900 dark:text-stone-100 uppercase">
                               {isFinancialBlockedOperation(parsedData.transactionType)
-                                ? '0 Parcelas (Bloqueado)'
+                                ? '0 PARCELAS (BLOQUEADO)'
                                 : parsedData.installments && parsedData.installments.length > 1
-                                ? `${parsedData.installments.length} parcelas identificadas no XML`
-                                : `${userInstallmentCount} parcela(s)`}
+                                ? `${parsedData.installments.length} PARCELAS IDENTIFICADAS NO XML`
+                                : `${userInstallmentCount} PARCELA(S)`}
                             </span>
                           </div>
                         </div>
@@ -7194,7 +7253,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         {isFinancialBlockedOperation(parsedData.transactionType) ? (
                           <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-700/60 border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-300 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 uppercase cursor-default">
                             <ShieldCheck className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400" />
-                            <span>{isClientReturnOperation(parsedData.transactionType) ? 'Parcelas Bloqueadas (Crédito ao Cliente)' : 'Parcelas Bloqueadas (Estoque Puro)'}</span>
+                            <span>{isClientReturnOperation(parsedData.transactionType) ? 'PARCELAS BLOQUEADAS (CRÉDITO AO CLIENTE)' : 'PARCELAS BLOQUEADAS (ESTOQUE PURO)'}</span>
                           </div>
                         ) : (
                           <button
@@ -7215,11 +7274,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               setErrorMessage('');
                               setIsInstallmentsModalOpen(true);
                             }}
-                            className="px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
-                            title="Abrir Janela 2 (Grade de Parcelas com Códigos Contábeis e Vencimentos)"
+                            className="px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs uppercase tracking-wider"
+                            title="ABRIR DETALHAMENTO DE PARCELAS (JANELA 2)"
                           >
                             <Layers className="w-3.5 h-3.5" />
-                            <span>Detalhamento de Parcelas (Janela 2)</span>
+                            <span>DETALHAMENTO DE PARCELAS (JANELA 2)</span>
                           </button>
                         )}
                       </div>
@@ -7236,10 +7295,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         {/* Bloco 1: Total dos Produtos */}
                         <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-zinc-200 dark:border-stone-700/80 flex flex-col justify-between shadow-2xs">
                           <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-1">
-                            Total dos Produtos
+                            TOTAL DOS PRODUTOS
                           </span>
                           <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 font-mono">
-                            {formatCurrencyBRL(parsedData.productsAmount || parsedData.totalAmount)}
+                            {formatCurrencyBRL(
+                              (parsedData.productsAmount && parsedData.productsAmount > 0)
+                                ? parsedData.productsAmount
+                                : (parsedData.items && parsedData.items.length > 0
+                                    ? Math.round(parsedData.items.reduce((acc, it) => acc + (it.vProdOriginal || 0), 0) * 100) / 100
+                                    : parsedData.totalAmount)
+                            )}
                           </span>
                         </div>
 
@@ -7248,30 +7313,36 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           <div className="flex items-center justify-between gap-1 mb-1">
                             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 flex items-center space-x-1">
                               <Package className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
-                              <span>Vinculação ao Estoque</span>
+                              <span className="uppercase">VINCULAÇÃO AO ESTOQUE</span>
                             </span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                               (parsedData.items?.filter(i => i.linkedInventoryId).length || 0) === (parsedData.items?.length || 0)
                                 ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
                                 : 'bg-amber-100 text-amber-950 border border-amber-300'
                             }`}>
-                              {parsedData.items?.filter(i => i.linkedInventoryId).length || 0} de {parsedData.items?.length || 0}
+                              {parsedData.items?.filter(i => i.linkedInventoryId).length || 0} DE {parsedData.items?.length || 0}
                             </span>
                           </div>
-                          <span className="text-[11px] text-zinc-700 dark:text-stone-300 font-semibold truncate block">
+                          <span className="text-[11px] text-zinc-700 dark:text-stone-300 font-semibold truncate block uppercase">
                             {(parsedData.items?.filter(i => i.linkedInventoryId).length || 0) === (parsedData.items?.length || 0)
-                              ? 'Todos os itens vinculados ao estoque'
-                              : 'Vincule os itens para atualizar o estoque'}
+                              ? 'TODOS OS ITENS VINCULADOS AO ESTOQUE'
+                              : 'VINCULE OS ITENS PARA ATUALIZAR O ESTOQUE'}
                           </span>
                         </div>
 
                         {/* Bloco 3: Valor Total NF-e */}
                         <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border-2 border-emerald-500 shadow-2xs flex flex-col justify-between">
                           <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-1">
-                            Valor Total NF-e
+                            VALOR TOTAL NF-E
                           </span>
                           <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 font-mono leading-none">
-                            {formatCurrencyBRL(parsedData.totalAmount)}
+                            {formatCurrencyBRL(
+                              (parsedData.totalAmount && parsedData.totalAmount > (parsedData.productsAmount || 0))
+                                ? parsedData.totalAmount
+                                : (parsedData.items && parsedData.items.length > 0
+                                    ? Math.round(parsedData.items.reduce((acc, it) => acc + (it.totalPrice || 0), 0) * 100) / 100
+                                    : parsedData.totalAmount)
+                            )}
                           </span>
                         </div>
 
