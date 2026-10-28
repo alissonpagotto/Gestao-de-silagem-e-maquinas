@@ -25,6 +25,7 @@ interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (expense: Expense | Expense[]) => void;
+  onOpenFuelModal?: () => void;
   editingExpense?: Expense | null;
   categories: ExpenseCategory[];
   costCenters: CostCenter[];
@@ -45,6 +46,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onOpenFuelModal,
   editingExpense,
   categories,
   costCenters,
@@ -63,9 +65,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const today = new Date().toISOString().split('T')[0];
 
   const safeCategories: ExpenseCategory[] = useMemo(() => {
-    if (Array.isArray(categories) && categories.length > 0) return categories;
-    if (categories && typeof categories === 'object' && Array.isArray((categories as any).categorias) && (categories as any).categorias.length > 0) {
-      return (categories as any).categorias.map((c: any) => ({
+    let list: ExpenseCategory[] = INITIAL_CATEGORIES;
+    if (Array.isArray(categories) && categories.length > 0) {
+      list = categories;
+    } else if (categories && typeof categories === 'object' && Array.isArray((categories as any).categorias) && (categories as any).categorias.length > 0) {
+      list = (categories as any).categorias.map((c: any) => ({
         id: c.id || c.codigo || 'cat_geral',
         name: c.nome || c.name || 'Geral',
         color: c.cor || c.color || '#0284c7',
@@ -73,8 +77,27 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         description: c.descricao || c.description,
       }));
     }
-    return INITIAL_CATEGORIES;
+    return [...list]
+      .map((c) => {
+        const isFuel = c.id === 'cat_combustivel' || (c.name || '').toUpperCase().includes('COMBUST');
+        return isFuel ? { ...c, name: 'COMBUSTÍVEL, ARLA / DIESEL' } : c;
+      })
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
   }, [categories]);
+
+  const handleSelectCategory = (newCatId: string) => {
+    const selectedCat = safeCategories.find((c) => c.id === newCatId);
+    const catName = (selectedCat?.name || '').toUpperCase();
+    const isFuel = newCatId === 'cat_combustivel' || catName.includes('COMBUSTÍVEL') || catName.includes('COMBUSTIVEL') || catName.includes('DIESEL');
+    if (isFuel) {
+      onClose();
+      if (onOpenFuelModal) {
+        onOpenFuelModal();
+      }
+      return;
+    }
+    setCategoryId(newCatId);
+  };
 
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState<string>('');
@@ -584,7 +607,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <div className="relative flex-1">
                   <select
                     value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
+                    onChange={(e) => handleSelectCategory(e.target.value)}
                     className="w-full px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-8"
                   >
                     {safeCategories.map((cat) => (
@@ -792,11 +815,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleAddTarget()}
-                className="h-7 sm:h-7.5 px-3 shrink-0 rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white flex items-center space-x-1 border border-emerald-500/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] text-[11px] font-bold uppercase transition cursor-pointer"
+                className="h-7 sm:h-7.5 px-3 shrink-0 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white flex items-center space-x-1 shadow-xs text-[11px] font-bold uppercase transition cursor-pointer"
                 title="Adicionar mais equipe ou funcionário ao rateio"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Adicionar</span>
+                <span>+ ADICIONAR</span>
               </button>
             </div>
 
@@ -1188,9 +1211,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white text-xs font-bold uppercase border border-emerald-500/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer"
+              className="px-5 py-1.5 rounded-lg bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold uppercase transition cursor-pointer shadow-xs"
             >
-              {editingExpense ? 'Atualizar Despesa' : 'Salvar Despesa'}
+              {editingExpense ? 'ATUALIZAR DESPESA' : 'SALVAR DESPESA'}
             </button>
           </div>
 
@@ -1217,7 +1240,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           }
         }}
         onSelectCategory={(newCatId) => {
-          setCategoryId(newCatId);
+          handleSelectCategory(newCatId);
         }}
       />
     )}

@@ -92,10 +92,10 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
         <button
           onClick={onOpenNewFuel}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold uppercase rounded-xl shadow-sm transition active:scale-95 cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Registrar Abastecimento</span>
+          <span>REGISTRAR ABASTECIMENTO</span>
         </button>
       </div>
 

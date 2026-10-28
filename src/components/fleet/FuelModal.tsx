@@ -1838,7 +1838,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               className={`px-4 py-1.5 rounded-xl text-white text-xs font-bold uppercase tracking-wider shadow-xs transition flex items-center space-x-1.5 ${
                 isLoading
                   ? 'opacity-50 cursor-not-allowed bg-zinc-400 dark:bg-zinc-600 pointer-events-none select-none'
-                  : 'pointer-events-auto cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700'
+                  : 'pointer-events-auto cursor-pointer bg-amber-600 hover:bg-amber-500 active:bg-amber-700'
               }`}
             >
               <Save className="w-3.5 h-3.5 pointer-events-none" />

@@ -242,10 +242,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               valid.push('venda');
             }
           }
-          if (!valid.includes('fiscal')) {
+          if (!valid.includes('despesas')) {
             const finIndex = valid.indexOf('financeiro');
             if (finIndex !== -1) {
-              valid.splice(finIndex + 1, 0, 'fiscal');
+              valid.splice(finIndex + 1, 0, 'despesas');
+            } else {
+              valid.push('despesas');
+            }
+          }
+          if (!valid.includes('fiscal')) {
+            const finIndex = valid.indexOf('financeiro');
+            const despIndex = valid.indexOf('despesas');
+            const targetIdx = despIndex !== -1 ? despIndex : finIndex;
+            if (targetIdx !== -1) {
+              valid.splice(targetIdx + 1, 0, 'fiscal');
             } else {
               valid.push('fiscal');
             }
@@ -613,7 +623,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   activeTab === item.id ||
                   (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
                   (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
-                  (item.id === 'financeiro' && activeTab === 'despesas') ||
                   (item.id === 'frotas' && ['veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
                   (item.id === 'rh' && (activeTab === 'funcionarios' || activeTab === 'rh'));
 

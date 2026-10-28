@@ -151,7 +151,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   const allowedFinancialTabs = useMemo<FinancialTabType[]>(() => {
     const list: FinancialTabType[] = [];
     if (hasFinanceiroSubPermission('dre')) list.push('consolidado');
-    if (hasFinanceiroSubPermission('despesas')) list.push('despesas');
     if (hasFinanceiroSubPermission('contas_bancarias')) list.push('contas');
     if (hasFinanceiroSubPermission('a_pagar')) list.push('a_pagar');
     if (hasFinanceiroSubPermission('a_receber')) list.push('a_receber');
@@ -768,27 +767,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
               </div>
             )}
 
-            {/* Aba Despesas */}
-            {hasFinanceiroSubPermission('despesas') ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab('despesas')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
-                  activeTab === 'despesas'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-                }`}
-              >
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>Despesas</span>
-              </button>
-            ) : (
-              <div className="flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap bg-zinc-300/40 text-zinc-400 opacity-60 select-none border-r border-slate-300/80">
-                <Lock className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Despesas (Bloqueado)</span>
-              </div>
-            )}
-
             {/* Aba Contas Bancárias */}
             {hasFinanceiroSubPermission('contas_bancarias') ? (
               <button
@@ -1252,71 +1230,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             </div>
           </div>
 
-        </div>
-      )}
-
-      {/* ABA: Despesas */}
-      {activeTab === 'despesas' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-black dark:text-stone-100 font-['Outfit']">
-                Controle de Despesas
-              </h2>
-              <p className="text-xs sm:text-sm font-semibold text-black dark:text-stone-300">
-                Gerencie todos os custos e despesas operacionais
-              </p>
-            </div>
-
-            {/* Action Controls */}
-            <div className="flex items-center space-x-2">
-              {onNewExpense && (
-                <button
-                  id="btn-expense-new-financial"
-                  onClick={onNewExpense}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Lançar Despesa</span>
-                </button>
-              )}
-              
-              {onOpenAiParser && (
-                <button
-                  id="btn-expense-ai-fast-financial"
-                  onClick={onOpenAiParser}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
-                  title="Lançamento Rápido com IA"
-                >
-                  <Sparkles className="w-4 h-4 text-emerald-500" />
-                  <span className="hidden sm:inline">IA Rápida</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          <ExpenseStats
-            expenses={expenses}
-            machineries={machineries}
-            seasons={seasons}
-          />
-
-          <ExpenseCharts expenses={expenses} />
-
-          <ExpenseList
-            expenses={expenses}
-            categories={categories}
-            costCenters={costCenters}
-            employees={employees}
-            teams={fleetTeams}
-            companyProfile={companyProfile || { tradeName: 'Silagem Fácil' } as any}
-            onNewExpense={onNewExpense || (() => {})}
-            onEditExpense={onEditExpense || (() => {})}
-            onDeleteExpense={onDeleteExpense}
-            onToggleStatus={onToggleExpenseStatus}
-            onViewReceipt={onViewReceipt}
-            onDuplicateExpense={onDuplicateExpense}
-          />
         </div>
       )}
 

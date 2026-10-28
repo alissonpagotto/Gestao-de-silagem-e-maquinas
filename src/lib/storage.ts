@@ -394,6 +394,20 @@ export function getStoredCategories(): ExpenseCategory[] {
       'agrocontrol_plano_contas',
     ];
 
+    const normalizeCatName = (rawName?: string): string => {
+      const n = (rawName || '').trim();
+      if (!n) return 'Categoria';
+      const upper = n.toUpperCase();
+      if (upper.includes('COMBUSTÍVEL') || upper.includes('COMBUSTIVEL') || upper.includes('DIESEL') || upper.includes('ARLA')) {
+        return 'COMBUSTÍVEL, ARLA / DIESEL';
+      }
+      return n.toUpperCase();
+    };
+
+    const sortCategoriesAZ = (cats: ExpenseCategory[]): ExpenseCategory[] => {
+      return [...cats].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+    };
+
     for (const key of candidateKeys) {
       const raw = localStorage.getItem(key);
       if (raw) {
@@ -402,24 +416,26 @@ export function getStoredCategories(): ExpenseCategory[] {
           if (Array.isArray(parsed) && parsed.length > 0) {
             const validList = parsed.filter(item => item && typeof item === 'object' && (item.id || item.name || item.nome));
             if (validList.length > 0) {
-              return validList.map((item: any) => ({
+              const mapped = validList.map((item: any) => ({
                 id: item.id || `cat_${item.name || item.nome}`,
-                name: item.name || item.nome || 'Categoria',
+                name: normalizeCatName(item.name || item.nome),
                 color: item.color || item.cor || '#0284c7',
                 icon: item.icon || 'Tag',
                 description: item.description || item.descricao,
                 isCustom: item.isCustom ?? false,
               }));
+              return sortCategoriesAZ(mapped);
             }
           } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categorias) && parsed.categorias.length > 0) {
-            return parsed.categorias.map((item: any) => ({
+            const mapped = parsed.categorias.map((item: any) => ({
               id: item.id || item.codigo || `cat_${item.nome}`,
-              name: item.nome || item.name || 'Categoria',
+              name: normalizeCatName(item.nome || item.name),
               color: item.cor || item.color || '#0284c7',
               icon: item.icon || 'Tag',
               description: item.descricao || item.description,
               isCustom: false,
             }));
+            return sortCategoriesAZ(mapped);
           }
         } catch (_) {}
       }
@@ -431,14 +447,15 @@ export function getStoredCategories(): ExpenseCategory[] {
       try {
         const parsedPlano = JSON.parse(rawPlano);
         if (parsedPlano && Array.isArray(parsedPlano.categorias) && parsedPlano.categorias.length > 0) {
-          return parsedPlano.categorias.map((item: any) => ({
+          const mapped = parsedPlano.categorias.map((item: any) => ({
             id: item.id || item.codigo || `cat_${item.nome}`,
-            name: item.nome || item.name || 'Categoria',
+            name: normalizeCatName(item.nome || item.name),
             color: item.cor || item.color || '#0284c7',
             icon: item.icon || 'Tag',
             description: item.descricao || item.description,
             isCustom: false,
           }));
+          return sortCategoriesAZ(mapped);
         }
       } catch (_) {}
     }

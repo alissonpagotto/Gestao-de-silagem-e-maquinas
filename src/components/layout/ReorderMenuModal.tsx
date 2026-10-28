@@ -21,6 +21,7 @@ import {
   ShoppingCart,
   Wrench,
   ClipboardList,
+  DollarSign,
   LucideIcon
 } from 'lucide-react';
 
@@ -37,6 +38,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'estoque', label: 'Estoque', icon: Package },
   { id: 'almoxarifado', label: 'Almoxarifado', icon: Wrench },
   { id: 'financeiro', label: 'Financeiro', icon: TrendingUp },
+  { id: 'despesas', label: 'Despesas', icon: DollarSign },
   { id: 'fiscal', label: 'Notas e Entradas', icon: ReceiptText },
   { id: 'rh', label: 'RH', icon: HeartHandshake },
   { id: 'relatorios', label: 'Relatórios', icon: FileSpreadsheet },
@@ -77,10 +79,20 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
           validOrder.push('venda');
         }
       }
-      if (!validOrder.includes('fiscal')) {
+      if (!validOrder.includes('despesas')) {
         const finIndex = validOrder.indexOf('financeiro');
         if (finIndex !== -1) {
-          validOrder.splice(finIndex + 1, 0, 'fiscal');
+          validOrder.splice(finIndex + 1, 0, 'despesas');
+        } else {
+          validOrder.push('despesas');
+        }
+      }
+      if (!validOrder.includes('fiscal')) {
+        const finIndex = validOrder.indexOf('financeiro');
+        const despIndex = validOrder.indexOf('despesas');
+        const targetIdx = despIndex !== -1 ? despIndex : finIndex;
+        if (targetIdx !== -1) {
+          validOrder.splice(targetIdx + 1, 0, 'fiscal');
         } else {
           validOrder.push('fiscal');
         }

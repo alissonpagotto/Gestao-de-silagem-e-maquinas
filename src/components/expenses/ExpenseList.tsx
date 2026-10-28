@@ -55,7 +55,15 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   onViewReceipt,
   onDuplicateExpense,
 }) => {
-  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeCategories = useMemo(() => {
+    const list = Array.isArray(categories) ? categories : [];
+    return [...list]
+      .map(c => {
+        const isFuel = c.id === 'cat_combustivel' || (c.name || '').toUpperCase().includes('COMBUST');
+        return isFuel ? { ...c, name: 'COMBUSTÍVEL, ARLA / DIESEL' } : c;
+      })
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+  }, [categories]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('todos');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
@@ -367,10 +375,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
             <button
               onClick={onNewExpense}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 rounded-xl transition shadow-xs active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#059669] hover:bg-emerald-700 rounded-xl transition shadow-xs active:scale-95 cursor-pointer uppercase tracking-wider"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Novo Lançamento</span>
+              <span>+ NOVO LANÇAMENTO</span>
             </button>
           </div>
 
