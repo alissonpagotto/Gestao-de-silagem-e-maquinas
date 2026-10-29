@@ -33,7 +33,8 @@ import {
   ChevronUp,
   Receipt,
   ArrowRight,
-  CheckCheck
+  CheckCheck,
+  Gauge
 } from 'lucide-react';
 import { 
   MaintenanceLog, 
@@ -176,7 +177,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const [currentOsId, setCurrentOsId] = useState<string>(editingLog?.id || '');
   const [expenseGenerated, setExpenseGenerated] = useState(false);
   const [feedbackBanner, setFeedbackBanner] = useState<{
-    type: 'save' | 'finalize' | 'billed';
+    type: 'save' | 'finalize' | 'billed' | 'cancel';
     message: string;
   } | null>(null);
 
@@ -438,6 +439,27 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     }
   }, [machineryId, editingLog, currentOsId]);
 
+  const ultimaTrocaRegistrada = useMemo<number>(() => {
+    if (!selectedMachinery) return 0;
+    if (pastLogsForSelectedMachine && pastLogsForSelectedMachine.length > 0) {
+      const pastMeters = pastLogsForSelectedMachine
+        .map(l => Number(l.currentHourMeterOrKm) || 0)
+        .filter(m => m > 0);
+      if (pastMeters.length > 0) {
+        return Math.max(...pastMeters);
+      }
+    }
+    return Number(selectedMachinery.hourMeter || selectedMachinery.currentKm || 0);
+  }, [pastLogsForSelectedMachine, selectedMachinery]);
+
+  const horasDecorridasGeral = useMemo<number>(() => {
+    const rawCurrent = typeof currentHourMeterOrKm === 'number'
+      ? currentHourMeterOrKm
+      : parseInt(String(currentHourMeterOrKm).replace(/\D/g, ''), 10);
+    const current = !isNaN(rawCurrent) && rawCurrent > 0 ? rawCurrent : ultimaTrocaRegistrada;
+    return Math.max(0, current - ultimaTrocaRegistrada);
+  }, [currentHourMeterOrKm, ultimaTrocaRegistrada]);
+
   interface EvaluatedPreventiveItem extends PreventiveGroupItem {
     horasAtuais: number;
     ultimoHorimetroTroca: number;
@@ -459,15 +481,15 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
     return vehiclePreventiveRules.map(rule => {
       let ultimoHorimetroTroca = 0;
-      const ruleNameClean = (rule.ITEM_NOME || '').toUpperCase();
+      const ruleNameClean = (rule.ITEM_NOME || '').toUpperCase().trim();
 
       for (const log of pastLogsForSelectedMachine) {
         let matched = false;
         if (log.partsItems && Array.isArray(log.partsItems)) {
           matched = log.partsItems.some(p => {
             if (rule.PRODUTO_ID && p.inventoryItemId === rule.PRODUTO_ID) return true;
-            const pDesc = (p.description || '').toUpperCase();
-            return pDesc.includes(ruleNameClean) || ruleNameClean.includes(pDesc);
+            const pDesc = (p.description || '').toUpperCase().trim();
+            return pDesc === ruleNameClean || pDesc.includes(ruleNameClean) || ruleNameClean.includes(pDesc);
           });
         }
         if (!matched && log.description) {
@@ -481,9 +503,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         }
       }
 
-      const horasDecorridas = horasAtuais > ultimoHorimetroTroca 
-        ? horasAtuais - ultimoHorimetroTroca 
-        : horasAtuais;
+      // Se não houver histórico específico de troca deste item, utiliza o horímetro decorrido geral do veículo
+      const horasDecorridas = ultimoHorimetroTroca > 0
+        ? Math.max(0, horasAtuais - ultimoHorimetroTroca)
+        : horasDecorridasGeral;
 
       const diffHorasKm = rule.INTERVALO_HORAS_KM - horasDecorridas;
 
@@ -495,9 +518,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       }
 
       const isInjected = partsItems.some(p => {
-        if (rule.PRODUTO_ID && p.inventoryItemId === rule.PRODUTO_ID) return true;
-        const pDesc = (p.description || '').toUpperCase();
-        return pDesc === ruleNameClean || pDesc.includes(ruleNameClean) || ruleNameClean.includes(pDesc);
+        if (rule.PRODUTO_ID && p.inventoryItemId && p.inventoryItemId === rule.PRODUTO_ID) return true;
+        const pDesc = (p.description || '').toUpperCase().trim();
+        return pDesc === ruleNameClean || (pDesc.length > 3 && ruleNameClean.includes(pDesc)) || (ruleNameClean.length > 3 && pDesc.includes(ruleNameClean));
       });
 
       return {
@@ -510,7 +533,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         isInjected,
       };
     });
-  }, [selectedMachinery, vehiclePreventiveRules, pastLogsForSelectedMachine, currentHourMeterOrKm, partsItems]);
+  }, [selectedMachinery, vehiclePreventiveRules, pastLogsForSelectedMachine, currentHourMeterOrKm, partsItems, horasDecorridasGeral, ultimaTrocaRegistrada]);
 
   const hasVencidosOuCriticos = useMemo(() => {
     return evaluatedPreventiveItems.some(i => i.status === 'VENCIDO' || i.status === 'CRÍTICO');
@@ -1322,183 +1345,204 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       setCurrentOsId(idToUse);
     }
 
-    // 1. BAIXA NATIVA E AUTOMÁTICA NO ESTOQUE (COM CONTROLE POR LINHA CONTRA BAIXA DUPLICADA)
-    const currentStored = getStoredInventory();
-    const baseStock = currentStored.length > 0 ? currentStored : (inventory && inventory.length > 0 ? inventory : []);
-    let updatedStock = [...baseStock];
-    let hasNewDeductions = false;
+    try {
+      const currentStored = getStoredInventory();
+      const baseStock = currentStored.length > 0 ? currentStored : (inventory && inventory.length > 0 ? inventory : []);
+      let updatedStock = [...baseStock];
+      let hasNewDeductions = false;
+      const negativeStockWarnings: string[] = [];
 
-    // LÓGICA DO LOOP:
-    // Quando o usuário clica em "Salvar Ordem de Serviço", o script verifica cada linha.
-    // Se a linha já estiver marcada como "baixada" (part.stockDeducted === true), o sistema APENAS a ignora e pula para a próxima.
-    // O cálculo de subtração no estoque só é executado nas linhas novas que ainda não possuem essa marcação.
-    // Assim que a linha nova for processada e salva com sucesso, marca-a imediatamente como "baixada".
-    const processedPartsItems: MaintenancePartItem[] = partsItems.map(part => {
-      // REGRA: Se a linha já estiver marcada como baixada, o sistema deve APENAS ignorá-la e pular para a próxima.
-      if (part.stockDeducted) {
-        return part;
-      }
-
-      // Executa cálculo de subtração no estoque apenas nas linhas novas de almoxarifado interno
-      const isInternal = part.origin === 'almoxarifado_interno' || !part.origin;
-      const qty = parseCleanPriceNumber(part.quantity);
-
-      if (isInternal && qty > 0 && updatedStock.length > 0) {
-        const targetIdx = updatedStock.findIndex(inv => 
-          (part.inventoryItemId && inv.id === part.inventoryItemId) ||
-          (inv.code !== undefined && inv.code !== null && part.description && String(inv.code).trim().toLowerCase() === String(part.description).trim().toLowerCase()) ||
-          (inv.name && part.description && String(inv.name).trim().toLowerCase() === String(part.description).trim().toLowerCase())
-        );
-
-        if (targetIdx !== -1) {
-          const currentQty = Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) || 0;
-          const newQty = Math.max(0, Number((currentQty - qty).toFixed(2)));
-          updatedStock[targetIdx] = {
-            ...updatedStock[targetIdx],
-            quantity: newQty,
-            quantidade_atual: newQty,
-            updatedAt: new Date().toISOString()
-          };
-          hasNewDeductions = true;
-
-          // Assim que a linha nova for processada e salva com sucesso, marca-a imediatamente como "baixada"
-          return {
-            ...part,
-            stockDeducted: true,
-          };
+      // LÓGICA DO LOOP:
+      // Quando o usuário clica em "Salvar Ordem de Serviço", o script verifica cada linha.
+      // Se a linha já estiver marcada como "baixada" (part.stockDeducted === true), o sistema APENAS a ignora e pula para a próxima.
+      // O cálculo de subtração no estoque só é executado nas linhas novas que ainda não possuem essa marcação.
+      // Assim que a linha nova for processada e salva com sucesso, marca-a imediatamente como "baixada".
+      const processedPartsItems: MaintenancePartItem[] = partsItems.map(part => {
+        // REGRA: Se a linha já estiver marcada como baixada, o sistema deve APENAS ignorá-la e pular para a próxima.
+        if (part.stockDeducted) {
+          return part;
         }
+
+        // Executa cálculo de subtração no estoque apenas nas linhas novas de almoxarifado interno
+        const isInternal = part.origin === 'almoxarifado_interno' || !part.origin;
+        const qty = parseCleanPriceNumber(part.quantity);
+
+        if (isInternal && qty > 0 && updatedStock.length > 0) {
+          const targetIdx = updatedStock.findIndex(inv => 
+            (part.inventoryItemId && inv.id === part.inventoryItemId) ||
+            (inv.code !== undefined && inv.code !== null && part.description && String(inv.code).trim().toLowerCase() === String(part.description).trim().toLowerCase()) ||
+            (inv.name && part.description && String(inv.name).trim().toLowerCase() === String(part.description).trim().toLowerCase())
+          );
+
+          if (targetIdx !== -1) {
+            const currentQty = Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) || 0;
+            const newQty = Number((currentQty - qty).toFixed(2));
+            if (newQty < 0) {
+              negativeStockWarnings.push(
+                `${part.description} (Saldo Atual: ${currentQty}, Baixa: ${qty}, Saldo Negativo: ${newQty})`
+              );
+            }
+            updatedStock[targetIdx] = {
+              ...updatedStock[targetIdx],
+              quantity: newQty,
+              quantidade_atual: newQty,
+              updatedAt: new Date().toISOString()
+            };
+            hasNewDeductions = true;
+
+            // Assim que a linha nova for processada e salva com sucesso, marca-a imediatamente como "baixada"
+            return {
+              ...part,
+              stockDeducted: true,
+              financeiro_bloqueado: true,
+            };
+          }
+        }
+
+        // Para linhas novas externas ou sem registro direto no inventário físico
+        return {
+          ...part,
+          stockDeducted: true,
+          financeiro_bloqueado: isInternal,
+        };
+      });
+
+      if (hasNewDeductions) {
+        saveStoredInventory(updatedStock);
+        setStoredInventory(updatedStock);
       }
 
-      // Para linhas novas externas ou sem registro direto no inventário físico
-      return {
-        ...part,
+      // Atualiza imediatamente o estado da tabela de produtos para refletir as linhas como baixadas
+      setPartsItems(processedPartsItems);
+
+      const log: MaintenanceLog = {
+        id: idToUse,
+        osNumber: osNumber.trim() || `OS-${Date.now().toString().slice(-6)}`,
+        date: effectiveDate,
+        completionDate: targetCompletionDate,
+        machineryId,
+        machineryPlateOrName: machName,
+        type,
+        serviceCategory: (serviceCategory === 'Outro' || serviceCategory === 'Outro (Personalizado)') && customCategory.trim() ? customCategory.trim() : serviceCategory,
+        location,
+        locationDetails: locationDetails.trim() || undefined,
+        executorType,
+        executorName: finalMechanicName || workshopOrMechanic.trim() || 'Mecânica Interna',
+        workshopOrMechanic: finalMechanicName || workshopOrMechanic.trim() || 'Mecânica Interna',
+        description: effectiveDescription,
+        partsOriginSummary,
+        partsItems: usePartsItemList ? processedPartsItems : undefined,
+        laborItems: laborItems.length > 0 ? laborItems : undefined,
+        partsCost: totalPartsCalculated,
+        laborCost: totalLaborCalculated,
+        totalCost: grandTotal,
+        currentHourMeterOrKm: parsedCurrentHourMeter,
+        nextServiceDueHourMeterOrKm: parsedNextServiceDue,
+        status: targetStatus,
         stockDeducted: true,
+        skipAccountsPayableDreOnly: isDreOnly,
+        notes: notes.trim() || undefined,
+        createdAt: editingLog ? editingLog.createdAt : new Date().toISOString(),
+        nfeLink: hasNfe ? {
+          nfeNumber: nfeNumber.trim() || undefined,
+          nfeSeries: nfeSeries.trim() || undefined,
+          nfeAccessKey: nfeAccessKey.trim() || undefined,
+          issueDate: nfeIssueDate,
+          supplierName: nfeSupplierName.trim() || financialSupplier.trim() || undefined,
+          totalNfeAmount: parseFloat(nfeTotalAmount) || grandTotal,
+        } : undefined,
+        financialConditions: isTriggeringExpense ? {
+          createAccountsPayable: true,
+          skipAccountsPayableDreOnly: false,
+          paymentTerm,
+          paymentMethod,
+          firstDueDate: (installments.length > 0 && installments[0]?.dueDate) ? installments[0].dueDate : firstDueDate,
+          installmentsCount: installments.length > 0 ? installments.length : 1,
+          supplierName: financialSupplier.trim() || finalMechanicName || workshopOrMechanic.trim(),
+          notes: `OS ${osNumber} - ${machName}`,
+          installments: installments.length > 0 ? installments : undefined,
+        } : (isDreOnly ? {
+          createAccountsPayable: false,
+          skipAccountsPayableDreOnly: true,
+          financeiro_bloqueado: true,
+          paymentTerm: 'a_vista',
+          paymentMethod: 'outro' as any,
+          firstDueDate: effectiveDate,
+          supplierName: 'Almoxarifado Interno',
+          notes: `OS ${osNumber} - ${machName} (Lançamento Gerencial DRE / Abatimento de Estoque)`,
+        } : (editingLog?.financialConditions || undefined)),
       };
-    });
 
-    if (hasNewDeductions) {
-      saveStoredInventory(updatedStock);
-      setStoredInventory(updatedStock);
-    }
-
-    // Atualiza imediatamente o estado da tabela de produtos para refletir as linhas como baixadas
-    setPartsItems(processedPartsItems);
-
-    const log: MaintenanceLog = {
-      id: idToUse,
-      osNumber: osNumber.trim() || `OS-${Date.now().toString().slice(-6)}`,
-      date: effectiveDate,
-      completionDate: targetCompletionDate,
-      machineryId,
-      machineryPlateOrName: machName,
-      type,
-      serviceCategory: (serviceCategory === 'Outro' || serviceCategory === 'Outro (Personalizado)') && customCategory.trim() ? customCategory.trim() : serviceCategory,
-      location,
-      locationDetails: locationDetails.trim() || undefined,
-      executorType,
-      executorName: finalMechanicName || workshopOrMechanic.trim() || 'Mecânica Interna',
-      workshopOrMechanic: finalMechanicName || workshopOrMechanic.trim() || 'Mecânica Interna',
-      description: effectiveDescription,
-      partsOriginSummary,
-      partsItems: usePartsItemList ? processedPartsItems : undefined,
-      laborItems: laborItems.length > 0 ? laborItems : undefined,
-      partsCost: totalPartsCalculated,
-      laborCost: totalLaborCalculated,
-      totalCost: grandTotal,
-      currentHourMeterOrKm: parsedCurrentHourMeter,
-      nextServiceDueHourMeterOrKm: parsedNextServiceDue,
-      status: targetStatus,
-      stockDeducted: true,
-      skipAccountsPayableDreOnly: isDreOnly,
-      notes: notes.trim() || undefined,
-      createdAt: editingLog ? editingLog.createdAt : new Date().toISOString(),
-      nfeLink: hasNfe ? {
-        nfeNumber: nfeNumber.trim() || undefined,
-        nfeSeries: nfeSeries.trim() || undefined,
-        nfeAccessKey: nfeAccessKey.trim() || undefined,
-        issueDate: nfeIssueDate,
-        supplierName: nfeSupplierName.trim() || financialSupplier.trim() || undefined,
-        totalNfeAmount: parseFloat(nfeTotalAmount) || grandTotal,
-      } : undefined,
-      financialConditions: isTriggeringExpense ? {
-        createAccountsPayable: true,
-        skipAccountsPayableDreOnly: false,
-        paymentTerm,
-        paymentMethod,
-        firstDueDate: (installments.length > 0 && installments[0]?.dueDate) ? installments[0].dueDate : firstDueDate,
-        installmentsCount: installments.length > 0 ? installments.length : 1,
-        supplierName: financialSupplier.trim() || finalMechanicName || workshopOrMechanic.trim(),
-        notes: `OS ${osNumber} - ${machName}`,
-        installments: installments.length > 0 ? installments : undefined,
-      } : (isDreOnly ? {
-        createAccountsPayable: false,
-        skipAccountsPayableDreOnly: true,
-        paymentTerm: 'a_vista',
-        paymentMethod: 'outro' as any,
-        firstDueDate: effectiveDate,
-        supplierName: 'Almoxarifado Interno',
-        notes: `OS ${osNumber} - ${machName} (Lançamento Gerencial DRE / Abatimento de Estoque)`,
-      } : (editingLog?.financialConditions || undefined)),
-    };
-
-    // REGRA DE OURO:
-    // createExpense é estritamente isTriggeringExpense (desativado quando skipAccountsPayableDreOnly estiver ativo).
-    onSave(log, {
-      createExpense: isTriggeringExpense && grandTotal > 0,
-      deductStock: true,
-      createPurchaseRequest: generatePurchaseRequest || (targetStatus === 'aguardando_pecas' && externalPartsCount > 0),
-      skipAccountsPayableDreOnly: isDreOnly,
-    });
-
-    if (options?.closeOnSave) {
-      setSaveSuccess(true);
-      setFeedbackBanner({
-        type: 'save',
-        message: 'Ordem de Serviço Concluída (Liberada) com sucesso!'
+      // REGRA DE OURO:
+      // createExpense é estritamente isTriggeringExpense (desativado quando skipAccountsPayableDreOnly estiver ativo).
+      onSave(log, {
+        createExpense: isTriggeringExpense && grandTotal > 0,
+        deductStock: true,
+        createPurchaseRequest: generatePurchaseRequest || (targetStatus === 'aguardando_pecas' && externalPartsCount > 0),
+        skipAccountsPayableDreOnly: isDreOnly,
       });
-      setTimeout(() => {
-        onClose();
-      }, 400);
+
+      const warningText = negativeStockWarnings.length > 0
+        ? ` (AVISO: Saldo de estoque negativo gerado em: ${negativeStockWarnings.join('; ')})`
+        : '';
+
+      if (options?.closeOnSave) {
+        setSaveSuccess(true);
+        setFeedbackBanner({
+          type: 'save',
+          message: `Ordem de Serviço Concluída (Liberada) com sucesso!${warningText}`
+        });
+        setTimeout(() => {
+          onClose();
+        }, 500);
+        return true;
+      }
+
+      if (isTriggeringExpense) {
+        setExpenseGenerated(true);
+        setSaveSuccess(true);
+        setFeedbackBanner({
+          type: 'billed',
+          message: `Faturamento confirmado! Lançamento gerado no Contas a Pagar.${warningText}`
+        });
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 4000);
+      } else if (isDreOnly && isMarkingCompleted) {
+        setSaveSuccess(true);
+        setFeedbackBanner({
+          type: 'billed',
+          message: `OS Concluída! Custo lançado com sucesso no DRE e estoque físico baixado.${warningText}`
+        });
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 4000);
+      } else if (shouldGoToFinance) {
+        setActiveTab('fiscal_financeiro');
+        setFeedbackBanner({
+          type: 'finalize',
+          message: `OS Finalizada como Concluída! Defina as condições de pagamento abaixo para faturar.${warningText}`
+        });
+      } else {
+        setSaveSuccess(true);
+        setFeedbackBanner({
+          type: 'save',
+          message: `Ordem de Serviço salva com sucesso! Os itens continuam disponíveis para novas adições.${warningText}`
+        });
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 4000);
+      }
+
       return true;
+    } catch (err: any) {
+      console.error('Erro ao salvar Ordem de Manutenção:', err);
+      setFeedbackBanner({
+        type: 'cancel',
+        message: `Falha ao salvar OS: ${err?.message || 'Erro inesperado na gravação de dados.'}`
+      });
+      return false;
     }
-
-    if (isTriggeringExpense) {
-      setExpenseGenerated(true);
-      setSaveSuccess(true);
-      setFeedbackBanner({
-        type: 'billed',
-        message: 'Faturamento confirmado! Lançamento gerado com sucesso no Contas a Pagar.'
-      });
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 3500);
-    } else if (isDreOnly && isMarkingCompleted) {
-      setSaveSuccess(true);
-      setFeedbackBanner({
-        type: 'billed',
-        message: 'OS Concluída! Custo lançado com sucesso no DRE e estoque físico baixado.'
-      });
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 3500);
-    } else if (shouldGoToFinance) {
-      setActiveTab('fiscal_financeiro');
-      setFeedbackBanner({
-        type: 'finalize',
-        message: 'OS Finalizada como Concluída! Defina as condições de pagamento abaixo para faturar.'
-      });
-    } else {
-      setSaveSuccess(true);
-      setFeedbackBanner({
-        type: 'save',
-        message: 'Ordem de Serviço salva com sucesso! Os itens continuam disponíveis para novas adições.'
-      });
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 3500);
-    }
-
-    return true;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1758,34 +1802,91 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                   </div>
                 </div>
 
-                {/* Bloco 2: Aferição e Controle (Horímetro e Próxima Revisão) */}
-                <div className="p-3 bg-white rounded border border-slate-300/80 shadow-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Bloco 2: Aferição e Controle (Horímetro, Última Troca, Decorridas e Próxima Revisão) */}
+                <div className="p-3 bg-white rounded border border-slate-300/80 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                    <div className="flex items-center space-x-1.5">
+                      <Gauge className="w-3.5 h-3.5 text-zinc-700" />
+                      <h4 className="text-[10.5px] font-black text-zinc-800 uppercase tracking-wider">
+                        MONITORAMENTO DE HORÍMETRO / QUILOMETRAGEM
+                      </h4>
+                    </div>
+                    <span className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wide">
+                      Aferição Operacional Reativa
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {/* 1. ÚLTIMA TROCA REGISTRADA (H/KM) - READONLY */}
                     <div>
-                      <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-0.5 truncate">
-                        HORÍMETRO / KM ATUAL
-                      </label>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-zinc-700 truncate">
+                          ÚLTIMA TROCA REGISTRADA (H/KM)
+                        </label>
+                        <span className="text-[8.5px] font-bold text-slate-500 uppercase">HISTÓRICO</span>
+                      </div>
+                      <input
+                        type="text"
+                        readOnly
+                        value={ultimaTrocaRegistrada > 0 ? formatThousand(ultimaTrocaRegistrada) : '--'}
+                        placeholder="Nenhum registro"
+                        className="w-full px-2.5 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-bold text-slate-700 cursor-not-allowed shadow-2xs"
+                        title="Última métrica de horímetro/km registrada para este maquinário"
+                      />
+                    </div>
+
+                    {/* 2. HORÍMETRO / KM ATUAL - EDITÁVEL */}
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-zinc-900 truncate">
+                          HORÍMETRO / KM ATUAL *
+                        </label>
+                        <span className="text-[8.5px] font-bold text-emerald-700 uppercase">DIGITAÇÃO</span>
+                      </div>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={formatThousand(currentHourMeterOrKm)}
                         onChange={(e) => handleThousandInput(e.target.value, setCurrentHourMeterOrKm)}
                         placeholder="Ex: 5.000"
-                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden shadow-2xs"
                       />
                     </div>
 
+                    {/* 3. HORAS / KM DECORRIDOS - REATIVO CALCULADO */}
                     <div>
-                      <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-0.5 truncate">
-                        PRÓXIMA REVISÃO (H/KM)
-                      </label>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-emerald-950 truncate">
+                          HORAS / KM DECORRIDOS
+                        </label>
+                        <span className="text-[8.5px] font-bold text-emerald-700 uppercase">SÍNCRONO</span>
+                      </div>
+                      <div 
+                        className="w-full px-2.5 py-1 bg-emerald-50 border border-emerald-300 rounded text-xs font-black text-emerald-900 shadow-2xs flex items-center justify-between"
+                        title="Diferença calculada: Métrica Atual menos Última Métrica Registrada"
+                      >
+                        <span>+{horasDecorridasGeral.toLocaleString('pt-BR')} H/KM</span>
+                        <span className="text-[8.5px] font-bold text-emerald-700 bg-emerald-100/80 px-1 py-0.2 rounded">
+                          DECORRIDOS
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4. PRÓXIMA REVISÃO (H/KM) - EDITÁVEL COM SUGESTÃO */}
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-zinc-700 truncate">
+                          PRÓXIMA REVISÃO (H/KM)
+                        </label>
+                        <span className="text-[8.5px] font-bold text-slate-500 uppercase">PLANEJADO</span>
+                      </div>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={formatThousand(nextServiceDue)}
                         onChange={(e) => handleThousandInput(e.target.value, setNextServiceDue)}
-                        placeholder="Ex: 6.000"
-                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden"
+                        placeholder="Ex: 5.250"
+                        className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden shadow-2xs"
                       />
                     </div>
                   </div>
@@ -1942,11 +2043,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                       <table className="w-full text-left text-xs">
                         <thead>
                           <tr className="bg-emerald-100/70 border-b border-emerald-200 text-emerald-950 text-[10px] uppercase font-black tracking-wider">
-                            <th className="py-1 px-2.5 whitespace-nowrap">NOME DO ITEM / FLUIDO</th>
-                            <th className="py-1 px-2 text-center whitespace-nowrap">INTERVALO DE TROCA</th>
-                            <th className="py-1 px-2 text-center whitespace-nowrap">HORAS / KM DECORRIDOS</th>
-                            <th className="py-1 px-2 text-center whitespace-nowrap">STATUS REVISÃO</th>
-                            <th className="py-1 px-2 text-center whitespace-nowrap">QTD PADRÃO</th>
+                            <th className="py-1 px-2.5 whitespace-nowrap">PRODUTO / FLUIDO</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">INTERVALO DE FÁBRICA</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">STATUS DE DESGASTE</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">QUANTIDADE PADRÃO</th>
                             <th className="py-1 px-2 text-right whitespace-nowrap">AÇÃO</th>
                           </tr>
                         </thead>
@@ -1964,7 +2064,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                     : (idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30')
                                 }`}
                               >
-                                <td className="py-1 px-2.5 font-bold text-zinc-900 uppercase text-xs">
+                                <td className="py-1.5 px-2.5 font-bold text-zinc-900 uppercase text-xs">
                                   <div className="flex items-center space-x-1.5">
                                     <span>{item.ITEM_NOME}</span>
                                     {item.PRODUTO_ID && (
@@ -1974,49 +2074,39 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                     )}
                                   </div>
                                 </td>
-                                <td className="py-1 px-2 text-center font-bold text-zinc-700 text-xs">
-                                  {item.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
+                                <td className="py-1.5 px-2 text-center font-bold text-zinc-700 text-xs">
+                                  A CADA {item.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
                                 </td>
-                                <td className="py-1 px-2 text-center text-xs">
-                                  <span className="font-bold text-zinc-800">
-                                    {item.horasDecorridas.toLocaleString('pt-BR')} H
-                                  </span>
-                                  <span className="text-[10px] text-zinc-500 ml-1">
-                                    {item.diffHorasKm <= 0 
-                                      ? `(${Math.abs(item.diffHorasKm).toLocaleString('pt-BR')} H vencido)` 
-                                      : `(restam ${item.diffHorasKm.toLocaleString('pt-BR')} H)`}
-                                  </span>
-                                </td>
-                                <td className="py-1 px-2 text-center">
+                                <td className="py-1.5 px-2 text-center">
                                   {isOverdue ? (
-                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-100 text-rose-900 border border-rose-300 shadow-2xs">
+                                    <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-black uppercase bg-rose-100 text-rose-900 border border-rose-300 shadow-2xs">
                                       VENCIDO
                                     </span>
                                   ) : isCritical ? (
-                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                    <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
                                       CRÍTICO
                                     </span>
                                   ) : (
-                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
                                       EM DIA
                                     </span>
                                   )}
                                 </td>
-                                <td className="py-1 px-2 text-center font-bold text-emerald-950 text-xs">
+                                <td className="py-1.5 px-2 text-center font-bold text-emerald-950 text-xs">
                                   {item.QUANTIDADE_PADRAO} {item.unidade || 'UN'}
                                 </td>
-                                <td className="py-1 px-2 text-right">
+                                <td className="py-1.5 px-2 text-right">
                                   {item.isInjected ? (
-                                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-400 rounded text-[10px] font-bold">
+                                    <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-100 text-emerald-900 border border-emerald-400 rounded text-[10px] font-bold shadow-2xs whitespace-nowrap">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                                      <span>✓ NA OS</span>
+                                      <span>✓ JÁ INJETADO NA OS</span>
                                     </span>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={() => handleInjectPreventiveItem(item)}
-                                      className="inline-flex items-center space-x-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-black text-[10px] transition cursor-pointer active:scale-95 shadow-2xs uppercase"
-                                      title="Injetar este item diretamente no grid 2. PEÇAS &amp; ESTOQUE"
+                                      className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-black text-[10px] transition cursor-pointer active:scale-95 shadow-2xs uppercase tracking-wider whitespace-nowrap"
+                                      title="Injetar este item diretamente no grid 2. PEÇAS & ESTOQUE"
                                     >
                                       <Plus className="w-3 h-3" />
                                       <span>+ INJETAR NA OS</span>

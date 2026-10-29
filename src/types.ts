@@ -1139,6 +1139,7 @@ export interface MaintenancePartItem {
   serviceDescription?: string;
   externalServiceCost?: number;
   stockDeducted?: boolean; // Controle interno para evitar baixa duplicada no estoque
+  financeiro_bloqueado?: boolean; // Trava explícita de faturamento financeiro para OS interna/DRE
 }
 
 export interface MaintenanceLaborPeriod {
@@ -1175,6 +1176,7 @@ export interface MaintenanceNfeLink {
 export interface MaintenanceFinancialConditions {
   createAccountsPayable: boolean;
   skipAccountsPayableDreOnly?: boolean; // Não gerar Contas a Pagar (Abatimento Direto de Estoque / Lançamento DRE)
+  financeiro_bloqueado?: boolean; // Trava explícita de faturamento financeiro para OS interna/DRE
   paymentTerm: 'a_vista' | '15_dias' | '30_dias' | '30_60_dias' | '30_60_90_dias' | 'safra_prazo' | 'personalizado';
   paymentMethod: PaymentMethod;
   installmentsCount?: number;

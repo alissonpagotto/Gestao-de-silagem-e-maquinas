@@ -4136,7 +4136,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               }}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'livre'
-                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                                   : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
@@ -4147,7 +4147,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onClick={() => setModoComissaoForrageira('tambor')}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'tambor'
-                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                                   : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
@@ -4158,7 +4158,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onClick={() => setModoComissaoForrageira('motor')}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'motor'
-                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                                   : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
@@ -4169,7 +4169,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onClick={() => setModoComissaoForrageira('area')}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'area'
-                                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
                                   : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
                               }`}
                             >
