@@ -3466,7 +3466,7 @@ export default function App() {
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 
               id="crm-main-content"
-              className={`flex-1 min-h-0 overflow-y-auto ${isPdvFullscreen ? 'p-0 pb-0' : activeTab === 'configuracoes' ? 'p-2 sm:p-2.5 lg:p-3 pb-2 lg:pb-2 overflow-hidden' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3.5'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
+              className={`flex-1 min-h-0 ${isPdvFullscreen ? 'p-0 pb-0 overflow-y-auto' : (activeTab === 'configuracoes' || activeTab === 'frotas' || activeTab === 'frota' || activeTab === 'veiculos' || activeTab === 'combustivel' || activeTab === 'manutencoes' || activeTab === 'motoristas' || activeTab === 'equipe' || activeTab === 'rodizio') ? 'p-2 sm:p-2.5 lg:p-3 pb-2 lg:pb-2 overflow-hidden flex flex-col' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3.5 overflow-y-auto'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
             >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (

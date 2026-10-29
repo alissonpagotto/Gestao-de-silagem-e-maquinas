@@ -1003,10 +1003,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="w-full h-full flex flex-col min-h-0 overflow-hidden space-y-2">
 
-      {/* Sub-abas de Navegação: VEÍCULOS & MÁQUINAS | TIPOS DE TROCAS */}
-      <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-stone-200 dark:border-stone-800">
+      {/* Sub-abas de Navegação: VEÍCULOS & MÁQUINAS | TIPOS DE TROCAS (100% Fixo / Âncora) */}
+      <div className="shrink-0 flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-stone-200 dark:border-stone-800">
         <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xs">
           <button
             type="button"
@@ -1065,11 +1065,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       </div>
 
       {vehicleSubTab === 'tipos_trocas' ? (
-        <div className="space-y-4 animate-in fade-in duration-200">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden space-y-2 animate-in fade-in duration-200">
           
           {/* Feedback Banner */}
           {preventiveFeedback && (
-            <div className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all ${
+            <div className={`shrink-0 p-2.5 rounded-xl flex items-center justify-between border transition-all ${
               preventiveFeedback.type === 'success'
                 ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 text-emerald-900 dark:text-emerald-200'
                 : 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 text-blue-900 dark:text-blue-200'
@@ -1084,9 +1084,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
           )}
 
-          {/* Caixa de Lista / Textbox Estruturada de Categorias */}
-          <div className="bg-white dark:bg-stone-900 p-3.5 sm:p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-stone-100 dark:border-stone-800 pb-2">
+          {/* Caixa de Lista / Textbox Estruturada de Categorias (100% Fixo / Âncora) */}
+          <div className="shrink-0 bg-white dark:bg-stone-900 p-2.5 sm:p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-stone-100 dark:border-stone-800 pb-1.5">
               <div className="flex items-center space-x-2">
                 <Layers className="w-4 h-4 text-[#0963cb]" />
                 <span className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200">
@@ -1099,7 +1099,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               <button
                 type="button"
                 onClick={() => setNewCategoryModalOpen(true)}
-                className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 text-stone-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[11px] font-bold uppercase transition flex items-center space-x-1 cursor-pointer active:scale-95 shadow-2xs"
+                className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 text-stone-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[10.5px] font-bold uppercase transition flex items-center space-x-1 cursor-pointer active:scale-95 shadow-2xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ NOVA CATEGORIA</span>
@@ -1110,7 +1110,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             <div
               role="listbox"
               aria-label="Categorias de Máquinas"
-              className="w-full h-36 sm:h-40 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 rounded-xl overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800 shadow-inner select-none focus:outline-none"
+              className="w-full h-24 sm:h-28 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 rounded-xl overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800 shadow-inner select-none focus:outline-none"
             >
               {availableGroupCategories.map((cat, index) => {
                 const isSelected = selectedGroupCategory.toUpperCase() === cat.toUpperCase();
@@ -1164,11 +1164,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
           </div>
 
-          {/* Card Mestre de Parametrização para a Categoria Selecionada */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
+          {/* Card Mestre de Parametrização para a Categoria Selecionada (100% Fixo com Grid Rolável Interno) */}
+          <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
             
-            {/* Header da Categoria */}
-            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800">
+            {/* Header da Categoria (100% Fixo / Âncora) */}
+            <div className="shrink-0 p-3 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800">
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
                   <span>{selectedGroupCategory}</span>
@@ -1182,8 +1182,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               </p>
             </div>
 
-            {/* Formulário de Inclusão / Edição com Autocomplete Real do Almoxarifado */}
-            <form onSubmit={handleSavePreventiveRule} className="p-4 bg-stone-50/60 dark:bg-stone-850/40 border-b border-stone-200 dark:border-stone-800 space-y-3">
+            {/* Formulário de Inclusão / Edição com Autocomplete Real do Almoxarifado (100% Fixo / Âncora) */}
+            <form onSubmit={handleSavePreventiveRule} className="shrink-0 p-3 bg-stone-50/60 dark:bg-stone-850/40 border-b border-stone-200 dark:border-stone-800 space-y-2.5">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
                   <Plus className="w-3.5 h-3.5 text-emerald-600" />
@@ -1360,11 +1360,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               </div>
             </form>
 
-            {/* Tabela de Regras Ativas da Categoria (Organizada por Subgrupos) */}
-            <div className="overflow-x-auto">
+            {/* Tabela de Regras Ativas da Categoria (ROLAGEM EXCLUSIVA DO GRID INTERNO) */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-100/80 dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-stone-200 dark:border-stone-700">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-stone-800 shadow-2xs">
+                  <tr className="bg-slate-100/95 dark:bg-stone-800/95 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-stone-200 dark:border-stone-700">
                     <th className="py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
                     <th className="py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
                     <th className="py-2.5 px-3 text-center">QUANTIDADE PADRÃO</th>
@@ -1664,7 +1664,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
 
             {/* Rodapé com botão de salvar consolidação */}
-            <div className="p-3 bg-stone-50 dark:bg-stone-850 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between flex-wrap gap-2">
+            <div className="shrink-0 p-3 bg-stone-50 dark:bg-stone-850 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between flex-wrap gap-2">
               <span className="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase">
                 CHAVE LOCALSTORAGE: agrocontrol_plano_preventivo_grupos
               </span>
@@ -1735,7 +1735,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
 
         {/* Synchronization Feedback Banner */}
         {syncBanner && (
