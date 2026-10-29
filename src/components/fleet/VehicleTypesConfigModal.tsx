@@ -14,13 +14,19 @@ import {
   Car,
   AlertTriangle
 } from 'lucide-react';
-import { VehicleTypeDefinition, VehicleAxleConfig } from '../../types';
+import { VehicleTypeDefinition, VehicleAxleConfig, PreventiveGroupItem, InventoryItem } from '../../types';
 import { 
   StoredAxleConfigOption,
   getStoredAxleConfigurations,
   saveStoredAxleConfigurations,
   buildDynamicAxleConfig
 } from '../../lib/tireAndAxlePresets';
+import { 
+  getStoredInventory, 
+  getStoredPreventiveGroupPlans, 
+  saveStoredPreventiveGroupPlans,
+  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY 
+} from '../../lib/storage';
 
 interface VehicleTypesConfigModalProps {
   isOpen: boolean;
@@ -58,6 +64,68 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
   const [confirmDeleteAxleConfig, setConfirmDeleteAxleConfig] = useState<StoredAxleConfigOption | null>(null);
   // Confirmação de segurança na exclusão de tipo de veículo
   const [confirmDeleteVehicleType, setConfirmDeleteVehicleType] = useState<VehicleTypeDefinition | null>(null);
+
+  // Estados para o PLANO PREVENTIVO DO GRUPO (Fluidos, Filtros & Revisões)
+  const [preventivePlanItems, setPreventivePlanItems] = useState<PreventiveGroupItem[]>([]);
+  const [prevSearchQuery, setPrevSearchQuery] = useState('');
+  const [prevSelectedProduct, setPrevSelectedProduct] = useState<InventoryItem | null>(null);
+  const [prevIntervalHoursKm, setPrevIntervalHoursKm] = useState<number | ''>(250);
+  const [prevStandardQty, setPrevStandardQty] = useState<number | ''>(1);
+  const [prevUnit, setPrevUnit] = useState('UN');
+  const [isPrevDropdownOpen, setIsPrevDropdownOpen] = useState(false);
+  const [allInventoryItems, setAllInventoryItems] = useState<InventoryItem[]>(() => getStoredInventory());
+
+  useEffect(() => {
+    setAllInventoryItems(getStoredInventory());
+  }, [isOpen]);
+
+  const productSearchResults = React.useMemo(() => {
+    if (!prevSearchQuery.trim()) return [];
+    const q = prevSearchQuery.toLowerCase().trim();
+    return allInventoryItems.filter(item => {
+      const anyItem = item as any;
+      const name = String(item.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || anyItem.codigo || '').toLowerCase();
+      const cat = String(item.categoria || item.category || '').toLowerCase();
+      return name.includes(q) || code.includes(q) || cat.includes(q);
+    }).slice(0, 8);
+  }, [prevSearchQuery, allInventoryItems]);
+
+  const handleSelectProduct = (prod: InventoryItem) => {
+    setPrevSelectedProduct(prod);
+    setPrevSearchQuery(String(prod.nome_comercial || prod.name || '').toUpperCase());
+    setPrevUnit(String(prod.unit || prod.unidade_medida || 'UN').toUpperCase());
+    setIsPrevDropdownOpen(false);
+  };
+
+  const handleAddPreventiveRule = () => {
+    const rawName = prevSearchQuery.trim().toUpperCase();
+    if (!rawName) return;
+    const interval = typeof prevIntervalHoursKm === 'number' && prevIntervalHoursKm > 0 ? prevIntervalHoursKm : 250;
+    const qty = typeof prevStandardQty === 'number' && prevStandardQty > 0 ? prevStandardQty : 1;
+    const unit = prevSelectedProduct?.unit || prevSelectedProduct?.unidade_medida || prevUnit || 'UN';
+
+    const newItem: PreventiveGroupItem = {
+      id: `prev_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      PRODUTO_ID: prevSelectedProduct?.id,
+      ITEM_NOME: rawName,
+      INTERVALO_HORAS_KM: interval,
+      QUANTIDADE_PADRAO: qty,
+      unidade: unit.toUpperCase(),
+    };
+
+    setPreventivePlanItems(prev => [...prev, newItem]);
+    setPrevSearchQuery('');
+    setPrevSelectedProduct(null);
+    setPrevIntervalHoursKm(250);
+    setPrevStandardQty(1);
+    setPrevUnit('UN');
+    setIsPrevDropdownOpen(false);
+  };
+
+  const handleRemovePreventiveRule = (index: number) => {
+    setPreventivePlanItems(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Alerta / Toast discreto de feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -103,6 +171,9 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
     setEditingTypeId('new');
     setTypeName('');
     setTypeDescription('');
+    setPreventivePlanItems([]);
+    setPrevSearchQuery('');
+    setPrevSelectedProduct(null);
     if (axleConfigsList.length > 0) {
       setSelectedPresetKey(axleConfigsList[0].key);
     }
@@ -113,6 +184,16 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
     setEditingTypeId(t.id);
     setTypeName(t.name);
     setTypeDescription(t.description || '');
+
+    // Carrega regras preventivas existentes ou padrões do grupo
+    const upperName = t.name.toUpperCase();
+    const storedPlans = getStoredPreventiveGroupPlans();
+    const existingRules = t.PLANO_PREVENTIVO_GRUPO && t.PLANO_PREVENTIVO_GRUPO.length > 0
+      ? t.PLANO_PREVENTIVO_GRUPO
+      : (storedPlans[upperName] || DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[upperName] || []);
+    setPreventivePlanItems(existingRules);
+    setPrevSearchQuery('');
+    setPrevSelectedProduct(null);
 
     // Busca correspondência de configuração de eixos por código, nome ou (eixos + pneus)
     const matched = axleConfigsList.find(
@@ -130,11 +211,12 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
     }
   };
 
-  // Salvar Tipo de Veículo (grava em 'colaca_silagem_tipos_veiculos' e no estado)
+  // Salvar Tipo de Veículo (grava em 'colaca_silagem_tipos_veiculos', 'agrocontrol_tipos_veiculos_planos' e no estado)
   const handleSaveItem = () => {
     if (!typeName.trim()) return;
 
     const chosenPreset = axleConfigsList.find((p) => p.key === selectedPresetKey) || axleConfigsList[0];
+    const upperName = typeName.trim().toUpperCase();
 
     if (editingTypeId === 'new') {
       const newType: VehicleTypeDefinition = {
@@ -144,11 +226,19 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
         defaultAxleConfig: chosenPreset.config,
         description: typeDescription.trim(),
         isCustom: true,
+        PLANO_PREVENTIVO_GRUPO: preventivePlanItems,
       };
       const updated = [...typesList, newType];
       setTypesList(updated);
       onSaveVehicleTypes(updated);
       localStorage.setItem('colaca_silagem_tipos_veiculos', JSON.stringify(updated));
+      localStorage.setItem('agrocontrol_frotas_tipos', JSON.stringify(updated));
+
+      // Sincroniza plano preventivo no mapa centralizado
+      const allPlans = getStoredPreventiveGroupPlans();
+      allPlans[upperName] = preventivePlanItems;
+      saveStoredPreventiveGroupPlans(allPlans);
+
       setToastMessage(`Tipo de veículo "${newType.name}" salvo com sucesso!`);
     } else if (editingTypeId) {
       const updated = typesList.map((t) => {
@@ -159,6 +249,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
             categoryKey: t.categoryKey || 'personalizado',
             description: typeDescription.trim(),
             defaultAxleConfig: chosenPreset.config,
+            PLANO_PREVENTIVO_GRUPO: preventivePlanItems,
           };
         }
         return t;
@@ -166,12 +257,20 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
       setTypesList(updated);
       onSaveVehicleTypes(updated);
       localStorage.setItem('colaca_silagem_tipos_veiculos', JSON.stringify(updated));
+      localStorage.setItem('agrocontrol_frotas_tipos', JSON.stringify(updated));
+
+      // Sincroniza plano preventivo no mapa centralizado
+      const allPlans = getStoredPreventiveGroupPlans();
+      allPlans[upperName] = preventivePlanItems;
+      saveStoredPreventiveGroupPlans(allPlans);
+
       setToastMessage('Tipo de veículo atualizado com sucesso!');
     }
 
     setEditingTypeId(null);
     setTypeName('');
     setTypeDescription('');
+    setPreventivePlanItems([]);
   };
 
   // Solicitar exclusão de Tipo de Veículo
@@ -466,6 +565,185 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
                 />
               </div>
 
+              {/* SEÇÃO MICRO TABELA: PLANO PREVENTIVO DO GRUPO (REGRAS DE FÁBRICA / REVISÕES) */}
+              <div className="p-3.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-3">
+                <div className="flex items-center justify-between border-b border-emerald-200 dark:border-emerald-800/60 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm">📋</span>
+                    <div>
+                      <h5 className="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
+                        PLANO PREVENTIVO DO GRUPO (FLUIDOS, FILTROS &amp; REVISÕES)
+                      </h5>
+                      <p className="text-[10.5px] text-emerald-700 dark:text-emerald-400 font-medium">
+                        Regras de fábrica vinculadas aos produtos do estoque (chave &apos;agrocontrol_produtos&apos;).
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700">
+                    {preventivePlanItems.length} REGRA(S) ATIVA(S)
+                  </span>
+                </div>
+
+                {/* Formulário Superior de Inclusão com Autocomplete Real */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                  {/* Campo 1: Autocomplete Produto / Nome */}
+                  <div className="sm:col-span-5 relative">
+                    <label className="block text-[10.5px] font-bold uppercase text-emerald-950 dark:text-emerald-200 mb-1">
+                      ITEM / PRODUTO DO ESTOQUE *
+                    </label>
+                    <input
+                      type="text"
+                      value={prevSearchQuery}
+                      onChange={(e) => {
+                        setPrevSearchQuery(e.target.value.toUpperCase());
+                        setIsPrevDropdownOpen(true);
+                        setPrevSelectedProduct(null);
+                      }}
+                      onFocus={() => setIsPrevDropdownOpen(true)}
+                      placeholder="DIGITE O NOME OU CÓDIGO (EX: ÓLEO 15W40)..."
+                      className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs uppercase placeholder:text-stone-400"
+                    />
+
+                    {/* Dropdown de Sugestões Autocomplete */}
+                    {isPrevDropdownOpen && productSearchResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-white dark:bg-stone-800 border border-emerald-300 dark:border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-700">
+                        {productSearchResults.map((prod) => (
+                          <button
+                            key={prod.id}
+                            type="button"
+                            onClick={() => handleSelectProduct(prod)}
+                            className="w-full text-left p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 flex items-center justify-between text-xs cursor-pointer transition"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <p className="font-bold text-stone-900 dark:text-stone-100 uppercase truncate">
+                                {prod.nome_comercial || prod.name}
+                              </p>
+                              <p className="text-[10px] text-stone-500 dark:text-stone-400">
+                                {prod.code ? `Cód: ${prod.code} • ` : ''}Cat: {prod.categoria || prod.category || 'Geral'}
+                              </p>
+                            </div>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 shrink-0 uppercase">
+                              {prod.unit || 'UN'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Campo 2: Intervalo (Horas / KM) */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10.5px] font-bold uppercase text-emerald-950 dark:text-emerald-200 mb-1">
+                      INTERVALO (H / KM) *
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={prevIntervalHoursKm}
+                      onChange={(e) => setPrevIntervalHoursKm(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="Ex: 250"
+                      className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Campo 3: Quantidade Padrão */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10.5px] font-bold uppercase text-emerald-950 dark:text-emerald-200 mb-1">
+                      QTD PADRÃO *
+                    </label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        value={prevStandardQty}
+                        onChange={(e) => setPrevStandardQty(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="Ex: 38"
+                        className="w-full px-2 py-1.5 text-xs font-bold rounded-l-lg border border-r-0 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                      />
+                      <span className="px-2 py-1.5 bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 rounded-r-lg text-[10px] font-bold text-emerald-900 dark:text-emerald-200 uppercase">
+                        {prevUnit}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Botão Incluir Regra */}
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={handleAddPreventiveRule}
+                      disabled={!prevSearchQuery.trim()}
+                      className="w-full py-1.5 px-3 text-xs font-bold uppercase rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white shadow-2xs transition cursor-pointer flex items-center justify-center space-x-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>INCLUIR</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Micro Tabela Zebrada com os Itens do Grupo */}
+                <div className="border border-emerald-200 dark:border-emerald-800/60 rounded-lg overflow-hidden bg-white dark:bg-stone-900">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-emerald-100/70 dark:bg-emerald-950/60 border-b border-emerald-200 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-200 text-[10px] uppercase font-black tracking-wider">
+                        <th className="py-1 px-3">ITEM / FLUIDO RECOMENDADO</th>
+                        <th className="py-1 px-2.5 text-center">INTERVALO</th>
+                        <th className="py-1 px-2.5 text-center">QTD PADRÃO</th>
+                        <th className="py-1 px-2 text-center">VÍNCULO ESTOQUE</th>
+                        <th className="py-1 px-2 text-right">AÇÕES</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-emerald-100 dark:divide-emerald-900/30">
+                      {preventivePlanItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-3 px-3 text-center text-xs text-stone-500 dark:text-stone-400 italic">
+                            Nenhuma regra preventiva personalizada cadastrada. O sistema aplicará os intervalos padrão da fábrica.
+                          </td>
+                        </tr>
+                      ) : (
+                        preventivePlanItems.map((rule, idx) => (
+                          <tr key={rule.id || idx} className={idx % 2 === 0 ? 'bg-white dark:bg-stone-900' : 'bg-emerald-50/30 dark:bg-stone-850'}>
+                            <td className="py-1 px-3 font-bold text-stone-900 dark:text-stone-100 uppercase text-xs whitespace-nowrap">
+                              {rule.ITEM_NOME}
+                            </td>
+                            <td className="py-1 px-2.5 text-center font-bold text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-[10px]">
+                                {rule.INTERVALO_HORAS_KM} H/KM
+                              </span>
+                            </td>
+                            <td className="py-1 px-2.5 text-center font-bold text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
+                              {rule.QUANTIDADE_PADRAO} {rule.unidade || 'UN'}
+                            </td>
+                            <td className="py-1 px-2 text-center whitespace-nowrap">
+                              {rule.PRODUTO_ID ? (
+                                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.2 rounded">
+                                  PRODUTO VINCULADO
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-semibold text-stone-500 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded">
+                                  DESCRITIVO LIVRE
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-1 px-2 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePreventiveRule(idx)}
+                                className="p-1 rounded text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
+                                title="Remover regra preventiva do grupo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <div className="flex justify-end pt-1">
                 <button
                   type="button"
@@ -508,6 +786,9 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
                     </span>
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                       {t.defaultAxleConfig.totalAxles} Eixos • {t.defaultAxleConfig.totalTires} Pneus
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      {(t.PLANO_PREVENTIVO_GRUPO?.length ?? (getStoredPreventiveGroupPlans()[t.name.toUpperCase()]?.length || DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[t.name.toUpperCase()]?.length || 0))} REGRAS PREVENTIVAS
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate">

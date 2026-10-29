@@ -26,6 +26,7 @@ import {
   AbsenceRecord,
   TerminationRecord,
   VehicleTypeDefinition,
+  PreventiveGroupItem,
   TireRotationLog,
   TireItem,
   MaintenancePurchaseRequest,
@@ -3870,5 +3871,135 @@ export const saveCompanyFinanceiroContas = (contas: BankAccount[], companyId?: s
 };
 export const getCompanyFinanceiroContas = (companyId?: string): BankAccount[] => getCompanyData<BankAccount>('financeiro_contas', getStoredBankAccounts, companyId);
 
+// ==============================================================================
+// MOTOR MESTRE DE MANUTENÇÃO PREVENTIVA (REGRAS DE FÁBRICA / REVISÕES PERIÓDICAS)
+// Chaves: 'agrocontrol_tipos_veiculos_planos', 'agrocontrol_plano_preventivo_grupos'
+// ==============================================================================
+
+export const PREVENTIVE_GROUP_PLANS_KEY = 'agrocontrol_plano_preventivo_grupos';
+export const PREVENTIVE_VEHICLE_TYPES_KEY = 'agrocontrol_tipos_veiculos_planos';
+
+export const DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY: Record<string, PreventiveGroupItem[]> = {
+  FORRAGEIRA: [
+    { id: 'prev_forr_1', ITEM_NOME: 'ÓLEO DO MOTOR 15W40', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 38, unidade: 'L' },
+    { id: 'prev_forr_2', ITEM_NOME: 'FILTRO DE ÓLEO DO MOTOR', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_forr_3', ITEM_NOME: 'FILTRO DE COMBUSTÍVEL PRIMÁRIO (RACOR)', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_forr_4', ITEM_NOME: 'FILTRO DE COMBUSTÍVEL SECUNDÁRIO', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_forr_5', ITEM_NOME: 'FILTRO DE AR PRIMÁRIO DO MOTOR', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_forr_6', ITEM_NOME: 'ÓLEO DO ROTOR / CAIXA DO TAMBOR', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 15, unidade: 'L' },
+    { id: 'prev_forr_7', ITEM_NOME: 'ÓLEO HIDRÁULICO ISO 68', INTERVALO_HORAS_KM: 1000, QUANTIDADE_PADRAO: 80, unidade: 'L' },
+  ],
+  COLHEITADEIRA: [
+    { id: 'prev_colh_1', ITEM_NOME: 'ÓLEO DO MOTOR 15W40', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 28, unidade: 'L' },
+    { id: 'prev_colh_2', ITEM_NOME: 'FILTRO DE ÓLEO DO MOTOR', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_colh_3', ITEM_NOME: 'FILTRO DE COMBUSTÍVEL', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 2, unidade: 'UN' },
+    { id: 'prev_colh_4', ITEM_NOME: 'FILTRO DE AR DO MOTOR', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_colh_5', ITEM_NOME: 'ÓLEO DA TRANSMISSÃO / HIDRÁULICO', INTERVALO_HORAS_KM: 1000, QUANTIDADE_PADRAO: 60, unidade: 'L' },
+  ],
+  TRATOR: [
+    { id: 'prev_trat_1', ITEM_NOME: 'ÓLEO DO MOTOR 15W40', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 16, unidade: 'L' },
+    { id: 'prev_trat_2', ITEM_NOME: 'FILTRO DE ÓLEO DO MOTOR', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_trat_3', ITEM_NOME: 'FILTRO DE COMBUSTÍVEL', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_trat_4', ITEM_NOME: 'ÓLEO DA TRANSMISSÃO E HIDRÁULICO', INTERVALO_HORAS_KM: 1000, QUANTIDADE_PADRAO: 45, unidade: 'L' },
+  ],
+  CAMINHAO: [
+    { id: 'prev_cam_1', ITEM_NOME: 'ÓLEO DO MOTOR 15W40', INTERVALO_HORAS_KM: 20000, QUANTIDADE_PADRAO: 32, unidade: 'L' },
+    { id: 'prev_cam_2', ITEM_NOME: 'FILTRO DE ÓLEO DO MOTOR', INTERVALO_HORAS_KM: 20000, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_cam_3', ITEM_NOME: 'FILTRO DE COMBUSTÍVEL RACOR', INTERVALO_HORAS_KM: 20000, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_cam_4', ITEM_NOME: 'FILTRO DE AR MOTOR', INTERVALO_HORAS_KM: 40000, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_cam_5', ITEM_NOME: 'ÓLEO DO DIFERENCIAL 85W140', INTERVALO_HORAS_KM: 60000, QUANTIDADE_PADRAO: 18, unidade: 'L' },
+  ],
+  MAQUINAS_PESADAS: [
+    { id: 'prev_pes_1', ITEM_NOME: 'ÓLEO DO MOTOR 15W40', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 20, unidade: 'L' },
+    { id: 'prev_pes_2', ITEM_NOME: 'FILTRO DE ÓLEO DO MOTOR', INTERVALO_HORAS_KM: 250, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_pes_3', ITEM_NOME: 'FILTRO DE COMBUSTÍVEL', INTERVALO_HORAS_KM: 500, QUANTIDADE_PADRAO: 1, unidade: 'UN' },
+    { id: 'prev_pes_4', ITEM_NOME: 'ÓLEO HIDRÁULICO ISO 68', INTERVALO_HORAS_KM: 1000, QUANTIDADE_PADRAO: 110, unidade: 'L' },
+  ]
+};
+
+// Aliases para normalizar grupos
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['ENSILADEIRA'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['FORRAGEIRA'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['ENSILADEIRA AUTOPROPELIDA'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['FORRAGEIRA'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['CAMINHÃO'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['CAMINHAO'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['CAMINHÃO (BASCULANTE / GRANELEIRO)'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['CAMINHAO'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['TRAÇÃO CAMINHÃO TRATOR (CAVALO)'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['CAMINHAO'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['TRATOR AGRÍCOLA'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['TRATOR'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['PÁ CARREGADEIRA'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['MAQUINAS_PESADAS'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['RETROESCAVADEIRA'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['MAQUINAS_PESADAS'];
+DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['TRATOR ESTEIRA'] = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['MAQUINAS_PESADAS'];
+
+export function getStoredPreventiveGroupPlans(): Record<string, PreventiveGroupItem[]> {
+  try {
+    const raw = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(PREVENTIVE_GROUP_PLANS_KEY) || localStorage.getItem(PREVENTIVE_VEHICLE_TYPES_KEY))
+      : null;
+    let stored: Record<string, PreventiveGroupItem[]> = {};
+    if (raw) {
+      stored = JSON.parse(raw);
+    }
+    const merged: Record<string, PreventiveGroupItem[]> = { ...DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY, ...stored };
+    return merged;
+  } catch (err) {
+    return { ...DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY };
+  }
+}
+
+export function saveStoredPreventiveGroupPlans(plans: Record<string, PreventiveGroupItem[]>): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const json = JSON.stringify(plans);
+    localStorage.setItem(PREVENTIVE_GROUP_PLANS_KEY, json);
+    localStorage.setItem(PREVENTIVE_VEHICLE_TYPES_KEY, json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_plano_preventivo_grupos_updated', { detail: plans }));
+    }
+  } catch (err) {
+    console.error('Failed to save preventive group plans:', err);
+  }
+}
+
+export function resolveVehicleGroupCategory(machinery?: Machinery): string {
+  if (!machinery) return 'OUTRO';
+  const text = `${machinery.categoriaVeiculo || ''} ${machinery.categoryType || ''} ${machinery.categoria || ''} ${machinery.name || ''} ${machinery.model || ''}`.toUpperCase();
+  if (text.includes('FORRAGEIRA') || text.includes('ENSILADEIRA') || text.includes('JAGUAR')) return 'FORRAGEIRA';
+  if (text.includes('COLHEITADEIRA')) return 'COLHEITADEIRA';
+  if (text.includes('TRATOR') && !text.includes('CAMINHÃO TRATOR') && !text.includes('CAMINHAO TRATOR')) return 'TRATOR';
+  if (text.includes('CAMINHÃO') || text.includes('CAMINHAO') || text.includes('CAVALO') || text.includes('BASCULANTE') || text.includes('CARRETA')) return 'CAMINHAO';
+  if (text.includes('PÁ CARREGADEIRA') || text.includes('PA CARREGADEIRA') || text.includes('RETROESCAVADEIRA') || text.includes('ESTEIRA')) return 'MAQUINAS_PESADAS';
+  return machinery.categoriaVeiculo ? machinery.categoriaVeiculo.toUpperCase() : 'OUTRO';
+}
+
+export function getPreventivePlanForVehicle(
+  machinery?: Machinery,
+  vehicleTypes?: VehicleTypeDefinition[]
+): PreventiveGroupItem[] {
+  if (!machinery) return [];
+  const allPlans = getStoredPreventiveGroupPlans();
+  const group = resolveVehicleGroupCategory(machinery);
+
+  if (vehicleTypes && vehicleTypes.length > 0) {
+    const matchedType = vehicleTypes.find(vt => 
+      vt.id === machinery.vehicleTypeId || 
+      vt.name.toUpperCase() === group || 
+      vt.name.toUpperCase() === (machinery.categoriaVeiculo || '').toUpperCase()
+    );
+    if (matchedType?.PLANO_PREVENTIVO_GRUPO && matchedType.PLANO_PREVENTIVO_GRUPO.length > 0) {
+      return matchedType.PLANO_PREVENTIVO_GRUPO;
+    }
+  }
+
+  if (allPlans[group] && allPlans[group].length > 0) {
+    return allPlans[group];
+  }
+
+  const catUpper = (machinery.categoriaVeiculo || machinery.categoria || '').toUpperCase();
+  if (catUpper && allPlans[catUpper] && allPlans[catUpper].length > 0) {
+    return allPlans[catUpper];
+  }
+
+  return DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[group] || DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY['FORRAGEIRA'];
+}
+
 // Exportação e integração oficial do Motor de Contingência Universal do LocalStorage
 export { executeGlobalStorageAudit } from './globalStorageAudit';
+

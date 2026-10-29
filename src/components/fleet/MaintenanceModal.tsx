@@ -51,7 +51,8 @@ import {
   MaintenanceNfeLink,
   MaintenanceFinancialConditions,
   PaymentMethod,
-  MaintenanceCategoryDefinition
+  MaintenanceCategoryDefinition,
+  PreventiveGroupItem
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -59,7 +60,9 @@ import {
   saveStoredMaintenanceCategories,
   getStoredEmployees,
   getStoredInventory,
-  saveStoredInventory
+  saveStoredInventory,
+  getStoredMaintenanceLogs,
+  getPreventivePlanForVehicle
 } from '../../lib/storage';
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
 import { ProductSearchModal } from './ProductSearchModal';
@@ -412,6 +415,190 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   // --- SOLICITAÇÃO DE COMPRA (FLUXO A) ---
   const [generatePurchaseRequest, setGeneratePurchaseRequest] = useState(false);
   const [purchaseUrgency, setPurchaseUrgency] = useState<'baixa' | 'media' | 'alta' | 'urgente_veiculo_parado'>('alta');
+
+  // --- MOTOR MESTRE DE MANUTENÇÃO PREVENTIVA (FLUIDOS, FILTROS & REGRAS DO GRUPO) ---
+  const selectedMachinery = useMemo(() => {
+    return machineries.find(m => m.id === machineryId);
+  }, [machineries, machineryId]);
+
+  const vehiclePreventiveRules = useMemo(() => {
+    if (!selectedMachinery) return [];
+    return getPreventivePlanForVehicle(selectedMachinery);
+  }, [selectedMachinery]);
+
+  const pastLogsForSelectedMachine = useMemo(() => {
+    if (!machineryId) return [];
+    try {
+      const allLogs = getStoredMaintenanceLogs();
+      return allLogs
+        .filter(l => l && l.machineryId === machineryId && l.id !== (editingLog?.id || currentOsId))
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    } catch {
+      return [];
+    }
+  }, [machineryId, editingLog, currentOsId]);
+
+  interface EvaluatedPreventiveItem extends PreventiveGroupItem {
+    horasAtuais: number;
+    ultimoHorimetroTroca: number;
+    horasDecorridas: number;
+    diffHorasKm: number;
+    status: 'VENCIDO' | 'CRÍTICO' | 'EM DIA';
+    isInjected: boolean;
+  }
+
+  const evaluatedPreventiveItems = useMemo<EvaluatedPreventiveItem[]>(() => {
+    if (!selectedMachinery || vehiclePreventiveRules.length === 0) return [];
+
+    const rawMeter = typeof currentHourMeterOrKm === 'number'
+      ? currentHourMeterOrKm
+      : parseInt(String(currentHourMeterOrKm).replace(/\D/g, ''), 10);
+    const horasAtuais = !isNaN(rawMeter) && rawMeter > 0
+      ? rawMeter
+      : (selectedMachinery.hourMeter || selectedMachinery.currentKm || 0);
+
+    return vehiclePreventiveRules.map(rule => {
+      let ultimoHorimetroTroca = 0;
+      const ruleNameClean = (rule.ITEM_NOME || '').toUpperCase();
+
+      for (const log of pastLogsForSelectedMachine) {
+        let matched = false;
+        if (log.partsItems && Array.isArray(log.partsItems)) {
+          matched = log.partsItems.some(p => {
+            if (rule.PRODUTO_ID && p.inventoryItemId === rule.PRODUTO_ID) return true;
+            const pDesc = (p.description || '').toUpperCase();
+            return pDesc.includes(ruleNameClean) || ruleNameClean.includes(pDesc);
+          });
+        }
+        if (!matched && log.description) {
+          const lDesc = log.description.toUpperCase();
+          if (lDesc.includes(ruleNameClean)) matched = true;
+        }
+
+        if (matched) {
+          ultimoHorimetroTroca = Number(log.currentHourMeterOrKm) || 0;
+          break;
+        }
+      }
+
+      const horasDecorridas = horasAtuais > ultimoHorimetroTroca 
+        ? horasAtuais - ultimoHorimetroTroca 
+        : horasAtuais;
+
+      const diffHorasKm = rule.INTERVALO_HORAS_KM - horasDecorridas;
+
+      let itemStatus: 'VENCIDO' | 'CRÍTICO' | 'EM DIA' = 'EM DIA';
+      if (horasDecorridas >= rule.INTERVALO_HORAS_KM) {
+        itemStatus = 'VENCIDO';
+      } else if (horasDecorridas >= rule.INTERVALO_HORAS_KM * 0.85) {
+        itemStatus = 'CRÍTICO';
+      }
+
+      const isInjected = partsItems.some(p => {
+        if (rule.PRODUTO_ID && p.inventoryItemId === rule.PRODUTO_ID) return true;
+        const pDesc = (p.description || '').toUpperCase();
+        return pDesc === ruleNameClean || pDesc.includes(ruleNameClean) || ruleNameClean.includes(pDesc);
+      });
+
+      return {
+        ...rule,
+        horasAtuais,
+        ultimoHorimetroTroca,
+        horasDecorridas,
+        diffHorasKm,
+        status: itemStatus,
+        isInjected,
+      };
+    });
+  }, [selectedMachinery, vehiclePreventiveRules, pastLogsForSelectedMachine, currentHourMeterOrKm, partsItems]);
+
+  const hasVencidosOuCriticos = useMemo(() => {
+    return evaluatedPreventiveItems.some(i => i.status === 'VENCIDO' || i.status === 'CRÍTICO');
+  }, [evaluatedPreventiveItems]);
+
+  const isTrocaOleoCategory = useMemo(() => {
+    const cat = (serviceCategory || '').toLowerCase();
+    return cat.includes('óleo') || cat.includes('oleo') || cat.includes('filtro') || cat.includes('lubrific');
+  }, [serviceCategory]);
+
+  const showPreventiveBlock = useMemo(() => {
+    return Boolean(machineryId && (isTrocaOleoCategory || type === 'preventiva' || hasVencidosOuCriticos));
+  }, [machineryId, isTrocaOleoCategory, type, hasVencidosOuCriticos]);
+
+  const handleInjectPreventiveItem = (ruleItem: EvaluatedPreventiveItem) => {
+    const stockProd = ruleItem.PRODUTO_ID 
+      ? allInventoryList.find(i => i.id === ruleItem.PRODUTO_ID)
+      : allInventoryList.find(i => {
+          const nm = (i.nome_comercial || i.name || '').toUpperCase();
+          const rNm = ruleItem.ITEM_NOME.toUpperCase();
+          return nm === rNm || nm.includes(rNm) || rNm.includes(nm);
+        });
+
+    const unitCost = stockProd ? getPriceForProductByRule(stockProd, defaultPriceType) : 0;
+    const qty = Number(ruleItem.QUANTIDADE_PADRAO) || 1;
+    const total = Math.round(qty * unitCost * 100) / 100;
+    const unit = stockProd?.unit || stockProd?.unidade_medida || ruleItem.unidade || 'UN';
+
+    const newPart: MaintenancePartItem = {
+      id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      inventoryItemId: stockProd?.id || ruleItem.PRODUTO_ID,
+      description: ruleItem.ITEM_NOME.toUpperCase(),
+      origin: 'almoxarifado_interno',
+      quantity: qty,
+      unit: unit.toUpperCase(),
+      unitCost: unitCost,
+      totalCost: total,
+      stockDeducted: false,
+    };
+
+    setUsePartsItemList(true);
+    setPartsItems(prev => [...prev, newPart]);
+    setFeedbackBanner({
+      type: 'save',
+      message: `Item "${ruleItem.ITEM_NOME}" injetado com sucesso no Bloco 2 (Peças & Estoque)!`
+    });
+    setTimeout(() => setFeedbackBanner(null), 3000);
+  };
+
+  const handleInjectAllRecommended = () => {
+    const itemsToInject = evaluatedPreventiveItems.filter(i => !i.isInjected);
+    if (itemsToInject.length === 0) return;
+
+    const newParts: MaintenancePartItem[] = itemsToInject.map(ruleItem => {
+      const stockProd = ruleItem.PRODUTO_ID 
+        ? allInventoryList.find(i => i.id === ruleItem.PRODUTO_ID)
+        : allInventoryList.find(i => {
+            const nm = (i.nome_comercial || i.name || '').toUpperCase();
+            const rNm = ruleItem.ITEM_NOME.toUpperCase();
+            return nm === rNm || nm.includes(rNm) || rNm.includes(nm);
+          });
+
+      const unitCost = stockProd ? getPriceForProductByRule(stockProd, defaultPriceType) : 0;
+      const qty = Number(ruleItem.QUANTIDADE_PADRAO) || 1;
+      const total = Math.round(qty * unitCost * 100) / 100;
+      const unit = stockProd?.unit || stockProd?.unidade_medida || ruleItem.unidade || 'UN';
+
+      return {
+        id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}_${Math.random().toString(36).slice(2, 4)}`,
+        inventoryItemId: stockProd?.id || ruleItem.PRODUTO_ID,
+        description: ruleItem.ITEM_NOME.toUpperCase(),
+        origin: 'almoxarifado_interno',
+        quantity: qty,
+        unit: unit.toUpperCase(),
+        unitCost: unitCost,
+        totalCost: total,
+        stockDeducted: false,
+      };
+    });
+
+    setUsePartsItemList(true);
+    setPartsItems(prev => [...prev, ...newParts]);
+    setFeedbackBanner({
+      type: 'save',
+      message: `${newParts.length} itens preventivos injetados com sucesso no Bloco 2 (Peças & Estoque)!`
+    });
+    setTimeout(() => setFeedbackBanner(null), 3500);
+  };
 
   // Preenchimento no carregamento/edição
   useEffect(() => {
@@ -1715,6 +1902,135 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden resize-none"
                   />
                 </div>
+
+                {/* BLOCO REATIVO: ITENS RECOMENDADOS PARA ESTA REVISÃO (REGRAS DO GRUPO) */}
+                {showPreventiveBlock && evaluatedPreventiveItems.length > 0 && (
+                  <div className="p-3 bg-white rounded border border-emerald-400/80 shadow-xs space-y-2.5 animate-in fade-in duration-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200 pb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm">📋</span>
+                        <div>
+                          <h4 className="text-[11px] font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                            <span>ITENS RECOMENDADOS PARA ESTA REVISÃO (REGRAS DO GRUPO)</span>
+                            {selectedMachinery && (
+                              <span className="text-[9.5px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                {selectedMachinery.categoriaVeiculo || selectedMachinery.categoryType || 'GRUPO'}
+                              </span>
+                            )}
+                          </h4>
+                          <p className="text-[10px] text-emerald-700 font-medium">
+                            Monitoramento síncrono por horímetro/km atual. Itens vencidos ou críticos devem ser substituídos nesta ordem.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleInjectAllRecommended}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-black text-[10px] shadow-2xs transition cursor-pointer active:scale-95 uppercase tracking-wider"
+                          title="Injetar todos os itens preventivos recomendados diretamente no Bloco 2 (Peças &amp; Estoque)"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>+ INJETAR TODOS RECOMENDADOS</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tabela Zebrada Compacta */}
+                    <div className="border border-emerald-200 rounded overflow-hidden">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-emerald-100/70 border-b border-emerald-200 text-emerald-950 text-[10px] uppercase font-black tracking-wider">
+                            <th className="py-1 px-2.5 whitespace-nowrap">NOME DO ITEM / FLUIDO</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">INTERVALO DE TROCA</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">HORAS / KM DECORRIDOS</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">STATUS REVISÃO</th>
+                            <th className="py-1 px-2 text-center whitespace-nowrap">QTD PADRÃO</th>
+                            <th className="py-1 px-2 text-right whitespace-nowrap">AÇÃO</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-emerald-100">
+                          {evaluatedPreventiveItems.map((item, idx) => {
+                            const isOverdue = item.status === 'VENCIDO';
+                            const isCritical = item.status === 'CRÍTICO';
+
+                            return (
+                              <tr 
+                                key={item.id || idx} 
+                                className={`whitespace-nowrap ${
+                                  item.isInjected 
+                                    ? 'bg-emerald-50/20 opacity-85' 
+                                    : (idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30')
+                                }`}
+                              >
+                                <td className="py-1 px-2.5 font-bold text-zinc-900 uppercase text-xs">
+                                  <div className="flex items-center space-x-1.5">
+                                    <span>{item.ITEM_NOME}</span>
+                                    {item.PRODUTO_ID && (
+                                      <span className="text-[8.5px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1 py-0.2 rounded">
+                                        ESTOQUE
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-1 px-2 text-center font-bold text-zinc-700 text-xs">
+                                  {item.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
+                                </td>
+                                <td className="py-1 px-2 text-center text-xs">
+                                  <span className="font-bold text-zinc-800">
+                                    {item.horasDecorridas.toLocaleString('pt-BR')} H
+                                  </span>
+                                  <span className="text-[10px] text-zinc-500 ml-1">
+                                    {item.diffHorasKm <= 0 
+                                      ? `(${Math.abs(item.diffHorasKm).toLocaleString('pt-BR')} H vencido)` 
+                                      : `(restam ${item.diffHorasKm.toLocaleString('pt-BR')} H)`}
+                                  </span>
+                                </td>
+                                <td className="py-1 px-2 text-center">
+                                  {isOverdue ? (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-100 text-rose-900 border border-rose-300 shadow-2xs">
+                                      VENCIDO
+                                    </span>
+                                  ) : isCritical ? (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                      CRÍTICO
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                      EM DIA
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-1 px-2 text-center font-bold text-emerald-950 text-xs">
+                                  {item.QUANTIDADE_PADRAO} {item.unidade || 'UN'}
+                                </td>
+                                <td className="py-1 px-2 text-right">
+                                  {item.isInjected ? (
+                                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-400 rounded text-[10px] font-bold">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                      <span>✓ NA OS</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInjectPreventiveItem(item)}
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-black text-[10px] transition cursor-pointer active:scale-95 shadow-2xs uppercase"
+                                      title="Injetar este item diretamente no grid 2. PEÇAS &amp; ESTOQUE"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      <span>+ INJETAR NA OS</span>
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {/* Bloco 5: Local da Manutenção */}
                 <div className="p-3 bg-white rounded border border-slate-300/80 space-y-2 shadow-xs">

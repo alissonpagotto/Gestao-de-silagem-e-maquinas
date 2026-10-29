@@ -1701,6 +1701,16 @@ export interface VehicleAxleConfig {
   axles: AxleDefinition[];
 }
 
+export interface PreventiveGroupItem {
+  id?: string;
+  PRODUTO_ID?: string;
+  ITEM_NOME: string;
+  INTERVALO_HORAS_KM: number;
+  QUANTIDADE_PADRAO: number;
+  unidade?: string;
+  observacoes?: string;
+}
+
 export interface VehicleTypeDefinition {
   id: string;
   name: string;
@@ -1708,6 +1718,7 @@ export interface VehicleTypeDefinition {
   defaultAxleConfig: VehicleAxleConfig;
   isCustom?: boolean;
   description?: string;
+  PLANO_PREVENTIVO_GRUPO?: PreventiveGroupItem[];
 }
 
 export type TireCondition = 'novo' | 'excelente' | 'bom' | 'atencao' | 'critico' | 'descarte';
