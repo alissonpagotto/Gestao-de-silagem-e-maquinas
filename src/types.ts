@@ -1703,8 +1703,16 @@ export interface VehicleAxleConfig {
   axles: AxleDefinition[];
 }
 
+export type MaintenanceSubgroup = 
+  | 'COMPONENTES E SERVIÇOS MECÂNICOS'
+  | 'FILTROS'
+  | 'FLUIDOS E ADITIVOS'
+  | 'ÓLEOS E LUBRIFICANTES';
+
 export interface PreventiveGroupItem {
   id?: string;
+  CATEGORIA?: string;
+  SUBGRUPO?: MaintenanceSubgroup | string;
   PRODUTO_ID?: string;
   ITEM_NOME: string;
   INTERVALO_HORAS_KM: number;

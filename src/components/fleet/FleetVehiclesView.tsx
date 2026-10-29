@@ -7,7 +7,7 @@ import {
   Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight,
   SlidersHorizontal, Layers, Pencil, RotateCcw, Package, Save
 } from 'lucide-react';
-import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem } from '../../types';
+import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
@@ -20,7 +20,9 @@ import {
   getStoredPreventiveGroupPlans,
   saveStoredPreventiveGroupPlans,
   getStoredInventory,
-  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY
+  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY,
+  MAINTENANCE_SUBGROUPS,
+  inferMaintenanceSubgroup
 } from '../../lib/storage';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
@@ -86,6 +88,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [preventivePlans, setPreventivePlans] = useState<Record<string, PreventiveGroupItem[]>>(() => getStoredPreventiveGroupPlans());
   const [selectedGroupCategory, setSelectedGroupCategory] = useState<string>('COLHEITADEIRA');
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>(() => getStoredInventory());
+  const [ruleSubgroup, setRuleSubgroup] = useState<MaintenanceSubgroup>('FILTROS');
   const [inventorySearchQuery, setInventorySearchQuery] = useState('');
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [ruleIntervalHoursKm, setRuleIntervalHoursKm] = useState<number | ''>(250);
@@ -98,6 +101,17 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const inventoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Estados para Edição / Associação Direta Inline no Grid
+  const [inlineEditingRuleId, setInlineEditingRuleId] = useState<string | null>(null);
+  const [inlineSubgroup, setInlineSubgroup] = useState<MaintenanceSubgroup>('FILTROS');
+  const [inlineSearchQuery, setInlineSearchQuery] = useState('');
+  const [inlineSelectedProduct, setInlineSelectedProduct] = useState<InventoryItem | null>(null);
+  const [inlineInterval, setInlineInterval] = useState<number | ''>(250);
+  const [inlineQty, setInlineQty] = useState<number | ''>(1);
+  const [inlineUnit, setInlineUnit] = useState('UN');
+  const [inlineDropdownOpen, setInlineDropdownOpen] = useState(false);
+  const inlineDropdownRef = useRef<HTMLDivElement>(null);
 
   // Sincronização em tempo real de planos preventivos
   useEffect(() => {
@@ -128,6 +142,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (inventoryDropdownRef.current && !inventoryDropdownRef.current.contains(event.target as Node)) {
         setIsInventoryDropdownOpen(false);
+      }
+      if (inlineDropdownRef.current && !inlineDropdownRef.current.contains(event.target as Node)) {
+        setInlineDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -192,31 +209,80 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     return DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[upperCat] || DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[aliasKey] || [];
   }, [preventivePlans, selectedGroupCategory]);
 
-  // Autocomplete real de produtos do almoxarifado
+  // Agrupamento estrito por Subgrupos em ordem alfabética
+  const groupedRulesBySubgroup = useMemo(() => {
+    const rules = currentCategoryRules;
+    const groups: { subgroup: MaintenanceSubgroup; rules: PreventiveGroupItem[] }[] = [];
+
+    MAINTENANCE_SUBGROUPS.forEach(subgroup => {
+      const matchingRules = rules.filter(r => {
+        const itemSubgroup = (r.SUBGRUPO as MaintenanceSubgroup) || inferMaintenanceSubgroup(r.ITEM_NOME, r.SUBGRUPO);
+        return itemSubgroup === subgroup;
+      });
+      if (matchingRules.length > 0) {
+        groups.push({ subgroup, rules: matchingRules });
+      }
+    });
+
+    // Itens que eventualmente não deram match caem no subgrupo geral
+    const matchedIds = new Set(groups.flatMap(g => g.rules.map(r => r.id)));
+    const leftover = rules.filter(r => !matchedIds.has(r.id));
+    if (leftover.length > 0) {
+      const compGroup = groups.find(g => g.subgroup === 'COMPONENTES E SERVIÇOS MECÂNICOS');
+      if (compGroup) {
+        compGroup.rules.push(...leftover);
+      } else {
+        groups.unshift({ subgroup: 'COMPONENTES E SERVIÇOS MECÂNICOS', rules: leftover });
+      }
+    }
+
+    return groups;
+  }, [currentCategoryRules]);
+
+  // Autocomplete real de produtos do almoxarifado (Formulário Superior)
   const inventoryAutocompleteResults = useMemo(() => {
     if (!inventorySearchQuery.trim()) return [];
     const q = inventorySearchQuery.toLowerCase().trim();
     return inventoryList.filter(item => {
-      const name = String(item.nome_comercial || item.name || '').toLowerCase();
-      const code = String(item.code || (item as any).codigo || '').toLowerCase();
-      const cat = String(item.categoria || item.category || '').toLowerCase();
+      const anyItem = item as any;
+      const name = String(anyItem.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || anyItem.codigo || '').toLowerCase();
+      const cat = String(anyItem.categoria || item.category || '').toLowerCase();
       return name.includes(q) || code.includes(q) || cat.includes(q);
     }).slice(0, 8);
   }, [inventorySearchQuery, inventoryList]);
 
-  // Selecionar produto do autocomplete
+  // Autocomplete real de produtos do almoxarifado (Edição Inline no Grid)
+  const inlineAutocompleteResults = useMemo(() => {
+    if (!inlineSearchQuery.trim()) return [];
+    const q = inlineSearchQuery.toLowerCase().trim();
+    return inventoryList.filter(item => {
+      const anyItem = item as any;
+      const name = String(anyItem.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || anyItem.codigo || '').toLowerCase();
+      const cat = String(anyItem.categoria || item.category || '').toLowerCase();
+      return name.includes(q) || code.includes(q) || cat.includes(q);
+    }).slice(0, 8);
+  }, [inlineSearchQuery, inventoryList]);
+
+  // Selecionar produto do autocomplete (Formulário Superior)
   const handleSelectInventoryItem = (item: InventoryItem) => {
+    const anyItem = item as any;
     setSelectedInventoryItem(item);
-    const resolvedName = (item.nome_comercial || item.name || '').toUpperCase();
+    const resolvedName = (anyItem.nome_comercial || item.name || '').toUpperCase();
     setInventorySearchQuery(resolvedName);
-    const resolvedUnit = (item.unit || item.unidade_medida || 'UN').toUpperCase();
+    const resolvedUnit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
     setRuleUnit(resolvedUnit);
+    // Sugere subgrupo automaticamente com base no nome do produto
+    setRuleSubgroup(inferMaintenanceSubgroup(resolvedName));
     setIsInventoryDropdownOpen(false);
   };
 
-  // Iniciar edição de uma regra existente
+  // Iniciar edição de uma regra existente (no formulário superior)
   const handleStartEditRule = (rule: PreventiveGroupItem) => {
     setEditingRuleId(rule.id);
+    const resolvedSubgroup = (rule.SUBGRUPO as MaintenanceSubgroup) || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
+    setRuleSubgroup(resolvedSubgroup);
     setInventorySearchQuery(rule.ITEM_NOME);
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
     setRuleStandardQty(rule.QUANTIDADE_PADRAO);
@@ -226,14 +292,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
       setSelectedInventoryItem(linked);
     } else {
-      setSelectedInventoryItem(null);
+      const linkedByName = inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
+      setSelectedInventoryItem(linkedByName || null);
     }
     setIsInventoryDropdownOpen(false);
   };
 
-  // Cancelar edição
+  // Cancelar edição no formulário superior
   const handleCancelEditRule = () => {
     setEditingRuleId(null);
+    setRuleSubgroup('FILTROS');
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
     setRuleIntervalHoursKm(250);
@@ -241,6 +309,85 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setRuleUnit('UN');
     setRuleNotes('');
     setIsInventoryDropdownOpen(false);
+  };
+
+  // Iniciar Edição Direta Inline no Grid
+  const handleStartInlineEdit = (rule: PreventiveGroupItem) => {
+    setInlineEditingRuleId(rule.id);
+    const resolvedSubgroup = (rule.SUBGRUPO as MaintenanceSubgroup) || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
+    setInlineSubgroup(resolvedSubgroup);
+    setInlineSearchQuery(rule.ITEM_NOME);
+    setInlineInterval(rule.INTERVALO_HORAS_KM);
+    setInlineQty(rule.QUANTIDADE_PADRAO);
+    setInlineUnit(rule.unidade || 'UN');
+    if (rule.PRODUTO_ID) {
+      const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
+      setInlineSelectedProduct(linked);
+    } else {
+      const linkedByName = inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
+      setInlineSelectedProduct(linkedByName || null);
+    }
+    setInlineDropdownOpen(false);
+  };
+
+  // Selecionar produto no Autocomplete Inline do Grid
+  const handleSelectInlineProduct = (item: InventoryItem) => {
+    const anyItem = item as any;
+    setInlineSelectedProduct(item);
+    const resolvedName = (anyItem.nome_comercial || item.name || '').toUpperCase();
+    setInlineSearchQuery(resolvedName);
+    const resolvedUnit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
+    setInlineUnit(resolvedUnit);
+    setInlineSubgroup(inferMaintenanceSubgroup(resolvedName));
+    setInlineDropdownOpen(false);
+  };
+
+  // Cancelar Edição Inline do Grid
+  const handleCancelInlineEdit = () => {
+    setInlineEditingRuleId(null);
+    setInlineSearchQuery('');
+    setInlineSelectedProduct(null);
+    setInlineDropdownOpen(false);
+  };
+
+  // Salvar Edição Inline do Grid diretamente na regra
+  const handleSaveInlineEdit = (ruleId: string) => {
+    const itemName = inlineSearchQuery.trim().toUpperCase();
+    if (!itemName) {
+      setPreventiveFeedback({ type: 'info', message: 'INFORME O NOME DO INSUMO OU SELECIONE UM PRODUTO DO ALMOXARIFADO.' });
+      setTimeout(() => setPreventiveFeedback(null), 3000);
+      return;
+    }
+    const interval = typeof inlineInterval === 'number' && inlineInterval > 0 ? inlineInterval : 250;
+    const qty = typeof inlineQty === 'number' && inlineQty > 0 ? inlineQty : 1;
+    const unit = (inlineSelectedProduct?.unit || (inlineSelectedProduct as any)?.unidade_medida || inlineUnit || 'UN').toUpperCase();
+
+    const upperCat = selectedGroupCategory.toUpperCase();
+    const currentRules = currentCategoryRules;
+    const updatedRules = currentRules.map(r => r.id === ruleId ? {
+      ...r,
+      CATEGORIA: upperCat,
+      SUBGRUPO: inlineSubgroup,
+      PRODUTO_ID: inlineSelectedProduct?.id || r.PRODUTO_ID,
+      ITEM_NOME: itemName,
+      INTERVALO_HORAS_KM: interval,
+      QUANTIDADE_PADRAO: qty,
+      unidade: unit,
+    } : r);
+
+    const updatedPlans = {
+      ...preventivePlans,
+      [upperCat]: updatedRules,
+    };
+    setPreventivePlans(updatedPlans);
+    saveStoredPreventiveGroupPlans(updatedPlans);
+
+    handleCancelInlineEdit();
+    setPreventiveFeedback({
+      type: 'success',
+      message: `VÍNCULO E REGRAS ATUALIZADOS COM SUCESSO NO GRUPO ${upperCat}!`
+    });
+    setTimeout(() => setPreventiveFeedback(null), 3000);
   };
 
   // Salvar / Adicionar regra na matriz da categoria ativa
@@ -254,7 +401,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     }
     const interval = typeof ruleIntervalHoursKm === 'number' && ruleIntervalHoursKm > 0 ? ruleIntervalHoursKm : 250;
     const qty = typeof ruleStandardQty === 'number' && ruleStandardQty > 0 ? ruleStandardQty : 1;
-    const unit = (selectedInventoryItem?.unit || selectedInventoryItem?.unidade_medida || ruleUnit || 'UN').toUpperCase();
+    const unit = (selectedInventoryItem?.unit || (selectedInventoryItem as any)?.unidade_medida || ruleUnit || 'UN').toUpperCase();
 
     const upperCat = selectedGroupCategory.toUpperCase();
     const currentRules = currentCategoryRules;
@@ -263,6 +410,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     if (editingRuleId) {
       updatedRules = currentRules.map(r => r.id === editingRuleId ? {
         ...r,
+        CATEGORIA: upperCat,
+        SUBGRUPO: ruleSubgroup,
         ITEM_NOME: itemName,
         PRODUTO_ID: selectedInventoryItem?.id || r.PRODUTO_ID,
         INTERVALO_HORAS_KM: interval,
@@ -273,6 +422,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     } else {
       const newRule: PreventiveGroupItem = {
         id: `prev_${upperCat.toLowerCase().slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        CATEGORIA: upperCat,
+        SUBGRUPO: ruleSubgroup,
         PRODUTO_ID: selectedInventoryItem?.id,
         ITEM_NOME: itemName,
         INTERVALO_HORAS_KM: interval,
@@ -1080,10 +1231,28 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-start">
                 
-                {/* 1. Nome do Insumo com Autocomplete Real */}
-                <div className="md:col-span-5 relative" ref={inventoryDropdownRef}>
+                {/* 1. Subgrupo de Manutenção (Obrigatório e Estritamente em Ordem Alfabética) */}
+                <div className="md:col-span-3">
+                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
+                    SUBGRUPO DE MANUTENÇÃO *
+                  </label>
+                  <select
+                    value={ruleSubgroup}
+                    onChange={(e) => setRuleSubgroup(e.target.value as MaintenanceSubgroup)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
+                  >
+                    {MAINTENANCE_SUBGROUPS.map((sg) => (
+                      <option key={sg} value={sg}>
+                        {sg}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Nome do Insumo com Autocomplete Real */}
+                <div className="md:col-span-4 relative" ref={inventoryDropdownRef}>
                   <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
                     PRODUTO / INSUMO / FLUIDO *
                   </label>
@@ -1139,7 +1308,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                 {formatCurrencyBRL(cost)}
                               </span>
                               <span className="text-[9.5px] text-stone-400 font-bold block">
-                                Saldo: {stock} {unit}
+                                Saldo: {stock.toFixed(2)} {unit}
                               </span>
                             </div>
                           </button>
@@ -1157,13 +1326,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   )}
                 </div>
 
-                {/* 2. Intervalo de Fábrica */}
-                <div className="md:col-span-3">
+                {/* 3. Intervalo de Fábrica */}
+                <div className="md:col-span-2">
                   <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
                     INTERVALO DE FÁBRICA *
                   </label>
                   <div className="flex items-center space-x-1">
-                    <span className="text-xs font-bold text-stone-500 shrink-0">A CADA</span>
+                    <span className="text-[11px] font-bold text-stone-500 shrink-0">A CADA</span>
                     <input
                       type="number"
                       min="1"
@@ -1171,13 +1340,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                       placeholder="250"
                       value={ruleIntervalHoursKm}
                       onChange={(e) => setRuleIntervalHoursKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                      className="w-full px-2 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                     />
-                    <span className="text-xs font-bold text-stone-600 dark:text-stone-400 shrink-0">H/KM</span>
+                    <span className="text-[11px] font-bold text-stone-600 dark:text-stone-400 shrink-0">H/KM</span>
                   </div>
                 </div>
 
-                {/* 3. Quantidade Padrão e Unidade */}
+                {/* 4. Quantidade Padrão e Unidade */}
                 <div className="md:col-span-2">
                   <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
                     QUANTIDADE PADRÃO *
@@ -1190,7 +1359,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                       placeholder="28"
                       value={ruleStandardQty}
                       onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                      className="w-full px-2 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                     />
                     <select
                       value={ruleUnit}
@@ -1207,21 +1376,22 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Botão de Adição / Atualização */}
-                <div className="md:col-span-2 flex items-end pt-5">
+                {/* 5. Botão de Adição / Atualização */}
+                <div className="md:col-span-1 flex items-end pt-5">
                   <button
                     type="submit"
-                    className="w-full py-2 px-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center justify-center space-x-1 cursor-pointer active:scale-95"
+                    className="w-full py-2 px-2 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center justify-center space-x-1 cursor-pointer active:scale-95"
+                    title={editingRuleId ? 'Salvar Edição' : 'Adicionar ao Plano'}
                   >
                     <Plus className="w-4 h-4" />
-                    <span>{editingRuleId ? 'ATUALIZAR' : '+ ADICIONAR'}</span>
+                    <span className="hidden xl:inline">{editingRuleId ? 'SALVAR' : 'ADICIONAR'}</span>
                   </button>
                 </div>
 
               </div>
             </form>
 
-            {/* Tabela de Regras Ativas da Categoria */}
+            {/* Tabela de Regras Ativas da Categoria (Organizada por Subgrupos) */}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -1234,81 +1404,291 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {currentCategoryRules.length === 0 ? (
+                  {groupedRulesBySubgroup.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-stone-400 dark:text-stone-500 font-bold uppercase text-xs">
                         NENHUM ITEM PREVENTIVO CONFIGURADO PARA ESTA CATEGORIA
                       </td>
                     </tr>
                   ) : (
-                    currentCategoryRules.map((rule, idx) => {
-                      const linkedItem = rule.PRODUTO_ID 
-                        ? inventoryList.find(i => i.id === rule.PRODUTO_ID) 
-                        : inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
-                      
-                      const cost = linkedItem ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || 0) : 0;
-
-                      return (
-                        <tr 
-                          key={rule.id || idx}
-                          className={`hover:bg-slate-50/80 dark:hover:bg-stone-800/60 transition ${
-                            idx % 2 === 0 ? 'bg-white dark:bg-stone-900' : 'bg-slate-50/40 dark:bg-stone-850/40'
-                          }`}
-                        >
-                          <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100 uppercase">
+                    groupedRulesBySubgroup.map((group) => (
+                      <React.Fragment key={group.subgroup}>
+                        {/* Cabeçalho Cinza Compacto para Cada Subgrupo Ativo */}
+                        <tr className="bg-slate-200/90 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-y border-slate-300 dark:border-stone-700 font-black text-[11px] uppercase tracking-wider select-none">
+                          <td colSpan={5} className="py-1.5 px-3">
                             <div className="flex items-center space-x-2">
-                              <span>{rule.ITEM_NOME}</span>
-                              {linkedItem && (
-                                <span className="text-[9px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded">
-                                  {formatCurrencyBRL(cost)}/{rule.unidade || 'UN'}
-                                </span>
-                              )}
-                            </div>
-                            {rule.observacoes && (
-                              <p className="text-[10px] text-stone-400 font-normal mt-0.5">{rule.observacoes}</p>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
-                            A CADA {rule.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 dark:text-emerald-400 text-xs">
-                            {rule.QUANTIDADE_PADRAO} {rule.unidade || 'UN'}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            {linkedItem ? (
-                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                                <Check className="w-3 h-3 text-emerald-600" />
-                                <span>ALMOXARIFADO CONECTADO</span>
+                              <span>📁 {group.subgroup}</span>
+                              <span className="text-[10px] text-stone-600 dark:text-stone-400 font-mono font-bold">
+                                ({group.rules.length} {group.rules.length === 1 ? 'ITEM' : 'ITENS'})
                               </span>
-                            ) : (
-                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase bg-stone-100 dark:bg-stone-800 text-stone-500">
-                                SEM VÍNCULO DIRETO
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <div className="flex items-center justify-end space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleStartEditRule(rule)}
-                                className="p-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer"
-                                title="Editar esta regra"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeletePreventiveRule(rule.id)}
-                                className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer"
-                                title="Excluir esta regra"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
                             </div>
                           </td>
                         </tr>
-                      );
-                    })
+
+                        {group.rules.map((rule, idx) => {
+                          const linkedItem = rule.PRODUTO_ID 
+                            ? inventoryList.find(i => i.id === rule.PRODUTO_ID) 
+                            : inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
+                          
+                          const cost = linkedItem ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || 0) : 0;
+                          const linkedCode = linkedItem ? (linkedItem.code || (linkedItem as any).codigo || linkedItem.id.slice(0, 6)) : null;
+                          const linkedName = linkedItem ? ((linkedItem as any).nome_comercial || linkedItem.name || '').toUpperCase() : null;
+                          const linkedStock = linkedItem ? Number(linkedItem.quantity ?? (linkedItem as any).currentStock ?? 0) : 0;
+                          const linkedUnit = linkedItem ? (linkedItem.unit || (linkedItem as any).unidade_medida || 'UN').toUpperCase() : 'UN';
+
+                          const isInlineEditing = inlineEditingRuleId === rule.id;
+
+                          return (
+                            <React.Fragment key={rule.id || idx}>
+                              {/* Linha Normal do Item */}
+                              <tr 
+                                className={`hover:bg-slate-50/80 dark:hover:bg-stone-800/60 transition ${
+                                  isInlineEditing
+                                    ? 'bg-sky-50/60 dark:bg-sky-950/30'
+                                    : idx % 2 === 0 ? 'bg-white dark:bg-stone-900' : 'bg-slate-50/40 dark:bg-stone-850/40'
+                                }`}
+                              >
+                                <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100 uppercase">
+                                  <div className="flex items-center space-x-2">
+                                    <span>{rule.ITEM_NOME}</span>
+                                    {linkedItem && (
+                                      <span className="text-[9px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                                        {formatCurrencyBRL(cost)}/{rule.unidade || 'UN'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {rule.observacoes && (
+                                    <p className="text-[10px] text-stone-400 font-normal mt-0.5">{rule.observacoes}</p>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
+                                  A CADA {rule.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 dark:text-emerald-400 text-xs">
+                                  {rule.QUANTIDADE_PADRAO} {rule.unidade || 'UN'}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {linkedItem ? (
+                                    <span 
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 max-w-[280px] truncate"
+                                      title={`Código: ${linkedCode} - ${linkedName} | Saldo: ${linkedStock.toFixed(2)} ${linkedUnit}`}
+                                    >
+                                      <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                                      <span className="truncate">
+                                        📦 COD: {linkedCode} - {linkedName} | QTD ESTOQUE: {linkedStock.toFixed(2)} {linkedUnit}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span 
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                      title="Item sem amarração direta no almoxarifado. Clique no lápis para vincular agora."
+                                    >
+                                      <span>⚠️ PENDENTE DE VINCULO</span>
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <div className="flex items-center justify-end space-x-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartInlineEdit(rule)}
+                                      className="p-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer"
+                                      title="Editar insumo ou vincular com almoxarifado diretamente"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePreventiveRule(rule.id)}
+                                      className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer"
+                                      title="Excluir esta regra"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* Linha de Edição Direta Inline no Grid (Quando Aberta) */}
+                              {isInlineEditing && (
+                                <tr className="bg-sky-50/90 dark:bg-sky-950/50 border-y-2 border-sky-400 dark:border-sky-600 animate-in fade-in">
+                                  <td colSpan={5} className="p-3">
+                                    <div className="space-y-2.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-black uppercase text-sky-950 dark:text-sky-200 flex items-center space-x-1.5 tracking-wider">
+                                          <Pencil className="w-3.5 h-3.5 text-sky-600" />
+                                          <span>VINCULAR OU ATUALIZAR INSUMO NO ESTOQUE (EDIÇÃO DIRETA NO GRID)</span>
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelInlineEdit}
+                                          className="text-[10.5px] font-bold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 uppercase underline cursor-pointer"
+                                        >
+                                          CANCELAR
+                                        </button>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+                                        {/* Subgrupo */}
+                                        <div className="md:col-span-3">
+                                          <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 uppercase">
+                                            SUBGRUPO *
+                                          </label>
+                                          <select
+                                            value={inlineSubgroup}
+                                            onChange={(e) => setInlineSubgroup(e.target.value as MaintenanceSubgroup)}
+                                            className="w-full px-2.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-bold uppercase text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                                          >
+                                            {MAINTENANCE_SUBGROUPS.map((sg) => (
+                                              <option key={sg} value={sg}>
+                                                {sg}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Produto com Autocomplete Real */}
+                                        <div className="md:col-span-4 relative" ref={inlineDropdownRef}>
+                                          <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 uppercase">
+                                            BUSCAR PRODUTO NO ALMOXARIFADO *
+                                          </label>
+                                          <div className="relative">
+                                            <input
+                                              type="text"
+                                              placeholder="Digite o nome ou código do produto..."
+                                              value={inlineSearchQuery}
+                                              onChange={(e) => {
+                                                setInlineSearchQuery(e.target.value);
+                                                setInlineSelectedProduct(null);
+                                                setInlineDropdownOpen(true);
+                                              }}
+                                              onFocus={() => {
+                                                if (inlineSearchQuery.trim()) {
+                                                  setInlineDropdownOpen(true);
+                                                }
+                                              }}
+                                              className="w-full px-2.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-bold uppercase text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            />
+                                            <Package className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
+                                          </div>
+
+                                          {/* Autocomplete Dropdown */}
+                                          {inlineDropdownOpen && inlineAutocompleteResults.length > 0 && (
+                                            <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl shadow-xl z-50 max-h-52 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
+                                              <div className="px-3 py-1 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-400">
+                                                PRODUTOS ENCONTRADOS:
+                                              </div>
+                                              {inlineAutocompleteResults.map((item) => {
+                                                const anyItem = item as any;
+                                                const name = (anyItem.nome_comercial || item.name || '').toUpperCase();
+                                                const cost = Number(anyItem.unitPrice || item.unitCost || anyItem.preco_custo || anyItem.custo_unitario || 0);
+                                                const unit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
+                                                const stock = Number(item.quantity ?? anyItem.currentStock ?? 0);
+                                                return (
+                                                  <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    onClick={() => handleSelectInlineProduct(item)}
+                                                    className="w-full text-left px-3 py-1.5 hover:bg-sky-100/70 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer"
+                                                  >
+                                                    <div className="min-w-0">
+                                                      <p className="text-xs font-bold text-stone-900 dark:text-stone-100 uppercase truncate">
+                                                        {name}
+                                                      </p>
+                                                      <p className="text-[10px] text-stone-500 font-medium">
+                                                        Cód: {item.code || anyItem.codigo || 'S/N'} • Categoria: {anyItem.categoria || item.category || 'GERAL'}
+                                                      </p>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                      <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
+                                                        {formatCurrencyBRL(cost)}
+                                                      </span>
+                                                      <span className="text-[9.5px] text-stone-400 font-bold block">
+                                                        Saldo: {stock.toFixed(2)} {unit}
+                                                      </span>
+                                                    </div>
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+
+                                          {inlineSelectedProduct && (
+                                            <div className="mt-1 flex items-center space-x-1.5 text-[9.5px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                                              <Check className="w-3 h-3 text-emerald-600" />
+                                              <span>VINCULADO: CÓD {inlineSelectedProduct.code || (inlineSelectedProduct as any).codigo || inlineSelectedProduct.id.slice(0, 6)} • ESTOQUE: {Number(inlineSelectedProduct.quantity ?? (inlineSelectedProduct as any).currentStock ?? 0).toFixed(2)} {inlineUnit}</span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Intervalo */}
+                                        <div className="md:col-span-2">
+                                          <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 uppercase">
+                                            INTERVALO *
+                                          </label>
+                                          <div className="flex items-center space-x-1">
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              value={inlineInterval}
+                                              onChange={(e) => setInlineInterval(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                              className="w-full px-2 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            />
+                                            <span className="text-[10px] font-bold text-stone-500">H/KM</span>
+                                          </div>
+                                        </div>
+
+                                        {/* Quantidade e Unidade */}
+                                        <div className="md:col-span-2">
+                                          <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 uppercase">
+                                            QTD PADRÃO *
+                                          </label>
+                                          <div className="flex items-center space-x-1">
+                                            <input
+                                              type="number"
+                                              min="0.1"
+                                              step="any"
+                                              value={inlineQty}
+                                              onChange={(e) => setInlineQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                              className="w-full px-2 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            />
+                                            <select
+                                              value={inlineUnit}
+                                              onChange={(e) => setInlineUnit(e.target.value.toUpperCase())}
+                                              className="px-1.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            >
+                                              <option value="L">L</option>
+                                              <option value="UN">UN</option>
+                                              <option value="KG">KG</option>
+                                              <option value="CX">CX</option>
+                                              <option value="PC">PC</option>
+                                              <option value="M">M</option>
+                                            </select>
+                                          </div>
+                                        </div>
+
+                                        {/* Botão de Salvar Amarração */}
+                                        <div className="md:col-span-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSaveInlineEdit(rule.id)}
+                                            className="w-full py-1.5 px-2 rounded-lg bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center justify-center space-x-1 cursor-pointer active:scale-95"
+                                            title="Salvar alterações deste insumo"
+                                          >
+                                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                            <span className="hidden xl:inline">SALVAR</span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))
                   )}
                 </tbody>
               </table>
