@@ -394,73 +394,65 @@ export function getStoredCategories(): ExpenseCategory[] {
       'agrocontrol_plano_contas',
     ];
 
-    const normalizeCatName = (rawName?: string): string => {
-      const n = (rawName || '').trim();
-      if (!n) return 'Categoria';
-      const upper = n.toUpperCase();
-      if (upper.includes('COMBUSTÍVEL') || upper.includes('COMBUSTIVEL') || upper.includes('DIESEL') || upper.includes('ARLA')) {
-        return 'COMBUSTÍVEL, ARLA / DIESEL';
-      }
-      return n.toUpperCase();
-    };
-
     const sortCategoriesAZ = (cats: ExpenseCategory[]): ExpenseCategory[] => {
       return [...cats].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
     };
+
+    // Matriz Oficial dos 16 itens mandatórios
+    const officialMap = new Map<string, ExpenseCategory>(
+      INITIAL_CATEGORIES.map(c => [(c.name || '').trim().toUpperCase(), c])
+    );
 
     for (const key of candidateKeys) {
       const raw = localStorage.getItem(key);
       if (raw) {
         try {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const validList = parsed.filter(item => item && typeof item === 'object' && (item.id || item.name || item.nome));
-            if (validList.length > 0) {
-              const mapped = validList.map((item: any) => ({
-                id: item.id || `cat_${item.name || item.nome}`,
-                name: normalizeCatName(item.name || item.nome),
-                color: item.color || item.cor || '#0284c7',
-                icon: item.icon || 'Tag',
-                description: item.description || item.descricao,
-                isCustom: item.isCustom ?? false,
-              }));
-              return sortCategoriesAZ(mapped);
-            }
-          } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categorias) && parsed.categorias.length > 0) {
-            const mapped = parsed.categorias.map((item: any) => ({
-              id: item.id || item.codigo || `cat_${item.nome}`,
-              name: normalizeCatName(item.nome || item.name),
-              color: item.cor || item.color || '#0284c7',
-              icon: item.icon || 'Tag',
-              description: item.descricao || item.description,
-              isCustom: false,
-            }));
-            return sortCategoriesAZ(mapped);
+          const rawItems = Array.isArray(parsed) ? parsed : (parsed?.categorias || []);
+          if (Array.isArray(rawItems) && rawItems.length > 0) {
+            // Mapeia eventuais categorias personalizadas ou antigas
+            rawItems.forEach((item: any) => {
+              if (!item) return;
+              const n = (item.name || item.nome || '').trim().toUpperCase();
+              if (!n) return;
+              if (n.includes('COMBUST')) {
+                // já mapeado em COMBUSTÍVEL, ARLA / DIESEL
+                return;
+              }
+              // Normaliza legados para os novos nomes oficiais
+              if (n === 'ADMINISTRATIVO & COMERCIAL') return;
+              if (n === 'ALIMENTAÇÃO & CAMPO') return;
+              if (n === 'ARRENDAMENTO & TERRA') return;
+              if (n === 'FRETE & LOGÍSTICA') return;
+              if (n === 'LONA, FITA & EMBALAGENS') return;
+              if (n === 'MANUTENÇÃO & PEÇAS') return;
+              if (n === 'MÃO DE OBRA & DIÁRIAS') return;
+
+              if (!officialMap.has(n)) {
+                officialMap.set(n, {
+                  id: item.id || item.codigo || `cat_${n.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+                  name: n,
+                  color: item.color || item.cor || '#0284c7',
+                  icon: item.icon || 'Tag',
+                  description: item.description || item.descricao,
+                  isCustom: item.isCustom ?? true,
+                });
+              }
+            });
           }
         } catch (_) {}
       }
     }
 
-    // Fallback: check colaca_silagem_plano_contas if it has categorias
-    const rawPlano = localStorage.getItem('colaca_silagem_plano_contas');
-    if (rawPlano) {
-      try {
-        const parsedPlano = JSON.parse(rawPlano);
-        if (parsedPlano && Array.isArray(parsedPlano.categorias) && parsedPlano.categorias.length > 0) {
-          const mapped = parsedPlano.categorias.map((item: any) => ({
-            id: item.id || item.codigo || `cat_${item.nome}`,
-            name: normalizeCatName(item.nome || item.name),
-            color: item.cor || item.color || '#0284c7',
-            icon: item.icon || 'Tag',
-            description: item.descricao || item.description,
-            isCustom: false,
-          }));
-          return sortCategoriesAZ(mapped);
-        }
-      } catch (_) {}
-    }
+    const result = sortCategoriesAZ(Array.from(officialMap.values()));
+    // Atualiza storage com a matriz oficial
+    try {
+      const json = JSON.stringify(result);
+      localStorage.setItem('agrocontrol_categorias_despesas', json);
+      localStorage.setItem(STORAGE_KEYS.CATEGORIES, json);
+    } catch (_) {}
 
-    return INITIAL_CATEGORIES;
+    return result;
   } catch (e) {
     console.error('Failed to load categories', e);
     return INITIAL_CATEGORIES;
