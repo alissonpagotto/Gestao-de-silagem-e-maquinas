@@ -418,6 +418,20 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const [purchaseUrgency, setPurchaseUrgency] = useState<'baixa' | 'media' | 'alta' | 'urgente_veiculo_parado'>('alta');
 
   // --- MOTOR MESTRE DE MANUTENÇÃO PREVENTIVA (FLUIDOS, FILTROS & REGRAS DO GRUPO) ---
+  const [preventiveRulesVersion, setPreventiveRulesVersion] = useState(0);
+
+  useEffect(() => {
+    const handleRulesSync = () => {
+      setPreventiveRulesVersion(v => v + 1);
+    };
+    window.addEventListener('agrocontrol_plano_preventivo_grupos_updated', handleRulesSync);
+    window.addEventListener('storage', handleRulesSync);
+    return () => {
+      window.removeEventListener('agrocontrol_plano_preventivo_grupos_updated', handleRulesSync);
+      window.removeEventListener('storage', handleRulesSync);
+    };
+  }, []);
+
   const selectedMachinery = useMemo(() => {
     return machineries.find(m => m.id === machineryId);
   }, [machineries, machineryId]);
@@ -425,7 +439,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const vehiclePreventiveRules = useMemo(() => {
     if (!selectedMachinery) return [];
     return getPreventivePlanForVehicle(selectedMachinery);
-  }, [selectedMachinery]);
+  }, [selectedMachinery, preventiveRulesVersion]);
 
   const pastLogsForSelectedMachine = useMemo(() => {
     if (!machineryId) return [];
@@ -545,10 +559,12 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   }, [serviceCategory]);
 
   const showPreventiveBlock = useMemo(() => {
-    return Boolean(machineryId && (isTrocaOleoCategory || type === 'preventiva' || hasVencidosOuCriticos));
-  }, [machineryId, isTrocaOleoCategory, type, hasVencidosOuCriticos]);
+    return Boolean(machineryId && evaluatedPreventiveItems.length > 0);
+  }, [machineryId, evaluatedPreventiveItems.length]);
 
   const handleInjectPreventiveItem = (ruleItem: EvaluatedPreventiveItem) => {
+    if (ruleItem.isInjected) return;
+
     const stockProd = ruleItem.PRODUTO_ID 
       ? allInventoryList.find(i => i.id === ruleItem.PRODUTO_ID)
       : allInventoryList.find(i => {
@@ -2097,9 +2113,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                 </td>
                                 <td className="py-1.5 px-2 text-right">
                                   {item.isInjected ? (
-                                    <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-100 text-emerald-900 border border-emerald-400 rounded text-[10px] font-bold shadow-2xs whitespace-nowrap">
+                                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded text-[10px] font-bold shadow-2xs whitespace-nowrap uppercase cursor-default select-none">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                                      <span>✓ JÁ INJETADO NA OS</span>
+                                      <span>✓ NA OS</span>
                                     </span>
                                   ) : (
                                     <button

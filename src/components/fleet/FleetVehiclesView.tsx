@@ -1,16 +1,27 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Plus, Search, Filter, Fuel, Wrench, AlertTriangle, 
   CheckCircle2, Clock, Truck, Shield, Calendar, Edit3, Trash2,
   Table as TableIcon, LayoutGrid, Users, Gauge, Box, Eye, TrendingUp,
   Receipt, DollarSign, Printer, RefreshCw, X, Link2, Check,
-  Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight
+  Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight,
+  SlidersHorizontal, Layers, Pencil, RotateCcw, Package, Save
 } from 'lucide-react';
-import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile } from '../../types';
+import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
-import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile, getStoredMachineries, getStoredEmployees } from '../../lib/storage';
+import { 
+  getStoredVehicleSystemCategories, 
+  getStoredVehicleOwnershipRegimes, 
+  getStoredCompanyProfile, 
+  getStoredMachineries, 
+  getStoredEmployees,
+  getStoredPreventiveGroupPlans,
+  saveStoredPreventiveGroupPlans,
+  getStoredInventory,
+  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY
+} from '../../lib/storage';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -67,6 +78,276 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [quickHourMeter, setQuickHourMeter] = useState('');
   const [quickKm, setQuickKm] = useState('');
   const [quickMeterFeedback, setQuickMeterFeedback] = useState<string | null>(null);
+
+  // Sub-aba ativa: 'frota' (VEÍCULOS & MÁQUINAS) ou 'tipos_trocas' (TIPOS DE TROCAS / PLANO PREVENTIVO)
+  const [vehicleSubTab, setVehicleSubTab] = useState<'frota' | 'tipos_trocas'>('frota');
+
+  // Estados da Matriz de Parametrização "TIPOS DE TROCAS" (Regras do Grupo / Plano Preventivo)
+  const [preventivePlans, setPreventivePlans] = useState<Record<string, PreventiveGroupItem[]>>(() => getStoredPreventiveGroupPlans());
+  const [selectedGroupCategory, setSelectedGroupCategory] = useState<string>('COLHEITADEIRA');
+  const [inventoryList, setInventoryList] = useState<InventoryItem[]>(() => getStoredInventory());
+  const [inventorySearchQuery, setInventorySearchQuery] = useState('');
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
+  const [ruleIntervalHoursKm, setRuleIntervalHoursKm] = useState<number | ''>(250);
+  const [ruleStandardQty, setRuleStandardQty] = useState<number | ''>(28);
+  const [ruleUnit, setRuleUnit] = useState('L');
+  const [ruleNotes, setRuleNotes] = useState('');
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
+  const [preventiveFeedback, setPreventiveFeedback] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
+  const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const inventoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sincronização em tempo real de planos preventivos
+  useEffect(() => {
+    const handlePlansUpdated = (e: any) => {
+      if (e?.detail && typeof e.detail === 'object') {
+        setPreventivePlans(e.detail);
+      } else {
+        setPreventivePlans(getStoredPreventiveGroupPlans());
+      }
+    };
+    window.addEventListener('agrocontrol_plano_preventivo_grupos_updated', handlePlansUpdated);
+    window.addEventListener('storage', handlePlansUpdated);
+    return () => {
+      window.removeEventListener('agrocontrol_plano_preventivo_grupos_updated', handlePlansUpdated);
+      window.removeEventListener('storage', handlePlansUpdated);
+    };
+  }, []);
+
+  // Recarrega inventário do almoxarifado quando a sub-aba for aberta
+  useEffect(() => {
+    if (vehicleSubTab === 'tipos_trocas') {
+      setInventoryList(getStoredInventory());
+    }
+  }, [vehicleSubTab]);
+
+  // Fechar dropdown de autocomplete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (inventoryDropdownRef.current && !inventoryDropdownRef.current.contains(event.target as Node)) {
+        setIsInventoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Lista normalizada e desduplicada de grupos/categorias disponíveis
+  const availableGroupCategories = useMemo(() => {
+    const canonicalOrder = ['COLHEITADEIRA', 'FORRAGEIRA', 'TRATOR', 'CAMINHÃO', 'MÁQUINAS PESADAS'];
+    const aliasMap: Record<string, string> = {
+      'CAMINHAO': 'CAMINHÃO',
+      'CAMINHAO TRATOR': 'CAMINHÃO',
+      'CAMINHÃO TRATOR': 'CAMINHÃO',
+      'MAQUINAS_PESADAS': 'MÁQUINAS PESADAS',
+      'MAQUINAS PESADAS': 'MÁQUINAS PESADAS',
+      'ENSILADEIRA': 'FORRAGEIRA',
+      'ENSILADEIRA AUTOPROPELIDA': 'FORRAGEIRA',
+      'TRATOR AGRICOLA': 'TRATOR',
+      'TRATOR AGRÍCOLA': 'TRATOR',
+    };
+
+    const normalizeStr = (s: string) => s.toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/_/g, ' ')
+      .trim();
+
+    const fromPlans = Object.keys(preventivePlans || {});
+    const fromSysCategories = getStoredVehicleSystemCategories();
+
+    const set = new Set<string>();
+    canonicalOrder.forEach(c => set.add(c));
+
+    [...fromPlans, ...fromSysCategories.map(c => c.toUpperCase())].forEach(raw => {
+      const trimmed = (raw || '').trim().toUpperCase();
+      if (!trimmed) return;
+      if (aliasMap[trimmed]) {
+        set.add(aliasMap[trimmed]);
+      } else {
+        const norm = normalizeStr(trimmed);
+        const matchedCanonical = canonicalOrder.find(co => normalizeStr(co) === norm);
+        if (matchedCanonical) {
+          set.add(matchedCanonical);
+        } else {
+          set.add(trimmed);
+        }
+      }
+    });
+
+    return Array.from(set).filter(Boolean);
+  }, [preventivePlans]);
+
+  // Itens configurados para a categoria ativa
+  const currentCategoryRules = useMemo<PreventiveGroupItem[]>(() => {
+    const upperCat = selectedGroupCategory.toUpperCase();
+    if (preventivePlans[upperCat] && Array.isArray(preventivePlans[upperCat]) && preventivePlans[upperCat].length > 0) {
+      return preventivePlans[upperCat];
+    }
+    const aliasKey = upperCat === 'CAMINHÃO' ? 'CAMINHAO' : (upperCat === 'MÁQUINAS PESADAS' ? 'MAQUINAS_PESADAS' : upperCat);
+    if (preventivePlans[aliasKey] && Array.isArray(preventivePlans[aliasKey]) && preventivePlans[aliasKey].length > 0) {
+      return preventivePlans[aliasKey];
+    }
+    return DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[upperCat] || DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[aliasKey] || [];
+  }, [preventivePlans, selectedGroupCategory]);
+
+  // Autocomplete real de produtos do almoxarifado
+  const inventoryAutocompleteResults = useMemo(() => {
+    if (!inventorySearchQuery.trim()) return [];
+    const q = inventorySearchQuery.toLowerCase().trim();
+    return inventoryList.filter(item => {
+      const name = String(item.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || (item as any).codigo || '').toLowerCase();
+      const cat = String(item.categoria || item.category || '').toLowerCase();
+      return name.includes(q) || code.includes(q) || cat.includes(q);
+    }).slice(0, 8);
+  }, [inventorySearchQuery, inventoryList]);
+
+  // Selecionar produto do autocomplete
+  const handleSelectInventoryItem = (item: InventoryItem) => {
+    setSelectedInventoryItem(item);
+    const resolvedName = (item.nome_comercial || item.name || '').toUpperCase();
+    setInventorySearchQuery(resolvedName);
+    const resolvedUnit = (item.unit || item.unidade_medida || 'UN').toUpperCase();
+    setRuleUnit(resolvedUnit);
+    setIsInventoryDropdownOpen(false);
+  };
+
+  // Iniciar edição de uma regra existente
+  const handleStartEditRule = (rule: PreventiveGroupItem) => {
+    setEditingRuleId(rule.id);
+    setInventorySearchQuery(rule.ITEM_NOME);
+    setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
+    setRuleStandardQty(rule.QUANTIDADE_PADRAO);
+    setRuleUnit(rule.unidade || 'UN');
+    setRuleNotes(rule.observacoes || '');
+    if (rule.PRODUTO_ID) {
+      const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
+      setSelectedInventoryItem(linked);
+    } else {
+      setSelectedInventoryItem(null);
+    }
+    setIsInventoryDropdownOpen(false);
+  };
+
+  // Cancelar edição
+  const handleCancelEditRule = () => {
+    setEditingRuleId(null);
+    setInventorySearchQuery('');
+    setSelectedInventoryItem(null);
+    setRuleIntervalHoursKm(250);
+    setRuleStandardQty(1);
+    setRuleUnit('UN');
+    setRuleNotes('');
+    setIsInventoryDropdownOpen(false);
+  };
+
+  // Salvar / Adicionar regra na matriz da categoria ativa
+  const handleSavePreventiveRule = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const itemName = inventorySearchQuery.trim().toUpperCase();
+    if (!itemName) {
+      setPreventiveFeedback({ type: 'info', message: 'INFORME O NOME DO INSUMO OU SELECIONE UM PRODUTO DO ALMOXARIFADO.' });
+      setTimeout(() => setPreventiveFeedback(null), 3000);
+      return;
+    }
+    const interval = typeof ruleIntervalHoursKm === 'number' && ruleIntervalHoursKm > 0 ? ruleIntervalHoursKm : 250;
+    const qty = typeof ruleStandardQty === 'number' && ruleStandardQty > 0 ? ruleStandardQty : 1;
+    const unit = (selectedInventoryItem?.unit || selectedInventoryItem?.unidade_medida || ruleUnit || 'UN').toUpperCase();
+
+    const upperCat = selectedGroupCategory.toUpperCase();
+    const currentRules = currentCategoryRules;
+    let updatedRules: PreventiveGroupItem[];
+
+    if (editingRuleId) {
+      updatedRules = currentRules.map(r => r.id === editingRuleId ? {
+        ...r,
+        ITEM_NOME: itemName,
+        PRODUTO_ID: selectedInventoryItem?.id || r.PRODUTO_ID,
+        INTERVALO_HORAS_KM: interval,
+        QUANTIDADE_PADRAO: qty,
+        unidade: unit,
+        observacoes: ruleNotes.trim() || undefined,
+      } : r);
+    } else {
+      const newRule: PreventiveGroupItem = {
+        id: `prev_${upperCat.toLowerCase().slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        PRODUTO_ID: selectedInventoryItem?.id,
+        ITEM_NOME: itemName,
+        INTERVALO_HORAS_KM: interval,
+        QUANTIDADE_PADRAO: qty,
+        unidade: unit,
+        observacoes: ruleNotes.trim() || undefined,
+      };
+      updatedRules = [...currentRules, newRule];
+    }
+
+    const updatedPlans = {
+      ...preventivePlans,
+      [upperCat]: updatedRules,
+    };
+    setPreventivePlans(updatedPlans);
+    saveStoredPreventiveGroupPlans(updatedPlans);
+
+    handleCancelEditRule();
+    setPreventiveFeedback({
+      type: 'success',
+      message: `REGRA "${itemName}" SALVA COM SUCESSO NO GRUPO ${upperCat}!`
+    });
+    setTimeout(() => setPreventiveFeedback(null), 3500);
+  };
+
+  // Excluir regra
+  const handleDeletePreventiveRule = (ruleId: string) => {
+    const upperCat = selectedGroupCategory.toUpperCase();
+    const updatedRules = currentCategoryRules.filter(r => r.id !== ruleId);
+    const updatedPlans = {
+      ...preventivePlans,
+      [upperCat]: updatedRules,
+    };
+    setPreventivePlans(updatedPlans);
+    saveStoredPreventiveGroupPlans(updatedPlans);
+    setPreventiveFeedback({
+      type: 'success',
+      message: `ITEM REMOVIDO DO GRUPO ${upperCat}.`
+    });
+    setTimeout(() => setPreventiveFeedback(null), 3000);
+  };
+
+  // Restaurar padrões de fábrica para o grupo
+  const handleRestoreGroupDefaults = () => {
+    const upperCat = selectedGroupCategory.toUpperCase();
+    const defaults = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[upperCat] || [];
+    const updatedPlans = {
+      ...preventivePlans,
+      [upperCat]: defaults,
+    };
+    setPreventivePlans(updatedPlans);
+    saveStoredPreventiveGroupPlans(updatedPlans);
+    setPreventiveFeedback({
+      type: 'success',
+      message: `PADRÕES DE FÁBRICA RESTAURADOS PARA O GRUPO ${upperCat}!`
+    });
+    setTimeout(() => setPreventiveFeedback(null), 3500);
+  };
+
+  // Adicionar nova categoria de máquina
+  const handleAddNewGroupCategory = () => {
+    const raw = newCategoryInput.trim().toUpperCase();
+    if (!raw) return;
+    if (!preventivePlans[raw]) {
+      const updatedPlans = {
+        ...preventivePlans,
+        [raw]: DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[raw] || [],
+      };
+      setPreventivePlans(updatedPlans);
+      saveStoredPreventiveGroupPlans(updatedPlans);
+    }
+    setSelectedGroupCategory(raw);
+    setNewCategoryInput('');
+    setNewCategoryModalOpen(false);
+  };
 
   // Filter machineries
   const availableCategories = useMemo(() => {
@@ -588,31 +869,548 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      
-      {/* Synchronization Feedback Banner */}
-      {syncBanner && (
-        <div className={`p-4 rounded-2xl flex items-center justify-between border transition-all ${
-          syncBanner.type === 'success'
-            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
-            : 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
-        }`}>
-          <div className="flex items-center space-x-3">
-            {syncBanner.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            ) : (
-              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
-            )}
-            <p className="text-xs sm:text-sm font-semibold">{syncBanner.message}</p>
-          </div>
+    <div className="space-y-4">
+
+      {/* Sub-abas de Navegação: VEÍCULOS & MÁQUINAS | TIPOS DE TROCAS */}
+      <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-stone-200 dark:border-stone-800">
+        <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xs">
           <button
-            onClick={() => setSyncBanner(null)}
-            className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition"
+            type="button"
+            id="subtab-btn-veiculos"
+            onClick={() => setVehicleSubTab('frota')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer select-none ${
+              vehicleSubTab === 'frota'
+                ? 'bg-[#0963cb] text-white shadow-xs'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+            }`}
           >
-            <X className="w-4 h-4" />
+            <Truck className="w-3.5 h-3.5" />
+            <span>VEÍCULOS & MÁQUINAS</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+              vehicleSubTab === 'frota' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
+            }`}>
+              {machineries.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="subtab-btn-tipos-trocas"
+            onClick={() => setVehicleSubTab('tipos_trocas')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer select-none ${
+              vehicleSubTab === 'tipos_trocas'
+                ? 'bg-[#0963cb] text-white shadow-xs'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+            }`}
+          >
+            <Wrench className="w-3.5 h-3.5 text-amber-500" />
+            <span>TIPOS DE TROCAS</span>
+            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+              vehicleSubTab === 'tipos_trocas'
+                ? 'bg-emerald-400 text-emerald-950'
+                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+            }`}>
+              REGRAS DO GRUPO
+            </span>
           </button>
         </div>
-      )}
+
+        {vehicleSubTab === 'frota' && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setVehicleSubTab('tipos_trocas')}
+              className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 hover:bg-amber-100 text-xs font-bold uppercase transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+              title="Configurar matriz de manutenção preventiva para cada grupo de veículos"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
+              <span>CONFIGURAR REGRAS DO GRUPO</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {vehicleSubTab === 'tipos_trocas' ? (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          
+          {/* Feedback Banner */}
+          {preventiveFeedback && (
+            <div className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all ${
+              preventiveFeedback.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 text-emerald-900 dark:text-emerald-200'
+                : 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 text-blue-900 dark:text-blue-200'
+            }`}>
+              <div className="flex items-center space-x-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <p className="text-xs font-black uppercase tracking-wider">{preventiveFeedback.message}</p>
+              </div>
+              <button onClick={() => setPreventiveFeedback(null)} className="p-1 hover:bg-black/5 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Caixa de Lista / Textbox Estruturada de Categorias */}
+          <div className="bg-white dark:bg-stone-900 p-3.5 sm:p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-stone-100 dark:border-stone-800 pb-2">
+              <div className="flex items-center space-x-2">
+                <Layers className="w-4 h-4 text-[#0963cb]" />
+                <span className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200">
+                  SELECIONE A CATEGORIA / GRUPO DE MÁQUINAS:
+                </span>
+                <span className="text-[10px] text-stone-500 dark:text-stone-400 font-bold uppercase">
+                  ({availableGroupCategories.length} CATEGORIAS DISPONÍVEIS)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewCategoryModalOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 text-stone-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[11px] font-bold uppercase transition flex items-center space-x-1 cursor-pointer active:scale-95 shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ NOVA CATEGORIA</span>
+              </button>
+            </div>
+
+            {/* Caixa de Texto / Listbox Vertical com Rolagem Interna Exclusiva (Preserva Zero Rolagem Global) */}
+            <div
+              role="listbox"
+              aria-label="Categorias de Máquinas"
+              className="w-full h-36 sm:h-40 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 rounded-xl overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800 shadow-inner select-none focus:outline-none"
+            >
+              {availableGroupCategories.map((cat, index) => {
+                const isSelected = selectedGroupCategory.toUpperCase() === cat.toUpperCase();
+                const aliasKey = cat === 'CAMINHÃO' ? 'CAMINHAO' : (cat === 'MÁQUINAS PESADAS' ? 'MAQUINAS_PESADAS' : cat);
+                const count = (
+                  preventivePlans[cat.toUpperCase()] ||
+                  preventivePlans[aliasKey] ||
+                  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[cat.toUpperCase()] ||
+                  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[aliasKey] ||
+                  []
+                ).length;
+                const isEven = index % 2 === 0;
+
+                return (
+                  <div
+                    key={cat}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      setSelectedGroupCategory(cat.toUpperCase());
+                      handleCancelEditRule();
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs font-black uppercase tracking-wider flex items-center justify-between transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-2xs font-extrabold'
+                        : isEven
+                          ? 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
+                          : 'bg-stone-50/80 dark:bg-stone-850 text-stone-700 dark:text-stone-200 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-600' : 'bg-stone-400 dark:bg-stone-600'}`} />
+                      <span className="truncate">{cat}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                        isSelected
+                          ? 'bg-emerald-200/90 text-emerald-950 border border-emerald-400/80'
+                          : 'bg-stone-200/80 dark:bg-stone-700 text-stone-700 dark:text-stone-300'
+                      }`}>
+                        {count} {count === 1 ? 'REGRA' : 'REGRAS'}
+                      </span>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-emerald-700 stroke-[2.5]" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Card Mestre de Parametrização para a Categoria Selecionada */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
+            
+            {/* Header da Categoria */}
+            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
+                    <span>{selectedGroupCategory}</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      {currentCategoryRules.length} REGRAS ATIVAS
+                    </span>
+                  </h3>
+                </div>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                  Estes insumos e intervalos de fábrica alimentarão automaticamente o bloco "ITENS RECOMENDADOS" na Nova Ordem de Manutenção.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleRestoreGroupDefaults}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 text-[11px] font-bold uppercase transition flex items-center space-x-1.5 cursor-pointer"
+                  title="Restaurar a lista sugerida de fábrica para este tipo de equipamento"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                  <span>RESTAURAR PADRÕES</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Formulário de Inclusão / Edição com Autocomplete Real do Almoxarifado */}
+            <form onSubmit={handleSavePreventiveRule} className="p-4 bg-stone-50/60 dark:bg-stone-850/40 border-b border-stone-200 dark:border-stone-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
+                  <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{editingRuleId ? 'EDITAR ITEM RECOMENDADO' : 'CADASTRAR NOVO ITEM NO PLANO DO GRUPO'}</span>
+                </h4>
+                {editingRuleId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEditRule}
+                    className="text-[11px] text-rose-600 hover:underline font-bold uppercase cursor-pointer"
+                  >
+                    CANCELAR EDIÇÃO
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+                
+                {/* 1. Nome do Insumo com Autocomplete Real */}
+                <div className="md:col-span-5 relative" ref={inventoryDropdownRef}>
+                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
+                    PRODUTO / INSUMO / FLUIDO *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Ex: ÓLEO DO MOTOR 15W40, FILTRO RACOR..."
+                      value={inventorySearchQuery}
+                      onChange={(e) => {
+                        setInventorySearchQuery(e.target.value);
+                        setSelectedInventoryItem(null);
+                        setIsInventoryDropdownOpen(true);
+                      }}
+                      onFocus={() => {
+                        if (inventorySearchQuery.trim()) {
+                          setIsInventoryDropdownOpen(true);
+                        }
+                      }}
+                      className="w-full px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                    />
+                    <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
+                  </div>
+
+                  {/* Dropdown de Autocomplete com Estoque Real */}
+                  {isInventoryDropdownOpen && inventoryAutocompleteResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
+                      <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-400">
+                        PRODUTOS ENCONTRADOS NO ALMOXARIFADO:
+                      </div>
+                      {inventoryAutocompleteResults.map((item) => {
+                        const anyItem = item as any;
+                        const name = (anyItem.nome_comercial || item.name || '').toUpperCase();
+                        const cost = Number(anyItem.unitPrice || item.unitCost || anyItem.preco_custo || anyItem.custo_unitario || anyItem.valor_unitario || 0);
+                        const unit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
+                        const stock = Number(item.quantity ?? anyItem.currentStock ?? anyItem.quantidade_atual ?? 0);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleSelectInventoryItem(item)}
+                            className="w-full text-left px-3 py-2 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-stone-900 dark:text-stone-100 uppercase truncate">
+                                {name}
+                              </p>
+                              <p className="text-[10px] text-stone-500 font-medium">
+                                Cód: {item.code || anyItem.codigo || 'S/N'} • Categoria: {anyItem.categoria || item.category || 'GERAL'}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
+                                {formatCurrencyBRL(cost)}
+                              </span>
+                              <span className="text-[9.5px] text-stone-400 font-bold block">
+                                Saldo: {stock} {unit}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Tag informativa de vínculo ativo com estoque */}
+                  {selectedInventoryItem && (
+                    <div className="mt-1 flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>VINCULADO AO ESTOQUE: CUSTO UNITÁRIO {formatCurrencyBRL(Number((selectedInventoryItem as any).unitPrice || selectedInventoryItem.unitCost || (selectedInventoryItem as any).preco_custo || 0))}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Intervalo de Fábrica */}
+                <div className="md:col-span-3">
+                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
+                    INTERVALO DE FÁBRICA *
+                  </label>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-xs font-bold text-stone-500 shrink-0">A CADA</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="250"
+                      value={ruleIntervalHoursKm}
+                      onChange={(e) => setRuleIntervalHoursKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                    />
+                    <span className="text-xs font-bold text-stone-600 dark:text-stone-400 shrink-0">H/KM</span>
+                  </div>
+                </div>
+
+                {/* 3. Quantidade Padrão e Unidade */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
+                    QUANTIDADE PADRÃO *
+                  </label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="any"
+                      placeholder="28"
+                      value={ruleStandardQty}
+                      onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                    />
+                    <select
+                      value={ruleUnit}
+                      onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
+                      className="px-2 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0"
+                    >
+                      <option value="L">L</option>
+                      <option value="UN">UN</option>
+                      <option value="KG">KG</option>
+                      <option value="CX">CX</option>
+                      <option value="PC">PC</option>
+                      <option value="M">M</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 4. Botão de Adição / Atualização */}
+                <div className="md:col-span-2 flex items-end pt-5">
+                  <button
+                    type="submit"
+                    className="w-full py-2 px-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center justify-center space-x-1 cursor-pointer active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{editingRuleId ? 'ATUALIZAR' : '+ ADICIONAR'}</span>
+                  </button>
+                </div>
+
+              </div>
+            </form>
+
+            {/* Tabela de Regras Ativas da Categoria */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100/80 dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-stone-200 dark:border-stone-700">
+                    <th className="py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
+                    <th className="py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
+                    <th className="py-2.5 px-3 text-center">QUANTIDADE PADRÃO</th>
+                    <th className="py-2.5 px-3 text-center">VÍNCULO COM ALMOXARIFADO</th>
+                    <th className="py-2.5 px-3 text-right">AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {currentCategoryRules.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-stone-400 dark:text-stone-500 font-bold uppercase text-xs">
+                        NENHUM ITEM PREVENTIVO CONFIGURADO PARA ESTA CATEGORIA
+                      </td>
+                    </tr>
+                  ) : (
+                    currentCategoryRules.map((rule, idx) => {
+                      const linkedItem = rule.PRODUTO_ID 
+                        ? inventoryList.find(i => i.id === rule.PRODUTO_ID) 
+                        : inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
+                      
+                      const cost = linkedItem ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || 0) : 0;
+
+                      return (
+                        <tr 
+                          key={rule.id || idx}
+                          className={`hover:bg-slate-50/80 dark:hover:bg-stone-800/60 transition ${
+                            idx % 2 === 0 ? 'bg-white dark:bg-stone-900' : 'bg-slate-50/40 dark:bg-stone-850/40'
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100 uppercase">
+                            <div className="flex items-center space-x-2">
+                              <span>{rule.ITEM_NOME}</span>
+                              {linkedItem && (
+                                <span className="text-[9px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                                  {formatCurrencyBRL(cost)}/{rule.unidade || 'UN'}
+                                </span>
+                              )}
+                            </div>
+                            {rule.observacoes && (
+                              <p className="text-[10px] text-stone-400 font-normal mt-0.5">{rule.observacoes}</p>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
+                            A CADA {rule.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 dark:text-emerald-400 text-xs">
+                            {rule.QUANTIDADE_PADRAO} {rule.unidade || 'UN'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {linkedItem ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>ALMOXARIFADO CONECTADO</span>
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase bg-stone-100 dark:bg-stone-800 text-stone-500">
+                                SEM VÍNCULO DIRETO
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditRule(rule)}
+                                className="p-1.5 rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer"
+                                title="Editar esta regra"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePreventiveRule(rule.id)}
+                                className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer"
+                                title="Excluir esta regra"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Rodapé com botão de salvar consolidação */}
+            <div className="p-3 bg-stone-50 dark:bg-stone-850 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase">
+                CHAVE LOCALSTORAGE: agrocontrol_plano_preventivo_grupos
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveStoredPreventiveGroupPlans(preventivePlans);
+                    setPreventiveFeedback({
+                      type: 'success',
+                      message: `MATRIZ PREVENTIVA CONSOLIDADA COM SUCESSO NO BANCO LOCAL!`
+                    });
+                    setTimeout(() => setPreventiveFeedback(null), 3000);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>SALVAR ALTERAÇÕES NA MATRIZ</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Modal para Adicionar Nova Categoria de Máquinas */}
+          {newCategoryModalOpen && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in">
+              <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-sm w-full p-4 border border-stone-200 dark:border-stone-800 shadow-xl space-y-3">
+                <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-stone-900 dark:text-white">
+                    NOVA CATEGORIA DE MÁQUINAS
+                  </h4>
+                  <button onClick={() => setNewCategoryModalOpen(false)} className="p-1 hover:bg-stone-100 rounded">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
+                    NOME DA CATEGORIA (CAIXA ALTA)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: TRANSBORDO, PULVERIZADOR..."
+                    value={newCategoryInput}
+                    onChange={(e) => setNewCategoryInput(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-stone-100 uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+                  <button
+                    type="button"
+                    onClick={() => setNewCategoryModalOpen(false)}
+                    className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 text-xs font-bold uppercase text-stone-600 dark:text-stone-300"
+                  >
+                    CANCELAR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddNewGroupCategory}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider"
+                  >
+                    CRIAR CATEGORIA
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      ) : (
+        <div className="space-y-6">
+
+        {/* Synchronization Feedback Banner */}
+        {syncBanner && (
+          <div className={`p-4 rounded-2xl flex items-center justify-between border transition-all ${
+            syncBanner.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+              : 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+          }`}>
+            <div className="flex items-center space-x-3">
+              {syncBanner.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+              )}
+              <p className="text-xs sm:text-sm font-semibold">{syncBanner.message}</p>
+            </div>
+            <button
+              onClick={() => setSyncBanner(null)}
+              className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
       {/* Header & Filter Controls */}
       <div className="bg-white dark:bg-stone-900 p-4 sm:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
@@ -1438,6 +2236,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             );
           })}
         </div>
+      )}
+
+      </div>
       )}
 
       {/* Quick Meter Reading Modal */}
