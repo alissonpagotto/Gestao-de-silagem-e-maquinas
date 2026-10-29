@@ -87,6 +87,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Estados da Matriz de Parametrização "TIPOS DE TROCAS" (Regras do Grupo / Plano Preventivo)
   const [preventivePlans, setPreventivePlans] = useState<Record<string, PreventiveGroupItem[]>>(() => getStoredPreventiveGroupPlans());
   const [selectedGroupCategory, setSelectedGroupCategory] = useState<string>('COLHEITADEIRA');
+  const [filterSubgroup, setFilterSubgroup] = useState<string>('TODOS OS SUBGRUPOS');
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>(() => getStoredInventory());
   const [ruleSubgroup, setRuleSubgroup] = useState<MaintenanceSubgroup>('FILTROS');
   const [inventorySearchQuery, setInventorySearchQuery] = useState('');
@@ -238,6 +239,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
     return groups;
   }, [currentCategoryRules]);
+
+  // Filtragem composta por subgrupo de manutenção (respeita exceção "TODOS OS SUBGRUPOS")
+  const filteredGroupedRules = useMemo(() => {
+    if (!filterSubgroup || filterSubgroup === 'TODOS' || filterSubgroup === 'TODOS OS SUBGRUPOS') {
+      return groupedRulesBySubgroup;
+    }
+    return groupedRulesBySubgroup.filter(g => g.subgroup === filterSubgroup);
+  }, [groupedRulesBySubgroup, filterSubgroup]);
+
+  const filteredRulesCount = useMemo(() => {
+    return filteredGroupedRules.reduce((acc, g) => acc + g.rules.length, 0);
+  }, [filteredGroupedRules]);
 
   // Autocomplete real de produtos do almoxarifado (Formulário Superior)
   const inventoryAutocompleteResults = useMemo(() => {
@@ -1084,83 +1097,70 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
           )}
 
-          {/* Caixa de Lista / Textbox Estruturada de Categorias (100% Fixo / Âncora) */}
-          <div className="shrink-0 bg-white dark:bg-stone-900 p-2.5 sm:p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-2">
-            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-stone-100 dark:border-stone-800 pb-1.5">
-              <div className="flex items-center space-x-2">
-                <Layers className="w-4 h-4 text-[#0963cb]" />
-                <span className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200">
-                  SELECIONE A CATEGORIA / GRUPO DE MÁQUINAS:
-                </span>
-                <span className="text-[10px] text-stone-500 dark:text-stone-400 font-bold uppercase">
-                  ({availableGroupCategories.length} CATEGORIAS DISPONÍVEIS)
-                </span>
+          {/* Barra de Filtros Compactos em Select Box (Substitui a Listbox Vertical) */}
+          <div className="shrink-0 bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs flex items-end justify-between flex-wrap gap-3">
+            <div className="flex items-center flex-wrap gap-3 sm:gap-4">
+              
+              {/* FILTRO 1 (ESQUERDA): SELECIONE A CATEGORIA */}
+              <div className="flex flex-col space-y-1">
+                <label 
+                  htmlFor="filter-group-category" 
+                  className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400"
+                >
+                  SELECIONE A CATEGORIA
+                </label>
+                <select
+                  id="filter-group-category"
+                  value={selectedGroupCategory.toUpperCase()}
+                  onChange={(e) => {
+                    setSelectedGroupCategory(e.target.value.toUpperCase());
+                    handleCancelEditRule();
+                  }}
+                  className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
+                >
+                  {availableGroupCategories.map((cat) => (
+                    <option key={cat} value={cat.toUpperCase()} className="uppercase">
+                      {cat.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* FILTRO 2 (DIREITA): SUBGRUPO DE MANUTENÇÃO */}
+              <div className="flex flex-col space-y-1">
+                <label 
+                  htmlFor="filter-maintenance-subgroup" 
+                  className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400"
+                >
+                  SUBGRUPO DE MANUTENÇÃO
+                </label>
+                <select
+                  id="filter-maintenance-subgroup"
+                  value={filterSubgroup}
+                  onChange={(e) => setFilterSubgroup(e.target.value)}
+                  className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
+                >
+                  <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
+                  <option value="FILTROS">FILTROS</option>
+                  <option value="ÓLEOS E LUBRIFICANTES">ÓLEOS E LUBRIFICANTES</option>
+                  <option value="COMPONENTES E SERVIÇOS MECÂNICOS">COMPONENTES E SERVIÇOS MECÂNICOS</option>
+                  <option value="FLUIDOS E ADITIVOS">FLUIDOS E ADITIVOS</option>
+                </select>
+              </div>
+
+            </div>
+
+            {/* Ação Auxiliar: + NOVA CATEGORIA */}
+            <div className="flex items-center space-x-2">
               <button
                 type="button"
                 onClick={() => setNewCategoryModalOpen(true)}
-                className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 text-stone-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[10.5px] font-bold uppercase transition flex items-center space-x-1 cursor-pointer active:scale-95 shadow-2xs"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 text-stone-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-xs font-black uppercase tracking-wider transition flex items-center space-x-1 cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap"
+                title="Cadastrar nova categoria de máquinas e veículos"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ NOVA CATEGORIA</span>
               </button>
-            </div>
-
-            {/* Caixa de Texto / Listbox Vertical com Rolagem Interna Exclusiva (Preserva Zero Rolagem Global) */}
-            <div
-              role="listbox"
-              aria-label="Categorias de Máquinas"
-              className="w-full h-24 sm:h-28 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 rounded-xl overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800 shadow-inner select-none focus:outline-none"
-            >
-              {availableGroupCategories.map((cat, index) => {
-                const isSelected = selectedGroupCategory.toUpperCase() === cat.toUpperCase();
-                const aliasKey = cat === 'CAMINHÃO' ? 'CAMINHAO' : (cat === 'MÁQUINAS PESADAS' ? 'MAQUINAS_PESADAS' : cat);
-                const count = (
-                  preventivePlans[cat.toUpperCase()] ||
-                  preventivePlans[aliasKey] ||
-                  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[cat.toUpperCase()] ||
-                  DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[aliasKey] ||
-                  []
-                ).length;
-                const isEven = index % 2 === 0;
-
-                return (
-                  <div
-                    key={cat}
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => {
-                      setSelectedGroupCategory(cat.toUpperCase());
-                      handleCancelEditRule();
-                    }}
-                    className={`w-full px-3 py-1.5 text-xs font-black uppercase tracking-wider flex items-center justify-between transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-2xs font-extrabold'
-                        : isEven
-                          ? 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
-                          : 'bg-stone-50/80 dark:bg-stone-850 text-stone-700 dark:text-stone-200 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-600' : 'bg-stone-400 dark:bg-stone-600'}`} />
-                      <span className="truncate">{cat}</span>
-                    </div>
-
-                    <div className="flex items-center space-x-1.5 shrink-0">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                        isSelected
-                          ? 'bg-emerald-200/90 text-emerald-950 border border-emerald-400/80'
-                          : 'bg-stone-200/80 dark:bg-stone-700 text-stone-700 dark:text-stone-300'
-                      }`}>
-                        {count} {count === 1 ? 'REGRA' : 'REGRAS'}
-                      </span>
-                      {isSelected && (
-                        <Check className="w-3.5 h-3.5 text-emerald-700 stroke-[2.5]" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
 
@@ -1173,7 +1173,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
                   <span>{selectedGroupCategory}</span>
                   <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
-                    {currentCategoryRules.length} REGRAS ATIVAS
+                    {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
+                      ? `${filteredRulesCount} DE ${currentCategoryRules.length} REGRAS (${filterSubgroup})`
+                      : `${currentCategoryRules.length} REGRAS ATIVAS`}
                   </span>
                 </h3>
               </div>
@@ -1373,14 +1375,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {groupedRulesBySubgroup.length === 0 ? (
+                  {filteredGroupedRules.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-stone-400 dark:text-stone-500 font-bold uppercase text-xs">
-                        NENHUM ITEM PREVENTIVO CONFIGURADO PARA ESTA CATEGORIA
+                        {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
+                          ? `NENHUM ITEM PREVENTIVO CONFIGURADO NO SUBGRUPO "${filterSubgroup}" PARA ESTA CATEGORIA`
+                          : 'NENHUM ITEM PREVENTIVO CONFIGURADO PARA ESTA CATEGORIA'}
                       </td>
                     </tr>
                   ) : (
-                    groupedRulesBySubgroup.map((group) => (
+                    filteredGroupedRules.map((group) => (
                       <React.Fragment key={group.subgroup}>
                         {/* Cabeçalho Cinza Compacto para Cada Subgrupo Ativo */}
                         <tr className="bg-slate-200/90 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-y border-slate-300 dark:border-stone-700 font-black text-[11px] uppercase tracking-wider select-none">
