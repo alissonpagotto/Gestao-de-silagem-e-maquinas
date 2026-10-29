@@ -5,7 +5,7 @@ import {
   Table as TableIcon, LayoutGrid, Users, Gauge, Box, Eye, TrendingUp,
   Receipt, DollarSign, Printer, RefreshCw, X, Link2, Check,
   Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight,
-  SlidersHorizontal, Layers, Pencil, Package, Save
+  SlidersHorizontal, Layers, Pencil, Package, Save, Lock
 } from 'lucide-react';
 import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
@@ -99,6 +99,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
   const [preventiveFeedback, setPreventiveFeedback] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const inventoryDropdownRef = useRef<HTMLDivElement>(null);
