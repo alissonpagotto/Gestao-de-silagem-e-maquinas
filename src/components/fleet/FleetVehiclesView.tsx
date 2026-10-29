@@ -5,7 +5,7 @@ import {
   Table as TableIcon, LayoutGrid, Users, Gauge, Box, Eye, TrendingUp,
   Receipt, DollarSign, Printer, RefreshCw, X, Link2, Check,
   Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight,
-  SlidersHorizontal, Layers, Pencil, RotateCcw, Package, Save
+  SlidersHorizontal, Layers, Pencil, Package, Save
 } from 'lucide-react';
 import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
@@ -464,23 +464,6 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       message: `ITEM REMOVIDO DO GRUPO ${upperCat}.`
     });
     setTimeout(() => setPreventiveFeedback(null), 3000);
-  };
-
-  // Restaurar padrões de fábrica para o grupo
-  const handleRestoreGroupDefaults = () => {
-    const upperCat = selectedGroupCategory.toUpperCase();
-    const defaults = DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[upperCat] || [];
-    const updatedPlans = {
-      ...preventivePlans,
-      [upperCat]: defaults,
-    };
-    setPreventivePlans(updatedPlans);
-    saveStoredPreventiveGroupPlans(updatedPlans);
-    setPreventiveFeedback({
-      type: 'success',
-      message: `PADRÕES DE FÁBRICA RESTAURADOS PARA O GRUPO ${upperCat}!`
-    });
-    setTimeout(() => setPreventiveFeedback(null), 3500);
   };
 
   // Adicionar nova categoria de máquina
@@ -1185,32 +1168,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
             
             {/* Header da Categoria */}
-            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
-                    <span>{selectedGroupCategory}</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
-                      {currentCategoryRules.length} REGRAS ATIVAS
-                    </span>
-                  </h3>
-                </div>
-                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                  Estes insumos e intervalos de fábrica alimentarão automaticamente o bloco "ITENS RECOMENDADOS" na Nova Ordem de Manutenção.
-                </p>
+            <div className="p-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800">
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
+                  <span>{selectedGroupCategory}</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    {currentCategoryRules.length} REGRAS ATIVAS
+                  </span>
+                </h3>
               </div>
-
-              <div className="flex items-center space-x-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleRestoreGroupDefaults}
-                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 text-[11px] font-bold uppercase transition flex items-center space-x-1.5 cursor-pointer"
-                  title="Restaurar a lista sugerida de fábrica para este tipo de equipamento"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                  <span>RESTAURAR PADRÕES</span>
-                </button>
-              </div>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+                Estes insumos e intervalos de fábrica alimentarão automaticamente o bloco "ITENS RECOMENDADOS" na Nova Ordem de Manutenção.
+              </p>
             </div>
 
             {/* Formulário de Inclusão / Edição com Autocomplete Real do Almoxarifado */}
