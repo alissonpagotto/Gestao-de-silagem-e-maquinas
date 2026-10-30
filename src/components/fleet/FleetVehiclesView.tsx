@@ -1092,7 +1092,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             }`}
           >
             <Wrench className="w-3.5 h-3.5 text-amber-500" />
-            <span>TIPOS DE TROCAS</span>
+            <span>CADASTRO REVISÕES PERIÓDICAS</span>
             <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
               vehicleSubTab === 'tipos_trocas'
                 ? 'bg-emerald-400 text-emerald-950'
@@ -1138,102 +1138,101 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
           )}
 
-          {/* Barra de Filtros Compactos em Select Box (Substitui a Listbox Vertical) */}
-          <div className="shrink-0 bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs flex items-end justify-between flex-wrap gap-3">
-            <div className="flex items-center flex-wrap gap-3 sm:gap-4">
-              
-              {/* FILTRO 1 (ESQUERDA): SELECIONE A CATEGORIA */}
-              <div className="flex flex-col space-y-1">
-                <label 
-                  htmlFor="filter-group-category" 
-                  className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400"
-                >
-                  SELECIONE A CATEGORIA
-                </label>
-                <select
-                  id="filter-group-category"
-                  value={selectedGroupCategory.toUpperCase()}
-                  onChange={(e) => {
-                    setSelectedGroupCategory(e.target.value.toUpperCase());
-                    handleCancelEditRule();
-                  }}
-                  className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
-                >
-                  {availableGroupCategories.map((cat) => (
-                    <option key={cat} value={cat.toUpperCase()} className="uppercase">
-                      {cat.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* FILTRO 2 (DIREITA): SUBGRUPO DE MANUTENÇÃO */}
-              <div className="flex flex-col space-y-1">
-                <label 
-                  htmlFor="filter-maintenance-subgroup" 
-                  className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400"
-                >
-                  SUBGRUPO DE MANUTENÇÃO
-                </label>
-                <select
-                  id="filter-maintenance-subgroup"
-                  value={filterSubgroup}
-                  onChange={(e) => setFilterSubgroup(e.target.value)}
-                  className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
-                >
-                  <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
-                  <option value="FILTROS">FILTROS</option>
-                  <option value="ÓLEOS E LUBRIFICANTES">ÓLEOS E LUBRIFICANTES</option>
-                  <option value="COMPONENTES E SERVIÇOS MECÂNICOS">COMPONENTES E SERVIÇOS MECÂNICOS</option>
-                  <option value="FLUIDOS E ADITIVOS">FLUIDOS E ADITIVOS</option>
-                </select>
-              </div>
-
-              {/* NOVO BOTÃO DE INCLUSÃO SUPERIOR: + CADASTRAR ITEM (SLIM DESIGN PRO) */}
-              <div className="flex flex-col justify-end">
-                <button
-                  type="button"
-                  id="btn-cadastrar-item-plano"
-                  onClick={handleOpenCreateRuleModal}
-                  className="px-4 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white text-xs font-black uppercase tracking-wider transition flex items-center space-x-1.5 cursor-pointer shadow-sm select-none"
-                  title="Cadastrar novo item no plano preventivo deste grupo"
-                >
-                  <Plus className="w-4 h-4 text-white" />
-                  <span>+ CADASTRAR ITEM</span>
-                </button>
-              </div>
-
-            </div>
-
-            {/* Ação Auxiliar: + NOVA CATEGORIA */}
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => setNewCategoryModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 text-stone-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-xs font-black uppercase tracking-wider transition flex items-center space-x-1 cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap"
-                title="Cadastrar nova categoria de máquinas e veículos"
+          {/* Barra de Filtros Unificada (Padrão Slim Design Pro) */}
+          <div className="shrink-0 flex items-end gap-3 w-full bg-slate-50 dark:bg-stone-900 p-2.5 sm:p-3 border border-slate-300 dark:border-stone-800 rounded-lg shadow-sm">
+            
+            {/* SELECT 1: SELECIONE A CATEGORIA */}
+            <div className="flex flex-col space-y-1">
+              <label 
+                htmlFor="filter-group-category" 
+                className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 leading-none"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ NOVA CATEGORIA</span>
-              </button>
+                SELECIONE A CATEGORIA
+              </label>
+              <select
+                id="filter-group-category"
+                value={selectedGroupCategory.toUpperCase()}
+                onChange={(e) => {
+                  setSelectedGroupCategory(e.target.value.toUpperCase());
+                  handleCancelEditRule();
+                }}
+                className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 h-[34px] rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
+              >
+                {availableGroupCategories.map((cat) => (
+                  <option key={cat} value={cat.toUpperCase()} className="uppercase">
+                    {cat.toUpperCase()}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* SELECT 2: SUBGRUPO DE MANUTENÇÃO */}
+            <div className="flex flex-col space-y-1">
+              <label 
+                htmlFor="filter-maintenance-subgroup" 
+                className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 leading-none"
+              >
+                SUBGRUPO DE MANUTENÇÃO
+              </label>
+              <select
+                id="filter-maintenance-subgroup"
+                value={filterSubgroup}
+                onChange={(e) => setFilterSubgroup(e.target.value)}
+                className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 h-[34px] rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
+              >
+                <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
+                <option value="FILTROS">FILTROS</option>
+                <option value="ÓLEOS E LUBRIFICANTES">ÓLEOS E LUBRIFICANTES</option>
+                <option value="COMPONENTES E SERVIÇOS MECÂNICOS">COMPONENTES E SERVIÇOS MECÂNICOS</option>
+                <option value="FLUIDOS E ADITIVOS">FLUIDOS E ADITIVOS</option>
+              </select>
+            </div>
+
+            {/* BOTÃO PRIMÁRIO: + CADASTRAR ITEM (Altura exata h-[34px] dos selects para alinhamento simétrico) */}
+            <button
+              type="button"
+              id="btn-cadastrar-item-plano"
+              onClick={handleOpenCreateRuleModal}
+              className="bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-3.5 h-[34px] text-xs rounded transition-colors tracking-wider shadow flex items-center justify-center gap-1 cursor-pointer select-none whitespace-nowrap shrink-0"
+              title="Cadastrar novo item no plano preventivo deste grupo"
+            >
+              <Plus className="w-4 h-4 text-white" />
+              <span>+ CADASTRAR ITEM</span>
+            </button>
+
           </div>
 
           {/* Card Mestre de Parametrização para a Categoria Selecionada (100% Fixo com Grid Rolável Interno) */}
-          <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-800 shadow-sm overflow-hidden w-full">
             
-            {/* Header da Categoria (100% Fixo / Âncora) */}
-            <div className="shrink-0 p-3 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
-                  <span>{selectedGroupCategory}</span>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
-                    {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
-                      ? `${filteredRulesCount} DE ${currentCategoryRules.length} REGRAS (${filterSubgroup})`
-                      : `${currentCategoryRules.length} REGRAS ATIVAS`}
-                  </span>
-                </h3>
+            {/* Header da Categoria com o Botão + NOVA CATEGORIA Embutido no Topo à Direita */}
+            <div className="shrink-0 px-3.5 py-2.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800">
+              {/* Linha 1: Título e Status à esquerda | Botão + NOVA CATEGORIA à direita */}
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
+                    <span>{selectedGroupCategory}</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
+                        ? `${filteredRulesCount} DE ${currentCategoryRules.length} REGRAS (${filterSubgroup})`
+                        : `${currentCategoryRules.length} REGRAS ATIVAS`}
+                    </span>
+                  </h3>
+                </div>
+
+                {/* Botão Micro/Compacto + NOVA CATEGORIA Embutido na Mesma Linha de Título */}
+                <button
+                  type="button"
+                  onClick={() => setNewCategoryModalOpen(true)}
+                  className="bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white font-bold px-2.5 py-1 text-xs rounded transition-colors shadow flex items-center space-x-1 cursor-pointer select-none shrink-0 h-[26px]"
+                  title="Cadastrar nova categoria de máquinas e veículos"
+                >
+                  <Plus className="w-3 h-3 text-white" />
+                  <span className="text-[11px] font-bold tracking-wider uppercase">NOVA CATEGORIA</span>
+                </button>
               </div>
+
+              {/* Subtítulo informativo */}
               <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
                 Estes insumos e intervalos de fábrica alimentarão automaticamente o bloco "ITENS RECOMENDADOS" na Nova Ordem de Manutenção.
               </p>
