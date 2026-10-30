@@ -1716,7 +1716,9 @@ export interface PreventiveGroupItem {
   SUBGRUPO?: MaintenanceSubgroup | string;
   PRODUTO_ID?: string;
   PRODUTO_NOME_ESTOQUE?: string;
+  PRODUTO_NOME_REAL?: string;
   CUSTO_UNITARIO?: number;
+  VALOR_EXIBICAO?: string;
   ITEM_NOME: string;
   INTERVALO_HORAS_KM: number;
   QUANTIDADE_PADRAO: number;

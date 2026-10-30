@@ -63,7 +63,8 @@ import {
   getStoredInventory,
   saveStoredInventory,
   getStoredMaintenanceLogs,
-  getPreventivePlanForVehicle
+  getPreventivePlanForVehicle,
+  resolveVehicleGroupCategory
 } from '../../lib/storage';
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
 import { ProductSearchModal } from './ProductSearchModal';
@@ -438,6 +439,33 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
   const vehiclePreventiveRules = useMemo(() => {
     if (!selectedMachinery) return [];
+
+    // Leitura reativa prioritária direta do LocalStorage para refletir imediatamente alterações da matriz preventiva
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agrocontrol_plano_preventivo_grupos') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const group = resolveVehicleGroupCategory(selectedMachinery);
+        const catUpper = (selectedMachinery.categoriaVeiculo || selectedMachinery.categoria || '').toUpperCase();
+        
+        if (parsed[group] && Array.isArray(parsed[group]) && parsed[group].length > 0) {
+          return parsed[group];
+        }
+        if (catUpper && parsed[catUpper] && Array.isArray(parsed[catUpper]) && parsed[catUpper].length > 0) {
+          return parsed[catUpper];
+        }
+        // Aliases comuns
+        if (group === 'CAMINHAO' && parsed['CAMINHÃO'] && Array.isArray(parsed['CAMINHÃO']) && parsed['CAMINHÃO'].length > 0) {
+          return parsed['CAMINHÃO'];
+        }
+        if (group === 'MAQUINAS_PESADAS' && parsed['MÁQUINAS PESADAS'] && Array.isArray(parsed['MÁQUINAS PESADAS']) && parsed['MÁQUINAS PESADAS'].length > 0) {
+          return parsed['MÁQUINAS PESADAS'];
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao ler plano preventivo dinâmico do LocalStorage:', err);
+    }
+
     return getPreventivePlanForVehicle(selectedMachinery);
   }, [selectedMachinery, preventiveRulesVersion]);
 
@@ -496,6 +524,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     return vehiclePreventiveRules.map(rule => {
       let ultimoHorimetroTroca = 0;
       const ruleNameClean = (rule.ITEM_NOME || '').toUpperCase().trim();
+      const ruleRealName = (rule.PRODUTO_NOME_REAL || rule.PRODUTO_NOME_ESTOQUE || '').toUpperCase().trim();
 
       for (const log of pastLogsForSelectedMachine) {
         let matched = false;
@@ -503,11 +532,13 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           matched = log.partsItems.some(p => {
             if (rule.PRODUTO_ID && p.inventoryItemId === rule.PRODUTO_ID) return true;
             const pDesc = (p.description || '').toUpperCase().trim();
+            if (ruleRealName && (pDesc === ruleRealName || pDesc.includes(ruleRealName) || ruleRealName.includes(pDesc))) return true;
             return pDesc === ruleNameClean || pDesc.includes(ruleNameClean) || ruleNameClean.includes(pDesc);
           });
         }
         if (!matched && log.description) {
           const lDesc = log.description.toUpperCase();
+          if (ruleRealName && lDesc.includes(ruleRealName)) matched = true;
           if (lDesc.includes(ruleNameClean)) matched = true;
         }
 
@@ -534,6 +565,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       const isInjected = partsItems.some(p => {
         if (rule.PRODUTO_ID && p.inventoryItemId && p.inventoryItemId === rule.PRODUTO_ID) return true;
         const pDesc = (p.description || '').toUpperCase().trim();
+        if (ruleRealName && (pDesc === ruleRealName || pDesc.includes(ruleRealName) || ruleRealName.includes(pDesc))) return true;
         return pDesc === ruleNameClean || (pDesc.length > 3 && ruleNameClean.includes(pDesc)) || (ruleNameClean.length > 3 && pDesc.includes(ruleNameClean));
       });
 
@@ -565,36 +597,50 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const handleInjectPreventiveItem = (ruleItem: EvaluatedPreventiveItem) => {
     if (ruleItem.isInjected) return;
 
+    // Busca síncrona no almoxarifado interno
     const stockProd = ruleItem.PRODUTO_ID 
       ? allInventoryList.find(i => i.id === ruleItem.PRODUTO_ID)
       : allInventoryList.find(i => {
-          const nm = (i.nome_comercial || i.name || '').toUpperCase();
-          const rNm = ruleItem.ITEM_NOME.toUpperCase();
+          const nm = ((i as any).nome_comercial || i.name || '').toUpperCase().trim();
+          const realName = (ruleItem.PRODUTO_NOME_REAL || ruleItem.PRODUTO_NOME_ESTOQUE || '').toUpperCase().trim();
+          const rNm = ruleItem.ITEM_NOME.toUpperCase().trim();
+          if (realName && (nm === realName || nm.includes(realName) || realName.includes(nm))) return true;
           return nm === rNm || nm.includes(rNm) || rNm.includes(nm);
         });
 
-    const unitCost = stockProd ? getPriceForProductByRule(stockProd, defaultPriceType) : 0;
+    const linkedName = ruleItem.PRODUTO_NOME_REAL || 
+      ruleItem.PRODUTO_NOME_ESTOQUE || 
+      (stockProd ? (((stockProd as any).nome_comercial || stockProd.name || '').toUpperCase()) : null) || 
+      ruleItem.ITEM_NOME;
+
+    const unitCost = (ruleItem.CUSTO_UNITARIO !== undefined && !isNaN(Number(ruleItem.CUSTO_UNITARIO)) && Number(ruleItem.CUSTO_UNITARIO) > 0)
+      ? Number(ruleItem.CUSTO_UNITARIO)
+      : (stockProd 
+          ? Number((stockProd as any).unitPrice || stockProd.unitCost || (stockProd as any).preco_custo || (stockProd as any).custo_unitario || (stockProd as any).valor_unitario || 0) 
+          : 0);
+
     const qty = Number(ruleItem.QUANTIDADE_PADRAO) || 1;
     const total = Math.round(qty * unitCost * 100) / 100;
-    const unit = stockProd?.unit || stockProd?.unidade_medida || ruleItem.unidade || 'UN';
+    const unit = stockProd?.unit || (stockProd as any)?.unidade_medida || ruleItem.unidade || 'UN';
 
     const newPart: MaintenancePartItem = {
       id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
       inventoryItemId: stockProd?.id || ruleItem.PRODUTO_ID,
-      description: ruleItem.ITEM_NOME.toUpperCase(),
+      description: linkedName.toUpperCase(),
       origin: 'almoxarifado_interno',
       quantity: qty,
       unit: unit.toUpperCase(),
       unitCost: unitCost,
       totalCost: total,
       stockDeducted: false,
+      financeiro_bloqueado: true, // Trava explícita: custo DRE Frota, sem gerar duplicidade no contas a pagar
     };
 
     setUsePartsItemList(true);
     setPartsItems(prev => [...prev, newPart]);
     setFeedbackBanner({
       type: 'save',
-      message: `Item "${ruleItem.ITEM_NOME}" injetado com sucesso no Bloco 2 (Peças & Estoque)!`
+      message: `Item "${linkedName}" injetado com sucesso no Bloco 2 (Peças & Estoque)!`
     });
     setTimeout(() => setFeedbackBanner(null), 3000);
   };
@@ -607,26 +653,39 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       const stockProd = ruleItem.PRODUTO_ID 
         ? allInventoryList.find(i => i.id === ruleItem.PRODUTO_ID)
         : allInventoryList.find(i => {
-            const nm = (i.nome_comercial || i.name || '').toUpperCase();
-            const rNm = ruleItem.ITEM_NOME.toUpperCase();
+            const nm = ((i as any).nome_comercial || i.name || '').toUpperCase().trim();
+            const realName = (ruleItem.PRODUTO_NOME_REAL || ruleItem.PRODUTO_NOME_ESTOQUE || '').toUpperCase().trim();
+            const rNm = ruleItem.ITEM_NOME.toUpperCase().trim();
+            if (realName && (nm === realName || nm.includes(realName) || realName.includes(nm))) return true;
             return nm === rNm || nm.includes(rNm) || rNm.includes(nm);
           });
 
-      const unitCost = stockProd ? getPriceForProductByRule(stockProd, defaultPriceType) : 0;
+      const linkedName = ruleItem.PRODUTO_NOME_REAL || 
+        ruleItem.PRODUTO_NOME_ESTOQUE || 
+        (stockProd ? (((stockProd as any).nome_comercial || stockProd.name || '').toUpperCase()) : null) || 
+        ruleItem.ITEM_NOME;
+
+      const unitCost = (ruleItem.CUSTO_UNITARIO !== undefined && !isNaN(Number(ruleItem.CUSTO_UNITARIO)) && Number(ruleItem.CUSTO_UNITARIO) > 0)
+        ? Number(ruleItem.CUSTO_UNITARIO)
+        : (stockProd 
+            ? Number((stockProd as any).unitPrice || stockProd.unitCost || (stockProd as any).preco_custo || (stockProd as any).custo_unitario || (stockProd as any).valor_unitario || 0) 
+            : 0);
+
       const qty = Number(ruleItem.QUANTIDADE_PADRAO) || 1;
       const total = Math.round(qty * unitCost * 100) / 100;
-      const unit = stockProd?.unit || stockProd?.unidade_medida || ruleItem.unidade || 'UN';
+      const unit = stockProd?.unit || (stockProd as any)?.unidade_medida || ruleItem.unidade || 'UN';
 
       return {
         id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}_${Math.random().toString(36).slice(2, 4)}`,
         inventoryItemId: stockProd?.id || ruleItem.PRODUTO_ID,
-        description: ruleItem.ITEM_NOME.toUpperCase(),
+        description: linkedName.toUpperCase(),
         origin: 'almoxarifado_interno',
         quantity: qty,
         unit: unit.toUpperCase(),
         unitCost: unitCost,
         totalCost: total,
         stockDeducted: false,
+        financeiro_bloqueado: true, // Trava explícita: custo DRE Frota, sem gerar duplicidade no contas a pagar
       };
     });
 
@@ -2081,14 +2140,47 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                 }`}
                               >
                                 <td className="py-1.5 px-2.5 font-bold text-zinc-900 uppercase text-xs">
-                                  <div className="flex items-center space-x-1.5">
-                                    <span>{item.ITEM_NOME}</span>
-                                    {item.PRODUTO_ID && (
-                                      <span className="text-[8.5px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1 py-0.2 rounded">
-                                        ESTOQUE
-                                      </span>
-                                    )}
-                                  </div>
+                                  {(() => {
+                                    const isLinked = Boolean(
+                                      (item.PRODUTO_ID && String(item.PRODUTO_ID).trim()) ||
+                                      (item.PRODUTO_NOME_REAL && String(item.PRODUTO_NOME_REAL).trim()) ||
+                                      (item.PRODUTO_NOME_ESTOQUE && String(item.PRODUTO_NOME_ESTOQUE).trim())
+                                    );
+                                    const linkedProd = item.PRODUTO_ID 
+                                      ? allInventoryList.find(i => i.id === item.PRODUTO_ID)
+                                      : null;
+                                    const linkedRealName = item.PRODUTO_NOME_REAL || 
+                                      (linkedProd ? (((linkedProd as any).nome_comercial || linkedProd.name || '').toUpperCase()) : null) || 
+                                      item.PRODUTO_NOME_ESTOQUE;
+                                    const linkedCost = (item.CUSTO_UNITARIO !== undefined && !isNaN(Number(item.CUSTO_UNITARIO)) && Number(item.CUSTO_UNITARIO) > 0)
+                                      ? Number(item.CUSTO_UNITARIO)
+                                      : (linkedProd ? Number((linkedProd as any).unitPrice || linkedProd.unitCost || (linkedProd as any).preco_custo || (linkedProd as any).custo_unitario || 0) : 0);
+                                    const priceDisplay = item.VALOR_EXIBICAO || (linkedCost > 0 ? formatCurrencyBRL(linkedCost) : null);
+
+                                    if (isLinked && linkedRealName) {
+                                      return (
+                                        <div className="flex flex-col">
+                                          <div className="flex items-center space-x-1.5">
+                                            <span className="text-emerald-950 font-black tracking-tight text-[11.5px]">
+                                              📦 {linkedRealName} {priceDisplay ? `- ${priceDisplay}` : ''}
+                                            </span>
+                                            <span className="text-[8px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.2 rounded shrink-0">
+                                              ESTOQUE
+                                            </span>
+                                          </div>
+                                          <span className="text-[9.5px] text-zinc-500 font-semibold tracking-wide">
+                                            FUNÇÃO: {item.ITEM_NOME}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div className="flex items-center space-x-1.5">
+                                        <span>{item.ITEM_NOME}</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="py-1.5 px-2 text-center font-bold text-zinc-700 text-xs">
                                   A CADA {item.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM

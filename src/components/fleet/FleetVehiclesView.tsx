@@ -593,11 +593,28 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
     const upperCat = selectedGroupCategory.toUpperCase();
     const currentRules = currentCategoryRules;
+    const currentR = currentRules.find(r => r.id === ruleId);
+    const inlineAny = inlineSelectedProduct as any;
+    const inlineProdId = inlineSelectedProduct?.id || currentR?.PRODUTO_ID;
+    const inlineProdNome = inlineSelectedProduct
+      ? String(inlineAny?.nome_comercial || inlineSelectedProduct.name || '').toUpperCase()
+      : (currentR?.PRODUTO_NOME_REAL || currentR?.PRODUTO_NOME_ESTOQUE);
+    const inlineProdCusto = inlineSelectedProduct
+      ? Number(inlineAny?.unitPrice || inlineSelectedProduct.unitCost || inlineAny?.preco_custo || inlineAny?.custo_unitario || inlineAny?.valor_unitario || 0)
+      : currentR?.CUSTO_UNITARIO;
+    const inlineValorExibicao = (inlineProdCusto !== undefined && !isNaN(inlineProdCusto))
+      ? formatCurrencyBRL(inlineProdCusto)
+      : currentR?.VALOR_EXIBICAO;
+
     const updatedRules = currentRules.map(r => r.id === ruleId ? {
       ...r,
       CATEGORIA: upperCat,
       SUBGRUPO: inlineSubgroup,
-      PRODUTO_ID: inlineSelectedProduct?.id || r.PRODUTO_ID,
+      PRODUTO_ID: inlineProdId || undefined,
+      PRODUTO_NOME_REAL: inlineProdNome || undefined,
+      PRODUTO_NOME_ESTOQUE: inlineProdNome || undefined,
+      CUSTO_UNITARIO: inlineProdCusto,
+      VALOR_EXIBICAO: inlineValorExibicao,
       ITEM_NOME: itemName,
       INTERVALO_HORAS_KM: interval,
       QUANTIDADE_PADRAO: qty,
@@ -640,6 +657,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const selectedProdCusto = selectedInventoryItem
       ? Number(selectedAny?.unitPrice || selectedInventoryItem.unitCost || selectedAny?.preco_custo || selectedAny?.custo_unitario || selectedAny?.valor_unitario || 0)
       : undefined;
+    const valorExibicao = (selectedProdCusto !== undefined && !isNaN(selectedProdCusto))
+      ? formatCurrencyBRL(selectedProdCusto)
+      : undefined;
 
     const upperCat = selectedGroupCategory.toUpperCase();
     const currentRules = currentCategoryRules;
@@ -648,14 +668,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     if (editingRuleId) {
       updatedRules = currentRules.map(r => {
         if (r.id === editingRuleId) {
+          const finalProdId = selectedProdId !== undefined ? selectedProdId : r.PRODUTO_ID;
+          const finalProdNome = selectedProdNome !== undefined ? selectedProdNome : (r.PRODUTO_NOME_REAL || r.PRODUTO_NOME_ESTOQUE);
+          const finalProdCusto = selectedProdCusto !== undefined ? selectedProdCusto : r.CUSTO_UNITARIO;
+          const finalValorExibicao = valorExibicao !== undefined ? valorExibicao : (r.VALOR_EXIBICAO || (finalProdCusto !== undefined ? formatCurrencyBRL(finalProdCusto) : undefined));
+
           return {
             ...r,
             CATEGORIA: upperCat,
             SUBGRUPO: ruleSubgroup,
             ITEM_NOME: itemName,
-            PRODUTO_ID: selectedProdId,
-            PRODUTO_NOME_ESTOQUE: selectedProdNome,
-            CUSTO_UNITARIO: selectedProdCusto,
+            PRODUTO_ID: finalProdId || undefined,
+            PRODUTO_NOME_REAL: finalProdNome || undefined,
+            PRODUTO_NOME_ESTOQUE: finalProdNome || undefined,
+            CUSTO_UNITARIO: finalProdCusto,
+            VALOR_EXIBICAO: finalValorExibicao,
             INTERVALO_HORAS_KM: interval,
             QUANTIDADE_PADRAO: qty,
             unidade: unit,
@@ -670,8 +697,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         CATEGORIA: upperCat,
         SUBGRUPO: ruleSubgroup,
         PRODUTO_ID: selectedProdId,
+        PRODUTO_NOME_REAL: selectedProdNome,
         PRODUTO_NOME_ESTOQUE: selectedProdNome,
         CUSTO_UNITARIO: selectedProdCusto,
+        VALOR_EXIBICAO: valorExibicao,
         ITEM_NOME: itemName,
         INTERVALO_HORAS_KM: interval,
         QUANTIDADE_PADRAO: qty,
@@ -685,6 +714,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       ...preventivePlans,
       [upperCat]: updatedRules,
     };
+    if (upperCat === 'CAMINHÃO') {
+      updatedPlans['CAMINHAO'] = updatedRules;
+    }
+    if (upperCat === 'MÁQUINAS PESADAS') {
+      updatedPlans['MAQUINAS_PESADAS'] = updatedRules;
+    }
+
     setPreventivePlans(updatedPlans);
     saveStoredPreventiveGroupPlans(updatedPlans);
 
@@ -705,6 +741,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       ...preventivePlans,
       [upperCat]: updatedRules,
     };
+    if (upperCat === 'CAMINHÃO') {
+      updatedPlans['CAMINHAO'] = updatedRules;
+    }
+    if (upperCat === 'MÁQUINAS PESADAS') {
+      updatedPlans['MAQUINAS_PESADAS'] = updatedRules;
+    }
     setPreventivePlans(updatedPlans);
     saveStoredPreventiveGroupPlans(updatedPlans);
     setPreventiveFeedback({
@@ -719,16 +761,63 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       const upperCat = selectedGroupCategory.toUpperCase();
       const currentRulesForCategory = currentCategoryRules;
 
+      // Consolidação minuciosa de cada item garantindo chaves de relacionamento físicas
+      const consolidatedRules: PreventiveGroupItem[] = currentRulesForCategory.map(rule => {
+        let prodId = rule.PRODUTO_ID;
+        let prodNomeReal = rule.PRODUTO_NOME_REAL || rule.PRODUTO_NOME_ESTOQUE;
+        let custo = rule.CUSTO_UNITARIO;
+
+        if (prodId) {
+          const inv = inventoryList.find(i => i.id === prodId);
+          if (inv) {
+            const invAny = inv as any;
+            if (!prodNomeReal) prodNomeReal = String(invAny.nome_comercial || inv.name || '').toUpperCase();
+            if (custo === undefined || isNaN(custo) || custo === 0) {
+              custo = Number(invAny.unitPrice || inv.unitCost || invAny.preco_custo || invAny.custo_unitario || invAny.valor_unitario || 0);
+            }
+          }
+        } else if (prodNomeReal) {
+          const inv = inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === prodNomeReal!.toUpperCase());
+          if (inv) {
+            prodId = inv.id;
+            if (custo === undefined || isNaN(custo) || custo === 0) {
+              const invAny = inv as any;
+              custo = Number(invAny.unitPrice || inv.unitCost || invAny.preco_custo || invAny.custo_unitario || invAny.valor_unitario || 0);
+            }
+          }
+        }
+
+        const valorExibicao = (custo !== undefined && !isNaN(custo) && custo > 0) 
+          ? formatCurrencyBRL(custo) 
+          : (rule.VALOR_EXIBICAO || (custo !== undefined && !isNaN(custo) ? formatCurrencyBRL(custo) : undefined));
+
+        return {
+          ...rule,
+          CATEGORIA: upperCat,
+          PRODUTO_ID: prodId || undefined,
+          PRODUTO_NOME_REAL: prodNomeReal || undefined,
+          PRODUTO_NOME_ESTOQUE: prodNomeReal || undefined,
+          CUSTO_UNITARIO: (custo !== undefined && !isNaN(custo)) ? custo : undefined,
+          VALOR_EXIBICAO: valorExibicao || undefined,
+        };
+      });
+
       const updatedPlans: Record<string, PreventiveGroupItem[]> = {
         ...preventivePlans,
-        [upperCat]: currentRulesForCategory,
+        [upperCat]: consolidatedRules,
       };
 
       if (upperCat === 'CAMINHÃO') {
-        updatedPlans['CAMINHAO'] = currentRulesForCategory;
+        updatedPlans['CAMINHAO'] = consolidatedRules;
+      }
+      if (upperCat === 'CAMINHAO') {
+        updatedPlans['CAMINHÃO'] = consolidatedRules;
       }
       if (upperCat === 'MÁQUINAS PESADAS') {
-        updatedPlans['MAQUINAS_PESADAS'] = currentRulesForCategory;
+        updatedPlans['MAQUINAS_PESADAS'] = consolidatedRules;
+      }
+      if (upperCat === 'MAQUINAS_PESADAS') {
+        updatedPlans['MÁQUINAS PESADAS'] = consolidatedRules;
       }
 
       // Persistência segura e consolidada no LocalStorage
@@ -1507,15 +1596,17 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         </tr>
 
                         {group.rules.map((rule, idx) => {
-                          const isLinked = Boolean(rule.PRODUTO_ID && String(rule.PRODUTO_ID).trim());
-                          const linkedItem = isLinked ? inventoryList.find(i => i.id === rule.PRODUTO_ID) : null;
+                          const isLinked = Boolean((rule.PRODUTO_ID && String(rule.PRODUTO_ID).trim()) || (rule.PRODUTO_NOME_REAL && String(rule.PRODUTO_NOME_REAL).trim()) || (rule.PRODUTO_NOME_ESTOQUE && String(rule.PRODUTO_NOME_ESTOQUE).trim()));
+                          const linkedItem = rule.PRODUTO_ID ? inventoryList.find(i => i.id === rule.PRODUTO_ID) : null;
                           
-                          const cost = linkedItem 
-                            ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || (linkedItem as any).custo_unitario || (linkedItem as any).valor_unitario || 0) 
-                            : Number(rule.CUSTO_UNITARIO || 0);
-                          const linkedName = linkedItem 
-                            ? ((linkedItem as any).nome_comercial || linkedItem.name || '').toUpperCase() 
-                            : (rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase();
+                          const cost = (rule.CUSTO_UNITARIO !== undefined && !isNaN(Number(rule.CUSTO_UNITARIO)) && Number(rule.CUSTO_UNITARIO) > 0)
+                            ? Number(rule.CUSTO_UNITARIO)
+                            : (linkedItem 
+                                ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || (linkedItem as any).custo_unitario || (linkedItem as any).valor_unitario || 0) 
+                                : 0);
+                          const linkedName = rule.PRODUTO_NOME_REAL || 
+                            (linkedItem ? ((linkedItem as any).nome_comercial || linkedItem.name || '').toUpperCase() : null) || 
+                            (rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase();
                           const linkedStock = linkedItem ? Number(linkedItem.quantity ?? (linkedItem as any).currentStock ?? 0) : 0;
                           const linkedUnit = linkedItem ? (linkedItem.unit || (linkedItem as any).unidade_medida || 'UN').toUpperCase() : (rule.unidade || 'UN');
 
