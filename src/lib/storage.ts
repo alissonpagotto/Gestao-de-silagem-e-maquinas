@@ -3368,13 +3368,17 @@ export function saveStoredPurchaseRequests(requests: MaintenancePurchaseRequest[
 
 export const INITIAL_MAINTENANCE_CATEGORIES: MaintenanceCategoryDefinition[] = [
   { id: 'cat_arrefecimento_radiador', name: 'Arrefecimento & Radiador', description: 'Limpeza de colmeia de radiador, mangotes, bomba d’água e válvula termostática', color: '#0891b2', isSystem: true },
+  { id: 'cat_componentes_mecanicos', name: 'Componentes e Serviços Mecânicos', description: 'Manutenção de componentes mecânicos, alinhamentos e ajustes gerais', color: '#4f46e5', isSystem: true },
   { id: 'cat_diferencial_cardan', name: 'Diferencial & Cardan', description: 'Cruzetas, rolamentos de centro, coroa e pinhão', color: '#7c2d12', isSystem: true },
   { id: 'cat_eletrica_ar', name: 'Elétrica & Ar-Condicionado', description: 'Alternador, motor de partida, chicotes elétricos e recarga de gás', color: '#ca8a04', isSystem: true },
   { id: 'cat_facas_rotor', name: 'Facas & Contra-Faca (Ensiladeira)', description: 'Afiação, regulagem e substituição de facas, contra-faca e fundo de rotor', color: '#16a34a', isSystem: true },
+  { id: 'cat_filtros', name: 'Filtros', description: 'Filtros de óleo, combustível, ar e sedimentadores', color: '#059669', isSystem: true },
+  { id: 'cat_fluidos_aditivos', name: 'Fluidos e Aditivos', description: 'Fluidos de freio, aditivos de radiador e arla', color: '#0891b2', isSystem: true },
   { id: 'cat_freios_embreagem', name: 'Freios & Embreagem', description: 'Pastilhas, lonas, cuícas de freio e atuadores de embreagem', color: '#9333ea', isSystem: true },
   { id: 'cat_injecao_bomba', name: 'Injeção & Bomba Injetora', description: 'Bicos injetores, bomba de alta pressão, filtros sedimentadores e sensores', color: '#b45309', isSystem: true },
   { id: 'cat_lubrificacao', name: 'Lubrificação & Engraxamento', description: 'Engraxamento geral de pinos, buchas e mancais', color: '#475569', isSystem: true },
   { id: 'cat_motor_transmissao', name: 'Motor & Transmissão (Câmbio)', description: 'Revisão e reparo de motor, embreagem, caixa e cardan', color: '#dc2626', isSystem: true },
+  { id: 'cat_oleos_lubrificantes', name: 'Óleos e Lubrificantes', description: 'Óleos de motor, transmissão, diferencial e graxas especiais', color: '#ea580c', isSystem: true },
   { id: 'cat_outro', name: 'Outro (Personalizado)', description: 'Serviços diversos e específicos', color: '#64748b', isSystem: true },
   { id: 'cat_plataforma_craqueador', name: 'Plataforma & Craqueador', description: 'Rolos quebradores de grãos, correntes recolhedoras e navalhas', color: '#059669', isSystem: true },
   { id: 'cat_pneus_rodas', name: 'Pneus, Rodas & Esteiras', description: 'Calibragem, conserto de furos, recapagem e alinhamento', color: '#ea580c', isSystem: true },
@@ -3387,15 +3391,22 @@ export const INITIAL_MAINTENANCE_CATEGORIES: MaintenanceCategoryDefinition[] = [
 
 export function getStoredMaintenanceCategories(): MaintenanceCategoryDefinition[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.MAINTENANCE_CATEGORIES);
+    const raw = localStorage.getItem('agrocontrol_servicos_categorias') || localStorage.getItem(STORAGE_KEYS.MAINTENANCE_CATEGORIES);
     let list: MaintenanceCategoryDefinition[] = [...INITIAL_MAINTENANCE_CATEGORIES];
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        list = parsed;
+        // Garantir que categorias essenciais padrão não se percam
+        const existingNames = new Set(parsed.map((c: any) => (c.name || '').trim().toLowerCase()));
+        list = [...parsed];
+        for (const initCat of INITIAL_MAINTENANCE_CATEGORIES) {
+          if (!existingNames.has(initCat.name.trim().toLowerCase())) {
+            list.push(initCat);
+          }
+        }
       }
     }
-    // Garantir que a opção "Revisão (entressafra)" esteja presente mesmo com dados anteriores no localStorage
+    // Garantir que a opção "Revisão (entressafra)" esteja presente
     const hasRevisaoEntressafra = list.some(
       c => c.name?.toLowerCase().trim() === 'revisão (entressafra)' || c.name?.toLowerCase().trim() === 'revisao (entressafra)'
     );
@@ -3419,7 +3430,13 @@ export function getStoredMaintenanceCategories(): MaintenanceCategoryDefinition[
 export function saveStoredMaintenanceCategories(categories: MaintenanceCategoryDefinition[]): void {
   try {
     const sorted = [...categories].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
-    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_CATEGORIES, JSON.stringify(sorted));
+    const json = JSON.stringify(sorted);
+    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_CATEGORIES, json);
+    localStorage.setItem('agrocontrol_servicos_categorias', json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_servicos_categorias_updated', { detail: sorted }));
+      window.dispatchEvent(new CustomEvent('maintenance_categories_updated', { detail: sorted }));
+    }
   } catch (e) {
     console.error('Failed to save maintenance categories', e);
   }

@@ -94,7 +94,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setFormError('O nome da categoria é obrigatório.');
+      setFormError('O nome do subgrupo é obrigatório.');
       return;
     }
 
@@ -103,7 +103,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
       c => c.name.trim().toLowerCase() === name.trim().toLowerCase() && c.id !== editingId
     );
     if (exists) {
-      setFormError('Já existe uma categoria cadastrada com este nome.');
+      setFormError('Já existe um subgrupo cadastrado com este nome.');
       return;
     }
 
@@ -140,7 +140,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
   };
 
   const handleDelete = (id: string, catName: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir a categoria "${catName}"?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir o subgrupo "${catName}"?`)) {
       const updated = categories.filter(c => c.id !== id);
       onSaveCategories(updated);
       if (editingId === id) {
@@ -150,7 +150,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
   };
 
   const handleResetDefaults = () => {
-    if (window.confirm('Deseja restaurar todas as categorias padrões do sistema? Suas categorias personalizadas serão mantidas no final da lista.')) {
+    if (window.confirm('Deseja restaurar todos os subgrupos padrão do sistema? Seus subgrupos personalizados serão mantidos no final da lista.')) {
       const customOnes = categories.filter(c => !c.isSystem);
       const updated = [...INITIAL_MAINTENANCE_CATEGORIES, ...customOnes];
       onSaveCategories(updated);
@@ -170,11 +170,11 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
               <Tag className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white font-['Outfit']">
-                Gerenciamento de Categorias de Serviço
+              <h3 className="text-base font-black uppercase text-white tracking-wider font-['Outfit']">
+                GERENCIAR SUBGRUPOS DE MANUTENÇÃO
               </h3>
-              <p className="text-xs text-blue-200">
-                Inclua, edite ou remova áreas de manutenção da frota agrícola
+              <p className="text-xs text-blue-200 uppercase font-semibold">
+                INCLUA, EDITE OU REMOVA SUBGRUPOS DE MANUTENÇÃO DA FROTA AGRÍCOLA
               </p>
             </div>
           </div>
@@ -198,7 +198,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar categoria..."
+                placeholder="Buscar subgrupo..."
                 className="w-full pl-9 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-600"
               />
             </div>
@@ -207,7 +207,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
               <button
                 type="button"
                 onClick={handleResetDefaults}
-                title="Restaurar categorias padrão"
+                title="Restaurar subgrupos padrão"
                 className="px-2.5 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl text-xs font-semibold transition flex items-center space-x-1 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -218,10 +218,10 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                 <button
                   type="button"
                   onClick={startAddNew}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer uppercase"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Nova Categoria</span>
+                  <span>Novo Subgrupo</span>
                 </button>
               )}
             </div>
@@ -234,14 +234,14 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
               className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3 animate-in fade-in zoom-in-95 duration-150"
             >
               <div className="flex items-center justify-between border-b border-blue-100 dark:border-blue-800/80 pb-2">
-                <span className="text-xs font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wider flex items-center space-x-1.5">
+                <span className="text-xs font-black text-blue-900 dark:text-blue-200 uppercase tracking-wider flex items-center space-x-1.5">
                   <Tag className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{editingId ? 'Editar Categoria' : 'Nova Categoria de Serviço'}</span>
+                  <span>{editingId ? 'EDITAR SUBGRUPO' : 'NOVO SUBGRUPO DE MANUTENÇÃO'}</span>
                 </span>
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="text-stone-400 hover:text-stone-600 text-xs font-bold cursor-pointer"
+                  className="text-stone-400 hover:text-stone-600 text-xs font-bold cursor-pointer uppercase"
                 >
                   Cancelar
                 </button>
@@ -256,8 +256,8 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-blue-900 dark:text-stone-300 mb-1">
-                    Nome da Categoria *
+                  <label className="block text-[11px] font-bold text-blue-900 dark:text-stone-300 mb-1 uppercase">
+                    Nome do Subgrupo *
                   </label>
                   <input
                     type="text"
@@ -324,26 +324,26 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer uppercase"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>{editingId ? 'Salvar Alterações' : 'Adicionar Categoria'}</span>
+                  <span>{editingId ? 'Salvar Alterações' : 'Adicionar Subgrupo'}</span>
                 </button>
               </div>
             </form>
           )}
 
-          {/* Categories List */}
+          {/* Subgroups List */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[11px] font-bold text-stone-400 uppercase tracking-wider px-1">
-              <span>Lista de Categorias ({filteredCategories.length})</span>
-              <span>Ações</span>
+              <span>LISTA DE SUBGRUPOS ({filteredCategories.length})</span>
+              <span>AÇÕES</span>
             </div>
 
             <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden bg-white dark:bg-stone-800/40">
               {filteredCategories.length === 0 ? (
                 <div className="py-8 text-center text-stone-400 text-xs">
-                  Nenhuma categoria encontrada com o termo "{searchTerm}".
+                  Nenhum subgrupo encontrado com o termo "{searchTerm}".
                 </div>
               ) : (
                 filteredCategories.map((cat) => (
@@ -383,7 +383,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                             onSelectCategory(cat.name);
                             onClose();
                           }}
-                          className="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 transition cursor-pointer"
+                          className="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 transition cursor-pointer uppercase"
                         >
                           Selecionar
                         </button>
@@ -392,7 +392,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                       <button
                         type="button"
                         onClick={() => startEdit(cat)}
-                        title="Editar Categoria"
+                        title="Editar Subgrupo"
                         className="p-1.5 text-stone-400 hover:text-indigo-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -401,7 +401,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                       <button
                         type="button"
                         onClick={() => handleDelete(cat.id, cat.name)}
-                        title="Excluir Categoria"
+                        title="Excluir Subgrupo"
                         className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -418,12 +418,12 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
         {/* Footer */}
         <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 flex justify-between items-center">
           <p className="text-[11px] text-stone-500">
-            As categorias criadas ficam disponíveis em todas as Ordens de Serviço (OS).
+            Os subgrupos criados ficam disponíveis em todas as Ordens de Serviço (OS) e no Plano Preventivo da Frota.
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-xs font-bold rounded-xl transition cursor-pointer"
+            className="px-5 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-xs font-bold rounded-xl transition cursor-pointer uppercase"
           >
             Concluir
           </button>

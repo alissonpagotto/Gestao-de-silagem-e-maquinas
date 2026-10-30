@@ -7,7 +7,7 @@ import {
   Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight,
   SlidersHorizontal, Layers, Pencil, Package, Save, Lock, Settings
 } from 'lucide-react';
-import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup } from '../../types';
+import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup, MaintenanceCategoryDefinition } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
@@ -22,6 +22,8 @@ import {
   getStoredPreventiveGroupPlans,
   saveStoredPreventiveGroupPlans,
   getStoredInventory,
+  getStoredMaintenanceCategories,
+  saveStoredMaintenanceCategories,
   DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY,
   MAINTENANCE_SUBGROUPS,
   inferMaintenanceSubgroup
@@ -122,6 +124,24 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     };
   }, []);
 
+  // Subgrupos de Manutenção dinâmicos sincronizados com 'agrocontrol_servicos_categorias' da OS
+  const [maintenanceCategories, setMaintenanceCategories] = useState<MaintenanceCategoryDefinition[]>(() => getStoredMaintenanceCategories());
+
+  // Sincronização em tempo real dos subgrupos cadastrados na OS ou pelo sistema
+  useEffect(() => {
+    const handleMaintenanceCategoriesSync = () => {
+      setMaintenanceCategories(getStoredMaintenanceCategories());
+    };
+    window.addEventListener('agrocontrol_servicos_categorias_updated', handleMaintenanceCategoriesSync);
+    window.addEventListener('maintenance_categories_updated', handleMaintenanceCategoriesSync);
+    window.addEventListener('storage', handleMaintenanceCategoriesSync);
+    return () => {
+      window.removeEventListener('agrocontrol_servicos_categorias_updated', handleMaintenanceCategoriesSync);
+      window.removeEventListener('maintenance_categories_updated', handleMaintenanceCategoriesSync);
+      window.removeEventListener('storage', handleMaintenanceCategoriesSync);
+    };
+  }, []);
+
   const handleSaveCategories = (updated: string[]) => {
     const sorted = [...updated]
       .map(c => c.trim().toUpperCase())
@@ -160,10 +180,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     };
   }, []);
 
-  // Recarrega inventário do almoxarifado quando a sub-aba for aberta
+  // Recarrega inventário do almoxarifado e subgrupos da OS quando a sub-aba for aberta
   useEffect(() => {
     if (vehicleSubTab === 'tipos_trocas') {
       setInventoryList(getStoredInventory());
+      setMaintenanceCategories(getStoredMaintenanceCategories());
     }
   }, [vehicleSubTab]);
 
@@ -239,42 +260,83 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     return DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[upperCat] || DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[aliasKey] || [];
   }, [preventivePlans, selectedGroupCategory]);
 
-  // Agrupamento estrito por Subgrupos em ordem alfabética
+  // Lista dinâmica e unificada de subgrupos de manutenção sincronizada com 'agrocontrol_servicos_categorias'
+  const availableMaintenanceSubgroups = useMemo(() => {
+    const set = new Set<string>();
+    
+    // Subgrupos mantidos na chave 'agrocontrol_servicos_categorias' da OS
+    (maintenanceCategories || []).forEach(cat => {
+      const name = (cat.name || '').trim().toUpperCase();
+      if (name) set.add(name);
+    });
+
+    // Subgrupos eventualmente já gravados em regras existentes
+    (currentCategoryRules || []).forEach(r => {
+      if (r.SUBGRUPO && typeof r.SUBGRUPO === 'string') {
+        const trimmed = r.SUBGRUPO.trim().toUpperCase();
+        if (trimmed) set.add(trimmed);
+      }
+    });
+
+    if (set.size === 0) {
+      ['FILTROS', 'ÓLEOS E LUBRIFICANTES', 'FLUIDOS E ADITIVOS', 'COMPONENTES E SERVIÇOS MECÂNICOS'].forEach(s => set.add(s));
+    }
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [maintenanceCategories, currentCategoryRules]);
+
+  // Função utilitária para comparação insensível de strings de subgrupos
+  const normalizeSubgroupStr = (s?: string) => {
+    return (s || '')
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[&]/g, 'E')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Agrupamento estrito por Subgrupos dinâmicos em ordem alfabética (Reflete barras divisórias da matriz)
   const groupedRulesBySubgroup = useMemo(() => {
     const rules = currentCategoryRules;
-    const groups: { subgroup: MaintenanceSubgroup; rules: PreventiveGroupItem[] }[] = [];
+    const groups: { subgroup: string; rules: PreventiveGroupItem[] }[] = [];
 
-    MAINTENANCE_SUBGROUPS.forEach(subgroup => {
+    availableMaintenanceSubgroups.forEach(subgroup => {
+      const targetNorm = normalizeSubgroupStr(subgroup);
       const matchingRules = rules.filter(r => {
-        const itemSubgroup = (r.SUBGRUPO as MaintenanceSubgroup) || inferMaintenanceSubgroup(r.ITEM_NOME, r.SUBGRUPO);
-        return itemSubgroup === subgroup;
+        const rawGroup = r.SUBGRUPO ? r.SUBGRUPO : inferMaintenanceSubgroup(r.ITEM_NOME, r.SUBGRUPO);
+        return normalizeSubgroupStr(rawGroup) === targetNorm;
       });
       if (matchingRules.length > 0) {
         groups.push({ subgroup, rules: matchingRules });
       }
     });
 
-    // Itens que eventualmente não deram match caem no subgrupo geral
+    // Itens que eventualmente não deram match em nenhum dos subgrupos conhecidos
     const matchedIds = new Set(groups.flatMap(g => g.rules.map(r => r.id)));
     const leftover = rules.filter(r => !matchedIds.has(r.id));
     if (leftover.length > 0) {
-      const compGroup = groups.find(g => g.subgroup === 'COMPONENTES E SERVIÇOS MECÂNICOS');
-      if (compGroup) {
-        compGroup.rules.push(...leftover);
-      } else {
-        groups.unshift({ subgroup: 'COMPONENTES E SERVIÇOS MECÂNICOS', rules: leftover });
-      }
+      leftover.forEach(item => {
+        const rawGroup = (item.SUBGRUPO || 'OUTRO (PERSONALIZADO)').toUpperCase();
+        const existing = groups.find(g => normalizeSubgroupStr(g.subgroup) === normalizeSubgroupStr(rawGroup));
+        if (existing) {
+          existing.rules.push(item);
+        } else {
+          groups.push({ subgroup: rawGroup, rules: [item] });
+        }
+      });
     }
 
-    return groups;
-  }, [currentCategoryRules]);
+    return groups.sort((a, b) => a.subgroup.localeCompare(b.subgroup, 'pt-BR'));
+  }, [currentCategoryRules, availableMaintenanceSubgroups]);
 
   // Filtragem composta por subgrupo de manutenção (respeita exceção "TODOS OS SUBGRUPOS")
   const filteredGroupedRules = useMemo(() => {
     if (!filterSubgroup || filterSubgroup === 'TODOS' || filterSubgroup === 'TODOS OS SUBGRUPOS') {
       return groupedRulesBySubgroup;
     }
-    return groupedRulesBySubgroup.filter(g => g.subgroup === filterSubgroup);
+    const targetFilterNorm = normalizeSubgroupStr(filterSubgroup);
+    return groupedRulesBySubgroup.filter(g => normalizeSubgroupStr(g.subgroup) === targetFilterNorm);
   }, [groupedRulesBySubgroup, filterSubgroup]);
 
   const filteredRulesCount = useMemo(() => {
@@ -354,9 +416,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const handleOpenCreateRuleModal = () => {
     setEditingRuleId(null);
     if (filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS') {
-      setRuleSubgroup(filterSubgroup as MaintenanceSubgroup);
+      setRuleSubgroup(filterSubgroup);
     } else {
-      setRuleSubgroup('FILTROS');
+      setRuleSubgroup(availableMaintenanceSubgroups[0] || 'FILTROS');
     }
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
@@ -371,7 +433,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Abertura do Modal para Edição da Regra
   const handleOpenEditRuleModal = (rule: PreventiveGroupItem) => {
     setEditingRuleId(rule.id);
-    const resolvedSubgroup = (rule.SUBGRUPO as MaintenanceSubgroup) || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
+    const resolvedSubgroup = rule.SUBGRUPO || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
     setRuleSubgroup(resolvedSubgroup);
     setInventorySearchQuery(rule.ITEM_NOME);
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
@@ -392,7 +454,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Cancelar edição no formulário ou fechar modal
   const handleCancelEditRule = () => {
     setEditingRuleId(null);
-    setRuleSubgroup('FILTROS');
+    setRuleSubgroup(availableMaintenanceSubgroups[0] || 'FILTROS');
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
     setRuleIntervalHoursKm(250);
@@ -1214,10 +1276,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 h-[34px] rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
               >
                 <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
-                <option value="FILTROS">FILTROS</option>
-                <option value="ÓLEOS E LUBRIFICANTES">ÓLEOS E LUBRIFICANTES</option>
-                <option value="COMPONENTES E SERVIÇOS MECÂNICOS">COMPONENTES E SERVIÇOS MECÂNICOS</option>
-                <option value="FLUIDOS E ADITIVOS">FLUIDOS E ADITIVOS</option>
+                {availableMaintenanceSubgroups.map((sg) => (
+                  <option key={sg} value={sg} className="uppercase">
+                    {sg}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1400,11 +1463,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                           </label>
                                           <select
                                             value={inlineSubgroup}
-                                            onChange={(e) => setInlineSubgroup(e.target.value as MaintenanceSubgroup)}
+                                            onChange={(e) => setInlineSubgroup(e.target.value)}
                                             className="w-full px-2.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-bold uppercase text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
                                           >
-                                            {MAINTENANCE_SUBGROUPS.map((sg) => (
-                                              <option key={sg} value={sg}>
+                                            {availableMaintenanceSubgroups.map((sg) => (
+                                              <option key={sg} value={sg} className="uppercase">
                                                 {sg}
                                               </option>
                                             ))}
@@ -1646,10 +1709,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     ) : (
                       <select
                         value={ruleSubgroup}
-                        onChange={(e) => setRuleSubgroup(e.target.value as MaintenanceSubgroup)}
+                        onChange={(e) => setRuleSubgroup(e.target.value)}
                         className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
                       >
-                        {MAINTENANCE_SUBGROUPS.map((sg) => (
+                        {availableMaintenanceSubgroups.map((sg) => (
                           <option key={sg} value={sg} className="uppercase">
                             {sg}
                           </option>

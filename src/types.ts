@@ -1707,7 +1707,8 @@ export type MaintenanceSubgroup =
   | 'COMPONENTES E SERVIÇOS MECÂNICOS'
   | 'FILTROS'
   | 'FLUIDOS E ADITIVOS'
-  | 'ÓLEOS E LUBRIFICANTES';
+  | 'ÓLEOS E LUBRIFICANTES'
+  | string;
 
 export interface PreventiveGroupItem {
   id?: string;
