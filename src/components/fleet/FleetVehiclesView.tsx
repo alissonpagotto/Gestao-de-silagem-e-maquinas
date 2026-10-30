@@ -12,6 +12,7 @@ import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
+import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
 import { 
   getStoredVehicleSystemCategories, 
   saveStoredVehicleSystemCategories,
@@ -141,6 +142,15 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       window.removeEventListener('storage', handleMaintenanceCategoriesSync);
     };
   }, []);
+
+  // Estado e handler para o Modal de Gerenciamento de Subgrupos de Manutenção
+  const [isMaintenanceCategoriesModalOpen, setIsMaintenanceCategoriesModalOpen] = useState(false);
+
+  const handleSaveMaintenanceCategories = (updated: MaintenanceCategoryDefinition[]) => {
+    const sorted = [...updated].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+    setMaintenanceCategories(sorted);
+    saveStoredMaintenanceCategories(sorted);
+  };
 
   const handleSaveCategories = (updated: string[]) => {
     const sorted = [...updated]
@@ -1261,27 +1271,38 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               </div>
             </div>
 
-            {/* Div do Select: SUBGRUPO DE MANUTENÇÃO (com label acima) */}
-            <div className="flex flex-col space-y-1">
+            {/* Div do Select: SUBGRUPO DE MANUTENÇÃO (com botão de engrenagem nativo) */}
+            <div className="flex flex-col gap-1">
               <label 
                 htmlFor="filter-maintenance-subgroup" 
-                className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 leading-none"
+                className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase leading-none"
               >
                 SUBGRUPO DE MANUTENÇÃO
               </label>
-              <select
-                id="filter-maintenance-subgroup"
-                value={filterSubgroup}
-                onChange={(e) => setFilterSubgroup(e.target.value)}
-                className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 h-[34px] rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
-              >
-                <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
-                {availableMaintenanceSubgroups.map((sg) => (
-                  <option key={sg} value={sg} className="uppercase">
-                    {sg}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1">
+                <select
+                  id="filter-maintenance-subgroup"
+                  value={filterSubgroup}
+                  onChange={(e) => setFilterSubgroup(e.target.value)}
+                  className="h-[34px] bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded px-2 text-xs font-bold uppercase focus:outline-none min-w-[200px] sm:min-w-[240px] text-stone-800 dark:text-stone-200 cursor-pointer shadow-2xs"
+                >
+                  <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
+                  {availableMaintenanceSubgroups.map((sg) => (
+                    <option key={sg} value={sg} className="uppercase">
+                      {sg}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  id="btn-gerenciar-subgrupos-preventivo"
+                  onClick={() => setIsMaintenanceCategoriesModalOpen(true)}
+                  className="h-[34px] w-[34px] flex items-center justify-center bg-slate-200 hover:bg-slate-300 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-400 dark:border-stone-600 rounded text-slate-700 dark:text-stone-200 transition-colors shadow-sm cursor-pointer shrink-0"
+                  title="GERENCIAR LISTA DE SUBGRUPOS"
+                >
+                  <Settings className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+                </button>
+              </div>
             </div>
 
             {/* Botão Mestre Verde: + CADASTRAR ITEM (h-[34px] self-end) */}
@@ -2843,6 +2864,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         onSelectCategory={(cat) => {
           setSelectedGroupCategory(cat);
           setIsCategoriesModalOpen(false);
+        }}
+      />
+
+      {/* Modal Nativo de Gerenciamento de Subgrupos de Manutenção */}
+      <MaintenanceCategoriesModal
+        isOpen={isMaintenanceCategoriesModalOpen}
+        onClose={() => setIsMaintenanceCategoriesModalOpen(false)}
+        categories={maintenanceCategories}
+        onSaveCategories={handleSaveMaintenanceCategories}
+        onSelectCategory={(catName) => {
+          setFilterSubgroup(catName.toUpperCase());
+          setIsMaintenanceCategoriesModalOpen(false);
         }}
       />
 
