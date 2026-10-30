@@ -1445,12 +1445,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   ) : (
                     filteredGroupedRules.map((group) => (
                       <React.Fragment key={group.subgroup}>
-                        {/* Cabeçalho Cinza Compacto para Cada Subgrupo Ativo */}
-                        <tr className="bg-slate-200/90 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-y border-slate-300 dark:border-stone-700 font-black text-[11px] uppercase tracking-wider select-none">
-                          <td colSpan={5} className="py-1.5 px-3">
+                        {/* Cabeçalho Cinza Escuro Metalizado de Alto Contraste (bg-slate-400) */}
+                        <tr className="bg-slate-400 dark:bg-stone-700 border-y border-slate-500/40 select-none">
+                          <td colSpan={5} className="text-white font-black tracking-wider text-[11px] py-2 px-3 uppercase shadow-sm whitespace-nowrap">
                             <div className="flex items-center space-x-2">
                               <span>📁 {group.subgroup}</span>
-                              <span className="text-[10px] text-stone-600 dark:text-stone-400 font-mono font-bold">
+                              <span className="text-white/90 font-mono font-bold text-[10.5px]">
                                 ({group.rules.length} {group.rules.length === 1 ? 'ITEM' : 'ITENS'})
                               </span>
                             </div>
