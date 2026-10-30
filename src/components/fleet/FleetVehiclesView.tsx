@@ -100,8 +100,6 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
   const [preventiveFeedback, setPreventiveFeedback] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-  const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
-  const [newCategoryInput, setNewCategoryInput] = useState('');
   const inventoryDropdownRef = useRef<HTMLDivElement>(null);
 
   // Estados para Edição / Associação Direta Inline no Grid
@@ -253,11 +251,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     return filteredGroupedRules.reduce((acc, g) => acc + g.rules.length, 0);
   }, [filteredGroupedRules]);
 
-  // Autocomplete real de produtos do almoxarifado (Formulário Superior)
+  // Autocomplete real de produtos do almoxarifado buscando síncronamente na chave 'agrocontrol_produtos'
   const inventoryAutocompleteResults = useMemo(() => {
     if (!inventorySearchQuery.trim()) return [];
     const q = inventorySearchQuery.toLowerCase().trim();
-    return inventoryList.filter(item => {
+    let currentStockList = inventoryList;
+    try {
+      const raw = localStorage.getItem('agrocontrol_produtos');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) currentStockList = parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return currentStockList.filter(item => {
       const anyItem = item as any;
       const name = String(anyItem.nome_comercial || item.name || '').toLowerCase();
       const code = String(item.code || anyItem.codigo || '').toLowerCase();
@@ -520,22 +528,6 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setTimeout(() => setPreventiveFeedback(null), 3000);
   };
 
-  // Adicionar nova categoria de máquina
-  const handleAddNewGroupCategory = () => {
-    const raw = newCategoryInput.trim().toUpperCase();
-    if (!raw) return;
-    if (!preventivePlans[raw]) {
-      const updatedPlans = {
-        ...preventivePlans,
-        [raw]: DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY[raw] || [],
-      };
-      setPreventivePlans(updatedPlans);
-      saveStoredPreventiveGroupPlans(updatedPlans);
-    }
-    setSelectedGroupCategory(raw);
-    setNewCategoryInput('');
-    setNewCategoryModalOpen(false);
-  };
 
   // Filter machineries
   const availableCategories = useMemo(() => {
@@ -1138,10 +1130,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
           )}
 
-          {/* Barra de Filtros Unificada (Padrão Slim Design Pro) */}
-          <div className="shrink-0 flex items-end gap-3 w-full bg-slate-50 dark:bg-stone-900 p-2.5 sm:p-3 border border-slate-300 dark:border-stone-800 rounded-lg shadow-sm">
+          {/* Barra de Filtros Superior (SLIM DESIGN PRO) */}
+          <div className="flex items-end gap-3 w-full bg-slate-50 dark:bg-stone-900 p-3 border border-slate-300 dark:border-stone-800 rounded-lg shadow-sm shrink-0">
             
-            {/* SELECT 1: SELECIONE A CATEGORIA */}
+            {/* Div do Select: SELECIONE A CATEGORIA (com label acima) */}
             <div className="flex flex-col space-y-1">
               <label 
                 htmlFor="filter-group-category" 
@@ -1166,7 +1158,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               </select>
             </div>
 
-            {/* SELECT 2: SUBGRUPO DE MANUTENÇÃO */}
+            {/* Div do Select: SUBGRUPO DE MANUTENÇÃO (com label acima) */}
             <div className="flex flex-col space-y-1">
               <label 
                 htmlFor="filter-maintenance-subgroup" 
@@ -1188,16 +1180,15 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               </select>
             </div>
 
-            {/* BOTÃO PRIMÁRIO: + CADASTRAR ITEM (Altura exata h-[34px] dos selects para alinhamento simétrico) */}
+            {/* Botão Mestre Verde: + CADASTRAR ITEM (h-[34px] self-end) */}
             <button
               type="button"
               id="btn-cadastrar-item-plano"
               onClick={handleOpenCreateRuleModal}
-              className="bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-3.5 h-[34px] text-xs rounded transition-colors tracking-wider shadow flex items-center justify-center gap-1 cursor-pointer select-none whitespace-nowrap shrink-0"
+              className="h-[34px] self-end bg-[#059669] hover:bg-emerald-700 text-white font-bold px-4 text-xs rounded transition-colors tracking-wider shadow flex items-center justify-center gap-1 cursor-pointer select-none whitespace-nowrap uppercase"
               title="Cadastrar novo item no plano preventivo deste grupo"
             >
-              <Plus className="w-4 h-4 text-white" />
-              <span>+ CADASTRAR ITEM</span>
+              + CADASTRAR ITEM
             </button>
 
           </div>
@@ -1205,35 +1196,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Card Mestre de Parametrização para a Categoria Selecionada (100% Fixo com Grid Rolável Interno) */}
           <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-800 shadow-sm overflow-hidden w-full">
             
-            {/* Header da Categoria com o Botão + NOVA CATEGORIA Embutido no Topo à Direita */}
-            <div className="shrink-0 px-3.5 py-2.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800">
-              {/* Linha 1: Título e Status à esquerda | Botão + NOVA CATEGORIA à direita */}
-              <div className="flex justify-between items-center w-full">
-                <div className="flex items-center space-x-2">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-2">
-                    <span>{selectedGroupCategory}</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
-                      {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
-                        ? `${filteredRulesCount} DE ${currentCategoryRules.length} REGRAS (${filterSubgroup})`
-                        : `${currentCategoryRules.length} REGRAS ATIVAS`}
-                    </span>
-                  </h3>
-                </div>
-
-                {/* Botão Micro/Compacto + NOVA CATEGORIA Embutido na Mesma Linha de Título */}
-                <button
-                  type="button"
-                  onClick={() => setNewCategoryModalOpen(true)}
-                  className="bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white font-bold px-2.5 py-1 text-xs rounded transition-colors shadow flex items-center space-x-1 cursor-pointer select-none shrink-0 h-[26px]"
-                  title="Cadastrar nova categoria de máquinas e veículos"
-                >
-                  <Plus className="w-3 h-3 text-white" />
-                  <span className="text-[11px] font-bold tracking-wider uppercase">NOVA CATEGORIA</span>
-                </button>
+            {/* Header da Categoria Selecionada */}
+            <div className="shrink-0 p-3 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800">
+              <div className="flex items-center gap-2 w-full pb-1">
+                <span className="text-sm font-bold text-slate-800 dark:text-stone-100 uppercase">{selectedGroupCategory.toUpperCase()}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100/90 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-500/80 uppercase">
+                  {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
+                    ? `${filteredRulesCount} DE ${currentCategoryRules.length} REGRAS (${filterSubgroup})`
+                    : `${currentCategoryRules.length} REGRAS ATIVAS`}
+                </span>
               </div>
 
-              {/* Subtítulo informativo */}
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
                 Estes insumos e intervalos de fábrica alimentarão automaticamente o bloco "ITENS RECOMENDADOS" na Nova Ordem de Manutenção.
               </p>
             </div>
@@ -1572,87 +1546,87 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Modal de Cadastro Compacto Intelligent Flow (SLIM DESIGN PRO) */}
           {isItemModalOpen && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-150">
-              <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="w-full max-w-md bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg shadow-2xl p-4 flex flex-col gap-3 max-h-[92vh] overflow-y-auto">
                 
                 {/* Header do Modal */}
-                <div className="px-5 py-3.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-[#059669] flex items-center justify-center shrink-0">
-                      <Wrench className="w-4 h-4 text-[#059669]" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-stone-900 dark:text-white">
-                        {editingRuleId ? 'EDITAR ITEM RECOMENDADO' : 'CADASTRAR ITEM NO PLANO PREVENTIVO'}
-                      </h4>
-                      <p className="text-[10.5px] text-stone-500 dark:text-stone-400 font-medium">
-                        Parametrização inteligente de insumos e intervalos
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between border-b border-slate-300 dark:border-stone-700 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <Wrench className="w-4 h-4 text-[#059669]" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                      {editingRuleId ? 'EDITAR ITEM RECOMENDADO' : '+ CADASTRAR ITEM NO PLANO'}
+                    </h4>
                   </div>
                   <button 
                     type="button"
                     onClick={handleCancelEditRule} 
-                    className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
-                    title="Fechar modal"
+                    className="p-1 hover:bg-slate-200 dark:hover:bg-stone-800 rounded text-slate-500 hover:text-slate-800 dark:hover:text-stone-200 transition cursor-pointer"
+                    title="FECHAR"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Form / Conteúdo com Rolagem se Necessário */}
-                <form onSubmit={handleSavePreventiveRule} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+                {/* Form / Conteúdo */}
+                <form onSubmit={handleSavePreventiveRule} className="flex flex-col gap-3">
                   
-                  {/* Bloco de Herança Automática dos Filtros (Travados / Bloqueados) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-stone-850 rounded-xl border border-stone-200 dark:border-stone-800">
-                    
-                    {/* CATEGORIA HERDADA (LOCKED) */}
-                    <div>
-                      <label className="block text-[10.5px] font-black uppercase text-stone-600 dark:text-stone-400 mb-1">
-                        CATEGORIA (HERDADA)
-                      </label>
-                      <div className="flex items-center px-3 py-2 rounded-xl bg-slate-200/70 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs font-black uppercase select-none">
-                        <Lock className="w-3.5 h-3.5 text-stone-500 mr-2 shrink-0" />
-                        <span className="truncate">{selectedGroupCategory.toUpperCase()}</span>
-                      </div>
+                  {/* CATEGORIA ATIVA (READ-ONLY DISABLED) */}
+                  <div>
+                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                      CATEGORIA ATIVA
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        readOnly
+                        disabled
+                        value={selectedGroupCategory.toUpperCase()}
+                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
+                      />
+                      <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
-
-                    {/* SUBGRUPO DE MANUTENÇÃO (HERDADO OU SELECIONÁVEL SE FOR 'TODOS OS SUBGRUPOS') */}
-                    <div>
-                      <label className="block text-[10.5px] font-black uppercase text-stone-600 dark:text-stone-400 mb-1">
-                        {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? 'SUBGRUPO (HERDADO)' : 'SUBGRUPO DE MANUTENÇÃO *'}
-                      </label>
-                      {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? (
-                        <div className="flex items-center px-3 py-2 rounded-xl bg-slate-200/70 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs font-black uppercase select-none">
-                          <Lock className="w-3.5 h-3.5 text-stone-500 mr-2 shrink-0" />
-                          <span className="truncate">{filterSubgroup.toUpperCase()}</span>
-                        </div>
-                      ) : (
-                        <select
-                          value={ruleSubgroup}
-                          onChange={(e) => setRuleSubgroup(e.target.value as MaintenanceSubgroup)}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
-                        >
-                          {MAINTENANCE_SUBGROUPS.map((sg) => (
-                            <option key={sg} value={sg} className="uppercase">
-                              {sg}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-
                   </div>
 
-                  {/* PRODUTO / INSUMO / FLUIDO COM AUTOCOMPLETE REAL DO ALMOXARIFADO */}
+                  {/* SUBGRUPO DE MANUTENÇÃO (READ-ONLY DISABLED OU SELETOR SE FOR 'TODOS OS SUBGRUPOS') */}
+                  <div>
+                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                      SUBGRUPO DE MANUTENÇÃO
+                    </label>
+                    {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          readOnly
+                          disabled
+                          value={filterSubgroup.toUpperCase()}
+                          className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
+                        />
+                        <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    ) : (
+                      <select
+                        value={ruleSubgroup}
+                        onChange={(e) => setRuleSubgroup(e.target.value as MaintenanceSubgroup)}
+                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
+                      >
+                        {MAINTENANCE_SUBGROUPS.map((sg) => (
+                          <option key={sg} value={sg} className="uppercase">
+                            {sg}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* PRODUTO DO ESTOQUE COM AUTOCOMPLETE REAL */}
                   <div className="relative" ref={inventoryDropdownRef}>
-                    <label className="block text-[10.5px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1">
-                      PRODUTO / INSUMO / FLUIDO <span className="text-rose-600">*</span>
+                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                      PRODUTO DO ESTOQUE <span className="text-rose-600">*</span>
                     </label>
                     <div className="relative">
                       <input
                         type="text"
                         required
-                        placeholder="Ex: ÓLEO DO MOTOR 15W40, FILTRO RACOR..."
+                        placeholder="DIGITE O NOME OU CÓDIGO DO PRODUTO..."
                         value={inventorySearchQuery}
                         onChange={(e) => {
                           setInventorySearchQuery(e.target.value.toUpperCase());
@@ -1664,16 +1638,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                             setIsInventoryDropdownOpen(true);
                           }
                         }}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-10"
+                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
                       />
-                      <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
+                      <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
 
-                    {/* Dropdown de Autocomplete com Estoque Real */}
+                    {/* Dropdown de Autocomplete com Estoque Real da Chave agrocontrol_produtos */}
                     {isInventoryDropdownOpen && inventoryAutocompleteResults.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl shadow-xl z-50 max-h-52 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
-                        <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-400">
-                          PRODUTOS ENCONTRADOS NO ALMOXARIFADO:
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
+                        <div className="px-3 py-1 bg-slate-100 dark:bg-stone-800 text-[9.5px] font-black uppercase text-slate-600 dark:text-stone-400">
+                          PRODUTOS NO ALMOXARIFADO:
                         </div>
                         {inventoryAutocompleteResults.map((item) => {
                           const anyItem = item as any;
@@ -1686,22 +1660,22 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                               key={item.id}
                               type="button"
                               onClick={() => handleSelectInventoryItem(item)}
-                              className="w-full text-left px-3 py-2 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer"
+                              className="w-full text-left px-3 py-1.5 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer"
                             >
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-stone-900 dark:text-stone-100 uppercase truncate">
+                                <p className="text-xs font-bold text-slate-800 dark:text-stone-100 uppercase truncate">
                                   {name}
                                 </p>
-                                <p className="text-[10px] text-stone-500 font-medium">
-                                  Cód: {item.code || anyItem.codigo || 'S/N'} • Categoria: {anyItem.categoria || item.category || 'GERAL'}
+                                <p className="text-[10px] text-slate-500 font-medium">
+                                  CÓD: {item.code || anyItem.codigo || 'S/N'} • CAT: {anyItem.categoria || item.category || 'GERAL'}
                                 </p>
                               </div>
                               <div className="text-right shrink-0">
                                 <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
                                   {formatCurrencyBRL(cost)}
                                 </span>
-                                <span className="text-[9.5px] text-stone-400 font-bold block">
-                                  Saldo: {stock.toFixed(2)} {unit}
+                                <span className="text-[9.5px] text-slate-400 font-bold block">
+                                  SALDO: {stock.toFixed(2)} {unit}
                                 </span>
                               </div>
                             </button>
@@ -1712,23 +1686,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
                     {/* Vínculo Ativo */}
                     {selectedInventoryItem && (
-                      <div className="mt-1.5 flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-800">
+                      <div className="mt-1 flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
                         <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>VINCULADO AO ESTOQUE: CUSTO UNITÁRIO {formatCurrencyBRL(Number((selectedInventoryItem as any).unitPrice || selectedInventoryItem.unitCost || (selectedInventoryItem as any).preco_custo || 0))}</span>
+                        <span>VINCULADO AO ESTOQUE • CUSTO: {formatCurrencyBRL(Number((selectedInventoryItem as any).unitPrice || selectedInventoryItem.unitCost || (selectedInventoryItem as any).preco_custo || 0))}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* INTERVALO DE FÁBRICA & QUANTIDADE PADRÃO */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    
-                    {/* INTERVALO DE FÁBRICA */}
+                  {/* INTERVALO DE TROCA E QUANTIDADE PADRÃO */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* INTERVALO DE TROCA */}
                     <div>
-                      <label className="block text-[10.5px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1">
-                        INTERVALO DE FÁBRICA <span className="text-rose-600">*</span>
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                        INTERVALO DE TROCA <span className="text-rose-600">*</span>
                       </label>
-                      <div className="flex items-center space-x-1.5">
-                        <span className="text-xs font-bold text-stone-500 shrink-0">A CADA</span>
+                      <div className="flex items-center space-x-1">
                         <input
                           type="number"
                           required
@@ -1737,18 +1709,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           placeholder="250"
                           value={ruleIntervalHoursKm}
                           onChange={(e) => setRuleIntervalHoursKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                          className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                         />
-                        <span className="text-xs font-bold text-stone-600 dark:text-stone-400 shrink-0">H/KM</span>
+                        <span className="text-[11px] font-bold text-slate-500 shrink-0">H/KM</span>
                       </div>
                     </div>
 
-                    {/* QUANTIDADE PADRÃO & UNIDADE */}
+                    {/* QUANTIDADE PADRÃO */}
                     <div>
-                      <label className="block text-[10.5px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1">
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
                         QUANTIDADE PADRÃO <span className="text-rose-600">*</span>
                       </label>
-                      <div className="flex items-center space-x-1.5">
+                      <div className="flex items-center space-x-1">
                         <input
                           type="number"
                           required
@@ -1757,12 +1729,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           placeholder="1"
                           value={ruleStandardQty}
                           onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                          className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                         />
                         <select
                           value={ruleUnit}
                           onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
-                          className="px-2.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
+                          className="px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
                         >
                           <option value="L">L</option>
                           <option value="UN">UN</option>
@@ -1773,37 +1745,36 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         </select>
                       </div>
                     </div>
-
                   </div>
 
-                  {/* OBSERVAÇÕES OPCIONAIS */}
+                  {/* OBSERVAÇÕES DO INSUMO (OPCIONAL) */}
                   <div>
-                    <label className="block text-[10.5px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300 mb-1">
+                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
                       OBSERVAÇÕES DO INSUMO (OPCIONAL)
                     </label>
                     <input
                       type="text"
-                      placeholder="Ex: Utilizar preferencialmente óleo genuíno homologado"
+                      placeholder="EX: UTILIZAR PREFERENCIALMENTE ÓLEO GENUÍNO HOMOLOGADO"
                       value={ruleNotes}
                       onChange={(e) => setRuleNotes(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 text-xs font-medium uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                      className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-medium uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                     />
                   </div>
 
                   {/* Footer do Modal com Botões */}
-                  <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2.5">
+                  <div className="pt-2 border-t border-slate-300 dark:border-stone-700 flex items-center justify-end space-x-2">
                     <button
                       type="button"
                       onClick={handleCancelEditRule}
-                      className="px-4 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 text-xs font-bold uppercase transition cursor-pointer"
+                      className="px-3.5 py-1.5 rounded bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-xs font-bold uppercase transition cursor-pointer"
                     >
                       CANCELAR
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
+                      className="px-4 py-1.5 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider shadow transition flex items-center space-x-1.5 cursor-pointer"
                     >
-                      <Save className="w-4 h-4" />
+                      <Save className="w-3.5 h-3.5" />
                       <span>💾 SALVAR REGRA</span>
                     </button>
                   </div>
@@ -1814,49 +1785,6 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
           )}
 
-          {/* Modal para Adicionar Nova Categoria de Máquinas */}
-          {newCategoryModalOpen && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in">
-              <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-sm w-full p-4 border border-stone-200 dark:border-stone-800 shadow-xl space-y-3">
-                <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-2">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-stone-900 dark:text-white">
-                    NOVA CATEGORIA DE MÁQUINAS
-                  </h4>
-                  <button onClick={() => setNewCategoryModalOpen(false)} className="p-1 hover:bg-stone-100 rounded">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 uppercase">
-                    NOME DA CATEGORIA (CAIXA ALTA)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: TRANSBORDO, PULVERIZADOR..."
-                    value={newCategoryInput}
-                    onChange={(e) => setNewCategoryInput(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-stone-900 dark:text-stone-100 uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
-                  />
-                </div>
-                <div className="flex justify-end space-x-2 pt-2 border-t border-stone-100 dark:border-stone-800">
-                  <button
-                    type="button"
-                    onClick={() => setNewCategoryModalOpen(false)}
-                    className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 text-xs font-bold uppercase text-stone-600 dark:text-stone-300"
-                  >
-                    CANCELAR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddNewGroupCategory}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider"
-                  >
-                    CRIAR CATEGORIA
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
         </div>
       ) : (
