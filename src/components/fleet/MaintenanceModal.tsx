@@ -60,6 +60,7 @@ import {
   getStoredMaintenanceCategories, 
   saveStoredMaintenanceCategories,
   getStoredEmployees,
+  getStoredMachineries,
   getStoredInventory,
   saveStoredInventory,
   getStoredMaintenanceLogs,
@@ -271,6 +272,59 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     return storedInventory;
   }, [storedInventory]);
 
+  // --- CARREGAMENTO GLOBAL E SINCRONIZAÇÃO DE VEÍCULOS / MÁQUINAS ---
+  const [storedMachineries, setStoredMachineries] = useState<Machinery[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setStoredMachineries(getStoredMachineries());
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleVehiclesUpdate = () => {
+      setStoredMachineries(getStoredMachineries());
+    };
+    window.addEventListener('silagem_machineries_updated', handleVehiclesUpdate);
+    window.addEventListener('colaca_silagem_frotas_veiculos_updated', handleVehiclesUpdate);
+    window.addEventListener('agrocontrol_frotas_veiculos_updated', handleVehiclesUpdate);
+    window.addEventListener('agrocontrol_maquinas_updated', handleVehiclesUpdate);
+    window.addEventListener('storage', handleVehiclesUpdate);
+    return () => {
+      window.removeEventListener('silagem_machineries_updated', handleVehiclesUpdate);
+      window.removeEventListener('colaca_silagem_frotas_veiculos_updated', handleVehiclesUpdate);
+      window.removeEventListener('agrocontrol_frotas_veiculos_updated', handleVehiclesUpdate);
+      window.removeEventListener('agrocontrol_maquinas_updated', handleVehiclesUpdate);
+      window.removeEventListener('storage', handleVehiclesUpdate);
+    };
+  }, []);
+
+  const effectiveMachineries = useMemo<Machinery[]>(() => {
+    if (machineries && machineries.length > 0) return machineries;
+    if (storedMachineries.length > 0) return storedMachineries;
+    const fromStorage = getStoredMachineries();
+    if (fromStorage && fromStorage.length > 0) return fromStorage;
+    try {
+      const candidateKeys = [
+        'agrocontrol_maquinas',
+        'agrocontrol_frotas_veiculos',
+        'agrocontrol_veiculos',
+        'agrocontrol_frotas',
+        'colaca_silagem_frotas_veiculos'
+      ];
+      for (const key of candidateKeys) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar veículos do LocalStorage:', e);
+    }
+    return [];
+  }, [machineries, storedMachineries]);
+
   // Alteração do Preço Padrão da OS: salva preferência e recalcula itens da tabela automaticamente
   const handleDefaultPriceTypeChange = (newType: DefaultOsPriceType) => {
     setDefaultPriceType(newType);
@@ -434,8 +488,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   }, []);
 
   const selectedMachinery = useMemo(() => {
-    return machineries.find(m => m.id === machineryId);
-  }, [machineries, machineryId]);
+    return effectiveMachineries.find(m => m.id === machineryId);
+  }, [effectiveMachineries, machineryId]);
 
   const vehiclePreventiveRules = useMemo(() => {
     if (!selectedMachinery) return [];
@@ -1330,7 +1384,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
   const grandTotal = totalPartsCalculated + totalLaborCalculated;
 
-  const currentMach = machineries.find(m => m.id === machineryId);
+  const currentMach = effectiveMachineries.find(m => m.id === machineryId);
   const currentMachName = currentMach 
     ? (currentMach.licensePlateOrSerial ? `[${currentMach.licensePlateOrSerial}] ${currentMach.name || currentMach.model}` : (currentMach.name || currentMach.model || 'Veículo'))
     : 'Veículo';
@@ -1378,7 +1432,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     const isDreOnly = Boolean(skipAccountsPayableDreOnly);
     const isTriggeringExpense = isDreOnly ? false : Boolean(options?.triggerExpense);
 
-    const selectedMach = machineries.find(m => m.id === machineryId);
+    const selectedMach = effectiveMachineries.find(m => m.id === machineryId);
     const machName = selectedMach 
       ? (selectedMach.licensePlateOrSerial ? `[${selectedMach.licensePlateOrSerial}] ${selectedMach.name || selectedMach.model}` : selectedMach.name)
       : 'Veículo';
@@ -1858,7 +1912,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     {/* Veículo / Máquina */}
                     <div>
                       <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-0.5 truncate">
-                        MÁQUINA *
+                        VEÍCULO*
                       </label>
                       <select
                         value={machineryId}
@@ -1866,12 +1920,16 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-zinc-900 focus:ring-1 focus:ring-slate-400 focus:outline-hidden cursor-pointer truncate"
                       >
                         <option value="">SELECIONE...</option>
-                        {machineries.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}
-                            {m.name || m.model} ({m.categoryType || 'Equipamento'})
-                          </option>
-                        ))}
+                        {effectiveMachineries.map((m: any) => {
+                          const code = (m.code || m.prefixo || m.frota || m.licensePlateOrSerial || m.plate || m.placa || m.id || '').toString().trim().toUpperCase();
+                          const name = (m.name || m.nome || m.model || m.modelo || '').toString().trim().toUpperCase();
+                          const label = code ? `[${code}] ${name}` : name;
+                          return (
+                            <option key={m.id} value={m.id}>
+                              {label}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -2009,13 +2067,13 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-[10.5px] font-black uppercase text-zinc-700">
-                          CATEGORIA DO SERVIÇO
+                          SUBGRUPO DE MANUTENÇÃO
                         </label>
                         <button
                           type="button"
                           onClick={() => setIsCategoriesModalOpen(true)}
                           className="text-[10px] text-zinc-700 hover:text-zinc-950 font-black uppercase flex items-center space-x-1 hover:underline cursor-pointer"
-                          title="Gerenciar, incluir, editar ou excluir categorias de serviço"
+                          title="Gerenciar, incluir, editar ou excluir subgrupos de manutenção"
                         >
                           <Tag className="w-2.5 h-2.5" />
                           <span>GERENCIAR</span>
@@ -2041,7 +2099,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           type="button"
                           onClick={() => setIsCategoriesModalOpen(true)}
                           className="p-1 border border-slate-300 bg-white hover:bg-zinc-100 rounded text-zinc-700 transition cursor-pointer shrink-0"
-                          title="Incluir, editar ou excluir categorias"
+                          title="Incluir, editar ou excluir subgrupos de manutenção"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -2052,7 +2110,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                   {(serviceCategory === 'Outro' || serviceCategory === 'Outro (Personalizado)') && (
                     <div>
                       <label className="block text-[10.5px] font-black uppercase text-zinc-700 mb-0.5">
-                        ESPECIFIQUE A CATEGORIA
+                        ESPECIFIQUE O SUBGRUPO
                       </label>
                       <input
                         type="text"

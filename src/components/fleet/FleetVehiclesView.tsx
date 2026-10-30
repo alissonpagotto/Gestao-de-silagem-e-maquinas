@@ -824,6 +824,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       const json = JSON.stringify(updatedPlans);
       localStorage.setItem('agrocontrol_plano_preventivo_grupos', json);
       localStorage.setItem('agrocontrol_tipos_veiculos_planos', json);
+      saveStoredPreventiveGroupPlans(updatedPlans);
 
       // Atualiza o estado React imediatamente para re-renderização instantânea
       setPreventivePlans(updatedPlans);

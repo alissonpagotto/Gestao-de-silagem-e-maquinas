@@ -646,7 +646,8 @@ export function saveStoredOrders(orders: SilageOrder[]): void {
 
 export function getStoredMachineries(): Machinery[] {
   try {
-    let raw = localStorage.getItem('agrocontrol_frotas_veiculos') ||
+    let raw = localStorage.getItem('agrocontrol_maquinas') ||
+              localStorage.getItem('agrocontrol_frotas_veiculos') ||
               localStorage.getItem('agrocontrol_veiculos') ||
               localStorage.getItem('agrocontrol_frotas') ||
               localStorage.getItem('colaca_silagem_frotas_veiculos') ||
@@ -710,6 +711,9 @@ export function getStoredMachineries(): Machinery[] {
       const json = JSON.stringify(cleaned);
       localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
       localStorage.setItem('colaca_silagem_frotas_veiculos', json);
+      localStorage.setItem('agrocontrol_maquinas', json);
+      localStorage.setItem('agrocontrol_frotas_veiculos', json);
+      localStorage.setItem('agrocontrol_veiculos', json);
     }
     return cleaned;
   } catch (e) {
@@ -723,6 +727,7 @@ export function saveStoredMachineries(machines: Machinery[]): void {
     const json = JSON.stringify(machines);
     localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
     localStorage.setItem('colaca_silagem_frotas_veiculos', json);
+    localStorage.setItem('agrocontrol_maquinas', json);
     localStorage.setItem('agrocontrol_frotas_veiculos', json);
     localStorage.setItem('agrocontrol_veiculos', json);
     localStorage.setItem('agrocontrol_frotas', json);
@@ -730,6 +735,7 @@ export function saveStoredMachineries(machines: Machinery[]): void {
       window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: machines }));
       window.dispatchEvent(new CustomEvent('colaca_silagem_frotas_veiculos_updated', { detail: machines }));
       window.dispatchEvent(new CustomEvent('agrocontrol_frotas_veiculos_updated', { detail: machines }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_maquinas_updated', { detail: machines }));
     }
   } catch (e) {
     console.error('Failed to save machineries', e);
