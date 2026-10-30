@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup, MaintenanceCategoryDefinition } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
-import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
+import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters, formatCurrencyBRL } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
@@ -445,17 +445,26 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setEditingRuleId(rule.id);
     const resolvedSubgroup = rule.SUBGRUPO || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
     setRuleSubgroup(resolvedSubgroup);
-    setInventorySearchQuery(rule.ITEM_NOME);
+    setInventorySearchQuery((rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase());
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
     setRuleStandardQty(rule.QUANTIDADE_PADRAO);
     setRuleUnit(rule.unidade || 'UN');
     setRuleNotes(rule.observacoes || '');
     if (rule.PRODUTO_ID) {
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
-      setSelectedInventoryItem(linked);
+      if (linked) {
+        setSelectedInventoryItem(linked);
+      } else {
+        setSelectedInventoryItem({
+          id: rule.PRODUTO_ID,
+          name: rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME,
+          unitCost: rule.CUSTO_UNITARIO || 0,
+          unit: rule.unidade || 'UN',
+          quantity: 0
+        } as any);
+      }
     } else {
-      const linkedByName = inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
-      setSelectedInventoryItem(linkedByName || null);
+      setSelectedInventoryItem(null);
     }
     setIsInventoryDropdownOpen(false);
     setIsItemModalOpen(true);
@@ -567,28 +576,50 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const qty = typeof ruleStandardQty === 'number' && ruleStandardQty > 0 ? ruleStandardQty : 1;
     const unit = (selectedInventoryItem?.unit || (selectedInventoryItem as any)?.unidade_medida || ruleUnit || 'UN').toUpperCase();
 
+    const selectedAny = selectedInventoryItem as any;
+    const selectedProdId = selectedInventoryItem?.id;
+    const selectedProdNome = selectedInventoryItem
+      ? String(selectedAny?.nome_comercial || selectedInventoryItem.name || itemName).toUpperCase()
+      : undefined;
+    const selectedProdCusto = selectedInventoryItem
+      ? Number(selectedAny?.unitPrice || selectedInventoryItem.unitCost || selectedAny?.preco_custo || selectedAny?.custo_unitario || selectedAny?.valor_unitario || 0)
+      : undefined;
+
     const upperCat = selectedGroupCategory.toUpperCase();
     const currentRules = currentCategoryRules;
     let updatedRules: PreventiveGroupItem[];
 
     if (editingRuleId) {
-      updatedRules = currentRules.map(r => r.id === editingRuleId ? {
-        ...r,
-        CATEGORIA: upperCat,
-        SUBGRUPO: ruleSubgroup,
-        ITEM_NOME: itemName,
-        PRODUTO_ID: selectedInventoryItem?.id || r.PRODUTO_ID,
-        INTERVALO_HORAS_KM: interval,
-        QUANTIDADE_PADRAO: qty,
-        unidade: unit,
-        observacoes: ruleNotes.trim() || undefined,
-      } : r);
+      updatedRules = currentRules.map(r => {
+        if (r.id === editingRuleId) {
+          const finalProdId = selectedProdId !== undefined ? selectedProdId : r.PRODUTO_ID;
+          const finalProdNome = selectedProdNome !== undefined ? selectedProdNome : r.PRODUTO_NOME_ESTOQUE;
+          const finalCusto = selectedProdCusto !== undefined ? selectedProdCusto : r.CUSTO_UNITARIO;
+
+          return {
+            ...r,
+            CATEGORIA: upperCat,
+            SUBGRUPO: ruleSubgroup,
+            ITEM_NOME: itemName,
+            PRODUTO_ID: finalProdId,
+            PRODUTO_NOME_ESTOQUE: finalProdNome,
+            CUSTO_UNITARIO: finalCusto,
+            INTERVALO_HORAS_KM: interval,
+            QUANTIDADE_PADRAO: qty,
+            unidade: unit,
+            observacoes: ruleNotes.trim() || undefined,
+          };
+        }
+        return r;
+      });
     } else {
       const newRule: PreventiveGroupItem = {
         id: `prev_${upperCat.toLowerCase().slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
         CATEGORIA: upperCat,
         SUBGRUPO: ruleSubgroup,
-        PRODUTO_ID: selectedInventoryItem?.id,
+        PRODUTO_ID: selectedProdId,
+        PRODUTO_NOME_ESTOQUE: selectedProdNome,
+        CUSTO_UNITARIO: selectedProdCusto,
         ITEM_NOME: itemName,
         INTERVALO_HORAS_KM: interval,
         QUANTIDADE_PADRAO: qty,
@@ -606,6 +637,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     saveStoredPreventiveGroupPlans(updatedPlans);
 
     handleCancelEditRule();
+    setIsItemModalOpen(false);
     setPreventiveFeedback({
       type: 'success',
       message: `REGRA "${itemName}" SALVA COM SUCESSO NO GRUPO ${upperCat}!`
@@ -1374,15 +1406,17 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         </tr>
 
                         {group.rules.map((rule, idx) => {
-                          const linkedItem = rule.PRODUTO_ID 
-                            ? inventoryList.find(i => i.id === rule.PRODUTO_ID) 
-                            : inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
+                          const isLinked = Boolean(rule.PRODUTO_ID && String(rule.PRODUTO_ID).trim());
+                          const linkedItem = isLinked ? inventoryList.find(i => i.id === rule.PRODUTO_ID) : null;
                           
-                          const cost = linkedItem ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || 0) : 0;
-                          const linkedCode = linkedItem ? (linkedItem.code || (linkedItem as any).codigo || linkedItem.id.slice(0, 6)) : null;
-                          const linkedName = linkedItem ? ((linkedItem as any).nome_comercial || linkedItem.name || '').toUpperCase() : null;
+                          const cost = linkedItem 
+                            ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || (linkedItem as any).custo_unitario || (linkedItem as any).valor_unitario || 0) 
+                            : Number(rule.CUSTO_UNITARIO || 0);
+                          const linkedName = linkedItem 
+                            ? ((linkedItem as any).nome_comercial || linkedItem.name || '').toUpperCase() 
+                            : (rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase();
                           const linkedStock = linkedItem ? Number(linkedItem.quantity ?? (linkedItem as any).currentStock ?? 0) : 0;
-                          const linkedUnit = linkedItem ? (linkedItem.unit || (linkedItem as any).unidade_medida || 'UN').toUpperCase() : 'UN';
+                          const linkedUnit = linkedItem ? (linkedItem.unit || (linkedItem as any).unidade_medida || 'UN').toUpperCase() : (rule.unidade || 'UN');
 
                           const isInlineEditing = inlineEditingRuleId === rule.id;
 
@@ -1399,7 +1433,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                 <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100 uppercase">
                                   <div className="flex items-center space-x-2">
                                     <span>{rule.ITEM_NOME}</span>
-                                    {linkedItem && (
+                                    {isLinked && (
                                       <span className="text-[9px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded">
                                         {formatCurrencyBRL(cost)}/{rule.unidade || 'UN'}
                                       </span>
@@ -1416,22 +1450,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                   {rule.QUANTIDADE_PADRAO} {rule.unidade || 'UN'}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
-                                  {linkedItem ? (
+                                  {isLinked ? (
                                     <span 
-                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 max-w-[280px] truncate"
-                                      title={`Código: ${linkedCode} - ${linkedName} | Saldo: ${linkedStock.toFixed(2)} ${linkedUnit}`}
+                                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded text-[10.5px] font-bold uppercase bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-2xs max-w-[320px] truncate"
+                                      title={`VÍNCULO COM ALMOXARIFADO: ${linkedName} - ${formatCurrencyBRL(cost)} | SALDO: ${linkedStock.toFixed(2)} ${linkedUnit}`}
                                     >
-                                      <Check className="w-3 h-3 text-emerald-600 shrink-0" />
                                       <span className="truncate">
-                                        📦 COD: {linkedCode} - {linkedName} | QTD ESTOQUE: {linkedStock.toFixed(2)} {linkedUnit}
+                                        📦 {linkedName} - {formatCurrencyBRL(cost)}
                                       </span>
                                     </span>
                                   ) : (
                                     <span 
-                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded text-[10px] font-bold uppercase bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
                                       title="Item sem amarração direta no almoxarifado. Clique no lápis para vincular agora."
                                     >
-                                      <span>⚠️ PENDENTE DE VINCULO</span>
+                                      <span>⚠️ PENDENTE DE VÍNCULO</span>
                                     </span>
                                   )}
                                 </td>
@@ -1778,6 +1811,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           const anyItem = item as any;
                           const name = (anyItem.nome_comercial || item.name || '').toUpperCase();
                           const cost = Number(anyItem.unitPrice || item.unitCost || anyItem.preco_custo || anyItem.custo_unitario || anyItem.valor_unitario || 0);
+                          const displayId = anyItem.codigo_produto || item.code || anyItem.codigo || item.id;
                           const unit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
                           const stock = Number(item.quantity ?? anyItem.currentStock ?? anyItem.quantidade_atual ?? 0);
                           return (
@@ -1785,22 +1819,19 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                               key={item.id}
                               type="button"
                               onClick={() => handleSelectInventoryItem(item)}
-                              className="w-full text-left px-3 py-1.5 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer"
+                              className="w-full text-left px-3 py-2 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer border-b border-slate-100 dark:border-stone-800 last:border-b-0"
                             >
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <p className="text-xs font-bold text-slate-800 dark:text-stone-100 uppercase truncate">
-                                  {name}
+                                  #{displayId} - {name} - {formatCurrencyBRL(cost)}
                                 </p>
                                 <p className="text-[10px] text-slate-500 font-medium">
-                                  CÓD: {item.code || anyItem.codigo || 'S/N'} • CAT: {anyItem.categoria || item.category || 'GERAL'}
+                                  CAT: {anyItem.categoria || item.category || 'GERAL'} • SALDO: {stock.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unit}
                                 </p>
                               </div>
                               <div className="text-right shrink-0">
                                 <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
                                   {formatCurrencyBRL(cost)}
-                                </span>
-                                <span className="text-[9.5px] text-slate-400 font-bold block">
-                                  SALDO: {stock.toFixed(2)} {unit}
                                 </span>
                               </div>
                             </button>
@@ -1813,7 +1844,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     {selectedInventoryItem && (
                       <div className="mt-1 flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
                         <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>VINCULADO AO ESTOQUE • CUSTO: {formatCurrencyBRL(Number((selectedInventoryItem as any).unitPrice || selectedInventoryItem.unitCost || (selectedInventoryItem as any).preco_custo || 0))}</span>
+                        <span>VÍNCULO COM ESTOQUE: #{ (selectedInventoryItem as any).codigo_produto || selectedInventoryItem.code || (selectedInventoryItem as any).codigo || selectedInventoryItem.id } - { ((selectedInventoryItem as any).nome_comercial || selectedInventoryItem.name || '').toUpperCase() } • CUSTO: {formatCurrencyBRL(Number((selectedInventoryItem as any).unitPrice || selectedInventoryItem.unitCost || (selectedInventoryItem as any).preco_custo || 0))}</span>
                       </div>
                     )}
                   </div>

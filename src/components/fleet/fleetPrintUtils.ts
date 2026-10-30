@@ -1,7 +1,8 @@
 import { Machinery, CompanyProfile, FuelLog, MaintenanceLog, ServiceOrder, SilageOrder } from '../../types';
 
 export function formatCurrencyBRL(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const num = typeof value === 'number' && !isNaN(value) ? value : 0;
+  return `R$ ${num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function formatDateBR(dateStr?: string): string {
