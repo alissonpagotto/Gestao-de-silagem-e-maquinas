@@ -164,16 +164,16 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-blue-900 bg-blue-800 text-white">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center">
-              <Tag className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-slate-300/80 text-slate-700 flex items-center justify-center shadow-xs">
+              <Tag className="w-5 h-5 text-slate-700 font-bold" />
             </div>
             <div>
-              <h3 className="text-base font-black uppercase text-white tracking-wider font-['Outfit']">
+              <h3 className="text-base text-slate-700 font-bold uppercase tracking-wider font-['Outfit']">
                 GERENCIAR SUBGRUPOS DE MANUTENÇÃO
               </h3>
-              <p className="text-xs text-blue-200 uppercase font-semibold">
+              <p className="text-[11px] text-slate-600 font-medium uppercase tracking-wide">
                 INCLUA, EDITE OU REMOVA SUBGRUPOS DE MANUTENÇÃO DA FROTA AGRÍCOLA
               </p>
             </div>
@@ -181,7 +181,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
 
           <button
             onClick={onClose}
-            className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer"
+            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-300/50 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -198,8 +198,8 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar subgrupo..."
-                className="w-full pl-9 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-600"
+                placeholder="BUSCAR SUBGRUPO..."
+                className="w-full pl-9 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-bold uppercase focus:ring-2 focus:ring-emerald-600"
               />
             </div>
 
@@ -207,21 +207,21 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
               <button
                 type="button"
                 onClick={handleResetDefaults}
-                title="Restaurar subgrupos padrão"
-                className="px-2.5 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl text-xs font-semibold transition flex items-center space-x-1 cursor-pointer"
+                title="RESTAURAR SUBGRUPOS PADRÃO"
+                className="px-2.5 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer uppercase"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Padrões</span>
+                <span className="hidden sm:inline">PADRÕES</span>
               </button>
 
               {!isAddingNew && !editingId && (
                 <button
                   type="button"
                   onClick={startAddNew}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer uppercase"
+                  className="px-3 py-1.5 bg-[#059669] text-white hover:bg-emerald-700 font-bold uppercase rounded-xl text-xs transition flex items-center space-x-1.5 shadow-xs cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Novo Subgrupo</span>
+                  <span>NOVO SUBGRUPO</span>
                 </button>
               )}
             </div>
@@ -231,33 +231,33 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
           {(isAddingNew || editingId) && (
             <form 
               onSubmit={handleSave}
-              className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3 animate-in fade-in zoom-in-95 duration-150"
+              className="p-4 rounded-xl bg-slate-50 dark:bg-stone-850 border border-slate-300 dark:border-stone-700 space-y-3 animate-in fade-in zoom-in-95 duration-150"
             >
-              <div className="flex items-center justify-between border-b border-blue-100 dark:border-blue-800/80 pb-2">
-                <span className="text-xs font-black text-blue-900 dark:text-blue-200 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Tag className="w-3.5 h-3.5 text-blue-600" />
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-700 pb-2">
+                <span className="text-xs font-black text-slate-800 dark:text-stone-200 uppercase tracking-wider flex items-center space-x-1.5">
+                  <Tag className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
                   <span>{editingId ? 'EDITAR SUBGRUPO' : 'NOVO SUBGRUPO DE MANUTENÇÃO'}</span>
                 </span>
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="text-stone-400 hover:text-stone-600 text-xs font-bold cursor-pointer uppercase"
+                  className="text-stone-500 hover:text-stone-800 text-xs font-bold cursor-pointer uppercase"
                 >
-                  Cancelar
+                  CANCELAR
                 </button>
               </div>
 
               {formError && (
-                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center space-x-1.5">
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold uppercase flex items-center space-x-1.5">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{formError}</span>
+                  <span>{formError.toUpperCase()}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-blue-900 dark:text-stone-300 mb-1 uppercase">
-                    Nome do Subgrupo *
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1 uppercase">
+                    NOME DO SUBGRUPO *
                   </label>
                   <input
                     type="text"
@@ -266,23 +266,23 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                       setName(e.target.value);
                       if (formError) setFormError('');
                     }}
-                    placeholder="Ex: Pulverizador & Bicos, Cardan & Cruzetas..."
-                    className="w-full px-3 py-1.5 bg-white dark:bg-stone-800 border border-blue-200 dark:border-stone-700 rounded-xl text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-blue-600"
+                    placeholder="EX: PULVERIZADOR & BICOS, CARDAN & CRUZETAS..."
+                    className="w-full px-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold uppercase text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-600 outline-none"
                     required
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-blue-900 dark:text-stone-300 mb-1">
-                    Cor de Identificação
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1 uppercase">
+                    COR DE IDENTIFICAÇÃO
                   </label>
                   <div className="flex items-center space-x-2">
                     <input
                       type="color"
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
-                      className="w-8 h-8 rounded-lg border border-stone-300 cursor-pointer p-0.5 bg-white"
+                      className="w-8 h-8 rounded-lg border border-slate-300 cursor-pointer p-0.5 bg-white"
                     />
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {COLOR_PRESETS.slice(0, 6).map((cp) => (
@@ -291,9 +291,9 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                           type="button"
                           onClick={() => setColor(cp.value)}
                           className={`w-5 h-5 rounded-full ${cp.bg} transition hover:scale-110 cursor-pointer ${
-                            color === cp.value ? 'ring-2 ring-blue-600 ring-offset-1' : ''
+                            color === cp.value ? 'ring-2 ring-emerald-600 ring-offset-1' : ''
                           }`}
-                          title={cp.label}
+                          title={cp.label.toUpperCase()}
                         />
                       ))}
                     </div>
@@ -302,15 +302,15 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-blue-900 dark:text-stone-300 mb-1">
-                  Descrição / Exemplos de Serviços (Opcional)
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1 uppercase">
+                  DESCRIÇÃO / EXEMPLOS DE SERVIÇOS (OPCIONAL)
                 </label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ex: Regulagem de barras, troca de pontas cerâmicas, vazamentos de veneno"
-                  className="w-full px-3 py-1.5 bg-white dark:bg-stone-800 border border-blue-200 dark:border-stone-700 rounded-xl text-xs font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-blue-600"
+                  placeholder="EX: REGULAGEM DE BARRAS, TROCA DE PONTAS CERÂMICAS..."
+                  className="w-full px-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold uppercase text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-600 outline-none"
                 />
               </div>
 
@@ -318,16 +318,16 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="px-3 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 rounded-xl text-xs font-bold transition cursor-pointer"
+                  className="px-3 py-1.5 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 rounded-lg text-xs font-bold transition cursor-pointer uppercase"
                 >
-                  Cancelar
+                  CANCELAR
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer uppercase"
+                  className="px-4 py-1.5 bg-[#059669] text-white hover:bg-emerald-700 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer uppercase"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>{editingId ? 'Salvar Alterações' : 'Adicionar Subgrupo'}</span>
+                  <span>{editingId ? 'SALVAR ALTERAÇÕES' : 'ADICIONAR SUBGRUPO'}</span>
                 </button>
               </div>
             </form>
@@ -342,8 +342,8 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
 
             <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden bg-white dark:bg-stone-800/40">
               {filteredCategories.length === 0 ? (
-                <div className="py-8 text-center text-stone-400 text-xs">
-                  Nenhum subgrupo encontrado com o termo "{searchTerm}".
+                <div className="py-8 text-center text-stone-400 text-xs font-bold uppercase">
+                  NENHUM SUBGRUPO ENCONTRADO COM O TERMO "{searchTerm.toUpperCase()}".
                 </div>
               ) : (
                 filteredCategories.map((cat) => (
@@ -358,18 +358,18 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                       />
                       <div className="min-w-0">
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100 truncate">
-                            {cat.name}
+                          <span className="font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100 uppercase truncate">
+                            {cat.name.toUpperCase()}
                           </span>
                           {cat.isSystem && (
                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-stone-100 dark:bg-stone-700 text-stone-500 uppercase tracking-wider">
-                              Padrão
+                              PADRÃO
                             </span>
                           )}
                         </div>
                         {cat.description && (
-                          <p className="text-[11px] text-stone-500 truncate max-w-md">
-                            {cat.description}
+                          <p className="text-[11px] text-stone-500 uppercase truncate max-w-md font-medium">
+                            {cat.description.toUpperCase()}
                           </p>
                         )}
                       </div>
@@ -383,17 +383,17 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                             onSelectCategory(cat.name);
                             onClose();
                           }}
-                          className="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 transition cursor-pointer uppercase"
+                          className="px-2.5 py-1 bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 hover:bg-emerald-200 text-[10px] font-bold rounded-lg transition cursor-pointer uppercase shadow-2xs"
                         >
-                          Selecionar
+                          SELECIONAR
                         </button>
                       )}
 
                       <button
                         type="button"
                         onClick={() => startEdit(cat)}
-                        title="Editar Subgrupo"
-                        className="p-1.5 text-stone-400 hover:text-indigo-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer"
+                        title="EDITAR SUBGRUPO"
+                        className="p-1.5 text-stone-400 hover:text-emerald-700 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -401,7 +401,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
                       <button
                         type="button"
                         onClick={() => handleDelete(cat.id, cat.name)}
-                        title="Excluir Subgrupo"
+                        title="EXCLUIR SUBGRUPO"
                         className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -416,16 +416,16 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 flex justify-between items-center">
-          <p className="text-[11px] text-stone-500">
-            Os subgrupos criados ficam disponíveis em todas as Ordens de Serviço (OS) e no Plano Preventivo da Frota.
+        <div className="p-4 border-t border-slate-300 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 flex justify-between items-center">
+          <p className="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase">
+            OS SUBGRUPOS CRIADOS FICAM DISPONÍVEIS EM TODAS AS ORDENS DE SERVIÇO (OS) E NO PLANO PREVENTIVO DA FROTA.
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-xs font-bold rounded-xl transition cursor-pointer uppercase"
+            className="px-5 py-2 bg-slate-700 text-white hover:bg-slate-800 font-bold uppercase text-xs rounded-xl transition cursor-pointer shadow-xs"
           >
-            Concluir
+            CONCLUIR
           </button>
         </div>
 
