@@ -2390,6 +2390,11 @@ export const saveStoredVehicleSystemCategories = (list: string[]): void => {
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
   saveStoredList(STORAGE_KEYS.VEHICLE_SYSTEM_CATEGORIES, sanitized);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agrocontrol_categorias_veiculos_updated', { detail: sanitized }));
+    window.dispatchEvent(new CustomEvent('silagem_vehicle_categories_updated', { detail: sanitized }));
+    window.dispatchEvent(new Event('storage'));
+  }
 };
 
 export const DEFAULT_VEHICLE_OWNERSHIP_REGIMES = [

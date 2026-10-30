@@ -182,24 +182,37 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [isRegimesModalOpen, setIsRegimesModalOpen] = useState(false);
 
   useEffect(() => {
-    const loadedCats = getStoredVehicleSystemCategories();
-    // Ordenação alfabética rigorosa A-Z e travamento compulsório em UPPERCASE
-    const sortedCats = [...loadedCats]
-      .map(c => c.trim().toUpperCase())
-      .filter(Boolean)
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    setCategoriesList(sortedCats);
-    if (!editingVehicle && sortedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType.toLowerCase().includes('ensiladeira') || categoryType.toLowerCase() === 'veiculo')) {
-      const defaultMatch = sortedCats.find(c => c.includes('ENSILADEIRA')) || sortedCats[0];
-      setCategoryType(defaultMatch);
-    }
+    const syncCategories = () => {
+      const loadedCats = getStoredVehicleSystemCategories();
+      // Ordenação alfabética rigorosa A-Z e travamento compulsório em UPPERCASE
+      const sortedCats = [...loadedCats]
+        .map(c => c.trim().toUpperCase())
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      setCategoriesList(sortedCats);
+      if (!editingVehicle && sortedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType.toLowerCase().includes('ensiladeira') || categoryType.toLowerCase() === 'veiculo')) {
+        const defaultMatch = sortedCats.find(c => c.includes('ENSILADEIRA')) || sortedCats[0];
+        setCategoryType(defaultMatch);
+      }
+    };
+
+    syncCategories();
 
     const loadedRegimes = getStoredVehicleOwnershipRegimes();
     setRegimesList(loadedRegimes);
     if (!editingVehicle && loadedRegimes.length > 0) {
       setOwnership(loadedRegimes[0]);
     }
+
+    window.addEventListener('agrocontrol_categorias_veiculos_updated', syncCategories);
+    window.addEventListener('silagem_vehicle_categories_updated', syncCategories);
+    window.addEventListener('storage', syncCategories);
+    return () => {
+      window.removeEventListener('agrocontrol_categorias_veiculos_updated', syncCategories);
+      window.removeEventListener('silagem_vehicle_categories_updated', syncCategories);
+      window.removeEventListener('storage', syncCategories);
+    };
   }, [isOpen]);
 
   const handleSaveCategories = (updated: string[]) => {

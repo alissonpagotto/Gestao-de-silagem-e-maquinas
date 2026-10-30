@@ -5,14 +5,16 @@ import {
   Table as TableIcon, LayoutGrid, Users, Gauge, Box, Eye, TrendingUp,
   Receipt, DollarSign, Printer, RefreshCw, X, Link2, Check,
   Share2, ArrowUpDown, ChevronDown, Sparkles, Building, Weight,
-  SlidersHorizontal, Layers, Pencil, Package, Save, Lock
+  SlidersHorizontal, Layers, Pencil, Package, Save, Lock, Settings
 } from 'lucide-react';
 import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder, CompanyProfile, PreventiveGroupItem, InventoryItem, MaintenanceSubgroup } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
+import { VehicleCategoriesModal } from './VehicleCategoriesModal';
 import { 
   getStoredVehicleSystemCategories, 
+  saveStoredVehicleSystemCategories,
   getStoredVehicleOwnershipRegimes, 
   getStoredCompanyProfile, 
   getStoredMachineries, 
@@ -100,7 +102,35 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
   const [preventiveFeedback, setPreventiveFeedback] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [systemCategories, setSystemCategories] = useState<string[]>(() => getStoredVehicleSystemCategories());
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const inventoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sincronização em tempo real de categorias de veículos
+  useEffect(() => {
+    const handleCategoriesUpdated = () => {
+      const fresh = getStoredVehicleSystemCategories();
+      setSystemCategories(fresh);
+    };
+    window.addEventListener('agrocontrol_categorias_veiculos_updated', handleCategoriesUpdated);
+    window.addEventListener('silagem_vehicle_categories_updated', handleCategoriesUpdated);
+    window.addEventListener('storage', handleCategoriesUpdated);
+    return () => {
+      window.removeEventListener('agrocontrol_categorias_veiculos_updated', handleCategoriesUpdated);
+      window.removeEventListener('silagem_vehicle_categories_updated', handleCategoriesUpdated);
+      window.removeEventListener('storage', handleCategoriesUpdated);
+    };
+  }, []);
+
+  const handleSaveCategories = (updated: string[]) => {
+    const sorted = [...updated]
+      .map(c => c.trim().toUpperCase())
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    setSystemCategories(sorted);
+    saveStoredVehicleSystemCategories(sorted);
+  };
 
   // Estados para Edição / Associação Direta Inline no Grid
   const [inlineEditingRuleId, setInlineEditingRuleId] = useState<string | null>(null);
@@ -172,7 +202,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       .trim();
 
     const fromPlans = Object.keys(preventivePlans || {});
-    const fromSysCategories = getStoredVehicleSystemCategories();
+    const fromSysCategories = systemCategories.length > 0 ? systemCategories : getStoredVehicleSystemCategories();
 
     const set = new Set<string>();
     canonicalOrder.forEach(c => set.add(c));
@@ -194,7 +224,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     });
 
     return Array.from(set).filter(Boolean);
-  }, [preventivePlans]);
+  }, [preventivePlans, systemCategories]);
 
   // Itens configurados para a categoria ativa
   const currentCategoryRules = useMemo<PreventiveGroupItem[]>(() => {
@@ -1133,29 +1163,40 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Barra de Filtros Superior (SLIM DESIGN PRO) */}
           <div className="flex items-end gap-3 w-full bg-slate-50 dark:bg-stone-900 p-3 border border-slate-300 dark:border-stone-800 rounded-lg shadow-sm shrink-0">
             
-            {/* Div do Select: SELECIONE A CATEGORIA (com label acima) */}
-            <div className="flex flex-col space-y-1">
+            {/* Div do Select: SELECIONE A CATEGORIA (com botão de engrenagem nativo) */}
+            <div className="flex flex-col gap-1">
               <label 
                 htmlFor="filter-group-category" 
-                className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 leading-none"
+                className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase leading-none"
               >
                 SELECIONE A CATEGORIA
               </label>
-              <select
-                id="filter-group-category"
-                value={selectedGroupCategory.toUpperCase()}
-                onChange={(e) => {
-                  setSelectedGroupCategory(e.target.value.toUpperCase());
-                  handleCancelEditRule();
-                }}
-                className="w-full sm:w-auto min-w-[200px] sm:min-w-[240px] px-3 h-[34px] rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-2xs"
-              >
-                {availableGroupCategories.map((cat) => (
-                  <option key={cat} value={cat.toUpperCase()} className="uppercase">
-                    {cat.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1">
+                <select
+                  id="filter-group-category"
+                  value={selectedGroupCategory.toUpperCase()}
+                  onChange={(e) => {
+                    setSelectedGroupCategory(e.target.value.toUpperCase());
+                    handleCancelEditRule();
+                  }}
+                  className="h-[34px] bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded px-2 text-xs font-bold uppercase focus:outline-none min-w-[200px] sm:min-w-[240px] text-stone-800 dark:text-stone-200 cursor-pointer shadow-2xs"
+                >
+                  {availableGroupCategories.map((cat) => (
+                    <option key={cat} value={cat.toUpperCase()} className="uppercase">
+                      {cat.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  id="btn-gerenciar-categorias-preventivo"
+                  onClick={() => setIsCategoriesModalOpen(true)}
+                  className="h-[34px] w-[34px] flex items-center justify-center bg-slate-200 hover:bg-slate-300 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-400 dark:border-stone-600 rounded text-slate-700 dark:text-stone-200 transition-colors shadow-sm cursor-pointer shrink-0"
+                  title="EDITAR LISTA DE CATEGORIAS"
+                >
+                  <Settings className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+                </button>
+              </div>
             </div>
 
             {/* Div do Select: SUBGRUPO DE MANUTENÇÃO (com label acima) */}
@@ -2729,6 +2770,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Nativo de Gerenciamento de Categorias de Veículos */}
+      <VehicleCategoriesModal
+        isOpen={isCategoriesModalOpen}
+        onClose={() => setIsCategoriesModalOpen(false)}
+        categories={systemCategories}
+        onSaveCategories={handleSaveCategories}
+        onSelectCategory={(cat) => {
+          setSelectedGroupCategory(cat);
+          setIsCategoriesModalOpen(false);
+        }}
+      />
 
       {/* Print Preview Modal */}
       {printOptions && (
