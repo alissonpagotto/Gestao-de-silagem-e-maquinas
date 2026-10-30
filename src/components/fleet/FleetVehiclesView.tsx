@@ -794,6 +794,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         return {
           ...rule,
           CATEGORIA: upperCat,
+          ITEM_NOME: (rule.ITEM_NOME || '').toUpperCase().trim(),
+          INTERVALO_HORAS_KM: Number(rule.INTERVALO_HORAS_KM) || 250,
+          QUANTIDADE_PADRAO: Number(rule.QUANTIDADE_PADRAO) || 1,
           PRODUTO_ID: prodId || undefined,
           PRODUTO_NOME_REAL: prodNomeReal || undefined,
           PRODUTO_NOME_ESTOQUE: prodNomeReal || undefined,
@@ -802,8 +805,33 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         };
       });
 
-      const updatedPlans: Record<string, PreventiveGroupItem[]> = {
+      // Leitura estrita do objeto mestre existente diretamente do LocalStorage
+      let masterPlans: Record<string, PreventiveGroupItem[]> = {};
+      try {
+        const raw = localStorage.getItem('agrocontrol_plano_preventivo_grupos');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            masterPlans = parsed;
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao ler plano preventivo mestre existente:', err);
+      }
+
+      if (Object.keys(masterPlans).length === 0) {
+        masterPlans = { ...getStoredPreventiveGroupPlans() };
+      }
+
+      // Mescla com estado em memória para garantir integridade total
+      masterPlans = {
+        ...masterPlans,
         ...preventivePlans,
+      };
+
+      // Atualiza EXCLUSIVAMENTE a chave correspondente à categoria ativa no momento (preservando todas as outras)
+      const updatedPlans: Record<string, PreventiveGroupItem[]> = {
+        ...masterPlans,
         [upperCat]: consolidatedRules,
       };
 
@@ -820,7 +848,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         updatedPlans['MÁQUINAS PESADAS'] = consolidatedRules;
       }
 
-      // Persistência segura e consolidada no LocalStorage
+      // Persistência segura e consolidada no LocalStorage em formato de dicionário indexado
       const json = JSON.stringify(updatedPlans);
       localStorage.setItem('agrocontrol_plano_preventivo_grupos', json);
       localStorage.setItem('agrocontrol_tipos_veiculos_planos', json);
@@ -1882,7 +1910,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   title="Salvar alterações consolidadas na matriz preventiva"
                 >
                   <Save className="w-4 h-4" />
-                  <span>SALVAR ALTERAÇÕES NA MATRIZ</span>
+                  <span>SALVAR ALTERAÇÕES</span>
                 </button>
               </div>
             </div>

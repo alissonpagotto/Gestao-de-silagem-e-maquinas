@@ -496,24 +496,52 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
     // Leitura reativa prioritária direta do LocalStorage para refletir imediatamente alterações da matriz preventiva
     try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agrocontrol_plano_preventivo_grupos') : null;
+      const raw = typeof localStorage !== 'undefined'
+        ? (localStorage.getItem('agrocontrol_plano_preventivo_grupos') || localStorage.getItem('agrocontrol_tipos_veiculos_planos'))
+        : null;
       if (raw) {
         const parsed = JSON.parse(raw);
-        const group = resolveVehicleGroupCategory(selectedMachinery);
-        const catUpper = (selectedMachinery.categoriaVeiculo || selectedMachinery.categoria || '').toUpperCase();
-        
-        if (parsed[group] && Array.isArray(parsed[group]) && parsed[group].length > 0) {
-          return parsed[group];
-        }
-        if (catUpper && parsed[catUpper] && Array.isArray(parsed[catUpper]) && parsed[catUpper].length > 0) {
-          return parsed[catUpper];
-        }
-        // Aliases comuns
-        if (group === 'CAMINHAO' && parsed['CAMINHÃO'] && Array.isArray(parsed['CAMINHÃO']) && parsed['CAMINHÃO'].length > 0) {
-          return parsed['CAMINHÃO'];
-        }
-        if (group === 'MAQUINAS_PESADAS' && parsed['MÁQUINAS PESADAS'] && Array.isArray(parsed['MÁQUINAS PESADAS']) && parsed['MÁQUINAS PESADAS'].length > 0) {
-          return parsed['MÁQUINAS PESADAS'];
+        if (parsed && typeof parsed === 'object') {
+          const group = resolveVehicleGroupCategory(selectedMachinery);
+          const catUpper = (selectedMachinery.categoriaVeiculo || selectedMachinery.categoria || '').toUpperCase().trim();
+          
+          if (group && parsed[group] && Array.isArray(parsed[group]) && parsed[group].length > 0) {
+            return parsed[group];
+          }
+          if (catUpper && parsed[catUpper] && Array.isArray(parsed[catUpper]) && parsed[catUpper].length > 0) {
+            return parsed[catUpper];
+          }
+          
+          // Normalização sem acentos / com underscore para cobrir todas as variações de chave
+          const norm = (s: string) => (s || '')
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/_/g, ' ')
+            .trim();
+
+          const normGroup = norm(group);
+          const normCat = norm(catUpper);
+
+          for (const key of Object.keys(parsed)) {
+            const keyNorm = norm(key);
+            if ((normGroup && keyNorm === normGroup) || (normCat && keyNorm === normCat)) {
+              if (Array.isArray(parsed[key]) && parsed[key].length > 0) {
+                return parsed[key];
+              }
+            }
+          }
+
+          // Aliases comuns
+          if ((group === 'CAMINHAO' || normGroup === 'CAMINHAO') && parsed['CAMINHÃO'] && Array.isArray(parsed['CAMINHÃO']) && parsed['CAMINHÃO'].length > 0) {
+            return parsed['CAMINHÃO'];
+          }
+          if ((group === 'MAQUINAS_PESADAS' || normGroup === 'MAQUINAS PESADAS') && parsed['MÁQUINAS PESADAS'] && Array.isArray(parsed['MÁQUINAS PESADAS']) && parsed['MÁQUINAS PESADAS'].length > 0) {
+            return parsed['MÁQUINAS PESADAS'];
+          }
+          if ((group === 'FORRAGEIRA' || normGroup === 'FORRAGEIRA') && parsed['ENSILADEIRA'] && Array.isArray(parsed['ENSILADEIRA']) && parsed['ENSILADEIRA'].length > 0) {
+            return parsed['ENSILADEIRA'];
+          }
         }
       }
     } catch (err) {
@@ -2147,8 +2175,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           <h4 className="text-[11px] font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
                             <span>ITENS RECOMENDADOS PARA ESTA REVISÃO (REGRAS DO GRUPO)</span>
                             {selectedMachinery && (
-                              <span className="text-[9.5px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
-                                {selectedMachinery.categoriaVeiculo || selectedMachinery.categoryType || 'GRUPO'}
+                              <span className="text-[9.5px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase">
+                                {(selectedMachinery.categoriaVeiculo || selectedMachinery.categoria || resolveVehicleGroupCategory(selectedMachinery) || 'GRUPO').toUpperCase()}
                               </span>
                             )}
                           </h4>
