@@ -1717,6 +1717,7 @@ export interface PreventiveGroupItem {
   PRODUTO_ID?: string;
   PRODUTO_NOME_ESTOQUE?: string;
   PRODUTO_NOME_REAL?: string;
+  ITEM_NOME_ESTOQUE?: string;
   CUSTO_UNITARIO?: number;
   VALOR_EXIBICAO?: string;
   ITEM_NOME: string;

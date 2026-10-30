@@ -178,8 +178,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
   // Sincronização em tempo real de planos preventivos
   useEffect(() => {
-    const handlePlansUpdated = (e: any) => {
-      if (e?.detail && typeof e.detail === 'object') {
+    const handlePlansUpdated = (e?: any) => {
+      if (
+        e?.detail &&
+        typeof e.detail === 'object' &&
+        !('key' in e.detail) &&
+        (e.detail['COLHEITADEIRA'] || e.detail['FORRAGEIRA'] || e.detail['TRATOR'] || e.detail['CAMINHAO'] || e.detail['CAMINHÃO'])
+      ) {
         setPreventivePlans(e.detail);
       } else {
         setPreventivePlans(getStoredPreventiveGroupPlans());
@@ -613,6 +618,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       PRODUTO_ID: inlineProdId || undefined,
       PRODUTO_NOME_REAL: inlineProdNome || undefined,
       PRODUTO_NOME_ESTOQUE: inlineProdNome || undefined,
+      ITEM_NOME_ESTOQUE: inlineProdNome || undefined,
       CUSTO_UNITARIO: inlineProdCusto,
       VALOR_EXIBICAO: inlineValorExibicao,
       ITEM_NOME: itemName,
@@ -669,7 +675,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       updatedRules = currentRules.map(r => {
         if (r.id === editingRuleId) {
           const finalProdId = selectedProdId !== undefined ? selectedProdId : r.PRODUTO_ID;
-          const finalProdNome = selectedProdNome !== undefined ? selectedProdNome : (r.PRODUTO_NOME_REAL || r.PRODUTO_NOME_ESTOQUE);
+          const finalProdNome = selectedProdNome !== undefined ? selectedProdNome : (r.ITEM_NOME_ESTOQUE || r.PRODUTO_NOME_REAL || r.PRODUTO_NOME_ESTOQUE);
           const finalProdCusto = selectedProdCusto !== undefined ? selectedProdCusto : r.CUSTO_UNITARIO;
           const finalValorExibicao = valorExibicao !== undefined ? valorExibicao : (r.VALOR_EXIBICAO || (finalProdCusto !== undefined ? formatCurrencyBRL(finalProdCusto) : undefined));
 
@@ -681,6 +687,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             PRODUTO_ID: finalProdId || undefined,
             PRODUTO_NOME_REAL: finalProdNome || undefined,
             PRODUTO_NOME_ESTOQUE: finalProdNome || undefined,
+            ITEM_NOME_ESTOQUE: finalProdNome || undefined,
             CUSTO_UNITARIO: finalProdCusto,
             VALOR_EXIBICAO: finalValorExibicao,
             INTERVALO_HORAS_KM: interval,
@@ -699,6 +706,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         PRODUTO_ID: selectedProdId,
         PRODUTO_NOME_REAL: selectedProdNome,
         PRODUTO_NOME_ESTOQUE: selectedProdNome,
+        ITEM_NOME_ESTOQUE: selectedProdNome,
         CUSTO_UNITARIO: selectedProdCusto,
         VALOR_EXIBICAO: valorExibicao,
         ITEM_NOME: itemName,
@@ -764,7 +772,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       // Consolidação minuciosa de cada item garantindo chaves de relacionamento físicas
       const consolidatedRules: PreventiveGroupItem[] = currentRulesForCategory.map(rule => {
         let prodId = rule.PRODUTO_ID;
-        let prodNomeReal = rule.PRODUTO_NOME_REAL || rule.PRODUTO_NOME_ESTOQUE;
+        let prodNomeReal = rule.ITEM_NOME_ESTOQUE || rule.PRODUTO_NOME_REAL || rule.PRODUTO_NOME_ESTOQUE;
         let custo = rule.CUSTO_UNITARIO;
 
         if (prodId) {
@@ -794,14 +802,17 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         return {
           ...rule,
           CATEGORIA: upperCat,
+          SUBGRUPO: rule.SUBGRUPO || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO),
           ITEM_NOME: (rule.ITEM_NOME || '').toUpperCase().trim(),
           INTERVALO_HORAS_KM: Number(rule.INTERVALO_HORAS_KM) || 250,
           QUANTIDADE_PADRAO: Number(rule.QUANTIDADE_PADRAO) || 1,
-          PRODUTO_ID: prodId || undefined,
-          PRODUTO_NOME_REAL: prodNomeReal || undefined,
-          PRODUTO_NOME_ESTOQUE: prodNomeReal || undefined,
-          CUSTO_UNITARIO: (custo !== undefined && !isNaN(custo)) ? custo : undefined,
-          VALOR_EXIBICAO: valorExibicao || undefined,
+          unidade: (rule.unidade || 'UN').toUpperCase(),
+          PRODUTO_ID: prodId || rule.PRODUTO_ID || undefined,
+          PRODUTO_NOME_REAL: prodNomeReal || rule.PRODUTO_NOME_REAL || undefined,
+          PRODUTO_NOME_ESTOQUE: prodNomeReal || rule.PRODUTO_NOME_ESTOQUE || undefined,
+          ITEM_NOME_ESTOQUE: prodNomeReal || rule.ITEM_NOME_ESTOQUE || undefined,
+          CUSTO_UNITARIO: (custo !== undefined && !isNaN(custo)) ? custo : rule.CUSTO_UNITARIO,
+          VALOR_EXIBICAO: valorExibicao || rule.VALOR_EXIBICAO || undefined,
         };
       });
 
@@ -811,7 +822,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         const raw = localStorage.getItem('agrocontrol_plano_preventivo_grupos');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && !('key' in parsed)) {
             masterPlans = parsed;
           }
         }
@@ -860,13 +871,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       // Dispara eventos customizados para sincronizar toda a aplicação
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('agrocontrol_plano_preventivo_grupos_updated', { detail: updatedPlans }));
-        window.dispatchEvent(new CustomEvent('storage', { detail: { key: 'agrocontrol_plano_preventivo_grupos' } }));
       }
 
-      // Alerta nativo compacto em caixa alta
+      // Alerta nativo estável em caixa alta com mensagem solicitada
       setPreventiveFeedback({
         type: 'success',
-        message: '💾 DIRETRIZES DA MATRIZ PREVENTIVA SALVAS COM SUCESSO NO LOCALSTORAGE!'
+        message: '📋 DIRETRIZES DA MATRIZ PREVENTIVA SALVAS COM SUCESSO NO LOCALSTORAGE!'
       });
       setTimeout(() => setPreventiveFeedback(null), 3500);
     } catch (error) {
@@ -1625,7 +1635,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         </tr>
 
                         {group.rules.map((rule, idx) => {
-                          const isLinked = Boolean((rule.PRODUTO_ID && String(rule.PRODUTO_ID).trim()) || (rule.PRODUTO_NOME_REAL && String(rule.PRODUTO_NOME_REAL).trim()) || (rule.PRODUTO_NOME_ESTOQUE && String(rule.PRODUTO_NOME_ESTOQUE).trim()));
+                          const isLinked = Boolean(
+                            (rule.PRODUTO_ID && String(rule.PRODUTO_ID).trim()) ||
+                            (rule.ITEM_NOME_ESTOQUE && String(rule.ITEM_NOME_ESTOQUE).trim()) ||
+                            (rule.PRODUTO_NOME_REAL && String(rule.PRODUTO_NOME_REAL).trim()) ||
+                            (rule.PRODUTO_NOME_ESTOQUE && String(rule.PRODUTO_NOME_ESTOQUE).trim())
+                          );
                           const linkedItem = rule.PRODUTO_ID ? inventoryList.find(i => i.id === rule.PRODUTO_ID) : null;
                           
                           const cost = (rule.CUSTO_UNITARIO !== undefined && !isNaN(Number(rule.CUSTO_UNITARIO)) && Number(rule.CUSTO_UNITARIO) > 0)
@@ -1633,7 +1648,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                             : (linkedItem 
                                 ? Number((linkedItem as any).unitPrice || linkedItem.unitCost || (linkedItem as any).preco_custo || (linkedItem as any).custo_unitario || (linkedItem as any).valor_unitario || 0) 
                                 : 0);
-                          const linkedName = rule.PRODUTO_NOME_REAL || 
+                          const linkedName = rule.ITEM_NOME_ESTOQUE ||
+                            rule.PRODUTO_NOME_REAL || 
                             (linkedItem ? ((linkedItem as any).nome_comercial || linkedItem.name || '').toUpperCase() : null) || 
                             (rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase();
                           const linkedStock = linkedItem ? Number(linkedItem.quantity ?? (linkedItem as any).currentStock ?? 0) : 0;

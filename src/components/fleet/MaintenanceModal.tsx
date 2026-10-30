@@ -2229,13 +2229,15 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                   {(() => {
                                     const isLinked = Boolean(
                                       (item.PRODUTO_ID && String(item.PRODUTO_ID).trim()) ||
+                                      (item.ITEM_NOME_ESTOQUE && String(item.ITEM_NOME_ESTOQUE).trim()) ||
                                       (item.PRODUTO_NOME_REAL && String(item.PRODUTO_NOME_REAL).trim()) ||
                                       (item.PRODUTO_NOME_ESTOQUE && String(item.PRODUTO_NOME_ESTOQUE).trim())
                                     );
                                     const linkedProd = item.PRODUTO_ID 
                                       ? allInventoryList.find(i => i.id === item.PRODUTO_ID)
                                       : null;
-                                    const linkedRealName = item.PRODUTO_NOME_REAL || 
+                                    const linkedRealName = item.ITEM_NOME_ESTOQUE ||
+                                      item.PRODUTO_NOME_REAL || 
                                       (linkedProd ? (((linkedProd as any).nome_comercial || linkedProd.name || '').toUpperCase()) : null) || 
                                       item.PRODUTO_NOME_ESTOQUE;
                                     const linkedCost = (item.CUSTO_UNITARIO !== undefined && !isNaN(Number(item.CUSTO_UNITARIO)) && Number(item.CUSTO_UNITARIO) > 0)
