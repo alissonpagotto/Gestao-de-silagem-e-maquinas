@@ -711,11 +711,56 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       type: 'success',
       message: `ITEM REMOVIDO DO GRUPO ${upperCat}.`
     });
-    setTimeout(() => setPreventiveFeedback(null), 3000);
   };
 
+  // Salvar alterações consolidadas na matriz preventiva (Botão Mestre Verde)
+  const handleConsolidateAndSavePreventiveMatrix = () => {
+    try {
+      const upperCat = selectedGroupCategory.toUpperCase();
+      const currentRulesForCategory = currentCategoryRules;
 
-  // Filter machineries
+      const updatedPlans: Record<string, PreventiveGroupItem[]> = {
+        ...preventivePlans,
+        [upperCat]: currentRulesForCategory,
+      };
+
+      if (upperCat === 'CAMINHÃO') {
+        updatedPlans['CAMINHAO'] = currentRulesForCategory;
+      }
+      if (upperCat === 'MÁQUINAS PESADAS') {
+        updatedPlans['MAQUINAS_PESADAS'] = currentRulesForCategory;
+      }
+
+      // Persistência segura e consolidada no LocalStorage
+      const json = JSON.stringify(updatedPlans);
+      localStorage.setItem('agrocontrol_plano_preventivo_grupos', json);
+      localStorage.setItem('agrocontrol_tipos_veiculos_planos', json);
+
+      // Atualiza o estado React imediatamente para re-renderização instantânea
+      setPreventivePlans(updatedPlans);
+
+      // Dispara eventos customizados para sincronizar toda a aplicação
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrocontrol_plano_preventivo_grupos_updated', { detail: updatedPlans }));
+        window.dispatchEvent(new CustomEvent('storage', { detail: { key: 'agrocontrol_plano_preventivo_grupos' } }));
+      }
+
+      // Alerta nativo compacto em caixa alta
+      setPreventiveFeedback({
+        type: 'success',
+        message: '💾 DIRETRIZES DA MATRIZ PREVENTIVA SALVAS COM SUCESSO NO LOCALSTORAGE!'
+      });
+      setTimeout(() => setPreventiveFeedback(null), 3500);
+    } catch (error) {
+      console.error('Erro ao salvar matriz preventiva:', error);
+      setPreventiveFeedback({
+        type: 'info',
+        message: '⚠️ ERRO AO GRAVAR DADOS NO LOCALSTORAGE. TENTE NOVAMENTE.'
+      });
+      setTimeout(() => setPreventiveFeedback(null), 3500);
+    }
+  };
+
   const availableCategories = useMemo(() => {
     const fromStorage = getStoredVehicleSystemCategories();
     const fromMachines = (machineries || []).filter(Boolean).map(m => m.categoryType).filter(Boolean) as string[];
@@ -1445,12 +1490,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   ) : (
                     filteredGroupedRules.map((group) => (
                       <React.Fragment key={group.subgroup}>
-                        {/* Cabeçalho Cinza Escuro Metalizado de Alto Contraste (bg-slate-400) */}
-                        <tr className="bg-slate-400 dark:bg-stone-700 border-y border-slate-500/40 select-none">
-                          <td colSpan={5} className="text-white font-black tracking-wider text-[11px] py-2 px-3 uppercase shadow-sm whitespace-nowrap">
+                        {/* Cabeçalho Cinza Escuro Metalizado (+30% intensidade, #94a3b8) */}
+                        <tr className="bg-slate-400 dark:bg-stone-700 border-y border-slate-500/50 select-none">
+                          <td 
+                            colSpan={5} 
+                            style={{ backgroundColor: '#94a3b8' }}
+                            className="bg-slate-400 !bg-slate-400 dark:bg-stone-700 text-white font-black tracking-wider text-[11px] py-2 px-3 uppercase whitespace-nowrap shadow-xs"
+                          >
                             <div className="flex items-center space-x-2">
                               <span>📁 {group.subgroup}</span>
-                              <span className="text-white/90 font-mono font-bold text-[10.5px]">
+                              <span className="text-white/95 font-mono font-bold text-[10.5px]">
                                 ({group.rules.length} {group.rules.length === 1 ? 'ITEM' : 'ITENS'})
                               </span>
                             </div>
@@ -1735,15 +1784,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    saveStoredPreventiveGroupPlans(preventivePlans);
-                    setPreventiveFeedback({
-                      type: 'success',
-                      message: `MATRIZ PREVENTIVA CONSOLIDADA COM SUCESSO NO BANCO LOCAL!`
-                    });
-                    setTimeout(() => setPreventiveFeedback(null), 3000);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                  id="btn-salvar-alteracoes-matriz"
+                  onClick={handleConsolidateAndSavePreventiveMatrix}
+                  className="px-4 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] active:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider shadow-sm transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                  title="Salvar alterações consolidadas na matriz preventiva"
                 >
                   <Save className="w-4 h-4" />
                   <span>SALVAR ALTERAÇÕES NA MATRIZ</span>
