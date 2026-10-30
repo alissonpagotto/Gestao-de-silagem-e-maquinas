@@ -103,11 +103,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [ruleNotes, setRuleNotes] = useState('');
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
+  const [stockLinkSearchQuery, setStockLinkSearchQuery] = useState('');
+  const [isStockLinkDropdownOpen, setIsStockLinkDropdownOpen] = useState(false);
   const [preventiveFeedback, setPreventiveFeedback] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [systemCategories, setSystemCategories] = useState<string[]>(() => getStoredVehicleSystemCategories());
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const inventoryDropdownRef = useRef<HTMLDivElement>(null);
+  const stockLinkDropdownRef = useRef<HTMLDivElement>(null);
 
   // Sincronização em tempo real de categorias de veículos
   useEffect(() => {
@@ -203,6 +206,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (inventoryDropdownRef.current && !inventoryDropdownRef.current.contains(event.target as Node)) {
         setIsInventoryDropdownOpen(false);
+      }
+      if (stockLinkDropdownRef.current && !stockLinkDropdownRef.current.contains(event.target as Node)) {
+        setIsStockLinkDropdownOpen(false);
       }
       if (inlineDropdownRef.current && !inlineDropdownRef.current.contains(event.target as Node)) {
         setInlineDropdownOpen(false);
@@ -370,11 +376,50 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     return currentStockList.filter(item => {
       const anyItem = item as any;
       const name = String(anyItem.nome_comercial || item.name || '').toLowerCase();
-      const code = String(item.code || anyItem.codigo || '').toLowerCase();
+      const code = String(item.code || anyItem.codigo || anyItem.codigo_produto || '').toLowerCase();
       const cat = String(anyItem.categoria || item.category || '').toLowerCase();
       return name.includes(q) || code.includes(q) || cat.includes(q);
     }).slice(0, 8);
   }, [inventorySearchQuery, inventoryList]);
+
+  // Autocomplete específico de vinculação física com estoque real ('agrocontrol_produtos')
+  const stockLinkAutocompleteResults = useMemo(() => {
+    if (!stockLinkSearchQuery.trim()) return [];
+    const q = stockLinkSearchQuery.toLowerCase().trim();
+    let currentStockList = inventoryList;
+    try {
+      const raw = localStorage.getItem('agrocontrol_produtos');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) currentStockList = parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return currentStockList.filter(item => {
+      const anyItem = item as any;
+      const name = String(anyItem.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || anyItem.codigo || anyItem.codigo_produto || '').toLowerCase();
+      const cat = String(anyItem.categoria || item.category || '').toLowerCase();
+      return name.includes(q) || code.includes(q) || cat.includes(q);
+    }).slice(0, 10);
+  }, [stockLinkSearchQuery, inventoryList]);
+
+  // Manipulador para vincular produto do estoque real
+  const handleSelectStockLinkItem = (item: InventoryItem) => {
+    const anyItem = item as any;
+    setSelectedInventoryItem(item);
+    const resolvedName = (anyItem.nome_comercial || item.name || '').toUpperCase();
+    setStockLinkSearchQuery(resolvedName);
+    setIsStockLinkDropdownOpen(false);
+  };
+
+  // Desvincular produto real do estoque
+  const handleClearStockLink = () => {
+    setSelectedInventoryItem(null);
+    setStockLinkSearchQuery('');
+    setIsStockLinkDropdownOpen(false);
+  };
 
   // Autocomplete real de produtos do almoxarifado (Edição Inline no Grid)
   const inlineAutocompleteResults = useMemo(() => {
@@ -415,11 +460,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     if (rule.PRODUTO_ID) {
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
       setSelectedInventoryItem(linked);
+      setStockLinkSearchQuery(((linked as any)?.nome_comercial || linked?.name || rule.PRODUTO_NOME_ESTOQUE || '').toUpperCase());
     } else {
       const linkedByName = inventoryList.find(i => ((i as any).nome_comercial || i.name || '').toUpperCase() === rule.ITEM_NOME.toUpperCase());
       setSelectedInventoryItem(linkedByName || null);
+      setStockLinkSearchQuery(linkedByName ? ((linkedByName as any).nome_comercial || linkedByName.name || '').toUpperCase() : '');
     }
     setIsInventoryDropdownOpen(false);
+    setIsStockLinkDropdownOpen(false);
   };
 
   // Abertura do Modal de Cadastro Inteligente (+ CADASTRAR ITEM)
@@ -432,11 +480,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     }
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
+    setStockLinkSearchQuery('');
     setRuleIntervalHoursKm(250);
     setRuleStandardQty(1);
     setRuleUnit('UN');
     setRuleNotes('');
     setIsInventoryDropdownOpen(false);
+    setIsStockLinkDropdownOpen(false);
     setIsItemModalOpen(true);
   };
 
@@ -445,7 +495,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setEditingRuleId(rule.id);
     const resolvedSubgroup = rule.SUBGRUPO || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
     setRuleSubgroup(resolvedSubgroup);
-    setInventorySearchQuery((rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase());
+    setInventorySearchQuery(rule.ITEM_NOME.toUpperCase());
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
     setRuleStandardQty(rule.QUANTIDADE_PADRAO);
     setRuleUnit(rule.unidade || 'UN');
@@ -454,6 +504,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
       if (linked) {
         setSelectedInventoryItem(linked);
+        setStockLinkSearchQuery(((linked as any)?.nome_comercial || linked.name || rule.PRODUTO_NOME_ESTOQUE || '').toUpperCase());
       } else {
         setSelectedInventoryItem({
           id: rule.PRODUTO_ID,
@@ -462,11 +513,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           unit: rule.unidade || 'UN',
           quantity: 0
         } as any);
+        setStockLinkSearchQuery((rule.PRODUTO_NOME_ESTOQUE || rule.ITEM_NOME).toUpperCase());
       }
     } else {
       setSelectedInventoryItem(null);
+      setStockLinkSearchQuery('');
     }
     setIsInventoryDropdownOpen(false);
+    setIsStockLinkDropdownOpen(false);
     setIsItemModalOpen(true);
   };
 
@@ -476,11 +530,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setRuleSubgroup(availableMaintenanceSubgroups[0] || 'FILTROS');
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
+    setStockLinkSearchQuery('');
     setRuleIntervalHoursKm(250);
     setRuleStandardQty(1);
     setRuleUnit('UN');
     setRuleNotes('');
     setIsInventoryDropdownOpen(false);
+    setIsStockLinkDropdownOpen(false);
     setIsItemModalOpen(false);
   };
 
@@ -568,18 +624,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     if (e) e.preventDefault();
     const itemName = inventorySearchQuery.trim().toUpperCase();
     if (!itemName) {
-      setPreventiveFeedback({ type: 'info', message: 'INFORME O NOME DO INSUMO OU SELECIONE UM PRODUTO DO ALMOXARIFADO.' });
+      setPreventiveFeedback({ type: 'info', message: 'INFORME O NOME DO INSUMO OU FUNÇÃO DO MANUAL.' });
       setTimeout(() => setPreventiveFeedback(null), 3000);
       return;
     }
     const interval = typeof ruleIntervalHoursKm === 'number' && ruleIntervalHoursKm > 0 ? ruleIntervalHoursKm : 250;
     const qty = typeof ruleStandardQty === 'number' && ruleStandardQty > 0 ? ruleStandardQty : 1;
-    const unit = (selectedInventoryItem?.unit || (selectedInventoryItem as any)?.unidade_medida || ruleUnit || 'UN').toUpperCase();
+    const unit = (ruleUnit || 'UN').toUpperCase();
 
     const selectedAny = selectedInventoryItem as any;
-    const selectedProdId = selectedInventoryItem?.id;
+    const selectedProdId = selectedInventoryItem?.id || undefined;
     const selectedProdNome = selectedInventoryItem
-      ? String(selectedAny?.nome_comercial || selectedInventoryItem.name || itemName).toUpperCase()
+      ? String(selectedAny?.nome_comercial || selectedInventoryItem.name || '').toUpperCase()
       : undefined;
     const selectedProdCusto = selectedInventoryItem
       ? Number(selectedAny?.unitPrice || selectedInventoryItem.unitCost || selectedAny?.preco_custo || selectedAny?.custo_unitario || selectedAny?.valor_unitario || 0)
@@ -592,18 +648,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     if (editingRuleId) {
       updatedRules = currentRules.map(r => {
         if (r.id === editingRuleId) {
-          const finalProdId = selectedProdId !== undefined ? selectedProdId : r.PRODUTO_ID;
-          const finalProdNome = selectedProdNome !== undefined ? selectedProdNome : r.PRODUTO_NOME_ESTOQUE;
-          const finalCusto = selectedProdCusto !== undefined ? selectedProdCusto : r.CUSTO_UNITARIO;
-
           return {
             ...r,
             CATEGORIA: upperCat,
             SUBGRUPO: ruleSubgroup,
             ITEM_NOME: itemName,
-            PRODUTO_ID: finalProdId,
-            PRODUTO_NOME_ESTOQUE: finalProdNome,
-            CUSTO_UNITARIO: finalCusto,
+            PRODUTO_ID: selectedProdId,
+            PRODUTO_NOME_ESTOQUE: selectedProdNome,
+            CUSTO_UNITARIO: selectedProdCusto,
             INTERVALO_HORAS_KM: interval,
             QUANTIDADE_PADRAO: qty,
             unidade: unit,
@@ -1701,14 +1753,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
           </div>
 
-          {/* Modal de Cadastro Compacto Intelligent Flow (SLIM DESIGN PRO) */}
+          {/* Modal de Cadastro/Edição Mestre Largo (SLIM DESIGN PRO) */}
           {isItemModalOpen && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-150">
-              <div className="w-full max-w-md bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg shadow-2xl p-4 flex flex-col gap-3 max-h-[92vh] overflow-y-auto">
+              <div className="w-full max-w-4xl h-[95vh] bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
                 
-                {/* Header do Modal */}
-                <div className="flex items-center justify-between border-b border-slate-300 dark:border-stone-700 pb-2">
-                  <div className="flex items-center space-x-2">
+                {/* Topo com gradiente de aço cinza acetinado */}
+                <div className="px-6 py-3.5 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between shrink-0">
+                  <div className="flex items-center space-x-2.5">
                     <Wrench className="w-4 h-4 text-[#059669]" />
                     <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">
                       {editingRuleId ? 'EDITAR ITEM RECOMENDADO' : '+ CADASTRAR ITEM NO PLANO'}
@@ -1717,218 +1769,308 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   <button 
                     type="button"
                     onClick={handleCancelEditRule} 
-                    className="p-1 hover:bg-slate-200 dark:hover:bg-stone-800 rounded text-slate-500 hover:text-slate-800 dark:hover:text-stone-200 transition cursor-pointer"
+                    className="p-1 hover:bg-slate-300/60 dark:hover:bg-stone-700 rounded text-slate-600 hover:text-slate-900 dark:text-stone-300 dark:hover:text-white transition cursor-pointer"
                     title="FECHAR"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Form / Conteúdo */}
-                <form onSubmit={handleSavePreventiveRule} className="flex flex-col gap-3">
+                {/* Form / Conteúdo com scroll interno isolado */}
+                <form onSubmit={handleSavePreventiveRule} className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   
-                  {/* CATEGORIA ATIVA (READ-ONLY DISABLED) */}
-                  <div>
-                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                      CATEGORIA ATIVA
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        readOnly
-                        disabled
-                        value={selectedGroupCategory.toUpperCase()}
-                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
-                      />
-                      <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* SUBGRUPO DE MANUTENÇÃO (READ-ONLY DISABLED OU SELETOR SE FOR 'TODOS OS SUBGRUPOS') */}
-                  <div>
-                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                      SUBGRUPO DE MANUTENÇÃO
-                    </label>
-                    {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? (
+                  <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                    
+                    {/* CATEGORIA ATIVA (READ-ONLY DISABLED) */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                        CATEGORIA ATIVA
+                      </label>
                       <div className="relative">
                         <input
                           type="text"
                           readOnly
                           disabled
-                          value={filterSubgroup.toUpperCase()}
+                          value={selectedGroupCategory.toUpperCase()}
                           className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
                         />
                         <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
-                    ) : (
-                      <select
-                        value={ruleSubgroup}
-                        onChange={(e) => setRuleSubgroup(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
-                      >
-                        {availableMaintenanceSubgroups.map((sg) => (
-                          <option key={sg} value={sg} className="uppercase">
-                            {sg}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* PRODUTO DO ESTOQUE COM AUTOCOMPLETE REAL */}
-                  <div className="relative" ref={inventoryDropdownRef}>
-                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                      PRODUTO DO ESTOQUE <span className="text-rose-600">*</span>
-                    </label>
-                    <div className="relative">
+                    {/* SUBGRUPO DE MANUTENÇÃO (READ-ONLY DISABLED OU SELETOR) */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                        SUBGRUPO DE MANUTENÇÃO
+                      </label>
+                      {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={filterSubgroup.toUpperCase()}
+                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
+                          />
+                          <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      ) : (
+                        <select
+                          value={ruleSubgroup}
+                          onChange={(e) => setRuleSubgroup(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
+                        >
+                          {availableMaintenanceSubgroups.map((sg) => (
+                            <option key={sg} value={sg} className="uppercase">
+                              {sg}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* PRODUTO DO ESTOQUE (Nome funcional / insumo do manual) */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                        PRODUTO DO ESTOQUE <span className="text-rose-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          placeholder="EX: FILTRO DE ÓLEO DO MOTOR, FILTRO RACOR, ÓLEO 15W40..."
+                          value={inventorySearchQuery}
+                          onChange={(e) => setInventorySearchQuery(e.target.value.toUpperCase())}
+                          className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                        />
+                        <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* INTERVALO DE TROCA E QUANTIDADE PADRÃO */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* INTERVALO DE TROCA */}
+                      <div>
+                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                          INTERVALO DE TROCA <span className="text-rose-600">*</span>
+                        </label>
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            step="1"
+                            placeholder="250"
+                            value={ruleIntervalHoursKm}
+                            onChange={(e) => setRuleIntervalHoursKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                          />
+                          <span className="text-[11px] font-bold text-slate-500 shrink-0">H/KM</span>
+                        </div>
+                      </div>
+
+                      {/* QUANTIDADE PADRÃO */}
+                      <div>
+                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                          QUANTIDADE PADRÃO <span className="text-rose-600">*</span>
+                        </label>
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="number"
+                            required
+                            min="0.1"
+                            step="any"
+                            placeholder="1"
+                            value={ruleStandardQty}
+                            onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                          />
+                          <select
+                            value={ruleUnit}
+                            onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
+                            className="px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
+                          >
+                            <option value="L">L</option>
+                            <option value="UN">UN</option>
+                            <option value="KG">KG</option>
+                            <option value="CX">CX</option>
+                            <option value="PC">PC</option>
+                            <option value="M">M</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BLOCO DESTACADO: VINCULAÇÃO DIRETA COM PRODUTO REAL DO ESTOQUE (ALMOXARIFADO) */}
+                    <div className="bg-slate-100 dark:bg-stone-850 p-4 rounded-lg border border-slate-300 dark:border-stone-700 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider">
+                          VINCULAR PRODUTO REAL DO ESTOQUE
+                        </label>
+                        {selectedInventoryItem && (
+                          <button
+                            type="button"
+                            onClick={handleClearStockLink}
+                            className="text-[10px] font-bold text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300 uppercase flex items-center space-x-1 cursor-pointer transition"
+                            title="Desvincular produto do almoxarifado"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>DESVINCULAR PRODUTO</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Input Autocomplete */}
+                      <div className="relative" ref={stockLinkDropdownRef}>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="BUSCAR POR NOME, CÓDIGO OU ESPECIFICAÇÃO NO ALMOXARIFADO..."
+                            value={stockLinkSearchQuery}
+                            onChange={(e) => {
+                              setStockLinkSearchQuery(e.target.value.toUpperCase());
+                              setIsStockLinkDropdownOpen(true);
+                            }}
+                            onFocus={() => {
+                              if (stockLinkSearchQuery.trim()) {
+                                setIsStockLinkDropdownOpen(true);
+                              }
+                            }}
+                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                          />
+                          <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+
+                        {/* Dropdown com os produtos reais do almoxarifado */}
+                        {isStockLinkDropdownOpen && stockLinkAutocompleteResults.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
+                            <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider">
+                              PRODUTOS CADASTRADOS NO ALMOXARIFADO:
+                            </div>
+                            {stockLinkAutocompleteResults.map((item) => {
+                              const anyItem = item as any;
+                              const name = (anyItem.nome_comercial || item.name || '').toUpperCase();
+                              const cost = Number(anyItem.unitPrice || item.unitCost || anyItem.preco_custo || anyItem.custo_unitario || anyItem.valor_unitario || 0);
+                              const displayId = anyItem.codigo_produto || item.code || anyItem.codigo || item.id;
+                              const unit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
+                              const stock = Number(item.quantity ?? anyItem.currentStock ?? anyItem.quantidade_atual ?? 0);
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleSelectStockLinkItem(item)}
+                                  className="w-full text-left px-3 py-2 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer border-b border-slate-100 dark:border-stone-800 last:border-b-0"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-slate-800 dark:text-stone-100 uppercase truncate">
+                                      #{displayId} - {name} - {formatCurrencyBRL(cost)}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 font-medium">
+                                      CAT: {anyItem.categoria || item.category || 'GERAL'} • SALDO: {stock.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unit}
+                                    </p>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
+                                      {formatCurrencyBRL(cost)}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Dois Campos Read-only Side-by-Side */}
+                      {(() => {
+                        const anyItem = selectedInventoryItem as any;
+                        const cost = selectedInventoryItem
+                          ? Number(anyItem?.unitPrice || selectedInventoryItem.unitCost || anyItem?.preco_custo || anyItem?.custo_unitario || anyItem?.valor_unitario || 0)
+                          : 0;
+                        const stock = selectedInventoryItem
+                          ? Number(selectedInventoryItem.quantity ?? anyItem?.currentStock ?? anyItem?.quantidade_atual ?? 0)
+                          : 0;
+                        const unit = selectedInventoryItem
+                          ? (selectedInventoryItem.unit || anyItem?.unidade_medida || 'UN').toUpperCase()
+                          : 'UN';
+
+                        return (
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            {/* Campo 1: VALOR DE CUSTO ATUAL (DRE) */}
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-1">
+                                VALOR DE CUSTO ATUAL (DRE)
+                              </label>
+                              <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={selectedInventoryItem ? formatCurrencyBRL(cost) : 'R$ 0,00'}
+                                className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-black uppercase cursor-not-allowed select-none"
+                              />
+                            </div>
+
+                            {/* Campo 2: SALDO DISPONÍVEL NO ALMOXARIFADO */}
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-1">
+                                SALDO DISPONÍVEL NO ALMOXARIFADO
+                              </label>
+                              <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={selectedInventoryItem ? `${stock.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unit}` : '0,00 UN'}
+                                className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-mono font-bold uppercase cursor-not-allowed select-none"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Badge reativo de status do vínculo */}
+                      {selectedInventoryItem ? (
+                        <div className="flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-300 dark:border-emerald-800">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">
+                            PRODUTO VINCULADO: #{ (selectedInventoryItem as any).codigo_produto || selectedInventoryItem.code || (selectedInventoryItem as any).codigo || selectedInventoryItem.id } - { ((selectedInventoryItem as any).nome_comercial || selectedInventoryItem.name || '').toUpperCase() }
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-1.5 text-[10px] text-amber-800 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded border border-amber-300 dark:border-amber-800">
+                          <span className="shrink-0">⚠️</span>
+                          <span>NENHUM PRODUTO FÍSICO DO ESTOQUE VINCULADO A ESTA REGRA (OPCIONAL)</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* OBSERVAÇÕES DO INSUMO (OPCIONAL) */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                        OBSERVAÇÕES DO INSUMO (OPCIONAL)
+                      </label>
                       <input
                         type="text"
-                        required
-                        placeholder="DIGITE O NOME OU CÓDIGO DO PRODUTO..."
-                        value={inventorySearchQuery}
-                        onChange={(e) => {
-                          setInventorySearchQuery(e.target.value.toUpperCase());
-                          setSelectedInventoryItem(null);
-                          setIsInventoryDropdownOpen(true);
-                        }}
-                        onFocus={() => {
-                          if (inventorySearchQuery.trim()) {
-                            setIsInventoryDropdownOpen(true);
-                          }
-                        }}
-                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                        placeholder="EX: UTILIZAR PREFERENCIALMENTE ÓLEO GENUÍNO HOMOLOGADO"
+                        value={ruleNotes}
+                        onChange={(e) => setRuleNotes(e.target.value.toUpperCase())}
+                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-medium uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                       />
-                      <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
 
-                    {/* Dropdown de Autocomplete com Estoque Real da Chave agrocontrol_produtos */}
-                    {isInventoryDropdownOpen && inventoryAutocompleteResults.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
-                        <div className="px-3 py-1 bg-slate-100 dark:bg-stone-800 text-[9.5px] font-black uppercase text-slate-600 dark:text-stone-400">
-                          PRODUTOS NO ALMOXARIFADO:
-                        </div>
-                        {inventoryAutocompleteResults.map((item) => {
-                          const anyItem = item as any;
-                          const name = (anyItem.nome_comercial || item.name || '').toUpperCase();
-                          const cost = Number(anyItem.unitPrice || item.unitCost || anyItem.preco_custo || anyItem.custo_unitario || anyItem.valor_unitario || 0);
-                          const displayId = anyItem.codigo_produto || item.code || anyItem.codigo || item.id;
-                          const unit = (item.unit || anyItem.unidade_medida || 'UN').toUpperCase();
-                          const stock = Number(item.quantity ?? anyItem.currentStock ?? anyItem.quantidade_atual ?? 0);
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleSelectInventoryItem(item)}
-                              className="w-full text-left px-3 py-2 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer border-b border-slate-100 dark:border-stone-800 last:border-b-0"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold text-slate-800 dark:text-stone-100 uppercase truncate">
-                                  #{displayId} - {name} - {formatCurrencyBRL(cost)}
-                                </p>
-                                <p className="text-[10px] text-slate-500 font-medium">
-                                  CAT: {anyItem.categoria || item.category || 'GERAL'} • SALDO: {stock.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unit}
-                                </p>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
-                                  {formatCurrencyBRL(cost)}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Vínculo Ativo */}
-                    {selectedInventoryItem && (
-                      <div className="mt-1 flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>VÍNCULO COM ESTOQUE: #{ (selectedInventoryItem as any).codigo_produto || selectedInventoryItem.code || (selectedInventoryItem as any).codigo || selectedInventoryItem.id } - { ((selectedInventoryItem as any).nome_comercial || selectedInventoryItem.name || '').toUpperCase() } • CUSTO: {formatCurrencyBRL(Number((selectedInventoryItem as any).unitPrice || selectedInventoryItem.unitCost || (selectedInventoryItem as any).preco_custo || 0))}</span>
-                      </div>
-                    )}
                   </div>
 
-                  {/* INTERVALO DE TROCA E QUANTIDADE PADRÃO */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* INTERVALO DE TROCA */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        INTERVALO DE TROCA <span className="text-rose-600">*</span>
-                      </label>
-                      <div className="flex items-center space-x-1">
-                        <input
-                          type="number"
-                          required
-                          min="1"
-                          step="1"
-                          placeholder="250"
-                          value={ruleIntervalHoursKm}
-                          onChange={(e) => setRuleIntervalHoursKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                          className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
-                        />
-                        <span className="text-[11px] font-bold text-slate-500 shrink-0">H/KM</span>
-                      </div>
-                    </div>
-
-                    {/* QUANTIDADE PADRÃO */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        QUANTIDADE PADRÃO <span className="text-rose-600">*</span>
-                      </label>
-                      <div className="flex items-center space-x-1">
-                        <input
-                          type="number"
-                          required
-                          min="0.1"
-                          step="any"
-                          placeholder="1"
-                          value={ruleStandardQty}
-                          onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                          className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
-                        />
-                        <select
-                          value={ruleUnit}
-                          onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
-                          className="px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
-                        >
-                          <option value="L">L</option>
-                          <option value="UN">UN</option>
-                          <option value="KG">KG</option>
-                          <option value="CX">CX</option>
-                          <option value="PC">PC</option>
-                          <option value="M">M</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* OBSERVAÇÕES DO INSUMO (OPCIONAL) */}
-                  <div>
-                    <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                      OBSERVAÇÕES DO INSUMO (OPCIONAL)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="EX: UTILIZAR PREFERENCIALMENTE ÓLEO GENUÍNO HOMOLOGADO"
-                      value={ruleNotes}
-                      onChange={(e) => setRuleNotes(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-medium uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Footer do Modal com Botões */}
-                  <div className="pt-2 border-t border-slate-300 dark:border-stone-700 flex items-center justify-end space-x-2">
+                  {/* Footer do Modal com Botões Fixo no Rodapé */}
+                  <div className="px-6 py-3.5 bg-white dark:bg-stone-900 border-t border-slate-300 dark:border-stone-700 flex items-center justify-end space-x-2.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleCancelEditRule}
-                      className="px-3.5 py-1.5 rounded bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-xs font-bold uppercase transition cursor-pointer"
+                      className="px-4 py-2 rounded bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-xs font-bold uppercase transition cursor-pointer"
                     >
                       CANCELAR
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-1.5 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider shadow transition flex items-center space-x-1.5 cursor-pointer"
+                      className="px-5 py-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider shadow transition flex items-center space-x-1.5 cursor-pointer"
                     >
                       <Save className="w-3.5 h-3.5" />
                       <span>💾 SALVAR REGRA</span>
