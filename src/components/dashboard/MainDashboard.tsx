@@ -56,6 +56,7 @@ import {
   getStoredFuelLogs,
   getActiveCompanyId
 } from '../../lib/storage';
+import { calculatePredictiveMaintenanceAlerts, PredictiveMaintenanceAlert } from '../../lib/predictiveMaintenance';
 import { supabase } from '../../lib/supabaseClient';
 import {
   isSupabaseConfigured,
@@ -104,6 +105,30 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   const [activeExpenses, setActiveExpenses] = useState<Expense[]>(() => propExpenses || []);
   const [activeFuelLogs, setActiveFuelLogs] = useState<FuelLog[]>(() => propFuelLogs || []);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Monitoramento Preditivo de Desgaste (Cruzamento FuelLog + MaintenanceLog + Matriz Preventiva)
+  const [preventiveAlerts, setPreventiveAlerts] = useState<PredictiveMaintenanceAlert[]>(() => {
+    return calculatePredictiveMaintenanceAlerts(machineries, propFuelLogs);
+  });
+
+  useEffect(() => {
+    const handleRecalculateAlerts = () => {
+      setPreventiveAlerts(calculatePredictiveMaintenanceAlerts(machineries, activeFuelLogs));
+    };
+    handleRecalculateAlerts();
+    window.addEventListener('agrocontrol_plano_preventivo_grupos_updated', handleRecalculateAlerts);
+    window.addEventListener('silagem_maintenance_updated', handleRecalculateAlerts);
+    window.addEventListener('silagem_fuel_logs_updated', handleRecalculateAlerts);
+    window.addEventListener('silagem_machineries_updated', handleRecalculateAlerts);
+    window.addEventListener('storage', handleRecalculateAlerts);
+    return () => {
+      window.removeEventListener('agrocontrol_plano_preventivo_grupos_updated', handleRecalculateAlerts);
+      window.removeEventListener('silagem_maintenance_updated', handleRecalculateAlerts);
+      window.removeEventListener('silagem_fuel_logs_updated', handleRecalculateAlerts);
+      window.removeEventListener('silagem_machineries_updated', handleRecalculateAlerts);
+      window.removeEventListener('storage', handleRecalculateAlerts);
+    };
+  }, [machineries, activeFuelLogs]);
 
   // Sincroniza se a prop externa mudar com verificação de igualdade profunda defensiva
   useEffect(() => {
@@ -555,6 +580,41 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   return (
     <div id="main-dashboard-view" className="w-full max-w-none space-y-2 sm:space-y-2.5">
       
+      {/* Alertas Preditivos de Revisão Preventiva (Regra Delta <= 10 Horas ou KM) */}
+      {preventiveAlerts.length > 0 && (
+        <div id="predictive-maintenance-alerts-banner" className="space-y-1.5 animate-in fade-in duration-200">
+          {preventiveAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              onClick={() => onNavigate('frotas')}
+              className={`p-2.5 sm:p-3 rounded-xl border flex items-center justify-between cursor-pointer transition shadow-xs hover:shadow-md ${
+                alert.isOverdue
+                  ? 'bg-rose-50 hover:bg-rose-100/90 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100'
+                  : 'bg-amber-50 hover:bg-amber-100/90 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100'
+              }`}
+              title="Clique para acessar a Gestão de Frotas e abrir Ordem de Manutenção"
+            >
+              <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                <span className="text-base sm:text-lg shrink-0">⚠️</span>
+                <p className="text-xs sm:text-[12px] font-black uppercase tracking-tight truncate">
+                  {alert.message}
+                </p>
+              </div>
+              <div className="flex items-center space-x-1.5 shrink-0">
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border shadow-2xs ${
+                  alert.isOverdue
+                    ? 'bg-rose-200/80 text-rose-900 border-rose-400 dark:bg-rose-900 dark:text-rose-100 dark:border-rose-700'
+                    : 'bg-amber-200/80 text-amber-900 border-amber-400 dark:bg-amber-900 dark:text-amber-100 dark:border-amber-700'
+                }`}>
+                  {alert.isOverdue ? 'CRÍTICO / VENCIDO' : `${alert.delta} ${alert.metric.toUpperCase()} RESTANTES`}
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0 text-zinc-500" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Linha 1 (Topo Máximo): Cards de Resumos e Indicadores Globais */}
       <div 
         id="top-summary-cards-row" 
@@ -1150,6 +1210,37 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
             {/* Alert Cards Container */}
             <div className="space-y-1.5 mt-2">
+
+              {/* Alertas Preventivos de Revisão de Veículos */}
+              {preventiveAlerts.length > 0 && (
+                <div className="space-y-1 pb-1">
+                  <div className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 tracking-wider flex items-center space-x-1">
+                    <span>⚠️ REVISÕES PREVENTIVAS PRÓXIMAS ({preventiveAlerts.length})</span>
+                  </div>
+                  {preventiveAlerts.slice(0, 3).map((alert) => (
+                    <div
+                      key={alert.id}
+                      onClick={() => onNavigate('frotas')}
+                      className={`p-2 rounded-lg flex items-center justify-between transition border-l-4 shadow-2xs cursor-pointer group ${
+                        alert.isOverdue
+                          ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-950 dark:text-rose-100 border-rose-500 border-t border-r border-b border-rose-200 dark:border-rose-900/60'
+                          : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-950 dark:text-amber-100 border-amber-500 border-t border-r border-b border-amber-200 dark:border-amber-900/60'
+                      }`}
+                      title={alert.message}
+                    >
+                      <div className="min-w-0 pr-1.5">
+                        <h4 className={`font-bold text-[10.5px] truncate uppercase ${alert.isOverdue ? 'text-rose-900 dark:text-rose-200' : 'text-amber-900 dark:text-amber-200'}`}>
+                          {alert.vehicleName} • {alert.itemName}
+                        </h4>
+                        <p className={`text-[9px] font-medium leading-tight ${alert.isOverdue ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                          {alert.isOverdue ? 'Atingiu período de troca' : `Faltam ${alert.delta} ${alert.metric.toUpperCase()}`}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
               
               {/* Alert 1: CNH(s) Vencida(s) */}
               <div 

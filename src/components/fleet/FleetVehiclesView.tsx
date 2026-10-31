@@ -97,9 +97,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [ruleSubgroup, setRuleSubgroup] = useState<MaintenanceSubgroup>('FILTROS');
   const [inventorySearchQuery, setInventorySearchQuery] = useState('');
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
+  const [ruleIntervalHours, setRuleIntervalHours] = useState<number | ''>(250);
+  const [ruleIntervalKm, setRuleIntervalKm] = useState<number | ''>('');
   const [ruleIntervalHoursKm, setRuleIntervalHoursKm] = useState<number | ''>(250);
-  const [ruleStandardQty, setRuleStandardQty] = useState<number | ''>(28);
-  const [ruleUnit, setRuleUnit] = useState('L');
+  const [ruleStandardQty, setRuleStandardQty] = useState<number | ''>(1);
+  const [ruleUnit, setRuleUnit] = useState('UN');
   const [ruleNotes, setRuleNotes] = useState('');
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
@@ -458,9 +460,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const resolvedSubgroup = (rule.SUBGRUPO as MaintenanceSubgroup) || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
     setRuleSubgroup(resolvedSubgroup);
     setInventorySearchQuery(rule.ITEM_NOME);
+    const hours = rule.INTERVALO_HORAS !== undefined && rule.INTERVALO_HORAS > 0
+      ? rule.INTERVALO_HORAS
+      : (rule.INTERVALO_KM === undefined || rule.INTERVALO_KM === 0 ? rule.INTERVALO_HORAS_KM : '');
+    const km = rule.INTERVALO_KM !== undefined && rule.INTERVALO_KM > 0 ? rule.INTERVALO_KM : '';
+    setRuleIntervalHours(hours);
+    setRuleIntervalKm(km);
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
-    setRuleStandardQty(rule.QUANTIDADE_PADRAO);
-    setRuleUnit(rule.unidade || 'UN');
+    const qty = rule.QUANTIDADE_VEICULO_USA !== undefined ? rule.QUANTIDADE_VEICULO_USA : rule.QUANTIDADE_PADRAO;
+    setRuleStandardQty(qty);
+    setRuleUnit((rule.UNIDADE_MEDIDA || rule.unidade || 'UN').toUpperCase());
     setRuleNotes(rule.observacoes || '');
     if (rule.PRODUTO_ID) {
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
@@ -486,6 +495,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
     setStockLinkSearchQuery('');
+    setRuleIntervalHours(250);
+    setRuleIntervalKm('');
     setRuleIntervalHoursKm(250);
     setRuleStandardQty(1);
     setRuleUnit('UN');
@@ -501,9 +512,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const resolvedSubgroup = rule.SUBGRUPO || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO);
     setRuleSubgroup(resolvedSubgroup);
     setInventorySearchQuery(rule.ITEM_NOME.toUpperCase());
+    const hours = rule.INTERVALO_HORAS !== undefined && rule.INTERVALO_HORAS > 0
+      ? rule.INTERVALO_HORAS
+      : (rule.INTERVALO_KM === undefined || rule.INTERVALO_KM === 0 ? rule.INTERVALO_HORAS_KM : '');
+    const km = rule.INTERVALO_KM !== undefined && rule.INTERVALO_KM > 0 ? rule.INTERVALO_KM : '';
+    setRuleIntervalHours(hours);
+    setRuleIntervalKm(km);
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
-    setRuleStandardQty(rule.QUANTIDADE_PADRAO);
-    setRuleUnit(rule.unidade || 'UN');
+    const qty = rule.QUANTIDADE_VEICULO_USA !== undefined ? rule.QUANTIDADE_VEICULO_USA : rule.QUANTIDADE_PADRAO;
+    setRuleStandardQty(qty);
+    setRuleUnit((rule.UNIDADE_MEDIDA || rule.unidade || 'UN').toUpperCase());
     setRuleNotes(rule.observacoes || '');
     if (rule.PRODUTO_ID) {
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
@@ -536,6 +554,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setInventorySearchQuery('');
     setSelectedInventoryItem(null);
     setStockLinkSearchQuery('');
+    setRuleIntervalHours(250);
+    setRuleIntervalKm('');
     setRuleIntervalHoursKm(250);
     setRuleStandardQty(1);
     setRuleUnit('UN');
@@ -651,7 +671,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       setTimeout(() => setPreventiveFeedback(null), 3000);
       return;
     }
-    const interval = typeof ruleIntervalHoursKm === 'number' && ruleIntervalHoursKm > 0 ? ruleIntervalHoursKm : 250;
+    const horas = typeof ruleIntervalHours === 'number' && ruleIntervalHours > 0 ? ruleIntervalHours : 0;
+    const km = typeof ruleIntervalKm === 'number' && ruleIntervalKm > 0 ? ruleIntervalKm : 0;
+    if (horas === 0 && km === 0) {
+      setPreventiveFeedback({ type: 'info', message: 'INFORME AO MENOS UM INTERVALO DE TROCA (HORAS OU KM).' });
+      setTimeout(() => setPreventiveFeedback(null), 3000);
+      return;
+    }
+    const intervalPrimary = horas > 0 ? horas : km;
     const qty = typeof ruleStandardQty === 'number' && ruleStandardQty > 0 ? ruleStandardQty : 1;
     const unit = (ruleUnit || 'UN').toUpperCase();
 
@@ -690,8 +717,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             ITEM_NOME_ESTOQUE: finalProdNome || undefined,
             CUSTO_UNITARIO: finalProdCusto,
             VALOR_EXIBICAO: finalValorExibicao,
-            INTERVALO_HORAS_KM: interval,
+            INTERVALO_HORAS_KM: intervalPrimary,
+            INTERVALO_HORAS: horas,
+            INTERVALO_KM: km,
             QUANTIDADE_PADRAO: qty,
+            QUANTIDADE_VEICULO_USA: qty,
+            UNIDADE_MEDIDA: unit,
             unidade: unit,
             observacoes: ruleNotes.trim() || undefined,
           };
@@ -710,8 +741,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         CUSTO_UNITARIO: selectedProdCusto,
         VALOR_EXIBICAO: valorExibicao,
         ITEM_NOME: itemName,
-        INTERVALO_HORAS_KM: interval,
+        INTERVALO_HORAS_KM: intervalPrimary,
+        INTERVALO_HORAS: horas,
+        INTERVALO_KM: km,
         QUANTIDADE_PADRAO: qty,
+        QUANTIDADE_VEICULO_USA: qty,
+        UNIDADE_MEDIDA: unit,
         unidade: unit,
         observacoes: ruleNotes.trim() || undefined,
       };
@@ -799,14 +834,23 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           ? formatCurrencyBRL(custo) 
           : (rule.VALOR_EXIBICAO || (custo !== undefined && !isNaN(custo) ? formatCurrencyBRL(custo) : undefined));
 
+        const horas = rule.INTERVALO_HORAS !== undefined ? Number(rule.INTERVALO_HORAS) : (Number(rule.INTERVALO_HORAS_KM) || 0);
+        const km = rule.INTERVALO_KM !== undefined ? Number(rule.INTERVALO_KM) : 0;
+        const qty = rule.QUANTIDADE_VEICULO_USA !== undefined ? Number(rule.QUANTIDADE_VEICULO_USA) : (Number(rule.QUANTIDADE_PADRAO) || 1);
+        const unit = (rule.UNIDADE_MEDIDA || rule.unidade || 'UN').toUpperCase();
+
         return {
           ...rule,
           CATEGORIA: upperCat,
           SUBGRUPO: rule.SUBGRUPO || inferMaintenanceSubgroup(rule.ITEM_NOME, rule.SUBGRUPO),
           ITEM_NOME: (rule.ITEM_NOME || '').toUpperCase().trim(),
-          INTERVALO_HORAS_KM: Number(rule.INTERVALO_HORAS_KM) || 250,
-          QUANTIDADE_PADRAO: Number(rule.QUANTIDADE_PADRAO) || 1,
-          unidade: (rule.unidade || 'UN').toUpperCase(),
+          INTERVALO_HORAS_KM: Number(rule.INTERVALO_HORAS_KM) || (horas > 0 ? horas : (km > 0 ? km : 250)),
+          INTERVALO_HORAS: horas,
+          INTERVALO_KM: km,
+          QUANTIDADE_PADRAO: qty,
+          QUANTIDADE_VEICULO_USA: qty,
+          UNIDADE_MEDIDA: unit,
+          unidade: unit,
           PRODUTO_ID: prodId || rule.PRODUTO_ID || undefined,
           PRODUTO_NOME_REAL: prodNomeReal || rule.PRODUTO_NOME_REAL || undefined,
           PRODUTO_NOME_ESTOQUE: prodNomeReal || rule.PRODUTO_NOME_ESTOQUE || undefined,
@@ -1601,7 +1645,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   <tr className="bg-slate-100/95 dark:bg-stone-800/95 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-stone-200 dark:border-stone-700">
                     <th className="py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
                     <th className="py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
-                    <th className="py-2.5 px-3 text-center">QUANTIDADE PADRÃO</th>
+                    <th className="py-2.5 px-3 text-center">QUANTIDADE QUE O VEÍCULO USA</th>
                     <th className="py-2.5 px-3 text-center">VÍNCULO COM ALMOXARIFADO</th>
                     <th className="py-2.5 px-3 text-right">AÇÕES</th>
                   </tr>
@@ -1681,10 +1725,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                   )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
-                                  A CADA {rule.INTERVALO_HORAS_KM.toLocaleString('pt-BR')} H/KM
+                                  {rule.INTERVALO_HORAS !== undefined && rule.INTERVALO_HORAS > 0 && rule.INTERVALO_KM !== undefined && rule.INTERVALO_KM > 0 ? (
+                                    <span>A CADA {rule.INTERVALO_HORAS.toLocaleString('pt-BR')} H / {rule.INTERVALO_KM.toLocaleString('pt-BR')} KM</span>
+                                  ) : rule.INTERVALO_KM !== undefined && rule.INTERVALO_KM > 0 ? (
+                                    <span>A CADA {rule.INTERVALO_KM.toLocaleString('pt-BR')} KM</span>
+                                  ) : (
+                                    <span>A CADA {(rule.INTERVALO_HORAS || rule.INTERVALO_HORAS_KM).toLocaleString('pt-BR')} H</span>
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 dark:text-emerald-400 text-xs">
-                                  {rule.QUANTIDADE_PADRAO} {rule.unidade || 'UN'}
+                                  {rule.QUANTIDADE_VEICULO_USA || rule.QUANTIDADE_PADRAO} {rule.UNIDADE_MEDIDA || rule.unidade || 'UN'}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   {isLinked ? (
@@ -2027,57 +2077,76 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                       </div>
                     </div>
 
-                    {/* INTERVALO DE TROCA E QUANTIDADE PADRÃO */}
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* INTERVALO DE TROCA */}
+                    {/* SEPARAÇÃO: INTERVALO DE TROCA (HORAS) E INTERVALO DE TROCA (KM) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* BLOCO 1: INTERVALO DE TROCA (HORAS) */}
                       <div>
                         <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          INTERVALO DE TROCA <span className="text-rose-600">*</span>
+                          INTERVALO DE TROCA (HORAS) <span className="text-rose-600">*</span>
                         </label>
-                        <div className="flex items-center space-x-1">
+                        <div className="relative">
                           <input
                             type="number"
-                            required
-                            min="1"
+                            min="0"
                             step="1"
-                            placeholder="250"
-                            value={ruleIntervalHoursKm}
-                            onChange={(e) => setRuleIntervalHoursKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                            placeholder="EX: 250"
+                            value={ruleIntervalHours}
+                            onChange={(e) => setRuleIntervalHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
                           />
-                          <span className="text-[11px] font-bold text-slate-500 shrink-0">H/KM</span>
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">H</span>
                         </div>
                       </div>
 
-                      {/* QUANTIDADE PADRÃO */}
+                      {/* BLOCO 2: INTERVALO DE TROCA (KM) */}
                       <div>
                         <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          QUANTIDADE PADRÃO <span className="text-rose-600">*</span>
+                          INTERVALO DE TROCA (KM) <span className="text-rose-600">*</span>
                         </label>
-                        <div className="flex items-center space-x-1">
+                        <div className="relative">
                           <input
                             type="number"
-                            required
-                            min="0.1"
-                            step="any"
-                            placeholder="1"
-                            value={ruleStandardQty}
-                            onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                            min="0"
+                            step="1"
+                            placeholder="EX: 5000"
+                            value={ruleIntervalKm}
+                            onChange={(e) => setRuleIntervalKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
                           />
-                          <select
-                            value={ruleUnit}
-                            onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
-                            className="px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
-                          >
-                            <option value="L">L</option>
-                            <option value="UN">UN</option>
-                            <option value="KG">KG</option>
-                            <option value="CX">CX</option>
-                            <option value="PC">PC</option>
-                            <option value="M">M</option>
-                          </select>
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">KM</span>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* QUANTIDADE QUE O VEÍCULO USA* */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                        QUANTIDADE QUE O VEÍCULO USA <span className="text-rose-600">*</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          required
+                          min="0.01"
+                          step="any"
+                          placeholder="EX: 1"
+                          value={ruleStandardQty}
+                          onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          className="flex-1 px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                        />
+                        <select
+                          value={ruleUnit}
+                          onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
+                          className="w-24 px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
+                        >
+                          <option value="LT">LT</option>
+                          <option value="L">L</option>
+                          <option value="UN">UN</option>
+                          <option value="KG">KG</option>
+                          <option value="CX">CX</option>
+                          <option value="PC">PC</option>
+                          <option value="M">M</option>
+                        </select>
                       </div>
                     </div>
 
