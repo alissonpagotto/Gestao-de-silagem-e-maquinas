@@ -1724,6 +1724,8 @@ export interface PreventiveGroupItem {
   INTERVALO_HORAS_KM: number;
   INTERVALO_HORAS?: number;
   INTERVALO_KM?: number;
+  ALERTA_HORAS?: number;
+  ALERTA_KM?: number;
   QUANTIDADE_PADRAO: number;
   QUANTIDADE_VEICULO_USA?: number;
   UNIDADE_MEDIDA?: string;

@@ -98,10 +98,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [inventorySearchQuery, setInventorySearchQuery] = useState('');
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [ruleIntervalHours, setRuleIntervalHours] = useState<number | ''>(250);
+  const [ruleAlertHours, setRuleAlertHours] = useState<number | ''>(50);
   const [ruleIntervalKm, setRuleIntervalKm] = useState<number | ''>('');
+  const [ruleAlertKm, setRuleAlertKm] = useState<number | ''>(500);
   const [ruleIntervalHoursKm, setRuleIntervalHoursKm] = useState<number | ''>(250);
   const [ruleStandardQty, setRuleStandardQty] = useState<number | ''>(1);
-  const [ruleUnit, setRuleUnit] = useState('UN');
+  const [ruleUnit, setRuleUnit] = useState('LT');
   const [ruleNotes, setRuleNotes] = useState('');
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
@@ -466,10 +468,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const km = rule.INTERVALO_KM !== undefined && rule.INTERVALO_KM > 0 ? rule.INTERVALO_KM : '';
     setRuleIntervalHours(hours);
     setRuleIntervalKm(km);
+    setRuleAlertHours(rule.ALERTA_HORAS !== undefined && rule.ALERTA_HORAS > 0 ? rule.ALERTA_HORAS : (hours ? 50 : ''));
+    setRuleAlertKm(rule.ALERTA_KM !== undefined && rule.ALERTA_KM > 0 ? rule.ALERTA_KM : (km ? 500 : ''));
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
     const qty = rule.QUANTIDADE_VEICULO_USA !== undefined ? rule.QUANTIDADE_VEICULO_USA : rule.QUANTIDADE_PADRAO;
     setRuleStandardQty(qty);
-    setRuleUnit((rule.UNIDADE_MEDIDA || rule.unidade || 'UN').toUpperCase());
+    const rawUnit = (rule.UNIDADE_MEDIDA || rule.unidade || 'LT').toUpperCase();
+    setRuleUnit(rawUnit === 'L' ? 'LT' : rawUnit);
     setRuleNotes(rule.observacoes || '');
     if (rule.PRODUTO_ID) {
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
@@ -496,10 +501,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setSelectedInventoryItem(null);
     setStockLinkSearchQuery('');
     setRuleIntervalHours(250);
+    setRuleAlertHours(50);
     setRuleIntervalKm('');
+    setRuleAlertKm(500);
     setRuleIntervalHoursKm(250);
     setRuleStandardQty(1);
-    setRuleUnit('UN');
+    setRuleUnit('LT');
     setRuleNotes('');
     setIsInventoryDropdownOpen(false);
     setIsStockLinkDropdownOpen(false);
@@ -518,10 +525,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     const km = rule.INTERVALO_KM !== undefined && rule.INTERVALO_KM > 0 ? rule.INTERVALO_KM : '';
     setRuleIntervalHours(hours);
     setRuleIntervalKm(km);
+    setRuleAlertHours(rule.ALERTA_HORAS !== undefined && rule.ALERTA_HORAS > 0 ? rule.ALERTA_HORAS : (hours ? 50 : ''));
+    setRuleAlertKm(rule.ALERTA_KM !== undefined && rule.ALERTA_KM > 0 ? rule.ALERTA_KM : (km ? 500 : ''));
     setRuleIntervalHoursKm(rule.INTERVALO_HORAS_KM);
     const qty = rule.QUANTIDADE_VEICULO_USA !== undefined ? rule.QUANTIDADE_VEICULO_USA : rule.QUANTIDADE_PADRAO;
     setRuleStandardQty(qty);
-    setRuleUnit((rule.UNIDADE_MEDIDA || rule.unidade || 'UN').toUpperCase());
+    const rawUnit = (rule.UNIDADE_MEDIDA || rule.unidade || 'LT').toUpperCase();
+    setRuleUnit(rawUnit === 'L' ? 'LT' : rawUnit);
     setRuleNotes(rule.observacoes || '');
     if (rule.PRODUTO_ID) {
       const linked = inventoryList.find(i => i.id === rule.PRODUTO_ID) || null;
@@ -555,10 +565,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setSelectedInventoryItem(null);
     setStockLinkSearchQuery('');
     setRuleIntervalHours(250);
+    setRuleAlertHours(50);
     setRuleIntervalKm('');
+    setRuleAlertKm(500);
     setRuleIntervalHoursKm(250);
     setRuleStandardQty(1);
-    setRuleUnit('UN');
+    setRuleUnit('LT');
     setRuleNotes('');
     setIsInventoryDropdownOpen(false);
     setIsStockLinkDropdownOpen(false);
@@ -673,6 +685,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     }
     const horas = typeof ruleIntervalHours === 'number' && ruleIntervalHours > 0 ? ruleIntervalHours : 0;
     const km = typeof ruleIntervalKm === 'number' && ruleIntervalKm > 0 ? ruleIntervalKm : 0;
+    const alertaHoras = typeof ruleAlertHours === 'number' && ruleAlertHours > 0 ? ruleAlertHours : undefined;
+    const alertaKm = typeof ruleAlertKm === 'number' && ruleAlertKm > 0 ? ruleAlertKm : undefined;
     if (horas === 0 && km === 0) {
       setPreventiveFeedback({ type: 'info', message: 'INFORME AO MENOS UM INTERVALO DE TROCA (HORAS OU KM).' });
       setTimeout(() => setPreventiveFeedback(null), 3000);
@@ -680,7 +694,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     }
     const intervalPrimary = horas > 0 ? horas : km;
     const qty = typeof ruleStandardQty === 'number' && ruleStandardQty > 0 ? ruleStandardQty : 1;
-    const unit = (ruleUnit || 'UN').toUpperCase();
+    let unit = (ruleUnit || 'LT').toUpperCase();
+    if (unit === 'L') unit = 'LT';
 
     const selectedAny = selectedInventoryItem as any;
     const selectedProdId = selectedInventoryItem?.id || undefined;
@@ -720,6 +735,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             INTERVALO_HORAS_KM: intervalPrimary,
             INTERVALO_HORAS: horas,
             INTERVALO_KM: km,
+            ALERTA_HORAS: alertaHoras,
+            ALERTA_KM: alertaKm,
             QUANTIDADE_PADRAO: qty,
             QUANTIDADE_VEICULO_USA: qty,
             UNIDADE_MEDIDA: unit,
@@ -744,6 +761,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         INTERVALO_HORAS_KM: intervalPrimary,
         INTERVALO_HORAS: horas,
         INTERVALO_KM: km,
+        ALERTA_HORAS: alertaHoras,
+        ALERTA_KM: alertaKm,
         QUANTIDADE_PADRAO: qty,
         QUANTIDADE_VEICULO_USA: qty,
         UNIDADE_MEDIDA: unit,
@@ -836,8 +855,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
         const horas = rule.INTERVALO_HORAS !== undefined ? Number(rule.INTERVALO_HORAS) : (Number(rule.INTERVALO_HORAS_KM) || 0);
         const km = rule.INTERVALO_KM !== undefined ? Number(rule.INTERVALO_KM) : 0;
+        const alertaHoras = rule.ALERTA_HORAS !== undefined ? Number(rule.ALERTA_HORAS) : undefined;
+        const alertaKm = rule.ALERTA_KM !== undefined ? Number(rule.ALERTA_KM) : undefined;
         const qty = rule.QUANTIDADE_VEICULO_USA !== undefined ? Number(rule.QUANTIDADE_VEICULO_USA) : (Number(rule.QUANTIDADE_PADRAO) || 1);
-        const unit = (rule.UNIDADE_MEDIDA || rule.unidade || 'UN').toUpperCase();
+        let unit = (rule.UNIDADE_MEDIDA || rule.unidade || 'LT').toUpperCase();
+        if (unit === 'L') unit = 'LT';
 
         return {
           ...rule,
@@ -847,6 +869,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           INTERVALO_HORAS_KM: Number(rule.INTERVALO_HORAS_KM) || (horas > 0 ? horas : (km > 0 ? km : 250)),
           INTERVALO_HORAS: horas,
           INTERVALO_KM: km,
+          ALERTA_HORAS: alertaHoras,
+          ALERTA_KM: alertaKm,
           QUANTIDADE_PADRAO: qty,
           QUANTIDADE_VEICULO_USA: qty,
           UNIDADE_MEDIDA: unit,
@@ -1925,7 +1949,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                               onChange={(e) => setInlineUnit(e.target.value.toUpperCase())}
                                               className="px-1.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-stone-900 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-sky-500"
                                             >
-                                              <option value="L">L</option>
+                                              <option value="LT">LT</option>
                                               <option value="UN">UN</option>
                                               <option value="KG">KG</option>
                                               <option value="CX">CX</option>
@@ -2077,19 +2101,19 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                       </div>
                     </div>
 
-                    {/* SEPARAÇÃO: INTERVALO DE TROCA (HORAS) E INTERVALO DE TROCA (KM) */}
+                    {/* LINHA 1 (CONFIGURAÇÃO DE HORAS) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* BLOCO 1: INTERVALO DE TROCA (HORAS) */}
+                      {/* Campo Esquerdo: INTERVALO DE TROCAS (HORAS) */}
                       <div>
                         <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          INTERVALO DE TROCA (HORAS) <span className="text-rose-600">*</span>
+                          INTERVALO DE TROCAS (HORAS) <span className="text-rose-600">*</span>
                         </label>
                         <div className="relative">
                           <input
                             type="number"
                             min="0"
                             step="1"
-                            placeholder="EX: 250"
+                            placeholder="EX: 1000"
                             value={ruleIntervalHours}
                             onChange={(e) => setRuleIntervalHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                             className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
@@ -2098,10 +2122,32 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         </div>
                       </div>
 
-                      {/* BLOCO 2: INTERVALO DE TROCA (KM) */}
+                      {/* Campo Direito: AVISAR QUANDO FALTAR (ALERTA) */}
                       <div>
                         <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          INTERVALO DE TROCA (KM) <span className="text-rose-600">*</span>
+                          AVISAR QUANDO FALTAR (ALERTA)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="EX: 50"
+                            value={ruleAlertHours}
+                            onChange={(e) => setRuleAlertHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">H</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* LINHA 2 (CONFIGURAÇÃO DE QUILOMETRAGEM - KM) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Campo Esquerdo: INTERVALO DE TROCAS (KM) */}
+                      <div>
+                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                          INTERVALO DE TROCAS (KM) <span className="text-rose-600">*</span>
                         </label>
                         <div className="relative">
                           <input
@@ -2116,12 +2162,31 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">KM</span>
                         </div>
                       </div>
+
+                      {/* Campo Direito: AVISAR QUANDO FALTAR (ALERTA) */}
+                      <div>
+                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                          AVISAR QUANDO FALTAR (ALERTA)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="EX: 500"
+                            value={ruleAlertKm}
+                            onChange={(e) => setRuleAlertKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">KM</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* QUANTIDADE QUE O VEÍCULO USA* */}
+                    {/* LINHA 3 (VOLUME / CAPACIDADE DO MAQUINÁRIO) */}
                     <div>
                       <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        QUANTIDADE QUE O VEÍCULO USA <span className="text-rose-600">*</span>
+                        QDE QUE O VEÍCULO USA <span className="text-rose-600">*</span>
                       </label>
                       <div className="flex items-center space-x-2">
                         <input
@@ -2129,23 +2194,23 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           required
                           min="0.01"
                           step="any"
-                          placeholder="EX: 1"
+                          placeholder="EX: 60"
                           value={ruleStandardQty}
                           onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
                           className="flex-1 px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                         />
                         <select
-                          value={ruleUnit}
+                          value={ruleUnit === 'L' ? 'LT' : ruleUnit}
                           onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
-                          className="w-24 px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer"
+                          className="w-36 sm:w-44 px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer text-center"
+                          title="UNI: UNIDADE DE MEDIDA"
                         >
-                          <option value="LT">LT</option>
-                          <option value="L">L</option>
-                          <option value="UN">UN</option>
-                          <option value="KG">KG</option>
-                          <option value="CX">CX</option>
-                          <option value="PC">PC</option>
-                          <option value="M">M</option>
+                          <option value="LT">[LT] - LITROS</option>
+                          <option value="UN">[UN] - UNIDADES</option>
+                          <option value="KG">[KG] - QUILOGRAMAS</option>
+                          <option value="CX">[CX] - CAIXAS</option>
+                          <option value="PC">[PC] - PEÇAS</option>
+                          <option value="M">[M] - METROS</option>
                         </select>
                       </div>
                     </div>

@@ -161,38 +161,42 @@ export function calculatePredictiveMaintenanceAlerts(
       }
 
       // Verificação por Horas
-      let alertCandidateHours: { delta: number; threshold: number; current: number; last: number } | null = null;
+      let alertCandidateHours: { delta: number; threshold: number; current: number; last: number; trigger: number } | null = null;
       if (intervalHours > 0) {
+        const triggerHours = rule.ALERTA_HORAS !== undefined && rule.ALERTA_HORAS > 0 ? Number(rule.ALERTA_HORAS) : 50;
         const elapsed = Math.max(0, currentHours - lastHoursAtService);
         const delta = intervalHours - elapsed;
-        if (delta <= 10) {
+        if (delta <= triggerHours) {
           alertCandidateHours = {
             delta,
             threshold: intervalHours,
             current: currentHours,
             last: lastHoursAtService,
+            trigger: triggerHours,
           };
         }
       }
 
       // Verificação por KM
-      let alertCandidateKm: { delta: number; threshold: number; current: number; last: number } | null = null;
+      let alertCandidateKm: { delta: number; threshold: number; current: number; last: number; trigger: number } | null = null;
       if (intervalKm > 0) {
+        const triggerKm = rule.ALERTA_KM !== undefined && rule.ALERTA_KM > 0 ? Number(rule.ALERTA_KM) : 500;
         const elapsed = Math.max(0, currentKm - lastKmAtService);
         const delta = intervalKm - elapsed;
-        if (delta <= 10) {
+        if (delta <= triggerKm) {
           alertCandidateKm = {
             delta,
             threshold: intervalKm,
             current: currentKm,
             last: lastKmAtService,
+            trigger: triggerKm,
           };
         }
       }
 
       // Se ambos dispararem, prioriza o mais crítico (menor delta)
       let chosenMetric: 'horas' | 'km' | null = null;
-      let chosenData: { delta: number; threshold: number; current: number; last: number } | null = null;
+      let chosenData: { delta: number; threshold: number; current: number; last: number; trigger: number } | null = null;
 
       if (alertCandidateHours && alertCandidateKm) {
         if (alertCandidateHours.delta <= alertCandidateKm.delta) {
