@@ -874,6 +874,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [commissionPerHour, setCommissionPerHour] = useState<string>('0,00');
   const [commissionPerAlqueire, setCommissionPerAlqueire] = useState<string>('0,00');
   const [commissionPerHectare, setCommissionPerHectare] = useState<string>('0,00');
+  const [commissionPercentage, setCommissionPercentage] = useState<string>('0,00');
 
   // Se a função for Agenciador, desativa automaticamente a comissão de produção geral
   useEffect(() => {
@@ -1550,6 +1551,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCommissionPerHour('0,00');
     setCommissionPerAlqueire('0,00');
     setCommissionPerHectare('0,00');
+    setCommissionPercentage('0,00');
     setCnhNumber('');
     const isDriverRole = resolvedRole.toLowerCase().includes('motorista');
     setCnhCategory(isDriverRole ? 'E' : 'B');
@@ -1699,6 +1701,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       ? emp.commissionPerHectare
       : ((emp as any).comissao_hectare || 0);
     setCommissionPerHectare(!isEmpBroker && commPerHaVal ? formatCurrencyInputDisplay(Number(commPerHaVal)) : '0,00');
+
+    const commPctVal = (emp.commissionPercentage !== undefined && Number(emp.commissionPercentage) > 0)
+      ? emp.commissionPercentage
+      : ((emp as any).comissao_porcentagem || 0);
+    setCommissionPercentage(!isEmpBroker && commPctVal ? formatCurrencyInputDisplay(Number(commPctVal)) : '0,00');
     
     setCnhNumber((emp.cnhNumber || '').toUpperCase());
     setCnhCategory(emp.cnhCategory || 'B');
@@ -1796,6 +1803,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const parsedPerHour = parseCurrencyInput(commissionPerHour);
     const parsedPerAlq = parseCurrencyInput(commissionPerAlqueire);
     const parsedPerHa = parseCurrencyInput(commissionPerHectare);
+    const parsedPct = parseCurrencyInput(commissionPercentage);
 
     const activeRoles: string[] = [];
     if (role1.trim()) activeRoles.push(role1.trim());
@@ -1832,6 +1840,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       commissionPerHour: finalReceivesCommission ? parsedPerHour : 0,
       commissionPerAlqueire: finalReceivesCommission ? parsedPerAlq : 0,
       commissionPerHectare: finalReceivesCommission ? parsedPerHa : 0,
+      commissionPercentage: finalReceivesCommission ? parsedPct : 0,
       cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
       cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
       cnhExpiration: cnhExpiration || undefined,
@@ -2171,13 +2180,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const parsedPerHour = Number(parseCurrencyInput(commissionPerHour)) || 0;
       const parsedPerAlq = Number(parseCurrencyInput(commissionPerAlqueire)) || 0;
       const parsedPerHa = Number(parseCurrencyInput(commissionPerHectare)) || 0;
+      const parsedPct = Number(parseCurrencyInput(commissionPercentage)) || 0;
       const parsedBrokerCommission = isBroker ? (Number(parseCurrencyInput(brokerCommissionValue)) || 0) : 0;
-      const hasAnyCommission = parsedPerHour > 0 || parsedPerAlq > 0 || parsedPerHa > 0;
+      const hasAnyCommission = parsedPerHour > 0 || parsedPerAlq > 0 || parsedPerHa > 0 || parsedPct > 0;
       const finalReceivesCommission = !isBroker && (receivesCommission || hasAnyCommission);
 
       const numPerHour = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHour))) || 0) : 0;
       const numPerAlq = finalReceivesCommission ? (Number(parseFloat(String(parsedPerAlq))) || 0) : 0;
       const numPerHa = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHa))) || 0) : 0;
+      const numPct = finalReceivesCommission ? (Number(parseFloat(String(parsedPct))) || 0) : 0;
 
       // Formatação rigorosa de datas para YYYY-MM-DD
       const formattedAdmissionDate = admissionDate ? (formatIsoDateOnly(admissionDate) || admissionDate.trim()) : undefined;
@@ -2233,9 +2244,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         commissionPerHour: numPerHour,
         commissionPerAlqueire: numPerAlq,
         commissionPerHectare: numPerHa,
+        commissionPercentage: numPct,
         comissao_hora: numPerHour,
         comissao_alqueire: numPerAlq,
         comissao_hectare: numPerHa,
+        comissao_porcentagem: numPct,
         recebe_comissao: finalReceivesCommission,
         cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
         cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
@@ -2739,6 +2752,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               if (emp.commissionPerHour && emp.commissionPerHour > 0) comParts.push(`R$ ${emp.commissionPerHour.toFixed(2)}/h`);
               if (emp.commissionPerAlqueire && emp.commissionPerAlqueire > 0) comParts.push(`R$ ${emp.commissionPerAlqueire.toFixed(2)}/alq`);
               if (emp.commissionPerHectare && emp.commissionPerHectare > 0) comParts.push(`R$ ${emp.commissionPerHectare.toFixed(2)}/ha`);
+              if (emp.commissionPercentage && emp.commissionPercentage > 0) comParts.push(`${emp.commissionPercentage.toFixed(2).replace('.', ',')}%`);
             }
             const comText = comParts.length > 0 
               ? `<span style="color: #b45309; font-weight: 700;">${comParts.join(' | ')}</span>`
@@ -3358,7 +3372,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <div className="text-black/80 dark:text-stone-300 font-bold font-['Outfit'] text-[10px] whitespace-nowrap">
                           {emp.commissionPerHour ? `${formatCurrencyBRL(emp.commissionPerHour)}/h ` : ''}
                           {emp.commissionPerAlqueire ? `${formatCurrencyBRL(emp.commissionPerAlqueire)}/alq ` : ''}
-                          {emp.commissionPerHectare ? `${formatCurrencyBRL(emp.commissionPerHectare)}/ha` : ''}
+                          {emp.commissionPerHectare ? `${formatCurrencyBRL(emp.commissionPerHectare)}/ha ` : ''}
+                          {emp.commissionPercentage ? `${emp.commissionPercentage.toFixed(2).replace('.', ',')}%` : ''}
                         </div>
                       </div>
                     ) : (
@@ -4065,7 +4080,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-0.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-0.5">
                     <div>
                       <label className="block text-[11px] font-bold text-black mb-1">
                         Por hora (R$/h)
@@ -4081,6 +4096,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           }
                         }}
                         disabled={!receivesCommission}
+                        placeholder="0,00"
                         className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
                           !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
                         }`}
@@ -4102,6 +4118,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           }
                         }}
                         disabled={!receivesCommission}
+                        placeholder="0,00"
                         className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
                           !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
                         }`}
@@ -4123,6 +4140,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           }
                         }}
                         disabled={!receivesCommission}
+                        placeholder="0,00"
+                        className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
+                          !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-black mb-1">
+                        Porcentagem (%)
+                      </label>
+                      <input
+                        type="text"
+                        value={commissionPercentage}
+                        onChange={(e) => setCommissionPercentage(e.target.value)}
+                        onBlur={() => {
+                          if (commissionPercentage) {
+                            const parsed = parseCurrencyInput(commissionPercentage);
+                            setCommissionPercentage(formatCurrencyInputDisplay(parsed));
+                          }
+                        }}
+                        disabled={!receivesCommission}
+                        placeholder="0,00"
                         className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
                           !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
                         }`}

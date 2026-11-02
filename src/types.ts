@@ -612,9 +612,11 @@ export interface Employee {
   commissionPerHour?: number; // Por hora (R$/h)
   commissionPerAlqueire?: number; // Por alqueire (R$/alq)
   commissionPerHectare?: number; // Por hectare (R$/ha)
+  commissionPercentage?: number; // Porcentagem (%)
   comissao_hora?: number; // Alias banco Supabase (R$/h)
   comissao_alqueire?: number; // Alias banco Supabase (R$/alq)
   comissao_hectare?: number; // Alias banco Supabase (R$/ha)
+  comissao_porcentagem?: number; // Alias banco Supabase (%)
   recebe_comissao?: boolean; // Alias banco Supabase
   brokerCommissionType?: 'Porcentagem (%) sobre o valor do pedido' | 'Porcentagem (%) sobre a produção' | 'Valor Fixo por contrato/pedido' | string; // Tipo de comissão do agenciador
   brokerCommissionValue?: number; // Valor/Percentual da comissão do agenciador
@@ -997,7 +999,7 @@ export interface ServiceMealExpense {
   amount: number | '';
 }
 
-export type FreightCommissionMode = 'km' | 'horas' | 'tonelada_carga' | 'toneladas' | 'cargas' | 'viagem' | 'livre';
+export type FreightCommissionMode = 'km' | 'horas' | 'tonelada_carga' | 'toneladas' | 'cargas' | 'viagem' | 'livre' | 'porcentagem';
 
 export interface ServiceTruckItem {
   id: string;

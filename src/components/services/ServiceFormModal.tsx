@@ -861,6 +861,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     setTrucks((prevTrucks) => {
       let changed = false;
       const nextTrucks = prevTrucks.map((t) => {
+        if (t.driverCommissionMode === 'porcentagem') {
+          return t;
+        }
         if (t.driverHourSource === 'tambor') {
           const val = typeof horasTambor === 'number' ? horasTambor : 0;
           if (t.driverHours !== val) {
@@ -1205,8 +1208,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       // Adicional KM individual do caminhão
       const additionalKmCost = truck.totalAdditionalKm ?? ((truck.additionalKm || 0) * (truck.ratePerKm || 0));
 
-      // Comissão individual do Motorista de Frete (4 modalidades: Por KM, Por Hora, Por Tonelada/Carga ou Por Viagem)
-      const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truck, pesoPorM3);
+      // Comissão individual do Motorista de Frete (modalidades: Por KM, Por Hora, Por Tonelada/Carga, Por Viagem ou Por Porcentagem)
+      const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truck, pesoPorM3, rateioCost);
       const driverCommissionCost = typeof truck.driverCommission === 'number' ? truck.driverCommission : commResult.total;
 
       // Total Composto = Rateio + Adicional KM + Comissão do Motorista
@@ -1412,12 +1415,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       const distVal = (unidadeArea === 'hectares' || unidadeArea === 'hora')
         ? truckCostHoras
         : (totalVolumeGeralM3 > 0 ? (m3 / totalVolumeGeralM3) * valorDistribuicaoFrotas : 0);
+      const baseToUse = t.driverCommissionMode === 'porcentagem' && (!t.driverCommissionBase || Number(t.driverCommissionBase) <= 0)
+        ? Number(distVal.toFixed(2))
+        : t.driverCommissionBase;
+      const comm = calculateTruckFreightCommission(t.driverCommissionMode, { ...t, driverCommissionBase: baseToUse }, pesoPorM3, distVal);
       return {
         ...t,
         totalM3: m3,
         ratioPercent: ratio,
         distributedValue: distVal,
         truckTotalCost: truckCostHoras,
+        driverCommissionBase: baseToUse,
+        driverCommission: typeof t.driverCommission === 'number' ? t.driverCommission : comm.total,
       };
     });
 
