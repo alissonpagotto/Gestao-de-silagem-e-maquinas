@@ -876,7 +876,16 @@ export interface ServiceOrder {
   startDate: string;
   date?: string; // Data do serviço (compatibilidade)
   completionDate?: string;
-  status: 'agendado' | 'em_andamento' | 'concluido' | 'cancelado' | 'finalizado';
+  status: 'agendado' | 'em_andamento' | 'em_faturamento' | 'faturado' | 'concluido' | 'cancelado' | 'finalizado' | string;
+  billingStatus?: 'pendente' | 'em_revisao' | 'faturado';
+  billingNotes?: string;
+  billingDiscount?: number;
+  billingExtra?: number;
+  billedAt?: string;
+  billedBy?: string;
+  paymentStatus?: 'pendente' | 'parcial' | 'pago';
+  paymentDate?: string;
+  paymentMethod?: string;
   machineryId?: string;
   machineryAssigned?: string;
   operatorId?: string;

@@ -29,7 +29,10 @@ import {
   Lock,
   LogOut,
   CheckCircle2,
-  Handshake
+  Handshake,
+  Send,
+  Receipt,
+  DollarSign
 } from 'lucide-react';
 import { 
   ServiceOrder, 
@@ -119,7 +122,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   >('preventiva');
   const [maintenanceMachineryId, setMaintenanceMachineryId] = useState('');
   const [maintenanceHourMeter, setMaintenanceHourMeter] = useState('');
-  const [status, setStatus] = useState<'agendado' | 'em_andamento' | 'concluido' | 'cancelado' | 'finalizado'>('agendado');
+  const [status, setStatus] = useState<'agendado' | 'em_andamento' | 'em_faturamento' | 'faturado' | 'concluido' | 'cancelado' | 'finalizado' | string>('agendado');
+  const [billingStatus, setBillingStatus] = useState<'pendente' | 'em_revisao' | 'faturado'>('pendente');
+  const [billingNotes, setBillingNotes] = useState<string>('');
+  const [billingDiscount, setBillingDiscount] = useState<number | ''>('');
+  const [billingExtra, setBillingExtra] = useState<number | ''>('');
+  const [billedAt, setBilledAt] = useState<string | undefined>(undefined);
 
   // Estados da Aba 1: Seleção de Equipamentos & Regras de Cobrança (Serviços e Aluguel de Máquinas/Caminhões/Fretes)
   const [equipmentCategory, setEquipmentCategory] = useState<'pesadas' | 'caminhoes'>('pesadas');
@@ -430,6 +438,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setFarmName(editRecord.farmName || '');
       setServiceDate(editRecord.startDate || new Date().toISOString().split('T')[0]);
       setStatus(editRecord.status || 'agendado');
+      setBillingStatus(editRecord.billingStatus || (editRecord.status === 'faturado' ? 'faturado' : 'pendente'));
+      setBillingNotes(editRecord.billingNotes || '');
+      setBillingDiscount(editRecord.billingDiscount !== undefined ? editRecord.billingDiscount : '');
+      setBillingExtra(editRecord.billingExtra !== undefined ? editRecord.billingExtra : '');
+      setBilledAt(editRecord.billedAt);
 
       setUnidadeArea(editRecord.areaUnit || (activeTab === 'colheita' ? 'sacas' : 'hectares'));
       setQuantidadeArea(
@@ -598,6 +611,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setFarmName('');
       setServiceDate(new Date().toISOString().split('T')[0]);
       setStatus('agendado');
+      setBillingStatus('pendente');
+      setBillingNotes('');
+      setBillingDiscount('');
+      setBillingExtra('');
+      setBilledAt(undefined);
 
       // Reset Aba 1 & Frete
       if (activeTab === 'frete') {
@@ -1382,7 +1400,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   }, [totalPedido, lucroEstimado]);
 
   // Salvar Ordem de Serviço
-  const handleSave = () => {
+  const handleSave = (targetStatusOverride?: string) => {
     if (!clientName.trim()) {
       alert('Por favor, selecione ou informe o Cliente / Produtor.');
       return;
@@ -1434,6 +1452,26 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
     const isFreight = activeTab === 'frete';
 
+    // REGRA DE NEGÓCIO: Detecção automática de dados parciais/preliminares de execução
+    const hasExecutionData = Boolean(
+      (horasTambor && Number(horasTambor) > 0) ||
+      (horasMotor && Number(horasMotor) > 0) ||
+      (qtdCobrancaTrator && Number(qtdCobrancaTrator) > 0) ||
+      (heavyMachineHours && Number(heavyMachineHours) > 0) ||
+      (truckServiceHours && Number(truckServiceHours) > 0) ||
+      (truckServiceLoads && Number(truckServiceLoads) > 0) ||
+      (truckServiceTotalKm && Number(truckServiceTotalKm) > 0) ||
+      (unidadeArea !== 'sacas' && quantidadeArea && Number(quantidadeArea) > 0) ||
+      (fuelEntries && fuelEntries.length > 0) ||
+      (mealExpenses && mealExpenses.length > 0) ||
+      (trucks && trucks.some((t) => (t.truckHours && t.truckHours > 0) || (t.loadsCount && t.loadsCount > 0) || (t.totalAdditionalKm && t.totalAdditionalKm > 0)))
+    );
+
+    const finalStatus = targetStatusOverride || (status === 'agendado' && hasExecutionData ? 'em_andamento' : status);
+    const isSendingToReceivables = finalStatus === 'faturado';
+    const isSendingToBilling = finalStatus === 'em_faturamento';
+    const nowIso = new Date().toISOString();
+
     const newService: ServiceOrder = {
       id: editRecord?.id || 'serv_' + Date.now(),
       orderNumber: numero || `#${Date.now().toString().slice(-4)}`,
@@ -1454,7 +1492,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         ? 'Venda de Silagem'
         : 'Serviço de Máquina',
       serviceTab: activeTab,
-      status,
+      status: finalStatus,
+      billingStatus: isSendingToReceivables ? 'faturado' : isSendingToBilling ? 'pendente' : (billingStatus || 'pendente'),
+      billingNotes: billingNotes ? billingNotes.trim().toUpperCase() : undefined,
+      billingDiscount: typeof billingDiscount === 'number' && billingDiscount > 0 ? billingDiscount : undefined,
+      billingExtra: typeof billingExtra === 'number' && billingExtra > 0 ? billingExtra : undefined,
+      billedAt: isSendingToReceivables ? (billedAt || nowIso) : (isSendingToBilling ? undefined : billedAt),
+      billedBy: isSendingToReceivables ? 'Escritório' : undefined,
       startDate: serviceDate,
       completionDate: completionDate || undefined,
       machineryId: isFreight
@@ -1778,15 +1822,29 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     }
 
     setSavedOrder(newService);
-    setSaveSuccessMessage(`Pedido ${newService.orderNumber} salvo com sucesso! Os dados foram gravados no sistema. Você pode continuar na tela para analisar o DRE ou imprimir.`);
+    setStatus(finalStatus);
+
+    if (isSendingToReceivables) {
+      setBillingStatus('faturado');
+      setBilledAt(nowIso);
+      setSaveSuccessMessage(`✓ Pedido ${newService.orderNumber} faturado com sucesso! Lançamento gerado em Contas a Receber no Financeiro.`);
+    } else if (isSendingToBilling) {
+      setBillingStatus('pendente');
+      setSaveSuccessMessage(`✓ Pedido ${newService.orderNumber} enviado com sucesso para a aba Faturamento! As operações de campo foram congeladas.`);
+    } else if (status === 'agendado' && hasExecutionData) {
+      setSaveSuccessMessage(`Pedido ${newService.orderNumber} salvo! Status promovido automaticamente para "Em Andamento" com base nos dados de execução.`);
+    } else {
+      setSaveSuccessMessage(`Pedido ${newService.orderNumber} salvo com sucesso! Os dados foram gravados no sistema.`);
+    }
+
     setIsSaveSuccessToast(true);
     setTimeout(() => {
       setIsSaveSuccessToast(false);
-    }, 4000);
+    }, 4500);
   };
 
   // Alias semântico para o salvamento conforme solicitado
-  const handleSubmit = handleSave;
+  const handleSubmit = () => handleSave();
 
   // Configuração Dinâmica dos Estilos de Impressão Nativa (@media print)
   // Via Cliente: Formato Cupom Térmico 80mm (@page { size: 80mm auto; margin: 0; })
@@ -2643,8 +2701,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 </div>
               </div>
 
-              {/* Datas da Operação / Manutenção */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800">
+              {/* Datas da Operação e Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
                     Data da Abertura / Manutenção *
@@ -2659,13 +2717,166 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
-                    Previsão de Término / Conclusão (Data)
+                    Previsão de Término / Conclusão
                   </label>
                   <input
                     type="date"
                     value={completionDate}
                     onChange={(e) => setCompletionDate(e.target.value)}
                     className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1 flex items-center justify-between">
+                    <span>Status da Ordem</span>
+                    {status === 'em_faturamento' && (
+                      <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400">Escritório</span>
+                    )}
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:outline-none uppercase cursor-pointer"
+                  >
+                    <option value="agendado">AGENDADO</option>
+                    <option value="em_andamento">EM ANDAMENTO</option>
+                    <option value="em_faturamento">EM FATURAMENTO (AUDITORIA)</option>
+                    <option value="faturado">FATURADO (CONTAS A RECEBER)</option>
+                    <option value="concluido">CONCLUÍDO</option>
+                    <option value="cancelado">CANCELADO</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* BANNER DE BLOQUEIO OPERACIONAL OU STATUS DE FATURAMENTO */}
+            {status === 'em_faturamento' && (
+              <div className="bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 p-2.5 sm:p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-2xs animate-fade-in print:hidden">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-amber-200/80 dark:bg-amber-900/80 flex items-center justify-center shrink-0">
+                    <Lock className="w-3.5 h-3.5 text-amber-800 dark:text-amber-200" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-amber-900 dark:text-amber-200 block uppercase">
+                      ORDEM EM FATURAMENTO • AUDITORIA DO ESCRITÓRIO
+                    </span>
+                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                      O serviço saiu do fluxo operacional do campo. O escritório está conferindo valores antes do faturamento financeiro.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSave('faturado')}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase rounded-lg shadow-2xs transition cursor-pointer active:scale-95 whitespace-nowrap self-end sm:self-auto"
+                >
+                  <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Enviar para Contas a Receber</span>
+                </button>
+              </div>
+            )}
+
+            {status === 'faturado' && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 p-2.5 sm:p-3 rounded-xl flex items-center justify-between gap-2 text-xs shadow-2xs animate-fade-in print:hidden">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-emerald-200/80 dark:bg-emerald-900/80 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-200" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-emerald-900 dark:text-emerald-200 block uppercase">
+                      SERVIÇO FATURADO • ATIVO NO CONTAS A RECEBER
+                    </span>
+                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                      Auditado pelo escritório e lançado no Financeiro {billedAt ? `em ${formatDateBR(billedAt)}` : ''}.
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 px-2 py-0.5 rounded uppercase">
+                  Título Financeiro Gerado
+                </span>
+              </div>
+            )}
+
+            {/* AUDITORIA DE FATURAMENTO & OBSERVAÇÕES DO ESCRITÓRIO */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
+              <div className="border-b border-slate-200 dark:border-slate-800 pb-1.5 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>AUDITORIA DE FATURAMENTO & OBSERVAÇÕES DO ESCRITÓRIO</span>
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                  status === 'faturado'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                    : status === 'em_faturamento'
+                    ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                    : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                }`}>
+                  {status === 'faturado' ? 'Faturado (Financeiro)' : status === 'em_faturamento' ? 'Aguardando Auditoria' : 'Prévia Operacional'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-2.5">
+                {/* Desconto Comercial de Faturamento */}
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                    Desconto / Ajuste Comercial (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    value={billingDiscount}
+                    onChange={(e) => setBillingDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* Acréscimo / Taxa Extra */}
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                    Acréscimo Extra (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    value={billingExtra}
+                    onChange={(e) => setBillingExtra(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* Valor Total Final a Faturar */}
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                    Total Faturado Final (R$)
+                  </label>
+                  <div className="w-full px-2.5 py-1 sm:py-1.5 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-zinc-900 dark:text-white">
+                    {formatCurrencyBRL(
+                      Math.max(
+                        0,
+                        totalPedido -
+                          (typeof billingDiscount === 'number' ? billingDiscount : 0) +
+                          (typeof billingExtra === 'number' ? billingExtra : 0)
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Anotações Exclusivas do Faturamento (billingNotes) */}
+                <div className="sm:col-span-12">
+                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1 flex items-center justify-between">
+                    <span>Anotações Exclusivas do Faturamento (billingNotes)</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">Visível internamente no escritório e no Contas a Receber</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={billingNotes}
+                    onChange={(e) => setBillingNotes(e.target.value.toUpperCase())}
+                    placeholder="INFORMAÇÕES DE FATURAMENTO, ACORDO DE VENCIMENTO, DETALHAMENTO DE TRIBUTOS OU CONDIÇÕES DE PAGAMENTO..."
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs uppercase"
                   />
                 </div>
               </div>
@@ -4520,6 +4731,42 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 Alterações salvas!
               </span>
             )}
+
+            {/* BOTÃO 1: ENVIAR AO FATURAMENTO (quando em Agendado ou Em Andamento) */}
+            {status !== 'em_faturamento' && status !== 'faturado' && (
+              <button
+                type="button"
+                onClick={() => handleSave('em_faturamento')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold uppercase rounded-lg shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
+                title="Concluir campo e enviar para a aba Faturamento do escritório"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Enviar ao Faturamento</span>
+              </button>
+            )}
+
+            {/* BOTÃO 2: ENVIAR PARA CONTAS A RECEBER (quando em Faturamento) */}
+            {status === 'em_faturamento' && (
+              <button
+                type="button"
+                onClick={() => handleSave('faturado')}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition cursor-pointer active:scale-95 whitespace-nowrap"
+                title="Finalizar conferência e disparar lançamento físico no Contas a Receber"
+              >
+                <DollarSign className="w-4 h-4 stroke-[2.5]" />
+                <span>Enviar para Contas a Receber</span>
+              </button>
+            )}
+
+            {/* BADGE: FATURADO NO FINANCEIRO */}
+            {status === 'faturado' && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Faturado no Financeiro</span>
+              </span>
+            )}
+
+            {/* BOTÃO SALVAR PADRÃO */}
             <button
               type="button"
               onClick={handleSubmit}

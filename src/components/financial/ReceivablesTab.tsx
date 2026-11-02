@@ -131,18 +131,22 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   }, [localOrders]);
 
   const receivablesFromServices: ReceivableItem[] = useMemo(() => {
-    return localServices.map((s) => ({
-      id: s.id,
-      type: 'Prestação de Serviço',
-      clientName: s.clientName,
-      date: s.date || s.startDate || (s as any).createdAt || '',
-      dueDate: s.date || s.startDate || (s as any).createdAt || '',
-      volume: `${s.tonsHarvested || 0} tons / ${s.hoursWorked || 0} hrs`,
-      totalAmount: s.totalAmount || 0,
-      status: s.status === 'finalizado' || s.status === 'concluido' ? 'pago' : 'pendente',
-      notes: s.farmLocation || '',
-      clientId: (s as any).clientId || (s as any).client_id,
-    }));
+    // REGRA DE NEGÓCIO: Somente serviços que passaram pela etapa de faturamento e auditoria
+    // e foram disparados para Contas a Receber (status === 'faturado' ou s.billedAt) aparecem aqui.
+    return localServices
+      .filter((s) => s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt || (s.status === 'finalizado' && !!s.billedAt))
+      .map((s) => ({
+        id: s.id,
+        type: 'Prestação de Serviço',
+        clientName: s.clientName,
+        date: s.date || s.startDate || (s as any).createdAt || '',
+        dueDate: s.date || s.startDate || (s as any).createdAt || '',
+        volume: `${s.tonsHarvested || 0} tons / ${s.hoursWorked || 0} hrs`,
+        totalAmount: s.totalAmount || 0,
+        status: s.status === 'finalizado' || s.paymentStatus === 'pago' ? 'pago' : 'pendente',
+        notes: s.billingNotes || s.farmLocation || '',
+        clientId: (s as any).clientId || (s as any).client_id,
+      }));
   }, [localServices]);
 
   const allReceivables = useMemo(() => {

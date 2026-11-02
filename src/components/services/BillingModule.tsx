@@ -1,0 +1,727 @@
+import React, { useState, useMemo } from 'react';
+import {
+  Receipt,
+  Search,
+  X,
+  ChevronDown,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  FileText,
+  DollarSign,
+  AlertCircle,
+  Pencil,
+  Send,
+  Eye,
+  Check,
+  Building2,
+  CornerDownRight,
+  ShieldCheck,
+  FileCheck2,
+  Undo2
+} from 'lucide-react';
+import { ServiceOrder, CompanyProfile } from '../../types';
+import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { useConfirm } from '../../context/ConfirmContext';
+
+interface BillingModuleProps {
+  services: ServiceOrder[];
+  companyProfile?: CompanyProfile;
+  onSaveServices: (updated: ServiceOrder[]) => void;
+  onOpenServiceModal: (service: ServiceOrder) => void;
+}
+
+export const BillingModule: React.FC<BillingModuleProps> = ({
+  services = [],
+  companyProfile,
+  onSaveServices,
+  onOpenServiceModal,
+}) => {
+  const { confirm } = useConfirm();
+
+  // Search & Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'pendente' | 'faturado'>('todos');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('todos');
+
+  // Quick Audit Modal state
+  const [auditingService, setAuditingService] = useState<ServiceOrder | null>(null);
+  const [auditNotes, setAuditNotes] = useState('');
+  const [auditDiscount, setAuditDiscount] = useState<number | ''>('');
+  const [auditExtra, setAuditExtra] = useState<number | ''>('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
+
+  // Identifica serviços na esteira de faturamento (ou com status em_faturamento ou faturado)
+  const billingServices = useMemo(() => {
+    return services.filter((s) => {
+      // Itens que foram enviados para faturamento, ou já estão faturados
+      return s.status === 'em_faturamento' || s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt;
+    });
+  }, [services]);
+
+  // Totais e Métricas
+  const metrics = useMemo(() => {
+    const totalGeral = billingServices.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
+    const pendentesList = billingServices.filter(
+      (s) => s.status === 'em_faturamento' && s.billingStatus !== 'faturado' && !s.billedAt
+    );
+    const faturadosList = billingServices.filter(
+      (s) => s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt
+    );
+
+    const totalPendente = pendentesList.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
+    const totalFaturado = faturadosList.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
+
+    return {
+      totalGeral,
+      pendentesCount: pendentesList.length,
+      totalPendente,
+      faturadosCount: faturadosList.length,
+      totalFaturado,
+    };
+  }, [billingServices]);
+
+  // Lista filtrada
+  const filteredList = useMemo(() => {
+    return billingServices.filter((s) => {
+      const isFaturado = s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt;
+
+      if (statusFilter === 'pendente' && isFaturado) return false;
+      if (statusFilter === 'faturado' && !isFaturado) return false;
+
+      if (serviceTypeFilter !== 'todos') {
+        const typeStr = (s.serviceType || '').toLowerCase();
+        const tabStr = (s.serviceTab || '').toLowerCase();
+        if (serviceTypeFilter === 'corte' && !typeStr.includes('corte') && !typeStr.includes('ensilagem') && tabStr !== 'corte') {
+          return false;
+        }
+        if (serviceTypeFilter === 'colheita' && !typeStr.includes('colheita') && tabStr !== 'colheita') {
+          return false;
+        }
+        if (serviceTypeFilter === 'trator' && !typeStr.includes('trator') && tabStr !== 'trator') {
+          return false;
+        }
+        if (serviceTypeFilter === 'maquina' && !typeStr.includes('máquina') && !typeStr.includes('maquina') && tabStr !== 'maquina') {
+          return false;
+        }
+        if (serviceTypeFilter === 'frete' && !typeStr.includes('frete') && !typeStr.includes('transporte') && tabStr !== 'frete') {
+          return false;
+        }
+      }
+
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchesClient = (s.clientName || '').toLowerCase().includes(q);
+        const matchesFarm = (s.farmName || '').toLowerCase().includes(q);
+        const matchesOrder = (s.orderNumber || s.id || '').toLowerCase().includes(q);
+        const matchesType = (s.serviceType || '').toLowerCase().includes(q);
+        const matchesNotes = (s.billingNotes || s.notes || '').toLowerCase().includes(q);
+        if (!matchesClient && !matchesFarm && !matchesOrder && !matchesType && !matchesNotes) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [billingServices, statusFilter, serviceTypeFilter, searchTerm]);
+
+  // Enviar serviço diretamente para Contas a Receber
+  const handleSendToReceivables = async (service: ServiceOrder) => {
+    const isConfirmed = await confirm({
+      title: 'Confirmar Envio ao Contas a Receber',
+      message: `Deseja faturar e enviar o serviço de "${service.clientName}" no valor de ${formatCurrencyBRL(service.totalAmount || 0)} para o módulo "Contas a Receber" do Financeiro?`,
+      confirmLabel: 'Enviar ao Contas a Receber',
+      cancelLabel: 'Cancelar',
+      variant: 'primary',
+    });
+
+    if (!isConfirmed) return;
+
+    const billedDate = new Date().toISOString();
+    const updated = services.map((s) => {
+      if (s.id === service.id) {
+        return {
+          ...s,
+          status: 'faturado' as const,
+          billingStatus: 'faturado' as const,
+          billedAt: billedDate,
+          billedBy: 'Escritório',
+          paymentStatus: (s.paymentStatus || 'pendente') as any,
+          updatedAt: billedDate,
+        };
+      }
+      return s;
+    });
+
+    onSaveServices(updated);
+    showToast(`✓ Serviço #${service.orderNumber || service.id.slice(-4)} enviado com sucesso para o Contas a Receber!`);
+  };
+
+  // Reabrir faturamento / devolver para revisão
+  const handleReopenBilling = async (service: ServiceOrder) => {
+    const isConfirmed = await confirm({
+      title: 'Devolver para Revisão de Faturamento',
+      message: `Deseja estornar o status deste serviço para "Em Faturamento" para permitir novos ajustes no escritório? O título no Contas a Receber será temporariamente suspenso.`,
+      confirmLabel: 'Reabrir para Revisão',
+      cancelLabel: 'Cancelar',
+      variant: 'warning',
+    });
+
+    if (!isConfirmed) return;
+
+    const updated = services.map((s) => {
+      if (s.id === service.id) {
+        return {
+          ...s,
+          status: 'em_faturamento' as const,
+          billingStatus: 'em_revisao' as const,
+          billedAt: undefined,
+          billedBy: undefined,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return s;
+    });
+
+    onSaveServices(updated);
+    showToast(`Serviço #${service.orderNumber || service.id.slice(-4)} devolvido para revisão interna.`);
+  };
+
+  // Abrir Modal de Auditoria do Escritório
+  const handleOpenAuditModal = (service: ServiceOrder) => {
+    setAuditingService(service);
+    setAuditNotes(service.billingNotes || '');
+    setAuditDiscount(service.billingDiscount !== undefined ? service.billingDiscount : '');
+    setAuditExtra(service.billingExtra !== undefined ? service.billingExtra : '');
+  };
+
+  // Salvar Auditoria e Opcionalmente Faturar
+  const handleSaveAudit = (sendToReceivablesDirectly: boolean = false) => {
+    if (!auditingService) return;
+
+    const baseAmount = auditingService.totalAmount || 0;
+    const discount = typeof auditDiscount === 'number' ? auditDiscount : 0;
+    const extra = typeof auditExtra === 'number' ? extraNumber(auditExtra) : 0;
+    const finalAmount = Math.max(0, baseAmount - discount + extra);
+
+    const isBilled = sendToReceivablesDirectly;
+    const nowIso = new Date().toISOString();
+
+    const updated = services.map((s) => {
+      if (s.id === auditingService.id) {
+        return {
+          ...s,
+          billingNotes: auditNotes.trim().toUpperCase(),
+          billingDiscount: discount > 0 ? discount : undefined,
+          billingExtra: extra > 0 ? extra : undefined,
+          totalAmount: finalAmount > 0 ? finalAmount : s.totalAmount,
+          status: isBilled ? ('faturado' as const) : ('em_faturamento' as const),
+          billingStatus: isBilled ? ('faturado' as const) : ('em_revisao' as const),
+          billedAt: isBilled ? nowIso : s.billedAt,
+          billedBy: isBilled ? 'Escritório' : s.billedBy,
+          updatedAt: nowIso,
+        };
+      }
+      return s;
+    });
+
+    onSaveServices(updated);
+    setAuditingService(null);
+
+    if (isBilled) {
+      showToast(`✓ Serviço faturado com sucesso e lançado no Contas a Receber!`);
+    } else {
+      showToast(`Auditoria do faturamento salva com sucesso!`);
+    }
+  };
+
+  function extraNumber(val: any): number {
+    return typeof val === 'number' ? val : Number(val) || 0;
+  }
+
+  // Helper para cor do Tipo de Serviço
+  const getServiceTypeBadge = (service: ServiceOrder) => {
+    const type = (service.serviceType || '').toLowerCase();
+    const tab = (service.serviceTab || '').toLowerCase();
+
+    if (type.includes('corte') || type.includes('ensilagem') || tab === 'corte') {
+      return {
+        label: 'CORTE DE SILAGEM',
+        className: 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+      };
+    }
+    if (type.includes('colheita') || tab === 'colheita') {
+      return {
+        label: 'COLHEITA',
+        className: 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+      };
+    }
+    if (type.includes('trator') || tab === 'trator') {
+      return {
+        label: 'SERVIÇO DE TRATOR',
+        className: 'bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+      };
+    }
+    if (type.includes('frete') || type.includes('transporte') || tab === 'frete') {
+      return {
+        label: 'SERVIÇO DE FRETE',
+        className: 'bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800',
+      };
+    }
+    return {
+      label: 'SERVIÇO DE MÁQUINA',
+      className: 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700',
+    };
+  };
+
+  return (
+    <div className="w-full space-y-3 antialiased">
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-[100] max-w-md bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-between gap-3 animate-fade-in border border-emerald-500">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-white" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-white hover:text-emerald-200 p-1 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================
+          1. CARDS DE MÉTRICAS DO FATURAMENTO
+          ======================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {/* Card 1: Total Geral */}
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg p-2.5 shadow-2xs">
+          <div className="flex items-center justify-between text-slate-500 dark:text-stone-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Total em Faturamento</span>
+            <Receipt className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <div className="text-base font-black text-zinc-900 dark:text-white">
+            {formatCurrencyBRL(metrics.totalGeral)}
+          </div>
+          <div className="text-[10px] text-zinc-500 dark:text-stone-400 mt-0.5">
+            {billingServices.length} serviço{billingServices.length !== 1 ? 's' : ''} na esteira
+          </div>
+        </div>
+
+        {/* Card 2: Pendentes de Auditoria */}
+        <div className="bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700/60 rounded-lg p-2.5 shadow-2xs">
+          <div className="flex items-center justify-between text-amber-700 dark:text-amber-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Aguardando Auditoria</span>
+            <Clock className="w-3.5 h-3.5 text-amber-600" />
+          </div>
+          <div className="text-base font-black text-amber-800 dark:text-amber-300">
+            {formatCurrencyBRL(metrics.totalPendente)}
+          </div>
+          <div className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
+            {metrics.pendentesCount} ordem(ns) pronta(s) para conferência
+          </div>
+        </div>
+
+        {/* Card 3: Faturados e Enviados */}
+        <div className="bg-white dark:bg-stone-900 border border-emerald-300 dark:border-emerald-700/60 rounded-lg p-2.5 shadow-2xs">
+          <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Faturados / Contas a Receber</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          </div>
+          <div className="text-base font-black text-emerald-800 dark:text-emerald-300">
+            {formatCurrencyBRL(metrics.totalFaturado)}
+          </div>
+          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">
+            {metrics.faturadosCount} título(s) ativos no Financeiro
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================
+          2. BARRA DE FILTROS E PESQUISA
+          ======================================================== */}
+      <section className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+        {/* Campo de Busca */}
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
+            <Search className="w-3.5 h-3.5" />
+          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="BUSCAR CLIENTE, FAZENDA, Nº OU ANOTAÇÕES..."
+            className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors shadow-2xs uppercase"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown de Status de Faturamento */}
+        <div className="relative sm:w-56">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors shadow-2xs cursor-pointer uppercase"
+          >
+            <option value="todos">STATUS: TODOS OS FATURAMENTOS</option>
+            <option value="pendente">PENDENTE DE REVISÃO</option>
+            <option value="faturado">FATURADO (CONTAS A RECEBER)</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-zinc-400">
+            <ChevronDown className="w-3.5 h-3.5" />
+          </div>
+        </div>
+
+        {/* Dropdown de Tipo de Serviço */}
+        <div className="relative sm:w-48">
+          <select
+            value={serviceTypeFilter}
+            onChange={(e) => setServiceTypeFilter(e.target.value)}
+            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors shadow-2xs cursor-pointer uppercase"
+          >
+            <option value="todos">TIPO: TODOS</option>
+            <option value="corte">CORTE DE SILAGEM</option>
+            <option value="colheita">COLHEITA</option>
+            <option value="trator">SERVIÇO DE TRATOR</option>
+            <option value="maquina">SERVIÇO DE MÁQUINA</option>
+            <option value="frete">SERVIÇO DE FRETE</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-zinc-400">
+            <ChevronDown className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================
+          3. TABELA DE AUDITORIA E FATURAMENTO
+          ======================================================== */}
+      <section className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xs overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800/80">
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
+                  Nº
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                  CLIENTE
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                  DATA
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                  TIPO DE SERVIÇO
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                  VALOR ATUAL
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                  STATUS FATURAMENTO
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                  AÇÕES
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
+              {filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <FileCheck2 className="w-8 h-8 text-slate-400 stroke-1" />
+                      <span>Nenhum serviço encontrado na esteira de faturamento.</span>
+                      <span className="text-[10px] text-slate-400 normal-case">
+                        Para enviar um serviço aqui, abra a ordem de serviço em qualquer aba operacional e clique em "Enviar ao Faturamento".
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredList.map((service, index) => {
+                  const itemNumber = service.orderNumber || (index + 1).toString().padStart(3, '0');
+                  const isFaturado = service.status === 'faturado' || service.billingStatus === 'faturado' || !!service.billedAt;
+                  const serviceTypeBadge = getServiceTypeBadge(service);
+
+                  return (
+                    <tr
+                      key={service.id}
+                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
+                    >
+                      {/* Nº */}
+                      <td className="px-3 py-1.5 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold whitespace-nowrap">
+                        #{itemNumber.replace('#', '')}
+                      </td>
+
+                      {/* Cliente e Fazenda */}
+                      <td className="px-3 py-1.5 whitespace-nowrap">
+                        <div className="font-bold text-zinc-900 dark:text-white text-xs leading-snug uppercase">
+                          {service.clientName}
+                        </div>
+                        {service.farmName && (
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium uppercase">
+                            {service.farmName}
+                          </div>
+                        )}
+                        {service.billingNotes && (
+                          <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold mt-0.5 flex items-center gap-1 uppercase">
+                            <span className="bg-blue-50 dark:bg-blue-950/60 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
+                              FAT: {service.billingNotes}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Data */}
+                      <td className="px-3 py-1.5 text-xs text-zinc-700 dark:text-stone-300 font-medium whitespace-nowrap">
+                        {service.startDate ? formatDateBR(service.startDate) : '--'}
+                      </td>
+
+                      {/* Tipo de Serviço */}
+                      <td className="px-3 py-1.5 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${serviceTypeBadge.className}`}
+                        >
+                          {serviceTypeBadge.label}
+                        </span>
+                      </td>
+
+                      {/* Valor Atual */}
+                      <td className="px-3 py-1.5 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
+                        {formatCurrencyBRL(service.totalAmount || 0)}
+                      </td>
+
+                      {/* Status Interno do Faturamento */}
+                      <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                        {isFaturado ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-700 uppercase">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            FATURADO (C. RECEBER)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 uppercase">
+                            <Clock className="w-3 h-3 stroke-[2.5]" />
+                            AGUARDANDO REVISÃO
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Ações */}
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Botão Auditar / Revisar Valores */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAuditModal(service)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-750 border border-slate-300 dark:border-stone-600 rounded-md shadow-2xs transition cursor-pointer"
+                            title="Auditar valores, descontos e anotações do faturamento"
+                          >
+                            <Pencil className="w-3 h-3 text-slate-600 dark:text-stone-300" />
+                            <span>Auditar</span>
+                          </button>
+
+                          {/* Botão Ver DRE Completo */}
+                          <button
+                            type="button"
+                            onClick={() => onOpenServiceModal(service)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md shadow-2xs transition cursor-pointer"
+                            title="Visualizar ordem de serviço completa e DRE"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Ver OS</span>
+                          </button>
+
+                          {/* Ação Primária: Enviar para Contas a Receber */}
+                          {!isFaturado ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSendToReceivables(service)}
+                              className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-md shadow-xs transition cursor-pointer uppercase active:scale-95"
+                              title="Enviar imediatamente para o módulo Contas a Receber"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>Faturar</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleReopenBilling(service)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-md transition cursor-pointer"
+                              title="Reabrir para conferência"
+                            >
+                              <Undo2 className="w-3 h-3" />
+                              <span>Reabrir</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ========================================================
+          4. MODAL DE AUDITORIA DO ESCRITÓRIO
+          ======================================================== */}
+      {auditingService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-fade-in">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+                  Auditoria de Faturamento • OS #{auditingService.orderNumber || auditingService.id.slice(-4)}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAuditingService(null)}
+                className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Conteúdo da Auditoria */}
+            <div className="p-4 space-y-3.5 text-xs text-zinc-800 dark:text-stone-200">
+              {/* Card Resumo do Cliente */}
+              <div className="bg-slate-50 dark:bg-stone-800/60 p-3 rounded-lg border border-slate-200 dark:border-stone-700 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-zinc-900 dark:text-white text-sm uppercase">
+                    {auditingService.clientName}
+                  </span>
+                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-mono">
+                    {auditingService.startDate ? formatDateBR(auditingService.startDate) : ''}
+                  </span>
+                </div>
+                {auditingService.farmName && (
+                  <div className="text-[11px] text-zinc-600 dark:text-stone-300 uppercase">
+                    Fazenda: {auditingService.farmName}
+                  </div>
+                )}
+                <div className="text-[11px] text-zinc-600 dark:text-stone-300 uppercase">
+                  Serviço: {auditingService.serviceType || 'Prestação Agrícola'}
+                </div>
+              </div>
+
+              {/* Grid Financeiro: Valor Original, Desconto, Ajustes */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
+                    Valor Operacional (R$)
+                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    value={formatCurrencyBRL(auditingService.totalAmount || 0)}
+                    className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-zinc-900 dark:text-white cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
+                    Desconto Comercial (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={auditDiscount}
+                    onChange={(e) => setAuditDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Anotações Exclusivas do Faturamento (billingNotes) */}
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1 flex items-center justify-between">
+                  <span>Anotações do Faturamento / Escritório</span>
+                  <span className="text-[9px] text-zinc-400 normal-case">(exclusivo do faturamento)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={auditNotes}
+                  onChange={(e) => setAuditNotes(e.target.value.toUpperCase())}
+                  placeholder="DIGITE INSTRUÇÕES DE COBRANÇA, ACORDOS DE PAGAMENTO, VENCIMENTOS OU OBSERVAÇÕES..."
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-medium text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 uppercase"
+                />
+              </div>
+
+              {/* Total Final Calculado */}
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase block">
+                    Valor Final Faturado
+                  </span>
+                  <span className="text-sm font-black text-emerald-900 dark:text-emerald-200">
+                    {formatCurrencyBRL(
+                      Math.max(
+                        0,
+                        (auditingService.totalAmount || 0) -
+                          (typeof auditDiscount === 'number' ? auditDiscount : 0) +
+                          (typeof auditExtra === 'number' ? auditExtra : 0)
+                      )
+                    )}
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold uppercase">
+                  {auditingService.status === 'faturado' ? 'Já no Contas a Receber' : 'Pronto para Envio'}
+                </span>
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="flex items-center justify-end gap-2 px-4 py-3 bg-slate-100 dark:bg-stone-800 border-t border-slate-300 dark:border-stone-700">
+              <button
+                type="button"
+                onClick={() => setAuditingService(null)}
+                className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-200 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveAudit(false)}
+                className="px-3.5 py-1.5 text-xs font-bold text-slate-800 dark:text-stone-200 bg-white dark:bg-stone-700 border border-slate-300 dark:border-stone-600 hover:bg-slate-50 rounded-lg shadow-2xs transition cursor-pointer"
+              >
+                Salvar Auditoria
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveAudit(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition cursor-pointer uppercase active:scale-95"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Enviar para Contas a Receber</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

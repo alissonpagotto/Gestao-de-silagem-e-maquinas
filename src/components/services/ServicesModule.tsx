@@ -18,7 +18,9 @@ import {
   AlertCircle,
   Truck,
   ClipboardList,
-  Lock
+  Lock,
+  Receipt,
+  Send
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile, ServiceAppointment } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
@@ -26,11 +28,12 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal, ServiceTabType } from './ServiceFormModal';
 import { ServiceAgendaModule } from './ServiceAgendaModule';
 import { FieldFormsView } from './FieldFormsView';
+import { BillingModule } from './BillingModule';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 
-export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'formularios';
+export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'faturamento' | 'orcamento' | 'formularios';
 
 interface ServicesModuleProps {
   services?: ServiceOrder[];
@@ -59,7 +62,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       try {
         const params = new URLSearchParams(window.location.search);
         const tabParam = params.get('tab') || params.get('subtab');
-        if (tabParam === 'formularios' || tabParam === 'agenda' || tabParam === 'corte' || tabParam === 'colheita' || tabParam === 'trator' || tabParam === 'maquina' || tabParam === 'frete' || tabParam === 'orcamento') {
+        if (tabParam === 'formularios' || tabParam === 'agenda' || tabParam === 'corte' || tabParam === 'colheita' || tabParam === 'trator' || tabParam === 'maquina' || tabParam === 'frete' || tabParam === 'faturamento' || tabParam === 'orcamento') {
           return tabParam as ServiceTab;
         }
       } catch (e) {
@@ -150,7 +153,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   }, [companyProfile?.id]);
 
   // Tabs Definition na ordem exata requerida:
-  // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento | Formulários
+  // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Faturamento | Orçamento | Formulários
   const tabs = [
     { id: 'agenda' as ServiceTab, label: 'Agenda de Serviços', icon: CalendarDays },
     { id: 'corte' as ServiceTab, label: 'Corte', icon: Scissors },
@@ -158,6 +161,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     { id: 'trator' as ServiceTab, label: 'Serviço de Trator', icon: Tractor },
     { id: 'maquina' as ServiceTab, label: 'Serviço de Máquina', icon: Wrench },
     { id: 'frete' as ServiceTab, label: 'Serviço de Frete', icon: Truck },
+    { id: 'faturamento' as ServiceTab, label: 'Faturamento', icon: Receipt },
     { id: 'orcamento' as ServiceTab, label: 'Orçamento', icon: FileText },
     { id: 'formularios' as ServiceTab, label: 'Formulários', icon: ClipboardList },
   ];
@@ -185,13 +189,14 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     if (userSession.type === 'admin') return true;
     if (userSession.permissions && userSession.permissions.servicos === false) return false;
     if (userSession.permissions?.sub_servicos) {
-      const ss = userSession.permissions.sub_servicos;
+      const ss = userSession.permissions.sub_servicos as any;
       if (tabId === 'agenda') return ss.agenda !== false;
       if (tabId === 'corte') return ss.corte !== false;
       if (tabId === 'colheita') return ss.colheita !== false;
       if (tabId === 'trator') return ss.trator !== false;
       if (tabId === 'maquina') return ss.maquina !== false;
       if (tabId === 'frete') return ss.frete !== false;
+      if (tabId === 'faturamento') return ss.faturamento !== false;
       if (tabId === 'orcamento') return ss.orcamento !== false;
       if (tabId === 'formularios') return true;
     }
@@ -253,6 +258,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           quantityColumn: 'KM / HORAS',
           newButtonLabel: '+ NOVO SERVIÇO DE FRETE',
           serviceTypeName: 'Serviço de Frete',
+        };
+      case 'faturamento':
+        return {
+          dateColumn: 'DATA DO SERVIÇO',
+          quantityColumn: 'ÁREA / UNIDADE',
+          newButtonLabel: '+ NOVO FATURAMENTO',
+          serviceTypeName: 'Faturamento',
         };
       case 'orcamento':
       default:
@@ -413,6 +425,35 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     setIsModalOpen(true);
   };
 
+  // REGRA DE NEGÓCIO: Enviar serviço para o Faturamento com confirmação
+  const handleSendToBilling = async (service: ServiceOrder) => {
+    const isConfirmed = await confirm({
+      title: 'Enviar ao Faturamento',
+      message: `Deseja enviar a ordem de serviço de "${service.clientName}" para a esteira de Faturamento? As operações de campo serão encerradas e encaminhadas para conferência do escritório.`,
+      confirmLabel: 'Enviar ao Faturamento',
+      cancelLabel: 'Cancelar',
+      variant: 'primary',
+    });
+
+    if (isConfirmed) {
+      const updated = localServices.map((s) => {
+        if (s.id === service.id) {
+          return {
+            ...s,
+            status: 'em_faturamento' as const,
+            billingStatus: 'pendente' as const,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return s;
+      });
+      setLocalServices(updated);
+      if (onSaveServices) {
+        onSaveServices(updated);
+      }
+    }
+  };
+
   return (
     <div 
       className="w-full max-w-none space-y-3 antialiased text-zinc-900 dark:text-zinc-100"
@@ -425,12 +466,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-            {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Prestação de Serviços'}
+            {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : activeTab === 'faturamento' ? 'Faturamento & Auditoria' : 'Prestação de Serviços'}
           </h1>
         </div>
 
         {/* Botão de Ação Principal com Relevo Acetinado 3D */}
-        {activeTab !== 'agenda' && activeTab !== 'formularios' && (
+        {activeTab !== 'agenda' && activeTab !== 'formularios' && activeTab !== 'faturamento' && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -525,6 +566,19 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
               employees={employees}
               clients={clients}
             />
+          ) : activeTab === 'faturamento' ? (
+            <BillingModule
+              services={localServices}
+              companyProfile={companyProfile}
+              onSaveServices={(updated) => {
+                setLocalServices(updated);
+                if (onSaveServices) onSaveServices(updated);
+              }}
+              onOpenServiceModal={(service) => {
+                setEditRecord(service);
+                setIsModalOpen(true);
+              }}
+            />
           ) : (
             <>
               {/* ========================================================
@@ -567,6 +621,8 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                     <option value="todos" className="text-zinc-900 font-semibold">STATUS: TODOS</option>
                     <option value="agendado" className="text-zinc-900 font-semibold">AGENDADO</option>
                     <option value="em_andamento" className="text-zinc-900 font-semibold">EM ANDAMENTO</option>
+                    <option value="em_faturamento" className="text-zinc-900 font-semibold">EM FATURAMENTO</option>
+                    <option value="faturado" className="text-zinc-900 font-semibold">FATURADO (FINANCEIRO)</option>
                     <option value="concluido" className="text-zinc-900 font-semibold">CONCLUÍDO</option>
                     <option value="cancelado" className="text-zinc-900 font-semibold">CANCELADO</option>
                   </select>
@@ -626,6 +682,8 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                           const statusColors: Record<string, string> = {
                             agendado: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-stone-800 dark:text-amber-400 dark:border-stone-700 font-bold',
                             em_andamento: 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-stone-800 dark:text-blue-400 dark:border-stone-700 font-bold',
+                            em_faturamento: 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-stone-800 dark:text-amber-300 dark:border-amber-700 font-bold',
+                            faturado: 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-stone-800 dark:text-emerald-300 dark:border-emerald-700 font-bold',
                             concluido: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-stone-800 dark:text-emerald-400 dark:border-stone-700 font-bold',
                             cancelado: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-stone-800 dark:text-rose-400 dark:border-stone-700 font-bold',
                           };
@@ -633,6 +691,8 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                           const statusLabels: Record<string, string> = {
                             agendado: 'AGENDADO',
                             em_andamento: 'EM ANDAMENTO',
+                            em_faturamento: 'EM FATURAMENTO',
+                            faturado: 'FATURADO',
                             concluido: 'CONCLUÍDO',
                             cancelado: 'CANCELADO',
                           };
@@ -756,6 +816,16 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                               {/* Ações */}
                               <td className="px-2.5 py-1 text-right whitespace-nowrap">
                                 <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {service.status !== 'em_faturamento' && service.status !== 'faturado' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendToBilling(service)}
+                                      className="p-1 text-zinc-500 hover:text-blue-700 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer"
+                                      title="Enviar ao Faturamento (Auditoria do Escritório)"
+                                    >
+                                      <Send className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEdit(service)}
