@@ -1210,7 +1210,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
       // Comissão individual do Motorista de Frete (modalidades: Por KM, Por Hora, Por Tonelada/Carga, Por Viagem ou Por Porcentagem)
       const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truck, pesoPorM3, rateioCost);
-      const driverCommissionCost = typeof truck.driverCommission === 'number' ? truck.driverCommission : commResult.total;
+      const driverCommissionCost = truck.driverCommissionMode === 'porcentagem'
+        ? commResult.total
+        : (typeof truck.driverCommission === 'number' ? truck.driverCommission : commResult.total);
 
       // Total Composto = Rateio + Adicional KM + Comissão do Motorista
       const totalCost = rateioCost + additionalKmCost + driverCommissionCost;
@@ -1426,7 +1428,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         distributedValue: distVal,
         truckTotalCost: truckCostHoras,
         driverCommissionBase: baseToUse,
-        driverCommission: typeof t.driverCommission === 'number' ? t.driverCommission : comm.total,
+        driverCommission: t.driverCommissionMode === 'porcentagem' ? comm.total : (typeof t.driverCommission === 'number' ? t.driverCommission : comm.total),
       };
     });
 

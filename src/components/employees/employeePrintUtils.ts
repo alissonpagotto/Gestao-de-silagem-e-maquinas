@@ -57,6 +57,12 @@ export function generateEmployeeSheetHtml(
     if (employee.commissionPerHectare && employee.commissionPerHectare > 0) {
       commissionParts.push(`${formatCurrencyBRL(employee.commissionPerHectare)}/hectare`);
     }
+    const pctVal = (employee.commissionPercentage !== undefined && Number(employee.commissionPercentage) > 0)
+      ? Number(employee.commissionPercentage)
+      : (Number((employee as any)?.comissao_porcentagem) || 0);
+    if (pctVal > 0) {
+      commissionParts.push(`${pctVal.toFixed(2).replace('.', ',')}%`);
+    }
   }
 
   const commissionText = commissionParts.length > 0
@@ -333,6 +339,10 @@ export function generateEmployeeWhatsAppText(
     if (employee.commissionPerHour) text += `• Comissão/Hora: ${formatCurrencyBRL(employee.commissionPerHour)}/h\n`;
     if (employee.commissionPerAlqueire) text += `• Comissão/Alqueire: ${formatCurrencyBRL(employee.commissionPerAlqueire)}/alq\n`;
     if (employee.commissionPerHectare) text += `• Comissão/Hectare: ${formatCurrencyBRL(employee.commissionPerHectare)}/ha\n`;
+    const pctVal = (employee.commissionPercentage !== undefined && Number(employee.commissionPercentage) > 0)
+      ? Number(employee.commissionPercentage)
+      : (Number((employee as any)?.comissao_porcentagem) || 0);
+    if (pctVal > 0) text += `• Comissão/Porcentagem: ${pctVal.toFixed(2).replace('.', ',')}%\n`;
   }
   if (employee.paymentLocation) text += `• Local: ${employee.paymentLocation}\n`;
   if (employee.bankPixKey) text += `• Chave PIX/Banco: ${employee.bankPixKey}\n`;

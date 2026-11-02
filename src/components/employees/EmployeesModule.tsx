@@ -1673,6 +1673,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       emp.commissionPerHour ||
       emp.commissionPerAlqueire ||
       emp.commissionPerHectare ||
+      emp.commissionPercentage ||
+      (emp as any).comissao_porcentagem ||
       (emp as any).comissao_hora ||
       (emp as any).comissao_alqueire ||
       (emp as any).comissao_hectare ||

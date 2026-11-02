@@ -191,12 +191,34 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
       : hourSource === 'motor'
       ? (typeof horasMotor === 'number' ? horasMotor : 0)
       : (typeof currentTruck?.driverHours === 'number' ? currentTruck.driverHours : 0);
-    const base = mode === 'livre'
+    const isPorcentagem = mode === 'porcentagem';
+    const truckM3 = capacity * loads;
+    const prevM3 = (currentTruck?.capacityM3 || 0) * (currentTruck?.tripLoads || 0);
+    const newTotalM3 = totalVolumeGeralM3 - prevM3 + truckM3;
+    const newRatioVal = (unidadeArea === 'hectares' || unidadeArea === 'hora')
+      ? ((Number(currentTruck?.truckHours) || 0) * (Number(currentTruck?.truckHourlyRate) || 0))
+      : (newTotalM3 > 0 ? (truckM3 / newTotalM3) * valorDistribuicaoFrotas : 0);
+
+    const baseToUse = isPorcentagem
+      ? Number(newRatioVal.toFixed(2))
+      : mode === 'livre'
       ? (typeof currentTruck?.driverCommissionBase === 'number' ? currentTruck.driverCommissionBase : hours)
       : mode === 'horas' ? hours : loads;
-    const rateToUse = typeof currentTruck?.driverCommissionRate === 'number' && currentTruck.driverCommissionRate > 0
-      ? Number(currentTruck.driverCommissionRate.toFixed(2))
-      : defaultRate;
+
+    const rateToUse = (mode === 'porcentagem')
+      ? empPct
+      : (typeof currentTruck?.driverCommissionRate === 'number' && currentTruck.driverCommissionRate > 0
+          ? Number(currentTruck.driverCommissionRate.toFixed(2))
+          : defaultRate);
+
+    const comm = calculateTruckFreightCommission(mode, {
+      ...currentTruck,
+      capacityM3: capacity,
+      tripLoads: loads,
+      driverHours: hours,
+      driverCommissionBase: baseToUse,
+      driverCommissionRate: rateToUse,
+    }, pesoPorM3, newRatioVal);
 
     onUpdateTruck(truckId, {
       machineryId: mach.id,
@@ -205,12 +227,13 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
       plate: mach.licensePlateOrSerial ? mach.licensePlateOrSerial.trim().toUpperCase() : '',
       capacityM3: capacity,
       tripLoads: loads,
-      totalM3: capacity * loads,
+      totalM3: truckM3,
       driverHours: hours,
       driverHourSource: hourSource,
       driverCommissionMode: mode,
+      driverCommissionBase: baseToUse,
       driverCommissionRate: rateToUse,
-      driverCommission: Number((base * rateToUse).toFixed(2)),
+      driverCommission: comm.total,
       // OPERADOR/MOTORISTA PRINCIPAL preenchido obrigatoriamente (inclusive terceirizado)
       primaryDriverId: linkedOp.id,
       primaryDriverName: linkedOp.name,
@@ -377,9 +400,11 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
             // Cálculos individuais de produção e ratio por m³
             const truckTotalM3 = (truck.capacityM3 || 0) * (truck.tripLoads || 0);
             const ratioPercent = totalVolumeGeralM3 > 0 ? (truckTotalM3 / totalVolumeGeralM3) * 100 : 0;
-            const valorProporcionalCaminhao = totalVolumeGeralM3 > 0 
-              ? (truckTotalM3 / totalVolumeGeralM3) * valorDistribuicaoFrotas 
-              : 0;
+            const valorProporcionalCaminhao = (unidadeArea === 'hectares' || unidadeArea === 'hora')
+              ? ((Number(truck.truckHours) || 0) * (Number(truck.truckHourlyRate) || 0))
+              : (totalVolumeGeralM3 > 0 
+                  ? (truckTotalM3 / totalVolumeGeralM3) * valorDistribuicaoFrotas 
+                  : 0);
 
             const displayPlate = truck.plate ? truck.plate.trim().toUpperCase() : '';
             const displayTitle = displayPlate 
@@ -598,9 +623,26 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                       onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       onChange={(e) => {
                         const cap = e.target.value === '' ? 0 : Number(e.target.value);
+                        const loads = truck.tripLoads || 0;
+                        const newTruckM3 = cap * loads;
+                        const prevTruckM3 = (truck.capacityM3 || 0) * loads;
+                        const newTotalM3 = totalVolumeGeralM3 - prevTruckM3 + newTruckM3;
+                        const newRatioVal = (unidadeArea === 'hectares' || unidadeArea === 'hora')
+                          ? ((Number(truck.truckHours) || 0) * (Number(truck.truckHourlyRate) || 0))
+                          : (newTotalM3 > 0 ? (newTruckM3 / newTotalM3) * valorDistribuicaoFrotas : 0);
+                        const isPorcentagem = truck.driverCommissionMode === 'porcentagem';
+                        const newBase = isPorcentagem ? Number(newRatioVal.toFixed(2)) : truck.driverCommissionBase;
+                        const comm = calculateTruckFreightCommission(truck.driverCommissionMode, {
+                          ...truck,
+                          capacityM3: cap,
+                          tripLoads: loads,
+                          driverCommissionBase: newBase,
+                        }, pesoPorM3, newRatioVal);
                         onUpdateTruck(truck.id, { 
                           capacityM3: cap,
-                          totalM3: cap * (truck.tripLoads || 0),
+                          totalM3: newTruckM3,
+                          driverCommissionBase: isPorcentagem ? newBase : truck.driverCommissionBase,
+                          driverCommission: comm.total,
                         });
                       }}
                       placeholder="20"
@@ -622,7 +664,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         const newTruckM3 = (truck.capacityM3 || 0) * loads;
                         const prevTruckM3 = (truck.capacityM3 || 0) * (truck.tripLoads || 0);
                         const newTotalM3 = totalVolumeGeralM3 - prevTruckM3 + newTruckM3;
-                        const newRatioVal = newTotalM3 > 0 ? (newTruckM3 / newTotalM3) * valorDistribuicaoFrotas : 0;
+                        const newRatioVal = (unidadeArea === 'hectares' || unidadeArea === 'hora')
+                          ? ((Number(truck.truckHours) || 0) * (Number(truck.truckHourlyRate) || 0))
+                          : (newTotalM3 > 0 ? (newTruckM3 / newTotalM3) * valorDistribuicaoFrotas : 0);
                         const isPorcentagem = truck.driverCommissionMode === 'porcentagem';
                         const newBase = isPorcentagem ? Number(newRatioVal.toFixed(2)) : truck.driverCommissionBase;
                         const comm = calculateTruckFreightCommission(truck.driverCommissionMode, {
@@ -802,10 +846,14 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             onClick={() => {
                               const mode: FreightCommissionMode = 'porcentagem';
                               const baseRatio = Number(valorProporcionalCaminhao.toFixed(2));
-                              const selectedDriver = employees.find(e => e.id === truck.primaryDriverId || e.name === truck.primaryDriverName);
-                              const empPct = (selectedDriver?.commissionPercentage !== undefined && selectedDriver.commissionPercentage > 0)
-                                ? selectedDriver.commissionPercentage
-                                : ((selectedDriver as any)?.comissao_porcentagem || 0);
+                              const cleanDriverName = (truck.primaryDriverName || '').trim().toLowerCase();
+                              const selectedDriver = employees.find(e => 
+                                (truck.primaryDriverId && e.id === truck.primaryDriverId) || 
+                                (cleanDriverName && e.name.trim().toLowerCase() === cleanDriverName)
+                              );
+                              const empPct = (selectedDriver?.commissionPercentage !== undefined && Number(selectedDriver.commissionPercentage) > 0)
+                                ? Number(selectedDriver.commissionPercentage)
+                                : (Number((selectedDriver as any)?.comissao_porcentagem) || 0);
                               const defaultRate = empPct > 0 
                                 ? empPct 
                                 : (typeof truck.driverCommissionRate === 'number' && truck.driverCommissionRate > 0 ? truck.driverCommissionRate : 0);
