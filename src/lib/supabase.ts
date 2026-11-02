@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { safeLocalStorageSetItem } from './storage';
 
 /**
  * Centralized Supabase Client Configuration
@@ -166,27 +167,31 @@ function getOfflineTableData(entity: string): any[] {
 
 function saveOfflineTableData(entity: string, data: any[]): void {
   if (typeof localStorage === 'undefined') return;
-  const cId = getActiveCompanyIdFallback();
-  const json = JSON.stringify(data);
-  localStorage.setItem(`colaca_silagem_${entity}_${cId}`, json);
-  localStorage.setItem(`colaca_silagem_${entity}`, json);
-  const legacyKeyMap: Record<string, string> = {
-    frotas: 'silagem_facil_clean_v1_machineries',
-    funcionarios: 'silagem_facil_clean_v1_employees',
-    rh_folhas: 'silagem_facil_clean_v1_payrolls',
-    rh_faltas: 'silagem_facil_clean_v1_absences',
-    rh_ferias: 'silagem_facil_clean_v1_vacations',
-    fornecedores: 'silagem_facil_clean_v1_suppliers',
-    clientes: 'silagem_facil_clean_v1_clients',
-    despesas: 'silagem_facil_clean_v1_expenses',
-    servicos: 'silagem_facil_clean_v1_services',
-    abastecimentos: 'silagem_facil_clean_v1_fuel_logs',
-    manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
-    estoque: 'silagem_facil_clean_v1_inventory',
-  };
-  const legKey = legacyKeyMap[entity];
-  if (legKey) {
-    try { localStorage.setItem(legKey, json); } catch (_) {}
+  try {
+    const cId = getActiveCompanyIdFallback();
+    const json = JSON.stringify(data);
+    safeLocalStorageSetItem(`colaca_silagem_${entity}_${cId}`, json);
+    safeLocalStorageSetItem(`colaca_silagem_${entity}`, json);
+    const legacyKeyMap: Record<string, string> = {
+      frotas: 'silagem_facil_clean_v1_machineries',
+      funcionarios: 'silagem_facil_clean_v1_employees',
+      rh_folhas: 'silagem_facil_clean_v1_payrolls',
+      rh_faltas: 'silagem_facil_clean_v1_absences',
+      rh_ferias: 'silagem_facil_clean_v1_vacations',
+      fornecedores: 'silagem_facil_clean_v1_suppliers',
+      clientes: 'silagem_facil_clean_v1_clients',
+      despesas: 'silagem_facil_clean_v1_expenses',
+      servicos: 'silagem_facil_clean_v1_services',
+      abastecimentos: 'silagem_facil_clean_v1_fuel_logs',
+      manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
+      estoque: 'silagem_facil_clean_v1_inventory',
+    };
+    const legKey = legacyKeyMap[entity];
+    if (legKey) {
+      try { safeLocalStorageSetItem(legKey, json); } catch (_) {}
+    }
+  } catch (err) {
+    console.warn(`[Supabase Offline] Aviso não-bloqueante ao salvar tabela "${entity}":`, err);
   }
 }
 
@@ -449,15 +454,20 @@ class OfflineQueryBuilder {
     onfulfilled?: ((value: any) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
-    const res = executeOfflineTableOperation(this.tableName, this.operation, this.payload, {
-      filters: this.filters,
-      orderCol: this.orderCol,
-      orderAsc: this.orderAsc,
-      limitCount: this.limitCount,
-      isSingle: this.isSingleFlag,
-      isMaybeSingle: this.isMaybeSingleFlag
-    });
-    return Promise.resolve(res).then(onfulfilled, onrejected);
+    try {
+      const res = executeOfflineTableOperation(this.tableName, this.operation, this.payload, {
+        filters: this.filters,
+        orderCol: this.orderCol,
+        orderAsc: this.orderAsc,
+        limitCount: this.limitCount,
+        isSingle: this.isSingleFlag,
+        isMaybeSingle: this.isMaybeSingleFlag
+      });
+      return Promise.resolve(res).then(onfulfilled, onrejected);
+    } catch (err) {
+      console.warn(`[OfflineQueryBuilder] Aviso seguro em operação offline (${this.operation}) na tabela "${this.tableName}":`, err);
+      return Promise.resolve({ data: this.payload ?? null, error: null } as any).then(onfulfilled, onrejected);
+    }
   }
 }
 

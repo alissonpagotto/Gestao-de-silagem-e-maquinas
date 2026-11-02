@@ -425,7 +425,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-            {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Serviços'}
+            {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Prestação de Serviços'}
           </h1>
         </div>
 
@@ -497,7 +497,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                   Função Restrita para o seu Cargo
                 </h3>
                 <p className="text-xs text-zinc-600 dark:text-stone-400 leading-relaxed">
-                  O cargo <strong>{userSession.cargoNome}</strong> possui acesso ao módulo de Serviços, porém a sub-permissão para esta tela está desativada no cadastro do seu cargo.
+                  O cargo <strong>{userSession.cargoNome}</strong> possui acesso ao módulo de Prestação de Serviços, porém a sub-permissão para esta tela está desativada no cadastro do seu cargo.
                 </p>
               </div>
               {allowedTabs.length > 0 && (

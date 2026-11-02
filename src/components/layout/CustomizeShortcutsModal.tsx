@@ -38,7 +38,7 @@ export interface ShortcutDefinition {
 
 export const ALL_SHORTCUTS: ShortcutDefinition[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40', iconColor: 'text-blue-500' },
-  { id: 'servicos', label: 'Serviços', icon: Sprout, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-500' },
+  { id: 'servicos', label: 'Prestação de Serviços', icon: Sprout, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-500' },
   { id: 'venda', label: 'Venda', icon: ShoppingCart, color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40', iconColor: 'text-rose-500' },
   { id: 'despesas', label: 'Despesas', icon: DollarSign, color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40', iconColor: 'text-rose-500' },
   { id: 'estoque', label: 'Estoque', icon: Package, color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },

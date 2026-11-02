@@ -33,7 +33,7 @@ export interface MenuItemDef {
 
 export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'servicos', label: 'Serviços', icon: Tractor },
+  { id: 'servicos', label: 'PRESTAÇÃO DE SERVIÇOS', icon: Tractor },
   { id: 'venda', label: 'Venda', icon: ShoppingCart },
   { id: 'estoque', label: 'Estoque', icon: Package },
   { id: 'almoxarifado', label: 'Almoxarifado', icon: Wrench },

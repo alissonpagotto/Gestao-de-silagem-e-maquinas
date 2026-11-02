@@ -23,7 +23,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
-    { id: 'servicos', label: 'Serviços', icon: Tractor },
+    { id: 'servicos', label: 'Prestação de Serviços', icon: Tractor },
     { id: 'despesas', label: 'Despesas', icon: Receipt },
     { id: 'clientes', label: 'Clientes', icon: Users },
   ];

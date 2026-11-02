@@ -167,6 +167,90 @@ export function normalizeFuelProdIdToUUID(rawId?: string, nome?: string): string
   return CANONICAL_FUEL_PROD_UUIDS.S10;
 }
 
+/**
+ * Grava de forma segura no LocalStorage tratando QuotaExceededError
+ * e liberando espaço de contingência automaticamente se necessário.
+ */
+export function safeLocalStorageSetItem(key: string, value: string): boolean {
+  if (typeof window === 'undefined' || !window.localStorage) return false;
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err: any) {
+    const isQuota = err?.name === 'QuotaExceededError' || 
+                    err?.code === 22 || 
+                    err?.code === 1014 || 
+                    String(err?.message || '').toLowerCase().includes('quota') ||
+                    String(err?.message || '').toLowerCase().includes('exceeded');
+    
+    if (!isQuota) {
+      console.warn(`[safeLocalStorageSetItem] Erro ao gravar chave "${key}":`, err);
+      return false;
+    }
+
+    try {
+      // 1. Purgar chaves efêmeras, caches e snapshots antigos
+      const purgePatterns = [
+        'debug_',
+        '_temp_',
+        'colaca_silagem_backup_',
+        'agrocontrol_backup_cache_',
+        'colaca_silagem_rascunho_',
+        'colaca_silagem_cache_',
+        'silagem_facil_cache_',
+        'silagem_facil_clean_v1_backup_'
+      ];
+
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && purgePatterns.some(p => k.startsWith(p) || k.includes('_cache_') || k.includes('_temp_'))) {
+          localStorage.removeItem(k);
+        }
+      }
+
+      // Tenta gravar novamente após a primeira limpeza
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      try {
+        // 2. Se ainda assim a cota estiver no limite, limpa chaves de log antigas ou snapshots
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && (k.includes('backup') || k.includes('rascunho') || k.endsWith('_temp'))) {
+            localStorage.removeItem(k);
+          }
+        }
+        localStorage.setItem(key, value);
+        return true;
+      } catch {
+        try {
+          // 3. Se ainda assim estiver sem espaço, remove chaves espelho antigas (silagem_facil_clean_v1_*)
+          // que já possuem dados garantidos na chave padronizada agrocontrol_*
+          const legacyMirrors = [
+            'silagem_facil_clean_v1_inventory',
+            'silagem_facil_clean_v1_machineries',
+            'silagem_facil_clean_v1_tire_inventory',
+            'silagem_facil_clean_v1_fuel_logs',
+            'silagem_facil_clean_v1_maintenance_logs',
+            'silagem_facil_clean_v1_expenses',
+            'silagem_facil_clean_v1_employees'
+          ];
+          for (const legacyKey of legacyMirrors) {
+            if (legacyKey !== key) {
+              localStorage.removeItem(legacyKey);
+            }
+          }
+          localStorage.setItem(key, value);
+          return true;
+        } catch {
+          // 4. Último recurso seguro: não quebra a execução e mantém em memória
+          return false;
+        }
+      }
+    }
+  }
+}
+
 export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
   {
     id: CANONICAL_TANK_UUIDS.S10,
@@ -334,12 +418,12 @@ export function getStoredExpenses(): Expense[] {
 
     if (hasFake || cleaned.length !== parsed.length) {
       const cleanedJson = JSON.stringify(cleaned);
-      localStorage.setItem('agrocontrol_despesas', cleanedJson);
-      localStorage.setItem('agrocontrol_financeiro', cleanedJson);
-      localStorage.setItem('colaca_silagem_despesas', cleanedJson);
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, cleanedJson);
+      safeLocalStorageSetItem('agrocontrol_despesas', cleanedJson);
+      safeLocalStorageSetItem('agrocontrol_financeiro', cleanedJson);
+      safeLocalStorageSetItem('colaca_silagem_despesas', cleanedJson);
+      safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, cleanedJson);
       const cId = (getActiveCompanyId() || 'default').trim();
-      localStorage.setItem(`colaca_silagem_despesas_${cId}`, cleanedJson);
+      safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, cleanedJson);
       if (typeof window !== 'undefined') {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
@@ -349,7 +433,7 @@ export function getStoredExpenses(): Expense[] {
 
     return cleaned;
   } catch (e) {
-    console.error('Failed to load expenses', e);
+    console.warn('Recuperando despesas com fallback seguro:', e);
     return INITIAL_EXPENSES;
   }
 }
@@ -373,17 +457,17 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     const json = JSON.stringify(cleaned);
     if (json === lastSavedExpensesJson) return;
     lastSavedExpensesJson = json;
-    localStorage.setItem('agrocontrol_despesas', json);
-    localStorage.setItem('agrocontrol_financeiro', json);
-    localStorage.setItem('colaca_silagem_despesas', json);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
+    safeLocalStorageSetItem('agrocontrol_despesas', json);
+    safeLocalStorageSetItem('agrocontrol_financeiro', json);
+    safeLocalStorageSetItem('colaca_silagem_despesas', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, json);
     const cId = (getActiveCompanyId() || 'default').trim();
-    localStorage.setItem(`colaca_silagem_despesas_${cId}`, json);
+    safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
     }
   } catch (e) {
-    console.error('Failed to save expenses', e);
+    console.warn('Erro ao salvar despesas:', e);
   }
 }
 
@@ -709,11 +793,11 @@ export function getStoredMachineries(): Machinery[] {
     });
     if (cleaned.length !== parsed.length || needsResave) {
       const json = JSON.stringify(cleaned);
-      localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
-      localStorage.setItem('colaca_silagem_frotas_veiculos', json);
-      localStorage.setItem('agrocontrol_maquinas', json);
-      localStorage.setItem('agrocontrol_frotas_veiculos', json);
-      localStorage.setItem('agrocontrol_veiculos', json);
+      safeLocalStorageSetItem(STORAGE_KEYS.MACHINERIES, json);
+      safeLocalStorageSetItem('colaca_silagem_frotas_veiculos', json);
+      safeLocalStorageSetItem('agrocontrol_maquinas', json);
+      safeLocalStorageSetItem('agrocontrol_frotas_veiculos', json);
+      safeLocalStorageSetItem('agrocontrol_veiculos', json);
     }
     return cleaned;
   } catch (e) {
@@ -721,16 +805,22 @@ export function getStoredMachineries(): Machinery[] {
   }
 }
 
+let lastSavedMachineriesJson = '';
+
 export function saveStoredMachineries(machines: Machinery[]): void {
   if (typeof localStorage === 'undefined') return;
   try {
     const json = JSON.stringify(machines);
-    localStorage.setItem(STORAGE_KEYS.MACHINERIES, json);
-    localStorage.setItem('colaca_silagem_frotas_veiculos', json);
-    localStorage.setItem('agrocontrol_maquinas', json);
-    localStorage.setItem('agrocontrol_frotas_veiculos', json);
-    localStorage.setItem('agrocontrol_veiculos', json);
-    localStorage.setItem('agrocontrol_frotas', json);
+    if (json === lastSavedMachineriesJson) return;
+    lastSavedMachineriesJson = json;
+
+    safeLocalStorageSetItem('agrocontrol_frotas_veiculos', json);
+    safeLocalStorageSetItem('agrocontrol_frotas', json);
+    safeLocalStorageSetItem('agrocontrol_veiculos', json);
+    safeLocalStorageSetItem('agrocontrol_maquinas', json);
+    safeLocalStorageSetItem('colaca_silagem_frotas_veiculos', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.MACHINERIES, json);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: machines }));
       window.dispatchEvent(new CustomEvent('colaca_silagem_frotas_veiculos_updated', { detail: machines }));
@@ -738,7 +828,7 @@ export function saveStoredMachineries(machines: Machinery[]): void {
       window.dispatchEvent(new CustomEvent('agrocontrol_maquinas_updated', { detail: machines }));
     }
   } catch (e) {
-    console.error('Failed to save machineries', e);
+    console.warn('Aviso não-bloqueante ao salvar frotas:', e);
   }
 }
 
@@ -894,14 +984,19 @@ export function getStoredAllEmployees(): Employee[] {
   }
 }
 
+let lastSavedEmployeesJson = '';
+
 export function saveStoredEmployees(employees: Employee[]): void {
   try {
     const json = JSON.stringify(employees);
-    localStorage.setItem('agrocontrol_funcionarios', json);
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, json);
-    localStorage.setItem('colaca_silagem_funcionarios', json);
+    if (json === lastSavedEmployeesJson) return;
+    lastSavedEmployeesJson = json;
+
+    safeLocalStorageSetItem('agrocontrol_funcionarios', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.EMPLOYEES, json);
+    safeLocalStorageSetItem('colaca_silagem_funcionarios', json);
   } catch (e) {
-    console.error('Failed to save employees', e);
+    console.warn('Aviso não-bloqueante ao salvar funcionários:', e);
   }
 }
 
@@ -1523,8 +1618,8 @@ export function getBorrachariaServicesFromStock(): InventoryItem[] {
   if (!hasBorracharia) {
     inventory = ensureServicesInInventory(inventory);
     try {
-      localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(inventory));
-      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+      safeLocalStorageSetItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(inventory));
+      safeLocalStorageSetItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
     } catch (_) {}
   }
 
@@ -1560,8 +1655,8 @@ export function ensureStockServicesInitialized(): string[] {
     const finalized = ensureServicesInInventory(withDiesel);
 
     try {
-      localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
-      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
+      safeLocalStorageSetItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
+      safeLocalStorageSetItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
     } catch (_) {}
 
     const serviceNames = finalized
@@ -1577,8 +1672,8 @@ export function ensureStockServicesInitialized(): string[] {
     const uniqueServices = Array.from(new Set(serviceNames));
 
     try {
-      localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(uniqueServices));
-      localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(uniqueServices));
+      safeLocalStorageSetItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(uniqueServices));
+      safeLocalStorageSetItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(uniqueServices));
     } catch (_) {}
 
     return uniqueServices;
@@ -1623,7 +1718,20 @@ export function getServicesFromStockLocalStorage(): string[] {
 
 export function getStoredInventory(): InventoryItem[] {
   try {
-    const raw = localStorage.getItem('agrocontrol_produtos');
+    const candidateKeys = [
+      'agrocontrol_produtos',
+      STOCK_PRODUCTS_STORAGE_KEY,
+      STORAGE_KEYS.INVENTORY,
+      'colaca_silagem_estoque'
+    ];
+    let raw: string | null = null;
+    for (const key of candidateKeys) {
+      const val = localStorage.getItem(key);
+      if (val && val !== '[]' && val !== '{}' && val !== 'null') {
+        raw = val;
+        break;
+      }
+    }
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
@@ -1635,12 +1743,19 @@ export function getStoredInventory(): InventoryItem[] {
   }
 }
 
+let lastSavedInventoryJson = '';
+
 export function saveStoredInventory(items: InventoryItem[]): void {
   try {
     const cleanItems = Array.isArray(items) ? items : [];
-    localStorage.setItem('agrocontrol_produtos', JSON.stringify(cleanItems));
-    localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(cleanItems));
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(cleanItems));
+    const json = JSON.stringify(cleanItems);
+    if (json === lastSavedInventoryJson) return;
+    lastSavedInventoryJson = json;
+
+    safeLocalStorageSetItem('agrocontrol_produtos', json);
+    safeLocalStorageSetItem(STOCK_PRODUCTS_STORAGE_KEY, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.INVENTORY, json);
+
     window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: cleanItems }));
     window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: cleanItems }));
     
@@ -1653,7 +1768,7 @@ export function saveStoredInventory(items: InventoryItem[]): void {
       window.dispatchEvent(new CustomEvent('colaca_silagem_servicos_estoque_updated', { detail: serviceNames }));
     }
   } catch (e) {
-    console.error('Failed to save inventory', e);
+    console.warn('Aviso não-bloqueante ao salvar estoque no LocalStorage:', e);
   }
 }
 
@@ -2570,25 +2685,30 @@ export function getStoredBankAccounts(): BankAccount[] {
   }
 }
 
+let lastSavedBankAccountsJson = '';
+
 export function saveStoredBankAccounts(accounts: BankAccount[]): void {
   try {
     const json = JSON.stringify(accounts);
+    if (json === lastSavedBankAccountsJson) return;
+    lastSavedBankAccountsJson = json;
+
     // Gravação em espelho compulsória oficial AgroControl
-    localStorage.setItem('agrocontrol_bancos', json);
-    localStorage.setItem('agrocontrol_contas_bancarias', json);
-    localStorage.setItem('agrocontrol_financeiro_contas', json);
+    safeLocalStorageSetItem('agrocontrol_bancos', json);
+    safeLocalStorageSetItem('agrocontrol_contas_bancarias', json);
+    safeLocalStorageSetItem('agrocontrol_financeiro_contas', json);
 
     // Chaves de compatibilidade legada e escopo por empresa
-    localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
     const cId = getActiveCompanyId();
     if (cId) {
-      localStorage.setItem(`colaca_silagem_financeiro_contas_${cId}`, json);
-      localStorage.setItem(`agrocontrol_bancos_${cId}`, json);
+      safeLocalStorageSetItem(`colaca_silagem_financeiro_contas_${cId}`, json);
+      safeLocalStorageSetItem(`agrocontrol_bancos_${cId}`, json);
     }
-    localStorage.setItem('colaca_silagem_financeiro_contas', json);
+    safeLocalStorageSetItem('colaca_silagem_financeiro_contas', json);
     saveCompanyData('financeiro_contas', accounts, cId);
   } catch (e) {
-    console.error('Failed to save bank accounts', e);
+    console.warn('Aviso não-bloqueante ao salvar contas bancárias:', e);
   }
 }
 
@@ -3265,20 +3385,26 @@ export function getStoredTireInventory(): TireItem[] {
   }
 }
 
+let lastSavedTireInventoryJson = '';
+
 export function saveStoredTireInventory(items: TireItem[]): void {
   try {
     const json = JSON.stringify(items);
-    localStorage.setItem(STORAGE_KEYS.TIRE_INVENTORY, json);
-    localStorage.setItem('colaca_silagem_frotas_pneus_estoque', json);
-    localStorage.setItem('agrocontrol_pneus_estoque', json);
-    localStorage.setItem('agrocontrol_pneus', json);
+    if (json === lastSavedTireInventoryJson) return;
+    lastSavedTireInventoryJson = json;
+
+    safeLocalStorageSetItem('agrocontrol_pneus_estoque', json);
+    safeLocalStorageSetItem('agrocontrol_pneus', json);
+    safeLocalStorageSetItem('colaca_silagem_frotas_pneus_estoque', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.TIRE_INVENTORY, json);
+
     if (typeof window !== 'undefined') {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('silagem_tire_inventory_updated', { detail: items }));
       }, 0);
     }
   } catch (e) {
-    console.error('Failed to save tire inventory', e);
+    console.warn('Aviso não-bloqueante ao salvar estoque de pneus:', e);
   }
 }
 
@@ -3780,11 +3906,11 @@ export function saveCompanyData<T>(entity: string, data: T[], companyId?: string
   try {
     const cId = (companyId || getActiveCompanyId() || 'default').trim();
     const json = JSON.stringify(data);
-    localStorage.setItem(`colaca_silagem_${entity}_${cId}`, json);
-    localStorage.setItem(`colaca_silagem_${entity}`, json);
+    safeLocalStorageSetItem(`colaca_silagem_${entity}_${cId}`, json);
+    safeLocalStorageSetItem(`colaca_silagem_${entity}`, json);
     window.dispatchEvent(new CustomEvent('silagem_local_offline_sync', { detail: { entity, companyId: cId } }));
   } catch (e) {
-    console.error(`Erro ao gravar dados locais em colaca_silagem_${entity}:`, e);
+    console.warn(`Aviso não-bloqueante ao gravar dados locais em colaca_silagem_${entity}:`, e);
   }
 }
 

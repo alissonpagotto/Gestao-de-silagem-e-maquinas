@@ -70,7 +70,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
     { id: 'fornecedores' as const, label: 'Fornecedores', count: countFornecedores, total: 3, active: Boolean(permissoes.fornecedores), icon: Truck },
     { id: 'cadastros' as const, label: 'Configurações', count: countCadastros, total: 3, active: Boolean(permissoes.cadastros_base), icon: ClipboardList },
     { id: 'empresa' as const, label: 'Empresa', count: countEmpresa, total: 7, active: Boolean(permissoes.empresa), icon: Building },
-    { id: 'servicos' as const, label: 'Serviços', count: countServicos, total: 7, active: Boolean(permissoes.servicos), icon: Tractor },
+    { id: 'servicos' as const, label: 'Prestação de Serviços', count: countServicos, total: 7, active: Boolean(permissoes.servicos), icon: Tractor },
     { id: 'frotas' as const, label: 'Frotas', count: countFrotas, total: 7, active: Boolean(permissoes.frotas), icon: Truck },
     { id: 'all' as const, label: 'Todos', count: totalAtivas, total: 60, active: true, icon: Sliders },
   ];
@@ -385,11 +385,11 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             permissoes.sub_empresa
           )}
 
-        {/* 9. MÓDULO SERVIÇOS */}
+        {/* 9. MÓDULO PRESTAÇÃO DE SERVIÇOS */}
         {(activeModuleFocus === 'servicos' || activeModuleFocus === 'all') &&
           renderModuleCard(
             'mod-servicos',
-            'Módulo Serviços',
+            'Módulo Prestação de Serviços',
             Boolean(permissoes.servicos),
             'servicos',
             'sub_servicos',

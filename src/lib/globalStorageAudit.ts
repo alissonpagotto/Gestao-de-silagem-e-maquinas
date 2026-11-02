@@ -24,6 +24,8 @@
  * - Preserva e espelha os maiores arrays entre chaves correlatas para evitar telas em branco.
  */
 
+import { safeLocalStorageSetItem } from './storage';
+
 export interface StorageAuditResult {
   auditedCategories: number;
   synchronizedKeys: number;
@@ -705,8 +707,9 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
               const curObj = parseObjectSafe(current);
               // NUNCA sobrescreve se o atual tiver mais dados específicos, mas preenche se estiver vazio ou parcial
               if (!current || !curObj || Object.keys(curObj).length < Object.keys(mergedObj).length) {
-                localStorage.setItem(k, serialized);
-                synchronizedKeysCount++;
+                if (safeLocalStorageSetItem(k, serialized)) {
+                  synchronizedKeysCount++;
+                }
               }
             }
           }
@@ -723,8 +726,9 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
         if (parsed.length > 0) {
           const cleaned = parsed.filter(item => !isMockStorageRecord(item));
           if (cleaned.length !== parsed.length) {
-            localStorage.setItem(k, JSON.stringify(cleaned));
-            synchronizedKeysCount++;
+            if (safeLocalStorageSetItem(k, JSON.stringify(cleaned))) {
+              synchronizedKeysCount++;
+            }
           }
           if (cleaned.length > 0) {
             collectedArrays.push(cleaned);
@@ -753,8 +757,9 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
             // 1. Nunca sobrescrever array com dados por '[]'
             // 2. Se a chave estiver vazia ou com menos dados que o array unificado consolidado, atualiza
             if (currentArr.length < merged.length || !currentRaw || currentRaw === '[]' || currentRaw === 'null') {
-              localStorage.setItem(k, serialized);
-              synchronizedKeysCount++;
+              if (safeLocalStorageSetItem(k, serialized)) {
+                synchronizedKeysCount++;
+              }
             }
           }
         }

@@ -636,8 +636,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={() => handleSelect(item.id)}
                       title={
                         isRestricted 
-                          ? `${(item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.label).toUpperCase()} (ACESSO BLOQUEADO)` 
-                          : (item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.label).toUpperCase()
+                          ? `${(item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.id === 'servicos' ? 'PRESTAÇÃO DE SERVIÇOS' : item.label).toUpperCase()} (ACESSO BLOQUEADO)` 
+                          : (item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.id === 'servicos' ? 'PRESTAÇÃO DE SERVIÇOS' : item.label).toUpperCase()
                       }
                       className={`
                         w-full flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-2.5'} py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
@@ -670,7 +670,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-200 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
                             }`}
                           >
-                            {item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.label}
+                            {item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.id === 'servicos' ? 'PRESTAÇÃO DE SERVIÇOS' : item.label}
                           </span>
                         )}
                       </div>
