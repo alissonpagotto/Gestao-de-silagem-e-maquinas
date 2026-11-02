@@ -883,12 +883,12 @@ export const CargosPermissoesTab: React.FC = () => {
                             {cargo.permissoes?.servicos ? (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                <span>Serviços</span>
+                                <span>Prestação de Serviços</span>
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
-                                <span>Serviços</span>
+                                <span>Prestação de Serviços</span>
                               </span>
                             )}
 
@@ -1542,7 +1542,7 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                              <span className="truncate">Acesso ao Módulo Serviços</span>
+                              <span className="truncate">Acesso ao Módulo Prestação de Serviços</span>
                               <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
                                 permissoes.servicos ? 'bg-teal-200 text-teal-900' : 'bg-zinc-200 text-zinc-600'
                               }`}>

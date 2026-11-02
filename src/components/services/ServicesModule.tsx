@@ -452,7 +452,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (10% MENOR) */}
         <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
-            aria-label="Abas de Serviços" 
+            aria-label="Abas de Prestação de Serviços" 
             className="w-full flex items-stretch"
           >
             {allowedTabs.map((tab) => {
