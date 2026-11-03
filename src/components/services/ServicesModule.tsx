@@ -33,7 +33,52 @@ import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 
-export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'faturamento' | 'orcamento' | 'formularios';
+export type ServiceTab = 'faturamento' | 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'formularios';
+
+// Ordem Padrão Inicial: FATURAMENTO na PRIMEIRA posição (extrema esquerda)
+export const DEFAULT_SERVICES_TABS_CONFIG: { id: ServiceTab; label: string; icon: any }[] = [
+  { id: 'faturamento', label: 'Faturamento', icon: Receipt },
+  { id: 'agenda', label: 'Agenda de Serviços', icon: CalendarDays },
+  { id: 'corte', label: 'Corte', icon: Scissors },
+  { id: 'colheita', label: 'Colheita', icon: Wheat },
+  { id: 'trator', label: 'Serviço de Trator', icon: Tractor },
+  { id: 'maquina', label: 'Serviço de Máquina', icon: Wrench },
+  { id: 'frete', label: 'Serviço de Frete', icon: Truck },
+  { id: 'orcamento', label: 'Orçamento', icon: FileText },
+  { id: 'formularios', label: 'Formulários', icon: ClipboardList },
+];
+
+export const SERVICES_TABS_STORAGE_KEY = 'agrocontrol_services_tabs_order';
+
+const getStoredServicesTabsOrder = (): ServiceTab[] => {
+  const defaultOrder = DEFAULT_SERVICES_TABS_CONFIG.map((t) => t.id);
+  if (typeof window === 'undefined') return defaultOrder;
+  try {
+    const raw = localStorage.getItem(SERVICES_TABS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const validIds = new Set(defaultOrder);
+        const filtered = parsed.filter((id): id is ServiceTab => validIds.has(id));
+        // Se a ordem salva era a legada (onde faturamento estava em 7º lugar e agenda em 1º), atualiza faturamento para primeiro
+        const isLegacyDefault = filtered.length === defaultOrder.length && filtered[0] === 'agenda' && filtered[6] === 'faturamento';
+        if (isLegacyDefault) {
+          return defaultOrder;
+        }
+        // Adiciona abas faltantes
+        defaultOrder.forEach((id) => {
+          if (!filtered.includes(id)) {
+            filtered.push(id);
+          }
+        });
+        return filtered;
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao ler ordem das abas de serviços:', err);
+  }
+  return defaultOrder;
+};
 
 interface ServicesModuleProps {
   services?: ServiceOrder[];
@@ -56,7 +101,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
 
-  // Active Tab State (Padrão: 'corte', ou lendo o parâmetro da URL como ?tab=formularios)
+  // Active Tab State (Padrão: 'faturamento', ou lendo o parâmetro da URL como ?tab=formularios)
   const [activeTab, setActiveTab] = useState<ServiceTab>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -69,8 +114,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         console.error(e);
       }
     }
-    return 'corte';
+    return 'faturamento';
   });
+
+  // Estado da Ordem Dinâmica de Abas com Persistência Permanente
+  const [tabOrder, setTabOrder] = useState<ServiceTab[]>(() => getStoredServicesTabsOrder());
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+  const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -160,19 +210,63 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     };
   }, [companyProfile?.id]);
 
-  // Tabs Definition na ordem exata requerida:
-  // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Faturamento | Orçamento | Formulários
-  const tabs = [
-    { id: 'agenda' as ServiceTab, label: 'Agenda de Serviços', icon: CalendarDays },
-    { id: 'corte' as ServiceTab, label: 'Corte', icon: Scissors },
-    { id: 'colheita' as ServiceTab, label: 'Colheita', icon: Wheat },
-    { id: 'trator' as ServiceTab, label: 'Serviço de Trator', icon: Tractor },
-    { id: 'maquina' as ServiceTab, label: 'Serviço de Máquina', icon: Wrench },
-    { id: 'frete' as ServiceTab, label: 'Serviço de Frete', icon: Truck },
-    { id: 'faturamento' as ServiceTab, label: 'Faturamento', icon: Receipt },
-    { id: 'orcamento' as ServiceTab, label: 'Orçamento', icon: FileText },
-    { id: 'formularios' as ServiceTab, label: 'Formulários', icon: ClipboardList },
-  ];
+  const handleUpdateTabOrder = (newOrder: ServiceTab[]) => {
+    setTabOrder(newOrder);
+    try {
+      localStorage.setItem(SERVICES_TABS_STORAGE_KEY, JSON.stringify(newOrder));
+    } catch (err) {
+      console.error('Erro ao salvar ordem das abas:', err);
+    }
+  };
+
+  // Drag and Drop Nativo Permanente com Auto-salvamento Silencioso
+  const handleDragStart = (index: number, e: React.DragEvent) => {
+    setDraggedTabIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (index: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverTabIndex !== index) {
+      setDragOverTabIndex(index);
+    }
+  };
+
+  const handleDrop = (dropIndex: number, e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedTabIndex === null || draggedTabIndex === dropIndex) {
+      setDraggedTabIndex(null);
+      setDragOverTabIndex(null);
+      return;
+    }
+
+    const draggedTabId = allowedTabs[draggedTabIndex].id;
+    const dropTabId = allowedTabs[dropIndex].id;
+
+    const fromPos = tabOrder.indexOf(draggedTabId);
+    const toPos = tabOrder.indexOf(dropTabId);
+
+    if (fromPos !== -1 && toPos !== -1) {
+      const newOrder = [...tabOrder];
+      const [moved] = newOrder.splice(fromPos, 1);
+      newOrder.splice(toPos, 0, moved);
+      handleUpdateTabOrder(newOrder);
+    }
+
+    setDraggedTabIndex(null);
+    setDragOverTabIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    // Garante a persistência imediata no término do arrasto
+    try {
+      localStorage.setItem(SERVICES_TABS_STORAGE_KEY, JSON.stringify(tabOrder));
+    } catch (_) {}
+    setDraggedTabIndex(null);
+    setDragOverTabIndex(null);
+  };
 
   // Controle de Sessão e Sub-permissões por Aba
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
@@ -212,8 +306,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   };
 
   const allowedTabs = useMemo(() => {
-    return tabs.filter(t => isServiceTabAllowed(t.id));
-  }, [userSession]);
+    const tabsMap = new Map(DEFAULT_SERVICES_TABS_CONFIG.map((t) => [t.id, t]));
+    const ordered = tabOrder
+      .map((id) => tabsMap.get(id))
+      .filter((t): t is typeof DEFAULT_SERVICES_TABS_CONFIG[0] => Boolean(t));
+    return ordered.filter((t) => isServiceTabAllowed(t.id));
+  }, [tabOrder, userSession]);
 
   // Se a aba ativa estiver bloqueada pelo perfil do cargo, redireciona para a primeira permitida
   useEffect(() => {
@@ -526,29 +624,37 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           ======================================================== */}
       <div className="w-full flex flex-col">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (10% MENOR) */}
-        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none flex items-stretch">
           <nav 
             aria-label="Abas de Prestação de Serviços" 
-            className="w-full flex items-stretch"
+            className="w-full flex items-stretch min-w-0"
           >
-            {allowedTabs.map((tab) => {
+            {allowedTabs.map((tab, index) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               const isBillingTab = tab.id === 'faturamento';
+              const isDragging = draggedTabIndex === index;
+              const isDragOver = dragOverTabIndex === index;
 
               return (
                 <button
                   key={tab.id}
                   type="button"
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(index, e)}
+                  onDragOver={(e) => handleDragOver(index, e)}
+                  onDrop={(e) => handleDrop(index, e)}
+                  onDragEnd={handleDragEnd}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase select-none transition cursor-pointer whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
+                  title="Clique para alternar ou arraste para reorganizar a ordem das abas"
+                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase select-none transition-all cursor-pointer whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
                     isActive
                       ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                       : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
-                  }`}
+                  } ${isDragging ? 'opacity-40 scale-95' : ''} ${isDragOver ? 'ring-2 ring-emerald-500 z-20' : ''}`}
                 >
                   <Icon 
-                    className={`w-3.5 h-3.5 transition-colors ${
+                    className={`w-3.5 h-3.5 transition-colors shrink-0 ${
                       isActive 
                         ? 'text-emerald-700 dark:text-emerald-400' 
                         : 'text-slate-500 dark:text-stone-400'
