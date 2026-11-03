@@ -1,4 +1,4 @@
-import { Machinery, Employee, ServiceTruckItem } from '../../types';
+import { Machinery, Employee, ServiceTruckItem, ServiceFuelEntry } from '../../types';
 
 export const isForrageira = (m: Machinery): boolean => {
   if (!m) return false;
@@ -282,4 +282,60 @@ export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => r.toLowerCase()) : [];
   const regTypeStr = (emp.registrationType || '').toLowerCase();
   return roleStr.includes('agenciador') || rolesList.some(r => r.includes('agenciador')) || regTypeStr.includes('agenciador');
+};
+
+/**
+ * Obtém o subtotal de combustível (R$) lançado especificamente para um caminhão/veículo
+ * a partir da lista de lançamentos de combustível da operação (DRE).
+ */
+export const getTruckFuelSubtotal = (
+  truck?: Partial<ServiceTruckItem> | null,
+  fuelList?: ServiceFuelEntry[] | null
+): number => {
+  if (!truck || !fuelList || fuelList.length === 0) return 0;
+
+  // 1. Match exato por truck.id
+  if (truck.id) {
+    const byId = fuelList.find((f) => f.vehicleId === truck.id);
+    if (byId && typeof byId.subtotal === 'number' && byId.subtotal > 0) {
+      return byId.subtotal;
+    }
+  }
+
+  // 2. Match por machineryId
+  if (truck.machineryId) {
+    const byMach = fuelList.find((f) => f.vehicleId === truck.machineryId);
+    if (byMach && typeof byMach.subtotal === 'number' && byMach.subtotal > 0) {
+      return byMach.subtotal;
+    }
+  }
+
+  // 3. Match por placa (ex: "AKU-1C96" dentro de "FORD CARGO 2622 [AKU-1C96]")
+  if (truck.plate && truck.plate.trim()) {
+    const cleanPlate = truck.plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (cleanPlate.length >= 3) {
+      const byPlate = fuelList.find((f) => {
+        if (!f.vehicleName) return false;
+        const targetClean = f.vehicleName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        return targetClean.includes(cleanPlate);
+      });
+      if (byPlate && typeof byPlate.subtotal === 'number' && byPlate.subtotal > 0) {
+        return byPlate.subtotal;
+      }
+    }
+  }
+
+  // 4. Match por nome do caminhão (ex: "FORD CARGO 2622")
+  if (truck.truckName && truck.truckName.trim()) {
+    const cleanName = truck.truckName.trim().toUpperCase();
+    const byName = fuelList.find((f) => {
+      if (!f.vehicleName) return false;
+      return f.vehicleName.toUpperCase().includes(cleanName);
+    });
+    if (byName && typeof byName.subtotal === 'number' && byName.subtotal > 0) {
+      return byName.subtotal;
+    }
+  }
+
+  return 0;
 };

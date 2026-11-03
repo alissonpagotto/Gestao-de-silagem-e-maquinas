@@ -76,7 +76,8 @@ import {
   formatEmployeeOptionLabel,
   formatMachineryOptionLabel,
   isBrokerEmployee,
-  isThirdPartyTruck
+  isThirdPartyTruck,
+  getTruckFuelSubtotal
 } from './serviceHelpers';
 
 export type ServiceTabType = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'venda' | 'faturamento';
@@ -1289,7 +1290,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       const additionalKmCost = truck.totalAdditionalKm ?? ((truck.additionalKm || 0) * (truck.ratePerKm || 0));
 
       // Comissão individual do Motorista de Frete (modalidades: Por KM, Por Hora, Por Tonelada/Carga, Por Viagem ou Por Porcentagem)
-      const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truck, pesoPorM3, rateioCost);
+      const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
+      const calculatedRatio = Number(rateioCost.toFixed(2));
+      const truckForComm = truck.driverCommissionMode === 'porcentagem'
+        ? { ...truck, driverCommissionBase: calculatedRatio > 0 ? calculatedRatio : truck.driverCommissionBase }
+        : truck;
+      const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truckForComm, pesoPorM3, rateioCost, truckFuelSubtotal);
       const driverCommissionCost = truck.driverCommissionMode === 'porcentagem'
         ? commResult.total
         : (typeof truck.driverCommission === 'number' ? truck.driverCommission : commResult.total);
@@ -1313,7 +1319,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         truckHourlyRate: truck.truckHourlyRate,
       };
     });
-  }, [trucks, totalVolumeGeralM3, valorDistribuicaoFrotas, unidadeArea, pesoPorM3]);
+  }, [trucks, totalVolumeGeralM3, valorDistribuicaoFrotas, unidadeArea, pesoPorM3, fuelEntries]);
 
   // =========================================================================
   // GESTÃO OPERACIONAL DE COMBUSTÍVEL E ALIMENTAÇÃO (DRE)
@@ -1416,6 +1422,40 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     return fuelEntries.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
   }, [fuelEntries]);
 
+  // Sincroniza em tempo real a comissão líquida dos caminhões em modalidade "Por Porcentagem (%)"
+  // vinculando a Base (Ratio R$) estritamente ao Ratio individual do veículo (e não à distribuição global de frotas)
+  // com o abatimento do consumo de combustível individual do veículo
+  useEffect(() => {
+    setTrucks((prevTrucks) => {
+      let changed = false;
+      const next = prevTrucks.map((truck) => {
+        if (truck.driverCommissionMode !== 'porcentagem') return truck;
+        const m3 = (truck.capacityM3 || 0) * (truck.tripLoads || 0);
+        const distVal = (unidadeArea === 'hectares' || unidadeArea === 'hora')
+          ? ((Number(truck.truckHours) || 0) * (Number(truck.truckHourlyRate) || 0))
+          : (totalVolumeGeralM3 > 0 ? (m3 / totalVolumeGeralM3) * valorDistribuicaoFrotas : 0);
+        const calculatedRatio = Number(distVal.toFixed(2));
+        const baseToUse = calculatedRatio > 0 
+          ? calculatedRatio 
+          : (typeof truck.driverCommissionBase === 'number' ? truck.driverCommissionBase : 0);
+        const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
+        const comm = calculateTruckFreightCommission(
+          'porcentagem',
+          { ...truck, driverCommissionBase: baseToUse },
+          pesoPorM3,
+          calculatedRatio,
+          truckFuelSubtotal
+        );
+        if (truck.driverCommission !== comm.total || truck.driverCommissionBase !== baseToUse) {
+          changed = true;
+          return { ...truck, driverCommissionBase: baseToUse, driverCommission: comm.total };
+        }
+        return truck;
+      });
+      return changed ? next : prevTrucks;
+    });
+  }, [fuelEntries, totalVolumeGeralM3, valorDistribuicaoFrotas, unidadeArea, pesoPorM3]);
+
   // Gestão de Alimentação e Diárias
   const handleAddMealExpense = () => {
     setMealExpenses((prev) => [
@@ -1497,10 +1537,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       const distVal = (unidadeArea === 'hectares' || unidadeArea === 'hora')
         ? truckCostHoras
         : (totalVolumeGeralM3 > 0 ? (m3 / totalVolumeGeralM3) * valorDistribuicaoFrotas : 0);
-      const baseToUse = t.driverCommissionMode === 'porcentagem' && (!t.driverCommissionBase || Number(t.driverCommissionBase) <= 0)
-        ? Number(distVal.toFixed(2))
+      const calculatedRatio = Number(distVal.toFixed(2));
+      const baseToUse = t.driverCommissionMode === 'porcentagem'
+        ? (calculatedRatio > 0 ? calculatedRatio : t.driverCommissionBase)
         : t.driverCommissionBase;
-      const comm = calculateTruckFreightCommission(t.driverCommissionMode, { ...t, driverCommissionBase: baseToUse }, pesoPorM3, distVal);
+      const truckFuelSubtotal = getTruckFuelSubtotal(t, fuelEntries);
+      const comm = calculateTruckFreightCommission(t.driverCommissionMode, { ...t, driverCommissionBase: baseToUse }, pesoPorM3, calculatedRatio, truckFuelSubtotal);
       return {
         ...t,
         totalM3: m3,
@@ -4647,6 +4689,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 onAddTruck={handleAddTruck}
                 onRemoveTruck={handleRemoveTruck}
                 onUpdateTruck={handleUpdateTruck}
+                fuelEntries={fuelEntries}
               />
             )}
 

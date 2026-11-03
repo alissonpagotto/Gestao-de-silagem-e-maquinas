@@ -14,7 +14,7 @@ import {
   Calculator,
   Lock
 } from 'lucide-react';
-import { ServiceTruckItem, Machinery, Employee, FreightCommissionMode } from '../../types';
+import { ServiceTruckItem, Machinery, Employee, FreightCommissionMode, ServiceFuelEntry } from '../../types';
 import { formatCurrencyBRL } from '../../lib/storage';
 import { 
   isCaminhao, 
@@ -22,7 +22,8 @@ import {
   formatEmployeeOptionLabel, 
   formatMachineryOptionLabel, 
   formatTruckOptionLabel,
-  isThirdPartyTruck
+  isThirdPartyTruck,
+  getTruckFuelSubtotal
 } from './serviceHelpers';
 
 interface TruckFleetSectionProps {
@@ -44,6 +45,7 @@ interface TruckFleetSectionProps {
   totalTransporteFrotasHoras?: number;
   pesoPorM3?: number | '';
   estimativaToneladas?: number | '';
+  fuelEntries?: ServiceFuelEntry[];
 }
 
 export const calculateTruckFreightCommission = (
@@ -58,8 +60,17 @@ export const calculateTruckFreightCommission = (
     ratePerKm?: number;
   },
   pesoM3?: number | '',
-  ratioValor?: number
-): { base: number; rate: number; total: number; unitLabel: string } => {
+  ratioValor?: number,
+  fuelSubtotal?: number
+): { 
+  base: number; 
+  rate: number; 
+  total: number; 
+  unitLabel: string;
+  grossRatio?: number;
+  fuelDeduction?: number;
+  netBase?: number;
+} => {
   const currentMode = mode || 'horas';
   const rate = typeof truck.driverCommissionRate === 'number' && truck.driverCommissionRate > 0
     ? Number(truck.driverCommissionRate.toFixed(2))
@@ -71,13 +82,28 @@ export const calculateTruckFreightCommission = (
   if (currentMode === 'porcentagem') {
     unitLabel = '%';
     const numRatio = typeof ratioValor === 'number' ? ratioValor : 0;
-    if (typeof truck.driverCommissionBase === 'number' && truck.driverCommissionBase > 0) {
-      base = Number(truck.driverCommissionBase.toFixed(2));
-    } else if (numRatio > 0) {
-      base = Number(numRatio.toFixed(2));
+    // O valor base no modo Por Porcentagem (%) vincula estritamente o Ratio individual deste veículo (e não a distribuição global)
+    let rawBase = 0;
+    if (numRatio > 0) {
+      rawBase = Number(numRatio.toFixed(2));
+    } else if (typeof truck.driverCommissionBase === 'number' && truck.driverCommissionBase > 0) {
+      rawBase = Number(truck.driverCommissionBase.toFixed(2));
     }
-    const total = Number(((base * rate) / 100).toFixed(2));
-    return { base, rate, total, unitLabel };
+
+    const fuelCost = typeof fuelSubtotal === 'number' && fuelSubtotal > 0 ? Number(fuelSubtotal.toFixed(2)) : 0;
+    // Nova regra contratual: Base líquida descontando combustível consumido pelo veículo
+    const netBase = Math.max(0, Number((rawBase - fuelCost).toFixed(2)));
+    base = rawBase;
+    const total = Number(((netBase * rate) / 100).toFixed(2));
+    return { 
+      base, 
+      rate, 
+      total, 
+      unitLabel,
+      grossRatio: rawBase,
+      fuelDeduction: fuelCost,
+      netBase 
+    };
   }
 
   if (currentMode === 'km') {
@@ -135,6 +161,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
   totalTransporteFrotasHoras: totalTransporteFrotasHorasProp,
   pesoPorM3,
   estimativaToneladas,
+  fuelEntries = [],
 }) => {
   // Filtra APENAS caminhões do cadastro
   const todosCaminhoes = machineries.filter(isCaminhao);
@@ -211,6 +238,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
           ? Number(currentTruck.driverCommissionRate.toFixed(2))
           : defaultRate);
 
+    const truckFuelSubtotal = getTruckFuelSubtotal(currentTruck ? { ...currentTruck, machineryId: mach.id } : { machineryId: mach.id }, fuelEntries);
     const comm = calculateTruckFreightCommission(mode, {
       ...currentTruck,
       capacityM3: capacity,
@@ -218,7 +246,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
       driverHours: hours,
       driverCommissionBase: baseToUse,
       driverCommissionRate: rateToUse,
-    }, pesoPorM3, newRatioVal);
+    }, pesoPorM3, newRatioVal, truckFuelSubtotal);
 
     onUpdateTruck(truckId, {
       machineryId: mach.id,
@@ -537,16 +565,15 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                             const baseRatio = Number(valorProporcionalCaminhao.toFixed(2));
                             const baseToUse = mode === 'porcentagem'
-                              ? ((typeof currentTruck?.driverCommissionBase === 'number' && currentTruck.driverCommissionBase > 0)
-                                  ? currentTruck.driverCommissionBase
-                                  : baseRatio)
+                              ? baseRatio
                               : currentTruck?.driverCommissionBase;
 
+                            const truckFuelSubtotal = getTruckFuelSubtotal(currentTruck ? { ...currentTruck, primaryDriverId: e.target.value } : truck, fuelEntries);
                             const comm = calculateTruckFreightCommission(mode, {
                               ...currentTruck,
                               driverCommissionBase: baseToUse,
                               driverCommissionRate: rateToUse,
-                            }, pesoPorM3, baseRatio);
+                            }, pesoPorM3, baseRatio, truckFuelSubtotal);
 
                             onUpdateTruck(truck.id, {
                               primaryDriverId: e.target.value,
@@ -632,12 +659,13 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                           : (newTotalM3 > 0 ? (newTruckM3 / newTotalM3) * valorDistribuicaoFrotas : 0);
                         const isPorcentagem = truck.driverCommissionMode === 'porcentagem';
                         const newBase = isPorcentagem ? Number(newRatioVal.toFixed(2)) : truck.driverCommissionBase;
+                        const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
                         const comm = calculateTruckFreightCommission(truck.driverCommissionMode, {
                           ...truck,
                           capacityM3: cap,
                           tripLoads: loads,
                           driverCommissionBase: newBase,
-                        }, pesoPorM3, newRatioVal);
+                        }, pesoPorM3, newRatioVal, truckFuelSubtotal);
                         onUpdateTruck(truck.id, { 
                           capacityM3: cap,
                           totalM3: newTruckM3,
@@ -669,11 +697,12 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                           : (newTotalM3 > 0 ? (newTruckM3 / newTotalM3) * valorDistribuicaoFrotas : 0);
                         const isPorcentagem = truck.driverCommissionMode === 'porcentagem';
                         const newBase = isPorcentagem ? Number(newRatioVal.toFixed(2)) : truck.driverCommissionBase;
+                        const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
                         const comm = calculateTruckFreightCommission(truck.driverCommissionMode, {
                           ...truck,
                           tripLoads: loads,
                           driverCommissionBase: newBase,
-                        }, pesoPorM3, newRatioVal);
+                        }, pesoPorM3, newRatioVal, truckFuelSubtotal);
                         onUpdateTruck(truck.id, { 
                           tripLoads: loads,
                           totalM3: newTruckM3,
@@ -699,7 +728,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                 {/* 3. BLOCO ESTRUTURADO DE COMISSÃO DE FRETE DO MOTORISTA */}
                 {(() => {
-                  const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truck, pesoPorM3, valorProporcionalCaminhao);
+                  const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
+                  const commResult = calculateTruckFreightCommission(truck.driverCommissionMode, truck, pesoPorM3, valorProporcionalCaminhao, truckFuelSubtotal);
                   const activeMode = truck.driverCommissionMode || 'horas';
                   const numPeso = typeof pesoPorM3 === 'number' ? pesoPorM3 : 0;
                   const calcTons = numPeso > 0 && truck.capacityM3 && truck.tripLoads
@@ -857,11 +887,12 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               const defaultRate = empPct > 0 
                                 ? empPct 
                                 : (typeof truck.driverCommissionRate === 'number' && truck.driverCommissionRate > 0 ? truck.driverCommissionRate : 0);
+                              const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
                               const comm = calculateTruckFreightCommission(mode, {
                                 ...truck,
                                 driverCommissionBase: baseRatio,
                                 driverCommissionRate: defaultRate,
-                              }, pesoPorM3, baseRatio);
+                              }, pesoPorM3, baseRatio, truckFuelSubtotal);
                               onUpdateTruck(truck.id, {
                                 driverCommissionMode: mode,
                                 driverCommissionBase: baseRatio,
@@ -949,9 +980,26 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                       {/* Configuração específica do modo Por Porcentagem (%) */}
                       {activeMode === 'porcentagem' && (
                         <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2 text-xs text-emerald-900 dark:text-emerald-200">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Percent className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />
-                            <span>Comissão calculada sobre o Ratio do veículo: <strong>[Base Ratio] × [% Comissão / 100]</strong>.</span>
+                            <span>
+                              {commResult.fuelDeduction && commResult.fuelDeduction > 0 ? (
+                                <>
+                                  Comissão calculada sobre o Ratio com desconto de combustível:{' '}
+                                  <strong>([Base Ratio] - [Combustível]) × [% Comissão / 100]</strong>.
+                                </>
+                              ) : (
+                                <>
+                                  Comissão calculada sobre o Ratio do veículo:{' '}
+                                  <strong>[Base Ratio] × [% Comissão / 100]</strong>.
+                                </>
+                              )}
+                            </span>
+                            {commResult.fuelDeduction && commResult.fuelDeduction > 0 && (
+                              <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700">
+                                Combustível abatido: {formatCurrencyBRL(commResult.fuelDeduction)}
+                              </span>
+                            )}
                           </div>
                           {valorProporcionalCaminhao > 0 && (
                             <button
@@ -959,7 +1007,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               onClick={() => {
                                 const baseRatio = Number(valorProporcionalCaminhao.toFixed(2));
                                 const rateNum = typeof truck.driverCommissionRate === 'number' ? truck.driverCommissionRate : 0;
-                                const total = Number(((baseRatio * rateNum) / 100).toFixed(2));
+                                const fuelDeduct = truckFuelSubtotal > 0 ? truckFuelSubtotal : 0;
+                                const netB = Math.max(0, Number((baseRatio - fuelDeduct).toFixed(2)));
+                                const total = Number(((netB * rateNum) / 100).toFixed(2));
                                 onUpdateTruck(truck.id, {
                                   driverCommissionBase: baseRatio,
                                   driverCommission: total,
@@ -1062,7 +1112,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         {/* 1. Base da Comissão de Frete */}
                         <div>
                           <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                            <span>
+                            <span className="flex items-center gap-1">
                               Base ({
                                 activeMode === 'porcentagem' ? 'Ratio R$' :
                                 activeMode === 'km' ? 'KM Rodado' :
@@ -1070,6 +1120,11 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                 activeMode === 'tonelada_carga' || (activeMode as string) === 'cargas' || (activeMode as string) === 'toneladas' ? 'Ton / Carga [Tonco]' :
                                 activeMode === 'viagem' ? 'Viagens' : 'Livre'
                               })
+                              {activeMode === 'porcentagem' && commResult.fuelDeduction && commResult.fuelDeduction > 0 && (
+                                <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-1 py-0.2 rounded border border-amber-200 dark:border-amber-800">
+                                  Líq: {formatCurrencyBRL(commResult.netBase || 0)}
+                                </span>
+                              )}
                             </span>
                             {activeMode !== 'livre' && (
                               <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.2 rounded flex items-center gap-1">
@@ -1083,9 +1138,11 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             step="0.01"
                             value={
                               activeMode === 'porcentagem'
-                                ? (typeof truck.driverCommissionBase === 'number' && truck.driverCommissionBase > 0
-                                    ? truck.driverCommissionBase
-                                    : (valorProporcionalCaminhao > 0 ? Number(valorProporcionalCaminhao.toFixed(2)) : (truck.driverCommissionBase ?? '')))
+                                ? (valorProporcionalCaminhao > 0
+                                    ? Number(valorProporcionalCaminhao.toFixed(2))
+                                    : (typeof truck.driverCommissionBase === 'number' && truck.driverCommissionBase > 0
+                                        ? truck.driverCommissionBase
+                                        : (truck.driverCommissionBase ?? '')))
                                 : activeMode === 'livre'
                                 ? (truck.driverCommissionBase ?? '')
                                 : activeMode === 'km'
@@ -1107,7 +1164,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               const baseNum = typeof baseVal === 'number' ? baseVal : 0;
                               const rateNum = typeof truck.driverCommissionRate === 'number' ? Number(truck.driverCommissionRate.toFixed(2)) : 0;
                               if (activeMode === 'porcentagem') {
-                                const total = Number(((baseNum * rateNum) / 100).toFixed(2));
+                                const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
+                                const netB = Math.max(0, Number((baseNum - truckFuelSubtotal).toFixed(2)));
+                                const total = Number(((netB * rateNum) / 100).toFixed(2));
                                 onUpdateTruck(truck.id, {
                                   driverCommissionBase: baseVal,
                                   driverCommission: total,
@@ -1160,10 +1219,11 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => {
                               const rateVal = e.target.value === '' ? '' : Number(e.target.value);
+                              const truckFuelSubtotal = getTruckFuelSubtotal(truck, fuelEntries);
                               const comm = calculateTruckFreightCommission(activeMode, {
                                 ...truck,
                                 driverCommissionRate: rateVal === '' ? 0 : rateVal,
-                              }, pesoPorM3, valorProporcionalCaminhao);
+                              }, pesoPorM3, valorProporcionalCaminhao, truckFuelSubtotal);
                               onUpdateTruck(truck.id, {
                                 driverCommissionRate: rateVal === '' ? undefined : rateVal,
                                 driverCommission: comm.total,
@@ -1198,7 +1258,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             </span>
                             <span className="text-[10px] font-semibold text-slate-500">
                               {activeMode === 'porcentagem'
-                                ? `${formatCurrencyBRL(commResult.base)} × ${commResult.rate.toFixed(2).replace('.', ',')}%`
+                                ? (commResult.fuelDeduction && commResult.fuelDeduction > 0
+                                    ? `(${formatCurrencyBRL(commResult.base)} - ${formatCurrencyBRL(commResult.fuelDeduction)}) × ${commResult.rate.toFixed(2).replace('.', ',')}%`
+                                    : `${formatCurrencyBRL(commResult.base)} × ${commResult.rate.toFixed(2).replace('.', ',')}%`)
                                 : `${commResult.base} ${commResult.unitLabel} × R$ ${commResult.rate.toFixed(2)}`}
                             </span>
                           </div>
