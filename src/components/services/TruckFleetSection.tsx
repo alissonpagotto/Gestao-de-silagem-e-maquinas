@@ -1120,11 +1120,6 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                 activeMode === 'tonelada_carga' || (activeMode as string) === 'cargas' || (activeMode as string) === 'toneladas' ? 'Ton / Carga [Tonco]' :
                                 activeMode === 'viagem' ? 'Viagens' : 'Livre'
                               })
-                              {activeMode === 'porcentagem' && commResult.fuelDeduction && commResult.fuelDeduction > 0 && (
-                                <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-1 py-0.2 rounded border border-amber-200 dark:border-amber-800">
-                                  Líq: {formatCurrencyBRL(commResult.netBase || 0)}
-                                </span>
-                              )}
                             </span>
                             {activeMode !== 'livre' && (
                               <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.2 rounded flex items-center gap-1">
@@ -1259,8 +1254,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             <span className="text-[10px] font-semibold text-slate-500">
                               {activeMode === 'porcentagem'
                                 ? (commResult.fuelDeduction && commResult.fuelDeduction > 0
-                                    ? `(${formatCurrencyBRL(commResult.base)} - ${formatCurrencyBRL(commResult.fuelDeduction)}) × ${commResult.rate.toFixed(2).replace('.', ',')}%`
-                                    : `${formatCurrencyBRL(commResult.base)} × ${commResult.rate.toFixed(2).replace('.', ',')}%`)
+                                    ? `(${formatCurrencyBRL(commResult.base)} - ${formatCurrencyBRL(commResult.fuelDeduction)}) = ${formatCurrencyBRL(commResult.netBase || 0)} x ${commResult.rate.toFixed(2).replace('.', ',')}%`
+                                    : `${formatCurrencyBRL(commResult.base)} x ${commResult.rate.toFixed(2).replace('.', ',')}%`)
                                 : `${commResult.base} ${commResult.unitLabel} × R$ ${commResult.rate.toFixed(2)}`}
                             </span>
                           </div>

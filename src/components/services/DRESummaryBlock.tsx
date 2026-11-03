@@ -15,6 +15,7 @@ export interface TruckExpenseDetail {
   rateioCost: number;
   additionalKmCost: number;
   driverCommissionCost?: number;
+  driverCommissionFormula?: string;
   totalCost: number;
   truckHours?: number;
   truckHourlyRate?: number;
@@ -571,14 +572,21 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
           {trucksExpenseDetails
             .filter((t) => (t.driverCommissionCost || 0) > 0)
             .map((truckItem) => (
-              <div key={`comm-driver-${truckItem.truckId}`} className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
-                <span className="flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  🚚 Comissão Motorista ({truckItem.driverName || 'Motorista'}):
-                </span>
-                <span className="font-semibold font-mono text-gray-900 dark:text-white">
-                  {formatCurrencyBRL(truckItem.driverCommissionCost || 0)}
-                </span>
+              <div key={`comm-driver-${truckItem.truckId}`} className="py-0.5">
+                <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+                  <span className="flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    🚚 Comissão Motorista ({truckItem.driverName || 'Motorista'}):
+                  </span>
+                  <span className="font-semibold font-mono text-gray-900 dark:text-white">
+                    {formatCurrencyBRL(truckItem.driverCommissionCost || 0)}
+                  </span>
+                </div>
+                {truckItem.driverCommissionFormula && (
+                  <div className="pl-5 text-[11px] text-gray-500 dark:text-slate-400 font-medium leading-relaxed">
+                    {truckItem.driverCommissionFormula}
+                  </div>
+                )}
               </div>
             ))}
 

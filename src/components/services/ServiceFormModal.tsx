@@ -1303,6 +1303,30 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       // Total Composto = Rateio + Adicional KM + Comissão do Motorista
       const totalCost = rateioCost + additionalKmCost + driverCommissionCost;
 
+      // Descrição explicativa da comissão para discriminação na DRE
+      let driverCommissionFormula = '';
+      const mode = truck.driverCommissionMode || 'horas';
+      const pctDisplay = Number.isInteger(commResult.rate) ? `${commResult.rate}%` : `${commResult.rate.toFixed(2).replace('.', ',')}%`;
+
+      if (mode === 'porcentagem') {
+        if (commResult.fuelDeduction && commResult.fuelDeduction > 0) {
+          const ratioVal = commResult.grossRatio || commResult.base;
+          driverCommissionFormula = `Comissão: Modalidade Por Porcentagem (${pctDisplay}) sobre a Base Líquida de ${formatCurrencyBRL(commResult.netBase || 0)} (Ratio ${formatCurrencyBRL(ratioVal)} - Combustível ${formatCurrencyBRL(commResult.fuelDeduction)}) = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+        } else {
+          driverCommissionFormula = `Comissão: Modalidade Por Porcentagem (${pctDisplay}) sobre a Base de ${formatCurrencyBRL(commResult.base)} = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+        }
+      } else if (mode === 'km') {
+        driverCommissionFormula = `Comissão: Modalidade Por KM (${commResult.base} km × ${formatCurrencyBRL(commResult.rate)}/km) = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+      } else if (mode === 'horas') {
+        driverCommissionFormula = `Comissão: Modalidade Por Hora (${commResult.base}h × ${formatCurrencyBRL(commResult.rate)}/h) = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+      } else if (mode === 'tonelada_carga' || mode === 'cargas' || mode === 'toneladas') {
+        driverCommissionFormula = `Comissão: Modalidade Por Tonelada/Carga (${commResult.base} un × ${formatCurrencyBRL(commResult.rate)}/un) = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+      } else if (mode === 'viagem') {
+        driverCommissionFormula = `Comissão: Modalidade Por Viagem (${commResult.base} viagens × ${formatCurrencyBRL(commResult.rate)}/viagem) = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+      } else {
+        driverCommissionFormula = `Comissão: Modalidade Livre (${commResult.base} un × ${formatCurrencyBRL(commResult.rate)}) = Total: ${formatCurrencyBRL(driverCommissionCost)}`;
+      }
+
       return {
         truckId: truck.id,
         plate: truck.plate ? truck.plate.toUpperCase() : 'S/ Placa',
@@ -1314,6 +1338,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         rateioCost: rateioCost,
         additionalKmCost: additionalKmCost,
         driverCommissionCost: driverCommissionCost,
+        driverCommissionFormula: driverCommissionFormula,
         totalCost: totalCost,
         truckHours: truck.truckHours,
         truckHourlyRate: truck.truckHourlyRate,
