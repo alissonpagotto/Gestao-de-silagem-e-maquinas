@@ -87,6 +87,35 @@ const addDays = (dateStr: string, days: number): string => {
   return `${y}-${m}-${dt}`;
 };
 
+/**
+ * Converte valor numérico em string monetária formatada no padrão PT-BR sem símbolo R$:
+ * Ex: 10000 -> "10.000,00", 0 -> "0,00"
+ */
+export const formatCurrencyInputBRL = (val: number | undefined | null): string => {
+  if (val === undefined || val === null || isNaN(val) || val === 0) return '0,00';
+  return val.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+/**
+ * Converte a digitação da direita para a esquerda (máscara de centavos) em Float decimal puro:
+ * Usuário digita "1" -> 0.01
+ * Usuário digita "10" -> 0.10
+ * Usuário digita "100" -> 1.00
+ * Usuário digita "100000" -> 1000.00
+ * Usuário digita "2500000" -> 25000.00
+ */
+export const parseCurrencyInputToFloat = (raw: string): number => {
+  if (!raw) return 0;
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return 0;
+  const cents = parseInt(digits, 10);
+  if (isNaN(cents)) return 0;
+  return Number((cents / 100).toFixed(2));
+};
+
 export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   isOpen,
   onClose,
@@ -198,21 +227,27 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     );
   };
 
-  // Alteração reativa de Juros em R$ -> calcula %
-  const handleInterestAmountChange = (id: string, valStr: string) => {
-    const interestVal = valStr === '' ? 0 : Number(valStr);
+  // Alteração com máscara de moeda brasileira do Valor de Face da linha (R$)
+  const handleAmountMaskChange = (id: string, rawVal: string) => {
+    const floatVal = parseCurrencyInputToFloat(rawVal);
+    handleUpdateLine(id, 'amount', floatVal);
+  };
+
+  // Alteração reativa de Juros em R$ com máscara de moeda brasileira -> calcula %
+  const handleInterestAmountMaskChange = (id: string, rawVal: string) => {
+    const floatVal = parseCurrencyInputToFloat(rawVal);
     setLines((prev) =>
       prev.map((l) => {
         if (l.id !== id) return l;
         const baseAmount = Number(l.amount) || 0;
         const percentVal =
-          baseAmount > 0 && interestVal > 0
-            ? Number(((interestVal / baseAmount) * 100).toFixed(2))
+          baseAmount > 0 && floatVal > 0
+            ? Number(((floatVal / baseAmount) * 100).toFixed(2))
             : undefined;
 
         return {
           ...l,
-          interestAmount: interestVal > 0 ? interestVal : undefined,
+          interestAmount: floatVal > 0 ? floatVal : undefined,
           interestPercentage: percentVal,
         };
       })
@@ -597,17 +632,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                             R$
                           </span>
                           <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={line.amount === 0 ? '' : line.amount}
-                            onChange={(e) =>
-                              handleUpdateLine(
-                                line.id,
-                                'amount',
-                                e.target.value === '' ? 0 : Number(e.target.value)
-                              )
-                            }
+                            type="text"
+                            inputMode="numeric"
+                            value={formatCurrencyInputBRL(line.amount)}
+                            onChange={(e) => handleAmountMaskChange(line.id, e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             placeholder="0,00"
                             className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                           />
@@ -675,11 +704,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                   R$
                                 </span>
                                 <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={line.interestAmount === undefined ? '' : line.interestAmount}
-                                  onChange={(e) => handleInterestAmountChange(line.id, e.target.value)}
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatCurrencyInputBRL(line.interestAmount || 0)}
+                                  onChange={(e) => handleInterestAmountMaskChange(line.id, e.target.value)}
+                                  onFocus={(e) => e.target.select()}
                                   placeholder="0,00"
                                   className="w-full pl-7 pr-2 py-1 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-md text-xs font-black text-amber-950 dark:text-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
                                 />
