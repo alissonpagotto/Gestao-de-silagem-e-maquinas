@@ -23,7 +23,36 @@ import {
 import { ServiceOrder, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
-import { BillingPaymentModal } from './BillingPaymentModal';
+import { BillingPaymentModal, getPaymentMethodLabel } from './BillingPaymentModal';
+
+/**
+ * Remove qualquer sufixo de parcelas e formata como #0001
+ * Ex: "#001-1" -> "#001", "1001-P1/3" -> "#1001", "#0001" -> "#0001"
+ */
+export const getCleanOrderNumber = (rawOrderNumber?: string, fallbackId?: string): string => {
+  if (rawOrderNumber) {
+    const cleaned = rawOrderNumber.replace(/(-P\d+.*|-P\d+\/\d+|-(\d+)\/\d+|-\d+.*)$/i, '').trim();
+    return cleaned.startsWith('#') ? cleaned : `#${cleaned}`;
+  }
+  const idStr = (fallbackId || '').slice(-4);
+  return idStr.startsWith('#') ? idStr : `#${idStr}`;
+};
+
+export interface UnifiedBillingItem {
+  id: string; // groupKey
+  primaryService: ServiceOrder;
+  childOrders: ServiceOrder[];
+  cleanOrderNumber: string;
+  totalAmount: number;
+  totalPaidAmount: number;
+  isFaturado: boolean;
+  isPaidAll: boolean;
+  statusBadge: {
+    label: string;
+    className: string;
+  };
+  summaryBillingNotes: string;
+}
 
 interface BillingModuleProps {
   services: ServiceOrder[];
@@ -70,18 +99,110 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
     });
   }, [services]);
 
-  // Totais e Métricas
-  const metrics = useMemo(() => {
-    const totalGeral = billingServices.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
-    const pendentesList = billingServices.filter(
-      (s) => s.status === 'em_faturamento' && s.billingStatus !== 'faturado' && !s.billedAt
-    );
-    const faturadosList = billingServices.filter(
-      (s) => s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt
-    );
+  // UNIFICAÇÃO: Agrupa estritamente um único registro por ordem de serviço (OS) original
+  const unifiedBillingServices = useMemo<UnifiedBillingItem[]>(() => {
+    const groupsMap = new Map<string, ServiceOrder[]>();
 
-    const totalPendente = pendentesList.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
-    const totalFaturado = faturadosList.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
+    billingServices.forEach((s) => {
+      const groupKey = s.parentOrderId || s.id;
+      if (!groupsMap.has(groupKey)) {
+        groupsMap.set(groupKey, []);
+      }
+      groupsMap.get(groupKey)!.push(s);
+    });
+
+    const list: UnifiedBillingItem[] = [];
+
+    groupsMap.forEach((items, groupKey) => {
+      // Localiza a ordem principal da OS (preferencialmente id === groupKey ou a primeira)
+      const primary = items.find((it) => it.id === groupKey) || items[0];
+      const cleanNumber = getCleanOrderNumber(primary.orderNumber, groupKey);
+
+      // Total consolidado da OS (soma das parcelas/títulos)
+      const totalAmount = items.reduce((acc, it) => acc + (Number(it.totalAmount) || 0), 0);
+      const totalPaidAmount = items.reduce((acc, it) => acc + (Number(it.paidAmount) || 0), 0);
+
+      const isFaturado = items.some(
+        (it) => it.status === 'faturado' || it.billingStatus === 'faturado' || !!it.billedAt
+      );
+      const isPaidAll = items.length > 0 && items.every((it) => it.paymentStatus === 'pago');
+
+      const maxInstallments = Math.max(
+        ...items.map((it) => Number(it.totalInstallments) || (items.length > 1 ? items.length : 1))
+      );
+
+      let badgeLabel = 'AGUARDANDO REVISÃO';
+      let badgeClass =
+        'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700';
+
+      if (isPaidAll) {
+        badgeLabel = maxInstallments > 1 ? `RECEBIDO NO CAIXA (${maxInstallments}x)` : 'RECEBIDO NO CAIXA';
+        badgeClass =
+          'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-700';
+      } else if (isFaturado) {
+        badgeLabel = maxInstallments > 1 ? `FATURADO (${maxInstallments}x)` : 'FATURADO (A RECEBER)';
+        badgeClass =
+          'bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-700';
+      }
+
+      // Agrupamento consolidado das formas de pagamento para o resumo na descrição
+      // Ex: [FATURAMENTO: PIX - R$ 10.000,00 | CHEQUE (3x) - R$ 25.750,00]
+      const methodTotals = new Map<string, { total: number; count: number; label: string }>();
+      items.forEach((it) => {
+        const method = (it.paymentMethod || 'OUTRO').toLowerCase();
+        const methodLabel = getPaymentMethodLabel(it.paymentMethod);
+        const prev = methodTotals.get(method) || { total: 0, count: 0, label: methodLabel };
+        prev.total += Number(it.totalAmount) || 0;
+        prev.count += 1;
+        methodTotals.set(method, prev);
+      });
+
+      const summaryParts: string[] = [];
+      methodTotals.forEach(({ total, count, label }) => {
+        if (count > 1) {
+          summaryParts.push(`${label} (${count}x) - ${formatCurrencyBRL(total)}`);
+        } else {
+          summaryParts.push(`${label} - ${formatCurrencyBRL(total)}`);
+        }
+      });
+
+      const customNotes = (primary.billingNotes || '')
+        .replace(/\[FATURAMENTO:.*?\]/gi, '')
+        .trim();
+
+      const summaryBillingNotes =
+        summaryParts.length > 0
+          ? [customNotes, `[FATURAMENTO: ${summaryParts.join(' | ')}]`].filter(Boolean).join(' ')
+          : primary.billingNotes || '';
+
+      list.push({
+        id: groupKey,
+        primaryService: primary,
+        childOrders: items,
+        cleanOrderNumber: cleanNumber,
+        totalAmount,
+        totalPaidAmount,
+        isFaturado,
+        isPaidAll,
+        statusBadge: {
+          label: badgeLabel,
+          className: badgeClass,
+        },
+        summaryBillingNotes,
+      });
+    });
+
+    return list;
+  }, [billingServices]);
+
+  // Totais e Métricas baseados na lista unificada
+  const metrics = useMemo(() => {
+    const totalGeral = unifiedBillingServices.reduce((acc, it) => acc + (it.totalAmount || 0), 0);
+    const pendentesList = unifiedBillingServices.filter((it) => !it.isFaturado);
+    const faturadosList = unifiedBillingServices.filter((it) => it.isFaturado);
+
+    const totalPendente = pendentesList.reduce((acc, it) => acc + (it.totalAmount || 0), 0);
+    const totalFaturado = faturadosList.reduce((acc, it) => acc + (it.totalAmount || 0), 0);
 
     return {
       totalGeral,
@@ -90,12 +211,13 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       faturadosCount: faturadosList.length,
       totalFaturado,
     };
-  }, [billingServices]);
+  }, [unifiedBillingServices]);
 
-  // Lista filtrada
+  // Lista filtrada unificada
   const filteredList = useMemo(() => {
-    return billingServices.filter((s) => {
-      const isFaturado = s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt;
+    return unifiedBillingServices.filter((item) => {
+      const s = item.primaryService;
+      const isFaturado = item.isFaturado;
 
       if (statusFilter === 'pendente' && isFaturado) return false;
       if (statusFilter === 'faturado' && !isFaturado) return false;
@@ -124,9 +246,9 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
         const q = searchTerm.toLowerCase();
         const matchesClient = (s.clientName || '').toLowerCase().includes(q);
         const matchesFarm = (s.farmName || '').toLowerCase().includes(q);
-        const matchesOrder = (s.orderNumber || s.id || '').toLowerCase().includes(q);
+        const matchesOrder = (item.cleanOrderNumber || s.orderNumber || s.id || '').toLowerCase().includes(q);
         const matchesType = (s.serviceType || '').toLowerCase().includes(q);
-        const matchesNotes = (s.billingNotes || s.notes || '').toLowerCase().includes(q);
+        const matchesNotes = (item.summaryBillingNotes || s.billingNotes || s.notes || '').toLowerCase().includes(q);
         if (!matchesClient && !matchesFarm && !matchesOrder && !matchesType && !matchesNotes) {
           return false;
         }
@@ -134,7 +256,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
       return true;
     });
-  }, [billingServices, statusFilter, serviceTypeFilter, searchTerm]);
+  }, [unifiedBillingServices, statusFilter, serviceTypeFilter, searchTerm]);
 
   // Abrir Modal Avançado de Condições Comerciais e Definição de Recebimento
   const handleSendToReceivables = (service: ServiceOrder) => {
@@ -166,11 +288,11 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
     }
   };
 
-  // Reabrir faturamento / devolver para revisão
-  const handleReopenBilling = async (service: ServiceOrder) => {
+  // Reabrir faturamento / devolver para revisão da ordem unificada
+  const handleReopenBilling = async (item: UnifiedBillingItem) => {
     const isConfirmed = await confirm({
       title: 'Devolver para Revisão de Faturamento',
-      message: `Deseja estornar o status deste serviço para "Em Faturamento" para permitir novos ajustes no escritório? O título no Contas a Receber será temporariamente suspenso.`,
+      message: `Deseja estornar o status do pedido ${item.cleanOrderNumber} para "Em Faturamento" para permitir novos ajustes no escritório? Os títulos no Contas a Receber serão temporariamente suspensos.`,
       confirmLabel: 'Reabrir para Revisão',
       cancelLabel: 'Cancelar',
       variant: 'warning',
@@ -178,22 +300,32 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
     if (!isConfirmed) return;
 
-    const updated = services.map((s) => {
-      if (s.id === service.id) {
-        return {
-          ...s,
-          status: 'em_faturamento' as const,
-          billingStatus: 'em_revisao' as const,
-          billedAt: undefined,
-          billedBy: undefined,
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return s;
-    });
+    const groupKey = item.id;
+
+    // Se o pedido foi desmembrado em múltiplas parcelas no Contas a Receber,
+    // consolida de volta em um único registro matriz para permitir nova conferência
+    const restoredPrimary: ServiceOrder = {
+      ...item.primaryService,
+      id: groupKey,
+      orderNumber: item.cleanOrderNumber,
+      totalAmount: item.totalAmount,
+      status: 'em_faturamento' as const,
+      billingStatus: 'em_revisao' as const,
+      billedAt: undefined,
+      billedBy: undefined,
+      isInstallment: false,
+      installmentNumber: undefined,
+      totalInstallments: undefined,
+      parentOrderId: undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = services
+      .filter((s) => s.id !== groupKey && s.parentOrderId !== groupKey)
+      .concat(restoredPrimary);
 
     onSaveServices(updated);
-    showToast(`Serviço #${service.orderNumber || service.id.slice(-4)} devolvido para revisão interna.`);
+    showToast(`Serviço ${item.cleanOrderNumber} devolvido para revisão interna.`);
   };
 
   // Abrir Modal de Auditoria do Escritório
@@ -466,19 +598,19 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredList.map((service, index) => {
-                  const itemNumber = service.orderNumber || (index + 1).toString().padStart(3, '0');
-                  const isFaturado = service.status === 'faturado' || service.billingStatus === 'faturado' || !!service.billedAt;
+                filteredList.map((item) => {
+                  const service = item.primaryService;
+                  const isFaturado = item.isFaturado;
                   const serviceTypeBadge = getServiceTypeBadge(service);
 
                   return (
                     <tr
-                      key={service.id}
+                      key={item.id}
                       className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
                     >
-                      {/* Nº */}
+                      {/* Nº Limpo e Unificado */}
                       <td className="px-3 py-1.5 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold whitespace-nowrap">
-                        #{itemNumber.replace('#', '')}
+                        {item.cleanOrderNumber}
                       </td>
 
                       {/* Cliente e Fazenda */}
@@ -511,10 +643,11 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                             )}
                           </div>
                         )}
-                        {service.billingNotes && (
+                        {/* Resumo Financeiro Unificado da OS */}
+                        {item.summaryBillingNotes && (
                           <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold mt-0.5 flex items-center gap-1 uppercase">
                             <span className="bg-blue-50 dark:bg-blue-950/60 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
-                              FAT: {service.billingNotes}
+                              FAT: {item.summaryBillingNotes}
                             </span>
                           </div>
                         )}
@@ -534,29 +667,19 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                         </span>
                       </td>
 
-                      {/* Valor Atual */}
+                      {/* Valor Atual Consolidado */}
                       <td className="px-3 py-1.5 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
-                        {formatCurrencyBRL(service.totalAmount || 0)}
+                        {formatCurrencyBRL(item.totalAmount || 0)}
                       </td>
 
-                      {/* Status Interno do Faturamento */}
+                      {/* Status Interno do Faturamento Unificado */}
                       <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                        {service.paymentStatus === 'pago' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-700 uppercase">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            RECEBIDO NO CAIXA
-                          </span>
-                        ) : isFaturado ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-700 uppercase">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            FATURADO (A RECEBER)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 uppercase">
-                            <Clock className="w-3 h-3 stroke-[2.5]" />
-                            AGUARDANDO REVISÃO
-                          </span>
-                        )}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase ${item.statusBadge.className}`}
+                        >
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          {item.statusBadge.label}
+                        </span>
                       </td>
 
                       {/* Ações */}
@@ -598,7 +721,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                           ) : (
                             <button
                               type="button"
-                              onClick={() => handleReopenBilling(service)}
+                              onClick={() => handleReopenBilling(item)}
                               className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-md transition cursor-pointer"
                               title="Reabrir para conferência"
                             >
