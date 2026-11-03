@@ -383,9 +383,31 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     }
   }, [activeTab]);
 
-  // Filtragem dos registros da aba ativa
+  // Sanitização de consistência: restaura abas operacionais se algum registro tiver ficado com serviceTab: 'faturamento' ou vazio
+  const sanitizedServices = useMemo(() => {
+    return localServices.map((srv) => {
+      const tabStr = (srv.serviceTab || '').toLowerCase();
+      if (!srv.serviceTab || tabStr === 'faturamento' || tabStr === 'agenda' || tabStr === 'formularios') {
+        const typeStr = (srv.serviceType || '').toLowerCase();
+        let restoredTab = 'corte';
+        if (typeStr.includes('colheita')) restoredTab = 'colheita';
+        else if (typeStr.includes('frete') || typeStr.includes('transporte') || srv.equipmentCategory === 'caminhoes' || !!srv.truckBillingMode) restoredTab = 'frete';
+        else if (typeStr.includes('trator') || typeStr.includes('preparo') || typeStr.includes('plantio')) restoredTab = 'trator';
+        else if (typeStr.includes('máquina') || typeStr.includes('maquina')) restoredTab = 'maquina';
+        else if (typeStr.includes('orçamento') || typeStr.includes('orcamento')) restoredTab = 'orcamento';
+        else if (typeStr.includes('venda')) restoredTab = 'venda';
+        return {
+          ...srv,
+          serviceTab: restoredTab,
+        };
+      }
+      return srv;
+    });
+  }, [localServices]);
+
+  // Filtragem dos registros da aba ativa (Corte, Colheita, Trator, Máquina, Frete, Orçamento)
   const filteredServices = useMemo(() => {
-    return localServices.filter((srv) => {
+    return sanitizedServices.filter((srv) => {
       const typeStr = (srv.serviceType || '').toLowerCase();
       const tabStr = (srv.serviceTab || '').toLowerCase();
       const isFreight = tabStr === 'frete' || typeStr.includes('frete') || typeStr.includes('transporte') || srv.equipmentCategory === 'caminhoes' || !!srv.truckBillingMode;
@@ -393,27 +415,27 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       let matchesTab = false;
 
       if (activeTab === 'corte') {
-        matchesTab = (typeStr.includes('corte') || typeStr.includes('ensilagem') || !srv.serviceType) && !isFreight;
+        matchesTab = (tabStr === 'corte' || typeStr.includes('corte') || typeStr.includes('ensilagem') || (!srv.serviceTab && !srv.serviceType)) && !isFreight;
       } else if (activeTab === 'colheita') {
-        matchesTab = typeStr.includes('colheita') && !isFreight;
+        matchesTab = (tabStr === 'colheita' || typeStr.includes('colheita')) && !isFreight;
       } else if (activeTab === 'trator') {
-        matchesTab = (typeStr.includes('trator') || typeStr.includes('preparo') || typeStr.includes('plantio')) && !isFreight;
+        matchesTab = (tabStr === 'trator' || typeStr.includes('trator') || typeStr.includes('preparo') || typeStr.includes('plantio')) && !isFreight;
       } else if (activeTab === 'maquina') {
         // Máquinas pesadas excluindo frete
-        matchesTab = (typeStr.includes('máquina') || typeStr.includes('maquina')) && !isFreight && srv.equipmentCategory !== 'caminhoes';
+        matchesTab = (tabStr === 'maquina' || typeStr.includes('máquina') || typeStr.includes('maquina')) && !isFreight && srv.equipmentCategory !== 'caminhoes';
       } else if (activeTab === 'frete') {
-        matchesTab = isFreight;
+        matchesTab = isFreight || tabStr === 'frete';
       } else if (activeTab === 'orcamento') {
-        matchesTab = typeStr.includes('orçamento') || typeStr.includes('orcamento');
+        matchesTab = tabStr === 'orcamento' || typeStr.includes('orçamento') || typeStr.includes('orcamento');
       }
 
       if (!matchesTab) return false;
 
-      // REGRA DA ESTEIRA: Na visualização operacional padrão (statusFilter === 'todos'),
-      // registros enviados ao Faturamento ('em_faturamento') ou já Faturados ('faturado') são ocultados
-      // das abas de campo e migram exclusivamente para a aba "FATURAMENTO".
+      // REGRA DA ESTEIRA: Nas abas operacionais (Corte, Colheita, Trator, etc.),
+      // ordens 'agendado' e 'em_andamento' (e 'concluido') PERMANECEM VISÍVEIS E EDITÁVEIS.
+      // Elas só saem da visão operacional quando são explicitamente enviadas ao faturamento ('em_faturamento' ou 'faturado').
       if (statusFilter === 'todos') {
-        if (srv.status === 'em_faturamento' || srv.status === 'faturado') {
+        if (srv.status === 'em_faturamento' || srv.status === 'faturado' || srv.billingStatus === 'faturado') {
           return false;
         }
       } else if (srv.status !== statusFilter) {
@@ -423,16 +445,37 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       // Filtro por texto
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
-        const matchesClient = srv.clientName.toLowerCase().includes(query);
+        const matchesClient = (srv.clientName || '').toLowerCase().includes(query);
         const matchesFarm = (srv.farmName || '').toLowerCase().includes(query);
-        const matchesNumber = (srv.orderNumber || srv.id).toLowerCase().includes(query);
+        const matchesNumber = (srv.orderNumber || srv.id || '').toLowerCase().includes(query);
         const matchesRoute = ((srv.freightOrigin || '') + ' ' + (srv.freightDestination || '')).toLowerCase().includes(query);
         if (!matchesClient && !matchesFarm && !matchesNumber && !matchesRoute) return false;
       }
 
       return true;
     });
-  }, [localServices, activeTab, statusFilter, searchTerm]);
+  }, [sanitizedServices, activeTab, statusFilter, searchTerm]);
+
+  // Determina a aba operacional real para o modal de formulário
+  const modalOperationalTab = useMemo<ServiceTabType>(() => {
+    if (editRecord) {
+      if (editRecord.serviceTab && ['corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento', 'venda'].includes(editRecord.serviceTab)) {
+        return editRecord.serviceTab as ServiceTabType;
+      }
+      const typeStr = (editRecord.serviceType || '').toLowerCase();
+      if (typeStr.includes('colheita')) return 'colheita';
+      if (typeStr.includes('frete') || typeStr.includes('transporte') || editRecord.equipmentCategory === 'caminhoes' || !!editRecord.truckBillingMode) return 'frete';
+      if (typeStr.includes('trator') || typeStr.includes('preparo') || typeStr.includes('plantio')) return 'trator';
+      if (typeStr.includes('máquina') || typeStr.includes('maquina')) return 'maquina';
+      if (typeStr.includes('orçamento') || typeStr.includes('orcamento')) return 'orcamento';
+      if (typeStr.includes('venda')) return 'venda';
+      return 'corte';
+    }
+    if (['corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento', 'venda'].includes(activeTab)) {
+      return activeTab as ServiceTabType;
+    }
+    return 'corte';
+  }, [editRecord, activeTab]);
 
   // Abertura do Modal para Novo Registro
   const handleOpenNew = () => {
@@ -1015,7 +1058,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           setEditRecord(null);
         }}
         onSave={handleSaveService}
-        activeTab={activeTab as ServiceTabType}
+        activeTab={modalOperationalTab}
         clients={clients}
         machineries={machineries}
         employees={employees}

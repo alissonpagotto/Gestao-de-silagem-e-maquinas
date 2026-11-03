@@ -79,7 +79,7 @@ import {
   isThirdPartyTruck
 } from './serviceHelpers';
 
-export type ServiceTabType = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'venda';
+export type ServiceTabType = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'venda' | 'faturamento';
 
 interface ServiceFormModalProps {
   isOpen: boolean;
@@ -108,6 +108,28 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   editRecord,
   onSaveClient,
 }) => {
+  // Aba operacional efetiva: se editRecord já tem um tipo/aba de origem (ex: corte, colheita, trator, frete),
+  // essa natureza é preservada integralmente mesmo quando aberto a partir da aba 'faturamento' ou 'agenda'.
+  const effectiveTab: ServiceTabType = useMemo(() => {
+    if (editRecord?.serviceTab && ['corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento', 'venda'].includes(editRecord.serviceTab)) {
+      return editRecord.serviceTab as ServiceTabType;
+    }
+    if (editRecord?.serviceType) {
+      const t = editRecord.serviceType.toLowerCase();
+      if (t.includes('colheita')) return 'colheita';
+      if (t.includes('frete') || t.includes('transporte') || editRecord.equipmentCategory === 'caminhoes' || !!editRecord.truckBillingMode) return 'frete';
+      if (t.includes('trator') || t.includes('preparo') || t.includes('plantio')) return 'trator';
+      if (t.includes('máquina') || t.includes('maquina')) return 'maquina';
+      if (t.includes('orçamento') || t.includes('orcamento')) return 'orcamento';
+      if (t.includes('venda')) return 'venda';
+      if (t.includes('corte') || t.includes('ensilagem')) return 'corte';
+    }
+    if (['corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento', 'venda'].includes(activeTab as string)) {
+      return activeTab as ServiceTabType;
+    }
+    return 'corte';
+  }, [editRecord, activeTab]);
+
   // Estado para Modal Rápida de Cliente (Nested Dialog)
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
 
@@ -160,13 +182,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
   // 2. Área e Unidades (Corte e Colheita) - Padrão Nova Colheita: [ POR SACAS ] e unidade [ ALQ ]
   const [unidadeArea, setUnidadeArea] = useState<'sacas' | 'hectares' | 'alqueires' | 'hora'>(
-    activeTab === 'colheita' ? 'sacas' : 'hectares'
+    effectiveTab === 'colheita' ? 'sacas' : 'hectares'
   );
   const [quantidadeArea, setQuantidadeArea] = useState<number | ''>('');
   const [areaAlqueiresHectares, setAreaAlqueiresHectares] = useState<number | ''>('');
   const [subUnidadeSacasArea, setSubUnidadeSacasArea] = useState<'HA' | 'ALQ'>('ALQ');
   const [valorPorHectare, setValorPorHectare] = useState<string | number>('');
-  const [pesoPorM3, setPesoPorM3] = useState<number | ''>(activeTab === 'colheita' ? 60 : '');
+  const [pesoPorM3, setPesoPorM3] = useState<number | ''>(effectiveTab === 'colheita' ? 60 : '');
 
   // 3. Bloco Forrageira / Ensiladeira (Borda Amarela)
   const [forrageiraId, setForrageiraId] = useState('');
@@ -402,8 +424,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
   // Lista dinâmica da máquina principal (Colheitadeiras para colheita, Forrageiras para corte)
   const maquinasPrincipaisDisponiveis = useMemo(() => {
-    return (activeTab as string) === 'colheita' ? colheitadeirasDisponiveis : forrageirasDisponiveis;
-  }, [activeTab, colheitadeirasDisponiveis, forrageirasDisponiveis]);
+    return (effectiveTab as string) === 'colheita' ? colheitadeirasDisponiveis : forrageirasDisponiveis;
+  }, [effectiveTab, colheitadeirasDisponiveis, forrageirasDisponiveis]);
 
   // Lista filtrada de Colaboradores cujo Tipo de Cadastro ou Função seja "Agenciador"
   const agenciadoresDisponiveis = useMemo(() => {
@@ -445,9 +467,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setBillingExtra(editRecord.billingExtra !== undefined ? editRecord.billingExtra : '');
       setBilledAt(editRecord.billedAt);
 
-      setUnidadeArea(editRecord.areaUnit || (activeTab === 'colheita' ? 'sacas' : 'hectares'));
+      setUnidadeArea(editRecord.areaUnit || (effectiveTab === 'colheita' ? 'sacas' : 'hectares'));
       setQuantidadeArea(
-        (editRecord.areaUnit || (activeTab === 'colheita' ? 'sacas' : 'hectares')) === 'sacas'
+        (editRecord.areaUnit || (effectiveTab === 'colheita' ? 'sacas' : 'hectares')) === 'sacas'
           ? (editRecord.totalEstimadoSacas ?? editRecord.areaQuantity ?? '')
           : (editRecord.areaQuantity ?? editRecord.areaHectares ?? '')
       );
@@ -566,13 +588,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setHeavyMachineHourlyRate(
         editRecord.machineHourlyRate !== undefined
           ? maskCurrencyBRLInput(editRecord.machineHourlyRate)
-          : editRecord.ratePerUnit !== undefined && activeTab === 'maquina'
+          : editRecord.ratePerUnit !== undefined && effectiveTab === 'maquina'
           ? maskCurrencyBRLInput(editRecord.ratePerUnit)
           : ''
       );
       setTruckServiceId(editRecord.machineryId || '');
       setTruckServiceName(editRecord.machineryAssigned || '');
-      setTruckBillingMode(editRecord.truckBillingMode || (activeTab === 'frete' ? 'km' : 'horas'));
+      setTruckBillingMode(editRecord.truckBillingMode || (effectiveTab === 'frete' ? 'km' : 'horas'));
       setTruckServiceHours(editRecord.truckServiceHours ?? '');
       setTruckServiceHourlyRate(
         editRecord.truckServiceHourlyRate !== undefined ? maskCurrencyBRLInput(editRecord.truckServiceHourlyRate) : ''
@@ -619,7 +641,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setBilledAt(undefined);
 
       // Reset Aba 1 & Frete
-      if (activeTab === 'frete') {
+      if (effectiveTab === 'frete') {
         setEquipmentCategory('caminhoes');
         setTruckBillingMode('km');
         if (frotasCaminhoesDisponiveis.length > 0) {
@@ -1301,7 +1323,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   const activeVehicles = useMemo(() => {
     const list: { vehicleId: string; vehicleType: 'forrageira' | 'trator' | 'caminhao' | 'outro'; vehicleName: string }[] = [];
 
-    if (activeTab === 'frete') {
+    if (effectiveTab === 'frete') {
       list.push({
         vehicleId: truckServiceId || 'veh_truck_service',
         vehicleType: 'caminhao',
@@ -1310,7 +1332,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return list;
     }
 
-    if (activeTab === 'maquina') {
+    if (effectiveTab === 'maquina') {
       if (equipmentCategory === 'pesadas' && heavyMachineType) {
         list.push({
           vehicleId: 'veh_heavy_machine',
@@ -1355,7 +1377,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     });
 
     return list;
-  }, [activeTab, equipmentCategory, heavyMachineType, truckServiceId, truckServiceName, forrageiraId, forrageiraNome, tratorId, tratorNome, trucks]);
+  }, [effectiveTab, equipmentCategory, heavyMachineType, truckServiceId, truckServiceName, forrageiraId, forrageiraNome, tratorId, tratorNome, trucks]);
 
   // Sincroniza a lista fixa de combustível por veículo ativo
   useEffect(() => {
@@ -1446,14 +1468,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return;
     }
 
-    if (activeTab === 'frete') {
+    if (effectiveTab === 'frete') {
       if (!truckServiceId && !truckServiceName) {
         alert('Por favor, selecione o caminhão da frota para o frete.');
         return;
       }
     }
 
-    if (activeTab === 'maquina') {
+    if (effectiveTab === 'maquina') {
       if (equipmentCategory === 'pesadas') {
         if (!heavyMachineType) {
           alert('Por favor, selecione a máquina pesada da frota.');
@@ -1482,15 +1504,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return {
         ...t,
         totalM3: m3,
-        ratioPercent: ratio,
-        distributedValue: distVal,
+        ratioPercent: ratio > 0 ? ratio : (t.ratioPercent ?? 0),
+        distributedValue: distVal > 0 ? distVal : (t.distributedValue ?? 0),
         truckTotalCost: truckCostHoras,
         driverCommissionBase: baseToUse,
         driverCommission: t.driverCommissionMode === 'porcentagem' ? comm.total : (typeof t.driverCommission === 'number' ? t.driverCommission : comm.total),
       };
     });
 
-    const isFreight = activeTab === 'frete';
+    const isFreight = effectiveTab === 'frete';
 
     // REGRA DE NEGÓCIO: Detecção automática de dados parciais/preliminares de execução
     const hasExecutionData = Boolean(
@@ -1514,25 +1536,26 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     const nowIso = new Date().toISOString();
 
     const newService: ServiceOrder = {
+      ...(editRecord || {}),
       id: editRecord?.id || 'serv_' + Date.now(),
       orderNumber: numero || `#${Date.now().toString().slice(-4)}`,
       clientId,
       clientName,
       farmName,
-      serviceType: activeTab === 'frete'
+      serviceType: editRecord?.serviceType || (effectiveTab === 'frete'
         ? 'Serviço de Frete'
-        : activeTab === 'corte'
+        : effectiveTab === 'corte'
         ? 'Corte de Silagem'
-        : activeTab === 'colheita'
+        : effectiveTab === 'colheita'
         ? 'Colheita'
-        : activeTab === 'trator'
+        : effectiveTab === 'trator'
         ? 'Serviço de Trator'
-        : activeTab === 'orcamento'
+        : effectiveTab === 'orcamento'
         ? 'Orçamento Agrícola'
-        : activeTab === 'venda'
+        : effectiveTab === 'venda'
         ? 'Venda de Silagem'
-        : 'Serviço de Máquina',
-      serviceTab: activeTab,
+        : 'Serviço de Máquina'),
+      serviceTab: (editRecord?.serviceTab && editRecord.serviceTab !== 'faturamento') ? editRecord.serviceTab : effectiveTab,
       status: finalStatus,
       billingStatus: isSendingToReceivables ? 'faturado' : isSendingToBilling ? 'pendente' : (billingStatus || 'pendente'),
       billingNotes: billingNotes ? billingNotes.trim().toUpperCase() : undefined,
@@ -1544,34 +1567,34 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       completionDate: completionDate || undefined,
       machineryId: isFreight
         ? (truckServiceId || undefined)
-        : activeTab === 'maquina'
+        : effectiveTab === 'maquina'
         ? (equipmentCategory === 'caminhoes' ? (truckServiceId || undefined) : (machineries.find((m) => (m.name || m.model) === heavyMachineType)?.id || undefined))
         : editRecord?.machineryId,
       machineryAssigned: isFreight
         ? (truckServiceName || 'Caminhão')
-        : activeTab === 'maquina'
+        : effectiveTab === 'maquina'
         ? (equipmentCategory === 'caminhoes' ? (truckServiceName || 'Caminhão') : heavyMachineType)
         : editRecord?.machineryAssigned,
       operatorId: isFreight ? (freightDriverId || undefined) : undefined,
       operatorAssigned: isFreight ? (freightDriverName || undefined) : undefined,
-      equipmentCategory: isFreight ? 'caminhoes' : (activeTab === 'maquina' ? equipmentCategory : undefined),
-      machineSpecificType: activeTab === 'maquina' && equipmentCategory === 'pesadas' ? heavyMachineType : undefined,
-      machineHours: activeTab === 'maquina' && equipmentCategory === 'pesadas' && typeof heavyMachineHours === 'number' ? heavyMachineHours : undefined,
-      machineHourlyRate: activeTab === 'maquina' && equipmentCategory === 'pesadas' ? parseCurrencyToFloat(heavyMachineHourlyRate) : undefined,
+      equipmentCategory: isFreight ? 'caminhoes' : (effectiveTab === 'maquina' ? equipmentCategory : undefined),
+      machineSpecificType: effectiveTab === 'maquina' && equipmentCategory === 'pesadas' ? heavyMachineType : undefined,
+      machineHours: effectiveTab === 'maquina' && equipmentCategory === 'pesadas' && typeof heavyMachineHours === 'number' ? heavyMachineHours : undefined,
+      machineHourlyRate: effectiveTab === 'maquina' && equipmentCategory === 'pesadas' ? parseCurrencyToFloat(heavyMachineHourlyRate) : undefined,
       
       // Frete & Transporte
-      truckBillingMode: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) ? truckBillingMode : undefined,
-      truckServiceHours: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceHours === 'number' ? truckServiceHours : undefined,
-      truckServiceHourlyRate: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceHourlyRate) : undefined,
-      truckServiceLoads: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceLoads === 'number' ? truckServiceLoads : undefined,
-      truckServiceRatePerLoad: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRatePerLoad) : undefined,
-      truckServiceKmAdditional: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceAdditionalKm === 'number' ? truckServiceAdditionalKm : undefined,
-      truckServiceRatePerKm: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRatePerKm) : undefined,
-      truckServiceTotalKm: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceTotalKm === 'number' ? truckServiceTotalKm : undefined,
-      truckServiceRateOnlyKm: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRateOnlyKm) : undefined,
-      truckServiceTrips: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceTrips === 'number' ? truckServiceTrips : undefined,
-      truckServiceRatePerTrip: (isFreight || (activeTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRatePerTrip) : undefined,
-      machineTotalAmount: (isFreight || activeTab === 'maquina') ? subtotalServicoMaquina : undefined,
+      truckBillingMode: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) ? truckBillingMode : undefined,
+      truckServiceHours: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceHours === 'number' ? truckServiceHours : undefined,
+      truckServiceHourlyRate: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceHourlyRate) : undefined,
+      truckServiceLoads: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceLoads === 'number' ? truckServiceLoads : undefined,
+      truckServiceRatePerLoad: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRatePerLoad) : undefined,
+      truckServiceKmAdditional: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceAdditionalKm === 'number' ? truckServiceAdditionalKm : undefined,
+      truckServiceRatePerKm: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRatePerKm) : undefined,
+      truckServiceTotalKm: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceTotalKm === 'number' ? truckServiceTotalKm : undefined,
+      truckServiceRateOnlyKm: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRateOnlyKm) : undefined,
+      truckServiceTrips: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) && typeof truckServiceTrips === 'number' ? truckServiceTrips : undefined,
+      truckServiceRatePerTrip: (isFreight || (effectiveTab === 'maquina' && equipmentCategory === 'caminhoes')) ? parseCurrencyToFloat(truckServiceRatePerTrip) : undefined,
+      machineTotalAmount: (isFreight || effectiveTab === 'maquina') ? subtotalServicoMaquina : undefined,
 
       // Logística / Frete
       freightMaterialType: freightMaterialType || undefined,
@@ -1583,7 +1606,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       // Área
       areaUnit: isFreight
         ? (truckBillingMode === 'horas' ? 'hora' : undefined)
-        : activeTab === 'maquina'
+        : effectiveTab === 'maquina'
         ? (equipmentCategory === 'pesadas' || truckBillingMode === 'horas' ? 'hora' : undefined)
         : unidadeArea,
       areaQuantity: isFreight
@@ -1594,10 +1617,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             : (truckBillingMode === 'cargas' || truckBillingMode === 'cargas_km')
             ? (Number(truckServiceLoads) || undefined)
             : (Number(truckServiceTrips) || undefined))
-        : activeTab === 'maquina'
+        : effectiveTab === 'maquina'
         ? (equipmentCategory === 'pesadas' ? (Number(heavyMachineHours) || undefined) : (truckBillingMode === 'horas' ? (Number(truckServiceHours) || undefined) : (truckBillingMode === 'somente_km' ? (Number(truckServiceTotalKm) || undefined) : (Number(truckServiceLoads) || undefined))))
         : (typeof quantidadeArea === 'number' ? quantidadeArea : undefined),
-      ratePerAreaUnit: (isFreight || activeTab === 'maquina')
+      ratePerAreaUnit: (isFreight || effectiveTab === 'maquina')
         ? undefined
         : parseCurrencyToFloat(valorPorHectare),
       ratePerUnit: isFreight
@@ -1608,12 +1631,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             : (truckBillingMode === 'cargas' || truckBillingMode === 'cargas_km')
             ? parseCurrencyToFloat(truckServiceRatePerLoad)
             : parseCurrencyToFloat(truckServiceRatePerTrip))
-        : activeTab === 'maquina'
+        : effectiveTab === 'maquina'
         ? (equipmentCategory === 'pesadas' ? parseCurrencyToFloat(heavyMachineHourlyRate) : (truckBillingMode === 'horas' ? parseCurrencyToFloat(truckServiceHourlyRate) : (truckBillingMode === 'somente_km' ? parseCurrencyToFloat(truckServiceRateOnlyKm) : parseCurrencyToFloat(truckServiceRatePerLoad))))
         : parseCurrencyToFloat(valorPorHectare),
       densityKg: typeof pesoPorM3 === 'number' ? pesoPorM3 : undefined,
       weightPerM3Kg: typeof pesoPorM3 === 'number' ? pesoPorM3 : undefined,
-      subtotalArea: (isFreight || activeTab === 'maquina') ? subtotalServicoMaquina : valorBaseArea,
+      subtotalArea: (isFreight || effectiveTab === 'maquina') ? subtotalServicoMaquina : valorBaseArea,
       areaHectares: typeof areaAlqueiresHectares === 'number'
         ? areaAlqueiresHectares
         : (unidadeArea === 'hectares' || unidadeArea === 'alqueires'
@@ -2451,7 +2474,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
   // Título e Ícone Dinâmicos por Aba
   const getTabConfig = () => {
-    switch (activeTab) {
+    switch (effectiveTab) {
       case 'colheita':
         return { title: editRecord ? 'Editar Colheita' : 'Nova Colheita', icon: Wheat, color: 'text-amber-600' };
       case 'trator':
@@ -2924,7 +2947,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             </div>
 
             {/* BLOCO CENTRAL: ABA 1. SELEÇÃO DE EQUIPAMENTOS & REGRAS DE COBRANÇA */}
-            {activeTab === 'maquina' && (
+            {effectiveTab === 'maquina' && (
               <div className="bg-white border border-zinc-300 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4">
                 {/* Cabeçalho do Bloco */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2.5">
@@ -3304,7 +3327,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* BLOCO CENTRAL: ABA 1. SERVIÇO DE FRETE & REGRAS DE COBRANÇA */}
-            {activeTab === 'frete' && (
+            {effectiveTab === 'frete' && (
               <div className="bg-white border border-zinc-300 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4">
                 {/* Cabeçalho do Bloco */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2.5">
@@ -3723,7 +3746,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* 2. ÁREA E UNIDADES (CORTE E COLHEITA) */}
-            {(activeTab === 'corte' || activeTab === 'colheita') && (
+            {(effectiveTab === 'corte' || effectiveTab === 'colheita') && (
               <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-300 dark:border-slate-700 pb-2">
                   <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider shrink-0">
@@ -3733,7 +3756,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   {/* Toggle Sacas / Hectares / Alqueires / Hora - 3D Metálico Acetinado */}
                   <div className="inline-flex rounded-lg p-0.5 sm:p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] self-start sm:self-auto text-xs gap-1 shrink-0">
                     {/* 1º [ POR SACAS ] - Exclusiva Colheita */}
-                    {activeTab === 'colheita' && (
+                    {effectiveTab === 'colheita' && (
                       <button
                         type="button"
                         onClick={() => {
@@ -4202,10 +4225,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider">
-                        {(activeTab as string) === 'colheita' ? 'SELECIONE UMA COLHEITADEIRA' : 'Selecione uma Forrageira / Ensiladeira'}
+                        {(effectiveTab as string) === 'colheita' ? 'SELECIONE UMA COLHEITADEIRA' : 'Selecione uma Forrageira / Ensiladeira'}
                       </label>
                       <span className="text-[10px] text-zinc-500 font-semibold uppercase">
-                        {(activeTab as string) === 'colheita'
+                        {(effectiveTab as string) === 'colheita'
                           ? `${colheitadeirasDisponiveis.length} COLHEITADEIRA(S) DISPONÍVEL(IS)`
                           : `${forrageirasDisponiveis.length} forrageira(s) disponível(is)`}
                       </span>
@@ -4215,17 +4238,17 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         type="text"
                         value={forrageiraNome ? forrageiraNome.toUpperCase() : ''}
                         onChange={(e) => setForrageiraNome(e.target.value.toUpperCase())}
-                        placeholder={(activeTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma (Clique para escolher) --"}
+                        placeholder={(effectiveTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma (Clique para escolher) --"}
                         className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm text-zinc-900 placeholder-zinc-400 font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors uppercase"
                       />
                       <select
                         value={forrageiraId}
                         onChange={(e) => handleSelectForrageira(e.target.value)}
                         className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                        title={(activeTab as string) === 'colheita' ? "Selecionar colheitadeira cadastrada" : "Selecionar forrageira cadastrada"}
+                        title={(effectiveTab as string) === 'colheita' ? "Selecionar colheitadeira cadastrada" : "Selecionar forrageira cadastrada"}
                       >
                         <option value="">
-                          {(activeTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma --"}
+                          {(effectiveTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma --"}
                         </option>
                         {maquinasPrincipaisDisponiveis.map((m) => (
                           <option key={m.id} value={m.id}>
@@ -4239,12 +4262,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   {!(forrageiraId || forrageiraNome.trim()) ? (
                     <div className="p-3.5 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-700 shadow-2xs">
                       <p className="font-bold text-zinc-800 uppercase">
-                        {(activeTab as string) === 'colheita'
+                        {(effectiveTab as string) === 'colheita'
                           ? 'NENHUMA COLHEITADEIRA SELECIONADA PARA ESTE SERVIÇO.'
                           : 'Nenhuma forrageira selecionada para este serviço.'}
                       </p>
                       <p className="text-[11px] mt-0.5 text-zinc-600 uppercase">
-                        {(activeTab as string) === 'colheita'
+                        {(effectiveTab as string) === 'colheita'
                           ? 'OS CUSTOS DE COBRANÇA E COMISSÃO DA COLHEITADEIRA ESTÃO ZERADOS E NÃO AFETARÃO O DRE FINAL. PARA SELECIONAR UMA MÁQUINA, CLIQUE NO SELETOR ACIMA.'
                           : 'Os custos de cobrança e comissão da forrageira estão zerados e não afetarão o DRE final. Para selecionar uma máquina, clique no seletor acima.'}
                       </p>
@@ -4255,7 +4278,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                            <span>{(activeTab as string) === 'colheita' ? 'OPERADOR DA COLHEITADEIRA (PRINCIPAL)' : 'OPERADOR DA FORRAGEIRA (PRINCIPAL)'}</span>
+                            <span>{(effectiveTab as string) === 'colheita' ? 'OPERADOR DA COLHEITADEIRA (PRINCIPAL)' : 'OPERADOR DA FORRAGEIRA (PRINCIPAL)'}</span>
                             <span className="text-[10px] text-zinc-700 bg-zinc-100 border border-zinc-200 font-bold px-1.5 py-0.2 rounded shadow-2xs uppercase">AUTOCOMPLETADO</span>
                           </label>
                           <div className="relative">
@@ -4287,7 +4310,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                   }
                                 }}
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                title={(activeTab as string) === 'colheita' ? "Selecionar operador de colheitadeira" : "Selecionar operador de forrageira"}
+                                title={(effectiveTab as string) === 'colheita' ? "Selecionar operador de colheitadeira" : "Selecionar operador de forrageira"}
                               >
                                 <option value="">-- ESCOLHER OPERADOR --</option>
                                 {employees.map((emp) => (
@@ -4302,7 +4325,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                         <div>
                           <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                            <span>{(activeTab as string) === 'colheita' ? 'SEGUNDO OPERADOR (OPCIONAL)' : 'SEGUNDO OPERADOR (OPCIONAL)'}</span>
+                            <span>{(effectiveTab as string) === 'colheita' ? 'SEGUNDO OPERADOR (OPCIONAL)' : 'SEGUNDO OPERADOR (OPCIONAL)'}</span>
                             <span className="text-[10px] text-zinc-500 font-semibold uppercase">INICIA VAZIO</span>
                           </label>
                           <div className="relative">
@@ -4325,7 +4348,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                   setSegundoOperadorForrageiraNome(emp ? emp.name : '');
                                 }}
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                title={(activeTab as string) === 'colheita' ? "Selecionar segundo operador de colheitadeira" : "Selecionar segundo operador de forrageira"}
+                                title={(effectiveTab as string) === 'colheita' ? "Selecionar segundo operador de colheitadeira" : "Selecionar segundo operador de forrageira"}
                               >
                                 <option value="">-- NENHUM SEGUNDO OPERADOR --</option>
                                 {employees.map((emp) => (
@@ -4377,7 +4400,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-zinc-200 pb-2.5">
                           <span className="text-xs font-bold text-zinc-900 uppercase tracking-wide flex items-center gap-1.5 shrink-0">
                             <Calculator className="w-3.5 h-3.5 text-zinc-700" />
-                            {(activeTab as string) === 'colheita' ? 'COMISSÃO DO OPERADOR DA COLHEITADEIRA (INDEPENDENTE)' : 'COMISSÃO DO OPERADOR DA FORRAGEIRA (INDEPENDENTE)'}
+                            {(effectiveTab as string) === 'colheita' ? 'COMISSÃO DO OPERADOR DA COLHEITADEIRA (INDEPENDENTE)' : 'COMISSÃO DO OPERADOR DA FORRAGEIRA (INDEPENDENTE)'}
                           </span>
 
                           {/* Botões de Alternância (Toggles): 4 Opções de Comissão - Alinhados em Linha Única sem Quebras */}
@@ -4560,7 +4583,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* 4. BLOCO TRATOR & COMPACTAÇÃO (BORDA AZUL) COM INDEPENDÊNCIA TOTAL */}
-            {(activeTab === 'corte' || activeTab === 'colheita' || activeTab === 'trator') && (
+            {(effectiveTab === 'corte' || effectiveTab === 'colheita' || effectiveTab === 'trator') && (
               <TractorBlock
                 machineries={machineries}
                 employees={employees}
@@ -4606,7 +4629,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* 5. SEÇÃO DINÂMICA DE FROTAS / CAMINHÕES (DISTRIBUIÇÃO PROPORCIONAL POR M³) */}
-            {(activeTab === 'corte' || activeTab === 'colheita') && (
+            {(effectiveTab === 'corte' || effectiveTab === 'colheita') && (
               <TruckFleetSection
                 trucks={trucks}
                 machineries={machineries}
@@ -4841,7 +4864,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           onClose={() => setShowPrintPreview(false)}
           orderNumber={numero}
           serviceTypeTitle={getTabConfig().title}
-          serviceTab={activeTab}
+          serviceTab={effectiveTab}
           clientName={clientName}
           clientPhone={clients.find((c) => c.id === clientId)?.phone || ''}
           farmName={farmName}

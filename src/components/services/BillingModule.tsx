@@ -489,6 +489,26 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                             {service.farmName}
                           </div>
                         )}
+                        {/* Detalhes de Frota & Equipamentos */}
+                        {((service.trucks && service.trucks.length > 0) || service.forageHarvesterName || service.tractorName || service.machineryAssigned) && (
+                          <div className="text-[10px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5 flex flex-wrap items-center gap-1 uppercase">
+                            {service.forageHarvesterName && (
+                              <span className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1 py-0.2 rounded border border-amber-200 dark:border-amber-800">
+                                FORR: {service.forageHarvesterName}
+                              </span>
+                            )}
+                            {service.tractorName && (
+                              <span className="text-blue-800 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/50 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
+                                TRATOR: {service.tractorName}
+                              </span>
+                            )}
+                            {service.trucks && service.trucks.length > 0 && (
+                              <span className="text-emerald-800 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
+                                FROTA ({service.trucks.length}): {service.trucks.map(t => `${t.truckName || 'CAMINHÃO'} [${t.ratioPercent ? Number(t.ratioPercent).toFixed(1) + '%' : `${t.tripLoads || 0}V`}]`).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {service.billingNotes && (
                           <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold mt-0.5 flex items-center gap-1 uppercase">
                             <span className="bg-blue-50 dark:bg-blue-950/60 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
@@ -620,8 +640,8 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
             {/* Conteúdo da Auditoria */}
             <div className="p-4 space-y-3.5 text-xs text-zinc-800 dark:text-stone-200">
-              {/* Card Resumo do Cliente */}
-              <div className="bg-slate-50 dark:bg-stone-800/60 p-3 rounded-lg border border-slate-200 dark:border-stone-700 space-y-1">
+              {/* Card Resumo do Cliente e Detalhes Operacionais */}
+              <div className="bg-slate-50 dark:bg-stone-800/60 p-3 rounded-lg border border-slate-200 dark:border-stone-700 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-zinc-900 dark:text-white text-sm uppercase">
                     {auditingService.clientName}
@@ -635,8 +655,54 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                     Fazenda: {auditingService.farmName}
                   </div>
                 )}
-                <div className="text-[11px] text-zinc-600 dark:text-stone-300 uppercase">
-                  Serviço: {auditingService.serviceType || 'Prestação Agrícola'}
+                <div className="text-[11px] text-zinc-600 dark:text-stone-300 uppercase flex items-center justify-between">
+                  <span>Serviço: {auditingService.serviceType || 'Prestação Agrícola'}</span>
+                  {auditingService.areaQuantity && (
+                    <span className="font-semibold text-zinc-800 dark:text-stone-200">
+                      {auditingService.areaQuantity} {auditingService.areaUnit || 'ha'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Composição Operacional: Frotas, Maquinários e Ratios */}
+                {((auditingService.trucks && auditingService.trucks.length > 0) || auditingService.forageHarvesterName || auditingService.tractorName) && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-stone-700 space-y-1">
+                    <span className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase block tracking-wider">
+                      Composição da Operação & Frotas
+                    </span>
+                    <div className="flex flex-wrap gap-1 text-[10px]">
+                      {auditingService.forageHarvesterName && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 font-semibold">
+                          FORR: {auditingService.forageHarvesterName}
+                        </span>
+                      )}
+                      {auditingService.tractorName && (
+                        <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 font-semibold">
+                          TRATOR: {auditingService.tractorName}
+                        </span>
+                      )}
+                      {auditingService.trucks && auditingService.trucks.map((trk, i) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 font-semibold">
+                          {trk.truckName || `CAMINHÃO #${i+1}`}: {trk.ratioPercent ? `${Number(trk.ratioPercent).toFixed(1)}% RATIO` : `${trk.tripLoads || 0} CARGAS`}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Link para Inspecionar / Editar a OS Completa */}
+                <div className="pt-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditingService(null);
+                      onOpenServiceModal(auditingService);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 dark:text-blue-400 hover:underline cursor-pointer uppercase"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Inspecionar Ordem Completa & DRE Operacional</span>
+                  </button>
                 </div>
               </div>
 
