@@ -79,8 +79,16 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   // Modal State for "+ Novo" & Edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
+
+  // Total de ordens aguardando auditoria na esteira de Faturamento
+  const pendingBillingCount = useMemo(() => {
+    return localServices.filter(
+      (s) => s.status === 'em_faturamento' && s.billingStatus !== 'faturado' && !s.billedAt
+    ).length;
+  }, [localServices]);
 
   useEffect(() => {
     if (services) {
@@ -303,9 +311,15 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
       if (!matchesTab) return false;
 
-      // Filtro de status
-      if (statusFilter !== 'todos') {
-        if (srv.status !== statusFilter) return false;
+      // REGRA DA ESTEIRA: Na visualização operacional padrão (statusFilter === 'todos'),
+      // registros enviados ao Faturamento ('em_faturamento') ou já Faturados ('faturado') são ocultados
+      // das abas de campo e migram exclusivamente para a aba "FATURAMENTO".
+      if (statusFilter === 'todos') {
+        if (srv.status === 'em_faturamento' || srv.status === 'faturado') {
+          return false;
+        }
+      } else if (srv.status !== statusFilter) {
+        return false;
       }
 
       // Filtro por texto
@@ -451,6 +465,10 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       if (onSaveServices) {
         onSaveServices(updated);
       }
+      setToastMessage(`✓ Ordem #${service.orderNumber || service.id.slice(-4)} (${service.clientName}) enviada com sucesso para a esteira de Faturamento!`);
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 4500);
     }
   };
 
@@ -486,6 +504,23 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         )}
       </header>
 
+      {/* Toast Feedback de Transição de Faturamento */}
+      {toastMessage && (
+        <div className="bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center justify-between gap-3 animate-fade-in border border-blue-500">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-white hover:text-blue-200 p-1 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* ========================================================
           3. MÓDULO DE SERVIÇOS: ABAS MDI TRIDIMENSIONAL + BLOCO ENVOLVIDO
           ======================================================== */}
@@ -499,6 +534,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
             {allowedTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const isBillingTab = tab.id === 'faturamento';
 
               return (
                 <button
@@ -519,6 +555,11 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                     }`} 
                   />
                   <span>{tab.label.toUpperCase()}</span>
+                  {isBillingTab && pendingBillingCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white shadow-2xs leading-none">
+                      {pendingBillingCount}
+                    </span>
+                  )}
                 </button>
               );
             })}

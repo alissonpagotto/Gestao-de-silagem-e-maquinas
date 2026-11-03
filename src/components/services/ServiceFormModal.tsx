@@ -48,6 +48,7 @@ import {
 } from '../../types';
 import { 
   formatCurrencyBRL, 
+  formatDateBR,
   getStoredBrokerSettlements, 
   saveStoredBrokerSettlements,
   getStoredSettlements,
@@ -715,6 +716,45 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setSaveSuccessMessage(null);
     }
   }, [isOpen, editRecord, nextNumber, activeTab]);
+
+  // REGRA DE NEGÓCIO: Mudança automática de status para "em_andamento" ao inserir dados parciais de execução
+  useEffect(() => {
+    if (status !== 'agendado') return;
+
+    const hasPartialExecution = Boolean(
+      (horasTambor && Number(horasTambor) > 0) ||
+      (horasMotor && Number(horasMotor) > 0) ||
+      (qtdCobrancaTrator && Number(qtdCobrancaTrator) > 0) ||
+      (heavyMachineHours && Number(heavyMachineHours) > 0) ||
+      (truckServiceHours && Number(truckServiceHours) > 0) ||
+      (truckServiceLoads && Number(truckServiceLoads) > 0) ||
+      (truckServiceTotalKm && Number(truckServiceTotalKm) > 0) ||
+      (truckServiceTrips && Number(truckServiceTrips) > 0) ||
+      (unidadeArea !== 'sacas' && quantidadeArea && Number(quantidadeArea) > 0) ||
+      (fuelEntries && fuelEntries.some((f) => (Number(f.liters) || 0) > 0)) ||
+      (mealExpenses && mealExpenses.some((m) => (Number(m.amount) || 0) > 0)) ||
+      (trucks && trucks.some((t) => (Number(t.truckHours) || 0) > 0 || (Number(t.tripLoads) || 0) > 0 || (Number(t.additionalKm) || 0) > 0))
+    );
+
+    if (hasPartialExecution) {
+      setStatus('em_andamento');
+    }
+  }, [
+    status,
+    horasTambor,
+    horasMotor,
+    qtdCobrancaTrator,
+    heavyMachineHours,
+    truckServiceHours,
+    truckServiceLoads,
+    truckServiceTotalKm,
+    truckServiceTrips,
+    unidadeArea,
+    quantidadeArea,
+    fuelEntries,
+    mealExpenses,
+    trucks
+  ]);
 
   // Sincroniza dados do cliente ao selecionar no select
   const handleSelectClient = (selectedId: string) => {
@@ -1461,10 +1501,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       (truckServiceHours && Number(truckServiceHours) > 0) ||
       (truckServiceLoads && Number(truckServiceLoads) > 0) ||
       (truckServiceTotalKm && Number(truckServiceTotalKm) > 0) ||
+      (truckServiceTrips && Number(truckServiceTrips) > 0) ||
       (unidadeArea !== 'sacas' && quantidadeArea && Number(quantidadeArea) > 0) ||
-      (fuelEntries && fuelEntries.length > 0) ||
-      (mealExpenses && mealExpenses.length > 0) ||
-      (trucks && trucks.some((t) => (t.truckHours && t.truckHours > 0) || (t.loadsCount && t.loadsCount > 0) || (t.totalAdditionalKm && t.totalAdditionalKm > 0)))
+      (fuelEntries && fuelEntries.some((f) => (Number(f.liters) || 0) > 0)) ||
+      (mealExpenses && mealExpenses.some((m) => (Number(m.amount) || 0) > 0)) ||
+      (trucks && trucks.some((t) => (Number(t.truckHours) || 0) > 0 || (Number(t.tripLoads) || 0) > 0 || (Number(t.additionalKm) || 0) > 0))
     );
 
     const finalStatus = targetStatusOverride || (status === 'agendado' && hasExecutionData ? 'em_andamento' : status);

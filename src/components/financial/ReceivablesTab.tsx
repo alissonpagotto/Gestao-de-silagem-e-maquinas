@@ -141,10 +141,14 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         clientName: s.clientName,
         date: s.date || s.startDate || (s as any).createdAt || '',
         dueDate: s.date || s.startDate || (s as any).createdAt || '',
-        volume: `${s.tonsHarvested || 0} tons / ${s.hoursWorked || 0} hrs`,
+        volume: s.areaQuantity
+          ? `${s.areaQuantity} ${s.areaUnit || 'UN'}`
+          : (s.serviceType || 'Serviço Agrícola'),
         totalAmount: s.totalAmount || 0,
         status: s.status === 'finalizado' || s.paymentStatus === 'pago' ? 'pago' : 'pendente',
-        notes: s.billingNotes || s.farmLocation || '',
+        notes: s.billingNotes
+          ? `${s.serviceType || 'Serviço'}: ${s.billingNotes}`
+          : (s.serviceType || s.farmLocation || ''),
         clientId: (s as any).clientId || (s as any).client_id,
       }));
   }, [localServices]);
