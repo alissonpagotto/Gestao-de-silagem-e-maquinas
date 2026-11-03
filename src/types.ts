@@ -40,6 +40,7 @@ export type PaymentMethod =
   | 'transferencia' 
   | 'dinheiro' 
   | 'cheque'
+  | 'prazo_carteira'
   | 'safra_prazo';
 
 export interface ExpenseCategory {
@@ -198,6 +199,15 @@ export interface SilageOrder {
   freightCost?: number;
   status: 'orcamento' | 'confirmado' | 'em_entrega' | 'entregue' | 'cancelado';
   paymentStatus: 'pendente' | 'parcial' | 'pago';
+  paymentDate?: string;
+  paymentMethod?: PaymentMethod | string;
+  paidAmount?: number;
+  dueDate?: string;
+  isInstallment?: boolean;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  parentOrderId?: string;
+  updatedAt?: string;
   machineryId?: string;
   machineryPlateOrName?: string;
   driverId?: string;
@@ -886,6 +896,13 @@ export interface ServiceOrder {
   paymentStatus?: 'pendente' | 'parcial' | 'pago';
   paymentDate?: string;
   paymentMethod?: string;
+  paidAmount?: number;
+  dueDate?: string;
+  isInstallment?: boolean;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  parentOrderId?: string;
+  updatedAt?: string;
   machineryId?: string;
   machineryAssigned?: string;
   operatorId?: string;

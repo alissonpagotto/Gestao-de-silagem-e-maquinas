@@ -30,10 +30,31 @@ import {
   saveStoredOrders, 
   saveStoredServices,
   getStoredBankTransactions,
-  saveStoredBankTransactions
+  saveStoredBankTransactions,
+  getActiveCompanyId
 } from '../../lib/storage';
 import { toValidUUID } from '../../lib/supabaseService';
-import { ReceivePaymentModal, ReceivableItem } from './ReceivePaymentModal';
+import { 
+  ReceivePaymentModal, 
+  ReceivableItem, 
+  ReceivePaymentSuccessDetails, 
+  InstallmentPreviewItem 
+} from './ReceivePaymentModal';
+
+export const getPaymentMethodLabel = (method?: PaymentMethod | string): string => {
+  switch (method) {
+    case 'dinheiro': return 'Dinheiro';
+    case 'pix': return 'PIX';
+    case 'cartao_credito': return 'Cartão Crédito';
+    case 'cartao_debito': return 'Cartão Débito';
+    case 'transferencia': return 'TED / DOC';
+    case 'cheque': return 'Cheque';
+    case 'prazo_carteira': return 'A prazo (carteira)';
+    case 'safra_prazo': return 'Safra a Prazo';
+    case 'boleto': return 'Boleto';
+    default: return method ? String(method).toUpperCase() : 'Não informado';
+  }
+};
 
 interface ReceivablesTabProps {
   orders: SilageOrder[];
@@ -121,8 +142,10 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       type: 'Venda de Silagem',
       clientName: o.clientName,
       date: o.date || o.deliveryDate || o.createdAt || '',
-      dueDate: o.date || o.deliveryDate || o.createdAt || '',
-      volume: `${o.tons} tons`,
+      dueDate: o.dueDate || o.deliveryDate || o.date || o.createdAt || '',
+      volume: o.isInstallment && o.installmentNumber
+        ? `Parcela ${o.installmentNumber}/${o.totalInstallments} (${o.tons} tons)`
+        : `${o.tons} tons`,
       totalAmount: o.totalAmount,
       status: o.paymentStatus === 'pago' ? 'pago' : 'pendente',
       notes: o.notes || '',
@@ -140,10 +163,12 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         type: 'Prestação de Serviço',
         clientName: s.clientName,
         date: s.date || s.startDate || (s as any).createdAt || '',
-        dueDate: s.date || s.startDate || (s as any).createdAt || '',
-        volume: s.areaQuantity
-          ? `${s.areaQuantity} ${s.areaUnit || 'UN'}`
-          : (s.serviceType || 'Serviço Agrícola'),
+        dueDate: s.dueDate || s.date || s.startDate || (s as any).createdAt || '',
+        volume: s.isInstallment && s.installmentNumber
+          ? `Parcela ${s.installmentNumber}/${s.totalInstallments} (${s.areaQuantity ? `${s.areaQuantity} ${s.areaUnit || 'UN'}` : (s.serviceType || 'Serviço')})`
+          : (s.areaQuantity
+            ? `${s.areaQuantity} ${s.areaUnit || 'UN'}`
+            : (s.serviceType || 'Serviço Agrícola')),
         totalAmount: s.totalAmount || 0,
         status: s.status === 'finalizado' || s.paymentStatus === 'pago' ? 'pago' : 'pendente',
         notes: s.billingNotes
@@ -188,65 +213,220 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     });
   }, [allReceivables, statusFilter, selectedMonthKey, searchTerm]);
 
-  // Executa a baixa com sucesso
-  const handleReceiptSuccess = (details: {
-    itemId: string;
-    itemType: string;
-    paymentMethod: PaymentMethod;
-    paidAmount: number;
-    receiptDate: string;
-    cheque?: FinanceiroCheque;
-    creditoGerado?: number;
-  }) => {
-    // 1. Atualiza ordens de silagem
-    if (details.itemType === 'Venda de Silagem') {
-      const updated = localOrders.map(o => {
-        if (o.id === details.itemId) {
-          return {
-            ...o,
-            paymentStatus: 'pago' as const,
-            paymentMethod: details.paymentMethod,
-            paidAmount: details.paidAmount,
-            paymentDate: details.receiptDate,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return o;
-      });
-      setLocalOrders(updated);
-      saveStoredOrders(updated);
-      if (onSaveOrders) onSaveOrders(updated);
-      if (onToggleOrderStatus) onToggleOrderStatus(details.itemId);
+  // Executa a baixa com sucesso e desdobra parcelas quando aplicável
+  const handleReceiptSuccess = (details: ReceivePaymentSuccessDetails) => {
+    const activeCompanyId = companyProfile?.id || getActiveCompanyId();
+
+    // 1. Atualiza ordens de serviço
+    if (details.itemType === 'Prestação de Serviço') {
+      const targetService = localServices.find(s => s.id === details.itemId);
+
+      if (targetService && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
+        const inst1 = details.installments[0];
+        const isInst1Paid = Boolean(inst1.isPaid);
+
+        // Atualiza o serviço de origem para representar a 1ª parcela
+        const updatedOriginal: ServiceOrder = {
+          ...targetService,
+          totalAmount: inst1.amount,
+          date: targetService.date || targetService.startDate,
+          dueDate: inst1.dueDate,
+          status: isInst1Paid ? ('finalizado' as const) : ('faturado' as const),
+          paymentStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
+          paymentMethod: details.paymentMethod,
+          paymentDate: isInst1Paid ? details.receiptDate : undefined,
+          paidAmount: isInst1Paid ? inst1.amount : 0,
+          billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela 1/${inst1.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`,
+          updatedAt: new Date().toISOString(),
+          isInstallment: true,
+          installmentNumber: 1,
+          totalInstallments: inst1.totalInstallments,
+          parentOrderId: targetService.id,
+        };
+
+        // Cria as parcelas subsequentes (2..N) com status 'pendente' no Contas a Receber
+        const newInstallments: ServiceOrder[] = details.installments.slice(1).map((inst, idx) => ({
+          ...targetService,
+          id: `serv_inst_${targetService.id}_${inst.number}_${Date.now()}_${idx}`,
+          orderNumber: targetService.orderNumber ? `${targetService.orderNumber}-${inst.number}/${inst.totalInstallments}` : undefined,
+          totalAmount: inst.amount,
+          startDate: inst.dueDate,
+          date: inst.dueDate,
+          dueDate: inst.dueDate,
+          billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela ${inst.number}/${inst.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`,
+          status: 'faturado' as const,
+          billingStatus: 'faturado' as const,
+          billedAt: targetService.billedAt || new Date().toISOString(),
+          paymentStatus: 'pendente' as const,
+          paymentMethod: details.paymentMethod,
+          paymentDate: undefined,
+          paidAmount: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isInstallment: true,
+          installmentNumber: inst.number,
+          totalInstallments: inst.totalInstallments,
+          parentOrderId: targetService.id,
+        }));
+
+        const updatedServicesList = [
+          ...localServices.filter(s => s.id !== details.itemId),
+          updatedOriginal,
+          ...newInstallments
+        ];
+
+        setLocalServices(updatedServicesList);
+        saveStoredServices(updatedServicesList);
+        if (onSaveServices) onSaveServices(updatedServicesList);
+
+      } else {
+        // Fluxo padrão sem parcelamento
+        const updated = localServices.map(s => {
+          if (s.id === details.itemId) {
+            return {
+              ...s,
+              status: 'finalizado' as const,
+              paymentStatus: 'pago' as const,
+              paymentMethod: details.paymentMethod,
+              paymentDate: details.receiptDate,
+              paidAmount: details.paidAmount,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return s;
+        });
+        setLocalServices(updated);
+        saveStoredServices(updated);
+        if (onSaveServices) onSaveServices(updated);
+      }
     } 
-    // 2. Atualiza ordens de serviço
-    else if (details.itemType === 'Prestação de Serviço') {
-      const updated = localServices.map(s => {
-        if (s.id === details.itemId) {
-          return {
-            ...s,
-            status: 'finalizado' as const,
-            paymentStatus: 'pago' as const,
-            paymentMethod: details.paymentMethod,
-            paymentDate: details.receiptDate,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return s;
-      });
-      setLocalServices(updated);
-      saveStoredServices(updated);
-      if (onSaveServices) onSaveServices(updated);
+    // 2. Atualiza ordens de venda de silagem
+    else if (details.itemType === 'Venda de Silagem') {
+      const targetOrder = localOrders.find(o => o.id === details.itemId);
+
+      if (targetOrder && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
+        const inst1 = details.installments[0];
+        const isInst1Paid = Boolean(inst1.isPaid);
+
+        // Atualiza a ordem original para a 1ª parcela
+        const updatedOriginalOrder: SilageOrder = {
+          ...targetOrder,
+          totalAmount: inst1.amount,
+          deliveryDate: inst1.dueDate,
+          date: inst1.dueDate,
+          dueDate: inst1.dueDate,
+          paymentStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
+          paymentMethod: details.paymentMethod,
+          paidAmount: isInst1Paid ? inst1.amount : 0,
+          paymentDate: isInst1Paid ? details.receiptDate : undefined,
+          notes: `${targetOrder.notes || ''} (Parcela 1/${inst1.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`.trim(),
+          updatedAt: new Date().toISOString(),
+          isInstallment: true,
+          installmentNumber: 1,
+          totalInstallments: inst1.totalInstallments,
+          parentOrderId: targetOrder.id,
+        };
+
+        // Cria as parcelas subsequentes (2..N) com status 'pendente'
+        const newInstallmentOrders: SilageOrder[] = details.installments.slice(1).map((inst, idx) => ({
+          ...targetOrder,
+          id: `ord_inst_${targetOrder.id}_${inst.number}_${Date.now()}_${idx}`,
+          orderNumber: targetOrder.orderNumber ? `${targetOrder.orderNumber}-${inst.number}/${inst.totalInstallments}` : undefined,
+          totalAmount: inst.amount,
+          deliveryDate: inst.dueDate,
+          date: inst.dueDate,
+          dueDate: inst.dueDate,
+          paymentStatus: 'pendente' as const,
+          paymentMethod: details.paymentMethod,
+          paidAmount: 0,
+          paymentDate: undefined,
+          notes: `${targetOrder.notes || ''} (Parcela ${inst.number}/${inst.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`.trim(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'confirmado' as const,
+          isInstallment: true,
+          installmentNumber: inst.number,
+          totalInstallments: inst.totalInstallments,
+          parentOrderId: targetOrder.id,
+        }));
+
+        const updatedOrdersList = [
+          ...localOrders.filter(o => o.id !== details.itemId),
+          updatedOriginalOrder,
+          ...newInstallmentOrders
+        ];
+
+        setLocalOrders(updatedOrdersList);
+        saveStoredOrders(updatedOrdersList);
+        if (onSaveOrders) onSaveOrders(updatedOrdersList);
+        if (onToggleOrderStatus && isInst1Paid) onToggleOrderStatus(details.itemId);
+
+      } else {
+        // Fluxo padrão sem parcelamento
+        const updated = localOrders.map(o => {
+          if (o.id === details.itemId) {
+            return {
+              ...o,
+              paymentStatus: 'pago' as const,
+              paymentMethod: details.paymentMethod,
+              paidAmount: details.paidAmount,
+              paymentDate: details.receiptDate,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return o;
+        });
+        setLocalOrders(updated);
+        saveStoredOrders(updated);
+        if (onSaveOrders) onSaveOrders(updated);
+        if (onToggleOrderStatus) onToggleOrderStatus(details.itemId);
+      }
     }
 
-    // 3. Monta mensagem de feedback limpa
-    let msg = `Baixa confirmada com sucesso! Conta recebida via ${details.paymentMethod.toUpperCase()}.`;
+    // 3. Registra movimentação no Extrato Bancário / Caixa se houver valor liquidado
+    const isFirstPaid = details.isInstallmentPlan ? Boolean(details.installments?.[0]?.isPaid) : true;
+    const amountReceivedNow = details.isInstallmentPlan 
+      ? (isFirstPaid ? (details.installments?.[0]?.amount || 0) : 0)
+      : details.paidAmount;
+
+    if (details.bankAccountId && amountReceivedNow > 0) {
+      try {
+        const currentTx = getStoredBankTransactions();
+        const clientItem = allReceivables.find(r => r.id === details.itemId);
+        const newTx: BankTransaction = {
+          id: toValidUUID(),
+          bankAccountId: details.bankAccountId,
+          type: 'entrada',
+          sourceType: 'receita',
+          category: details.itemType === 'Venda de Silagem' ? 'Venda de Silagem' : 'Prestação de Serviços',
+          description: details.isInstallmentPlan
+            ? `Recebimento Parcela 1/${details.installments?.length || 1} - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`
+            : `Recebimento - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`,
+          amount: amountReceivedNow,
+          date: details.receiptDate,
+          createdAt: new Date().toISOString()
+        };
+        const updatedTx = [newTx, ...currentTx];
+        saveStoredBankTransactions(updatedTx);
+      } catch (txErr) {
+        console.warn('Aviso: Não foi possível salvar transação bancária vinculada:', txErr);
+      }
+    }
+
+    // 4. Monta mensagem de feedback detalhada e clara
+    let msg = '';
+    if (details.isInstallmentPlan && details.installments && details.installments.length > 1) {
+      msg = `Parcelamento em ${details.installments.length}x confirmado via ${getPaymentMethodLabel(details.paymentMethod)}! ${isFirstPaid ? '1ª parcela baixada como recebida e demais parcelas' : 'Todas as parcelas geradas'} em aberto no Contas a Receber.`;
+    } else {
+      msg = `Baixa confirmada com sucesso! Conta recebida via ${getPaymentMethodLabel(details.paymentMethod)}.`;
+    }
     if (details.creditoGerado && details.creditoGerado > 0) {
       msg += ` Crédito de ${formatCurrencyBRL(details.creditoGerado)} gerado para o cliente.`;
     }
     setSuccessMessage(msg);
     setTimeout(() => {
       setSuccessMessage('');
-    }, 5000);
+    }, 6000);
   };
 
   return (

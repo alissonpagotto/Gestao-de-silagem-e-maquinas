@@ -18,7 +18,10 @@ import {
   HelpCircle,
   Building2,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  WalletCards,
+  Layers,
+  CalendarClock
 } from 'lucide-react';
 import { 
   BankAccount, 
@@ -52,21 +55,36 @@ export interface ReceivableItem {
   clientId?: string;
 }
 
+export interface InstallmentPreviewItem {
+  number: number;
+  totalInstallments: number;
+  dueDate: string;
+  amount: number;
+  isPaid: boolean;
+  notes?: string;
+}
+
+export interface ReceivePaymentSuccessDetails {
+  itemId: string;
+  itemType: string;
+  paymentMethod: PaymentMethod;
+  paidAmount: number;
+  receiptDate: string;
+  cheque?: FinanceiroCheque;
+  creditoGerado?: number;
+  bankAccountId?: string;
+  isInstallmentPlan?: boolean;
+  installments?: InstallmentPreviewItem[];
+  firstPaidImmediately?: boolean;
+}
+
 interface ReceivePaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   item: ReceivableItem | null;
   bankAccounts?: BankAccount[];
   companyProfile?: CompanyProfile;
-  onSuccess?: (details: {
-    itemId: string;
-    itemType: string;
-    paymentMethod: PaymentMethod;
-    paidAmount: number;
-    receiptDate: string;
-    cheque?: FinanceiroCheque;
-    creditoGerado?: number;
-  }) => void;
+  onSuccess?: (details: ReceivePaymentSuccessDetails) => void;
 }
 
 export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
@@ -98,6 +116,11 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   const [chequeEmitenteDoc, setChequeEmitenteDoc] = useState('');
   const [chequeVencimento, setChequeVencimento] = useState(today);
   const [chequeValor, setChequeValor] = useState<number>(0);
+
+  // Opções de Parcelamento
+  const [installmentsCount, setInstallmentsCount] = useState<number>(1);
+  const [installmentsIntervalDays, setInstallmentsIntervalDays] = useState<number>(30);
+  const [firstPaidImmediately, setFirstPaidImmediately] = useState<boolean>(false);
 
   // Upload e Captura de Imagem do Cheque
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -166,6 +189,11 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     setPreviewUrl('');
     setUploadedImageUrl('');
 
+    // Reset Parcelamento
+    setInstallmentsCount(1);
+    setInstallmentsIntervalDays(30);
+    setFirstPaidImmediately(false);
+
     const accountTotal = Number(item.totalAmount) || 0;
     setReceivedAmount(accountTotal);
     setChequeValor(accountTotal);
@@ -207,6 +235,75 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   }, [isCheque, chequeValor, valorComAbatimento]);
 
   const chequeGeraCredito = isCheque && diferencaCheque > 0.009;
+
+  // Bloco de Parcelamento Permitido Apenas para Cartão Crédito, Cheque e A Prazo (Carteira)
+  const isInstallmentEligible = 
+    paymentMethod === 'cartao_credito' || 
+    paymentMethod === 'cheque' || 
+    paymentMethod === 'prazo_carteira' || 
+    paymentMethod === 'safra_prazo';
+
+  // Prévia em tempo real das parcelas calculadas com tratamento de centavos
+  const previewInstallments: InstallmentPreviewItem[] = useMemo(() => {
+    const totalToDivide = isCheque ? chequeValor : valorComAbatimento;
+
+    if (!isInstallmentEligible || installmentsCount <= 1) {
+      return [{
+        number: 1,
+        totalInstallments: 1,
+        dueDate: isCheque ? chequeVencimento : receiptDate,
+        amount: totalToDivide,
+        isPaid: true
+      }];
+    }
+
+    const totalCents = Math.round(totalToDivide * 100);
+    const count = Math.max(1, Math.min(24, installmentsCount));
+    const baseCents = Math.floor(totalCents / count);
+    const remainderCents = totalCents - (baseCents * count);
+
+    const items: InstallmentPreviewItem[] = [];
+    const baseDateStr = receiptDate || today;
+
+    // Helper para cálculo seguro de data somando dias corridos
+    const computeDate = (baseStr: string, addDays: number): string => {
+      const parts = baseStr.split('-').map(Number);
+      const dt = new Date(parts[0] || 2026, (parts[1] || 1) - 1, (parts[2] || 1) + addDays);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    for (let i = 1; i <= count; i++) {
+      // Ajusta resíduo de centavos na primeira parcela para garantir fechamento de 100% do título
+      const cents = i === 1 ? baseCents + remainderCents : baseCents;
+      const amount = cents / 100;
+
+      let daysOffset = 0;
+      let isPaid = false;
+
+      if (firstPaidImmediately) {
+        daysOffset = (i - 1) * installmentsIntervalDays;
+        isPaid = i === 1;
+      } else {
+        daysOffset = i * installmentsIntervalDays;
+        isPaid = false;
+      }
+
+      const dueDate = computeDate(baseDateStr, daysOffset);
+
+      items.push({
+        number: i,
+        totalInstallments: count,
+        dueDate,
+        amount,
+        isPaid
+      });
+    }
+
+    return items;
+  }, [isInstallmentEligible, installmentsCount, isCheque, chequeVencimento, chequeValor, valorComAbatimento, receiptDate, today, installmentsIntervalDays, firstPaidImmediately]);
 
   // Gerenciador de Arquivo do Cheque (Câmera ou Upload)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -336,8 +433,11 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
         }
       }
 
+      // 4. Se for parcelamento ativo:
+      const isInstallmentActive = isInstallmentEligible && installmentsCount > 1;
+
       // Feedback de Sucesso
-      setSuccessToast('Conta baixada com sucesso!');
+      setSuccessToast(isInstallmentActive ? `Parcelamento em ${installmentsCount}x gerado com sucesso!` : 'Conta baixada com sucesso!');
 
       if (onSuccess) {
         onSuccess({
@@ -347,7 +447,11 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           paidAmount: isCheque ? chequeValor : (receivedAmount || valorComAbatimento),
           receiptDate,
           cheque: savedCheque,
-          creditoGerado: chequeGeraCredito ? diferencaCheque : undefined
+          creditoGerado: chequeGeraCredito ? diferencaCheque : undefined,
+          bankAccountId: selectedBankAccountId,
+          isInstallmentPlan: isInstallmentActive,
+          installments: isInstallmentActive ? previewInstallments : undefined,
+          firstPaidImmediately: isInstallmentActive ? firstPaidImmediately : true
         });
       }
 
@@ -487,19 +591,20 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             </div>
           </div>
 
-          {/* 1. SELETOR FORMA DE PAGAMENTO (COM CHEQUE EM DESTAQUE) */}
+          {/* 1. SELETOR FORMA DE PAGAMENTO (COM CHEQUE E A PRAZO EM DESTAQUE) */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1.5">
               Forma de Pagamento <span className="text-rose-600">*</span>
             </label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
               {[
                 { id: 'dinheiro', label: 'Dinheiro', icon: Wallet },
                 { id: 'pix', label: 'PIX', icon: Sparkles },
-                { id: 'cartao_credito', label: 'Cartão Crédito', icon: CreditCard },
+                { id: 'cartao_credito', label: 'Cartão Crédito', icon: CreditCard, highlight: true },
                 { id: 'cartao_debito', label: 'Cartão Débito', icon: CreditCard },
                 { id: 'transferencia', label: 'TED / DOC', icon: Landmark },
-                { id: 'cheque', label: 'Cheque', icon: FileText, highlight: true }
+                { id: 'cheque', label: 'Cheque', icon: FileText, highlight: true },
+                { id: 'prazo_carteira', label: 'A prazo (carteira)', icon: WalletCards, highlight: true }
               ].map((opt) => {
                 const Icon = opt.icon;
                 const isSelected = paymentMethod === opt.id;
@@ -507,22 +612,166 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => setPaymentMethod(opt.id as PaymentMethod)}
+                    onClick={() => {
+                      const nextMethod = opt.id as PaymentMethod;
+                      setPaymentMethod(nextMethod);
+                      if (nextMethod !== 'cartao_credito' && nextMethod !== 'cheque' && nextMethod !== 'prazo_carteira' && nextMethod !== 'safra_prazo') {
+                        setInstallmentsCount(1);
+                      }
+                    }}
                     className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition cursor-pointer ${
                       isSelected
-                        ? opt.highlight
+                        ? opt.id === 'prazo_carteira'
+                          ? 'border-amber-600 bg-amber-50 text-amber-950 font-black shadow-xs ring-2 ring-amber-500'
+                          : opt.highlight
                           ? 'border-sky-600 bg-sky-50 text-sky-950 font-black shadow-xs ring-2 ring-sky-500'
                           : 'border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-xs ring-2 ring-emerald-500'
                         : 'border-slate-200 bg-white hover:bg-slate-50 text-black font-semibold'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 mb-1 ${isSelected ? (opt.highlight ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-600'}`} />
+                    <Icon className={`w-4 h-4 mb-1 ${
+                      isSelected 
+                        ? opt.id === 'prazo_carteira' ? 'text-amber-700' : opt.highlight ? 'text-sky-700' : 'text-emerald-700' 
+                        : 'text-slate-600'
+                    }`} />
                     <span className="text-[11px] leading-tight">{opt.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {/* 2. BLOCO CONDICIONAL DE PARCELAMENTO (CARTÃO CRÉDITO, CHEQUE, A PRAZO CARTEIRA) */}
+          {isInstallmentEligible && (
+            <div className="border border-sky-300 dark:border-stone-700 bg-sky-50/50 dark:bg-stone-850/60 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-sky-200 dark:border-stone-700 pb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 rounded bg-sky-700 text-white">
+                    <Layers className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100">
+                    Opções de Parcelamento
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
+                  {installmentsCount > 1 
+                    ? `${installmentsCount}x de ${formatCurrencyBRL((isCheque ? chequeValor : valorComAbatimento) / installmentsCount)}` 
+                    : 'À Vista (1x)'}
+                </span>
+              </div>
+
+              {/* Grid: Quantidade de Parcelas, Intervalo entre Parcelas e Entrada */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Quantidade de Parcelas */}
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-200 mb-1">
+                    QUANTIDADE DE PARCELAS
+                  </label>
+                  <select
+                    value={installmentsCount}
+                    onChange={(e) => setInstallmentsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-bold outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
+                  >
+                    <option value={1}>1x (À vista - Sem parcelar)</option>
+                    {Array.from({ length: 11 }, (_, i) => i + 2).map((num) => (
+                      <option key={num} value={num}>
+                        {num}x parcelas ({formatCurrencyBRL((isCheque ? chequeValor : valorComAbatimento) / num)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Intervalo entre Parcelas (Dias) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-200 mb-1">
+                    INTERVALO ENTRE PARCELAS (DIAS)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      disabled={installmentsCount <= 1}
+                      value={installmentsIntervalDays}
+                      onChange={(e) => setInstallmentsIntervalDays(Math.max(1, parseInt(e.target.value) || 30))}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-bold outline-none focus:ring-2 focus:ring-sky-600 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-stone-800"
+                    />
+                    <span className="absolute right-3 top-2 text-[10px] text-slate-500 font-bold">dias</span>
+                  </div>
+                </div>
+
+                {/* 1ª Parcela recebida hoje como Entrada */}
+                <div className="flex flex-col justify-end">
+                  <label className={`flex items-center space-x-2 p-2 rounded-xl border transition cursor-pointer text-xs font-bold ${
+                    firstPaidImmediately && installmentsCount > 1
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200' 
+                      : 'bg-white dark:bg-stone-900 border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-300'
+                  } ${installmentsCount <= 1 ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={firstPaidImmediately && installmentsCount > 1}
+                      disabled={installmentsCount <= 1}
+                      onChange={(e) => setFirstPaidImmediately(e.target.checked)}
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <span className="text-[11px] leading-tight">
+                      1ª Parcela recebida hoje (Entrada)
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Tabela / Preview de Parcelas em Tempo Real */}
+              {installmentsCount > 1 && (
+                <div className="mt-2 space-y-1.5 pt-2 border-t border-sky-200 dark:border-stone-700">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-stone-300 px-1">
+                    <span className="uppercase tracking-wide">PRÉVIA DAS PARCELAS ({previewInstallments.length} PARCELAS)</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-black">
+                      Total: {formatCurrencyBRL(previewInstallments.reduce((sum, p) => sum + p.amount, 0))}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-stone-800 max-h-44 overflow-y-auto">
+                    {previewInstallments.map((inst) => (
+                      <div 
+                        key={inst.number} 
+                        className={`flex items-center justify-between px-3 py-2 text-xs transition ${
+                          inst.isPaid 
+                            ? 'bg-emerald-50/70 dark:bg-emerald-950/20 text-emerald-950 dark:text-emerald-200' 
+                            : 'hover:bg-slate-50 dark:hover:bg-stone-800 text-slate-800 dark:text-stone-200'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <span className="w-6 h-6 rounded-md bg-slate-100 dark:bg-stone-800 font-black text-slate-700 dark:text-stone-300 flex items-center justify-center text-[10px] shrink-0">
+                            {inst.number}ª
+                          </span>
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              Parcela {inst.number}/{inst.totalInstallments}
+                            </span>
+                            <span className="text-[11px] text-slate-500 dark:text-stone-400 ml-2">
+                              Vencimento: <strong className="text-slate-800 dark:text-stone-200">{formatDateBR(inst.dueDate)}</strong>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <span className="font-black font-['Outfit'] text-slate-900 dark:text-white">
+                            {formatCurrencyBRL(inst.amount)}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            inst.isPaid
+                              ? 'bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                              : 'bg-sky-50 border-sky-200 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+                          }`}>
+                            {inst.isPaid ? 'Recebido (Entrada)' : 'A Receber'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* BLOCO ESPECÍFICO DINÂMICO: FORMULÁRIO DO CHEQUE */}
           {isCheque && (
@@ -748,6 +997,8 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           <div className="text-[11px] text-black/70 font-semibold">
             {isCheque ? (
               <span>Total do Cheque: <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(chequeValor)}</strong></span>
+            ) : isInstallmentEligible && installmentsCount > 1 ? (
+              <span>Total Parcelado ({installmentsCount}x): <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(valorComAbatimento)}</strong></span>
             ) : (
               <span>Total a Liquidar: <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(valorComAbatimento)}</strong></span>
             )}
@@ -770,7 +1021,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition cursor-pointer shadow-xs flex items-center space-x-1.5 active:scale-95 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>{isSubmitting ? 'Gravando...' : 'Confirmar Recebimento'}</span>
+              <span>{isSubmitting ? 'Gravando...' : isInstallmentEligible && installmentsCount > 1 ? 'Confirmar Parcelamento / Baixa' : 'Confirmar Recebimento'}</span>
             </button>
           </div>
         </div>
