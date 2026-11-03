@@ -184,13 +184,13 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
                     String(err?.message || '').toLowerCase().includes('exceeded');
     
     if (!isQuota) {
-      console.warn(`[safeLocalStorageSetItem] Erro ao gravar chave "${key}":`, err);
+      console.warn(`[safeLocalStorageSetItem] Erro não-cota ao gravar chave "${key}":`, err);
       return false;
     }
 
     try {
-      // 1. Purgar chaves efêmeras, caches e snapshots antigos
-      const purgePatterns = [
+      // 1. Purgar chaves efêmeras, caches, backups e snapshots antigos
+      const purgeSubstrings = [
         'debug_',
         '_temp_',
         'colaca_silagem_backup_',
@@ -198,12 +198,45 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
         'colaca_silagem_rascunho_',
         'colaca_silagem_cache_',
         'silagem_facil_cache_',
-        'silagem_facil_clean_v1_backup_'
+        'silagem_facil_clean_v1_backup_',
+        'backup',
+        'rascunho',
+        '_temp',
+        'temp_'
       ];
 
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
-        if (k && purgePatterns.some(p => k.startsWith(p) || k.includes('_cache_') || k.includes('_temp_'))) {
+        if (k && purgeSubstrings.some(p => k.toLowerCase().includes(p))) {
+          localStorage.removeItem(k);
+        }
+      }
+
+      // 2. Limpar cópias espelho legadas duplicadas (silagem_facil_clean_v1_*)
+      const legacyMirrors = [
+        'silagem_facil_clean_v1_inventory',
+        'silagem_facil_clean_v1_machineries',
+        'silagem_facil_clean_v1_tire_inventory',
+        'silagem_facil_clean_v1_fuel_logs',
+        'silagem_facil_clean_v1_maintenance_logs',
+        'silagem_facil_clean_v1_expenses',
+        'silagem_facil_clean_v1_employees',
+        'silagem_facil_clean_v1_clients',
+        'silagem_facil_clean_v1_orders',
+        'silagem_facil_clean_v1_services',
+        'silagem_facil_clean_v1_bank_accounts',
+        'silagem_facil_clean_v1_bank_transactions'
+      ];
+      for (const legacyKey of legacyMirrors) {
+        if (legacyKey !== key) {
+          localStorage.removeItem(legacyKey);
+        }
+      }
+
+      // 3. Limpar chaves duplicadas com escopo de empresa antigo (ex: colaca_silagem_*_default)
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.endsWith('_default') || k.endsWith('_company_default_fazenda') || k.includes('_undefined'))) {
           localStorage.removeItem(k);
         }
       }
@@ -213,39 +246,16 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
       return true;
     } catch {
       try {
-        // 2. Se ainda assim a cota estiver no limite, limpa chaves de log antigas ou snapshots
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const k = localStorage.key(i);
-          if (k && (k.includes('backup') || k.includes('rascunho') || k.endsWith('_temp'))) {
-            localStorage.removeItem(k);
-          }
-        }
-        localStorage.setItem(key, value);
-        return true;
-      } catch {
-        try {
-          // 3. Se ainda assim estiver sem espaço, remove chaves espelho antigas (silagem_facil_clean_v1_*)
-          // que já possuem dados garantidos na chave padronizada agrocontrol_*
-          const legacyMirrors = [
-            'silagem_facil_clean_v1_inventory',
-            'silagem_facil_clean_v1_machineries',
-            'silagem_facil_clean_v1_tire_inventory',
-            'silagem_facil_clean_v1_fuel_logs',
-            'silagem_facil_clean_v1_maintenance_logs',
-            'silagem_facil_clean_v1_expenses',
-            'silagem_facil_clean_v1_employees'
-          ];
-          for (const legacyKey of legacyMirrors) {
-            if (legacyKey !== key) {
-              localStorage.removeItem(legacyKey);
-            }
-          }
-          localStorage.setItem(key, value);
+        // 4. Se ainda assim a cota estiver no limite, verifica se o valor contém fotos/imagens base64 grandes
+        if (value.includes('data:image')) {
+          const stripped = value.replace(/"data:image\/[^;]+;base64,[^"]+"/g, '""');
+          localStorage.setItem(key, stripped);
           return true;
-        } catch {
-          // 4. Último recurso seguro: não quebra a execução e mantém em memória
-          return false;
         }
+        return false;
+      } catch {
+        // 5. Contingência final: mantém os dados na memória reativa da aplicação sem quebrar
+        return false;
       }
     }
   }
@@ -364,9 +374,9 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
 
 export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL, JSON.stringify(tanques));
+    safeLocalStorageSetItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL, JSON.stringify(tanques));
   } catch (e) {
-    console.error('Failed to save tanques_combustivel', e);
+    console.warn('Failed to save tanques_combustivel', e);
   }
 }
 
@@ -548,17 +558,17 @@ export function saveStoredCategories(categories: ExpenseCategory[]): void {
   try {
     const list = Array.isArray(categories) && categories.length > 0 ? categories : INITIAL_CATEGORIES;
     const json = JSON.stringify(list);
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, json);
-    localStorage.setItem('agrocontrol_categorias_despesas', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.CATEGORIES, json);
+    safeLocalStorageSetItem('agrocontrol_categorias_despesas', json);
     const currentPlano = localStorage.getItem('agrocontrol_plano_contas');
     if (!currentPlano || currentPlano.startsWith('[')) {
-      localStorage.setItem('agrocontrol_plano_contas', json);
+      safeLocalStorageSetItem('agrocontrol_plano_contas', json);
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_categories_updated', { detail: list }));
     }
   } catch (e) {
-    console.error('Failed to save categories', e);
+    console.warn('Failed to save categories', e);
   }
 }
 
@@ -579,20 +589,20 @@ export function getStoredCostCenters(): CostCenter[] {
 export function saveStoredCostCenters(centers: CostCenter[]): void {
   try {
     const json = JSON.stringify(centers);
-    localStorage.setItem('agrocontrol_centros_custo', json);
-    localStorage.setItem(STORAGE_KEYS.COST_CENTERS, json);
-    localStorage.setItem('colaca_silagem_centros_custo', json);
+    safeLocalStorageSetItem('agrocontrol_centros_custo', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.COST_CENTERS, json);
+    safeLocalStorageSetItem('colaca_silagem_centros_custo', json);
   } catch (e) {
-    console.error('Failed to save cost centers', e);
+    console.warn('Failed to save cost centers', e);
   }
 }
 
 export function saveActiveNfeDraft(draft: any): void {
   try {
     if (!draft) return;
-    localStorage.setItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA, JSON.stringify(draft));
+    safeLocalStorageSetItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA, JSON.stringify(draft));
   } catch (e) {
-    console.error('Failed to save active NFe draft', e);
+    console.warn('Failed to save active NFe draft', e);
   }
 }
 
@@ -860,9 +870,9 @@ export function getStoredSeasons(): CropSeason[] {
 
 export function saveStoredSeasons(seasons: CropSeason[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SEASONS, JSON.stringify(seasons));
+    safeLocalStorageSetItem(STORAGE_KEYS.SEASONS, JSON.stringify(seasons));
   } catch (e) {
-    console.error('Failed to save seasons', e);
+    console.warn('Failed to save seasons', e);
   }
 }
 
@@ -1028,9 +1038,9 @@ export function getStoredFleetTeams(): FleetTeam[] {
 
 export function saveStoredFleetTeams(teams: FleetTeam[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.FLEET_TEAMS, JSON.stringify(teams));
+    safeLocalStorageSetItem(STORAGE_KEYS.FLEET_TEAMS, JSON.stringify(teams));
   } catch (e) {
-    console.error('Failed to save fleet teams', e);
+    console.warn('Failed to save fleet teams', e);
   }
 }
 
@@ -1050,10 +1060,10 @@ export function getStoredSuppliers(): Supplier[] {
 
 export function saveStoredSuppliers(suppliers: Supplier[]): void {
   try {
-    localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(suppliers));
-    localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(suppliers));
+    safeLocalStorageSetItem('agrocontrol_fornecedores', JSON.stringify(suppliers));
+    safeLocalStorageSetItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(suppliers));
   } catch (e) {
-    console.error('Failed to save suppliers', e);
+    console.warn('Failed to save suppliers', e);
   }
 }
 
@@ -1839,12 +1849,13 @@ export function saveStoredServices(services: ServiceOrder[]): void {
     const json = JSON.stringify(cleaned);
     if (json === lastSavedServicesJson) return;
     lastSavedServicesJson = json;
-    localStorage.setItem(STORAGE_KEYS.SERVICES, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.SERVICES, json);
+    safeLocalStorageSetItem('agrocontrol_servicos', json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: cleaned }));
     }
   } catch (e) {
-    console.error('Failed to save services', e);
+    console.warn('Failed to save services', e);
   }
 }
 
@@ -1867,7 +1878,7 @@ export function getStoredAppointments(): ServiceAppointment[] {
       return !isMock && !isMockId;
     });
     if (cleaned.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(cleaned));
+      safeLocalStorageSetItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(cleaned));
     }
     return cleaned;
   } catch (e) {
@@ -1882,19 +1893,21 @@ export function saveStoredAppointments(appointments: ServiceAppointment[]): void
     const json = JSON.stringify(appointments);
     if (json === lastSavedAppointmentsJson) return;
     lastSavedAppointmentsJson = json;
-    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.APPOINTMENTS, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_appointments_updated', { detail: appointments }));
     }
   } catch (e) {
-    console.error('Failed to save appointments', e);
+    console.warn('Failed to save appointments', e);
   }
 }
 
 
+let lastSavedFuelLogsJson = '';
+
 export function getStoredFuelLogs(): FuelLog[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.FUEL_LOGS);
+    const raw = localStorage.getItem('agrocontrol_abastecimentos') || localStorage.getItem(STORAGE_KEYS.FUEL_LOGS);
     if (!raw) return INITIAL_FUEL_LOGS;
     return JSON.parse(raw);
   } catch (e) {
@@ -1904,15 +1917,22 @@ export function getStoredFuelLogs(): FuelLog[] {
 
 export function saveStoredFuelLogs(logs: FuelLog[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.FUEL_LOGS, JSON.stringify(logs));
+    const json = JSON.stringify(logs);
+    if (json === lastSavedFuelLogsJson) return;
+    lastSavedFuelLogsJson = json;
+    safeLocalStorageSetItem(STORAGE_KEYS.FUEL_LOGS, json);
+    safeLocalStorageSetItem('agrocontrol_abastecimentos', json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_fuel_updated', { detail: logs }));
+    }
   } catch (e) {
-    console.error('Failed to save fuel logs', e);
+    console.warn('Aviso não-bloqueante ao salvar fuel logs:', e);
   }
 }
 
 export function getStoredMaintenanceLogs(): MaintenanceLog[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.MAINTENANCE_LOGS);
+    const raw = localStorage.getItem('agrocontrol_manutencoes') || localStorage.getItem(STORAGE_KEYS.MAINTENANCE_LOGS);
     if (raw === null) return INITIAL_MAINTENANCE_LOGS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_MAINTENANCE_LOGS;
@@ -1933,12 +1953,13 @@ export function saveStoredMaintenanceLogs(logs: MaintenanceLog[]): void {
     const json = JSON.stringify(logs);
     if (json === lastSavedMaintenanceLogsJson) return;
     lastSavedMaintenanceLogsJson = json;
-    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.MAINTENANCE_LOGS, json);
+    safeLocalStorageSetItem('agrocontrol_manutencoes', json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_maintenance_updated', { detail: logs }));
     }
   } catch (e) {
-    console.error('Failed to save maintenance logs', e);
+    console.warn('Aviso não-bloqueante ao salvar maintenance logs:', e);
   }
 }
 
@@ -2289,9 +2310,9 @@ function getStoredList<T = string>(key: string, defaultList: T[]): T[] {
 
 function saveStoredList<T = any>(key: string, list: T[]): void {
   try {
-    localStorage.setItem(key, JSON.stringify(list));
+    safeLocalStorageSetItem(key, JSON.stringify(list));
   } catch (e) {
-    console.error('Failed to save list for key ' + key, e);
+    console.warn('Failed to save list for key ' + key, e);
   }
 }
 
@@ -2724,9 +2745,9 @@ export function getStoredBankTransactions(): BankTransaction[] {
 
 export function saveStoredBankTransactions(transactions: BankTransaction[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.BANK_TRANSACTIONS, JSON.stringify(transactions));
+    safeLocalStorageSetItem(STORAGE_KEYS.BANK_TRANSACTIONS, JSON.stringify(transactions));
   } catch (e) {
-    console.error('Failed to save bank transactions', e);
+    console.warn('Failed to save bank transactions', e);
   }
 }
 
@@ -2747,12 +2768,12 @@ export function saveStoredSettlements(settlements: ThirdPartySettlement[]): void
     const json = JSON.stringify(settlements);
     if (json === lastSavedSettlementsJson) return;
     lastSavedSettlementsJson = json;
-    localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.SETTLEMENTS, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_settlements_updated', { detail: settlements }));
     }
   } catch (e) {
-    console.error('Failed to save settlements', e);
+    console.warn('Failed to save settlements', e);
   }
 }
 
@@ -2768,9 +2789,9 @@ export function getStoredBrokerSettlements(): BrokerSettlement[] {
 
 export function saveStoredBrokerSettlements(settlements: BrokerSettlement[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.BROKER_SETTLEMENTS, JSON.stringify(settlements));
+    safeLocalStorageSetItem(STORAGE_KEYS.BROKER_SETTLEMENTS, JSON.stringify(settlements));
   } catch (e) {
-    console.error('Failed to save broker settlements', e);
+    console.warn('Failed to save broker settlements', e);
   }
 }
 
@@ -2787,9 +2808,9 @@ export function getStoredPayrolls(): PayrollRecord[] {
 
 export function saveStoredPayrolls(payrolls: PayrollRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PAYROLLS, JSON.stringify(payrolls));
+    safeLocalStorageSetItem(STORAGE_KEYS.PAYROLLS, JSON.stringify(payrolls));
   } catch (e) {
-    console.error('Failed to save payrolls', e);
+    console.warn('Failed to save payrolls', e);
   }
 }
 
@@ -2810,9 +2831,9 @@ export function getStoredVacations(): VacationRecord[] {
 
 export function saveStoredVacations(vacations: VacationRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(vacations));
+    safeLocalStorageSetItem(STORAGE_KEYS.VACATIONS, JSON.stringify(vacations));
   } catch (e) {
-    console.error('Failed to save vacations', e);
+    console.warn('Failed to save vacations', e);
   }
 }
 
@@ -2829,9 +2850,9 @@ export function getStoredLeaves(): LeaveRecord[] {
 
 export function saveStoredLeaves(leaves: LeaveRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.LEAVES, JSON.stringify(leaves));
+    safeLocalStorageSetItem(STORAGE_KEYS.LEAVES, JSON.stringify(leaves));
   } catch (e) {
-    console.error('Failed to save leaves', e);
+    console.warn('Failed to save leaves', e);
   }
 }
 
@@ -3124,15 +3145,15 @@ export function saveStoredAbsences(absences: AbsenceRecord[]): void {
 
     const json = JSON.stringify(sanitized);
     // Grava estritamente no array da chave 'agrocontrol_faltas' (e secundárias de faltas, NUNCA em adiantamentos)
-    localStorage.setItem('agrocontrol_faltas', json);
-    localStorage.setItem(STORAGE_KEYS.ABSENCES, json);
-    localStorage.setItem('colaca_silagem_rh_faltas', json);
+    safeLocalStorageSetItem('agrocontrol_faltas', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.ABSENCES, json);
+    safeLocalStorageSetItem('colaca_silagem_rh_faltas', json);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_absences_updated', { detail: sanitized }));
     }
   } catch (e) {
-    console.error('Failed to save absences', e);
+    console.warn('Failed to save absences', e);
   }
 }
 
@@ -3169,14 +3190,14 @@ export function saveStoredTerminations(terminations: TerminationRecord[]): void 
     const json = JSON.stringify(terminations);
     if (json === lastSavedTerminationsJson) return;
     lastSavedTerminationsJson = json;
-    localStorage.setItem('agrocontrol_rescisao', json);
-    localStorage.setItem('colaca_silagem_rh_rescisao', json);
-    localStorage.setItem(STORAGE_KEYS.TERMINATIONS, json);
+    safeLocalStorageSetItem('agrocontrol_rescisao', json);
+    safeLocalStorageSetItem('colaca_silagem_rh_rescisao', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.TERMINATIONS, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: terminations }));
     }
   } catch (e) {
-    console.error('Failed to save terminations', e);
+    console.warn('Failed to save terminations', e);
   }
 }
 
@@ -3196,17 +3217,17 @@ export function getStoredVehicleTypes(): VehicleTypeDefinition[] {
       categoryKey: t.categoryKey || 'personalizado',
     }));
   } catch (e) {
-    console.error('Failed to load vehicle types', e);
+    console.warn('Failed to load vehicle types', e);
     return INITIAL_VEHICLE_TYPES;
   }
 }
 
 export function saveStoredVehicleTypes(types: VehicleTypeDefinition[]): void {
   try {
-    localStorage.setItem('colaca_silagem_tipos_veiculos', JSON.stringify(types));
-    localStorage.setItem(STORAGE_KEYS.VEHICLE_TYPES, JSON.stringify(types));
+    safeLocalStorageSetItem('colaca_silagem_tipos_veiculos', JSON.stringify(types));
+    safeLocalStorageSetItem(STORAGE_KEYS.VEHICLE_TYPES, JSON.stringify(types));
   } catch (e) {
-    console.error('Failed to save vehicle types', e);
+    console.warn('Failed to save vehicle types', e);
   }
 }
 
@@ -3222,16 +3243,16 @@ export function getStoredTireRotationLogs(): TireRotationLog[] {
     if (!raw) return [];
     return JSON.parse(raw);
   } catch (e) {
-    console.error('Failed to load tire rotation logs', e);
+    console.warn('Failed to load tire rotation logs', e);
     return [];
   }
 }
 
 export function saveStoredTireRotationLogs(logs: TireRotationLog[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TIRE_ROTATION_LOGS, JSON.stringify(logs));
+    safeLocalStorageSetItem(STORAGE_KEYS.TIRE_ROTATION_LOGS, JSON.stringify(logs));
   } catch (e) {
-    console.error('Failed to save tire rotation logs', e);
+    console.warn('Failed to save tire rotation logs', e);
   }
 }
 
@@ -3427,9 +3448,9 @@ export function getStoredTiresInReform(): TireItem[] {
 
 export function saveStoredTiresInReform(items: TireItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TIRES_IN_REFORM, JSON.stringify(items));
+    safeLocalStorageSetItem(STORAGE_KEYS.TIRES_IN_REFORM, JSON.stringify(items));
   } catch (e) {
-    console.error('Failed to save tires in reform', e);
+    console.warn('Failed to save tires in reform', e);
   }
 }
 
@@ -3441,16 +3462,16 @@ export function getStoredTiresDiscarded(): TireItem[] {
     if (!Array.isArray(parsed)) return INITIAL_TIRES_DISCARDED;
     return parsed;
   } catch (e) {
-    console.error('Failed to load discarded tires', e);
+    console.warn('Failed to load discarded tires', e);
     return INITIAL_TIRES_DISCARDED;
   }
 }
 
 export function saveStoredTiresDiscarded(items: TireItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TIRES_DISCARDED, JSON.stringify(items));
+    safeLocalStorageSetItem(STORAGE_KEYS.TIRES_DISCARDED, JSON.stringify(items));
   } catch (e) {
-    console.error('Failed to save discarded tires', e);
+    console.warn('Failed to save discarded tires', e);
   }
 }
 
@@ -3485,16 +3506,16 @@ export function getStoredPurchaseRequests(): MaintenancePurchaseRequest[] {
     if (!raw) return [];
     return JSON.parse(raw);
   } catch (e) {
-    console.error('Failed to load purchase requests', e);
+    console.warn('Failed to load purchase requests', e);
     return [];
   }
 }
 
 export function saveStoredPurchaseRequests(requests: MaintenancePurchaseRequest[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_PURCHASE_REQUESTS, JSON.stringify(requests));
+    safeLocalStorageSetItem(STORAGE_KEYS.MAINTENANCE_PURCHASE_REQUESTS, JSON.stringify(requests));
   } catch (e) {
-    console.error('Failed to save purchase requests', e);
+    console.warn('Failed to save purchase requests', e);
   }
 }
 
@@ -3862,9 +3883,9 @@ export function saveStoredFinanceiroCheques(cheques: FinanceiroCheque[]): void {
     const json = JSON.stringify(cheques);
     if (json === lastSavedChequesJson) return;
     lastSavedChequesJson = json;
-    localStorage.setItem(STORAGE_KEYS.FINANCEIRO_CHEQUES, json);
+    safeLocalStorageSetItem(STORAGE_KEYS.FINANCEIRO_CHEQUES, json);
   } catch (e) {
-    console.error('Erro ao salvar cheques no storage local:', e);
+    console.warn('Erro ao salvar cheques no storage local:', e);
   }
 }
 
@@ -3875,19 +3896,19 @@ export function getStoredClienteCreditos(): ClienteCredito[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Erro ao ler créditos do cliente no storage local:', e);
+    console.warn('Erro ao ler créditos do cliente no storage local:', e);
     return [];
   }
 }
 
 export function saveStoredClienteCreditos(creditos: ClienteCredito[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CLIENTE_CREDITOS, JSON.stringify(creditos));
+    safeLocalStorageSetItem(STORAGE_KEYS.CLIENTE_CREDITOS, JSON.stringify(creditos));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_cliente_creditos_updated', { detail: creditos }));
     }
   } catch (e) {
-    console.error('Erro ao salvar créditos do cliente no storage local:', e);
+    console.warn('Erro ao salvar créditos do cliente no storage local:', e);
   }
 }
 

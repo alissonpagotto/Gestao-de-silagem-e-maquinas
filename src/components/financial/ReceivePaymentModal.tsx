@@ -21,7 +21,8 @@ import {
   Sparkles,
   WalletCards,
   Layers,
-  CalendarClock
+  CalendarClock,
+  Percent
 } from 'lucide-react';
 import { 
   BankAccount, 
@@ -76,6 +77,8 @@ export interface ReceivePaymentSuccessDetails {
   isInstallmentPlan?: boolean;
   installments?: InstallmentPreviewItem[];
   firstPaidImmediately?: boolean;
+  interestAmount?: number;
+  interestPercentage?: number;
 }
 
 interface ReceivePaymentModalProps {
@@ -121,6 +124,10 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   const [installmentsCount, setInstallmentsCount] = useState<number>(1);
   const [installmentsIntervalDays, setInstallmentsIntervalDays] = useState<number>(30);
   const [firstPaidImmediately, setFirstPaidImmediately] = useState<boolean>(false);
+
+  // Ajustes Financeiros (Juros / Acréscimos)
+  const [interestAmount, setInterestAmount] = useState<number | ''>('');
+  const [interestPercentage, setInterestPercentage] = useState<number | ''>('');
 
   // Upload e Captura de Imagem do Cheque
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -189,10 +196,12 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     setPreviewUrl('');
     setUploadedImageUrl('');
 
-    // Reset Parcelamento
+    // Reset Parcelamento e Juros
     setInstallmentsCount(1);
     setInstallmentsIntervalDays(30);
     setFirstPaidImmediately(false);
+    setInterestAmount('');
+    setInterestPercentage('');
 
     const accountTotal = Number(item.totalAmount) || 0;
     setReceivedAmount(accountTotal);
@@ -226,13 +235,60 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     return Math.max(0, valorContaOriginal - totalClientCredit);
   }, [useAvailableCredit, totalClientCredit, valorContaOriginal]);
 
+  // Juros e Valor Total Atualizado
+  const numericInterest = typeof interestAmount === 'number' ? interestAmount : 0;
+  const valorTotalAtualizado = useMemo(() => {
+    return Number((valorComAbatimento + numericInterest).toFixed(2));
+  }, [valorComAbatimento, numericInterest]);
+
+  // Manipuladores bidirecionais de Juros / Acréscimos
+  const handleInterestAmountChange = (valStr: string) => {
+    if (valStr === '' || valStr === undefined) {
+      setInterestAmount('');
+      setInterestPercentage('');
+      return;
+    }
+    const val = parseFloat(valStr);
+    if (isNaN(val) || val < 0) {
+      setInterestAmount('');
+      setInterestPercentage('');
+      return;
+    }
+    setInterestAmount(val);
+    const base = valorComAbatimento;
+    if (base > 0) {
+      const pct = Number(((val / base) * 100).toFixed(2));
+      setInterestPercentage(pct);
+    } else {
+      setInterestPercentage(0);
+    }
+  };
+
+  const handleInterestPercentageChange = (valStr: string) => {
+    if (valStr === '' || valStr === undefined) {
+      setInterestAmount('');
+      setInterestPercentage('');
+      return;
+    }
+    const val = parseFloat(valStr);
+    if (isNaN(val) || val < 0) {
+      setInterestAmount('');
+      setInterestPercentage('');
+      return;
+    }
+    setInterestPercentage(val);
+    const base = valorComAbatimento;
+    const amt = Number(((base * val) / 100).toFixed(2));
+    setInterestAmount(amt);
+  };
+
   // Validação matemática do Cheque (Troco em Crédito)
   const isCheque = paymentMethod === 'cheque';
   const diferencaCheque = useMemo(() => {
     if (!isCheque) return 0;
-    const valorComparado = valorComAbatimento;
+    const valorComparado = valorTotalAtualizado;
     return Number((chequeValor - valorComparado).toFixed(2));
-  }, [isCheque, chequeValor, valorComAbatimento]);
+  }, [isCheque, chequeValor, valorTotalAtualizado]);
 
   const chequeGeraCredito = isCheque && diferencaCheque > 0.009;
 
@@ -245,7 +301,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
 
   // Prévia em tempo real das parcelas calculadas com tratamento de centavos
   const previewInstallments: InstallmentPreviewItem[] = useMemo(() => {
-    const totalToDivide = isCheque ? chequeValor : valorComAbatimento;
+    const totalToDivide = isCheque ? chequeValor : valorTotalAtualizado;
 
     if (!isInstallmentEligible || installmentsCount <= 1) {
       return [{
@@ -303,7 +359,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     }
 
     return items;
-  }, [isInstallmentEligible, installmentsCount, isCheque, chequeVencimento, chequeValor, valorComAbatimento, receiptDate, today, installmentsIntervalDays, firstPaidImmediately]);
+  }, [isInstallmentEligible, installmentsCount, isCheque, chequeVencimento, chequeValor, valorTotalAtualizado, receiptDate, today, installmentsIntervalDays, firstPaidImmediately]);
 
   // Gerenciador de Arquivo do Cheque (Câmera ou Upload)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -444,14 +500,16 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           itemId: item.id,
           itemType: item.type,
           paymentMethod,
-          paidAmount: isCheque ? chequeValor : (receivedAmount || valorComAbatimento),
+          paidAmount: isCheque ? chequeValor : valorTotalAtualizado,
           receiptDate,
           cheque: savedCheque,
           creditoGerado: chequeGeraCredito ? diferencaCheque : undefined,
           bankAccountId: selectedBankAccountId,
           isInstallmentPlan: isInstallmentActive,
           installments: isInstallmentActive ? previewInstallments : undefined,
-          firstPaidImmediately: isInstallmentActive ? firstPaidImmediately : true
+          firstPaidImmediately: isInstallmentActive ? firstPaidImmediately : true,
+          interestAmount: numericInterest > 0 ? numericInterest : undefined,
+          interestPercentage: typeof interestPercentage === 'number' && interestPercentage > 0 ? interestPercentage : undefined
         });
       }
 
@@ -473,7 +531,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
       <div 
         id="receive-payment-modal-container"
-        className="relative w-full max-w-2xl bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto text-slate-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
+        className="relative w-full max-w-4xl lg:max-w-5xl bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto text-slate-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
       >
         {/* CABEÇALHO - Moldura Metálica 3D Acetinada */}
         <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl">
@@ -522,10 +580,15 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-black/70 block">
-                Valor Devido da Conta
+                Valor Devido da Conta {numericInterest > 0 && <span className="text-amber-700 font-bold ml-1">(Original: {formatCurrencyBRL(valorContaOriginal)})</span>}
               </span>
-              <div className="text-xl sm:text-2xl font-black text-black font-['Outfit']">
-                {formatCurrencyBRL(valorContaOriginal)}
+              <div className="text-xl sm:text-2xl font-black text-black font-['Outfit'] flex items-baseline gap-2">
+                <span>{formatCurrencyBRL(valorTotalAtualizado)}</span>
+                {numericInterest > 0 && (
+                  <span className="text-xs text-amber-700 font-bold">
+                    (+{formatCurrencyBRL(numericInterest)} juros)
+                  </span>
+                )}
               </div>
               <div className="text-[11px] text-black/70 font-semibold mt-0.5">
                 Vencimento: <span className="font-bold text-black">{formatDateBR(item.dueDate || item.date)}</span>
@@ -641,7 +704,93 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             </div>
           </div>
 
-          {/* 2. BLOCO CONDICIONAL DE PARCELAMENTO (CARTÃO CRÉDITO, CHEQUE, A PRAZO CARTEIRA) */}
+          {/* 2. AJUSTES FINANCEIROS (OPCIONAL) - JUROS / ACRÉSCIMOS */}
+          <div className="border border-slate-200 dark:border-stone-700 bg-slate-50/70 dark:bg-stone-850/50 rounded-2xl p-3.5 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-700 pb-2">
+              <div className="flex items-center space-x-2">
+                <div className="p-1 rounded bg-amber-600 text-white">
+                  <Percent className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-stone-100">
+                  Ajustes Financeiros (Opcional)
+                </span>
+              </div>
+              {numericInterest > 0 ? (
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-black text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 rounded-full">
+                    + {formatCurrencyBRL(numericInterest)} ({interestPercentage || ((numericInterest / (valorComAbatimento || 1)) * 100).toFixed(2)}%)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInterestAmount('');
+                      setInterestPercentage('');
+                    }}
+                    className="text-[11px] font-bold text-slate-500 hover:text-rose-600 dark:text-stone-400 dark:hover:text-rose-400 cursor-pointer underline"
+                    title="Remover juros"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              ) : (
+                <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
+                  Sem acréscimos aplicados
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Juros / Acréscimos (R$) */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1">
+                  Juros / Acréscimos (R$)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-xs font-bold text-slate-500 dark:text-stone-400">
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    value={interestAmount}
+                    onChange={(e) => handleInterestAmountChange(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5 block">
+                  Valor absoluto somado ao saldo a receber
+                </span>
+              </div>
+
+              {/* Juros / Acréscimos (%) */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1">
+                  Juros / Acréscimos (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    value={interestPercentage}
+                    onChange={(e) => handleInterestPercentageChange(e.target.value)}
+                    className="w-full pl-3 pr-8 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <span className="absolute right-3 top-2 text-xs font-bold text-slate-500 dark:text-stone-400">
+                    %
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5 block">
+                  Taxa percentual calculada sobre a base ({formatCurrencyBRL(valorComAbatimento)})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. BLOCO CONDICIONAL DE PARCELAMENTO (CARTÃO CRÉDITO, CHEQUE, A PRAZO CARTEIRA) */}
           {isInstallmentEligible && (
             <div className="border border-sky-300 dark:border-stone-700 bg-sky-50/50 dark:bg-stone-850/60 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between border-b border-sky-200 dark:border-stone-700 pb-2">
@@ -655,7 +804,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                 </div>
                 <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
                   {installmentsCount > 1 
-                    ? `${installmentsCount}x de ${formatCurrencyBRL((isCheque ? chequeValor : valorComAbatimento) / installmentsCount)}` 
+                    ? `${installmentsCount}x de ${formatCurrencyBRL((isCheque ? chequeValor : valorTotalAtualizado) / installmentsCount)}` 
                     : 'À Vista (1x)'}
                 </span>
               </div>
@@ -675,7 +824,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                     <option value={1}>1x (À vista - Sem parcelar)</option>
                     {Array.from({ length: 11 }, (_, i) => i + 2).map((num) => (
                       <option key={num} value={num}>
-                        {num}x parcelas ({formatCurrencyBRL((isCheque ? chequeValor : valorComAbatimento) / num)})
+                        {num}x parcelas ({formatCurrencyBRL((isCheque ? chequeValor : valorTotalAtualizado) / num)})
                       </option>
                     ))}
                   </select>
@@ -998,9 +1147,15 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             {isCheque ? (
               <span>Total do Cheque: <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(chequeValor)}</strong></span>
             ) : isInstallmentEligible && installmentsCount > 1 ? (
-              <span>Total Parcelado ({installmentsCount}x): <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(valorComAbatimento)}</strong></span>
+              <span>
+                Total Parcelado ({installmentsCount}x){numericInterest > 0 ? ' com Juros' : ''}:{' '}
+                <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(valorTotalAtualizado)}</strong>
+              </span>
             ) : (
-              <span>Total a Liquidar: <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(valorComAbatimento)}</strong></span>
+              <span>
+                Total a Liquidar{numericInterest > 0 ? ' com Juros' : ''}:{' '}
+                <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(valorTotalAtualizado)}</strong>
+              </span>
             )}
           </div>
 

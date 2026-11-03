@@ -23,6 +23,7 @@ import {
 import { ServiceOrder, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { BillingPaymentModal } from './BillingPaymentModal';
 
 interface BillingModuleProps {
   services: ServiceOrder[];
@@ -50,6 +51,9 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
   const [auditDiscount, setAuditDiscount] = useState<number | ''>('');
   const [auditExtra, setAuditExtra] = useState<number | ''>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Modal Avançado de Condições Comerciais e Definição de Recebimento
+  const [billingPaymentService, setBillingPaymentService] = useState<ServiceOrder | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -132,36 +136,34 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
     });
   }, [billingServices, statusFilter, serviceTypeFilter, searchTerm]);
 
-  // Enviar serviço diretamente para Contas a Receber
-  const handleSendToReceivables = async (service: ServiceOrder) => {
-    const isConfirmed = await confirm({
-      title: 'Confirmar Envio ao Contas a Receber',
-      message: `Deseja faturar e enviar o serviço de "${service.clientName}" no valor de ${formatCurrencyBRL(service.totalAmount || 0)} para o módulo "Contas a Receber" do Financeiro?`,
-      confirmLabel: 'Enviar ao Contas a Receber',
-      cancelLabel: 'Cancelar',
-      variant: 'primary',
-    });
+  // Abrir Modal Avançado de Condições Comerciais e Definição de Recebimento
+  const handleSendToReceivables = (service: ServiceOrder) => {
+    setBillingPaymentService(service);
+  };
 
-    if (!isConfirmed) return;
+  // Confirmar faturamento e desmembrar títulos para o Contas a Receber
+  const handleConfirmBillingPayment = (splitOrders: ServiceOrder[]) => {
+    if (!splitOrders || splitOrders.length === 0) return;
+    const targetParentId = splitOrders[0].parentOrderId || splitOrders[0].id;
 
-    const billedDate = new Date().toISOString();
-    const updated = services.map((s) => {
-      if (s.id === service.id) {
-        return {
-          ...s,
-          status: 'faturado' as const,
-          billingStatus: 'faturado' as const,
-          billedAt: billedDate,
-          billedBy: 'Escritório',
-          paymentStatus: (s.paymentStatus || 'pendente') as any,
-          updatedAt: billedDate,
-        };
+    const updated = services.flatMap((s) => {
+      if (s.id === targetParentId) {
+        return splitOrders;
       }
-      return s;
+      return [s];
     });
 
     onSaveServices(updated);
-    showToast(`✓ Serviço #${service.orderNumber || service.id.slice(-4)} enviado com sucesso para o Contas a Receber!`);
+    setBillingPaymentService(null);
+
+    const orderNum = splitOrders[0]?.orderNumber || targetParentId.slice(-4);
+    if (splitOrders.length > 1) {
+      showToast(
+        `✓ Faturamento concluído! Pedido #${orderNum} desmembrado em ${splitOrders.length} parcelas/títulos e enviado ao Contas a Receber.`
+      );
+    } else {
+      showToast(`✓ Serviço #${orderNum} faturado com sucesso e lançado no Contas a Receber!`);
+    }
   };
 
   // Reabrir faturamento / devolver para revisão
@@ -219,24 +221,23 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
     if (!auditingService) return;
 
     const { discount, extra, final } = modalAmounts;
-
-    const isBilled = sendToReceivablesDirectly;
     const nowIso = new Date().toISOString();
+
+    let auditedTarget: ServiceOrder | null = null;
 
     const updated = services.map((s) => {
       if (s.id === auditingService.id) {
-        return {
+        const item: ServiceOrder = {
           ...s,
           billingNotes: auditNotes.trim().toUpperCase(),
           billingDiscount: discount > 0 ? discount : undefined,
           billingExtra: extra > 0 ? extra : undefined,
           totalAmount: final > 0 ? final : s.totalAmount,
-          status: isBilled ? ('faturado' as const) : ('em_faturamento' as const),
-          billingStatus: isBilled ? ('faturado' as const) : ('em_revisao' as const),
-          billedAt: isBilled ? nowIso : s.billedAt,
-          billedBy: isBilled ? 'Escritório' : s.billedBy,
+          billingStatus: 'em_revisao' as const,
           updatedAt: nowIso,
         };
+        auditedTarget = item;
+        return item;
       }
       return s;
     });
@@ -244,8 +245,9 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
     onSaveServices(updated);
     setAuditingService(null);
 
-    if (isBilled) {
-      showToast(`✓ Serviço faturado com sucesso e lançado no Contas a Receber!`);
+    if (sendToReceivablesDirectly && auditedTarget) {
+      // Abre a janela de definição de recebimento com o valor já auditado
+      setBillingPaymentService(auditedTarget);
     } else {
       showToast(`Auditoria do faturamento salva com sucesso!`);
     }
@@ -810,6 +812,16 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* ========================================================
+          5. MODAL AVANÇADO DE CONDIÇÕES COMERCIAIS & RECEBIMENTO
+          ======================================================== */}
+      <BillingPaymentModal
+        isOpen={!!billingPaymentService}
+        service={billingPaymentService}
+        onClose={() => setBillingPaymentService(null)}
+        onConfirm={handleConfirmBillingPayment}
+      />
     </div>
   );
 };

@@ -285,11 +285,15 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           if (s.id === details.itemId) {
             return {
               ...s,
+              totalAmount: details.paidAmount,
               status: 'finalizado' as const,
               paymentStatus: 'pago' as const,
               paymentMethod: details.paymentMethod,
               paymentDate: details.receiptDate,
               paidAmount: details.paidAmount,
+              billingNotes: details.interestAmount 
+                ? `${s.billingNotes || s.serviceType || 'Serviço'} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                : s.billingNotes,
               updatedAt: new Date().toISOString()
             };
           }
@@ -367,10 +371,14 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           if (o.id === details.itemId) {
             return {
               ...o,
+              totalAmount: details.paidAmount,
               paymentStatus: 'pago' as const,
               paymentMethod: details.paymentMethod,
               paidAmount: details.paidAmount,
               paymentDate: details.receiptDate,
+              notes: details.interestAmount
+                ? `${o.notes || ''} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                : o.notes,
               updatedAt: new Date().toISOString()
             };
           }
