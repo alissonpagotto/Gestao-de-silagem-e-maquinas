@@ -458,19 +458,22 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
       {/* KPI Cards (Compact) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
-          <div>
+        <div 
+          style={{ backgroundColor: '#caf4cc', borderColor: '#0ec244' }}
+          className="border rounded-xl p-3 shadow-xs flex items-center justify-between text-black"
+        >
+          <div style={{ backgroundColor: '#caf4cc', borderColor: '#0ec244' }}>
             <span className="text-[11px] font-black text-black uppercase tracking-wider block">
               A Receber (Em Aberto)
             </span>
-            <div className="text-lg sm:text-xl font-black text-sky-700 mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-emerald-800 mt-0.5 font-['Outfit']">
               {formatCurrencyBRL(totalPending)}
             </div>
             <p className="text-[11px] text-black/70 font-medium">
               {pendingList.length} pedidos a receber
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-sky-50 text-sky-700 shrink-0 border border-sky-200">
+          <div className="p-2 rounded-lg bg-emerald-100 text-emerald-800 shrink-0 border border-emerald-300">
             <Clock className="w-4 h-4" />
           </div>
         </div>

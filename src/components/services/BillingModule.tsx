@@ -448,15 +448,21 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
           ======================================================== */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         {/* Card 1: Total Geral */}
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg p-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-stone-400 mb-1">
+        <div 
+          style={{ backgroundColor: '#caf4cc', borderColor: '#0ec244' }}
+          className="border rounded-lg p-2.5 shadow-2xs"
+        >
+          <div 
+            style={{ backgroundColor: '#caf4cc', borderColor: '#0ec244' }}
+            className="flex items-center justify-between text-slate-700 dark:text-stone-700 mb-1"
+          >
             <span className="text-[10px] font-bold uppercase tracking-wider">Total em Faturamento</span>
-            <Receipt className="w-3.5 h-3.5 text-blue-600" />
+            <Receipt className="w-3.5 h-3.5 text-emerald-700" />
           </div>
           <div className="text-base font-black text-zinc-900 dark:text-white">
             {formatCurrencyBRL(metrics.totalGeral)}
           </div>
-          <div className="text-[10px] text-zinc-500 dark:text-stone-400 mt-0.5">
+          <div className="text-[10px] text-zinc-600 dark:text-stone-300 mt-0.5">
             {billingServices.length} serviço{billingServices.length !== 1 ? 's' : ''} na esteira
           </div>
         </div>
