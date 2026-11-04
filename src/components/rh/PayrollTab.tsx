@@ -1128,6 +1128,37 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   // Auto-fill when employee is selected in Modal
   const handleSelectEmployee = (empId: string) => {
     setSelectedEmployeeId(empId);
+    if (!empId) {
+      setBaseSalary(0);
+      setBaseSalaryContratual(0);
+      setBaseCalculoInssFgts(0);
+      setAliquotaInss(0);
+      setAliquotaInssStr('0,0');
+      setAliquotaSindicato(0);
+      setAliquotaSindicatoStr('0,0');
+      setAliquotaIrrf(0.0);
+      setAliquotaIrrfStr('0,0');
+      setInssDiscount(0);
+      setInssEnabled(false);
+      setIrrfDiscount(0);
+      setIrrfEnabled(false);
+      setSindicalDiscount(0);
+      setSindicalEnabled(false);
+      setLastCustomSindical(0);
+      setAdvancesDiscount(0);
+      setCommissionAmount(0);
+      setOtherDiscounts(0);
+      setAdmissionInfo(null);
+      setUseProportionalSalary(false);
+      setCommissionItems([]);
+      setDeductionItems([]);
+      setCommissionsInfo(null);
+      setShowCommissionBreakdown(false);
+      setSyncedAdvances([]);
+      setSyncedAbsences([]);
+      setCustomVerbaOverrides({});
+      return;
+    }
     syncEmployeeData(empId);
   };
 
@@ -1357,34 +1388,29 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setCommissionItems([]);
       setDeductionItems([]);
       setCustomVerbaOverrides({});
-      // Selecionar primeiro funcionário ativo NÃO terceirizado
-      const firstActive = employees.find(e => e.status === 'ativo' && !isThirdPartyDriver(e) && !isBrokerEmployee(e));
-      if (firstActive) {
-        handleSelectEmployee(firstActive.id);
-      } else {
-        setSelectedEmployeeId('');
-        setBaseSalary(0);
-        setBaseSalaryContratual(0);
-        setBaseCalculoInssFgts(0);
-        setAliquotaInss(8.04);
-        setAliquotaInssStr('8,04');
-        setAliquotaSindicato(1.0);
-        setAliquotaSindicatoStr('1,0');
-        setAliquotaIrrf(0.0);
-        setAliquotaIrrfStr('0,0');
-        setInssDiscount(0);
-        setInssEnabled(true);
-        setIrrfDiscount(0);
-        setIrrfEnabled(false);
-        setSindicalDiscount(25.23);
-        setSindicalEnabled(true);
-        setLastCustomSindical(25.23);
-        setAdvancesDiscount(0);
-        setCommissionAmount(0);
-        setOtherDiscounts(0);
-        setAdmissionInfo(null);
-        setUseProportionalSalary(false);
-      }
+      // Iniciar formulário limpo sem colaborador pré-selecionado (exibindo "Selecione um funcionário...")
+      setSelectedEmployeeId('');
+      setBaseSalary(0);
+      setBaseSalaryContratual(0);
+      setBaseCalculoInssFgts(0);
+      setAliquotaInss(0);
+      setAliquotaInssStr('0,0');
+      setAliquotaSindicato(0);
+      setAliquotaSindicatoStr('0,0');
+      setAliquotaIrrf(0.0);
+      setAliquotaIrrfStr('0,0');
+      setInssDiscount(0);
+      setInssEnabled(false);
+      setIrrfDiscount(0);
+      setIrrfEnabled(false);
+      setSindicalDiscount(0);
+      setSindicalEnabled(false);
+      setLastCustomSindical(0);
+      setAdvancesDiscount(0);
+      setCommissionAmount(0);
+      setOtherDiscounts(0);
+      setAdmissionInfo(null);
+      setUseProportionalSalary(false);
       setOvertimeAmount(0);
       setBonusAmount(0);
       setPayrollStatus('pendente');
@@ -3434,7 +3460,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-4.5 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 cursor-pointer text-xs"
+                    disabled={!selectedEmployeeId}
+                    className="px-4.5 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 cursor-pointer text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Salvar Folha de Pagamento
                   </button>

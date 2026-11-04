@@ -267,11 +267,11 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const faixaIrrf = getFaixaIrrf(baseIrrf);
 
   // Verificação e geração do PIX Dinâmico para exibição no holerite (ativação por chave preenchida)
-  const resolvedEmp = employee || findEmployeeFromStorage(employee?.id || employee?.name);
-  const pixKey = getEmployeePixKey(resolvedEmp);
+  const resolvedEmp = employee ? (employee || findEmployeeFromStorage(employee?.id || employee?.name)) : null;
+  const pixKey = resolvedEmp ? getEmployeePixKey(resolvedEmp) : '';
   const isPixPayment = Boolean(pixKey);
   const employeeBeneficiaryName = resolvedEmp?.name || employee?.name || 'COLABORADOR';
-  const pixPayload = isPixPayment ? buildOfficialPixBrCode(
+  const pixPayload = (isPixPayment && pixKey && calculatedModalNet > 0) ? buildOfficialPixBrCode(
     pixKey,
     calculatedModalNet,
     employeeBeneficiaryName
@@ -390,7 +390,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               <div>
                 <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Regime:</span>
                 <span className="font-semibold text-stone-800 block mt-0.5">
-                  {employee?.contractType || 'CLT'}
+                  {employee?.contractType || (employee ? 'CLT' : '--')}
                 </span>
               </div>
               <div className="col-span-2 sm:col-span-3">
@@ -434,7 +434,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               <tr>
                 {renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
                 <td className="py-1 px-1.5 text-center text-stone-600 font-medium text-[9.5px]">
-                  {admissionInfo?.isAdmittedInCompetenceMonth ? `${admissionInfo.daysWorked}d` : '30d'}
+                  {employee ? (admissionInfo?.isAdmittedInCompetenceMonth ? `${admissionInfo.daysWorked}d` : '30d') : '--'}
                 </td>
                 <td className="py-1 px-2 text-right font-bold text-emerald-700 font-['Outfit']">
                   {formatCurrencyBRL(baseSalary)}
