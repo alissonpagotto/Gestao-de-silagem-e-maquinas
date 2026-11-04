@@ -1087,5 +1087,19 @@ export const getFaixaIrrf = (baseIrrf: number): string => {
   return 'Faixa 4 (27,5%)';
 };
 
+/**
+ * Retorna o mês de competência padrão para a folha de pagamento (mês anterior ao mês atual do calendário).
+ * Utiliza o objeto Date nativo para calcular de forma segura a virada de mês e ano.
+ * Exemplo: 
+ * - Se a data atual for Novembro/2026 (11/2026), retorna '10/2026'.
+ * - Se a data atual for Janeiro/2027 (01/2027), retorna '12/2026'.
+ */
+export const getDefaultCompetenceMonth = (baseDate: Date = new Date()): string => {
+  const prevMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+  const month = String(prevMonthDate.getMonth() + 1).padStart(2, '0');
+  const year = prevMonthDate.getFullYear();
+  return `${month}/${year}`;
+};
+
 
 

@@ -2208,9 +2208,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             <ChevronLeft className="w-4 h-4" />
           </button>
           
-          <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100/70 dark:bg-stone-800 rounded-lg text-xs font-black text-black dark:text-white">
+          <div 
+            style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
+            className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
+          >
             <span>Competência:</span>
-            <span className="text-black dark:text-sky-400 font-black text-sm">{currentMonthRef}</span>
+            <span className="text-black font-black text-sm">{currentMonthRef}</span>
           </div>
 
           <button

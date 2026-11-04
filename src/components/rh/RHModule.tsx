@@ -63,6 +63,7 @@ import { AdvancesTab } from './AdvancesTab';
 import { AtestadosTab } from './AtestadosTab';
 import { FaltasTab } from './FaltasTab';
 import { RescisaoTab } from './RescisaoTab';
+import { getDefaultCompetenceMonth } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 import { EmployeesModule } from '../employees/EmployeesModule';
 import { hasRhSubPermission } from '../../lib/cadastrosBaseStorage';
@@ -158,7 +159,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
   }, [initialSubTab, allowedRhTabs]);
 
   const [tabRefreshEpoch, setTabRefreshEpoch] = useState<number>(0);
-  const [currentMonthRef, setCurrentMonthRef] = useState<string>('09/2026');
+  const [currentMonthRef, setCurrentMonthRef] = useState<string>(() => getDefaultCompetenceMonth());
 
   const onSaveEmployeesRef = React.useRef(onSaveEmployees);
   onSaveEmployeesRef.current = onSaveEmployees;
