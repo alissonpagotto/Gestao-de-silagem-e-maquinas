@@ -1769,6 +1769,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   const handleSelectEmployee = (empId: string) => {
     setSelectedEmployeeId(empId);
+    if (!empId) {
+      setBaseSalary(0);
+      resetCustomOverrides();
+      return;
+    }
     const emp = employees.find(e => e.id === empId);
     if (emp) {
       const salary = getEmployeeContractualSalary(emp.id, emp.name);
@@ -1937,17 +1942,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       const draftId = toValidUUID(`vac_${Date.now()}`);
       setEditingVacation(null);
       setActiveDraftId(draftId);
-      const firstActive = employees.find(e => e.status === 'ativo') || employees[0];
-      if (firstActive) {
-        setSelectedEmployeeId(firstActive.id);
-        const salary = getEmployeeContractualSalary(firstActive.id, firstActive.name);
-        setBaseSalary(salary);
-      } else {
-        setSelectedEmployeeId('');
-        setBaseSalary(0);
-      }
-      setAcquisitionPeriodStart('2025-01-01');
-      setAcquisitionPeriodEnd('2025-12-31');
+      setSelectedEmployeeId('');
+      setBaseSalary(0);
+      setAcquisitionPeriodStart('');
+      setAcquisitionPeriodEnd('');
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
       setEndDate(calculateEndDateFromStart(today, 30));
