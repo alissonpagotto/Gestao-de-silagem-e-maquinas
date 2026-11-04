@@ -41,6 +41,7 @@ import {
   saveStoredExpenses,
   getActiveCompanyId,
   saveCompanyRhFolhas,
+  getStoredPayrolls,
   saveStoredPayrolls
 } from '../../lib/storage';
 import { 
@@ -439,12 +440,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             setLocalPayrolls(cleanList);
             onSavePayrollsRef.current(cleanList);
           } else {
-            setLocalPayrolls([]);
+            const stored = getStoredPayrolls();
+            if (stored && stored.length > 0) {
+              setLocalPayrolls(stored);
+            }
           }
         }
       } catch (err) {
         if (isMounted) {
-          setLocalPayrolls([]);
+          const stored = getStoredPayrolls();
+          if (stored && stored.length > 0) {
+            setLocalPayrolls(stored);
+          }
         }
       }
     };
@@ -1657,9 +1664,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     setLocalPayrolls(nextList);
     onSavePayrolls(nextList);
+    saveStoredPayrolls(nextList);
     try {
       localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_folhas', JSON.stringify(nextList));
     } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_payrolls_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
+    }
     setIsModalOpen(false);
 
     // Gravação direta na tabela public.rh_folhas_pagamento do Supabase (abandonando localStorage)
@@ -1841,9 +1854,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const nextList = newRecords.length > 0 ? [...newRecords, ...updatedPayrolls] : updatedPayrolls;
     setLocalPayrolls(nextList);
     onSavePayrolls(nextList);
+    saveStoredPayrolls(nextList);
     try {
       localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_folhas', JSON.stringify(nextList));
     } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_payrolls_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
+    }
 
     // Gravação direta das folhas geradas no Supabase (abandonando localStorage)
     if (isSupabaseConfigured) {
@@ -1908,6 +1927,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     setLocalPayrolls(nextList);
     onSavePayrolls(nextList);
+    saveStoredPayrolls(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_folhas', JSON.stringify(nextList));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_payrolls_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
+    }
 
     if (updatedItem && isSupabaseConfigured) {
       (async () => {
@@ -1966,6 +1994,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const nextList = localPayrolls.filter(p => p.id !== id);
       setLocalPayrolls(nextList);
       onSavePayrolls(nextList);
+      saveStoredPayrolls(nextList);
+      try {
+        localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(nextList));
+        localStorage.setItem('agrocontrol_folhas', JSON.stringify(nextList));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_payrolls_updated', { detail: nextList }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
+      }
 
       if (isSupabaseConfigured) {
         (async () => {

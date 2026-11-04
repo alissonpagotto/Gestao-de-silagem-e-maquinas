@@ -672,6 +672,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     setTerminations(nextList);
     saveStoredTerminations(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_rescisao', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_rescisao', JSON.stringify(nextList));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_rescisoes_updated', { detail: nextList }));
+    }
 
     if (isSupabaseConfigured) {
       await upsertRhRescisaoRecord(updatedRecord, activeTenantId).catch(() => {});
@@ -724,6 +732,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     setTerminations(nextList);
     saveStoredTerminations(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_rescisao', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_rescisao', JSON.stringify(nextList));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_rescisoes_updated', { detail: nextList }));
+    }
 
     if (isSupabaseConfigured) {
       await upsertRhRescisaoRecord(draftRecord, activeTenantId).catch(() => {});
@@ -760,6 +776,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const updated = terminations.filter((t) => toValidUUID(t.id) !== canonicalId);
       setTerminations(updated);
       saveStoredTerminations(updated);
+      try {
+        localStorage.setItem('colaca_silagem_rh_rescisao', JSON.stringify(updated));
+        localStorage.setItem('agrocontrol_rescisao', JSON.stringify(updated));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: updated }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_rescisoes_updated', { detail: updated }));
+      }
       if (isSupabaseConfigured) {
         deleteRhRescisaoRecord(id, activeTenantId).catch(() => {});
         saveCloudTerminations(updated, activeTenantId).catch(() => {});

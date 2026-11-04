@@ -625,6 +625,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     setLocalAbsences(nextList);
     onSaveAbsences(nextList);
     saveStoredAbsences(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_faltas', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_faltas', JSON.stringify(nextList));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_absences_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_faltas_updated', { detail: nextList }));
+    }
     setIsModalOpen(false);
 
     // Gravação e sincronização imediata na tabela public.rh_faltas do Supabase
@@ -648,6 +656,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setLocalAbsences(nextList);
       onSaveAbsences(nextList);
       saveStoredAbsences(nextList);
+      try {
+        localStorage.setItem('colaca_silagem_rh_faltas', JSON.stringify(nextList));
+        localStorage.setItem('agrocontrol_faltas', JSON.stringify(nextList));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_absences_updated', { detail: nextList }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_faltas_updated', { detail: nextList }));
+      }
 
       // Exclusão imediata na tabela public.rh_faltas do Supabase
       if (isSupabaseConfigured) {
@@ -668,6 +684,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     setLocalAbsences(updated);
     onSaveAbsences(updated);
     saveStoredAbsences(updated);
+    try {
+      localStorage.setItem('colaca_silagem_rh_faltas', JSON.stringify(updated));
+      localStorage.setItem('agrocontrol_faltas', JSON.stringify(updated));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_absences_updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_faltas_updated', { detail: updated }));
+    }
 
     if (isSupabaseConfigured) {
       upsertRhFalta(updatedItem, currentUserId, effectiveCompanyId).catch(err => {

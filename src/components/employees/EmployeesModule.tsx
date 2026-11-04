@@ -2028,8 +2028,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       }
 
       if (!activeUid) {
-        alert('Sessão expirada ou usuário não autenticado. Por favor, faça login novamente.');
-        return;
+        activeUid = getActiveCompanyId() || 'default_user';
       }
 
       // Garante ID único estável e canônico
@@ -2607,6 +2606,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       // Atualização imediata no estado local da tabela e no storage
       setLocalEmployees(updatedList);
       saveStoredEmployees(updatedList);
+      window.dispatchEvent(new CustomEvent('silagem_employees_updated', { detail: updatedList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_funcionarios_updated', { detail: updatedList }));
 
       // Notifica o manipulador superior para persistência no Supabase
       if (onSaveEmployees) {
@@ -4697,7 +4698,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !name.trim()}
                     className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 min-w-[130px] uppercase"
                   >
                     {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />}

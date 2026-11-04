@@ -20,7 +20,7 @@ import {
   Filter
 } from 'lucide-react';
 import { Employee, MedicalCertificateRecord } from '../../types';
-import { formatDateBR } from '../../lib/storage';
+import { formatDateBR, saveStoredMedicalCertificates } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 
 interface AtestadosTabProps {
@@ -158,8 +158,9 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
+    let nextCerts: MedicalCertificateRecord[];
     if (editingCert) {
-      const updated = certificates.map(c => c.id === editingCert.id ? {
+      nextCerts = certificates.map(c => c.id === editingCert.id ? {
         ...c,
         employeeId: emp.id,
         employeeName: emp.name,
@@ -178,7 +179,6 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
         attachmentName: attachmentName || undefined,
         notes: notes || undefined,
       } : c);
-      onSaveCertificates(updated);
     } else {
       const newCert: MedicalCertificateRecord = {
         id: `cert_${Date.now()}`,
@@ -200,7 +200,18 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
         notes: notes || undefined,
         createdAt: new Date().toISOString(),
       };
-      onSaveCertificates([newCert, ...certificates]);
+      nextCerts = [newCert, ...certificates];
+    }
+
+    saveStoredMedicalCertificates(nextCerts);
+    onSaveCertificates(nextCerts);
+    try {
+      localStorage.setItem('colaca_silagem_rh_atestados', JSON.stringify(nextCerts));
+      localStorage.setItem('agrocontrol_atestados', JSON.stringify(nextCerts));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_certificates_updated', { detail: nextCerts }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_atestados_updated', { detail: nextCerts }));
     }
 
     setIsModalOpen(false);
@@ -215,7 +226,17 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
       variant: 'danger',
     });
     if (isOk) {
-      onSaveCertificates(certificates.filter(c => c.id !== id));
+      const nextCerts = certificates.filter(c => c.id !== id);
+      saveStoredMedicalCertificates(nextCerts);
+      onSaveCertificates(nextCerts);
+      try {
+        localStorage.setItem('colaca_silagem_rh_atestados', JSON.stringify(nextCerts));
+        localStorage.setItem('agrocontrol_atestados', JSON.stringify(nextCerts));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_certificates_updated', { detail: nextCerts }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_atestados_updated', { detail: nextCerts }));
+      }
     }
   };
 

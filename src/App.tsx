@@ -1858,10 +1858,80 @@ export default function App() {
       });
     };
     window.addEventListener('silagem_advances_updated', handleAdvancesUpdate);
+    window.addEventListener('agrocontrol_adiantamentos_updated', handleAdvancesUpdate);
     window.addEventListener('storage', handleAdvancesUpdate);
     return () => {
       window.removeEventListener('silagem_advances_updated', handleAdvancesUpdate);
+      window.removeEventListener('agrocontrol_adiantamentos_updated', handleAdvancesUpdate);
       window.removeEventListener('storage', handleAdvancesUpdate);
+    };
+  }, []);
+
+  // Sincronização em tempo real de Folhas de Pagamento (RH)
+  useEffect(() => {
+    const handlePayrollsUpdate = (e: any) => {
+      const current = (e?.detail && Array.isArray(e.detail)) ? e.detail : getCompanyRhFolhas();
+      setPayrolls(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
+    };
+    window.addEventListener('silagem_payrolls_updated', handlePayrollsUpdate);
+    window.addEventListener('agrocontrol_folhas_updated', handlePayrollsUpdate);
+    return () => {
+      window.removeEventListener('silagem_payrolls_updated', handlePayrollsUpdate);
+      window.removeEventListener('agrocontrol_folhas_updated', handlePayrollsUpdate);
+    };
+  }, []);
+
+  // Sincronização em tempo real de Férias (RH)
+  useEffect(() => {
+    const handleVacationsUpdate = (e: any) => {
+      const current = (e?.detail && Array.isArray(e.detail)) ? e.detail : getCompanyRhFerias();
+      setVacations(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
+    };
+    window.addEventListener('silagem_vacations_updated', handleVacationsUpdate);
+    window.addEventListener('agrocontrol_ferias_updated', handleVacationsUpdate);
+    return () => {
+      window.removeEventListener('silagem_vacations_updated', handleVacationsUpdate);
+      window.removeEventListener('agrocontrol_ferias_updated', handleVacationsUpdate);
+    };
+  }, []);
+
+  // Sincronização em tempo real de Afastamentos (RH)
+  useEffect(() => {
+    const handleLeavesUpdate = (e: any) => {
+      const current = (e?.detail && Array.isArray(e.detail)) ? e.detail : getStoredLeaves();
+      setLeaves(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
+    };
+    window.addEventListener('silagem_leaves_updated', handleLeavesUpdate);
+    window.addEventListener('agrocontrol_afastamentos_updated', handleLeavesUpdate);
+    return () => {
+      window.removeEventListener('silagem_leaves_updated', handleLeavesUpdate);
+      window.removeEventListener('agrocontrol_afastamentos_updated', handleLeavesUpdate);
+    };
+  }, []);
+
+  // Sincronização em tempo real de Funcionários (RH)
+  useEffect(() => {
+    const handleEmployeesUpdate = (e: any) => {
+      const current = (e?.detail && Array.isArray(e.detail)) ? e.detail : getCompanyFuncionarios();
+      setEmployees(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
+    };
+    window.addEventListener('silagem_employees_updated', handleEmployeesUpdate);
+    window.addEventListener('agrocontrol_funcionarios_updated', handleEmployeesUpdate);
+    return () => {
+      window.removeEventListener('silagem_employees_updated', handleEmployeesUpdate);
+      window.removeEventListener('agrocontrol_funcionarios_updated', handleEmployeesUpdate);
     };
   }, []);
 

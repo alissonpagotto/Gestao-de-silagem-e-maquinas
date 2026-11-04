@@ -2372,6 +2372,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     saveStoredVacations(nextVacations);
     onSaveVacations(nextVacations);
+    try {
+      localStorage.setItem('colaca_silagem_rh_ferias', JSON.stringify(nextVacations));
+      localStorage.setItem('agrocontrol_ferias', JSON.stringify(nextVacations));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_vacations_updated', { detail: nextVacations }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_ferias_updated', { detail: nextVacations }));
+    }
     if (isSupabaseConfigured) {
       upsertRhFeriasRecord(recordPayload, activeTenantId).catch(() => {});
       saveCloudVacations(nextVacations, activeTenantId).catch(() => {});
@@ -2424,6 +2432,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       const nextList = vacations.filter(v => v.id !== id);
       saveStoredVacations(nextList);
       onSaveVacations(nextList);
+      try {
+        localStorage.setItem('colaca_silagem_rh_ferias', JSON.stringify(nextList));
+        localStorage.setItem('agrocontrol_ferias', JSON.stringify(nextList));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_vacations_updated', { detail: nextList }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_ferias_updated', { detail: nextList }));
+      }
       if (isSupabaseConfigured) {
         deleteRhFeriasRecord(id, activeTenantId).catch(() => {});
         saveCloudVacations(nextList, activeTenantId).catch(() => {});
@@ -2448,6 +2464,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     );
     saveStoredVacations(nextList);
     onSaveVacations(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_ferias', JSON.stringify(nextList));
+      localStorage.setItem('agrocontrol_ferias', JSON.stringify(nextList));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_vacations_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_ferias_updated', { detail: nextList }));
+    }
     const updatedItem = nextList.find(v => v.id === id);
     if (updatedItem && isSupabaseConfigured) {
       upsertRhFeriasRecord(updatedItem, activeTenantId).catch(() => {});

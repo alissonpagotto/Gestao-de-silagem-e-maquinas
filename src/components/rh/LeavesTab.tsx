@@ -13,7 +13,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { Employee, LeaveRecord } from '../../types';
-import { formatDateBR } from '../../lib/storage';
+import { formatDateBR, saveStoredLeaves } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 
 interface LeavesTabProps {
@@ -94,8 +94,9 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
+    let nextLeaves: LeaveRecord[];
     if (editingLeave) {
-      const updated = leaves.map(l => l.id === editingLeave.id ? {
+      nextLeaves = leaves.map(l => l.id === editingLeave.id ? {
         ...l,
         employeeId: emp.id,
         employeeName: emp.name,
@@ -110,7 +111,6 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
         status,
         notes,
       } : l);
-      onSaveLeaves(updated);
     } else {
       const newLeave: LeaveRecord = {
         id: `leave_${Date.now()}`,
@@ -127,18 +127,38 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
         notes,
         createdAt: new Date().toISOString(),
       };
-      onSaveLeaves([newLeave, ...leaves]);
+      nextLeaves = [newLeave, ...leaves];
+    }
+    saveStoredLeaves(nextLeaves);
+    onSaveLeaves(nextLeaves);
+    try {
+      localStorage.setItem('colaca_silagem_rh_afastamentos', JSON.stringify(nextLeaves));
+      localStorage.setItem('agrocontrol_afastamentos', JSON.stringify(nextLeaves));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_leaves_updated', { detail: nextLeaves }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_afastamentos_updated', { detail: nextLeaves }));
     }
     setIsModalOpen(false);
   };
 
   const handleToggleStatus = (id: string, currentStatus: 'ativo' | 'finalizado') => {
-    const nextStatus = currentStatus === 'ativo' ? 'finalizado' : 'ativo';
-    onSaveLeaves(leaves.map(l => l.id === id ? {
+    const nextStatus: 'ativo' | 'finalizado' = currentStatus === 'ativo' ? 'finalizado' : 'ativo';
+    const nextLeaves: LeaveRecord[] = leaves.map(l => l.id === id ? {
       ...l,
       status: nextStatus,
       actualReturnDate: nextStatus === 'finalizado' ? new Date().toISOString().split('T')[0] : undefined,
-    } : l));
+    } : l);
+    saveStoredLeaves(nextLeaves);
+    onSaveLeaves(nextLeaves);
+    try {
+      localStorage.setItem('colaca_silagem_rh_afastamentos', JSON.stringify(nextLeaves));
+      localStorage.setItem('agrocontrol_afastamentos', JSON.stringify(nextLeaves));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_leaves_updated', { detail: nextLeaves }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_afastamentos_updated', { detail: nextLeaves }));
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -153,7 +173,17 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveLeaves(leaves.filter(l => l.id !== id));
+      const nextLeaves = leaves.filter(l => l.id !== id);
+      saveStoredLeaves(nextLeaves);
+      onSaveLeaves(nextLeaves);
+      try {
+        localStorage.setItem('colaca_silagem_rh_afastamentos', JSON.stringify(nextLeaves));
+        localStorage.setItem('agrocontrol_afastamentos', JSON.stringify(nextLeaves));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_leaves_updated', { detail: nextLeaves }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_afastamentos_updated', { detail: nextLeaves }));
+      }
     }
   };
 

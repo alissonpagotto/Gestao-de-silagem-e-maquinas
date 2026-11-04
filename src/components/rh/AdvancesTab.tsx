@@ -23,7 +23,7 @@ import {
   Info
 } from 'lucide-react';
 import { Employee, SalaryAdvance, PaymentMethod } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, saveStoredSalaryAdvances } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -304,11 +304,22 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         }
       }
 
-      onSaveAdvances([...newInstallmentRecords, ...updatedList]);
+      const nextList = [...newInstallmentRecords, ...updatedList];
+      saveStoredSalaryAdvances(nextList);
+      onSaveAdvances(nextList);
+      try {
+        localStorage.setItem('agrocontrol_adiantamentos', JSON.stringify(nextList));
+        localStorage.setItem('colaca_silagem_rh_adiantamentos', JSON.stringify(nextList));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_advances_updated', { detail: nextList }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_adiantamentos_updated', { detail: nextList }));
+      }
     } else {
       // Cota Única (1x)
+      let nextList: SalaryAdvance[];
       if (editingAdvance) {
-        const updated = realAdvances.map(a => a.id === editingAdvance.id ? {
+        nextList = realAdvances.map(a => a.id === editingAdvance.id ? {
           ...a,
           employeeId: emp.id,
           employeeName: emp.name,
@@ -331,7 +342,6 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
           attachmentName: receiptName || undefined,
           attachmentUrl: receiptUrl || undefined,
         } : a);
-        onSaveAdvances(updated);
       } else {
         const newAdv = {
           id: `adv_${Date.now()}`,
@@ -357,7 +367,17 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
           attachmentUrl: receiptUrl || undefined,
           createdAt: new Date().toISOString(),
         };
-        onSaveAdvances([newAdv, ...realAdvances]);
+        nextList = [newAdv, ...realAdvances];
+      }
+      saveStoredSalaryAdvances(nextList);
+      onSaveAdvances(nextList);
+      try {
+        localStorage.setItem('agrocontrol_adiantamentos', JSON.stringify(nextList));
+        localStorage.setItem('colaca_silagem_rh_adiantamentos', JSON.stringify(nextList));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_advances_updated', { detail: nextList }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_adiantamentos_updated', { detail: nextList }));
       }
     }
 
@@ -365,8 +385,18 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
   };
 
   const handleToggleStatus = (id: string, currentStatus: 'pendente' | 'descontado') => {
-    const nextStatus = currentStatus === 'pendente' ? 'descontado' : 'pendente';
-    onSaveAdvances(realAdvances.map(a => a.id === id ? { ...a, status: nextStatus } : a));
+    const nextStatus: 'pendente' | 'descontado' = currentStatus === 'pendente' ? 'descontado' : 'pendente';
+    const nextList: SalaryAdvance[] = realAdvances.map(a => a.id === id ? { ...a, status: nextStatus } : a);
+    saveStoredSalaryAdvances(nextList);
+    onSaveAdvances(nextList);
+    try {
+      localStorage.setItem('agrocontrol_adiantamentos', JSON.stringify(nextList));
+      localStorage.setItem('colaca_silagem_rh_adiantamentos', JSON.stringify(nextList));
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_advances_updated', { detail: nextList }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_adiantamentos_updated', { detail: nextList }));
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -381,7 +411,17 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveAdvances(realAdvances.filter(a => a.id !== id));
+      const nextList = realAdvances.filter(a => a.id !== id);
+      saveStoredSalaryAdvances(nextList);
+      onSaveAdvances(nextList);
+      try {
+        localStorage.setItem('agrocontrol_adiantamentos', JSON.stringify(nextList));
+        localStorage.setItem('colaca_silagem_rh_adiantamentos', JSON.stringify(nextList));
+      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_advances_updated', { detail: nextList }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_adiantamentos_updated', { detail: nextList }));
+      }
     }
   };
 
