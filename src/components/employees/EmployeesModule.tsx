@@ -33,7 +33,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
@@ -1351,6 +1351,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   // Lista de colaboradores deduplicada por id e ordenada de A a Z pelo nome
   const filteredEmployees = useMemo(() => {
+    // 0. Mapeia rescisões homologadas ou integradas para excluir automaticamente da listagem de ativos
+    const terminatedKeys = new Set<string>();
+    try {
+      const termList = getStoredTerminations();
+      for (const t of termList) {
+        if (t.status === 'homologado' || t.status === 'integrado' || Boolean(t.isIntegrated)) {
+          if (t.employeeId) terminatedKeys.add(String(t.employeeId).toLowerCase());
+          if (t.employeeName) terminatedKeys.add(t.employeeName.trim().toLowerCase());
+        }
+      }
+    } catch {}
+
     // 1. Deduplicação para garantir integridade caso venham registros duplicados
     const seen = new Set<string>();
     const deduplicated: Employee[] = [];
@@ -1359,7 +1371,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       if (!emp || !emp.name || emp.name.trim() === '') continue;
       const st = String(emp.status || 'ativo').toLowerCase().trim();
       const isInactiveStatus = st === 'inativo' || st === 'demitido' || st === 'desligado' || st === 'afastado' || st === 'excluido';
-      const isActive = emp.active !== false && (st === 'ativo' || st === '') && !isInactiveStatus && !Boolean(emp.terminationDate);
+      const isTerminatedInRecords = (emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) || terminatedKeys.has(emp.name.trim().toLowerCase());
+      const isActive = emp.active !== false && (st === 'ativo' || st === '') && !isInactiveStatus && !Boolean(emp.terminationDate) && !isTerminatedInRecords;
       if (!isActive) {
         continue;
       }
@@ -1387,7 +1400,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       .sort((a, b) => 
         (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
       );
-  }, [localEmployees, searchTerm]);
+  }, [localEmployees, searchTerm, employeesStorageVersion]);
 
   // 1. ORDENAÇÃO AUTOMÁTICA DA TABELA (ORDEM ALFABÉTICA A-Z):
   // Garante que a lista de colaboradores seja exibida SEMPRE em ordem alfabética
@@ -1464,23 +1477,83 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     for (const emp of rawList) {
       if (emp && (emp.id || emp.name)) {
         const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
-        map.set(key, emp);
+        map.set(key, { ...emp });
       }
     }
     for (const emp of localEmployees) {
       if (emp && (emp.id || emp.name)) {
         const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
-        map.set(key, emp);
+        const existing = map.get(key);
+        map.set(key, { ...(existing || {}), ...emp });
       }
     }
+
+    // Incorpora rescisões existentes (para garantir que ex-colaboradores apareçam mesmo se originados de rescisão)
+    try {
+      const storedTerms = getStoredTerminations();
+      for (const t of storedTerms) {
+        if (!t.employeeName) continue;
+        const tNameUpper = t.employeeName.trim().toUpperCase();
+        let existingKey: string | undefined;
+        let existingEmp: Employee | undefined;
+
+        for (const [k, v] of map.entries()) {
+          if ((t.employeeId && (v.id === t.employeeId || toValidUUID(v.id) === toValidUUID(t.employeeId))) || v.name.trim().toUpperCase() === tNameUpper) {
+            existingKey = k;
+            existingEmp = v;
+            break;
+          }
+        }
+
+        const isFinished = t.status === 'homologado' || t.status === 'integrado' || Boolean(t.isIntegrated);
+        if (existingEmp && existingKey) {
+          if (isFinished) {
+            map.set(existingKey, {
+              ...existingEmp,
+              status: 'inativo',
+              active: false,
+              terminationDate: t.terminationDate || existingEmp.terminationDate,
+            });
+          }
+        } else {
+          const newKey = t.employeeId ? String(t.employeeId) : tNameUpper;
+          const dummyEmp: Employee = {
+            id: t.employeeId || toValidUUID(`ex_${t.id}`),
+            name: t.employeeName,
+            role: t.employeeRole || 'Colaborador',
+            phone: '',
+            contractType: 'Registrado (CLT)',
+            admissionDate: t.admissionDate,
+            terminationDate: t.terminationDate,
+            baseSalary: t.baseSalary,
+            salary: t.baseSalary,
+            active: !isFinished,
+            status: isFinished ? 'inativo' : 'ativo',
+          };
+          map.set(newKey, dummyEmp);
+        }
+      }
+    } catch {}
+
     return Array.from(map.values()).sort((a, b) => 
       (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
     );
   }, [localEmployees, employeesSubView, employeesStorageVersion]);
 
-  // Lista de Ex-Colaboradores carregada do LocalStorage ('agrocontrol_funcionarios')
-  // Listando APENAS funcionários cujo status no LocalStorage seja "INATIVO", "DEMITIDO" ou "AFASTADO"
+  // Lista de Ex-Colaboradores carregada do LocalStorage ('agrocontrol_funcionarios' e 'agrocontrol_rescisao')
+  // Listando APENAS funcionários cujo status seja "INATIVO", "DEMITIDO", "AFASTADO" ou com rescisão homologada/integrada
   const exEmployeesList = useMemo(() => {
+    const terminatedKeys = new Set<string>();
+    try {
+      const termList = getStoredTerminations();
+      for (const t of termList) {
+        if (t.status === 'homologado' || t.status === 'integrado' || Boolean(t.isIntegrated)) {
+          if (t.employeeId) terminatedKeys.add(String(t.employeeId).toLowerCase());
+          if (t.employeeName) terminatedKeys.add(t.employeeName.trim().toLowerCase());
+        }
+      }
+    } catch {}
+
     return allEmployeesForHistory.filter((emp) => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
       const st = String(emp.status || '').toUpperCase().trim();
@@ -1489,10 +1562,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                    st === 'AFASTADO' || 
                    st === 'DESLIGADO' || 
                    emp.active === false || 
-                   Boolean(emp.terminationDate);
+                   Boolean(emp.terminationDate) ||
+                   (emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) ||
+                   terminatedKeys.has(emp.name.trim().toLowerCase());
       return isEx;
     });
-  }, [allEmployeesForHistory]);
+  }, [allEmployeesForHistory, employeesStorageVersion]);
 
   // Filtro de busca na sub-aba de ex-colaboradores
   const filteredExEmployees = useMemo(() => {

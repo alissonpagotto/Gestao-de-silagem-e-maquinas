@@ -2325,7 +2325,7 @@ export default function App() {
     for (const emp of newEmployees) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
       const st = String(emp.status || '').toLowerCase();
-      if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;
+      if (st === 'excluido') continue;
       if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
         continue;
       }

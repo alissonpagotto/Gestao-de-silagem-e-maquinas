@@ -42,6 +42,7 @@ import {
   getStoredExpenses,
   saveStoredExpenses,
   getStoredMachineries,
+  saveStoredEmployees,
   STORAGE_KEYS
 } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -53,7 +54,8 @@ import {
   mapRowToTerminationRecord,
   toValidUUID,
   insertFinanceiroContasAPagar,
-  saveCloudExpenses
+  saveCloudExpenses,
+  upsertRhFuncionario
 } from '../../lib/supabaseService';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -216,6 +218,46 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       return prev;
     });
   }, [existingExpenses]);
+
+  // Sincronização automática: Se houver rescisões homologadas ou integradas no sistema,
+  // garante que os colaboradores correspondentes estejam marcados como 'inativo' e active: false
+  useEffect(() => {
+    if (!employees || employees.length === 0 || !onSaveEmployees) return;
+    const completedTerminations = terminations.filter(
+      (t) => t.status === 'homologado' || t.status === 'integrado' || Boolean(t.isIntegrated)
+    );
+    if (completedTerminations.length === 0) return;
+
+    let modified = false;
+    const updated = employees.map((emp) => {
+      const isTerminated = completedTerminations.some(
+        (t) => t.employeeId === emp.id || t.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase()
+      );
+      if (isTerminated && (emp.active !== false || emp.status !== 'inativo')) {
+        modified = true;
+        const matchingTerm = completedTerminations.find(
+          (t) => t.employeeId === emp.id || t.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase()
+        );
+        return {
+          ...emp,
+          status: 'inativo' as const,
+          active: false,
+          terminationDate: matchingTerm?.terminationDate || emp.terminationDate || new Date().toISOString().split('T')[0],
+        };
+      }
+      return emp;
+    });
+
+    if (modified) {
+      saveStoredEmployees(updated);
+      onSaveEmployees(updated);
+      if (isSupabaseConfigured) {
+        updated
+          .filter((e) => e.status === 'inativo' && e.active === false)
+          .forEach((e) => upsertRhFuncionario(e, activeTenantId).catch(() => {}));
+      }
+    }
+  }, [terminations, employees, onSaveEmployees, activeTenantId]);
 
   // Controle da Janela Modal de Cálculo e Listagem
   // OBRIGATÓRIO: Inicia fechado (isOpen: false)
@@ -633,6 +675,38 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         }
       }
 
+      // 6.1. TRANSIÇÃO DE ESTADO DO COLABORADOR:
+      // Ao integrar o acerto rescisório, o colaborador é automaticamente desativado (Inativo / Demitido)
+      const nextEmployees = employees.map((e) => {
+        const isMatch = e.id === t.employeeId || e.name.trim().toLowerCase() === t.employeeName.trim().toLowerCase();
+        if (isMatch) {
+          return {
+            ...e,
+            status: 'inativo' as const,
+            active: false,
+            terminationDate: t.terminationDate || new Date().toISOString().split('T')[0],
+          };
+        }
+        return e;
+      });
+
+      saveStoredEmployees(nextEmployees);
+      if (onSaveEmployees) {
+        onSaveEmployees(nextEmployees);
+      }
+
+      const deactivatedEmp = nextEmployees.find(
+        (e) => e.id === t.employeeId || e.name.trim().toLowerCase() === t.employeeName.trim().toLowerCase()
+      );
+      if (deactivatedEmp && isSupabaseConfigured) {
+        upsertRhFuncionario(deactivatedEmp, activeTenantId).catch(() => {});
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_employees_updated', { detail: nextEmployees }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_funcionarios_updated', { detail: nextEmployees }));
+      }
+
       // 7. Feedback visual de sucesso
       setIntegrationBanner({
         type: 'success',
@@ -697,9 +771,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       } catch (_) {}
     }
 
-    if (markInactive && onSaveEmployees) {
+    if (onSaveEmployees) {
       const updatedEmployees = employees.map((emp) => {
-        if (emp.id === record.employeeId) {
+        if (emp.id === record.employeeId || emp.name.trim().toLowerCase() === record.employeeName.trim().toLowerCase()) {
           return {
             ...emp,
             status: 'inativo' as const,
@@ -709,7 +783,18 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         }
         return emp;
       });
+      saveStoredEmployees(updatedEmployees);
       onSaveEmployees(updatedEmployees);
+      const deactivatedEmp = updatedEmployees.find(
+        (e) => e.id === record.employeeId || e.name.trim().toLowerCase() === record.employeeName.trim().toLowerCase()
+      );
+      if (deactivatedEmp && isSupabaseConfigured) {
+        upsertRhFuncionario(deactivatedEmp, activeTenantId).catch(() => {});
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_employees_updated', { detail: updatedEmployees }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_funcionarios_updated', { detail: updatedEmployees }));
+      }
     }
 
     setViewingTRCT(updatedRecord);

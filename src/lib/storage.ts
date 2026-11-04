@@ -910,7 +910,7 @@ export function getStoredEmployees(): Employee[] {
       return false;
     };
 
-    // Filtra colaboradores excluídos, inativos, demitidos e registros sem dados essenciais
+    // Filtra apenas colaboradores excluídos permanentemente, mocks e registros sem dados essenciais
     const filtered = parsed.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
       if (isMockEmployee(emp)) {
@@ -918,14 +918,7 @@ export function getStoredEmployees(): Employee[] {
         return false;
       }
       const st = String(emp.status || '').toLowerCase().trim();
-      if (
-        st === 'excluido' ||
-        st === 'inativo' ||
-        st === 'demitido' ||
-        st === 'desligado' ||
-        emp.active === false ||
-        Boolean(emp.terminationDate)
-      ) {
+      if (st === 'excluido') {
         modified = true;
         return false;
       }

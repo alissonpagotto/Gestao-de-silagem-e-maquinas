@@ -75,14 +75,18 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 }) => {
   // Colaborador Selecionado (Ativo ou Ex-Colaborador)
   const [currentEmpId, setCurrentEmpId] = useState<string>(() => {
-    return selectedEmployeeId || '';
+    if (selectedEmployeeId) return selectedEmployeeId;
+    if (employees && employees.length > 0) return employees[0].id;
+    return '';
   });
 
   useEffect(() => {
     if (selectedEmployeeId) {
       setCurrentEmpId(selectedEmployeeId);
+    } else if (!currentEmpId && employees && employees.length > 0) {
+      setCurrentEmpId(employees[0].id);
     }
-  }, [selectedEmployeeId]);
+  }, [selectedEmployeeId, employees, currentEmpId]);
 
   // Busca do Seletor
   const [pickerSearch, setPickerSearch] = useState('');
@@ -100,17 +104,22 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 
   // Colaborador Atual (busca na lista em memória e com fallback no LocalStorage agrocontrol_funcionarios)
   const currentEmployee = useMemo(() => {
-    if (!currentEmpId) return null;
-    const found = employees.find(e => e.id === currentEmpId);
-    if (found) return found;
+    if (!employees || employees.length === 0) return null;
+    if (currentEmpId) {
+      const found = employees.find(e => e.id === currentEmpId || (e.name && e.name.trim().toLowerCase() === currentEmpId.trim().toLowerCase()));
+      if (found) return found;
+    }
     try {
       const raw = localStorage.getItem('agrocontrol_funcionarios') ||
                   localStorage.getItem('colaca_silagem_funcionarios');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const directMatch = parsed.find((e: any) => e && e.id === currentEmpId);
-          if (directMatch) return directMatch;
+          if (currentEmpId) {
+            const directMatch = parsed.find((e: any) => e && (e.id === currentEmpId || (e.name && e.name.trim().toLowerCase() === currentEmpId.trim().toLowerCase())));
+            if (directMatch) return directMatch;
+          }
+          if (parsed.length > 0) return parsed[0];
         }
       }
     } catch {}
@@ -262,7 +271,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
     window.print();
   };
 
-  if (!currentEmployee) {
+  if (!currentEmployee && (!employees || employees.length === 0)) {
     return (
       <div className="p-8 text-center text-slate-500 bg-white rounded border border-slate-300">
         <UserSquare2 className="w-12 h-12 mx-auto text-slate-400 mb-2" />
