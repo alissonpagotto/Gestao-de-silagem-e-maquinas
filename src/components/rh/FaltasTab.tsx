@@ -352,6 +352,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
   const handleEmployeeChange = (empId: string) => {
     setSelectedEmployeeId(empId);
+    if (!empId) {
+      setDiscountAmount(0);
+      setCalculationMemory('Selecione um funcionário para calcular o desconto.');
+      return;
+    }
     const res = calculateAbsenceDiscount(empId, absenceUnit, daysCount, absenceHours, discountPayroll, referenceMonth);
     setDiscountAmount(res.discountAmount);
     setCalculationMemory(res.calculationMemory);
@@ -516,9 +521,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setCalculationMemory(item.calculationMemory || res.calculationMemory);
     } else {
       setEditingAbsence(null);
-      const activeEmps = employees.filter(e => e.status !== 'inativo');
-      const firstId = activeEmps.length > 0 ? activeEmps[0].id : '';
-      setSelectedEmployeeId(firstId);
+      setSelectedEmployeeId('');
       const today = new Date().toISOString().split('T')[0];
       setDate(today);
       setEndDate(today);
@@ -531,21 +534,15 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setStatus('pendente');
       setReason('');
       setNotes('');
-
-      if (firstId) {
-        const res = calculateAbsenceDiscount(firstId, 'dias', 1, 2.5, true, currentMonthRef);
-        setDiscountAmount(res.discountAmount);
-        setCalculationMemory(res.calculationMemory);
-      } else {
-        setDiscountAmount(0);
-        setCalculationMemory('');
-      }
+      setDiscountAmount(0);
+      setCalculationMemory('Selecione um funcionário para calcular o desconto.');
     }
     setIsModalOpen(true);
   };
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEmployeeId) return;
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
@@ -1048,9 +1045,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                     <input
                       type="text"
                       value={referenceMonth}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => handleMonthRefChange(e.target.value)}
                       placeholder="MM/AAAA (ex: 09/2026)"
-                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -1062,8 +1060,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                     </label>
                     <select
                       value={status}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <option value="pendente">Pendente de Aplicação</option>
                       <option value="descontada">Já Descontada na Folha</option>
@@ -1075,7 +1074,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                 </div>
 
                 {/* ALERTA DE PROPORCIONALIDADE DE ADMISSÃO */}
-                {proportionalCalc.isProportional && (
+                {selectedEmployeeId && proportionalCalc.isProportional && (
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start space-x-2.5">
                     <AlertCircle className="w-4 h-4 text-[#0963cb] shrink-0 mt-0.5" />
                     <div className="text-[11px] text-blue-900 leading-relaxed">
@@ -1108,8 +1107,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                     </label>
                     <select
                       value={type}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => setType(e.target.value as any)}
-                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs"
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       required
                     >
                       <option value="injustificada">Falta Injustificada</option>
@@ -1128,8 +1128,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                       <input
                         type="date"
                         value={date}
+                        disabled={!selectedEmployeeId}
                         onChange={(e) => handleDateChange(e.target.value)}
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb] disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                         required
                       />
                     </div>
@@ -1140,8 +1141,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                       <input
                         type="date"
                         value={endDate}
+                        disabled={!selectedEmployeeId}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb] disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -1154,8 +1156,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                     <div className="grid grid-cols-2 gap-2 p-1 bg-stone-100 border border-stone-300 rounded-xl">
                       <button
                         type="button"
+                        disabled={!selectedEmployeeId}
                         onClick={() => handleUnitChange('dias')}
-                        className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer ${
+                        className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           absenceUnit === 'dias'
                             ? 'bg-[#0963cb] text-white shadow-xs'
                             : 'text-stone-700 hover:text-black hover:bg-stone-200/60'
@@ -1165,8 +1168,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                       </button>
                       <button
                         type="button"
+                        disabled={!selectedEmployeeId}
                         onClick={() => handleUnitChange('horas')}
-                        className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer ${
+                        className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           absenceUnit === 'horas'
                             ? 'bg-[#0963cb] text-white shadow-xs'
                             : 'text-stone-700 hover:text-black hover:bg-stone-200/60'
@@ -1187,9 +1191,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                         type="number"
                         min="1"
                         step="1"
+                        disabled={!selectedEmployeeId}
                         value={daysCount || ''}
                         onChange={(e) => handleDaysChange(parseInt(e.target.value) || 1)}
-                        className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-sm"
+                        className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-sm disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                         required
                       />
                       <span className="text-[10px] text-stone-500 mt-1 block">
@@ -1205,10 +1210,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                         type="number"
                         min="0.1"
                         step="0.1"
+                        disabled={!selectedEmployeeId}
                         value={absenceHours !== undefined ? absenceHours : ''}
                         onChange={(e) => handleHoursChange(parseFloat(e.target.value) || 0)}
                         placeholder="Ex: 2.5 (duas horas e meia), 4.0..."
-                        className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-sm"
+                        className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-sm disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                         required
                       />
                       <span className="text-[10px] text-stone-500 mt-1 block">
@@ -1226,9 +1232,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                       <input
                         type="text"
                         value={reason}
+                        disabled={!selectedEmployeeId}
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Ex: Não compareceu ao corte de silagem / Atraso no início do turno..."
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium"
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -1239,8 +1246,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                       <textarea
                         rows={2}
                         value={notes}
+                        disabled={!selectedEmployeeId}
                         onChange={(e) => setNotes(e.target.value)}
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] resize-none text-xs"
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] resize-none text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Registro sobre contato, advertência aplicada, compensação de jornada..."
                       />
                     </div>
@@ -1262,8 +1270,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                         <input
                           type="checkbox"
                           checked={discountPayroll}
+                          disabled={!selectedEmployeeId}
                           onChange={(e) => handleToggleDiscount(e.target.checked)}
-                          className="rounded text-pink-600 focus:ring-pink-500 w-4 h-4 cursor-pointer"
+                          className="rounded text-pink-600 focus:ring-pink-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
                         />
                         <span className="font-bold text-xs text-black">
                           Aplicar Desconto
@@ -1338,8 +1347,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                             </label>
                             <button
                               type="button"
+                              disabled={!selectedEmployeeId}
                               onClick={() => handleResetToCalculated()}
-                              className="text-[10px] text-[#0963cb] hover:underline font-bold cursor-pointer"
+                              className="text-[10px] text-[#0963cb] hover:underline font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                               title="Recalcular valor exato pela fórmula"
                             >
                               ↺ Recalcular Padrão
@@ -1352,9 +1362,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                             <input
                               type="number"
                               step="0.01"
+                              disabled={!selectedEmployeeId}
                               value={discountAmount !== undefined ? discountAmount : ''}
                               onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
-                              className="w-full pl-10 pr-3 py-2 border border-rose-300 rounded-lg bg-white text-rose-800 font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 shadow-inner"
+                              className="w-full pl-10 pr-3 py-2 border border-rose-300 rounded-lg bg-white text-rose-800 font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 shadow-inner disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
                               required
                             />
                           </div>
@@ -1410,7 +1421,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                    disabled={!selectedEmployeeId}
+                    className="px-6 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold transition shadow-md cursor-pointer flex items-center space-x-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Check className="w-4 h-4" />
                     <span>Salvar Falta / Ocorrência</span>

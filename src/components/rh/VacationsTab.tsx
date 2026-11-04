@@ -2265,6 +2265,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   const handleSaveModal = (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
+    if (!selectedEmployeeId) return;
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
@@ -3103,14 +3104,16 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 <div className="min-w-0">
                   <div className="flex items-center space-x-2">
                     <h4 className="text-xs sm:text-sm font-black text-black dark:text-white uppercase truncate font-['Outfit']">
-                      {selectedEmp?.name || 'Selecione o Colaborador'}
+                      {selectedEmp?.name || 'Selecione um funcionário...'}
                     </h4>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 uppercase">
-                      {selectedEmp?.contractType || 'CLT'}
-                    </span>
+                    {selectedEmp && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 uppercase">
+                        {selectedEmp?.contractType || 'CLT'}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2 text-[11px] text-stone-600 dark:text-stone-300">
-                    <span className="font-semibold">{selectedEmp?.role || 'Função não informada'}</span>
+                    <span className="font-semibold">{selectedEmp?.role || (selectedEmployeeId ? 'Função não informada' : 'Nenhum colaborador selecionado')}</span>
                     <span>•</span>
                     <span>
                       Salário Base: <strong className="font-mono font-black text-black dark:text-white">{formatBRL(baseSalary)}</strong>
@@ -3125,7 +3128,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   onChange={(e) => handleSelectEmployee(e.target.value)}
                   className="w-full sm:w-auto px-2.5 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-xs"
                 >
-                  <option value="">Trocar Colaborador...</option>
+                  <option value="">Selecione um funcionário...</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name} ({emp.role}) - {formatBRL(getEmployeeContractualSalary(emp.id, emp.name))}
@@ -3163,8 +3166,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     <input
                       type="date"
                       value={startDate}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => handleStartDateChange(e.target.value)}
-                      className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] disabled:opacity-50 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -3176,8 +3180,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     <input
                       type="date"
                       value={endDate}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => handleEndDateChange(e.target.value)}
-                      className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] disabled:opacity-50 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -3202,8 +3207,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     </label>
                     <select
                       value={sellDaysCount}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => handleAbonoChange(Number(e.target.value))}
-                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value={0}>Sem Abono (30d)</option>
                       <option value={10}>Vender 10d (Gozo 20d)</option>
@@ -3216,11 +3222,12 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     </label>
                     <select
                       value={thirteenthAdvance ? 'sim' : 'nao'}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => {
                         setThirteenthAdvance(e.target.value === 'sim');
                         setCustomDecimoAdiantamento(null);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="nao">Não</option>
                       <option value="sim">Sim (+50%)</option>
@@ -3234,8 +3241,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     <select
                       ref={statusSelectRef}
                       value={status}
+                      disabled={!selectedEmployeeId}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="agendado">Agendado</option>
                       <option value="em_gozo">Em Gozo</option>
@@ -3550,8 +3558,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     type="text"
                     placeholder="Observações gerais sobre o período de férias (opcional)..."
                     value={notes}
+                    disabled={!selectedEmployeeId}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                    className="w-full px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -3559,7 +3568,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   <button
                     type="button"
                     onClick={handlePreviewReceipt}
-                    className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold text-xs rounded-lg shadow-xs transition cursor-pointer active:scale-95"
+                    disabled={!selectedEmployeeId}
+                    className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold text-xs rounded-lg shadow-xs transition cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Abrir Aviso e Recibo de Férias (PDF)"
                   >
                     <Printer className="w-3.5 h-3.5 text-[#0963cb]" />
@@ -3577,7 +3587,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   <button
                     type="submit"
                     onClick={handleSaveModal}
-                    className="px-4 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold text-xs transition shadow-sm cursor-pointer active:scale-95"
+                    disabled={!selectedEmployeeId}
+                    className="px-4 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold text-xs transition shadow-sm cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Salvar Férias
                   </button>

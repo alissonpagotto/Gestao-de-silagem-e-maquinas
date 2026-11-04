@@ -75,10 +75,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 }) => {
   // Colaborador Selecionado (Ativo ou Ex-Colaborador)
   const [currentEmpId, setCurrentEmpId] = useState<string>(() => {
-    if (selectedEmployeeId) {
-      return selectedEmployeeId;
-    }
-    return employees.length > 0 ? employees[0].id : '';
+    return selectedEmployeeId || '';
   });
 
   useEffect(() => {
@@ -103,7 +100,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 
   // Colaborador Atual (busca na lista em memória e com fallback no LocalStorage agrocontrol_funcionarios)
   const currentEmployee = useMemo(() => {
-    if (!currentEmpId) return employees[0] || null;
+    if (!currentEmpId) return null;
     const found = employees.find(e => e.id === currentEmpId);
     if (found) return found;
     try {
@@ -295,6 +292,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
               }}
               className="w-full text-xs font-bold uppercase py-1.5 pl-2.5 pr-8 bg-white border border-slate-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer text-slate-800"
             >
+              <option value="">Selecione um funcionário...</option>
               {employees.map(emp => {
                 const tag = (emp.status as any) === 'demitido' ? ' (DEMITIDO)' :
                             emp.status === 'afastado' ? ' (AFASTADO)' :
@@ -314,7 +312,8 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
           <button
             type="button"
             onClick={handlePrintProntuario}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 shadow-xs transition active:scale-95 cursor-pointer"
+            disabled={!currentEmployee}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Imprimir Prontuário Completo do Colaborador (A4)"
           >
             <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -323,12 +322,14 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 
           <button
             type="button"
+            disabled={!currentEmployee}
             onClick={() => {
+              if (!currentEmployee) return;
               setNewSalaryValue(currentEmployee.salary || currentEmployee.baseSalary ? String(currentEmployee.salary || currentEmployee.baseSalary) : '');
               setNewSalaryCargo(currentEmployee.role || '');
               setIsSalaryModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase rounded bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase rounded bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
             <span>+ NOVO REAJUSTE SALARIAL</span>
@@ -336,6 +337,18 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
         </div>
       </div>
 
+      {!currentEmployee ? (
+        <div className="border border-slate-300 rounded-lg bg-white p-8 text-center space-y-2 shadow-xs">
+          <UserSquare2 className="w-10 h-10 mx-auto text-slate-400" />
+          <h4 className="text-xs font-black uppercase text-slate-700 tracking-wider">
+            NENHUM COLABORADOR SELECIONADO
+          </h4>
+          <p className="text-[11px] text-slate-500 font-medium max-w-md mx-auto">
+            Selecione um funcionário no seletor acima para auditar o histórico individual, ocorrências de ponto, férias, adiantamentos e reajustes salariais.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* 2. CARD RESUMO DO COLABORADOR (CABEÇALHO COM AVATAR E DADOS ESSENCIAIS) */}
       <div className="border border-slate-300 rounded-lg bg-white p-3 shadow-xs">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
@@ -955,9 +968,11 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
           )}
         </section>
       )}
+      </>
+      )}
 
       {/* MODAL PARA REGISTRO DE ALTERAÇÃO SALARIAL */}
-      {isSalaryModalOpen && (
+      {isSalaryModalOpen && currentEmployee && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-fade-in">
           <div className="w-full max-w-[500px] bg-white rounded-lg shadow-xl border border-slate-400 overflow-hidden">
             

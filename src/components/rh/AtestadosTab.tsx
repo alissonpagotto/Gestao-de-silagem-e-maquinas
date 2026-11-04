@@ -133,8 +133,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
       setNotes(cert.notes || '');
     } else {
       setEditingCert(null);
-      const activeEmps = employees.filter(e => e.status !== 'inativo');
-      setSelectedEmployeeId(activeEmps.length > 0 ? activeEmps[0].id : '');
+      setSelectedEmployeeId('');
       setType('Atestado Médico');
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
@@ -155,6 +154,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEmployeeId) return;
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
@@ -541,7 +541,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                     <select
                       value={type}
                       onChange={(e) => setType(e.target.value as any)}
-                      className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 font-medium cursor-pointer"
+                      disabled={!selectedEmployeeId}
+                      className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       required
                     >
                       <option value="Atestado Médico">Atestado Médico</option>
@@ -560,7 +561,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                      disabled={!selectedEmployeeId}
+                      className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="homologado">Homologado (Abonar)</option>
                       <option value="em_analise">Em Análise pela Coordenação</option>
@@ -584,7 +586,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         type="date"
                         value={startDate}
                         onChange={(e) => handleDateChange(e.target.value, endDate)}
-                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                        disabled={!selectedEmployeeId}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         required
                       />
                     </div>
@@ -601,7 +604,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                           max="24"
                           value={hoursCount || ''}
                           onChange={(e) => setHoursCount(parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                          disabled={!selectedEmployeeId}
+                          className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                           placeholder="Ex: 2.5"
                         />
                       </div>
@@ -616,7 +620,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                           value={daysCount > 0 ? daysCount : ''}
                           placeholder="Qtd. dias"
                           onChange={(e) => handleDaysChange(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
-                          className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                          disabled={!selectedEmployeeId}
+                          className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                           required
                         />
                       </div>
@@ -630,7 +635,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         type="date"
                         value={expectedReturnDate}
                         onChange={(e) => setExpectedReturnDate(e.target.value)}
-                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                        disabled={!selectedEmployeeId}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -652,7 +658,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         value={cid}
                         onChange={(e) => setCid(e.target.value)}
                         placeholder="Ex: J06, M54.5"
-                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold uppercase outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                        disabled={!selectedEmployeeId}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-bold uppercase outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -665,7 +672,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         value={doctorName}
                         onChange={(e) => setDoctorName(e.target.value)}
                         placeholder="Ex: Dr. Roberto Silva"
-                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                        disabled={!selectedEmployeeId}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -678,7 +686,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         value={crmCro}
                         onChange={(e) => setCrmCro(e.target.value)}
                         placeholder="Ex: 123456/SP"
-                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                        disabled={!selectedEmployeeId}
+                        className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -692,7 +701,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                       value={clinic}
                       onChange={(e) => setClinic(e.target.value)}
                       placeholder="Ex: Santa Casa / UBS Central"
-                      className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs"
+                      disabled={!selectedEmployeeId}
+                      className="w-full px-2 py-1 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-slate-900 dark:text-stone-100 font-medium outline-none focus:ring-1 focus:ring-slate-400 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -708,7 +718,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                       value={attachmentName}
                       onChange={(e) => setAttachmentName(e.target.value)}
                       placeholder="Ex: atestado_medico_092026.pdf ou foto do documento"
-                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400"
+                      disabled={!selectedEmployeeId}
+                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -720,7 +731,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                       rows={2}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 resize-none"
+                      disabled={!selectedEmployeeId}
+                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Anotações internas sobre entrega do documento..."
                     />
                   </div>
@@ -738,7 +750,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-rose-700 cursor-pointer text-xs"
+                  disabled={!selectedEmployeeId}
+                  className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-rose-700 cursor-pointer text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Salvar Atestado
                 </button>

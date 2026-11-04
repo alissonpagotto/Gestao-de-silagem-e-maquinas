@@ -164,8 +164,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       setReceiptUrl(advance.attachmentUrl || '');
     } else {
       setEditingAdvance(null);
-      const firstActive = employees.find(e => e.status === 'ativo');
-      setSelectedEmployeeId(firstActive ? firstActive.id : '');
+      setSelectedEmployeeId('');
       setDate(new Date().toISOString().split('T')[0]);
       setAmount(0);
       setPaymentMethod('pix');
@@ -240,6 +239,10 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEmployeeId) {
+      alert('Por favor, selecione um funcionário.');
+      return;
+    }
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) {
       alert('Por favor, selecione um colaborador.');
@@ -654,7 +657,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                   className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-bold text-xs"
                   required
                 >
-                  <option value="">Selecione um colaborador...</option>
+                  <option value="">Selecione um funcionário...</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name} ({emp.role})
@@ -673,7 +676,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium"
+                    disabled={!selectedEmployeeId}
+                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   />
                 </div>
@@ -688,7 +692,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                     onChange={handleAmountChange}
                     onFocus={(e) => e.target.select()}
                     placeholder="R$ 0,00"
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                    disabled={!selectedEmployeeId}
+                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   />
                 </div>
@@ -704,7 +709,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                     <button
                       type="button"
                       onClick={() => setDiscountType('Cota Única')}
-                      className={`py-2 px-3 rounded-lg font-bold text-xs border transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                      disabled={!selectedEmployeeId}
+                      className={`py-2 px-3 rounded-lg font-bold text-xs border transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                         discountType === 'Cota Única'
                           ? 'bg-[#0963cb] text-white border-[#0963cb] shadow-xs'
                           : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
@@ -716,7 +722,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                     <button
                       type="button"
                       onClick={() => setDiscountType('Parcelado')}
-                      className={`py-2 px-3 rounded-lg font-bold text-xs border transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                      disabled={!selectedEmployeeId}
+                      className={`py-2 px-3 rounded-lg font-bold text-xs border transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                         discountType === 'Parcelado'
                           ? 'bg-[#0963cb] text-white border-[#0963cb] shadow-xs'
                           : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
@@ -739,7 +746,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                         <select
                           value={installmentsCount}
                           onChange={(e) => setInstallmentsCount(parseInt(e.target.value, 10) || 2)}
-                          className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                          disabled={!selectedEmployeeId}
+                          className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                             <option key={n} value={n}>
@@ -762,7 +770,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                             value={monthlyInterestRate === 0 ? '' : monthlyInterestRate}
                             placeholder="0 (Sem Juros)"
                             onChange={(e) => setMonthlyInterestRate(parseFloat(e.target.value) || 0)}
-                            className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                            disabled={!selectedEmployeeId}
+                            className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 font-bold text-xs pointer-events-none">
                             %
@@ -838,7 +847,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium"
+                    disabled={!selectedEmployeeId}
+                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="pix">PIX</option>
                     <option value="dinheiro">Dinheiro</option>
@@ -855,7 +865,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                     value={referenceMonth}
                     placeholder="MM/AAAA (ex: 09/2026)"
                     onChange={(e) => setReferenceMonth(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                    disabled={!selectedEmployeeId}
+                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   />
                 </div>
@@ -871,7 +882,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                   value={reason}
                   placeholder="Ex: Adiantamento emergencial, despesas médicas, compra de insumo..."
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                  disabled={!selectedEmployeeId}
+                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -922,11 +934,17 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`cursor-pointer border-2 border-dashed rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 transition text-center ${
-                      isDragging
-                        ? 'border-[#0963cb] bg-blue-50/80 scale-[0.99]'
-                        : 'border-stone-300 hover:border-[#0963cb] bg-white/90 hover:bg-white'
+                    onClick={() => {
+                      if (selectedEmployeeId) {
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 transition text-center ${
+                      !selectedEmployeeId
+                        ? 'opacity-50 cursor-not-allowed border-stone-300 bg-white/50'
+                        : isDragging
+                          ? 'cursor-pointer border-[#0963cb] bg-blue-50/80 scale-[0.99]'
+                          : 'cursor-pointer border-stone-300 hover:border-[#0963cb] bg-white/90 hover:bg-white'
                     }`}
                   >
                     <Upload className="w-5 h-5 text-[#0963cb]" />
@@ -943,6 +961,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                       type="file"
                       accept="image/*,.pdf"
                       onChange={handleFileInputChange}
+                      disabled={!selectedEmployeeId}
                       className="hidden"
                     />
                   </div>
@@ -961,7 +980,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                       name="advanceStatus"
                       checked={status === 'pendente'}
                       onChange={() => setStatus('pendente')}
-                      className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
+                      disabled={!selectedEmployeeId}
+                      className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer disabled:opacity-50"
                     />
                     <span className="font-bold text-amber-900">Pendente de Desconto</span>
                   </label>
@@ -971,7 +991,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                       name="advanceStatus"
                       checked={status === 'descontado'}
                       onChange={() => setStatus('descontado')}
-                      className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
+                      disabled={!selectedEmployeeId}
+                      className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer disabled:opacity-50"
                     />
                     <span className="font-bold text-emerald-900">Já Descontado na Folha</span>
                   </label>
@@ -989,7 +1010,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold transition shadow-xs cursor-pointer text-xs"
+                  disabled={!selectedEmployeeId}
+                  className="px-5 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold transition shadow-xs cursor-pointer text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {discountType === 'Parcelado' 
                     ? `Salvar e Provisionar ${installmentsCount}x` 

@@ -74,8 +74,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
       setNotes(leave.notes || '');
     } else {
       setEditingLeave(null);
-      const firstActive = employees.find(e => e.status === 'ativo');
-      setSelectedEmployeeId(firstActive ? firstActive.id : '');
+      setSelectedEmployeeId('');
       setType('Atestado Médico');
       setStartDate(new Date().toISOString().split('T')[0]);
       setEndDate('');
@@ -91,6 +90,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEmployeeId) return;
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
@@ -391,7 +391,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                   className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
                   required
                 >
-                  <option value="">Selecione um colaborador...</option>
+                  <option value="">Selecione um funcionário...</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name} ({emp.role})
@@ -408,7 +408,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as any)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                  disabled={!selectedEmployeeId}
+                  className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="Atestado Médico">Atestado Médico (Geral)</option>
@@ -430,7 +431,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400"
+                    disabled={!selectedEmployeeId}
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   />
                 </div>
@@ -442,7 +444,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     type="date"
                     value={expectedReturnDate}
                     onChange={(e) => setExpectedReturnDate(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400"
+                    disabled={!selectedEmployeeId}
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -455,7 +458,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     value={daysCount > 0 ? daysCount : ''}
                     placeholder="Qtd. dias"
                     onChange={(e) => setDaysCount(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
-                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-400"
+                    disabled={!selectedEmployeeId}
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -471,7 +475,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     value={cid}
                     onChange={(e) => setCid(e.target.value)}
                     placeholder="Ex: A09, J06..."
-                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs uppercase font-mono outline-none focus:ring-1 focus:ring-slate-400"
+                    disabled={!selectedEmployeeId}
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs uppercase font-mono outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -483,7 +488,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     value={doctorName}
                     onChange={(e) => setDoctorName(e.target.value)}
                     placeholder="Ex: Dr. Roberto / CRM 12345"
-                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400"
+                    disabled={!selectedEmployeeId}
+                    className="w-full px-2.5 py-1 sm:py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -500,7 +506,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                       name="status"
                       checked={status === 'ativo'}
                       onChange={() => setStatus('ativo')}
-                      className="text-slate-800 focus:ring-slate-400 accent-slate-800 cursor-pointer"
+                      disabled={!selectedEmployeeId}
+                      className="text-slate-800 focus:ring-slate-400 accent-slate-800 cursor-pointer disabled:opacity-50"
                     />
                     <span className="font-bold text-rose-700 dark:text-rose-400">Afastado (Ativo)</span>
                   </label>
@@ -510,7 +517,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                       name="status"
                       checked={status === 'finalizado'}
                       onChange={() => setStatus('finalizado')}
-                      className="text-slate-800 focus:ring-slate-400 accent-slate-800 cursor-pointer"
+                      disabled={!selectedEmployeeId}
+                      className="text-slate-800 focus:ring-slate-400 accent-slate-800 cursor-pointer disabled:opacity-50"
                     />
                     <span className="font-bold text-emerald-700 dark:text-emerald-400">Retornou ao Trabalho (Finalizado)</span>
                   </label>
@@ -527,7 +535,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Informações adicionais do afastamento..."
-                  className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 resize-none"
+                  disabled={!selectedEmployeeId}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium outline-none focus:ring-1 focus:ring-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -542,7 +551,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold transition shadow-xs cursor-pointer border border-emerald-800"
+                  disabled={!selectedEmployeeId}
+                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold transition shadow-xs cursor-pointer border border-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Salvar Afastamento
                 </button>

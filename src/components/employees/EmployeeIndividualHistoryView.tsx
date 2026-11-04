@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, 
+  UserSquare2,
   DollarSign, 
   FileText, 
   Clock, 
@@ -98,18 +99,11 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
   }, [employees]);
 
   // Colaborador selecionado
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(() => {
-    return activeEmployeesList[0]?.id || '';
-  });
-
-  useEffect(() => {
-    if (!selectedEmployeeId && activeEmployeesList.length > 0) {
-      setSelectedEmployeeId(activeEmployeesList[0].id);
-    }
-  }, [activeEmployeesList, selectedEmployeeId]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
   const selectedEmployee = useMemo(() => {
-    return activeEmployeesList.find(e => e.id === selectedEmployeeId) || activeEmployeesList[0] || null;
+    if (!selectedEmployeeId) return null;
+    return activeEmployeesList.find(e => e.id === selectedEmployeeId) || null;
   }, [activeEmployeesList, selectedEmployeeId]);
 
   // Sub-abas do prontuário (6 blocos estruturados)
@@ -438,14 +432,6 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
     setNewComissaoHectare('');
   };
 
-  if (!selectedEmployee) {
-    return (
-      <div className="p-8 text-center text-slate-500 uppercase text-xs font-bold border border-slate-300 rounded bg-white">
-        NENHUM COLABORADOR CADASTRADO NO SISTEMA PARA AUDITORIA.
-      </div>
-    );
-  }
-
   return (
     <div className="w-full h-[95vh] max-h-[95vh] flex flex-col justify-between overflow-hidden bg-slate-50 dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg p-2.5 space-y-2 select-none">
       
@@ -461,10 +447,11 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
             </span>
             <div className="relative flex-1 max-w-md">
               <select
-                value={selectedEmployee.id}
+                value={selectedEmployeeId}
                 onChange={e => setSelectedEmployeeId(e.target.value)}
                 className="w-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-600 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-500 cursor-pointer"
               >
+                <option value="">Selecione um funcionário...</option>
                 {activeEmployeesList.map(emp => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name.toUpperCase()} {emp.role ? `• ${emp.role.toUpperCase()}` : ''} ({emp.status === 'ativo' ? 'ATIVO' : emp.status?.toUpperCase() || 'ATIVO'})
@@ -483,7 +470,21 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
             </span>
           </div>
         </div>
+      </div>
 
+      {!selectedEmployee ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white dark:bg-stone-850 border border-slate-300 dark:border-stone-700 rounded text-center space-y-2">
+          <UserSquare2 className="w-12 h-12 text-slate-400" />
+          <h4 className="text-xs font-black uppercase text-slate-800 dark:text-stone-200 tracking-wider">
+            NENHUM COLABORADOR SELECIONADO
+          </h4>
+          <p className="text-[11px] text-slate-500 dark:text-stone-400 max-w-sm">
+            Selecione um funcionário no seletor acima para abrir o prontuário digital e auditar salários, folhas, ponto, vales e férias.
+          </p>
+        </div>
+      ) : (
+        <>
+        <div className="shrink-0 space-y-2">
         {/* Ficha Resumo do Colaborador Selecionado */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white dark:bg-stone-850 border border-slate-300/80 dark:border-stone-700/80 rounded shadow-xs">
           <div className="flex items-center space-x-3 min-w-0">
@@ -885,11 +886,13 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* =====================================================================
           4. MODAL: REGISTRAR REAJUSTE SALARIAL (PADRÃO OURO)
          ===================================================================== */}
-      {isSalaryModalOpen && (
+      {isSalaryModalOpen && selectedEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
           <div className="w-full max-w-lg bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150">
             {/* Header Acetinado 3D */}
