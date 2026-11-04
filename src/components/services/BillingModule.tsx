@@ -629,26 +629,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                             {service.farmName}
                           </div>
                         )}
-                        {/* Detalhes de Frota & Equipamentos */}
-                        {((service.trucks && service.trucks.length > 0) || service.forageHarvesterName || service.tractorName || service.machineryAssigned) && (
-                          <div className="text-[10px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5 flex flex-wrap items-center gap-1 uppercase">
-                            {service.forageHarvesterName && (
-                              <span className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1 py-0.2 rounded border border-amber-200 dark:border-amber-800">
-                                FORR: {service.forageHarvesterName}
-                              </span>
-                            )}
-                            {service.tractorName && (
-                              <span className="text-blue-800 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/50 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
-                                TRATOR: {service.tractorName}
-                              </span>
-                            )}
-                            {service.trucks && service.trucks.length > 0 && (
-                              <span className="text-emerald-800 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
-                                FROTA ({service.trucks.length}): {service.trucks.map(t => `${t.truckName || 'CAMINHÃO'} [${t.ratioPercent ? Number(t.ratioPercent).toFixed(1) + '%' : `${t.tripLoads || 0}V`}]`).join(', ')}
-                              </span>
-                            )}
-                          </div>
-                        )}
+
                         {/* Resumo Financeiro Unificado da OS */}
                         {item.summaryBillingNotes && (
                           <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold mt-0.5 flex items-center gap-1 uppercase">
