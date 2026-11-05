@@ -37,6 +37,7 @@ import {
   mapRowToAbsenceRecord 
 } from '../../lib/supabaseService';
 import { useAuth } from '../../context/AuthContext';
+import { AbsenceModal } from './AbsenceModal';
 
 interface FaltasTabProps {
   employees: Employee[];
@@ -135,7 +136,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         seen.add(dedupeKey);
         if (idKey) seen.add(`id_${idKey}`);
 
-        const disc = Number(item.discountAmount ?? (item as any).desconto ?? 0) || 83.33;
+        const rawDisc = item.discountAmount !== undefined ? item.discountAmount : (item as any).desconto;
+        const disc = rawDisc !== undefined && rawDisc !== null ? Number(rawDisc) : 0;
 
         cleanList.push({
           ...item,
@@ -173,8 +175,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [date, setDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [daysCount, setDaysCount] = useState<number>(1);
-  const [absenceUnit, setAbsenceUnit] = useState<'dias' | 'horas'>('dias');
-  const [absenceHours, setAbsenceHours] = useState<number>(2.5);
+  const [absenceUnit, setAbsenceUnit] = useState<'dias' | 'horas'>('horas');
+  const [absenceHours, setAbsenceHours] = useState<number>(8);
   const [calculationMemory, setCalculationMemory] = useState<string>('');
   const [type, setType] = useState<AbsenceRecord['type']>('injustificada');
   const [discountPayroll, setDiscountPayroll] = useState<boolean>(true);
@@ -336,20 +338,19 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     // Regra de Proporcionalidade de Admissão:
     // Se o funcionário foi admitido no mês da competência (ex: Admissão em 03/09/2026 para a folha 09/2026),
     // o valor do dia para desconto deve ser calculado dividindo o 'Salário Proporcional do Mês'
-    // (R$ 3.733,33 pelos 28 dias trabalhados) por 28, e NÃO o salário contratual cheio (R$ 4.000,00) por 30.
+    // por dias trabalhados, e NÃO o salário contratual cheio por 30.
     const admInfo = getAdmissionProportionality(emp.admissionDate, monthRef, contractualSalary);
     const isProportional = admInfo.isAdmittedInCompetenceMonth;
     const baseSalaryToUse = isProportional ? admInfo.proportionalSalary : contractualSalary;
     const daysWorkedInMonth = isProportional ? admInfo.daysWorked : 30;
 
-    const dailyRate = isProportional
+    // 1. Definição do valor bruto diário e horário com todas as casas decimais disponíveis na memória (sem arredondamento prévio)
+    const rawDailyRate = isProportional
       ? (daysWorkedInMonth > 0 ? (baseSalaryToUse / daysWorkedInMonth) : (baseSalaryToUse / 30))
       : (contractualSalary / 30);
 
-    // Regra de Cálculo para Horas: Jornada padrão de 220 horas mensais:
-    // Valor da Hora = (Salário Base ou Proporcional / 220).
-    // Valor do Desconto = (Valor da Hora * Quantidade de Horas informadas, ex: 2,5).
-    const hourlyRate = baseSalaryToUse / 220;
+    // Valor da Hora Bruto: [Salário Contratual ou Proporcional] / [Jornada Mensal (220)]
+    const rawHourlyRate = baseSalaryToUse / 220;
 
     let calculatedDiscount = 0;
     let memoryText = '';
@@ -360,16 +361,22 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
     if (unit === 'horas') {
       const validHours = Math.max(0, Number(hours) || 0);
-      calculatedDiscount = Math.round((hourlyRate * validHours) * 100) / 100;
+      // 2. Cálculo do desconto total: [Valor da Hora Bruto] * [Quantidade de Horas da Falta]
+      const rawDiscount = rawHourlyRate * validHours;
+      // 3. Arredondamento final para duas casas decimais (Float de moeda) apenas no resultado final
+      calculatedDiscount = Math.round(rawDiscount * 100) / 100;
       const hoursFormatted = validHours.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-      memoryText = `Base de cálculo: ${baseLabel} | Valor da Hora: ${formatMoneyBRL(hourlyRate)} | Desconto aplicado para ${hoursFormatted} horas.`;
+      memoryText = `Base de cálculo: ${baseLabel} | Valor da Hora: ${formatMoneyBRL(rawHourlyRate)} | Desconto aplicado para ${hoursFormatted} horas.`;
     } else {
       const validDays = Math.max(0, Number(days) || 0);
-      calculatedDiscount = Math.round((dailyRate * validDays) * 100) / 100;
+      // Cálculo do desconto total: [Valor do Dia Bruto] * [Quantidade de Dias da Falta]
+      const rawDiscount = rawDailyRate * validDays;
+      // Arredondamento final para duas casas decimais apenas no resultado final
+      calculatedDiscount = Math.round(rawDiscount * 100) / 100;
       const daysDesc = isProportional && daysWorkedInMonth < 30
         ? `Salário Proporcional Admissão (${formatMoneyBRL(baseSalaryToUse)} pelos ${daysWorkedInMonth} dias trabalhados)`
         : baseLabel;
-      memoryText = `Base de cálculo: ${daysDesc} | Valor do Dia: ${formatMoneyBRL(dailyRate)} | Desconto aplicado para ${validDays} dia(s).`;
+      memoryText = `Base de cálculo: ${daysDesc} | Valor do Dia: ${formatMoneyBRL(rawDailyRate)} | Desconto aplicado para ${validDays} dia(s).`;
     }
 
     return {
@@ -378,8 +385,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       isProportional,
       proportionalSalary: baseSalaryToUse,
       contractualSalary,
-      dailyRate: Math.round(dailyRate * 100) / 100,
-      hourlyRate: Math.round(hourlyRate * 100) / 100,
+      dailyRate: Math.round(rawDailyRate * 100) / 100,
+      hourlyRate: Math.round(rawHourlyRate * 100) / 100,
+      rawDailyRate,
+      rawHourlyRate,
       daysWorkedMonth: daysWorkedInMonth,
       admissionDateFormatted: admInfo.admissionDate ? formatEmployeeAdmissionDate(admInfo.admissionDate) : '',
     };
@@ -401,21 +410,27 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setCalculationMemory('Selecione um funcionário para calcular o desconto.');
       return;
     }
-    const res = calculateAbsenceDiscount(empId, absenceUnit, daysCount, absenceHours, discountPayroll, referenceMonth);
+    const currentUnit = absenceUnit || 'horas';
+    const currentHours = (absenceHours !== undefined && absenceHours > 0) ? absenceHours : 8;
+    const currentDays = (daysCount !== undefined && daysCount > 0) ? daysCount : 1;
+    const res = calculateAbsenceDiscount(empId, currentUnit, currentDays, currentHours, discountPayroll, referenceMonth);
     setDiscountAmount(res.discountAmount);
     setCalculationMemory(res.calculationMemory);
   };
 
   const handleUnitChange = (newUnit: 'dias' | 'horas') => {
     setAbsenceUnit(newUnit);
-    const res = calculateAbsenceDiscount(selectedEmployeeId, newUnit, daysCount, absenceHours, discountPayroll, referenceMonth);
+    const currentHours = (absenceHours !== undefined && absenceHours > 0) ? absenceHours : 8;
+    const currentDays = (daysCount !== undefined && daysCount > 0) ? daysCount : 1;
+    const res = calculateAbsenceDiscount(selectedEmployeeId, newUnit, currentDays, currentHours, discountPayroll, referenceMonth);
     setDiscountAmount(res.discountAmount);
     setCalculationMemory(res.calculationMemory);
   };
 
   const handleHoursChange = (hrs: number) => {
     setAbsenceHours(hrs);
-    const res = calculateAbsenceDiscount(selectedEmployeeId, 'horas', daysCount, hrs, discountPayroll, referenceMonth);
+    const currentDays = (daysCount !== undefined && daysCount > 0) ? daysCount : 1;
+    const res = calculateAbsenceDiscount(selectedEmployeeId, 'horas', currentDays, hrs, discountPayroll, referenceMonth);
     setDiscountAmount(res.discountAmount);
     setCalculationMemory(res.calculationMemory);
   };
@@ -427,7 +442,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       const endD = new Date(d1.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
       setEndDate(endD.toISOString().split('T')[0]);
     }
-    const res = calculateAbsenceDiscount(selectedEmployeeId, 'dias', days, absenceHours, discountPayroll, referenceMonth);
+    const currentHours = (absenceHours !== undefined && absenceHours > 0) ? absenceHours : 8;
+    const res = calculateAbsenceDiscount(selectedEmployeeId, 'dias', days, currentHours, discountPayroll, referenceMonth);
     setDiscountAmount(res.discountAmount);
     setCalculationMemory(res.calculationMemory);
   };
@@ -566,135 +582,24 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     .reduce((sum, a) => sum + (Number(a.discountAmount) || 0), 0);
 
   const handleOpenModal = (item?: AbsenceRecord) => {
-    if (item) {
-      setEditingAbsence(item);
-      setSelectedEmployeeId(item.employeeId);
-      setDate(item.date);
-      setEndDate(item.endDate || '');
-      setDaysCount(item.daysCount || 1);
-      const unit = item.absenceUnit || ((item.absenceHours && item.absenceHours > 0) ? 'horas' : 'dias');
-      setAbsenceUnit(unit);
-      setAbsenceHours(item.absenceHours !== undefined ? Number(item.absenceHours) : 2.5);
-      setType(item.type);
-      setDiscountPayroll(item.discountPayroll);
-      const mRef = item.referenceMonth || selectedMonth || currentMonthRef || '10/2026';
-      setReferenceMonth(mRef);
-      setStatus(item.status);
-      setReason(item.reason || '');
-      setNotes(item.notes || '');
-
-      const res = calculateAbsenceDiscount(
-        item.employeeId,
-        unit,
-        item.daysCount || 1,
-        item.absenceHours || 2.5,
-        item.discountPayroll,
-        mRef
-      );
-      setDiscountAmount(item.discountAmount !== undefined ? item.discountAmount : res.discountAmount);
-      setCalculationMemory(item.calculationMemory || res.calculationMemory);
-    } else {
-      setEditingAbsence(null);
-      setSelectedEmployeeId('');
-      const today = new Date().toISOString().split('T')[0];
-      setDate(today);
-      setEndDate(today);
-      setDaysCount(1);
-      setAbsenceUnit('dias');
-      setAbsenceHours(2.5);
-      setType('injustificada');
-      setDiscountPayroll(true);
-      const activeCompetence = selectedMonth || currentMonthRef || '10/2026';
-      setReferenceMonth(activeCompetence);
-      setStatus('pendente');
-      setReason('');
-      setNotes('');
-      setDiscountAmount(0);
-      setCalculationMemory('Selecione um funcionário para calcular o desconto.');
-    }
+    setEditingAbsence(item || null);
     setIsModalOpen(true);
   };
 
-  const handleSaveModal = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedEmployeeId) return;
-    const emp = employees.find(e => e.id === selectedEmployeeId);
-    if (!emp) return;
+  const handleSaveAbsenceModal = (recordToSave: AbsenceRecord & { tipo?: string; tipo_registro?: string; desconto?: number }) => {
+    const canonicalId = toValidUUID(recordToSave.id);
+    const fullRecord: AbsenceRecord = {
+      ...recordToSave,
+      id: canonicalId,
+      companyId: effectiveCompanyId,
+      userId: currentUserId,
+    };
 
-    const calc = calculateAbsenceDiscount(
-      selectedEmployeeId,
-      absenceUnit,
-      daysCount,
-      absenceHours,
-      discountPayroll,
-      referenceMonth
-    );
-
-    let recordToSave: AbsenceRecord & { tipo?: string; tipo_registro?: string; desconto?: number };
     let nextList: AbsenceRecord[];
-
-    const finalMemory = discountPayroll ? (calculationMemory || calc.calculationMemory) : undefined;
-    const finalHours = absenceUnit === 'horas' ? Number(absenceHours) : undefined;
-    const finalDiscount = discountPayroll ? (discountAmount || 83.33) : 0;
-
     if (editingAbsence) {
-      recordToSave = {
-        ...editingAbsence,
-        companyId: effectiveCompanyId,
-        userId: currentUserId,
-        employeeId: emp.id,
-        employeeName: emp.name,
-        employeeRole: emp.role,
-        date,
-        endDate: endDate || undefined,
-        daysCount: absenceUnit === 'horas' ? 1 : daysCount,
-        absenceUnit,
-        absenceHours: finalHours,
-        calculationMemory: finalMemory,
-        isProportionalAdmission: calc.isProportional,
-        proportionalBaseSalary: calc.isProportional ? calc.proportionalSalary : undefined,
-        type,
-        tipo: 'falta_injustificada',
-        tipo_registro: 'falta_injustificada',
-        discountPayroll,
-        discountAmount: finalDiscount,
-        desconto: finalDiscount,
-        referenceMonth,
-        status,
-        reason: reason || undefined,
-        notes: notes || undefined,
-        updatedAt: new Date().toISOString(),
-      };
-      nextList = localAbsences.map(a => a.id === editingAbsence.id ? recordToSave : a);
+      nextList = localAbsences.map(a => a.id === editingAbsence.id ? fullRecord : a);
     } else {
-      recordToSave = {
-        id: toValidUUID(`abs_${Date.now()}_${emp.id}`),
-        companyId: effectiveCompanyId,
-        userId: currentUserId,
-        employeeId: emp.id,
-        employeeName: emp.name,
-        employeeRole: emp.role,
-        date,
-        endDate: endDate || undefined,
-        daysCount: absenceUnit === 'horas' ? 1 : daysCount,
-        absenceUnit,
-        absenceHours: finalHours,
-        calculationMemory: finalMemory,
-        isProportionalAdmission: calc.isProportional,
-        proportionalBaseSalary: calc.isProportional ? calc.proportionalSalary : undefined,
-        type,
-        tipo: 'falta_injustificada',
-        tipo_registro: 'falta_injustificada',
-        discountPayroll,
-        discountAmount: finalDiscount,
-        desconto: finalDiscount,
-        referenceMonth,
-        status,
-        reason: reason || undefined,
-        notes: notes || undefined,
-        createdAt: new Date().toISOString(),
-      };
-      nextList = [recordToSave, ...localAbsences];
+      nextList = [fullRecord, ...localAbsences];
     }
 
     setLocalAbsences(nextList);
@@ -712,7 +617,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
     // Gravação e sincronização imediata na tabela public.rh_faltas do Supabase
     if (isSupabaseConfigured) {
-      upsertRhFalta(recordToSave, currentUserId, effectiveCompanyId).catch(err => {
+      upsertRhFalta(fullRecord, currentUserId, effectiveCompanyId).catch(err => {
         console.error('[FaltasTab] Erro ao salvar ocorrência em rh_faltas:', err);
       });
     }

@@ -971,9 +971,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       if (a.discountAmount !== undefined && a.discountAmount > 0) {
         return sum + Number(a.discountAmount);
       }
-      const daily = (activeSalary || 3500) / 30;
+      if (a.unit === 'horas' || (a.absenceHours && a.absenceHours > 0)) {
+        const rawHourly = (activeSalary || 3500) / 220;
+        const hrs = Number(a.absenceHours) || 8;
+        return sum + Math.round((rawHourly * hrs) * 100) / 100;
+      }
+      const rawDaily = (activeSalary || 3500) / 30;
       const days = a.daysCount || 1;
-      return sum + Math.round((daily * days) * 100) / 100;
+      return sum + Math.round((rawDaily * days) * 100) / 100;
     }, 0);
 
     // Se o usuário preferir usar o salário integral cheio e a admissão foi no mês, pode descontar os dias anteriores como falta
@@ -1010,14 +1015,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     });
 
     empAbsences.forEach((abs, idx) => {
+      const isHours = abs.absenceUnit === 'horas' || abs.unit === 'horas' || (abs.absenceHours !== undefined && abs.absenceHours > 0);
       const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
         ? Number(abs.discountAmount)
-        : Math.round((((activeSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
+        : (isHours
+            ? Math.round((((activeSalary || 3500) / 220) * (Number(abs.absenceHours) || 8)) * 100) / 100
+            : Math.round((((activeSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100);
       const verba = getVerbaForDeduction('Falta / Atraso', abs.reason);
+      const defaultDesc = isHours ? `Falta (${abs.absenceHours || 8}h)` : `Falta (${abs.daysCount || 1}d)`;
       generatedDeductItems.push({
         id: `ded_abs_${abs.id || idx}`,
         type: 'Falta / Atraso',
-        description: abs.reason || `Falta (${abs.daysCount || 1}d)`,
+        description: abs.reason || defaultDesc,
         verbaCode: verba.codigo,
         verbaDescription: verba.descricao,
         date: formatDateBR(abs.date),
@@ -1334,14 +1343,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         });
 
         empAbsences.forEach((abs, idx) => {
+          const isHours = abs.absenceUnit === 'horas' || abs.unit === 'horas' || (abs.absenceHours !== undefined && abs.absenceHours > 0);
           const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
             ? Number(abs.discountAmount)
-            : Math.round((((payroll.baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
+            : (isHours
+                ? Math.round((((payroll.baseSalary || 3500) / 220) * (Number(abs.absenceHours) || 8)) * 100) / 100
+                : Math.round((((payroll.baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100);
           const verba = getVerbaForDeduction('Falta / Atraso', abs.reason);
+          const defaultDesc = isHours ? `Falta (${abs.absenceHours || 8}h)` : `Falta (${abs.daysCount || 1}d)`;
           loadedDeductItems.push({
             id: `ded_abs_${abs.id || idx}`,
             type: 'Falta / Atraso',
-            description: abs.reason || `Falta (${abs.daysCount || 1}d)`,
+            description: abs.reason || defaultDesc,
             verbaCode: verba.codigo,
             verbaDescription: verba.descricao,
             date: formatDateBR(abs.date),

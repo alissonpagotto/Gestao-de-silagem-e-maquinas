@@ -256,6 +256,10 @@ export const RHModule: React.FC<RHModuleProps> = ({
       if (
         st === 'excluido' ||
         st === 'inativo' ||
+        st === 'inativo_sazonal' ||
+        st === 'inativo (sazonal)' ||
+        st === 'fora_periodo' ||
+        st === 'fora de período' ||
         st === 'demitido' ||
         st === 'desligado' ||
         emp.active === false ||
@@ -263,6 +267,26 @@ export const RHModule: React.FC<RHModuleProps> = ({
       ) {
         return false;
       }
+      // Ignora registro duplicado/antigo do ALISSON PAG sem CPF
+      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+        return false;
+      }
+      const empUid = String(emp.userId || (emp as any).user_id || '').trim();
+      const empCid = String(emp.companyId || (emp as any).company_id || '').trim();
+      if (currentUserId && empUid && empUid === currentUserId) return true;
+      if (activeTenant && empCid && (empCid === activeTenant || empCid === 'default')) return true;
+      return true;
+    });
+  }, [employees, currentUserId, authCompanyId]);
+
+  // Lista unificada de todos os colaboradores do tenant (incluindo inativos e demitidos para histórico e auditoria na aba Funcionários)
+  const tenantAllEmployees = useMemo(() => {
+    const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
+
+    return employees.filter(emp => {
+      if (!emp || !emp.name || emp.name.trim() === '') return false;
+      const st = String(emp.status || '').toLowerCase().trim();
+      if (st === 'excluido') return false;
       // Ignora registro duplicado/antigo do ALISSON PAG sem CPF
       if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
         return false;
@@ -718,7 +742,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {activeTab === 'funcionarios' && (
         <EmployeesModule
           key={`rh_tab_funcionarios_${tabRefreshEpoch}`}
-          employees={sortedEmployees}
+          employees={tenantAllEmployees}
           vacations={vacations}
           companyProfile={companyProfile}
           onSaveEmployees={onSaveEmployees}

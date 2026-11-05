@@ -454,7 +454,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
                 <option value="">Selecione um funcionário...</option>
                 {activeEmployeesList.map(emp => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name.toUpperCase()} {emp.role ? `• ${emp.role.toUpperCase()}` : ''} ({emp.status === 'ativo' ? 'ATIVO' : emp.status?.toUpperCase() || 'ATIVO'})
+                    {emp.name.toUpperCase()} {emp.role ? `• ${emp.role.toUpperCase()}` : ''} ({emp.status === 'ativo' ? 'ATIVO' : (emp.status === 'inativo_sazonal' || emp.active === false ? 'INATIVO (SAZONAL)' : emp.status?.toUpperCase() || 'ATIVO')})
                   </option>
                 ))}
               </select>

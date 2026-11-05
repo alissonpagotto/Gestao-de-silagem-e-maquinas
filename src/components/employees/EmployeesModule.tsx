@@ -228,7 +228,7 @@ export function evaluateEmployeeVacationAlert(
 
   if (!emp) return emptyAlert;
   const st = String(emp.status || '').toLowerCase();
-  if (emp.active === false || st === 'inativo' || st === 'excluido' || Boolean(emp.terminationDate)) {
+  if (emp.active === false || st === 'inativo' || st === 'inativo_sazonal' || st === 'inativo (sazonal)' || st === 'fora_periodo' || st === 'fora de período' || st === 'demitido' || st === 'desligado' || st === 'excluido' || Boolean(emp.terminationDate)) {
     return emptyAlert;
   }
 
@@ -1370,7 +1370,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     for (const emp of safeList) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
       const st = String(emp.status || 'ativo').toLowerCase().trim();
-      const isInactiveStatus = st === 'inativo' || st === 'demitido' || st === 'desligado' || st === 'afastado' || st === 'excluido';
+      const isInactiveStatus = st === 'inativo' || 
+                               st === 'inativo_sazonal' || 
+                               st === 'inativo (sazonal)' || 
+                               st === 'fora_periodo' || 
+                               st === 'fora de período' || 
+                               st === 'demitido' || 
+                               st === 'desligado' || 
+                               st === 'afastado' || 
+                               st === 'excluido';
       const isTerminatedInRecords = (emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) || terminatedKeys.has(emp.name.trim().toLowerCase());
       const isActive = emp.active !== false && (st === 'ativo' || st === '') && !isInactiveStatus && !Boolean(emp.terminationDate) && !isTerminatedInRecords;
       if (!isActive) {
@@ -1558,6 +1566,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       if (!emp || !emp.name || emp.name.trim() === '') return false;
       const st = String(emp.status || '').toUpperCase().trim();
       const isEx = st === 'INATIVO' || 
+                   st === 'INATIVO_SAZONAL' ||
+                   st === 'INATIVO (SAZONAL)' ||
+                   st === 'FORA_PERIODO' ||
+                   st === 'FORA DE PERÍODO' ||
                    st === 'DEMITIDO' || 
                    st === 'AFASTADO' || 
                    st === 'DESLIGADO' || 
@@ -1740,7 +1752,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const safeTerm = formatIsoDateOnly(emp.terminationDate || (emp as any).data_demissao) || '';
     setTerminationDate(safeTerm);
 
-    setIsActive(emp.active !== undefined ? emp.active : (emp.status !== 'inativo'));
+    const rawSt = String(emp.status || '').toLowerCase().trim();
+    const isEmpInactiveOrTerminated = emp.active === false || 
+      rawSt === 'inativo' || 
+      rawSt === 'inativo_sazonal' || 
+      rawSt === 'inativo (sazonal)' || 
+      rawSt === 'fora_periodo' || 
+      rawSt === 'fora de período' || 
+      rawSt === 'demitido' || 
+      rawSt === 'desligado' || 
+      Boolean(emp.terminationDate);
+    setIsActive(emp.active !== undefined ? (emp.active && !isEmpInactiveOrTerminated) : !isEmpInactiveOrTerminated);
     const isEmpBroker = r1.trim().toLowerCase() === 'agenciador' || r2.trim().toLowerCase() === 'agenciador';
 
     // Normalização rigorosa de comissões numéricas
@@ -2268,12 +2290,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
       // Formatação rigorosa de datas para YYYY-MM-DD
       const formattedAdmissionDate = admissionDate ? (formatIsoDateOnly(admissionDate) || admissionDate.trim()) : undefined;
-      const formattedTerminationDate = terminationDate ? (formatIsoDateOnly(terminationDate) || terminationDate.trim()) : undefined;
+      // Se a chave estiver ativa, anula qualquer data de desligamento residual para garantir reativação plena; se inativo, só define se o usuário informou explicitamente
+      const formattedTerminationDate = (!isActive && terminationDate) ? (formatIsoDateOnly(terminationDate) || terminationDate.trim()) : undefined;
       const formattedBirthDate = birthDate ? (formatIsoDateOnly(birthDate) || birthDate.trim()) : undefined;
       const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
 
       // Vincula permissões do cargo cadastrado em colaca_silagem_cargos_permissoes
       const cargoInfo = attachCargoPermissionsToEmployee(role1.trim() || finalRole, cargosBase);
+
+      // Status sazonal inteligente: se reativado volta para ativo; se inativado sem rescisão vira 'inativo_sazonal'
+      const resolvedStatus = isActive
+        ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo')
+        : (formattedTerminationDate ? 'demitido' : 'inativo_sazonal');
 
       // 1. CARIMBO DE DONO OBRIGATÓRIO (user_id: activeUid)
       const employeeData: Employee = {
@@ -2315,7 +2343,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         admissionDate: formattedAdmissionDate,
         terminationDate: formattedTerminationDate,
         active: isActive,
-        status: isActive ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo') : 'inativo',
+        status: resolvedStatus,
         receivesCommission: finalReceivesCommission,
         commissionPerHour: numPerHour,
         commissionPerAlqueire: numPerAlq,
@@ -2380,9 +2408,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       // Atualiza estado local e storage imediatamente antes da chamada de rede para que qualquer evento Realtime veja os dados novos
       let prelimUpdatedList: Employee[] = [];
       if (editingEmployee) {
-        prelimUpdatedList = localEmployees.map(emp =>
-          emp.id === editingEmployee.id ? employeeData : emp
-        );
+        let found = false;
+        prelimUpdatedList = localEmployees.map(emp => {
+          if (emp.id === editingEmployee.id || (editingEmployee.id && toValidUUID(emp.id) === toValidUUID(editingEmployee.id))) {
+            found = true;
+            return employeeData;
+          }
+          return emp;
+        });
+        if (!found) {
+          prelimUpdatedList = [...prelimUpdatedList, employeeData];
+        }
       } else {
         prelimUpdatedList = [...localEmployees, employeeData];
       }
@@ -2678,9 +2714,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
       let updatedList: Employee[] = [];
       if (editingEmployee) {
-        updatedList = localEmployees.map(emp =>
-          emp.id === editingEmployee.id ? employeeData : emp
-        );
+        let found = false;
+        updatedList = localEmployees.map(emp => {
+          if (emp.id === editingEmployee.id || (editingEmployee.id && toValidUUID(emp.id) === toValidUUID(editingEmployee.id))) {
+            found = true;
+            return employeeData;
+          }
+          return emp;
+        });
+        if (!found) {
+          updatedList = [...updatedList, employeeData];
+        }
       } else {
         updatedList = [...localEmployees, employeeData];
       }
@@ -3016,7 +3060,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <th className="py-1.5 px-3 whitespace-nowrap">Último Salário Base</th>
                     <th className="py-1.5 px-3 whitespace-nowrap">Status Trabalhista</th>
                     <th className="py-1.5 px-3 whitespace-nowrap">Data Desligamento</th>
-                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Auditoria / Histórico</th>
+                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Ações / Auditoria</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
@@ -3025,20 +3069,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       <td colSpan={6} className="py-8 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
                         {exEmployeesSearchTerm
                           ? 'Nenhum ex-colaborador encontrado com os termos pesquisados.'
-                          : 'Nenhum ex-colaborador, demitido ou afastado registrado no LocalStorage.'}
+                          : 'Nenhum ex-colaborador, demitido ou inativo sazonal registrado no LocalStorage.'}
                       </td>
                     </tr>
                   ) : (
                     filteredExEmployees.map((emp) => {
                       const st = String(emp.status || '').toUpperCase().trim();
-                      const isDemitido = st === 'DEMITIDO' || Boolean(emp.terminationDate);
+                      const isDemitido = st === 'DEMITIDO' || st === 'DESLIGADO' || Boolean(emp.terminationDate);
                       const isAfastado = st === 'AFASTADO';
-                      const badgeLabel = isDemitido ? 'DEMITIDO' : isAfastado ? 'AFASTADO' : 'INATIVO';
+                      const isSazonal = !isDemitido && !isAfastado;
+                      const badgeLabel = isDemitido ? 'DEMITIDO' : isAfastado ? 'AFASTADO' : 'INATIVO (SAZONAL)';
                       const badgeStyle = isDemitido
                         ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400'
                         : isAfastado
                         ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400'
-                        : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-stone-800 dark:border-stone-700 dark:text-stone-300';
+                        : 'bg-sky-50 border-sky-300 text-sky-800 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300';
 
                       return (
                         <tr
@@ -3057,16 +3102,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setSelectedEmployeeForHistoryId(emp.id);
-                                      setEmployeesSubView('historico');
-                                    }}
+                                    onClick={() => handleOpenEdit(emp)}
                                     className="font-bold text-slate-900 dark:text-stone-100 uppercase text-xs whitespace-nowrap hover:text-sky-700 hover:underline cursor-pointer text-left"
-                                    title="Clique para abrir o Histórico Individual deste ex-colaborador"
+                                    title="Clique para editar o cadastro e gerenciar ativação deste colaborador"
                                   >
                                     {emp.name}
                                   </button>
-                                  <span className={`text-[9px] px-1 py-0.2 rounded border font-bold whitespace-nowrap ${badgeStyle}`}>
+                                  <span className={`text-[9px] px-1.5 py-0.2 rounded border font-bold whitespace-nowrap ${badgeStyle}`}>
                                     {badgeLabel}
                                   </span>
                                 </div>
@@ -3104,7 +3146,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           </td>
 
                           <td className="py-1 px-3 align-middle whitespace-nowrap">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${badgeStyle}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${badgeStyle}`}>
                               {badgeLabel}
                             </span>
                           </td>
@@ -3115,23 +3157,36 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                 {formatDateBR(emp.terminationDate)}
                               </span>
                             ) : (
-                              <span className="text-slate-400 dark:text-stone-500 text-[11px]">Não informada</span>
+                              <span className="text-sky-700 dark:text-sky-400 font-semibold text-[10px]">
+                                Fora de Safra / Período
+                              </span>
                             )}
                           </td>
 
                           <td className="py-1 px-3 text-right align-middle whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedEmployeeForHistoryId(emp.id);
-                                setEmployeesSubView('historico');
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900 border border-sky-300 dark:border-sky-800 rounded transition cursor-pointer"
-                              title="Abrir Histórico Individual e Auditoria Trabalhista deste colaborador"
-                            >
-                              <FileText className="w-3 h-3" />
-                              <span>AUDITORIA / HISTÓRICO</span>
-                            </button>
+                            <div className="flex items-center justify-end space-x-1.5 whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(emp)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900 border border-sky-300 dark:border-sky-800 rounded transition cursor-pointer"
+                                title="Editar cadastro / Reativar colaborador no quadro ativo"
+                              >
+                                <Edit3 className="w-3 h-3 text-sky-600" />
+                                <span>EDITAR / REATIVAR</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedEmployeeForHistoryId(emp.id);
+                                  setEmployeesSubView('historico');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100 dark:bg-stone-800 hover:bg-slate-200 dark:hover:bg-stone-700 border border-slate-300 dark:border-stone-700 rounded transition cursor-pointer"
+                                title="Abrir Histórico Individual e Auditoria Trabalhista deste colaborador"
+                              >
+                                <FileText className="w-3 h-3 text-slate-500" />
+                                <span>AUDITORIA / HISTÓRICO</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -4123,7 +4178,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <div className="flex items-center space-x-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => setIsActive(!isActive)}
+                    onClick={() => {
+                      const next = !isActive;
+                      setIsActive(next);
+                      if (next) {
+                        setTerminationDate('');
+                      }
+                    }}
                     className={`
                       relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
                       ${isActive ? 'bg-[#0963cb]' : 'bg-stone-300'}
@@ -4136,9 +4197,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       `}
                     />
                   </button>
-                  <span className="text-xs sm:text-sm font-bold text-black">
-                    Funcionário ativo no quadro de colaboradores
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-bold text-black">
+                      Funcionário ativo no quadro de colaboradores
+                    </span>
+                    {!isActive && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-300 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 uppercase">
+                        Inativo (Sazonal / Fora de Período)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

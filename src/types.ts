@@ -636,7 +636,7 @@ export interface Employee {
   cnhExpiration?: string; // YYYY-MM-DD
   cnhUpgradeDT?: boolean; // Opção para "Melhorar categoria (DT)"
   cnhUpgradeCategory?: string; // Ex: 'A', 'A + C', 'A + D', 'A + E', 'C', 'D', 'E'
-  status: 'ativo' | 'ferias' | 'afastado' | 'inativo';
+  status: 'ativo' | 'ferias' | 'afastado' | 'inativo' | 'inativo_sazonal' | 'demitido' | string;
   salary?: number;
   salaryHistory?: SalaryChangeRecord[];
   teamId?: string; // ID da equipe à qual pertence (ex: 'team_maq_02')
@@ -1619,6 +1619,7 @@ export interface AbsenceRecord {
   endDate?: string;
   daysCount: number;
   absenceUnit?: 'dias' | 'horas'; // [ Dia Todo ] ou [ Horas ]
+  unit?: 'dias' | 'horas'; // Alias para ausência por horas ou dias
   absenceHours?: number; // Quantidade de Horas fracionadas (ex: 2.5)
   calculationMemory?: string; // Memória descritiva do cálculo
   isProportionalAdmission?: boolean;

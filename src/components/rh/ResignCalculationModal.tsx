@@ -231,7 +231,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
     // Buscar faltas injustificadas pendentes de desconto
     const pendingAbsences = absences
       .filter((ab) => ab.employeeId === emp.id && ab.type === 'injustificada' && ab.status === 'pendente')
-      .reduce((sum, ab) => sum + (ab.discountAmount || (sal > 0 ? (sal / 30) * ab.daysCount : 0)), 0);
+      .reduce((sum, ab) => sum + (ab.discountAmount !== undefined && ab.discountAmount > 0 ? Number(ab.discountAmount) : (sal > 0 ? (ab.unit === 'horas' || ab.absenceHours ? Math.round(((sal / 220) * (Number(ab.absenceHours) || 8)) * 100) / 100 : Math.round(((sal / 30) * (ab.daysCount || 1)) * 100) / 100) : 0)), 0);
     setCustomAbsencesDiscount(pendingAbsences > 0 ? formatNumberBRL(pendingAbsences) : '0,00');
 
     setIsManualFgts(false);

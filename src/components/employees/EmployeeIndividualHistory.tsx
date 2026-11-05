@@ -385,13 +385,13 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                 </h2>
                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
                   currentEmployee.status === 'demitido' ? 'bg-rose-100 text-rose-900 border-rose-300' :
-                  currentEmployee.active === false ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                  (currentEmployee.status === 'inativo_sazonal' || currentEmployee.active === false) ? 'bg-sky-50 text-sky-800 border-sky-300' :
                   currentEmployee.status === 'ferias' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                   currentEmployee.status === 'afastado' ? 'bg-orange-50 text-orange-800 border-orange-300' :
                   'bg-emerald-50 text-emerald-800 border-emerald-300'
                 }`}>
                   {currentEmployee.status === 'demitido' ? 'DEMITIDO / RESCISÃO' :
-                   currentEmployee.active === false ? 'INATIVO' :
+                   (currentEmployee.status === 'inativo_sazonal' || currentEmployee.active === false) ? 'INATIVO (SAZONAL)' :
                    currentEmployee.status === 'ferias' ? 'EM FÉRIAS' :
                    currentEmployee.status === 'afastado' ? 'AFASTADO' : 'ATIVO'}
                 </span>
