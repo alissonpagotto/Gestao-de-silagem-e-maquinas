@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, FileText, CheckCircle2 } from 'lucide-react';
 import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf } from './payrollHelpers';
+import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf, calculateOfficialFgts } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 import { QRCode } from './PixQrCodeBlock';
@@ -262,7 +262,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   };
 
   const baseCalculo = baseCalculoInssFgts || baseSalaryContratual || baseSalary || 0;
-  const fgtsMes = Math.round((baseCalculo * 0.08) * 100) / 100;
+  const fgtsMes = calculateOfficialFgts(baseCalculo);
   const baseIrrf = Math.max(0, baseCalculo - activeInss);
   const faixaIrrf = getFaixaIrrf(baseIrrf);
 

@@ -69,6 +69,8 @@ import {
   getFifthBusinessDayOfSubsequentMonth,
   findEmployeeLinkedMachinery,
   calculateProgressiveInss,
+  calculateEffectiveInssRate,
+  calculateOfficialFgts,
   calculateOfficialIrrf,
   getAdmissionProportionality,
   AdmissionProportionality,
@@ -77,6 +79,24 @@ import {
 import { PayslipModal } from './PayslipModal';
 import { LivePayslipPreview } from './LivePayslipPreview';
 import { getVerbaForDeduction, getStoredVerbasRH, updateVerbaInStorage } from './verbasRH';
+
+/**
+ * Calcula o total de faltas e atrasos que reduzem a base tributável do salário
+ */
+export const calculateTotalFaltasFromDeductions = (items: PayrollDeductionItem[]): number => {
+  if (!Array.isArray(items)) return 0;
+  return items
+    .filter(it => 
+      it.type === 'Falta / Atraso' || 
+      it.verbaCode === '501' || 
+      it.verbaCode === '202' ||
+      (it.verbaCode === '101' && it.description?.toLowerCase().includes('falta')) ||
+      it.description?.toLowerCase().includes('falta') ||
+      it.description?.toLowerCase().includes('atraso') ||
+      it.description?.toLowerCase().includes('dias anteriores')
+    )
+    .reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+};
 
 // ==========================================
 // COMPONENTE DE INPUT MONETÁRIO BRL (R$ 0.000,00)
@@ -579,21 +599,35 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     details: string;
   } | null>(null);
 
-  // Manipuladores de Cálculo Reativo Automático (Base Cálc. INSS/FGTS e Alíquotas)
+  // Manipuladores de Cálculo Reativo Automático (Base Cálc. INSS/FGTS e Alíquotas Progressivas)
   const handleBaseCalculoChange = (newBase: number) => {
     setBaseCalculoInssFgts(newBase);
-    if (inssEnabled) {
-      const calculatedInss = Math.round((newBase * (aliquotaInss / 100)) * 100) / 100;
-      setInssDiscount(calculatedInss);
-      if (irrfEnabled) {
-        const baseIrrf = Math.max(0, newBase - calculatedInss);
-        const calculatedIrrf = aliquotaIrrf > 0 
-          ? Math.round((baseIrrf * (aliquotaIrrf / 100)) * 100) / 100 
-          : calculateOfficialIrrf(newBase, calculatedInss);
-        setIrrfDiscount(calculatedIrrf);
-      }
+    if (inssEnabled && newBase > 0) {
+      const progressiveInss = calculateProgressiveInss(newBase);
+      setInssDiscount(progressiveInss);
+      const effectiveAliq = Number(((progressiveInss / newBase) * 100).toFixed(2));
+      setAliquotaInss(effectiveAliq);
+      setAliquotaInssStr(effectiveAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+
+      const baseIrrf = Math.max(0, newBase - progressiveInss);
+      const calculatedIrrf = calculateOfficialIrrf(newBase, progressiveInss);
+      setIrrfDiscount(calculatedIrrf);
+      const effectiveIrrfAliq = (calculatedIrrf > 0 && baseIrrf > 0)
+        ? Number(((calculatedIrrf / baseIrrf) * 100).toFixed(2))
+        : 0.0;
+      setAliquotaIrrf(effectiveIrrfAliq);
+      setAliquotaIrrfStr(effectiveIrrfAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+      setIrrfEnabled(calculatedIrrf > 0);
+    } else if (newBase <= 0) {
+      setInssDiscount(0);
+      setAliquotaInss(0);
+      setAliquotaInssStr('0,0');
+      setIrrfDiscount(0);
+      setAliquotaIrrf(0);
+      setAliquotaIrrfStr('0,0');
     }
-    if (sindicalEnabled) {
+
+    if (sindicalEnabled && newBase > 0) {
       const calculatedSind = Math.round((newBase * (aliquotaSindicato / 100)) * 100) / 100;
       setSindicalDiscount(calculatedSind);
       setLastCustomSindical(calculatedSind);
@@ -781,7 +815,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const calculatedBase = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
     const calculatedBaseIrrf = Math.max(0, calculatedBase - activeInss);
     const calculatedFaixaIrrf = getFaixaIrrf(calculatedBaseIrrf);
-    const calculatedFgtsDoMes = Math.round((calculatedBase * 0.08) * 100) / 100;
+    const calculatedFgtsDoMes = calculateOfficialFgts(calculatedBase);
 
     const draft: PayrollRecord = {
       id: editingPayroll?.id || `pay_draft_${Date.now()}`,
@@ -908,7 +942,6 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     const fullContractual = emp.salary || emp.baseSalary || 2523.21;
     setBaseSalaryContratual(fullContractual);
-    setBaseCalculoInssFgts(fullContractual);
     
     // Regra da Data de Admissão no mês:
     const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
@@ -1091,24 +1124,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       return combined;
     });
 
-    // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS, IRRF e Taxa Assistencial Sindicato com Alíquotas Visíveis
+    // 5. REGRA TRABALHISTA OFICIAL: Cálculo reativo da Base Cálc. INSS/FGTS e INSS Progressivo Oficial
+    const totalFaltasCalculado = calculateTotalFaltasFromDeductions(generatedDeductItems);
+    const baseCalc = Math.max(0, fullContractual - totalFaltasCalculado);
+    setBaseCalculoInssFgts(baseCalc);
+
     const isClt = isCltContract(emp);
-    const baseCalc = fullContractual;
     if (isClt) {
       setInssEnabled(true);
-      let aliqInss = 8.04;
-      if (Math.abs(baseCalc - 2523.21) < 1.0) {
-        aliqInss = 8.04;
-      } else {
-        const progressiveInss = calculateProgressiveInss(baseCalc);
-        aliqInss = baseCalc > 0 ? Number(((progressiveInss / baseCalc) * 100).toFixed(2)) : 8.04;
-      }
+      const inssCalculated = calculateProgressiveInss(baseCalc);
+      const aliqInss = baseCalc > 0 ? Number(((inssCalculated / baseCalc) * 100).toFixed(2)) : 0;
       setAliquotaInss(aliqInss);
       setAliquotaInssStr(aliqInss.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
-      const inssCalculated = Math.abs(baseCalc - 2523.21) < 1.0 ? 202.76 : Math.round((baseCalc * (aliqInss / 100)) * 100) / 100;
       setInssDiscount(inssCalculated);
 
-      // Taxa Assistencial Sindicato: 1.0% -> R$ 25,23 (se 2523.21)
+      // Taxa Assistencial Sindicato: 1.0%
       setSindicalEnabled(true);
       const aliqSind = 1.0;
       setAliquotaSindicato(aliqSind);
@@ -1396,6 +1426,30 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       setDeductionItems(loadedDeductItems);
 
+      // Reconciliação reativa da Base Cálc. INSS / FGTS se houver faltas na folha
+      const totalFaltasNaFolha = calculateTotalFaltasFromDeductions(loadedDeductItems);
+      if (totalFaltasNaFolha > 0) {
+        const baseAjustada = Math.max(0, contratual - totalFaltasNaFolha);
+        setBaseCalculoInssFgts(baseAjustada);
+        if (isClt) {
+          const progressiveInss = calculateProgressiveInss(baseAjustada);
+          setInssDiscount(progressiveInss);
+          const effectiveAliq = Number(((progressiveInss / baseAjustada) * 100).toFixed(2));
+          setAliquotaInss(effectiveAliq);
+          setAliquotaInssStr(effectiveAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+
+          const baseIrrf = Math.max(0, baseAjustada - progressiveInss);
+          const calculatedIrrf = calculateOfficialIrrf(baseAjustada, progressiveInss);
+          setIrrfDiscount(calculatedIrrf);
+          const effectiveIrrfAliq = (calculatedIrrf > 0 && baseIrrf > 0)
+            ? Number(((calculatedIrrf / baseIrrf) * 100).toFixed(2))
+            : 0.0;
+          setAliquotaIrrf(effectiveIrrfAliq);
+          setAliquotaIrrfStr(effectiveIrrfAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+          setIrrfEnabled(calculatedIrrf > 0);
+        }
+      }
+
       // Carregar customVerbaOverrides salvas na folha
       const loadedOverrides = payroll.customVerbaOverrides || payroll.payload?.customVerbaOverrides || {};
       setCustomVerbaOverrides(loadedOverrides);
@@ -1509,8 +1563,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     const verba = getVerbaForDeduction(newDeductType, newDeductDesc);
 
+    let updatedDeductions: PayrollDeductionItem[] = [];
     if (editingDeductItemId) {
-      setDeductionItems(prev => prev.map(it => {
+      updatedDeductions = deductionItems.map(it => {
         if (it.id === editingDeductItemId) {
           return {
             ...it,
@@ -1523,7 +1578,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           };
         }
         return it;
-      }));
+      });
+      setDeductionItems(updatedDeductions);
     } else {
       const newItem: PayrollDeductionItem = {
         id: `ded_man_${Date.now()}`,
@@ -1535,8 +1591,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         amount: newDeductAmount,
         isManual: true,
       };
-      setDeductionItems(prev => [...prev, newItem]);
+      updatedDeductions = [...deductionItems, newItem];
+      setDeductionItems(updatedDeductions);
     }
+
+    // Recalcula reativamente a Base Cálc. INSS / FGTS se as faltas tiverem sido alteradas
+    const totalFaltas = calculateTotalFaltasFromDeductions(updatedDeductions);
+    const newBase = Math.max(0, (baseSalaryContratual || baseSalary) - totalFaltas);
+    handleBaseCalculoChange(newBase);
 
     setEditingDeductItemId(null);
     setNewDeductDesc('');
@@ -1555,7 +1617,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   };
 
   const handleDeleteDeductionItem = (id: string) => {
-    setDeductionItems(prev => prev.filter(it => it.id !== id));
+    const updatedDeductions = deductionItems.filter(it => it.id !== id);
+    setDeductionItems(updatedDeductions);
+    const totalFaltas = calculateTotalFaltasFromDeductions(updatedDeductions);
+    const newBase = Math.max(0, (baseSalaryContratual || baseSalary) - totalFaltas);
+    handleBaseCalculoChange(newBase);
   };
 
   const handleSaveModal = (e: React.FormEvent) => {
@@ -1589,7 +1655,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const calculatedBase = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
     const calculatedBaseIrrf = Math.max(0, calculatedBase - activeInss);
     const calculatedFaixaIrrf = getFaixaIrrf(calculatedBaseIrrf);
-    const calculatedFgtsDoMes = Math.round((calculatedBase * 0.08) * 100) / 100;
+    const calculatedFgtsDoMes = calculateOfficialFgts(calculatedBase);
 
     let recordToSave: PayrollRecord;
     let nextList: PayrollRecord[];
@@ -2752,9 +2818,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         value={baseSalaryContratual}
                         onChange={(val) => {
                           setBaseSalaryContratual(val);
-                          if (baseCalculoInssFgts === 0 || baseCalculoInssFgts === baseSalaryContratual) {
-                            handleBaseCalculoChange(val);
-                          }
+                          const totalFaltas = calculateTotalFaltasFromDeductions(deductionItems);
+                          const newBase = Math.max(0, val - totalFaltas);
+                          handleBaseCalculoChange(newBase);
                         }}
                         title="Valor fixo da ficha do funcionário"
                         inputClassName="border-stone-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold"

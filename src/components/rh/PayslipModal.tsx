@@ -5,7 +5,7 @@ import html2canvas from 'html2canvas-pro';
 import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, ServiceOrder, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
-import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
+import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf, calculateOfficialFgts } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 import { QRCode } from './PixQrCodeBlock';
@@ -898,7 +898,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
           {/* Rodapé Oficial Holerite: Badges Cinzas [Base Cálc. FGTS] | [FGTS do Mês] | [Base Cálc. IRRF] | [Faixa IRRF] */}
           {(() => {
             const baseFgts = payroll.baseCalculoFgts ?? payroll.baseCalculoInssFgts ?? payroll.base_inss ?? (payroll as any).payload?.baseCalculoInssFgts ?? (payroll as any).payload?.base_inss ?? payroll.baseSalaryContratual ?? payroll.baseSalary;
-            const fgtsMes = payroll.fgtsDoMes ?? (payroll as any).payload?.fgtsDoMes ?? Math.round((baseFgts * 0.08) * 100) / 100;
+            const fgtsMes = payroll.fgtsDoMes ?? (payroll as any).payload?.fgtsDoMes ?? calculateOfficialFgts(baseFgts);
             const inssVal = payroll.inssDiscount || 0;
             const baseIrrf = payroll.baseCalculoIrrf ?? (payroll as any).payload?.baseCalculoIrrf ?? Math.max(0, baseFgts - inssVal);
             const faixaIrrf = payroll.faixaIrrf ?? (payroll as any).payload?.faixaIrrf ?? getFaixaIrrf(baseIrrf);
