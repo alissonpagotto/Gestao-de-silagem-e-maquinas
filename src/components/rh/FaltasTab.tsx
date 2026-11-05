@@ -15,7 +15,9 @@ import {
   ArrowRight,
   ShieldAlert,
   FileSpreadsheet,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Employee, AbsenceRecord, PayrollRecord } from '../../types';
 import { 
@@ -41,6 +43,7 @@ interface FaltasTabProps {
   absences: AbsenceRecord[];
   payrolls?: PayrollRecord[];
   currentMonthRef: string;
+  onChangeMonthRef?: (month: string) => void;
   onSaveAbsences: (absences: AbsenceRecord[]) => void;
   onApplyDiscountToPayroll?: (absence: AbsenceRecord) => void;
 }
@@ -50,6 +53,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   absences,
   payrolls = [],
   currentMonthRef,
+  onChangeMonthRef,
   onSaveAbsences,
   onApplyDiscountToPayroll,
 }) => {
@@ -59,9 +63,49 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const effectiveCompanyId = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthRef);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => currentMonthRef || '10/2026');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [discountFilter, setDiscountFilter] = useState<string>('todos');
+
+  // Sincroniza reativamente a competência com o estado global da folha
+  useEffect(() => {
+    if (currentMonthRef && currentMonthRef !== selectedMonth) {
+      setSelectedMonth(currentMonthRef);
+    }
+  }, [currentMonthRef]);
+
+  // Navegação unificada de mês idêntica à Folha de Pagamento
+  const handlePrevMonth = () => {
+    const rawMonth = selectedMonth || currentMonthRef || '10/2026';
+    const parts = rawMonth.split('/');
+    let month = Number(parts[0]) || 1;
+    let year = Number(parts[1]) || 2026;
+    let newMonth = month - 1;
+    let newYear = year;
+    if (newMonth < 1) {
+      newMonth = 12;
+      newYear -= 1;
+    }
+    const newRef = `${String(newMonth).padStart(2, '0')}/${newYear}`;
+    setSelectedMonth(newRef);
+    onChangeMonthRef?.(newRef);
+  };
+
+  const handleNextMonth = () => {
+    const rawMonth = selectedMonth || currentMonthRef || '10/2026';
+    const parts = rawMonth.split('/');
+    let month = Number(parts[0]) || 1;
+    let year = Number(parts[1]) || 2026;
+    let newMonth = month + 1;
+    let newYear = year;
+    if (newMonth > 12) {
+      newMonth = 1;
+      newYear += 1;
+    }
+    const newRef = `${String(newMonth).padStart(2, '0')}/${newYear}`;
+    setSelectedMonth(newRef);
+    onChangeMonthRef?.(newRef);
+  };
 
   // Deduplicação estrita de faltas (ELIMINAÇÃO DE DUPLICIDADES):
   // Certifica-se de que cada ocorrência de falta do dia 22/09/2026 gere apenas uma única linha na tabela,
@@ -135,7 +179,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [type, setType] = useState<AbsenceRecord['type']>('injustificada');
   const [discountPayroll, setDiscountPayroll] = useState<boolean>(true);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
-  const [referenceMonth, setReferenceMonth] = useState<string>(currentMonthRef);
+  const [referenceMonth, setReferenceMonth] = useState<string>(() => selectedMonth || currentMonthRef || '10/2026');
   const [status, setStatus] = useState<AbsenceRecord['status']>('pendente');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -402,6 +446,36 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     setCalculationMemory(res.calculationMemory);
   };
 
+  const handleModalPrevMonth = () => {
+    const rawMonth = referenceMonth || selectedMonth || currentMonthRef || '10/2026';
+    const parts = rawMonth.split('/');
+    let month = Number(parts[0]) || 1;
+    let year = Number(parts[1]) || 2026;
+    let newMonth = month - 1;
+    let newYear = year;
+    if (newMonth < 1) {
+      newMonth = 12;
+      newYear -= 1;
+    }
+    const newRef = `${String(newMonth).padStart(2, '0')}/${newYear}`;
+    handleMonthRefChange(newRef);
+  };
+
+  const handleModalNextMonth = () => {
+    const rawMonth = referenceMonth || selectedMonth || currentMonthRef || '10/2026';
+    const parts = rawMonth.split('/');
+    let month = Number(parts[0]) || 1;
+    let year = Number(parts[1]) || 2026;
+    let newMonth = month + 1;
+    let newYear = year;
+    if (newMonth > 12) {
+      newMonth = 1;
+      newYear += 1;
+    }
+    const newRef = `${String(newMonth).padStart(2, '0')}/${newYear}`;
+    handleMonthRefChange(newRef);
+  };
+
   const handleToggleDiscount = (checked: boolean) => {
     setDiscountPayroll(checked);
     const res = calculateAbsenceDiscount(selectedEmployeeId, absenceUnit, daysCount, absenceHours, checked, referenceMonth);
@@ -503,7 +577,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setAbsenceHours(item.absenceHours !== undefined ? Number(item.absenceHours) : 2.5);
       setType(item.type);
       setDiscountPayroll(item.discountPayroll);
-      const mRef = item.referenceMonth || currentMonthRef;
+      const mRef = item.referenceMonth || selectedMonth || currentMonthRef || '10/2026';
       setReferenceMonth(mRef);
       setStatus(item.status);
       setReason(item.reason || '');
@@ -530,7 +604,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setAbsenceHours(2.5);
       setType('injustificada');
       setDiscountPayroll(true);
-      setReferenceMonth(currentMonthRef);
+      const activeCompetence = selectedMonth || currentMonthRef || '10/2026';
+      setReferenceMonth(activeCompetence);
       setStatus('pendente');
       setReason('');
       setNotes('');
@@ -772,17 +847,33 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         
         <div className="flex flex-wrap items-center gap-2 flex-1">
-          {/* Competência Mês */}
-          <div className="flex items-center space-x-1.5 bg-white border border-stone-300 px-2.5 py-1.5 rounded-lg">
-            <Calendar className="w-3.5 h-3.5 text-black/60" />
-            <span className="text-[11px] font-bold text-black">Mês:</span>
-            <input
-              type="text"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              placeholder="MM/YYYY"
-              className="w-20 text-xs font-bold text-black outline-none"
-            />
+          {/* Seletor Unificado de Competência com Navegação por Setas */}
+          <div className="flex items-center space-x-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
+              title="Mês Anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            
+            <div 
+              style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
+              className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
+            >
+              <span>Competência:</span>
+              <span className="text-black font-black text-sm">{selectedMonth}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
+              title="Próximo Mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Campo de Busca */}
@@ -1041,14 +1132,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
                   
                   {/* Colaborador */}
-                  <div className="md:col-span-6">
+                  <div className="md:col-span-5">
                     <label className="block font-bold text-black mb-1">
                       Colaborador / Funcionário <span className="text-rose-600">*</span>
                     </label>
                     <select
                       value={selectedEmployeeId}
                       onChange={(e) => handleEmployeeChange(e.target.value)}
-                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs"
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs h-[38px]"
                       required
                     >
                       <option value="">Selecione um funcionário...</option>
@@ -1062,19 +1153,37 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                   </div>
 
                   {/* Competência da Folha */}
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-4">
                     <label className="block font-bold text-black mb-1">
                       Competência da Folha <span className="text-rose-600">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={referenceMonth}
-                      disabled={!selectedEmployeeId}
-                      onChange={(e) => handleMonthRefChange(e.target.value)}
-                      placeholder="MM/AAAA (ex: 09/2026)"
-                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                      required
-                    />
+                    <div className="flex items-center space-x-1.5 h-[38px]">
+                      <button
+                        type="button"
+                        onClick={handleModalPrevMonth}
+                        className="p-1.5 h-[38px] px-2.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white shrink-0 flex items-center justify-center"
+                        title="Competência Anterior"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      
+                      <div 
+                        style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
+                        className="flex-1 h-[38px] flex items-center justify-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716] shadow-xs select-none"
+                      >
+                        <span>Competência:</span>
+                        <span className="text-black font-black text-sm">{referenceMonth || selectedMonth || '10/2026'}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleModalNextMonth}
+                        className="p-1.5 h-[38px] px-2.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white shrink-0 flex items-center justify-center"
+                        title="Próxima Competência"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Situação / Status */}
@@ -1086,7 +1195,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                       value={status}
                       disabled={!selectedEmployeeId}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:bg-stone-100 disabled:opacity-60 disabled:cursor-not-allowed h-[38px]"
                     >
                       <option value="pendente">Pendente de Aplicação</option>
                       <option value="descontada">Já Descontada na Folha</option>

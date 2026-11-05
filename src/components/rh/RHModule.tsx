@@ -159,7 +159,20 @@ export const RHModule: React.FC<RHModuleProps> = ({
   }, [initialSubTab, allowedRhTabs]);
 
   const [tabRefreshEpoch, setTabRefreshEpoch] = useState<number>(0);
-  const [currentMonthRef, setCurrentMonthRef] = useState<string>(() => getDefaultCompetenceMonth());
+  const [currentMonthRef, setCurrentMonthRef] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_rh_active_competence');
+      if (saved && /^\d{2}\/\d{4}$/.test(saved)) return saved;
+    } catch (_) {}
+    return getDefaultCompetenceMonth();
+  });
+
+  const handleUpdateMonthRef = (newMonth: string) => {
+    setCurrentMonthRef(newMonth);
+    try {
+      localStorage.setItem('agrocontrol_rh_active_competence', newMonth);
+    } catch (_) {}
+  };
 
   const onSaveEmployeesRef = React.useRef(onSaveEmployees);
   onSaveEmployeesRef.current = onSaveEmployees;
@@ -725,7 +738,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           absences={absences}
           services={services}
           currentMonthRef={currentMonthRef}
-          onChangeMonthRef={setCurrentMonthRef}
+          onChangeMonthRef={handleUpdateMonthRef}
           onSavePayrolls={onSavePayrolls}
           onViewPayslip={(p) => setViewingPayslip(p)}
         />
@@ -779,6 +792,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           absences={absences}
           payrolls={payrolls}
           currentMonthRef={currentMonthRef}
+          onChangeMonthRef={handleUpdateMonthRef}
           onSaveAbsences={handleSaveAbsences}
           onApplyDiscountToPayroll={handleApplyDiscountToPayroll}
         />
