@@ -426,13 +426,20 @@ export function VacationReceiptModal({
   // Inicializa os estados locais sempre que a programação de férias mudar
   useEffect(() => {
     if (!sourceVacation) return;
-    const baseSal = Number(sourceVacation.baseSalary || 0);
+    let baseSal = 0;
+    if (employee && (employee.baseSalary || employee.salary)) {
+      baseSal = Number(employee.baseSalary || employee.salary || 0);
+    }
+    if (baseSal <= 0 && sourceVacation.baseSalary) {
+      baseSal = Number(sourceVacation.baseSalary);
+    }
+
     const days = sourceVacation.daysCount || 30;
-    const dailyRate = baseSal / 30;
-    const initialFerias = sourceVacation.customVacationAmount !== undefined
+    const dailyRate = baseSal > 0 ? baseSal / 30 : 0;
+    const initialFerias = (sourceVacation.customVacationAmount !== undefined && sourceVacation.customVacationAmount !== null && sourceVacation.customVacationAmount > 0)
       ? sourceVacation.customVacationAmount
       : Math.round((dailyRate * days) * 100) / 100;
-    const initialUmTerco = sourceVacation.oneThirdBonus !== undefined
+    const initialUmTerco = (sourceVacation.oneThirdBonus !== undefined && sourceVacation.oneThirdBonus !== null && sourceVacation.oneThirdBonus > 0)
       ? sourceVacation.oneThirdBonus
       : Math.round((initialFerias / 3) * 100) / 100;
     const initialAbono = sourceVacation.pecuniaryAllowance || 0;

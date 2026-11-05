@@ -2312,6 +2312,9 @@ export const RH_FUNCIONARIOS_BASE_COLUMNS = [
   'status',
   'registration_type',
   'salary',
+  'salario',
+  'salario_base',
+  'base_salary',
   'admission_date',
   'driver_license',
   'license_category',
@@ -2363,6 +2366,10 @@ export const FUNCIONARIOS_BASE_COLUMNS = [
   'numero_pis',
   'pis',
   'regime_contratacao',
+  'salario',
+  'salary',
+  'salario_base',
+  'base_salary',
 ] as const;
 
 let detectedRhFuncionariosColumns: Set<string> | null = null;
@@ -3359,7 +3366,6 @@ async function _unusedLegacyFetchRhFuncionarios(
  */
 export async function fetchContractualSalariesFromDb(): Promise<Map<string, number>> {
   const map = new Map<string, number>();
-  if (!isSupabaseConfigured) return map;
 
   const extractSalary = (r: any): number => {
     if (!r) return 0;
@@ -3389,18 +3395,9 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
   };
 
   const registerInMap = (r: any) => {
-    let sal = extractSalary(r);
+    const sal = extractSalary(r);
     const rawName = String(r.name || r.nome || r.nome_funcionario || '').trim().toUpperCase();
     const reduced = rawName.replace(/S{2,}/g, 'S');
-
-    // Força o salário base contratual correto de R$ 3.000,00 para ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN
-    if (
-      rawName.includes('ALISSON PAGOTTO') ||
-      rawName.includes('GREGOLIN') ||
-      reduced.includes('CASSIANO')
-    ) {
-      sal = 3000;
-    }
 
     if (sal > 0) {
       if (r.id) {
@@ -3419,8 +3416,18 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
     }
   };
 
+  // 1. Sempre carrega previamente os colaboradores cadastrados no armazenamento local/estado da aplicação
   try {
-    // 1. Tabela public.funcionarios (busca transparente com select '*')
+    const localEmps = getStoredEmployees();
+    if (Array.isArray(localEmps)) {
+      localEmps.forEach(registerInMap);
+    }
+  } catch (_) {}
+
+  if (!isSupabaseConfigured) return map;
+
+  try {
+    // 2. Tabela public.funcionarios (busca transparente com select '*')
     try {
       const { data: funcData, error: funcErr } = await supabase
         .from('funcionarios')
@@ -3439,7 +3446,7 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
       }
     } catch (_) {}
 
-    // 2. Tabela public.rh_funcionarios
+    // 3. Tabela public.rh_funcionarios
     try {
       const { data: rhData } = await supabase
         .from('rh_funcionarios')
@@ -3450,14 +3457,6 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
       }
     } catch (_) {}
   } catch (_) {}
-
-  // Garante que as linhas de ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN tenham R$ 3.000,00
-  map.set('ALISSON PAGOTTO DA SILVA', 3000);
-  map.set('ALISSON PAGOTTO', 3000);
-  map.set('CASSSIANO GREGOLIN', 3000);
-  map.set('CASSIANO GREGOLIN', 3000);
-  map.set('CASSSIANO', 3000);
-  map.set('CASSIANO', 3000);
 
   return map;
 }

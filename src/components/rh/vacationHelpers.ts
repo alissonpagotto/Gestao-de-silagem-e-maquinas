@@ -75,19 +75,13 @@ export function computeUnifiedVacationMetrics(
       (empNameNorm ? contractualSalaries?.get(empNameNorm) : undefined) ||
       (empNameReduced ? contractualSalaries?.get(empNameReduced) : undefined);
 
-    let activeSalary =
-      salaryFromDb && salaryFromDb > 0
-        ? salaryFromDb
-        : Number(emp.salary || emp.baseSalary || (emp as any).salario || (emp as any).salario_base || 0);
-
-    // Force obrigatório para ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN (R$ 3.000,00)
-    if (
-      empNameNorm.includes('ALISSON PAGOTTO') ||
-      empNameNorm.includes('GREGOLIN') ||
-      empNameReduced.includes('CASSIANO')
-    ) {
-      activeSalary = 3000;
-    }
+    const empDirectSalary = Number(
+      emp.salary || emp.baseSalary || (emp as any).salario || (emp as any).salario_base || 0
+    );
+    const activeSalary =
+      empDirectSalary > 0
+        ? empDirectSalary
+        : (salaryFromDb && salaryFromDb > 0 ? salaryFromDb : 0);
 
     // 2. Busca registros de férias para este colaborador, ignorando cancelados ou quitados
     const empVacations = (vacations || [])
@@ -174,7 +168,7 @@ export function computeUnifiedVacationMetrics(
 
     activeVacationsList.push({
       ...matchedVac,
-      baseSalary: activeSalary > 0 ? activeSalary : 3000,
+      baseSalary: activeSalary > 0 ? activeSalary : Number(matchedVac.baseSalary || 0),
       customVacationAmount: recalcFerias,
       oneThirdBonus: recalcUmTerco,
       pecuniaryAllowance: recalcAbono,

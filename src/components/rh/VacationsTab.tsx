@@ -32,6 +32,7 @@ import {
   getStoredExpenses,
   saveStoredExpenses,
   saveStoredEmployees,
+  getStoredEmployees,
 } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
@@ -905,6 +906,20 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   useEffect(() => {
     loadContractualSalaries();
+
+    const handleEmployeeUpdate = () => {
+      loadContractualSalaries();
+    };
+
+    window.addEventListener('silagem_employees_updated', handleEmployeeUpdate);
+    window.addEventListener('agrocontrol_funcionarios_updated', handleEmployeeUpdate);
+    window.addEventListener('silagem_vacation_realtime_mutation', handleEmployeeUpdate);
+
+    return () => {
+      window.removeEventListener('silagem_employees_updated', handleEmployeeUpdate);
+      window.removeEventListener('agrocontrol_funcionarios_updated', handleEmployeeUpdate);
+      window.removeEventListener('silagem_vacation_realtime_mutation', handleEmployeeUpdate);
+    };
   }, [loadContractualSalaries]);
 
   // Função utilitária unificada para capturar dinamicamente o salário base real do colaborador
@@ -915,15 +930,28 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       const nameUpper = (empName || '').trim().toUpperCase();
       const nameReduced = normalizeNameForComparison(nameUpper);
 
-      // Force obrigatório para ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN (R$ 3.000,00)
-      if (
-        nameUpper.includes('ALISSON PAGOTTO') ||
-        nameUpper.includes('GREGOLIN') ||
-        nameReduced.includes('CASSIANO')
-      ) {
-        return 3000;
-      }
+      // 1. Busca primeiro nos dados ativos do colaborador recebidos via props (ou localStorage)
+      const emp =
+        employees.find(
+          (e) =>
+            (empId && (e.id === empId || toValidUUID(e.id) === uuid)) ||
+            (nameUpper && (e.name || '').trim().toUpperCase() === nameUpper) ||
+            (nameReduced && normalizeNameForComparison(e.name) === nameReduced)
+        ) ||
+        getStoredEmployees().find(
+          (e) =>
+            (empId && (e.id === empId || toValidUUID(e.id) === uuid)) ||
+            (nameUpper && (e.name || '').trim().toUpperCase() === nameUpper) ||
+            (nameReduced && normalizeNameForComparison(e.name) === nameReduced)
+        );
 
+      const empSal = Number(
+        emp?.baseSalary ?? emp?.salary ?? (emp as any)?.salario_base ?? (emp as any)?.salario ?? 0
+      );
+
+      if (empSal > 0) return empSal;
+
+      // 2. Busca no mapa retornado do Supabase (tabela funcionarios / rh_funcionarios)
       const fromDb =
         (empId ? contractualSalaries.get(empId) : undefined) ||
         (uuid ? contractualSalaries.get(uuid) : undefined) ||
@@ -932,16 +960,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
       if (fromDb && fromDb > 0) return fromDb;
 
-      const emp = employees.find(
-        (e) =>
-          (empId && (e.id === empId || toValidUUID(e.id) === uuid)) ||
-          (nameUpper && (e.name || '').trim().toUpperCase() === nameUpper) ||
-          (nameReduced && normalizeNameForComparison(e.name) === nameReduced)
-      );
-
-      return Number(
-        emp?.salary || emp?.baseSalary || (emp as any)?.salario || (emp as any)?.salario_base || 0
-      );
+      return 0;
     },
     [contractualSalaries, employees]
   );
@@ -1084,8 +1103,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           rawAdm = '2023-03-01';
         } else if (empNameNorm.includes('AUDIRLEI')) {
           rawAdm = '2026-05-02';
-        } else if (empNameNorm.includes('CASSIANO')) {
-          rawAdm = '2024-02-15';
+        } else if (empNameNorm.includes('CASSIANO') || empNameNorm.includes('GREGOLIN')) {
+          rawAdm = '2025-02-26';
         } else if (empNameNorm.includes('DIEGO')) {
           rawAdm = '2025-01-10';
         } else {
@@ -1276,6 +1295,50 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return rows;
   }, [employees, vacations, activeAbsences, machineriesList, contractualSalaries]);
 
+  // Detalhes cadastrais em tempo real do colaborador selecionado no modal de programação de férias
+  const selectedEmpDetails = useMemo(() => {
+    if (!selectedEmp) return null;
+    let rawAdm = formatIsoDateOnly(
+      selectedEmp.admissionDate ||
+      (selectedEmp as any).data_admissao ||
+      (selectedEmp as any).admitted_at ||
+      (selectedEmp as any).dataAdmissao ||
+      ''
+    );
+    const empNameUpper = (selectedEmp.name || '').trim().toUpperCase();
+    if (!rawAdm) {
+      if (empNameUpper.includes('ALISSON PAGOTTO')) rawAdm = '2023-03-01';
+      else if (empNameUpper.includes('AUDIRLEI')) rawAdm = '2026-05-02';
+      else if (empNameUpper.includes('CASSIANO') || empNameUpper.includes('GREGOLIN')) rawAdm = '2025-02-26';
+      else if (empNameUpper.includes('DIEGO')) rawAdm = '2025-01-10';
+      else rawAdm = '2025-01-01';
+    }
+
+    const matchingRow = periodRows.find(
+      (r) => r.employee.id === selectedEmp.id || toValidUUID(r.employee.id) === toValidUUID(selectedEmp.id)
+    );
+
+    const cargo = selectedEmp.role || 'Função não informada';
+    const regime = selectedEmp.contractType || (selectedEmp as any).regime || 'Registrado (CLT)';
+    const cargoRegime = `${cargo} | ${regime}`;
+    const admLabel = `Adm: ${formatDateBR(rawAdm)}`;
+
+    const acqStart = acquisitionPeriodStart || matchingRow?.acquisitionStart || rawAdm;
+    const acqEnd = acquisitionPeriodEnd || matchingRow?.acquisitionEnd || calculateAcquisitionEndIso(acqStart);
+    const periodoDireitoLabel = `${formatDateBR(acqStart)} a ${formatDateBR(acqEnd)}`;
+
+    return {
+      rawAdm,
+      cargo,
+      regime,
+      cargoRegime,
+      admLabel,
+      periodoDireitoLabel,
+      diasDireitoLabel: matchingRow?.diasDireitoLabel || '30 DIAS DE DIREITO',
+      salary: baseSalary,
+    };
+  }, [selectedEmp, periodRows, acquisitionPeriodStart, acquisitionPeriodEnd, baseSalary]);
+
   // Filtragem da lista principal por busca e pelas sub-abas unificadas
   const filteredRows = useMemo(() => {
     return periodRows.filter((row) => {
@@ -1340,7 +1403,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       .map((row) => {
         const v = row.vacationRecord!;
         const baseSal = Number(
-          v.baseSalary || row.employee.baseSalary || row.employee.salary || 3000
+          row.employee.baseSalary || row.employee.salary || v.baseSalary || 0
         );
         const dias = Number(v.daysCount || 30);
         const feriasVal = v.customVacationAmount !== undefined && v.customVacationAmount !== null && v.customVacationAmount > 0
@@ -1771,16 +1834,54 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     setSelectedEmployeeId(empId);
     if (!empId) {
       setBaseSalary(0);
+      setAcquisitionPeriodStart('');
+      setAcquisitionPeriodEnd('');
       resetCustomOverrides();
       return;
     }
-    const emp = employees.find(e => e.id === empId);
+    const emp = employees.find(e => e.id === empId || toValidUUID(e.id) === toValidUUID(empId)) ||
+      getStoredEmployees().find(e => e.id === empId || toValidUUID(e.id) === toValidUUID(empId));
     if (emp) {
       const salary = getEmployeeContractualSalary(emp.id, emp.name);
       setBaseSalary(salary);
       resetCustomOverrides();
+
+      // Sincroniza período aquisitivo de direito a partir de periodRows
+      const matchingRow = periodRows.find(
+        (r) => r.employee.id === empId || toValidUUID(r.employee.id) === toValidUUID(empId)
+      );
+      if (matchingRow) {
+        if (matchingRow.acquisitionStart) setAcquisitionPeriodStart(matchingRow.acquisitionStart);
+        if (matchingRow.acquisitionEnd) setAcquisitionPeriodEnd(matchingRow.acquisitionEnd);
+        if (matchingRow.rightDays > 0) {
+          setDaysCount(matchingRow.rightDays);
+          if (startDate) {
+            setEndDate(calculateEndDateFromStart(startDate, matchingRow.rightDays));
+          }
+        }
+      } else {
+        let adm = formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || '');
+        if (!adm) {
+          const uName = (emp.name || '').toUpperCase();
+          if (uName.includes('CASSIANO') || uName.includes('GREGOLIN')) adm = '2025-02-26';
+          else adm = '2025-01-01';
+        }
+        setAcquisitionPeriodStart(adm);
+        setAcquisitionPeriodEnd(calculateAcquisitionEndIso(adm));
+      }
     }
   };
+
+  // Sincroniza em tempo real o salário base do modal se o colaborador selecionado tiver seu salário alterado externamente
+  useEffect(() => {
+    if (selectedEmployeeId && isModalOpen) {
+      const liveSalary = getEmployeeContractualSalary(selectedEmployeeId);
+      if (liveSalary > 0 && Math.abs(liveSalary - baseSalary) > 0.01) {
+        setBaseSalary(liveSalary);
+        resetCustomOverrides();
+      }
+    }
+  }, [selectedEmployeeId, isModalOpen, employees, contractualSalaries, getEmployeeContractualSalary, baseSalary]);
 
   const handleStartDateChange = (newStart: string) => {
     setStartDate(newStart);
@@ -1929,15 +2030,17 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setStatus(mapSituacaoExecucaoToStatus(execSit));
       setNotes(vacation.notes || '');
 
-      setCustomFeriasGozo(vacation.customVacationAmount !== undefined ? vacation.customVacationAmount : null);
-      setCustomUmTercoGozo(vacation.oneThirdBonus !== undefined ? vacation.oneThirdBonus : null);
+      const salaryChanged = dynamicSalary > 0 && vacation.baseSalary > 0 && Math.abs(dynamicSalary - vacation.baseSalary) > 0.01;
+
+      setCustomFeriasGozo(salaryChanged ? null : (vacation.customVacationAmount !== undefined ? vacation.customVacationAmount : null));
+      setCustomUmTercoGozo(salaryChanged ? null : (vacation.oneThirdBonus !== undefined ? vacation.oneThirdBonus : null));
       setCustomAbonoPecuniario(null);
       setCustomUmTercoAbono(null);
       setCustomDecimoAdiantamento(vacation.thirteenthAmount !== undefined ? vacation.thirteenthAmount : null);
       setInssEnabled(vacation.inssEnabled !== undefined ? vacation.inssEnabled : true);
       setIrrfEnabled(vacation.irrfEnabled !== undefined ? vacation.irrfEnabled : true);
-      setCustomInssDiscount(vacation.inssDiscount !== undefined ? vacation.inssDiscount : null);
-      setCustomIrrfDiscount(vacation.irrfDiscount !== undefined ? vacation.irrfDiscount : null);
+      setCustomInssDiscount(salaryChanged ? null : (vacation.inssDiscount !== undefined ? vacation.inssDiscount : null));
+      setCustomIrrfDiscount(salaryChanged ? null : (vacation.irrfDiscount !== undefined ? vacation.irrfDiscount : null));
     } else {
       const draftId = toValidUUID(`vac_${Date.now()}`);
       setEditingVacation(null);
@@ -3161,6 +3264,48 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 </select>
               </div>
             </div>
+
+            {/* 2. BLOCO INFORMATIVO DO COLABORADOR (Plotagem de Dados Cadastrais em Tempo Real) */}
+            {selectedEmp && selectedEmpDetails ? (
+              <div className="px-4 py-2 bg-gradient-to-r from-blue-50/95 via-sky-50/80 to-indigo-50/90 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-sky-200/90 dark:border-stone-700/80 flex flex-wrap items-center justify-between gap-2 shrink-0 animate-in fade-in duration-150">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {/* Badge 1: Cargo / Regime */}
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-stone-800 border border-sky-200/90 dark:border-stone-700 text-sky-950 dark:text-stone-100 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-600 dark:bg-sky-400 shrink-0"></span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-stone-400">Cargo / Regime:</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">
+                      {selectedEmpDetails.cargoRegime}
+                    </span>
+                  </span>
+
+                  {/* Badge 2: Data de Admissão */}
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-stone-800 border border-slate-200/90 dark:border-stone-700 text-slate-800 dark:text-stone-200 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500 dark:bg-stone-400 shrink-0"></span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-stone-400">Admissão:</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white font-mono">
+                      {selectedEmpDetails.admLabel}
+                    </span>
+                  </span>
+
+                  {/* Badge 3: Período Aquisitivo de Direito */}
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 shrink-0"></span>
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300">Período de Direito:</span>
+                    <span className="font-extrabold text-emerald-900 dark:text-emerald-200 font-mono">
+                      {selectedEmpDetails.periodoDireitoLabel}
+                    </span>
+                  </span>
+                </div>
+
+                {/* Badge 4: Salário Base Sincronizado */}
+                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-stone-800 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Salário Base:</span>
+                  <span className="font-mono text-xs font-black text-emerald-800 dark:text-emerald-200">
+                    {formatBRL(baseSalary)}
+                  </span>
+                </div>
+              </div>
+            ) : null}
 
             {/* FORMULÁRIO COMPACTADO: Padding 16px, Gap 0.75rem, overflow-y hidden */}
             <form

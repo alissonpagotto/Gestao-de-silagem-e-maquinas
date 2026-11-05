@@ -2444,6 +2444,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               ativo: employeeData.active,
               cnh_categoria: employeeData.cnhCategory || null,
               cnh_validade: employeeData.cnhExpiration || null,
+              salario: employeeData.salary || 0,
+              salary: employeeData.salary || 0,
+              salario_base: employeeData.salary || 0,
+              base_salary: employeeData.salary || 0,
             };
 
             const funcionariosPayload = applyTraditionalColumnCompatibility(
@@ -2537,6 +2541,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             status: employeeData.status || 'ativo',
             registration_type: employeeData.registrationType || 'Funcionário',
             salary: employeeData.salary || 0,
+            salario: employeeData.salary || 0,
+            salario_base: employeeData.salary || 0,
+            base_salary: employeeData.salary || 0,
             admission_date: employeeData.admissionDate || null,
             driver_license: employeeData.cnhNumber || null,
             license_category: employeeData.cnhCategory || null,
@@ -2683,6 +2690,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       saveStoredEmployees(updatedList);
       window.dispatchEvent(new CustomEvent('silagem_employees_updated', { detail: updatedList }));
       window.dispatchEvent(new CustomEvent('agrocontrol_funcionarios_updated', { detail: updatedList }));
+      window.dispatchEvent(new CustomEvent('silagem_vacation_realtime_mutation', { detail: updatedList }));
 
       // Notifica o manipulador superior para persistência no Supabase
       if (onSaveEmployees) {
