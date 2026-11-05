@@ -35,11 +35,11 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   selectedMonth,
   onSave,
 }) => {
-  // 1. RESET HARDCODED DOS ESTADOS INICIAIS (PADRÃO ESTRITO: 'horas' e 8)
+  // 1. RESET HARDCODED DOS ESTADOS INICIAIS (PADRÃO ESTRITO: 'hours'/'horas' e 8)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [date, setDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [absenceUnit, setAbsenceUnit] = useState<'horas' | 'dias'>('horas');
+  const [absenceUnit, setAbsenceUnit] = useState<'hours' | 'horas' | 'days' | 'dias'>('hours');
   const [absenceHours, setAbsenceHours] = useState<number>(8);
   const [daysCount, setDaysCount] = useState<number>(1);
   const [type, setType] = useState<AbsenceRecord['type']>('injustificada');
@@ -51,7 +51,9 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   const [reason, setReason] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
-  // 2. CICLO DE VIDA DO MODAL: Inicialização limpa e descarte de estados legados
+  const isHours = absenceUnit === 'hours' || absenceUnit === 'horas';
+
+  // 2. CICLO DE VIDA DO MODAL: Inicialização limpa e descarte total de estados legados
   useEffect(() => {
     if (!isOpen) return;
 
@@ -59,9 +61,8 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
       setSelectedEmployeeId(editingAbsence.employeeId || '');
       setDate(editingAbsence.date || new Date().toISOString().split('T')[0]);
       setEndDate(editingAbsence.endDate || editingAbsence.date || new Date().toISOString().split('T')[0]);
-      // Apenas se explicitamente gravado como 'dias' mantém dias; caso contrário padrão 'horas'
-      const unit = editingAbsence.absenceUnit === 'dias' ? 'dias' : 'horas';
-      setAbsenceUnit(unit);
+      const isRecordDays = editingAbsence.absenceUnit === 'dias' || (editingAbsence.absenceUnit as unknown as string) === 'days';
+      setAbsenceUnit(isRecordDays ? 'dias' : 'hours');
       const hrs = (editingAbsence.absenceHours !== undefined && editingAbsence.absenceHours !== null && Number(editingAbsence.absenceHours) > 0)
         ? Number(editingAbsence.absenceHours)
         : 8;
@@ -75,12 +76,12 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
       setReason(editingAbsence.reason || '');
       setNotes(editingAbsence.notes || '');
     } else {
-      // FORMULÁRIO LIMPO: Força total em HORAS e 8H
+      // FORMULÁRIO LIMPO: Força total em HORAS ('hours') e 8 horas
       setSelectedEmployeeId('');
       const today = new Date().toISOString().split('T')[0];
       setDate(today);
       setEndDate(today);
-      setAbsenceUnit('horas');
+      setAbsenceUnit('hours');
       setAbsenceHours(8);
       setDaysCount(1);
       setType('injustificada');
@@ -98,24 +99,26 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   // Função pura de cálculo matemático com total precisão decimal
   const calculateDiscount = (
     empId: string,
-    unit: 'horas' | 'dias',
+    unitIsHours: boolean,
     days: number,
     hours: number,
     isDiscount: boolean,
     mRef: string
   ) => {
     const emp = employees.find(e => e.id === empId);
-    const contractualSalary = Number(emp?.salary || emp?.baseSalary) || 3500;
+    const contractualSalary = Number(emp?.salary || emp?.baseSalary) || 2500;
 
     if (!isDiscount || !emp) {
+      const fallbackHourlyRate = contractualSalary / 220;
+      const fallbackDailyRate = fallbackHourlyRate * 8;
       return {
         discountAmount: 0,
         calculationMemory: 'Desconto não aplicável em folha de pagamento.',
         isProportional: false,
         proportionalSalary: contractualSalary,
         contractualSalary,
-        dailyRate: Math.round((contractualSalary / 30) * 100) / 100,
-        hourlyRate: Math.round((contractualSalary / 220) * 100) / 100,
+        dailyRate: Math.round(fallbackDailyRate * 100) / 100,
+        hourlyRate: Math.round(fallbackHourlyRate * 100) / 100,
         daysWorkedMonth: 30,
         admissionDateFormatted: emp?.admissionDate ? formatEmployeeAdmissionDate(emp.admissionDate) : '',
       };
@@ -126,12 +129,11 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
     const baseSalaryToUse = isProportional ? admInfo.proportionalSalary : contractualSalary;
     const daysWorkedInMonth = isProportional ? admInfo.daysWorked : 30;
 
-    const rawDailyRate = isProportional
-      ? (daysWorkedInMonth > 0 ? (baseSalaryToUse / daysWorkedInMonth) : (baseSalaryToUse / 30))
-      : (contractualSalary / 30);
-
     // Valor da Hora Bruto: baseSalary / 220
     const rawHourlyRate = baseSalaryToUse / 220;
+
+    // Valor do Dia de Trabalho: (baseSalary / 220) * 8 (Equivalente a 8h de jornada)
+    const rawDailyRate = rawHourlyRate * 8;
 
     let calculatedDiscount = 0;
     let memoryText = '';
@@ -140,7 +142,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
       ? `Salário Proporcional Admissão (${formatMoneyBRL(baseSalaryToUse)})`
       : `Salário Base (${formatMoneyBRL(contractualSalary)})`;
 
-    if (unit === 'horas') {
+    if (unitIsHours) {
       const validHours = Math.max(0, Number(hours) || 0);
       // Valor da Hora Bruto * Quantidade de Horas da Falta sem arredondamento prévio
       const rawDiscount = rawHourlyRate * validHours;
@@ -154,7 +156,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
       const daysDesc = isProportional && daysWorkedInMonth < 30
         ? `Salário Proporcional Admissão (${formatMoneyBRL(baseSalaryToUse)} pelos ${daysWorkedInMonth} dias trabalhados)`
         : baseLabel;
-      memoryText = `Base de cálculo: ${daysDesc} | Valor do Dia: ${formatMoneyBRL(rawDailyRate)} | Desconto aplicado para ${validDays} dia(s).`;
+      memoryText = `Base de cálculo: ${daysDesc} | Valor do Dia (8h): ${formatMoneyBRL(rawDailyRate)} | Desconto aplicado para ${validDays} dia(s).`;
     }
 
     return {
@@ -175,7 +177,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   // Cálculo memoizado de leitura para os cards de reflexo financeiro
   const currentCalc = calculateDiscount(
     selectedEmployeeId,
-    absenceUnit,
+    isHours,
     daysCount,
     absenceHours,
     discountPayroll,
@@ -193,7 +195,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
 
     const calc = calculateDiscount(
       selectedEmployeeId,
-      absenceUnit,
+      isHours,
       daysCount,
       absenceHours,
       discountPayroll,
@@ -208,9 +210,24 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   // Handlers
   const handleEmployeeSelect = (empId: string) => {
     setSelectedEmployeeId(empId);
+    if (!empId) {
+      setDiscountAmount(0);
+      setCalculationMemory('Selecione um funcionário para calcular o desconto.');
+      return;
+    }
+    const calc = calculateDiscount(
+      empId,
+      isHours,
+      daysCount,
+      absenceHours,
+      discountPayroll,
+      referenceMonth
+    );
+    setDiscountAmount(calc.discountAmount);
+    setCalculationMemory(calc.calculationMemory);
   };
 
-  const handleUnitToggle = (newUnit: 'horas' | 'dias') => {
+  const handleUnitToggle = (newUnit: 'hours' | 'dias') => {
     setAbsenceUnit(newUnit);
   };
 
@@ -268,7 +285,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
     if (!selectedEmployeeId) return;
     const calc = calculateDiscount(
       selectedEmployeeId,
-      absenceUnit,
+      isHours,
       daysCount,
       absenceHours,
       discountPayroll,
@@ -286,7 +303,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
 
     const calc = calculateDiscount(
       selectedEmployeeId,
-      absenceUnit,
+      isHours,
       daysCount,
       absenceHours,
       discountPayroll,
@@ -294,7 +311,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
     );
 
     const finalMemory = discountPayroll ? (calculationMemory || calc.calculationMemory) : undefined;
-    const finalHours = absenceUnit === 'horas' ? Number(absenceHours) : undefined;
+    const finalHours = isHours ? Number(absenceHours) : undefined;
     const finalDiscount = discountPayroll ? (discountAmount !== undefined && discountAmount !== null ? Number(discountAmount) : calc.discountAmount) : 0;
 
     const baseRecord: AbsenceRecord & { tipo?: string; tipo_registro?: string; desconto?: number } = {
@@ -304,8 +321,9 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
       employeeRole: emp.role,
       date,
       endDate: endDate || undefined,
-      daysCount: absenceUnit === 'horas' ? 1 : daysCount,
-      absenceUnit,
+      daysCount: isHours ? 1 : daysCount,
+      absenceUnit: isHours ? 'horas' : 'dias',
+      unit: isHours ? 'horas' : 'dias',
       absenceHours: finalHours,
       calculationMemory: finalMemory,
       isProportionalAdmission: calc.isProportional,
@@ -375,7 +393,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                   <option value="">Selecione um funcionário...</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.role}) - Salário Base: {formatMoneyBRL(emp.salary || emp.baseSalary || 3500)}
+                      {emp.name} ({emp.role}) - Salário Base: {formatMoneyBRL(emp.salary || emp.baseSalary || 2500)}
                       {emp.admissionDate ? ` • Adm: ${formatDateBR(emp.admissionDate)}` : ''}
                     </option>
                   ))}
@@ -521,7 +539,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                     disabled={!selectedEmployeeId}
                     onClick={() => handleUnitToggle('dias')}
                     className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                      absenceUnit === 'dias'
+                      !isHours
                         ? 'bg-[#0963cb] text-white shadow-xs'
                         : 'text-stone-700 hover:text-black hover:bg-stone-200/60'
                     }`}
@@ -529,13 +547,13 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                     <span>📅 Dia Todo</span>
                   </button>
 
-                  {/* BOTÃO HORAS: PADRÃO ABSOLUTO ATIVO */}
+                  {/* BOTÃO HORAS: PADRÃO ESTRITO ATIVO (AZUL) */}
                   <button
                     type="button"
                     disabled={!selectedEmployeeId}
-                    onClick={() => handleUnitToggle('horas')}
+                    onClick={() => handleUnitToggle('hours')}
                     className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                      absenceUnit === 'horas'
+                      isHours
                         ? 'bg-[#0963cb] text-white shadow-xs'
                         : 'text-stone-700 hover:text-black hover:bg-stone-200/60'
                     }`}
@@ -546,7 +564,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
               </div>
 
               {/* QUANTIDADE CONFORME UNIDADE SELECIONADA */}
-              {absenceUnit === 'dias' ? (
+              {!isHours ? (
                 <div>
                   <label className="block font-bold text-black mb-1">
                     Dias de Ausência (Números Inteiros) <span className="text-rose-600">*</span>
@@ -673,15 +691,9 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                         </span>
                         <span className="text-xs font-bold text-stone-800">
                           {formatMoneyBRL(currentCalc.dailyRate)} / dia
-                          {currentCalc.isProportional ? (
-                            <span className="text-[10px] text-stone-500 block font-normal">
-                              (÷ {currentCalc.daysWorkedMonth} dias trab.)
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-stone-500 block font-normal">
-                              (÷ 30 dias padrão)
-                            </span>
-                          )}
+                          <span className="text-[10px] text-stone-500 block font-normal">
+                            (Equivalente a 8h de jornada)
+                          </span>
                         </span>
                       </div>
 
@@ -758,7 +770,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
 
               {/* Resumo Rodapé da Coluna Direita */}
               <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px] text-stone-600">
-                <span>Unidade ativa: <strong>{absenceUnit === 'horas' ? 'Horas Fracionadas' : 'Dias Inteiros'}</strong></span>
+                <span>Unidade ativa: <strong>{isHours ? 'Horas Fracionadas' : 'Dias Inteiros'}</strong></span>
                 <span>Status: <strong className="uppercase text-black">{status}</strong></span>
               </div>
             </div>
