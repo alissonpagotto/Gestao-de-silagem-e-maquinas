@@ -179,6 +179,7 @@ interface ParsedNfeItem {
   custo_sem_imposto?: number;
   custoComImposto?: number;
   custo_com_imposto?: number;
+  freteProporcionalTotal?: number;
   freteDiluidoItem?: number;
   frete_diluido_item?: number;
 }
@@ -208,6 +209,10 @@ interface ParsedNfeData {
   recipientCnpj?: string;
   totalAmount: number;
   productsAmount?: number;
+  totalFrete?: number;
+  vFrete?: number;
+  totalIPI?: number;
+  vIPI?: number;
   issueDate: string;
   entryDate?: string;
   dueDate?: string;
@@ -1343,7 +1348,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Auto-calibração reativa do motor fiscal: assegura CUSTO_REAL = (vProd + vIPI) / qCom e V. TOTAL = QUANTIDADE * CUSTO_REAL
+  // Auto-calibração reativa do motor fiscal: assegura CUSTO COMPOSTO = vProd + vIPI + freteItem e V. TOTAL = CUSTO COMPOSTO
   useEffect(() => {
     if (parsedData?.items && parsedData.items.length > 0) {
       let changed = false;
@@ -1352,17 +1357,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const vProd = it.vProdOriginal !== undefined ? it.vProdOriginal : (it.unitPrice && it.quantity ? it.unitPrice * it.quantity : 0);
         const vIPI = it.vIPI || 0;
         const q = it.quantity || 1;
-        const expectedCustoReal = q > 0 ? round2((vProd + vIPI) / q) : round2(vProd + vIPI);
-        const expectedTotal = round2(q * expectedCustoReal);
+        const freteItem = it.freteProporcionalTotal !== undefined
+          ? it.freteProporcionalTotal
+          : round2((it.freteDiluidoItem || it.frete_diluido_item || 0) * q);
 
-        if (vIPI > 0 && (it.unitPrice !== expectedCustoReal || it.totalPrice !== expectedTotal)) {
+        const expectedItemTotal = (it.totalPrice && it.totalPrice > 0 && Math.abs(it.totalPrice - (vProd + vIPI + freteItem)) < 0.05)
+          ? it.totalPrice
+          : round2(vProd + vIPI + freteItem);
+        const expectedCustoReal = q > 0 ? round2(expectedItemTotal / q) : expectedItemTotal;
+
+        if ((vIPI > 0 || freteItem > 0) && (it.unitPrice !== expectedCustoReal || it.totalPrice !== expectedItemTotal)) {
           changed = true;
           return {
             ...it,
             unitPrice: expectedCustoReal,
             custoComImposto: expectedCustoReal,
             custo_com_imposto: expectedCustoReal,
-            totalPrice: expectedTotal,
+            totalPrice: expectedItemTotal,
+            freteProporcionalTotal: freteItem,
+            freteDiluidoItem: q > 0 ? round2(freteItem / q) : freteItem,
+            frete_diluido_item: q > 0 ? round2(freteItem / q) : freteItem,
           };
         }
         return it;
@@ -1371,14 +1385,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const totalItemsSum = round2(normalizedItems.reduce((acc, it) => acc + (it.totalPrice || 0), 0));
       const totalProdSum = round2(normalizedItems.reduce((acc, it) => acc + (it.vProdOriginal || 0), 0));
 
-      if (changed || (totalItemsSum > 0 && parsedData.totalAmount !== totalItemsSum)) {
+      if (changed || (parsedData.totalAmount === 0 && totalItemsSum > 0)) {
         setParsedData(prev => {
           if (!prev) return prev;
+          const finalTotal = prev.totalAmount > 0 ? prev.totalAmount : totalItemsSum;
           return {
             ...prev,
             items: normalizedItems,
             productsAmount: (prev.productsAmount && prev.productsAmount > 0) ? prev.productsAmount : totalProdSum,
-            totalAmount: totalItemsSum > 0 ? totalItemsSum : prev.totalAmount,
+            totalAmount: finalTotal,
           };
         });
       }
@@ -3702,14 +3717,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       // NUNCA rejeitar ou bloquear a leitura da nota por divergência de CNPJ.
       // Toda e qualquer NF-e deve ser importada com sucesso independentemente do CNPJ do destinatário ou emitente.
 
-      // 6. Totais com valores padrão e extração mestre de <vNF> e <vProd>
+      // 6. Totais com valores padrão e extração mestre de <vNF>, <vProd>, <vFrete> e <vIPI>
       const total = getEl(xmlDoc, 'total') || getEl(xmlDoc, 'ICMSTot') || xmlDoc;
-      const vNFStr = getTag(total, 'vNF') || getTag(xmlDoc, 'vNF') || getTag(total, 'vNFTot') || getTag(xmlDoc, 'vNFTot') || '0';
-      const vProdStr = getTag(total, 'vProd') || getTag(xmlDoc, 'vProd') || '0';
-      const vFreteTotalStr = getTag(total, 'vFrete') || getTag(xmlDoc, 'vFrete') || '0';
+      const icmsTot = getEl(total, 'ICMSTot') || getEl(xmlDoc, 'ICMSTot') || total;
+      const vNFStr = getTag(icmsTot, 'vNF') || getTag(total, 'vNF') || getTag(xmlDoc, 'vNF') || getTag(total, 'vNFTot') || getTag(xmlDoc, 'vNFTot') || '0';
+      const vProdStr = getTag(icmsTot, 'vProd') || getTag(total, 'vProd') || getTag(xmlDoc, 'vProd') || '0';
+      const vFreteTotalStr = getTag(icmsTot, 'vFrete') || getTag(total, 'vFrete') || getTag(xmlDoc, 'vFrete') || '0';
+      const vIpiTotalStr = getTag(icmsTot, 'vIPI') || getTag(total, 'vIPI') || getTag(xmlDoc, 'vIPI') || '0';
       let totalAmount = parseFloat(vNFStr) || 0;
       let productsAmount = parseFloat(vProdStr) || 0;
-      const totalFrete = parseFloat(vFreteTotalStr) || 0;
+      let totalFrete = parseFloat(vFreteTotalStr) || 0;
+      let totalIpi = parseFloat(vIpiTotalStr) || 0;
 
       // Fallback robusto por regex caso a tag venha em nós aninhados do XML
       if (!totalAmount) {
@@ -3717,8 +3735,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (vNFMatch) totalAmount = parseFloat(vNFMatch[1]) || 0;
       }
       if (!productsAmount) {
-        const vProdMatch = cleanXml.match(/<total>[\s\S]*?<vProd>([^<]+)<\/vProd>/i) || cleanXml.match(/<vProd>([^<]+)<\/vProd>/i);
+        const vProdMatch = cleanXml.match(/<ICMSTot>[\s\S]*?<vProd>([^<]+)<\/vProd>/i) || cleanXml.match(/<vProd>([^<]+)<\/vProd>/i);
         if (vProdMatch) productsAmount = parseFloat(vProdMatch[1]) || 0;
+      }
+      if (!totalFrete) {
+        const vFreteMatch = cleanXml.match(/<ICMSTot>[\s\S]*?<vFrete>([^<]+)<\/vFrete>/i) || cleanXml.match(/<vFrete>([^<]+)<\/vFrete>/i);
+        if (vFreteMatch) totalFrete = parseFloat(vFreteMatch[1]) || 0;
+      }
+      if (!totalIpi) {
+        const vIpiMatch = cleanXml.match(/<ICMSTot>[\s\S]*?<vIPI>([^<]+)<\/vIPI>/i) || cleanXml.match(/<vIPI>([^<]+)<\/vIPI>/i);
+        if (vIpiMatch) totalIpi = parseFloat(vIpiMatch[1]) || 0;
       }
 
       // 7. Cobrança e Duplicatas (<cobr> -> <dup>)
@@ -3765,17 +3791,42 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       // 9. Itens da Nota Fiscal (<det>) com inteligência fiscal e composição de custos do XML
       const detElements = getAllEls(xmlDoc, 'det');
 
-      // Pré-cálculo da soma de vProd dos itens caso o total geral ainda não esteja disponível
-      const prelimSumVProd = detElements.reduce((acc, det) => {
+      // Pré-cálculo da soma de vProd dos itens para rateio proporcional exato
+      const rawProdValues = detElements.map(det => {
         const p = getEl(det, 'prod') || det;
-        return acc + (parseFloat(getTag(p, 'vProd')) || 0);
-      }, 0);
-      const baseParaRateioFrete = totalAmount > 0 
-        ? totalAmount 
-        : (productsAmount > 0 ? productsAmount : (prelimSumVProd > 0 ? prelimSumVProd : 1));
+        return parseFloat(getTag(p, 'vProd')) || 0;
+      });
+      const prelimSumVProd = rawProdValues.reduce((acc, v) => acc + v, 0);
+      const vProdTotalNota = productsAmount > 0 
+        ? productsAmount 
+        : (prelimSumVProd > 0 ? prelimSumVProd : 1);
+
+      // Se totalFrete não veio no total mestre mas veio em itens, calcula a soma
+      if (totalFrete === 0) {
+        totalFrete = detElements.reduce((acc, det) => {
+          const p = getEl(det, 'prod') || det;
+          return acc + (parseFloat(getTag(p, 'vFrete')) || 0);
+        }, 0);
+      }
+
+      // Se totalIpi não veio no total mestre mas veio em itens, calcula a soma
+      if (totalIpi === 0) {
+        totalIpi = detElements.reduce((acc, det) => {
+          return acc + (getTaxSum(det, 'vIPI') || parseFloat(getTag(getEl(det, 'IPI'), 'vIPI')) || 0);
+        }, 0);
+      }
 
       const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
       const round4 = (num: number) => Math.round((num + Number.EPSILON) * 10000) / 10000;
+
+      // Se totalAmount ainda for 0, calcula a somatória completa [vProd] + [vIPI] + [vFrete]
+      if (totalAmount === 0) {
+        totalAmount = round2(vProdTotalNota + totalIpi + totalFrete);
+      }
+
+      let accumulatedFrete = 0;
+      let accumulatedCustoComposto = 0;
+      const totalDetCount = detElements.length;
 
       const items: ParsedNfeItem[] = detElements.map((det, index) => {
         const prod = getEl(det, 'prod') || det;
@@ -3796,32 +3847,51 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const valorImpostosUnitario = qCom > 0 ? (totalItemImpostos / qCom) : totalItemImpostos;
 
         // Rateio Proporcional de Frete:
-        let freteDiluidoItemTotal = 0;
+        // [Peso do Item (%)] = [vProd do Item] / [vProd Total da Nota]
+        // [Frete Proporcional do Item] = [Frete Total da Nota] * [Peso do Item (%)]
+        // Ajuste de centavos no último item
+        const isLastItem = index === totalDetCount - 1;
+        let freteProporcionalItem = 0;
         if (totalFrete > 0) {
-          const pesoPercentual = baseParaRateioFrete > 0 
-            ? (vProd / baseParaRateioFrete) 
-            : (1 / (detElements.length || 1));
-          freteDiluidoItemTotal = totalFrete * pesoPercentual;
+          if (!isLastItem) {
+            const pesoPercentual = vProdTotalNota > 0 ? (vProd / vProdTotalNota) : (1 / totalDetCount);
+            freteProporcionalItem = round2(totalFrete * pesoPercentual);
+            accumulatedFrete = round2(accumulatedFrete + freteProporcionalItem);
+          } else {
+            freteProporcionalItem = Math.max(0, round2(totalFrete - accumulatedFrete));
+          }
         } else {
-          freteDiluidoItemTotal = parseFloat(getTag(prod, 'vFrete')) || 0;
+          freteProporcionalItem = parseFloat(getTag(prod, 'vFrete')) || 0;
         }
-        const freteDiluidoUnitario = qCom > 0 ? (freteDiluidoItemTotal / qCom) : freteDiluidoItemTotal;
+
+        const freteDiluidoUnitario = qCom > 0 ? round2(freteProporcionalItem / qCom) : freteProporcionalItem;
 
         // Custo Líquido (Sem Imposto): Exibe o valor do produto subtraindo os impostos incidentes/recuperáveis
         const custoSemImpostoCalc = Math.max(0, vUnCom - valorImpostosUnitario);
 
         // =========================================================================
-        // NOVO MOTOR FISCAL EXCLUSIVO DE IPI POR FORA (CONTRATO MASTER AGROCONTROL):
-        // CUSTO_REAL = (vProd + vIPI) / qCom
-        // V. TOTAL = QUANTIDADE * CUSTO_REAL (absorvendo o IPI da linha: vProd + vIPI)
+        // NOVO MOTOR FISCAL EXCLUSIVO (CONTRATO MASTER AGROCONTROL):
+        // [CUSTO COMPOSTO DO ITEM] = [vProd do Item] + [IPI do Item] + [Frete Proporcional do Item]
+        // Com ajuste de centavos no último item para bater exatamente com o totalAmount
+        // CUSTO COM IMPOSTO = [CUSTO COMPOSTO DO ITEM] / qCom
+        // V. TOTAL = [CUSTO COMPOSTO DO ITEM]
         // =========================================================================
-        const custoRealUnitario = qCom > 0 ? round2((vProd + vIPI) / qCom) : round2(vProd + vIPI);
-        const valorTotalItem = round2(qCom * custoRealUnitario);
+        let custoCompostoItem = round2(vProd + vIPI + freteProporcionalItem);
+        if (isLastItem && totalAmount > 0) {
+          const expectedLast = round2(totalAmount - accumulatedCustoComposto);
+          if (expectedLast > 0 && Math.abs(expectedLast - custoCompostoItem) <= 1.0) {
+            custoCompostoItem = expectedLast;
+          }
+        }
+        accumulatedCustoComposto = round2(accumulatedCustoComposto + custoCompostoItem);
+
+        const custoRealUnitario = qCom > 0 ? round2(custoCompostoItem / qCom) : custoCompostoItem;
+        const valorTotalItem = custoCompostoItem;
 
         const totalImpostosRound = round2(totalItemImpostos);
         const custoSemImpostoRound = round2(custoSemImpostoCalc);
         const custoComImpostoRound = custoRealUnitario;
-        const freteDiluidoRound = round2(freteDiluidoUnitario);
+        const freteDiluidoRound = freteDiluidoUnitario;
 
         const itemDesc = (getTag(prod, 'xProd') || 'Item NF-e').toUpperCase();
         const defaultCat = normalizeToInventoryCategory(deduceItemCategory(itemDesc));
@@ -3851,6 +3921,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           custo_sem_imposto: custoSemImpostoRound,
           custoComImposto: custoComImpostoRound,
           custo_com_imposto: custoComImpostoRound,
+          freteProporcionalTotal: round2(freteProporcionalItem),
           freteDiluidoItem: freteDiluidoRound,
           frete_diluido_item: freteDiluidoRound,
         };
@@ -3905,8 +3976,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         supplierZipCode: supplierZipCode || undefined,
         recipient: recipientName || '',
         recipientCnpj: recipientCnpj || '',
-        totalAmount: totalAmount || 0,
-        productsAmount: productsAmount || totalAmount || 0,
+        totalAmount: round2(totalAmount) || 0,
+        productsAmount: round2(productsAmount) || round2(totalAmount) || 0,
+        totalFrete: round2(totalFrete),
+        vFrete: round2(totalFrete),
+        totalIPI: round2(totalIpi),
+        vIPI: round2(totalIpi),
         issueDate: issueDate || new Date().toISOString().split('T')[0],
         dueDate: primaryDueDate,
         paymentMethod,
@@ -4109,6 +4184,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setCostCenterError(false);
 
       setParsedData(result);
+      if (result.installments && result.installments.length > 0) {
+        setUserInstallmentCount(result.installments.length);
+      } else {
+        setUserInstallmentCount(1);
+      }
       setXmlContent(text);
       setEditingExpenseId(null);
       saveCachedNfe(result);
@@ -7337,11 +7417,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </span>
                           <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 font-mono leading-none">
                             {formatCurrencyBRL(
-                              (parsedData.totalAmount && parsedData.totalAmount > (parsedData.productsAmount || 0))
+                              parsedData.totalAmount > 0
                                 ? parsedData.totalAmount
                                 : (parsedData.items && parsedData.items.length > 0
                                     ? Math.round(parsedData.items.reduce((acc, it) => acc + (it.totalPrice || 0), 0) * 100) / 100
-                                    : parsedData.totalAmount)
+                                    : 0)
                             )}
                           </span>
                         </div>
