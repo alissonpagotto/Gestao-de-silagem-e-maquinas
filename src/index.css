@@ -906,20 +906,6 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
   color: #18181b;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2),
-div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) {
-  background-color: #edf4ff !important;
-}
-
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > span:nth-of-type(1) {
-  color: #030303 !important;
-}
-
 /* Customização de Fundo (Modo Dia / Claro) */
 html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
   background-color: #edf4ff !important;
@@ -1060,11 +1046,6 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
   color: #000000 !important;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
 html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#fleet-management-module:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) {
   background-color: #edf4ff !important;
   border-color: #edf4ff !important;
@@ -1110,46 +1091,6 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
   background-color: #edf4ff !important;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
-  background-color: #edf4ff !important;
-  border-color: #edf4ff !important;
-}
-
-html.dark div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) {
-  background-color: #1c1917 !important;
-}
-
-div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
-  background-color: #f5f0d9 !important;
-}
-
-div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
-  background-color: #fec591 !important;
-}
-
-div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) {
-  background-color: #c4d398 !important;
-}
 
 html.dark main#crm-main-content {
   background-color: #0c0a09 !important;
@@ -1686,5 +1627,23 @@ button#btn-novo-servico {
 
 button#btn-novo-servico:hover {
   background-color: #047857 !important;
+}
+
+/* Padronização dos 4 Cards de Estatísticas de Despesas */
+#card-despesas-total,
+#card-despesas-pendentes,
+#card-despesas-diesel,
+#card-despesas-custo-ton {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 1px solid #000000 !important;
+}
+
+html.dark #card-despesas-total,
+html.dark #card-despesas-pendentes,
+html.dark #card-despesas-diesel,
+html.dark #card-despesas-custo-ton {
+  background-color: #1c1917 !important;
+  border: 1px solid #292524 !important;
 }
 
