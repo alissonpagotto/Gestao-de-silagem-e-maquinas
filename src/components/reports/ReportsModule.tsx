@@ -34,6 +34,7 @@ import { ReportsDespesasTab } from './ReportsDespesasTab';
 import { ReportsConsumoTab } from './ReportsConsumoTab';
 import { ReportsAtivoImobilizadoTab } from './ReportsAtivoImobilizadoTab';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { getCompetenceDateRange } from '../financial/CompetenceSelector';
 
 export interface ReportsModuleProps {
   expenses: Expense[];
@@ -75,6 +76,23 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const defaultEnd = getLastDayOfMonth(selectedYear, selectedMonth);
   const [startDate, setStartDate] = useState<string>(defaultStart);
   const [endDate, setEndDate] = useState<string>(defaultEnd);
+
+  // Competence string MM/AAAA
+  const competence = useMemo(() => {
+    return `${pad(selectedMonth + 1)}/${selectedYear}`;
+  }, [selectedMonth, selectedYear]);
+
+  const handleCompetenceChange = (newComp: string) => {
+    const range = getCompetenceDateRange(newComp);
+    const [mStr, yStr] = newComp.split('/');
+    const m = parseInt(mStr, 10);
+    const y = parseInt(yStr, 10);
+    if (!isNaN(m)) setSelectedMonth(m - 1);
+    if (!isNaN(y)) setSelectedYear(y);
+    setStartDate(range.start);
+    setEndDate(range.end);
+    setQuickPeriod('mes_atual');
+  };
 
   // Print Preview Modal State
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -334,6 +352,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               onEndDateChange={setEndDate}
               selectedMonthName={monthsList[selectedMonth]}
               selectedYear={selectedYear}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
             />
           )}
 

@@ -23,20 +23,28 @@ import {
 } from 'recharts';
 import { Expense, SilageOrder, ServiceOrder, FuelLog } from '../../types';
 import { formatCurrencyBRL, getLastDayOfMonth } from '../../lib/storage';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  getCompetenceDateRange 
+} from '../financial/CompetenceSelector';
 
 interface ReportsDashboardTabProps {
   expenses: Expense[];
   orders: SilageOrder[];
   services: ServiceOrder[];
   fuelLogs?: FuelLog[];
-  quickPeriod: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses';
-  onQuickPeriodChange: (p: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses') => void;
+  quickPeriod?: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses';
+  onQuickPeriodChange?: (p: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses') => void;
   startDate: string;
   endDate: string;
   onStartDateChange: (d: string) => void;
   onEndDateChange: (d: string) => void;
-  selectedMonthName: string;
-  selectedYear: number;
+  selectedMonthName?: string;
+  selectedYear?: number;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
 }
 
 export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
@@ -52,10 +60,54 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
   onEndDateChange,
   selectedMonthName,
   selectedYear,
+  competence,
+  onCompetenceChange,
 }) => {
-  // Current Month Data (Row 1)
-  const currentMonthStart = `${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
-  const currentMonthEnd = getLastDayOfMonth(selectedYear, new Date().getMonth());
+  // Active competence derivation (from prop, from startDate, or default)
+  const activeCompetence = useMemo(() => {
+    if (competence) return competence;
+    if (startDate && startDate.length >= 7) {
+      const [y, m] = startDate.split('-');
+      return `${m}/${y}`;
+    }
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${selectedYear || now.getFullYear()}`;
+  }, [competence, startDate, selectedYear]);
+
+  // Handlers for competence chevrons
+  const handlePrevCompetence = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    const range = getCompetenceDateRange(nextComp);
+    onStartDateChange(range.start);
+    onEndDateChange(range.end);
+    if (onCompetenceChange) {
+      onCompetenceChange(nextComp);
+    }
+  };
+
+  const handleNextCompetence = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    const range = getCompetenceDateRange(nextComp);
+    onStartDateChange(range.start);
+    onEndDateChange(range.end);
+    if (onCompetenceChange) {
+      onCompetenceChange(nextComp);
+    }
+  };
+
+  const [compMonthStr, compYearStr] = activeCompetence.split('/');
+  const compMonthNum = (parseInt(compMonthStr, 10) || 1) - 1; // 0-indexed
+  const compYearNum = parseInt(compYearStr, 10) || selectedYear || new Date().getFullYear();
+
+  const monthNamesUpper = [
+    'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
+    'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
+  ];
+  const activeMonthNameUpper = monthNamesUpper[compMonthNum] || (selectedMonthName ? selectedMonthName.toUpperCase() : 'MÊS');
+
+  // Current Month Data (Row 1) - dynamically aligned with the active competence
+  const currentMonthStart = `${compYearNum}-${String(compMonthNum + 1).padStart(2, '0')}-01`;
+  const currentMonthEnd = getLastDayOfMonth(compYearNum, compMonthNum);
 
   const currentMonthEntradas = useMemo(() => {
     const ordersRev = (orders || [])
@@ -94,7 +146,7 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
 
   const periodSaldo = periodEntradas - periodSaidas;
 
-  // Chart Data: Grouping by Month or Day
+  // Chart Data: Grouping by Month (6 months ending at active competence month)
   const chartData = useMemo(() => {
     const monthMap = new Map<string, { label: string; entradas: number; saidas: number }>();
     
@@ -104,10 +156,9 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
     ];
 
-    // Initialize 6 months up to current
-    const now = new Date();
+    // Initialize 6 months up to active competence month
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d = new Date(compYearNum, compMonthNum - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = `${months[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`;
       monthMap.set(key, { label, entradas: 0, saidas: 0 });
@@ -141,7 +192,7 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
     });
 
     return Array.from(monthMap.values());
-  }, [orders, services, expenses]);
+  }, [orders, services, expenses, compYearNum, compMonthNum]);
 
   // Top Expense Categories in the period
   const topCategories = useMemo(() => {
@@ -160,10 +211,10 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6">
       
-      {/* 1. FILTRAR PERÍODO (Em uma única linha horizontal compacta: Data primeiro, depois opções de meses) */}
+      {/* 1. FILTRAR PERÍODO (Em uma única linha horizontal compacta: Data manual à esquerda, Seletor de Competência com setas à direita) */}
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl px-3.5 py-2 sm:py-2.5 shadow-xs flex flex-wrap lg:flex-nowrap items-center justify-between gap-2.5 text-black dark:text-white">
         
-        {/* Esquerda: Rótulo + Seleção por Data */}
+        {/* Esquerda: Rótulo + Seleção por Data (Preservado e Funcional) */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center space-x-1.5 text-black dark:text-stone-400">
             <CalendarIcon className="w-3.5 h-3.5 text-black dark:text-[#009688]" />
@@ -189,35 +240,20 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
           </div>
         </div>
 
-        {/* Direita: Opções Rápidas de Meses */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {[
-            { id: 'mes_atual', label: 'Mês atual' },
-            { id: '1_mes', label: '1 mês' },
-            { id: '3_meses', label: '3 meses' },
-            { id: '6_meses', label: '6 meses' },
-            { id: '12_meses', label: '12 meses' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onQuickPeriodChange(item.id as any)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                quickPeriod === item.id
-                  ? 'bg-sky-600 text-white shadow-xs'
-                  : 'bg-white/80 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-white border border-slate-300 dark:border-stone-700'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+        {/* Direita: Seletor Padrão de Competência Verde com Navegação por Setas */}
+        <div className="flex items-center shrink-0">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevCompetence}
+            onNext={handleNextCompetence}
+          />
         </div>
       </div>
 
-      {/* 2. Mês atual — setembro/2026 (Cards Compactos com metade do tamanho) */}
+      {/* 2. Mês atual — Dinâmico com a competência selecionada */}
       <div className="space-y-1">
         <h3 className="text-[11px] font-black uppercase tracking-wider text-black dark:text-stone-400">
-          MÊS ATUAL — {selectedMonthName ? selectedMonthName.toUpperCase() : 'MÊS ATUAL'}/{selectedYear}
+          MÊS ATUAL — {activeMonthNameUpper}/{compYearNum}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
