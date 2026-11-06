@@ -16,10 +16,12 @@ import {
   CheckCircle2,
   Receipt,
   Wrench,
+  Package,
 } from 'lucide-react';
-import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog } from '../../types';
+import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts } from '../../lib/storage';
+import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat } from '../../lib/formatters';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
 
@@ -211,6 +213,59 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [selectedTargets, setSelectedTargets] = useState<string[]>(['todos']);
   const [targetToAdd, setTargetToAdd] = useState<string>('');
 
+  // Grade discriminada de produtos / itens da despesa
+  const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
+  const [itemDescription, setItemDescription] = useState<string>('');
+  const [itemQuantity, setItemQuantity] = useState<string>('1');
+  const [itemUnitValue, setItemUnitValue] = useState<string>('');
+
+  const handleAddItem = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault();
+    const desc = itemDescription.trim();
+    if (!desc) {
+      alert('Por favor, informe a descrição do item / gasto.');
+      return;
+    }
+    const cleanQtyStr = itemQuantity.replace(',', '.');
+    const qty = parseFloat(cleanQtyStr);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Por favor, informe uma quantidade válida maior que zero.');
+      return;
+    }
+    const unitVal = parseCurrencyToFloat(itemUnitValue);
+    if (unitVal <= 0) {
+      alert('Por favor, informe um valor unitário válido (R$).');
+      return;
+    }
+
+    const totalVal = +(qty * unitVal).toFixed(2);
+    const newItem: ExpenseItem = {
+      id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      description: desc,
+      quantity: qty,
+      unit_value: unitVal,
+      total_value: totalVal,
+    };
+
+    const nextItems = [...expenseItems, newItem];
+    setExpenseItems(nextItems);
+    const sum = nextItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0);
+    setAmount(sum.toFixed(2));
+
+    setItemDescription('');
+    setItemQuantity('1');
+    setItemUnitValue('');
+  };
+
+  const handleRemoveItem = (index: number) => {
+    const nextItems = expenseItems.filter((_, idx) => idx !== index);
+    setExpenseItems(nextItems);
+    if (nextItems.length > 0) {
+      const sum = nextItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0);
+      setAmount(sum.toFixed(2));
+    }
+  };
+
   const selectedCategoryObj = safeCategories.find((c) => c.id === categoryId);
   const selectedCategoryName = (selectedCategoryObj?.name || '').toUpperCase().trim();
   const isFleetMaintenanceCategory = useMemo(() => {
@@ -317,9 +372,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       } else {
         setSelectedTargets(['todos']);
       }
+      const loadedItems = editingExpense.expense_items || (editingExpense as any).items || [];
+      setExpenseItems(Array.isArray(loadedItems) ? loadedItems : []);
+      setItemDescription('');
+      setItemQuantity('1');
+      setItemUnitValue('');
       setIsInstallment(false);
     } else {
       // Defaults for new expense
+      setExpenseItems([]);
+      setItemDescription('');
+      setItemQuantity('1');
+      setItemUnitValue('');
       setAmount('');
       setCategoryId(safeCategories[0]?.id || '');
       setDueDate(today);
@@ -667,6 +731,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           unitPrice: hasQuantity && unitPrice ? parseFloat(unitPrice) : undefined,
           receiptUrl: i === 0 ? receiptUrl : undefined,
           receiptName: i === 0 ? receiptName : undefined,
+          expense_items: expenseItems.length > 0 ? expenseItems : undefined,
+          items: expenseItems.length > 0 ? expenseItems : undefined,
           createdAt: new Date().toISOString(),
         });
       }
@@ -706,6 +772,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         unitPrice: hasQuantity && unitPrice ? parseFloat(unitPrice) : undefined,
         receiptUrl,
         receiptName,
+        expense_items: expenseItems.length > 0 ? expenseItems : undefined,
+        items: expenseItems.length > 0 ? expenseItems : undefined,
         createdAt: editingExpense ? editingExpense.createdAt : new Date().toISOString(),
       };
       onSave(expenseData);
@@ -873,18 +941,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div className="col-span-3">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                VALOR TOTAL (R$) <span className="text-rose-600">*</span>
+              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5 flex items-center justify-between">
+                <span>VALOR TOTAL (R$) <span className="text-rose-600">*</span></span>
+                {expenseItems.length > 0 && (
+                  <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-300 dark:border-emerald-700">
+                    TRAVADO (SOMA ITENS)
+                  </span>
+                )}
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0.01"
                 required
+                readOnly={expenseItems.length > 0}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="R$ 0,00"
-                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400 ${
+                  expenseItems.length > 0
+                    ? 'bg-slate-100 dark:bg-stone-900/90 text-emerald-700 dark:text-emerald-400 cursor-not-allowed border-emerald-300 dark:border-emerald-800'
+                    : ''
+                }`}
+                title={expenseItems.length > 0 ? 'Valor calculado automaticamente pelo somatório dos itens discriminados nesta despesa' : undefined}
               />
             </div>
           </div>
@@ -1495,6 +1574,170 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 className="w-full h-7.5 px-2.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase placeholder:uppercase"
               />
             </div>
+          </div>
+
+          {/* SEÇÃO: ITENS / PRODUTOS LANÇADOS NESTA DESPESA */}
+          <div className="w-full rounded-lg border border-slate-300 dark:border-stone-700 bg-slate-50/70 dark:bg-stone-850 p-2.5 space-y-2 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+                <span className="text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wide">
+                  ITENS / PRODUTOS LANÇADOS NESTA DESPESA
+                </span>
+                {expenseItems.length > 0 && (
+                  <span className="text-[10px] font-bold text-slate-600 dark:text-stone-300 bg-white dark:bg-stone-700 px-1.5 py-0.2 rounded border border-slate-200 dark:border-stone-600">
+                    {expenseItems.length} {expenseItems.length === 1 ? 'item' : 'itens'}
+                  </span>
+                )}
+              </div>
+              {expenseItems.length > 0 && (
+                <div className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400">
+                  TOTAL ITENS: {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
+                </div>
+              )}
+            </div>
+
+            {/* Linha de Inclusão Rápida */}
+            <div className="grid grid-cols-12 gap-1.5 items-end bg-white dark:bg-stone-800 p-2 rounded-md border border-slate-200 dark:border-stone-700">
+              <div className="col-span-12 sm:col-span-5">
+                <label className="block text-[9px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                  Item / Descrição do Gasto
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Filtro de Óleo, Marmita Equipe..."
+                  value={itemDescription}
+                  onChange={(e) => setItemDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddItem();
+                    }
+                  }}
+                  className="w-full h-7.5 px-2 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase placeholder:normal-case"
+                />
+              </div>
+
+              <div className="col-span-4 sm:col-span-2">
+                <label className="block text-[9px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                  Qtd
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0.01"
+                  placeholder="1"
+                  value={itemQuantity}
+                  onChange={(e) => setItemQuantity(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddItem();
+                    }
+                  }}
+                  className="w-full h-7.5 px-2 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-slate-900 dark:text-stone-100 text-xs font-semibold text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="col-span-4 sm:col-span-3">
+                <label className="block text-[9px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                  Valor Unit. (R$)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="0,00"
+                    value={itemUnitValue}
+                    onChange={(e) => setItemUnitValue(maskCurrencyLive(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddItem();
+                      }
+                    }}
+                    className="w-full h-7.5 pl-7 pr-2 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="col-span-4 sm:col-span-2 flex items-center">
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white text-[11px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  title="Inserir item na despesa"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">+ INSERIR</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tabela Dinâmica de Listagem Interna */}
+            {expenseItems.length === 0 ? (
+              <div className="py-2.5 px-3 text-center rounded border border-dashed border-slate-300 dark:border-stone-700 text-[11px] text-slate-500 dark:text-stone-400">
+                Nenhum item discriminado. Adicione itens acima para discriminar produtos/serviços e calcular automaticamente o valor total.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded border border-slate-200 dark:border-stone-700 bg-white dark:bg-stone-850">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700 text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
+                      <th className="py-1 px-2.5">Item / Descrição</th>
+                      <th className="py-1 px-2 text-center w-16">Qtd</th>
+                      <th className="py-1 px-2 text-right w-28">Valor Unit. (R$)</th>
+                      <th className="py-1 px-2 text-right w-28">Valor Total (R$)</th>
+                      <th className="py-1 px-2 text-center w-12">Remover</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-stone-800">
+                    {expenseItems.map((item, idx) => {
+                      const totalItemVal = (item.quantity || 0) * (item.unit_value || 0);
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
+                          <td className="py-1.5 px-2.5 font-medium text-slate-900 dark:text-stone-100 uppercase">
+                            {item.description}
+                          </td>
+                          <td className="py-1.5 px-2 text-center font-semibold text-slate-700 dark:text-stone-300">
+                            {item.quantity}
+                          </td>
+                          <td className="py-1.5 px-2 text-right text-slate-700 dark:text-stone-300">
+                            {formatCurrencyBRL(item.unit_value)}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-700 dark:text-emerald-400">
+                            {formatCurrencyBRL(totalItemVal)}
+                          </td>
+                          <td className="py-1.5 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                              title="Remover item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-50 dark:bg-stone-800/80 border-t border-slate-200 dark:border-stone-700 font-bold text-xs">
+                      <td colSpan={3} className="py-1.5 px-2.5 text-right uppercase text-slate-700 dark:text-stone-300">
+                        Total Geral dos Itens:
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-extrabold text-emerald-700 dark:text-emerald-400">
+                        {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
 
           </div>

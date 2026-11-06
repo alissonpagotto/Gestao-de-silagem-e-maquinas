@@ -100,7 +100,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         Boolean(exp.categoryName?.toLowerCase().includes(term)) ||
         Boolean(exp.machineryName?.toLowerCase().includes(term)) ||
         Boolean(exp.employeeName?.toLowerCase().includes(term)) ||
-        Boolean(exp.teamName?.toLowerCase().includes(term));
+        Boolean(exp.teamName?.toLowerCase().includes(term)) ||
+        Boolean(exp.expense_items?.some((it) => it.description?.toLowerCase().includes(term))) ||
+        Boolean(exp.items?.some((it) => it.description?.toLowerCase().includes(term)));
 
       if (!matchesSearch) return false;
 

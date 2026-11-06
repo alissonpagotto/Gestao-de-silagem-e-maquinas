@@ -61,6 +61,14 @@ export interface CostCenter {
   active?: boolean;
 }
 
+export interface ExpenseItem {
+  id?: string;
+  description: string;
+  quantity: number;
+  unit_value: number;
+  total_value?: number;
+}
+
 export interface Expense {
   id: string;
   companyId?: string; // ID da Empresa
@@ -115,6 +123,8 @@ export interface Expense {
   competenceMonth?: string; // Mês de competência (YYYY-MM)
   isVacationExpense?: boolean; // Lançamento originado do módulo de férias
   vacationId?: string; // ID do registro de férias vinculado
+  expense_items?: ExpenseItem[]; // Grade discriminada de produtos/itens da despesa
+  items?: ExpenseItem[]; // Alias compatibilidade
   date?: string; // YYYY-MM-DD (compatibilidade)
   createdAt: string;
 }
