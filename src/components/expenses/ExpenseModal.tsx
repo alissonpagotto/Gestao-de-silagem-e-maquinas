@@ -17,11 +17,12 @@ import {
   Receipt,
   Wrench,
   Package,
+  CreditCard,
 } from 'lucide-react';
-import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem } from '../../types';
+import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts } from '../../lib/storage';
-import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat } from '../../lib/formatters';
+import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate } from '../../lib/formatters';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
 

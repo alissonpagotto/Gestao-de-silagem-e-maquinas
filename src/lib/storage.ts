@@ -2667,9 +2667,36 @@ export function getStoredBankAccounts(): BankAccount[] {
     const rawUnified = localStorage.getItem('agrocontrol_bancos') || 
                        localStorage.getItem('agrocontrol_contas_bancarias') || 
                        localStorage.getItem('agrocontrol_financeiro_contas');
+    const normalizeAccounts = (accList: BankAccount[]): BankAccount[] => {
+      if (!Array.isArray(accList)) return [];
+      return accList.map(acc => {
+        const isSicredi = (acc.bankName || acc.name || '').toLowerCase().includes('sicredi') || acc.bankCode === '748';
+        if (isSicredi && (!acc.corporateCards || acc.corporateCards.length === 0)) {
+          const defaultCard: CorporateCard = {
+            id: 'card_sicredi_4520',
+            name: 'Mastercard Final 4520',
+            brand: 'mastercard',
+            last4: '4520',
+            responsibleEmployeeId: 'holder_company_colaca',
+            responsibleEmployeeName: 'ELIAS COLAÇA',
+            responsavel_cartao_id: 'holder_company_colaca',
+            titular_nome: 'ELIAS COLAÇA',
+            responsavel_funcao: 'ADMINISTRADOR',
+            totalLimit: 5000,
+            usedLimit: 0,
+            dueDay: 10,
+            closingDay: 3,
+            status: 'ativo',
+          };
+          return { ...acc, corporateCards: [defaultCard] };
+        }
+        return acc;
+      });
+    };
+
     if (rawUnified) {
       const parsed = JSON.parse(rawUnified);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
     }
 
     const cId = getActiveCompanyId();
@@ -2678,20 +2705,20 @@ export function getStoredBankAccounts(): BankAccount[] {
                         localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
       if (rawScoped) {
         const parsed = JSON.parse(rawScoped);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
       }
     }
 
     const raw = localStorage.getItem(STORAGE_KEYS.BANK_ACCOUNTS);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
     }
 
     const rawColacaGlobal = localStorage.getItem('colaca_silagem_financeiro_contas');
     if (rawColacaGlobal) {
       const parsed = JSON.parse(rawColacaGlobal);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
     }
     return INITIAL_BANK_ACCOUNTS;
   } catch (e) {

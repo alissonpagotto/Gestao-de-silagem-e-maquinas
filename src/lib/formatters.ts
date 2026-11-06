@@ -106,6 +106,34 @@ export function formatDateBR(dateString: string | undefined | null): string {
   }
 }
 
+/**
+ * Calcula a data de vencimento (YYYY-MM-DD) da fatura do cartão corporativo com base no dia de vencimento.
+ */
+export function calculateCardInvoiceDueDate(dueDay: number): string {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const currentDay = today.getDate();
+
+  let targetYear = currentYear;
+  let targetMonth = currentMonth;
+
+  if (currentDay > dueDay) {
+    targetMonth += 1;
+    if (targetMonth > 11) {
+      targetMonth = 0;
+      targetYear += 1;
+    }
+  }
+
+  const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const finalDay = Math.min(Math.max(1, dueDay), daysInMonth);
+
+  const formattedMonth = String(targetMonth + 1).padStart(2, '0');
+  const formattedDay = String(finalDay).padStart(2, '0');
+  return `${targetYear}-${formattedMonth}-${formattedDay}`;
+}
+
 // ==========================================
 // 5. Moeda BRL (R$ 0,00) Formatting & Parsing
 // ==========================================
