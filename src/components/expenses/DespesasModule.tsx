@@ -1,3 +1,4 @@
+import React, { useState, useMemo, useCallback } from 'react';
 import { PlusCircle, Sparkles, Fuel } from 'lucide-react';
 import { 
   Expense, 
@@ -49,6 +50,93 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
   onDuplicateExpense,
   onOpenAiParser,
 }) => {
+  // Competência selecionada (padrão MM/AAAA, ex: "11/2026")
+  const [competenceMonth, setCompetenceMonth] = useState<string>(() => {
+    const now = new Date();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    return `${m}/${y}`;
+  });
+
+  const handlePrevMonth = useCallback(() => {
+    setCompetenceMonth((prev) => {
+      const parts = (prev || '11/2026').split('/');
+      let month = Number(parts[0]) || 1;
+      let year = Number(parts[1]) || 2026;
+      let newMonth = month - 1;
+      let newYear = year;
+      if (newMonth < 1) {
+        newMonth = 12;
+        newYear -= 1;
+      }
+      return `${String(newMonth).padStart(2, '0')}/${newYear}`;
+    });
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    setCompetenceMonth((prev) => {
+      const parts = (prev || '11/2026').split('/');
+      let month = Number(parts[0]) || 1;
+      let year = Number(parts[1]) || 2026;
+      let newMonth = month + 1;
+      let newYear = year;
+      if (newMonth > 12) {
+        newMonth = 1;
+        newYear += 1;
+      }
+      return `${String(newMonth).padStart(2, '0')}/${newYear}`;
+    });
+  }, []);
+
+  // Filtragem dinâmica de despesas pela competência ativa (mês/ano)
+  const filteredByCompetenceExpenses = useMemo(() => {
+    if (!competenceMonth) return expenses;
+    const parts = competenceMonth.split('/');
+    if (parts.length !== 2) return expenses;
+    const targetMonth = parts[0].padStart(2, '0');
+    const targetYear = parts[1];
+
+    return (expenses || []).filter((exp) => {
+      if (!exp) return false;
+
+      // 1. Campo de competência explícito se houver
+      if (exp.competenceMonth) {
+        const compRaw = String(exp.competenceMonth).trim();
+        if (compRaw.includes('-')) {
+          const [y, m] = compRaw.split('-');
+          if (y === targetYear && m.padStart(2, '0') === targetMonth) return true;
+        } else if (compRaw.includes('/')) {
+          const [m, y] = compRaw.split('/');
+          if (y === targetYear && m.padStart(2, '0') === targetMonth) return true;
+        }
+      }
+
+      // 2. Data de vencimento (dueDate), data de pagamento (paymentDate) ou data do lançamento (date)
+      const dateCandidates = [exp.dueDate, exp.paymentDate, exp.date, (exp as any).data];
+      for (const d of dateCandidates) {
+        if (!d) continue;
+        const raw = String(d).trim();
+        if (raw.includes('-')) {
+          const p = raw.split('-');
+          if (p.length >= 2) {
+            const y = p[0];
+            const m = p[1].padStart(2, '0');
+            if (y === targetYear && m === targetMonth) return true;
+          }
+        } else if (raw.includes('/')) {
+          const p = raw.split('/');
+          if (p.length === 3) {
+            const m = p[1].padStart(2, '0');
+            const y = p[2];
+            if (y === targetYear && m === targetMonth) return true;
+          }
+        }
+      }
+
+      return false;
+    });
+  }, [expenses, competenceMonth]);
+
   return (
     <div 
       id="modulo-despesas-master"
@@ -109,21 +197,24 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
         </div>
       </div>
 
-      {/* Mini-Cards de Resumo Operacional Aglutinado */}
+      {/* Mini-Cards de Resumo Operacional Aglutinado (Recalculados com base na Competência) */}
       <ExpenseStats
-        expenses={expenses}
+        expenses={filteredByCompetenceExpenses}
         machineries={machineries}
         seasons={seasons}
       />
 
       {/* Listagem, Filtros A-Z e Tabela de Despesas */}
       <ExpenseList
-        expenses={expenses}
+        expenses={filteredByCompetenceExpenses}
         categories={categories}
         costCenters={costCenters}
         employees={employees}
         teams={fleetTeams}
         companyProfile={companyProfile || ({ tradeName: 'AGROCONTROL' } as any)}
+        competenceMonth={competenceMonth}
+        onPrevMonth={handlePrevMonth}
+        onNextMonth={handleNextMonth}
         onNewExpense={onNewExpense}
         onEditExpense={onEditExpense}
         onDeleteExpense={onDeleteExpense}
