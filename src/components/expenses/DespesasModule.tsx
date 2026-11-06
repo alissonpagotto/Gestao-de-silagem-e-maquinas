@@ -1,5 +1,4 @@
-import React from 'react';
-import { PlusCircle, Sparkles, Fuel, Layers } from 'lucide-react';
+import { PlusCircle, Sparkles, Fuel } from 'lucide-react';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -11,7 +10,6 @@ import {
   CompanyProfile 
 } from '../../types';
 import { ExpenseStats } from './ExpenseStats';
-import { ExpenseCharts } from './ExpenseCharts';
 import { ExpenseList } from './ExpenseList';
 
 export interface DespesasModuleProps {
@@ -117,9 +115,6 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
         machineries={machineries}
         seasons={seasons}
       />
-
-      {/* Gráficos de Custos */}
-      <ExpenseCharts expenses={expenses} />
 
       {/* Listagem, Filtros A-Z e Tabela de Despesas */}
       <ExpenseList

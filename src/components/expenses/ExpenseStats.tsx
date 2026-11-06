@@ -55,7 +55,7 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
   const costPerHectare = plantedHectares > 0 ? totalExpenses / plantedHectares : 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3.5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
       
       {/* Card 1: Total Geral & Pagas */}
       <div 
