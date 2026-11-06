@@ -36,6 +36,12 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { MaintenanceDetailModal } from './MaintenanceDetailModal';
 import { MaintenancePurchaseModal } from './MaintenancePurchaseModal';
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  getCompetenceDateRange 
+} from '../financial/CompetenceSelector';
 
 interface FleetMaintenanceViewProps {
   maintenanceLogs: MaintenanceLog[];
@@ -47,6 +53,8 @@ interface FleetMaintenanceViewProps {
   onEditMaintenance: (log: MaintenanceLog) => void;
   onDeleteMaintenance: (id: string) => void;
   onUpdateStatus: (id: string, newStatus: MaintenanceLog['status']) => void;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
 }
 
 export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
@@ -59,6 +67,8 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   onEditMaintenance,
   onDeleteMaintenance,
   onUpdateStatus,
+  competence,
+  onCompetenceChange,
 }) => {
   const { currentUser } = useAuth();
   const { confirm } = useConfirm();
@@ -242,9 +252,44 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   };
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('todos');
+
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  // Range inicial derivado da competência
+  const initialRange = useMemo(() => getCompetenceDateRange(activeCompetence), [activeCompetence]);
+  const [startDate, setStartDate] = useState<string>(initialRange.start);
+  const [endDate, setEndDate] = useState<string>(initialRange.end);
+
+  const handlePrevCompetence = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    const range = getCompetenceDateRange(nextComp);
+    setStartDate(range.start);
+    setEndDate(range.end);
+    onCompetenceChange?.(nextComp);
+  };
+
+  const handleNextCompetence = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    const range = getCompetenceDateRange(nextComp);
+    setStartDate(range.start);
+    setEndDate(range.end);
+    onCompetenceChange?.(nextComp);
+  };
+
+  // Sincroniza se a competência mudar externamente
+  useEffect(() => {
+    if (competence) {
+      const range = getCompetenceDateRange(competence);
+      setStartDate(range.start);
+      setEndDate(range.end);
+    }
+  }, [competence]);
+
   const [selectedVehicle, setSelectedVehicle] = useState<string>('todos');
   const [selectedStatus, setSelectedStatus] = useState<string>('todos');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
@@ -258,56 +303,11 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   /* CARD REFORMA & ENTRESSAFRA: FILTRO DE CLIQUE (OPCIONAL) */
   const [filterReformaOnly, setFilterReformaOnly] = useState(false);
 
-  // Manipulador rápido do filtro por Mês
-  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setSelectedMonth(val);
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    const formatDateStr = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
-
-    if (val === 'todos') {
-      setStartDate('');
-      setEndDate('');
-    } else if (val === 'current') {
-      const first = new Date(currentYear, currentMonth, 1);
-      const last = new Date(currentYear, currentMonth + 1, 0);
-      setStartDate(formatDateStr(first));
-      setEndDate(formatDateStr(last));
-    } else if (val === 'previous') {
-      const first = new Date(currentYear, currentMonth - 1, 1);
-      const last = new Date(currentYear, currentMonth, 0);
-      setStartDate(formatDateStr(first));
-      setEndDate(formatDateStr(last));
-    } else if (val === 'last3') {
-      const first = new Date(currentYear, currentMonth - 2, 1);
-      const last = new Date(currentYear, currentMonth + 1, 0);
-      setStartDate(formatDateStr(first));
-      setEndDate(formatDateStr(last));
-    } else {
-      // Meses individuais '01' a '12' do ano corrente
-      const mIdx = parseInt(val, 10) - 1;
-      if (!isNaN(mIdx) && mIdx >= 0 && mIdx <= 11) {
-        const first = new Date(currentYear, mIdx, 1);
-        const last = new Date(currentYear, mIdx + 1, 0);
-        setStartDate(formatDateStr(first));
-        setEndDate(formatDateStr(last));
-      }
-    }
-  };
-
   const handleClearAllFilters = () => {
     setSearchTerm('');
-    setStartDate('');
-    setEndDate('');
-    setSelectedMonth('todos');
+    const range = getCompetenceDateRange(activeCompetence);
+    setStartDate(range.start);
+    setEndDate(range.end);
     setSelectedLocation('todos');
     setSelectedVehicle('todos');
     setSelectedStatus('todos');
@@ -317,9 +317,6 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
   const hasActiveFilters = Boolean(
     searchTerm ||
-    startDate ||
-    endDate ||
-    selectedMonth !== 'todos' ||
     selectedLocation !== 'todos' ||
     selectedVehicle !== 'todos' ||
     selectedStatus !== 'todos' ||
@@ -380,13 +377,16 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
     return localLogs.filter((log) => {
       const matchVehicle = selectedVehicle === 'todos' || log.machineryId === selectedVehicle;
       const matchLocation = selectedLocation === 'todos' || log.location === selectedLocation;
+      const logDate = log.date ? log.date.slice(0, 10) : '';
+      const matchStartDate = !startDate || (logDate ? logDate >= startDate : true);
+      const matchEndDate = !endDate || (logDate ? logDate <= endDate : true);
       const isReforma = 
         (log.type && (log.type.toLowerCase().includes('reforma') || log.type.toLowerCase().includes('entressafra'))) ||
         (log.serviceCategory && (log.serviceCategory.toLowerCase().includes('reforma') || log.serviceCategory.toLowerCase().includes('entressafra'))) ||
         (log.description && (log.description.toLowerCase().includes('reforma') || log.description.toLowerCase().includes('entressafra')));
-      return matchVehicle && matchLocation && isReforma;
+      return matchVehicle && matchLocation && matchStartDate && matchEndDate && isReforma;
     });
-  }, [localLogs, selectedVehicle, selectedLocation]);
+  }, [localLogs, selectedVehicle, selectedLocation, startDate, endDate]);
 
   const totalReforma = useMemo(() => {
     return reformaLogs.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
@@ -646,10 +646,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           <input 
             type="date" 
             value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setSelectedMonth('custom');
-            }}
+            onChange={(e) => setStartDate(e.target.value)}
             className="bg-transparent text-xs text-stone-900 dark:text-stone-100 focus:outline-none cursor-pointer"
           />
           <span className="text-stone-300 dark:text-stone-600">|</span>
@@ -657,52 +654,31 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           <input 
             type="date" 
             value={endDate}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              setSelectedMonth('custom');
-            }}
+            onChange={(e) => setEndDate(e.target.value)}
             className="bg-transparent text-xs text-stone-900 dark:text-stone-100 focus:outline-none cursor-pointer"
           />
           {(startDate || endDate) && (
             <button
               type="button"
               onClick={() => {
-                setStartDate('');
-                setEndDate('');
-                setSelectedMonth('todos');
+                const range = getCompetenceDateRange(activeCompetence);
+                setStartDate(range.start);
+                setEndDate(range.end);
               }}
-              title="Limpar período de datas"
-              className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-0.5 ml-0.5"
+              title="Restaurar período da competência"
+              className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-0.5 ml-0.5 cursor-pointer"
             >
               <X className="w-3 h-3" />
             </button>
           )}
         </div>
 
-        {/* 3. Mês */}
-        <select
-          value={selectedMonth}
-          onChange={handleMonthChange}
-          className="py-1 px-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
-        >
-          <option value="todos">Mês: Todos</option>
-          <option value="current">Mês Atual</option>
-          <option value="previous">Mês Anterior</option>
-          <option value="last3">Últimos 3 Meses</option>
-          <option disabled>──────────</option>
-          <option value="01">Janeiro</option>
-          <option value="02">Fevereiro</option>
-          <option value="03">Março</option>
-          <option value="04">Abril</option>
-          <option value="05">Maio</option>
-          <option value="06">Junho</option>
-          <option value="07">Julho</option>
-          <option value="08">Agosto</option>
-          <option value="09">Setembro</option>
-          <option value="10">Outubro</option>
-          <option value="11">Novembro</option>
-          <option value="12">Dezembro</option>
-        </select>
+        {/* 3. Seletor de Competência Padronizado por Setas (Substituindo o dropdown estático Mês: Todos) */}
+        <CompetenceSelector
+          competence={activeCompetence}
+          onPrev={handlePrevCompetence}
+          onNext={handleNextCompetence}
+        />
 
         {/* 4. Todos os Locais */}
         <select

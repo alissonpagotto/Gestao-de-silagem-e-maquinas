@@ -24,6 +24,12 @@ import {
   isVehicleHoursControlled 
 } from '../../lib/fuelCalculation';
 import { useAbastecimentosRealtime } from '../../hooks/useAbastecimentosRealtime';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  getCompetenceDateRange 
+} from '../financial/CompetenceSelector';
 
 interface FleetFuelViewProps {
   fuelLogs: FuelLog[];
@@ -32,6 +38,8 @@ interface FleetFuelViewProps {
   onOpenNewFuel: () => void;
   onEditFuel: (log: FuelLog) => void;
   onDeleteFuel: (id: string) => void;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
 }
 
 export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
@@ -41,19 +49,48 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
   onOpenNewFuel,
   onEditFuel,
   onDeleteFuel,
+  competence,
+  onCompetenceChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<string>('todos');
   const [selectedFuelType, setSelectedFuelType] = useState<string>('todos');
 
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrev = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
+
+  const handleNext = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
+
+  const competenceRange = useMemo(() => {
+    return getCompetenceDateRange(activeCompetence);
+  }, [activeCompetence]);
+
   // Sincronização em tempo real via Hook unificado (Realtime + Polling 30s + Foco da Janela)
   const { fuelLogs: localLogs } = useAbastecimentosRealtime(fuelLogs);
 
-  // Filtered Fuel Logs
+  // Filtered Fuel Logs (Respeitando a competência ativa)
   const filteredLogs = useMemo(() => {
     const term = (searchTerm || '').trim().toLowerCase();
+    const { start, end } = competenceRange;
+
     return (localLogs || []).filter((log) => {
       if (!log) return false;
+      const logDate = log.date ? log.date.slice(0, 10) : '';
+      const matchDate = !logDate || (logDate >= start && logDate <= end);
+      if (!matchDate) return false;
+
       const plateOrName = String(log.machineryPlateOrName || (log as any).vehiclePlate || (log as any).vehicleName || '').toLowerCase();
       const driver = String(log.driverOrOperator || '').toLowerCase();
       const station = String(log.supplierStation || '').toLowerCase();
@@ -69,7 +106,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
       return matchSearch && matchVehicle && matchFuelType;
     });
-  }, [localLogs, searchTerm, selectedVehicle, selectedFuelType]);
+  }, [localLogs, searchTerm, selectedVehicle, selectedFuelType, competenceRange]);
 
   // Statistics
   const totalLiters = filteredLogs.reduce((acc, curr) => acc + (Number(curr?.liters) || 0), 0);
@@ -143,14 +180,22 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por placa, motorista, posto..."
-            className="w-full pl-9 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto flex-1">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por placa, motorista, posto..."
+              className="w-full pl-9 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
           />
         </div>
 

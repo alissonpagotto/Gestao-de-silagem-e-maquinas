@@ -132,6 +132,23 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<FleetSubTab>(initialSubTab || 'painel');
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
 
+  // Competência de frotas sincronizada (MM/AAAA)
+  const [fleetCompetence, setFleetCompetence] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_fleet_competence');
+      if (saved) return saved;
+    } catch {}
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
+
+  const handleFleetCompetenceChange = (newComp: string) => {
+    setFleetCompetence(newComp);
+    try {
+      localStorage.setItem('agrocontrol_fleet_competence', newComp);
+    } catch {}
+  };
+
   useEffect(() => {
     const handleSync = (e: any) => {
       if (e?.detail) setUserSession(e.detail);
@@ -1323,6 +1340,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
               fuelLogs={fuelLogs}
               machineries={machineries}
               employees={employees}
+              competence={fleetCompetence}
+              onCompetenceChange={handleFleetCompetenceChange}
               onOpenNewFuel={() => handleOpenNewFuel()}
               onEditFuel={handleEditFuel}
               onDeleteFuel={handleDeleteFuel}
@@ -1335,6 +1354,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
               machineries={machineries}
               companyProfile={companyProfile}
               purchaseRequests={purchaseRequests}
+              competence={fleetCompetence}
+              onCompetenceChange={handleFleetCompetenceChange}
               onSavePurchaseRequests={handleSavePurchaseRequests}
               onOpenNewMaintenance={() => handleOpenNewMaintenance()}
               onEditMaintenance={handleEditMaintenance}
