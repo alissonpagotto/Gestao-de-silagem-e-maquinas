@@ -101,6 +101,13 @@ import { ProductLabelPrintModal, LabelProductItem } from '../inventory/ProductLa
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
 import { FiscalDocumentTypeView } from './FiscalDocumentTypeView';
 import { 
+  CompetenceSelector, 
+  getCurrentCompetence, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
+import { 
   upsertNotaFiscal, 
   upsertContaAPagar, 
   deleteNotaFiscal,
@@ -1230,6 +1237,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [activeMainFiscalTab, setActiveMainFiscalTab] = useState<MainFiscalTab>('notas');
   const [activeNotasFiscaisSubTab, setActiveNotasFiscaisSubTab] = useState<NotasFiscaisSubTab>('nfe');
 
+  // Competência ativa global sincronizada entre todas as 6 sub-abas
+  const [fiscalCompetence, setFiscalCompetence] = useState<string>(() => getCurrentCompetence());
+
+  const handlePrevCompetence = () => {
+    setFiscalCompetence(prev => getPrevCompetence(prev));
+  };
+
+  const handleNextCompetence = () => {
+    setFiscalCompetence(prev => getNextCompetence(prev));
+  };
+
   const [nfeDocsCount, setNfeDocsCount] = useState<number>(() => {
     try {
       const r = localStorage.getItem('agrocontrol_notas_nfe');
@@ -1266,9 +1284,59 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [mdfeCount, setMdfeCount] = useState<number>(() => getStoredMdfe().length);
   const [manifestacoesCount, setManifestacoesCount] = useState<number>(() => getStoredManifestacoes().length);
 
+  // Helper para carregar e filtrar registros por competência
+  const getFilteredCountFromStorage = (key: string, dateResolver: (item: any) => string | undefined) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return 0;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) return 0;
+      return list.filter(item => matchesCompetence(dateResolver(item), fiscalCompetence)).length;
+    } catch {
+      return 0;
+    }
+  };
+
+  // Contadores dinâmicos recalculados em tempo real de acordo com a competência ativa
+  const nfeFilteredCount = useMemo(() => {
+    return getFilteredCountFromStorage('agrocontrol_notas_nfe', item => item.issueDate || item.createdAt);
+  }, [fiscalCompetence, nfeDocsCount]);
+
+  const cteFilteredCount = useMemo(() => {
+    return getFilteredCountFromStorage('agrocontrol_notas_cte', item => item.issueDate || item.createdAt);
+  }, [fiscalCompetence, cteDocsCount]);
+
+  const nfecFilteredCount = useMemo(() => {
+    return getFilteredCountFromStorage('agrocontrol_notas_nfec', item => item.issueDate || item.createdAt);
+  }, [fiscalCompetence, nfecDocsCount]);
+
+  const nfseFilteredCount = useMemo(() => {
+    return getFilteredCountFromStorage('agrocontrol_notas_nfse', item => item.issueDate || item.createdAt);
+  }, [fiscalCompetence, nfseDocsCount]);
+
+  const mdfeFilteredCount = useMemo(() => {
+    return getStoredMdfe().filter(m => matchesCompetence(m.dataEmissao || m.createdAt, fiscalCompetence)).length;
+  }, [fiscalCompetence, mdfeCount]);
+
   const totalNotasFiscaisCount = useMemo(() => {
-    return nfeDocsCount + cteDocsCount + nfecDocsCount + nfseDocsCount + mdfeCount;
-  }, [nfeDocsCount, cteDocsCount, nfecDocsCount, nfseDocsCount, mdfeCount]);
+    return nfeFilteredCount + cteFilteredCount + nfecFilteredCount + nfseFilteredCount + mdfeFilteredCount;
+  }, [nfeFilteredCount, cteFilteredCount, nfecFilteredCount, nfseFilteredCount, mdfeFilteredCount]);
+
+  const pedidosCompraFilteredCount = useMemo(() => {
+    return getFilteredCountFromStorage('agrocontrol_pedidos_compra', item => item.issueDate || item.createdAt);
+  }, [fiscalCompetence, pedidosCompraCount]);
+
+  const reformOrdersFilteredCount = useMemo(() => {
+    return getStoredReformOrders().filter(o => matchesCompetence(o.createdAt || o.expectedReturnDate, fiscalCompetence)).length;
+  }, [fiscalCompetence, reformOrdersCount]);
+
+  const devolucaoFilteredCount = useMemo(() => {
+    return getStoredNotasDevolucao().filter(d => matchesCompetence(d.issueDate || d.createdAt, fiscalCompetence)).length;
+  }, [fiscalCompetence, devolucaoCount]);
+
+  const manifestacoesFilteredCount = useMemo(() => {
+    return getStoredManifestacoes().filter(m => matchesCompetence(m.dataEmissao || m.createdAt, fiscalCompetence)).length;
+  }, [fiscalCompetence, manifestacoesCount]);
 
   // Escuta gatilho vindo da Gestão de Frotas ('colaca_silagem_abrir_pedido_reforma')
   useEffect(() => {
@@ -3176,6 +3244,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     return list;
   }, [notasFiscaisExibicao, documentosEntrada, searchNfeNumber]);
+
+  // Lista unificada filtrada pela competência ativa (MM/AAAA)
+  const filteredUnifiedEntries = useMemo(() => {
+    return unifiedEntries.filter(item => matchesCompetence(item.date, fiscalCompetence));
+  }, [unifiedEntries, fiscalCompetence]);
 
   // Centros de Custo locais e sincronização
   const [localCostCenters, setLocalCostCenters] = useState<CostCenter[]>(() => {
@@ -6171,7 +6244,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
         <div className="flex items-center space-x-2 shrink-0">
           <div className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-stone-800 text-[10px] sm:text-[11px] font-bold text-zinc-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 shadow-2xs">
-            {unifiedEntries.length} registro(s)
+            {filteredUnifiedEntries.length} registro(s)
           </div>
 
           <button
@@ -6227,7 +6300,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
               <span>NOTAS E ENTRADAS</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {unifiedEntries.length}
+                {filteredUnifiedEntries.length}
               </span>
             </button>
 
@@ -6263,7 +6336,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>PEDIDO DE COMPRA</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {pedidosCompraCount}
+                {pedidosCompraFilteredCount}
               </span>
             </button>
 
@@ -6286,7 +6359,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </span>
               )}
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {reformOrdersCount}
+                {reformOrdersFilteredCount}
               </span>
             </button>
 
@@ -6304,7 +6377,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
               <span>NOTAS DE DEVOLUÇÃO</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {devolucaoCount}
+                {devolucaoFilteredCount}
               </span>
             </button>
 
@@ -6322,7 +6395,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <FileCheck2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>MANIFESTAÇÃO DESTINATÁRIO</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
-                {manifestacoesCount}
+                {manifestacoesFilteredCount}
               </span>
             </button>
           </nav>
@@ -6344,7 +6417,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 }`}
               >
                 <span>📑 NF-E (MERCADORIAS)</span>
-                <span className="ml-1 opacity-80">({nfeDocsCount})</span>
+                <span className="ml-1 opacity-80">({nfeFilteredCount})</span>
               </button>
 
               <button
@@ -6357,7 +6430,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 }`}
               >
                 <span>🚛 CT-E (FRETE / TRANSPORTE)</span>
-                <span className="ml-1 opacity-80">({cteDocsCount})</span>
+                <span className="ml-1 opacity-80">({cteFilteredCount})</span>
               </button>
 
               <button
@@ -6370,7 +6443,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 }`}
               >
                 <span>🛒 NFC-E (CONSUMIDOR FINAL)</span>
-                <span className="ml-1 opacity-80">({nfecDocsCount})</span>
+                <span className="ml-1 opacity-80">({nfecFilteredCount})</span>
               </button>
 
               <button
@@ -6383,7 +6456,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 }`}
               >
                 <span>🛠️ NFS-E (NOTA FISCAL DE SERVIÇO)</span>
-                <span className="ml-1 opacity-80">({nfseDocsCount})</span>
+                <span className="ml-1 opacity-80">({nfseFilteredCount})</span>
               </button>
 
               <button
@@ -6396,7 +6469,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 }`}
               >
                 <span>📦 MDF-E (MANIFESTOS)</span>
-                <span className="ml-1 opacity-80">({mdfeCount})</span>
+                <span className="ml-1 opacity-80">({mdfeFilteredCount})</span>
               </button>
             </div>
           )}
@@ -6405,6 +6478,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             activeNotasFiscaisSubTab === 'mdfe' ? (
               <MdfeView 
                 companyProfile={companyProfile}
+                competence={fiscalCompetence}
+                onCompetenceChange={setFiscalCompetence}
                 onRefreshAll={() => {
                   setMdfeCount(getStoredMdfe().length);
                 }}
@@ -6413,6 +6488,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <FiscalDocumentTypeView 
                 category={activeNotasFiscaisSubTab} 
                 companyProfile={companyProfile}
+                competence={fiscalCompetence}
+                onCompetenceChange={setFiscalCompetence}
                 onRefreshAll={() => {
                   try {
                     const rn = localStorage.getItem('agrocontrol_notas_nfe');
@@ -6431,6 +6508,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <FiscalDocumentTypeView 
               category="pedido_compra" 
               companyProfile={companyProfile}
+              competence={fiscalCompetence}
+              onCompetenceChange={setFiscalCompetence}
               onRefreshAll={() => {
                 try {
                   const rp = localStorage.getItem('agrocontrol_pedidos_compra');
@@ -6441,6 +6520,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           ) : activeMainFiscalTab === 'manifestacao_destinatario' ? (
             <ManifestacaoDestinatarioView 
               companyProfile={companyProfile}
+              competence={fiscalCompetence}
+              onCompetenceChange={setFiscalCompetence}
               inventory={localInventory}
               onSaveInventory={saveInventory}
               expenses={expenses}
@@ -6452,6 +6533,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           ) : activeMainFiscalTab === 'pedidos_reforma' ? (
             <TireReformOrderView 
               companyProfile={companyProfile}
+              competence={fiscalCompetence}
+              onCompetenceChange={setFiscalCompetence}
               initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
               onOrderSaved={() => {
                 setReformOrdersCount(getStoredReformOrders().length);
@@ -6460,7 +6543,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               onEfetivarRetorno={handleEfetivarRetornoPedidoReforma}
             />
           ) : activeMainFiscalTab === 'devolucao' ? (
-            <DevolucaoNotasView companyProfile={companyProfile} />
+            <DevolucaoNotasView 
+              companyProfile={companyProfile} 
+              competence={fiscalCompetence}
+              onCompetenceChange={setFiscalCompetence}
+            />
           ) : (
             /* Conteúdo padrão de Notas e Entradas */
             <div className="w-full space-y-4">
@@ -6522,8 +6609,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           </div>
         </form>
 
-        {parsedData && (
-          <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center space-x-2 shrink-0">
+          <CompetenceSelector
+            competence={fiscalCompetence}
+            onPrev={handlePrevCompetence}
+            onNext={handleNextCompetence}
+          />
+
+          {parsedData && (
             <button
               type="button"
               id="btn-fechar-painel-nfe"
@@ -6534,8 +6627,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <X className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>FECHAR DETALHES DA NOTA</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* 2. PAINEL DADOS EXTRAÍDOS DA NOTA - APARECE DINAMICAMENTE LOGO ACIMA DA TABELA DE HISTÓRICO */}
@@ -7479,7 +7572,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           <div className="flex items-center space-x-2">
             <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
               <ReceiptText className="w-3.5 h-3.5 text-sky-600" />
-              <span>Histórico de Notas e Entradas ({unifiedEntries.length})</span>
+              <span>Histórico de Notas e Entradas ({filteredUnifiedEntries.length})</span>
             </h3>
             <button
               type="button"
@@ -7492,7 +7585,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <span>{isSyncingDocs ? 'Sincronizando...' : 'Sincronizar'}</span>
             </button>
           </div>
-          {unifiedEntries.length > 0 && (
+          {filteredUnifiedEntries.length > 0 && (
             <span className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-400">
               Clique em uma linha para visualizar ou editar os detalhes.
             </span>
@@ -7513,14 +7606,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                {unifiedEntries.length === 0 ? (
+                {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
                     <td colSpan={6} className="py-4 text-center text-stone-500 font-semibold uppercase text-xs">
                       NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
                 ) : (
-                  unifiedEntries.map((entry, idx) => {
+                  filteredUnifiedEntries.map((entry, idx) => {
                     const isXml = entry.sourceType === 'xml';
                     return (
                       <tr 

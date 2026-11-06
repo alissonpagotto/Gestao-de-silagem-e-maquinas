@@ -17,6 +17,12 @@ import {
 import { Supplier, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
 import { getStoredReformSuppliers } from './TireReformOrderView';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
 
 export interface DevolucaoItem {
   id: string;
@@ -75,13 +81,36 @@ export function saveStoredNotasDevolucao(notas: NotaDevolucao[]): void {
 
 interface DevolucaoNotasViewProps {
   companyProfile?: CompanyProfile;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
 }
 
-export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyProfile }) => {
+export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ 
+  companyProfile,
+  competence,
+  onCompetenceChange 
+}) => {
   const [notas, setNotas] = useState<NotaDevolucao[]>(() => getStoredNotasDevolucao());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [suppliers] = useState<Supplier[]>(() => getStoredReformSuppliers());
+
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrevCompetence = () => {
+    const prev = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(prev);
+  };
+
+  const handleNextCompetence = () => {
+    const next = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(next);
+  };
 
   // Form states
   const [originInvoice, setOriginInvoice] = useState('');
@@ -317,15 +346,20 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
   };
 
   const filteredNotas = useMemo(() => {
-    if (!searchTerm.trim()) return notas;
-    const term = searchTerm.toLowerCase();
-    return notas.filter(n => 
-      n.devolucaoNumber.toLowerCase().includes(term) ||
-      n.originInvoiceNumber.toLowerCase().includes(term) ||
-      n.supplierName.toLowerCase().includes(term) ||
-      n.reason.toLowerCase().includes(term)
-    );
-  }, [notas, searchTerm]);
+    return notas.filter(n => {
+      const notaDate = n.issueDate || n.createdAt || '';
+      if (!matchesCompetence(notaDate, activeCompetence)) return false;
+
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        n.devolucaoNumber.toLowerCase().includes(term) ||
+        n.originInvoiceNumber.toLowerCase().includes(term) ||
+        n.supplierName.toLowerCase().includes(term) ||
+        n.reason.toLowerCase().includes(term)
+      );
+    });
+  }, [notas, searchTerm, activeCompetence]);
 
   return (
     <div className="w-full space-y-4">
@@ -362,6 +396,12 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ companyP
                 className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none w-48 sm:w-56"
               />
             </div>
+
+            <CompetenceSelector
+              competence={activeCompetence}
+              onPrev={handlePrevCompetence}
+              onNext={handleNextCompetence}
+            />
 
             <button
               type="button"

@@ -21,6 +21,12 @@ import {
 } from 'lucide-react';
 import { TireItem, Supplier, CompanyProfile, InventoryItem, Expense } from '../../types';
 import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
+import { 
   formatDateBR, 
   formatCurrencyBRL, 
   getStoredCompanyProfile,
@@ -382,6 +388,8 @@ export function lancarContasPagarRetornoReforma(order: TireReformOrder): void {
 export interface TireReformOrderViewProps {
   companyProfile?: CompanyProfile;
   initialCreateMode?: boolean;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
   onOrderSaved?: (order: TireReformOrder) => void;
   onEfetivarRetorno?: (order: TireReformOrder) => void;
 }
@@ -389,6 +397,8 @@ export interface TireReformOrderViewProps {
 export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   companyProfile,
   initialCreateMode = false,
+  competence,
+  onCompetenceChange,
   onOrderSaved,
   onEfetivarRetorno,
 }) => {
@@ -396,6 +406,23 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const [isCreatingNewOrder, setIsCreatingNewOrder] = useState<boolean>(initialCreateMode);
   const [editingOrder, setEditingOrder] = useState<TireReformOrder | null>(null);
   const [selectedOrderForView, setSelectedOrderForView] = useState<TireReformOrder | null>(null);
+
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrevCompetence = () => {
+    const prev = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(prev);
+  };
+
+  const handleNextCompetence = () => {
+    const next = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(next);
+  };
 
   // Fornecedores
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => getStoredReformSuppliers());
@@ -1047,14 +1074,19 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
   // Filtragem da lista histórica de ordens
   const filteredOrders = useMemo(() => {
-    if (!searchTerm.trim()) return orders;
-    const term = searchTerm.toLowerCase();
-    return orders.filter(o => 
-      o.orderNumber.toLowerCase().includes(term) ||
-      o.supplierName.toLowerCase().includes(term) ||
-      o.tires.some(t => t.fireNumber.toLowerCase().includes(term))
-    );
-  }, [orders, searchTerm]);
+    return orders.filter(o => {
+      const orderDate = o.createdAt || o.expectedReturnDate || '';
+      if (!matchesCompetence(orderDate, activeCompetence)) return false;
+
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        o.orderNumber.toLowerCase().includes(term) ||
+        o.supplierName.toLowerCase().includes(term) ||
+        o.tires.some(t => t.fireNumber.toLowerCase().includes(term))
+      );
+    });
+  }, [orders, searchTerm, activeCompetence]);
 
   return (
     <div className="w-full relative">
@@ -1454,6 +1486,12 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none w-48 sm:w-56"
                 />
               </div>
+
+              <CompetenceSelector
+                competence={activeCompetence}
+                onPrev={handlePrevCompetence}
+                onNext={handleNextCompetence}
+              />
 
               <button
                 type="button"

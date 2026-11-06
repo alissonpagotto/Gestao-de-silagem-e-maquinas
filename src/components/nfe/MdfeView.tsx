@@ -402,15 +402,23 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
           </select>
         </div>
 
-        {/* Botão Novo MDF-e */}
-        <button
-          type="button"
-          onClick={() => setIsNewModalOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white text-[10px] font-bold uppercase rounded border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>+ NOVO MDF-E</span>
-        </button>
+        <div className="flex items-center space-x-2 shrink-0">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevCompetence}
+            onNext={handleNextCompetence}
+          />
+
+          {/* Botão Novo MDF-e */}
+          <button
+            type="button"
+            onClick={() => setIsNewModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white text-[10px] font-bold uppercase rounded border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ NOVO MDF-E</span>
+          </button>
+        </div>
       </div>
 
       {/* 3. TABELA SLIM PADRÃO OURO (PY-1, WHITESPACE-NOWRAP, UPPERCASE, ZERO ROLAGEM) */}

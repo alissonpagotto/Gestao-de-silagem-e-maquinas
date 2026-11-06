@@ -32,6 +32,12 @@ import {
   getStoredExpenses, 
   saveStoredExpenses 
 } from '../../lib/storage';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
 
 export type TipoManifestacaoSefaz = 'PENDENTE' | 'CIENCIA' | 'CONFIRMADA' | 'NAO_REALIZADA' | 'DESCONHECIDA';
 
@@ -116,6 +122,8 @@ export const saveStoredManifestacoes = (data: NotaManifestacaoSefaz[]) => {
 
 interface ManifestacaoDestinatarioViewProps {
   companyProfile: CompanyProfile | null;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
   inventory?: InventoryItem[];
   onSaveInventory?: (inv: InventoryItem[]) => void;
   expenses?: Expense[];
@@ -125,6 +133,8 @@ interface ManifestacaoDestinatarioViewProps {
 
 export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioViewProps> = ({
   companyProfile,
+  competence,
+  onCompetenceChange,
   inventory = [],
   onSaveInventory,
   onAddExpenseFromNfe,
@@ -134,6 +144,23 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'TODOS' | TipoManifestacaoSefaz>('TODOS');
   const [isConsultingSefaz, setIsConsultingSefaz] = useState(false);
+
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrevCompetence = () => {
+    const prev = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(prev);
+  };
+
+  const handleNextCompetence = () => {
+    const next = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(next);
+  };
 
   // Modal Padrão Ouro
   const [selectedNota, setSelectedNota] = useState<NotaManifestacaoSefaz | null>(null);
@@ -152,6 +179,9 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
 
   const filteredNotas = useMemo(() => {
     return notas.filter(n => {
+      const notaDate = n.dataEmissao || n.createdAt || '';
+      if (!matchesCompetence(notaDate, activeCompetence)) return false;
+
       const matchSearch = 
         n.numero.includes(searchTerm) ||
         n.chaveAcesso.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,15 +192,18 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
       const matchStatus = statusFilter === 'TODOS' || n.statusManifestacao === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [notas, searchTerm, statusFilter]);
+  }, [notas, searchTerm, statusFilter, activeCompetence]);
 
-  // Contadores & Totais
-  const totalNotas = notas.length;
-  const countCiencia = useMemo(() => notas.filter(n => n.statusManifestacao === 'CIENCIA').length, [notas]);
-  const countConfirmada = useMemo(() => notas.filter(n => n.statusManifestacao === 'CONFIRMADA').length, [notas]);
-  const countNaoRealizada = useMemo(() => notas.filter(n => n.statusManifestacao === 'NAO_REALIZADA').length, [notas]);
-  const countDesconhecida = useMemo(() => notas.filter(n => n.statusManifestacao === 'DESCONHECIDA').length, [notas]);
-  const countPendente = useMemo(() => notas.filter(n => n.statusManifestacao === 'PENDENTE').length, [notas]);
+  // Contadores & Totais filtrados pela competência ativa
+  const competenceNotas = useMemo(() => {
+    return notas.filter(n => matchesCompetence(n.dataEmissao || n.createdAt, activeCompetence));
+  }, [notas, activeCompetence]);
+  const totalNotas = competenceNotas.length;
+  const countCiencia = useMemo(() => competenceNotas.filter(n => n.statusManifestacao === 'CIENCIA').length, [competenceNotas]);
+  const countConfirmada = useMemo(() => competenceNotas.filter(n => n.statusManifestacao === 'CONFIRMADA').length, [competenceNotas]);
+  const countNaoRealizada = useMemo(() => competenceNotas.filter(n => n.statusManifestacao === 'NAO_REALIZADA').length, [competenceNotas]);
+  const countDesconhecida = useMemo(() => competenceNotas.filter(n => n.statusManifestacao === 'DESCONHECIDA').length, [competenceNotas]);
+  const countPendente = useMemo(() => competenceNotas.filter(n => n.statusManifestacao === 'PENDENTE').length, [competenceNotas]);
 
   // =========================================================================
   // MOTOR DE REGRAS DE MANIFESTAÇÃO DO DESTINATÁRIO
@@ -574,15 +607,23 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
           </select>
         </div>
 
-        <button
-          type="button"
-          onClick={handleConsultarSefaz}
-          disabled={isConsultingSefaz}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white text-[10px] font-bold uppercase rounded border border-slate-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isConsultingSefaz ? 'animate-spin' : ''}`} />
-          <span>{isConsultingSefaz ? 'CONSULTANDO SEFAZ...' : 'CONSULTAR SEFAZ AGORA'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevCompetence}
+            onNext={handleNextCompetence}
+          />
+
+          <button
+            type="button"
+            onClick={handleConsultarSefaz}
+            disabled={isConsultingSefaz}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white text-[10px] font-bold uppercase rounded border border-slate-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isConsultingSefaz ? 'animate-spin' : ''}`} />
+            <span>{isConsultingSefaz ? 'CONSULTANDO SEFAZ...' : 'CONSULTAR SEFAZ AGORA'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 3. TABELA SLIM PADRÃO OURO (PY-1, WHITESPACE-NOWRAP, TEXTOS EM UPPERCASE) */}
