@@ -841,6 +841,145 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
           )}
 
+          {/* FORNECEDOR */}
+          <div ref={supplierContainerRef} className="relative">
+            <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              FORNECEDOR
+            </label>
+            <div className="flex items-center space-x-1">
+              <div className="relative flex-1">
+                <Search className="w-3 h-3 text-stone-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="BUSCAR FORNECEDOR CADASTRADO..."
+                  value={supplier}
+                  onChange={(e) => {
+                    setSupplier(e.target.value);
+                    setIsSupplierDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsSupplierDropdownOpen(true)}
+                  className="w-full pl-7 pr-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase placeholder:uppercase"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSupplierModalOpen(true);
+                  setIsSupplierDropdownOpen(false);
+                }}
+                className="w-7.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-700 dark:text-stone-300 flex items-center justify-center transition cursor-pointer shrink-0 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
+                title="Cadastrar Novo Fornecedor"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Dropdown Lista de Fornecedores */}
+            {isSupplierDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                {filteredSuppliers.length > 0 ? (
+                  <div className="divide-y divide-slate-100 dark:divide-stone-700">
+                    {filteredSuppliers.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => {
+                          setSupplier(s.name);
+                          setSupplierId(s.id);
+                          setIsSupplierDropdownOpen(false);
+                        }}
+                        className="p-1.5 hover:bg-slate-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group uppercase"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900 dark:text-stone-100 text-xs group-hover:text-black dark:group-hover:text-white">
+                            {s.name.toUpperCase()}
+                          </span>
+                          {s.category && (
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-medium shrink-0">
+                              {s.category.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[9px] text-slate-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
+                          {s.cnpjOrCpf && <span>{s.cnpjOrCpf}</span>}
+                          {s.tradeName && s.tradeName !== s.name && (
+                            <span>· {s.tradeName.toUpperCase()}</span>
+                          )}
+                          {s.city && (
+                            <span>· {s.city.toUpperCase()}{s.state ? `/${s.state.toUpperCase()}` : ''}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-2 text-xs text-slate-500 dark:text-stone-400 text-center uppercase">
+                    Nenhum fornecedor cadastrado com esse termo.
+                  </div>
+                )}
+
+                {/* Opção de Cadastrar Novo Fornecedor */}
+                <div className="border-t border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSupplierModalOpen(true);
+                      setIsSupplierDropdownOpen(false);
+                    }}
+                    className="w-full p-1.5 flex items-center space-x-1.5 text-slate-800 dark:text-stone-200 hover:text-black dark:hover:text-white hover:bg-slate-100 dark:hover:bg-stone-700 text-xs font-semibold transition cursor-pointer text-left uppercase"
+                  >
+                    <Plus className="w-3 h-3 text-slate-800 dark:text-stone-200" />
+                    <span>+ CADASTRAR NOVO FORNECEDOR</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* LINHA 3 (DADOS DA BAIXA): RESPONSÁVEL PELO PAGAMENTO (50%) + CONTA DE DÉBITO (ORIGEM) (50%) */}
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-6">
+              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                RESPONSÁVEL PELO PAGAMENTO {status === 'pago' && <span className="text-rose-600">*</span>}
+              </label>
+              <div className="relative">
+                <select
+                  value={paidByEmployeeId}
+                  onChange={(e) => setPaidByEmployeeId(e.target.value)}
+                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+                >
+                  <option value="">-- SELECIONE O COLABORADOR --</option>
+                  {activeEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id} className="uppercase">
+                      {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="col-span-6">
+              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                CONTA DE DÉBITO (ORIGEM) {status === 'pago' && <span className="text-rose-600">*</span>}
+              </label>
+              <div className="relative">
+                <select
+                  value={bankAccountId}
+                  onChange={(e) => setBankAccountId(e.target.value)}
+                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+                >
+                  <option value="">-- SELECIONE O BANCO / CONTA --</option>
+                  {bankAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id} className="uppercase">
+                      {acc.name.toUpperCase()} · {acc.bankName.toUpperCase()} (SALDO: R$ {acc.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
           {/* BLOCO CENTRAL DINÂMICO: SE MANUTENÇÃO, BORRACHARIA, ELÉTRICA OU PEÇAS => SELETORES DE FROTA; CASO CONTRÁRIO => RATEIO ADMINISTRATIVO GERAL */}
           {isFleetMaintenanceCategory ? (
             <div className="border border-slate-300 dark:border-stone-700 rounded-lg p-1.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)] space-y-1">
@@ -1150,144 +1289,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
           )}
 
-          {/* FORNECEDOR */}
-          <div ref={supplierContainerRef} className="relative">
-            <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-              FORNECEDOR
-            </label>
-            <div className="flex items-center space-x-1">
-              <div className="relative flex-1">
-                <Search className="w-3 h-3 text-stone-400 absolute left-2 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="BUSCAR FORNECEDOR CADASTRADO..."
-                  value={supplier}
-                  onChange={(e) => {
-                    setSupplier(e.target.value);
-                    setIsSupplierDropdownOpen(true);
-                  }}
-                  onFocus={() => setIsSupplierDropdownOpen(true)}
-                  className="w-full pl-7 pr-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase placeholder:uppercase"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSupplierModalOpen(true);
-                  setIsSupplierDropdownOpen(false);
-                }}
-                className="w-7.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-700 dark:text-stone-300 flex items-center justify-center transition cursor-pointer shrink-0 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
-                title="Cadastrar Novo Fornecedor"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* Dropdown Lista de Fornecedores */}
-            {isSupplierDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                {filteredSuppliers.length > 0 ? (
-                  <div className="divide-y divide-slate-100 dark:divide-stone-700">
-                    {filteredSuppliers.map((s) => (
-                      <div
-                        key={s.id}
-                        onClick={() => {
-                          setSupplier(s.name);
-                          setSupplierId(s.id);
-                          setIsSupplierDropdownOpen(false);
-                        }}
-                        className="p-1.5 hover:bg-slate-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group uppercase"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-slate-900 dark:text-stone-100 text-xs group-hover:text-black dark:group-hover:text-white">
-                            {s.name.toUpperCase()}
-                          </span>
-                          {s.category && (
-                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-medium shrink-0">
-                              {s.category.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[9px] text-slate-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
-                          {s.cnpjOrCpf && <span>{s.cnpjOrCpf}</span>}
-                          {s.tradeName && s.tradeName !== s.name && (
-                            <span>· {s.tradeName.toUpperCase()}</span>
-                          )}
-                          {s.city && (
-                            <span>· {s.city.toUpperCase()}{s.state ? `/${s.state.toUpperCase()}` : ''}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-2 text-xs text-slate-500 dark:text-stone-400 text-center uppercase">
-                    Nenhum fornecedor cadastrado com esse termo.
-                  </div>
-                )}
-
-                {/* Opção de Cadastrar Novo Fornecedor */}
-                <div className="border-t border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSupplierModalOpen(true);
-                      setIsSupplierDropdownOpen(false);
-                    }}
-                    className="w-full p-1.5 flex items-center space-x-1.5 text-slate-800 dark:text-stone-200 hover:text-black dark:hover:text-white hover:bg-slate-100 dark:hover:bg-stone-700 text-xs font-semibold transition cursor-pointer text-left uppercase"
-                  >
-                    <Plus className="w-3 h-3 text-slate-800 dark:text-stone-200" />
-                    <span>+ CADASTRAR NOVO FORNECEDOR</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* LINHA 3 (DADOS DA BAIXA): RESPONSÁVEL PELO PAGAMENTO (50%) + CONTA DE DÉBITO (ORIGEM) (50%) */}
-          <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-6">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                RESPONSÁVEL PELO PAGAMENTO {status === 'pago' && <span className="text-rose-600">*</span>}
-              </label>
-              <div className="relative">
-                <select
-                  value={paidByEmployeeId}
-                  onChange={(e) => setPaidByEmployeeId(e.target.value)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
-                >
-                  <option value="">-- SELECIONE O COLABORADOR --</option>
-                  {activeEmployees.map((emp) => (
-                    <option key={emp.id} value={emp.id} className="uppercase">
-                      {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="col-span-6">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                CONTA DE DÉBITO (ORIGEM) {status === 'pago' && <span className="text-rose-600">*</span>}
-              </label>
-              <div className="relative">
-                <select
-                  value={bankAccountId}
-                  onChange={(e) => setBankAccountId(e.target.value)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
-                >
-                  <option value="">-- SELECIONE O BANCO / CONTA --</option>
-                  {bankAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id} className="uppercase">
-                      {acc.name.toUpperCase()} · {acc.bankName.toUpperCase()} (SALDO: R$ {acc.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-          </div>
 
           {/* LINHA 4: STATUS DO PAGAMENTO (33%) + FORMA DE PAGAMENTO (33%) + DATA EFETIVA DA BAIXA (34%) */}
           <div className="grid grid-cols-12 gap-2">
