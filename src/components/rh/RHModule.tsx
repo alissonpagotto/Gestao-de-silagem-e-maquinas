@@ -786,6 +786,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
           key={`rh_tab_afastamentos_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           leaves={leaves}
+          currentMonthRef={currentMonthRef}
+          onChangeMonthRef={handleUpdateMonthRef}
           onSaveLeaves={onSaveLeaves}
         />
       )}
@@ -796,6 +798,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           employees={sortedEmployees}
           advances={advances}
           currentMonthRef={currentMonthRef}
+          onChangeMonthRef={handleUpdateMonthRef}
           onSaveAdvances={onSaveAdvances}
         />
       )}
@@ -805,6 +808,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
           key={`rh_tab_atestados_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           certificates={certificates}
+          currentMonthRef={currentMonthRef}
+          onChangeMonthRef={handleUpdateMonthRef}
           onSaveCertificates={handleSaveCertificates}
         />
       )}
@@ -830,6 +835,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
           companyProfile={companyProfile}
           advances={advances}
           absences={absences}
+          currentMonthRef={currentMonthRef}
+          onChangeMonthRef={handleUpdateMonthRef}
           onSaveEmployees={onSaveEmployees}
         />
       )}

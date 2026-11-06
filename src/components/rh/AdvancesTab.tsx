@@ -30,13 +30,21 @@ import { getActiveUserSession } from '../../lib/cadastrosBaseStorage';
 import { 
   formatMoneyBRL, 
   calculateAdvanceInstallmentPlan, 
-  getNextReferenceMonths 
+  getNextReferenceMonths,
+  getDefaultCompetenceMonth 
 } from './payrollHelpers';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
 
 interface AdvancesTabProps {
   employees: Employee[];
   advances: SalaryAdvance[];
   currentMonthRef: string;
+  onChangeMonthRef?: (month: string) => void;
   onSaveAdvances: (advances: SalaryAdvance[]) => void;
 }
 
@@ -44,11 +52,25 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
   employees,
   advances,
   currentMonthRef,
+  onChangeMonthRef,
   onSaveAdvances,
 }) => {
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Competência ativa
+  const activeCompetence = currentMonthRef || getDefaultCompetenceMonth();
+
+  const handlePrevMonth = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
+
+  const handleNextMonth = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
 
   // Identificação do Usuário Responsável Autorizado (Administrador / RH / Sessão Logada)
   const getAuthorizedAuditorName = React.useCallback((): string => {
@@ -160,17 +182,27 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
     }
   }, [advances, realAdvances, onSaveAdvances]);
 
+  // Filtragem estrita por competência
+  const isAdvanceInCompetence = React.useCallback((a: SalaryAdvance, comp: string) => {
+    if (a.referenceMonth && a.referenceMonth.trim() === comp.trim()) return true;
+    if (matchesCompetence(a.date, comp)) return true;
+    return false;
+  }, []);
+
+  const competenceAdvances = React.useMemo(() => {
+    return realAdvances.filter(a => isAdvanceInCompetence(a, activeCompetence));
+  }, [realAdvances, activeCompetence, isAdvanceInCompetence]);
+
   // Filtered
-  const filtered = realAdvances.filter(a => 
+  const filtered = competenceAdvances.filter(a => 
     a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (a.reason && a.reason.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // KPIs
-  const currentMonthAdvances = realAdvances.filter(a => a.referenceMonth === currentMonthRef);
-  const totalValesMonth = currentMonthAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
-  const pendentesCount = realAdvances.filter(a => a.status === 'pendente').length;
-  const descontadosCount = realAdvances.filter(a => a.status === 'descontado').length;
+  const totalValesMonth = competenceAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const pendentesCount = competenceAdvances.filter(a => a.status === 'pendente').length;
+  const descontadosCount = competenceAdvances.filter(a => a.status === 'descontado').length;
   const totalGeralVales = realAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
   // Cálculo da Projeção de Parcelamento Dinâmico
@@ -494,7 +526,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Vales do Mês ({currentMonthRef})</span>
+          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Vales do Mês ({activeCompetence})</span>
           <span className="text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalValesMonth)}
           </span>
@@ -519,8 +551,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
+      {/* Search Bar & Competence Selector */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -531,9 +563,16 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
             className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
-        <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
-          {filtered.length} vale(s) registrado(s)
-        </span>
+        <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
+          <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
+            {filtered.length} vale(s) registrado(s)
+          </span>
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevMonth}
+            onNext={handleNextMonth}
+          />
+        </div>
       </div>
 
       {/* Table */}

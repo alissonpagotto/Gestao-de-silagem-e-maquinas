@@ -22,22 +22,47 @@ import {
 import { Employee, MedicalCertificateRecord } from '../../types';
 import { formatDateBR, saveStoredMedicalCertificates } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  getCompetenceDateRange, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
+import { getDefaultCompetenceMonth } from './payrollHelpers';
 
 interface AtestadosTabProps {
   employees: Employee[];
   certificates: MedicalCertificateRecord[];
+  currentMonthRef?: string;
+  onChangeMonthRef?: (month: string) => void;
   onSaveCertificates: (certificates: MedicalCertificateRecord[]) => void;
 }
 
 export const AtestadosTab: React.FC<AtestadosTabProps> = ({
   employees,
   certificates,
+  currentMonthRef,
+  onChangeMonthRef,
   onSaveCertificates,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
+
+  // Competência ativa
+  const activeCompetence = currentMonthRef || getDefaultCompetenceMonth();
+
+  const handlePrevMonth = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
+
+  const handleNextMonth = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -91,8 +116,22 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
     }
   };
 
+  // Filtragem estrita por competência
+  const competenceCerts = React.useMemo(() => {
+    return certificates.filter(c => {
+      if (matchesCompetence(c.startDate, activeCompetence)) return true;
+      const range = getCompetenceDateRange(activeCompetence);
+      const start = c.startDate ? c.startDate.slice(0, 10) : '';
+      const end = c.endDate ? c.endDate.slice(0, 10) : (c.expectedReturnDate ? c.expectedReturnDate.slice(0, 10) : start);
+      if (start && start <= range.end && (!end || end >= range.start)) {
+        return true;
+      }
+      return false;
+    });
+  }, [certificates, activeCompetence]);
+
   // Filtered List
-  const filtered = certificates.filter(c => {
+  const filtered = competenceCerts.filter(c => {
     const matchesSearch = 
       c.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,12 +146,12 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
   });
 
   // KPIs
-  const totalCertificates = certificates.length;
-  const totalDaysAbonados = certificates
+  const totalCertificates = competenceCerts.length;
+  const totalDaysAbonados = competenceCerts
     .filter(c => c.status === 'homologado')
     .reduce((sum, c) => sum + (c.daysCount || 0), 0);
-  const inAnalysisCount = certificates.filter(c => c.status === 'em_analise').length;
-  const homologatedCount = certificates.filter(c => c.status === 'homologado').length;
+  const inAnalysisCount = competenceCerts.filter(c => c.status === 'em_analise').length;
+  const homologatedCount = competenceCerts.filter(c => c.status === 'homologado').length;
 
   const handleOpenModal = (cert?: MedicalCertificateRecord) => {
     if (cert) {
@@ -319,6 +358,13 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
               className="w-full pl-9 pr-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-pink-600 font-medium"
             />
           </div>
+
+          {/* Seletor de Competência */}
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevMonth}
+            onNext={handleNextMonth}
+          />
 
           {/* Filtro por Tipo */}
           <select

@@ -70,6 +70,13 @@ import { resolveEmployeePixKey } from './pixQrCodeHelper';
 import { getEmployeePixKey, findEmployeeFromStorage } from './pixUtils';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ResignCalculationModal } from './ResignCalculationModal';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
+import { getDefaultCompetenceMonth } from './payrollHelpers';
 
 interface RescisaoTabProps {
   employees: Employee[];
@@ -77,6 +84,8 @@ interface RescisaoTabProps {
   companyProfile?: CompanyProfile;
   advances?: SalaryAdvance[];
   absences?: AbsenceRecord[];
+  currentMonthRef?: string;
+  onChangeMonthRef?: (month: string) => void;
   onSaveEmployees?: (employees: Employee[]) => void;
 }
 
@@ -86,6 +95,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   companyProfile,
   advances = [],
   absences = [],
+  currentMonthRef,
+  onChangeMonthRef,
   onSaveEmployees,
 }) => {
   const { confirm } = useConfirm();
@@ -93,6 +104,19 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const activeTenantId = useMemo(() => {
     return authCompanyId || currentUser?.id || getActiveCompanyId() || 'default';
   }, [authCompanyId, currentUser?.id]);
+
+  // Competência ativa
+  const activeCompetence = currentMonthRef || getDefaultCompetenceMonth();
+
+  const handlePrevMonth = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
+
+  const handleNextMonth = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
 
   const clientInstanceIdRef = useRef<string>(`resc_tab_${Math.random().toString(36).slice(2, 10)}`);
   const realtimeChannelRef = useRef<any>(null);
@@ -876,16 +900,27 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }
   };
 
+  // Filtragem estrita por competência
+  const isTerminationInCompetence = React.useCallback((t: TerminationRecord, comp: string) => {
+    if (t.terminationDate && matchesCompetence(t.terminationDate, comp)) return true;
+    if (!t.terminationDate && t.createdAt && matchesCompetence(t.createdAt, comp)) return true;
+    return false;
+  }, []);
+
+  const competenceTerminations = useMemo(() => {
+    return terminations.filter(t => isTerminationInCompetence(t, activeCompetence));
+  }, [terminations, activeCompetence, isTerminationInCompetence]);
+
   // Indicadores de Resumo (KPIs)
-  const totalCount = terminations.length;
-  const homologadosCount = terminations.filter((t) => t.status === 'homologado').length;
-  const integradosCount = terminations.filter((t) => t.status === 'integrado' || Boolean(t.isIntegrated) || isTerminationInExpenses(t)).length;
-  const rascunhosCount = terminations.filter((t) => t.status === 'rascunho' && !t.isIntegrated && !isTerminationInExpenses(t)).length;
-  const totalNetLiquido = terminations.reduce((sum, t) => sum + (t.calculation?.netTotal || 0), 0);
+  const totalCount = competenceTerminations.length;
+  const homologadosCount = competenceTerminations.filter((t) => t.status === 'homologado').length;
+  const integradosCount = competenceTerminations.filter((t) => t.status === 'integrado' || Boolean(t.isIntegrated) || isTerminationInExpenses(t)).length;
+  const rascunhosCount = competenceTerminations.filter((t) => t.status === 'rascunho' && !t.isIntegrated && !isTerminationInExpenses(t)).length;
+  const totalNetLiquido = competenceTerminations.reduce((sum, t) => sum + (t.calculation?.netTotal || 0), 0);
 
   // Filtragem e Busca
   const filteredTerminations = useMemo(() => {
-    return terminations.filter((item) => {
+    return competenceTerminations.filter((item) => {
       const isIntegrated = item.status === 'integrado' || Boolean(item.isIntegrated) || isTerminationInExpenses(item);
       const effectiveStatus = isIntegrated ? 'integrado' : item.status;
 
@@ -906,7 +941,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const reasonLabel = getReasonLabel(item.reason).toLowerCase();
       return empName.includes(term) || role.includes(term) || reasonLabel.includes(term);
     });
-  }, [terminations, statusFilter, searchTerm]);
+  }, [competenceTerminations, statusFilter, searchTerm]);
 
   return (
     <div className="w-full space-y-4 antialiased">
@@ -1020,7 +1055,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* 3. Barra de Busca e Filtros de Status */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 text-black/60 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -1032,51 +1067,60 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-              statusFilter === 'all'
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-stone-900'
-                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
-            }`}
-          >
-            Todos ({totalCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('homologado')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-              statusFilter === 'homologado'
-                ? 'bg-emerald-700 text-white dark:bg-emerald-600'
-                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
-            }`}
-          >
-            Homologados ({homologadosCount + integradosCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('integrado')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-              statusFilter === 'integrado'
-                ? 'bg-blue-700 text-white dark:bg-blue-600'
-                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
-            }`}
-          >
-            Integrados ({integradosCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('rascunho')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-              statusFilter === 'rascunho'
-                ? 'bg-amber-600 text-white dark:bg-amber-500'
-                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
-            }`}
-          >
-            Rascunhos ({rascunhosCount})
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Seletor de Competência Padronizado por Setas */}
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevMonth}
+            onNext={handleNextMonth}
+          />
+
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                statusFilter === 'all'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-stone-900'
+                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+              }`}
+            >
+              Todos ({totalCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('homologado')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                statusFilter === 'homologado'
+                  ? 'bg-emerald-700 text-white dark:bg-emerald-600'
+                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+              }`}
+            >
+              Homologados ({homologadosCount + integradosCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('integrado')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                statusFilter === 'integrado'
+                  ? 'bg-blue-700 text-white dark:bg-blue-600'
+                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+              }`}
+            >
+              Integrados ({integradosCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('rascunho')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                statusFilter === 'rascunho'
+                  ? 'bg-amber-600 text-white dark:bg-amber-500'
+                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+              }`}
+            >
+              Rascunhos ({rascunhosCount})
+            </button>
+          </div>
         </div>
       </div>
 

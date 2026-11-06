@@ -15,17 +15,28 @@ import {
 import { Employee, LeaveRecord } from '../../types';
 import { formatDateBR, saveStoredLeaves } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  getCompetenceDateRange, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
+import { getDefaultCompetenceMonth } from './payrollHelpers';
 
 interface LeavesTabProps {
-
   employees: Employee[];
   leaves: LeaveRecord[];
+  currentMonthRef?: string;
+  onChangeMonthRef?: (month: string) => void;
   onSaveLeaves: (leaves: LeaveRecord[]) => void;
 }
 
 export const LeavesTab: React.FC<LeavesTabProps> = ({
   employees,
   leaves,
+  currentMonthRef,
+  onChangeMonthRef,
   onSaveLeaves,
 }) => {
   const { confirm } = useConfirm();
@@ -33,6 +44,19 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<LeaveRecord | null>(null);
+
+  // Competência ativa
+  const activeCompetence = currentMonthRef || getDefaultCompetenceMonth();
+
+  const handlePrevMonth = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
+
+  const handleNextMonth = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onChangeMonthRef?.(nextComp);
+  };
 
   // Form State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -46,18 +70,32 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
   const [status, setStatus] = useState<'ativo' | 'finalizado'>('ativo');
   const [notes, setNotes] = useState('');
 
+  // Filtragem estrita por competência
+  const competenceLeaves = React.useMemo(() => {
+    return leaves.filter(l => {
+      if (matchesCompetence(l.startDate, activeCompetence)) return true;
+      const range = getCompetenceDateRange(activeCompetence);
+      const start = l.startDate ? l.startDate.slice(0, 10) : '';
+      const end = l.endDate ? l.endDate.slice(0, 10) : (l.expectedReturnDate ? l.expectedReturnDate.slice(0, 10) : start);
+      if (start && start <= range.end && (!end || end >= range.start)) {
+        return true;
+      }
+      return false;
+    });
+  }, [leaves, activeCompetence]);
+
   // Filtered
-  const filtered = leaves.filter(l => 
+  const filtered = competenceLeaves.filter(l => 
     l.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (l.cid && l.cid.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // KPIs
-  const activeLeavesCount = leaves.filter(l => l.status === 'ativo').length;
-  const atestadosCount = leaves.filter(l => l.type === 'Atestado Médico').length;
-  const catCount = leaves.filter(l => l.type === 'Acidente de Trabalho (CAT)').length;
-  const inssCount = leaves.filter(l => l.type === 'Auxílio Doença / INSS').length;
+  const activeLeavesCount = competenceLeaves.filter(l => l.status === 'ativo').length;
+  const atestadosCount = competenceLeaves.filter(l => l.type === 'Atestado Médico').length;
+  const catCount = competenceLeaves.filter(l => l.type === 'Acidente de Trabalho (CAT)').length;
+  const inssCount = competenceLeaves.filter(l => l.type === 'Auxílio Doença / INSS').length;
 
   const handleOpenModal = (leave?: LeaveRecord) => {
     if (leave) {
@@ -245,8 +283,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
+      {/* Search Bar & Competence Selector */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -257,9 +295,16 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
             className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
-        <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
-          {filtered.length} afastamento(s)
-        </span>
+        <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
+          <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
+            {filtered.length} afastamento(s)
+          </span>
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevMonth}
+            onNext={handleNextMonth}
+          />
+        </div>
       </div>
 
       {/* Table */}
