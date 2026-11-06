@@ -470,6 +470,7 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   <option value="pix">PIX</option>
                   <option value="transferencia">TRANSFERÊNCIA (TED / DOC)</option>
                   <option value="boleto">BOLETO BANCÁRIO</option>
+                  <option value="assinado_nota">ASSINADO NOTA</option>
                   <option value="debito">CARTÃO DE DÉBITO</option>
                   <option value="dinheiro">DINHEIRO (ESPÉCIE / CAIXA)</option>
                   <option value="cheque">CHEQUE</option>

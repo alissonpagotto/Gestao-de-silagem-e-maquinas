@@ -41,7 +41,8 @@ export type PaymentMethod =
   | 'dinheiro' 
   | 'cheque'
   | 'prazo_carteira'
-  | 'safra_prazo';
+  | 'safra_prazo'
+  | 'assinado_nota';
 
 export interface ExpenseCategory {
   id: string;

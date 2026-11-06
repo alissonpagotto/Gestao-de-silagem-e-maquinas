@@ -62,7 +62,7 @@ export const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ expenses }) => {
   }
 
   return (
-    <div className="crm-card bg-white dark:bg-stone-900 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-2xs overflow-hidden mb-3.5 text-zinc-900 dark:text-white">
+    <div className="crm-card bg-white dark:bg-stone-900 rounded-2xl border border-white dark:border-stone-800 shadow-2xs overflow-hidden mb-3.5 text-zinc-900 dark:text-white">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

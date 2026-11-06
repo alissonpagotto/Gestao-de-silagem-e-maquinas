@@ -108,7 +108,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const handleSelectCategory = (newCatId: string) => {
     const selectedCat = safeCategories.find((c) => c.id === newCatId);
-    const catName = (selectedCat?.name || '').toUpperCase();
+    const catName = (selectedCat?.name || '').toUpperCase().trim();
     const isFuel = newCatId === 'cat_combustivel' || catName.includes('COMBUSTÍVEL') || catName.includes('COMBUSTIVEL') || catName.includes('DIESEL');
     if (isFuel) {
       onClose();
@@ -117,6 +117,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
       return;
     }
+
+    // Se o usuário mudar para qualquer categoria diferente de Alimentação, limpa os funcionários do rateio
+    const newIsAlimentacao =
+      catName === 'ALIMENTAÇÃO' ||
+      catName === 'ALIMENTACAO' ||
+      catName.includes('ALIMENT') ||
+      catName.includes('REFEIÇ') ||
+      catName.includes('REFEIC') ||
+      catName.includes('RESTAURANTE');
+
+    if (!newIsAlimentacao) {
+      setSelectedTargets(['todos']);
+      setTargetToAdd('');
+    }
+
     setCategoryId(newCatId);
   };
 
@@ -157,9 +172,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [categoryId, setCategoryId] = useState('');
   const [dueDate, setDueDate] = useState(today);
   const [paymentDate, setPaymentDate] = useState('');
-  const [status, setStatus] = useState<ExpenseStatus>('pago');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
+  const [status, setStatus] = useState<ExpenseStatus>('pendente');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('assinado_nota');
   const [bankAccountId, setBankAccountId] = useState<string>(() => priorityBankAccountId);
+
+  const handleStatusChange = (newStatus: ExpenseStatus) => {
+    setStatus(newStatus);
+    if (newStatus === 'pago') {
+      if (!paymentDate) {
+        setPaymentDate(dueDate || today);
+      }
+      if (!bankAccountId && priorityBankAccountId) {
+        setBankAccountId(priorityBankAccountId);
+      }
+      // Se estava em assinado_nota (típico de pendente), sugere pix ao liquidar
+      if (paymentMethod === 'assinado_nota') {
+        setPaymentMethod('pix');
+      }
+    } else {
+      setPaymentDate('');
+      // Sempre que alterar para "A PAGAR (PENDENTE)", define automaticamente como "ASSINADO NOTA"
+      setPaymentMethod('assinado_nota');
+    }
+  };
   const [paidByEmployeeId, setPaidByEmployeeId] = useState<string>('');
   const [supplier, setSupplier] = useState('');
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -189,6 +224,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       selectedCategoryName === 'ELETRICA' ||
       selectedCategoryName === 'PEÇAS' ||
       selectedCategoryName === 'PECAS'
+    );
+  }, [selectedCategoryName]);
+
+  const isAlimentacao = useMemo(() => {
+    return (
+      selectedCategoryName === 'ALIMENTAÇÃO' ||
+      selectedCategoryName === 'ALIMENTACAO' ||
+      selectedCategoryName.includes('ALIMENT') ||
+      selectedCategoryName.includes('REFEIÇ') ||
+      selectedCategoryName.includes('REFEIC') ||
+      selectedCategoryName.includes('RESTAURANTE')
     );
   }, [selectedCategoryName]);
 
@@ -231,10 +277,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setAmount(editingExpense.amount.toString());
       setCategoryId(editingExpense.categoryId);
       setDueDate(editingExpense.dueDate);
-      setPaymentDate(editingExpense.paymentDate || '');
-      setStatus(editingExpense.status);
+      setStatus(editingExpense.status || 'pendente');
+      setPaymentDate(editingExpense.status === 'pago' ? (editingExpense.paymentDate || '') : '');
       setPaymentMethod(editingExpense.paymentMethod);
-      setBankAccountId(editingExpense.bankAccountId || priorityBankAccountId || '');
+      setBankAccountId(editingExpense.bankAccountId || (editingExpense.status === 'pago' ? priorityBankAccountId : ''));
       setPaidByEmployeeId(editingExpense.paidByEmployeeId || '');
       setSupplier(editingExpense.supplier || editingExpense.description || '');
       setSupplierId(editingExpense.supplierId || editingExpense.fornecedorId || '');
@@ -277,9 +323,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setAmount('');
       setCategoryId(safeCategories[0]?.id || '');
       setDueDate(today);
-      setPaymentDate(today);
-      setStatus('pago');
-      setPaymentMethod('pix');
+      setPaymentDate('');
+      setStatus('pendente');
+      setPaymentMethod('assinado_nota');
       setBankAccountId(priorityBankAccountId);
       setPaidByEmployeeId(employees[0]?.id || '');
       setSupplier('');
@@ -403,9 +449,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   };
 
   const selectedCategory = safeCategories.find((c) => c.id === categoryId);
-  const isAlimentacao = selectedCategory?.name?.toLowerCase().includes('aliment') || 
-                        selectedCategory?.name?.toLowerCase().includes('refeiç') || 
-                        selectedCategory?.name?.toLowerCase().includes('restaurante');
 
   // Multi-target resolution: calculate unique participating employees and target teams
   const resolvedUniqueEmployees: Employee[] = [];
@@ -553,6 +596,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
+    if (status === 'pago' && !bankAccountId) {
+      alert('POR FAVOR, SELECIONE A CONTA DE DÉBITO (ORIGEM) PARA A DESPESA PAGA.');
+      return;
+    }
+
     const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
 
     const matchedSupplier = suppliers.find(
@@ -607,11 +655,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           costCenterName: defaultCostCenter?.name || undefined,
           machineryId: resolvedMachineryId,
           machineryName: resolvedMachineryName,
-          employeeId: !isFleetMaintenanceCategory && singleEmp ? singleEmp.id : undefined,
-          employeeName: !isFleetMaintenanceCategory ? resolvedEmployeeName : undefined,
-          teamId: !isFleetMaintenanceCategory ? resolvedTeamId : undefined,
-          teamName: !isFleetMaintenanceCategory ? resolvedTeamName : undefined,
-          employeeApportionment: !isFleetMaintenanceCategory ? selectedTargets.join(',') : undefined,
+          employeeId: isAlimentacao && singleEmp ? singleEmp.id : undefined,
+          employeeName: isAlimentacao ? resolvedEmployeeName : undefined,
+          teamId: isAlimentacao ? resolvedTeamId : undefined,
+          teamName: isAlimentacao ? resolvedTeamName : undefined,
+          employeeApportionment: isAlimentacao ? selectedTargets.join(',') : undefined,
           invoiceNumber: invoiceNumber.trim() || undefined,
           notes: notes.trim() || undefined,
           quantity: isFleetMaintenanceCategory && readingKmOrHours ? parseFloat(readingKmOrHours) : (hasQuantity && quantity ? parseFloat(quantity) / installmentCount : undefined),
@@ -646,11 +694,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         costCenterName: defaultCostCenter?.name || undefined,
         machineryId: resolvedMachineryId,
         machineryName: resolvedMachineryName,
-        employeeId: !isFleetMaintenanceCategory && singleEmp ? singleEmp.id : undefined,
-        employeeName: !isFleetMaintenanceCategory ? resolvedEmployeeName : undefined,
-        teamId: !isFleetMaintenanceCategory ? resolvedTeamId : undefined,
-        teamName: !isFleetMaintenanceCategory ? resolvedTeamName : undefined,
-        employeeApportionment: !isFleetMaintenanceCategory ? selectedTargets.join(',') : undefined,
+        employeeId: isAlimentacao && singleEmp ? singleEmp.id : undefined,
+        employeeName: isAlimentacao ? resolvedEmployeeName : undefined,
+        teamId: isAlimentacao ? resolvedTeamId : undefined,
+        teamName: isAlimentacao ? resolvedTeamName : undefined,
+        employeeApportionment: isAlimentacao ? selectedTargets.join(',') : undefined,
         invoiceNumber: invoiceNumber.trim() || undefined,
         notes: notes.trim() || undefined,
         quantity: isFleetMaintenanceCategory && readingKmOrHours ? parseFloat(readingKmOrHours) : (hasQuantity && quantity ? parseFloat(quantity) : undefined),
@@ -979,59 +1027,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             )}
           </div>
 
-          {/* LINHA 3 (DADOS DA BAIXA): RESPONSÁVEL PELO PAGAMENTO (50%) + CONTA DE DÉBITO (ORIGEM) (50%) */}
-          <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-6">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                RESPONSÁVEL PELO PAGAMENTO {status === 'pago' && <span className="text-rose-600">*</span>}
-              </label>
-              <div className="relative">
-                <select
-                  value={paidByEmployeeId}
-                  onChange={(e) => setPaidByEmployeeId(e.target.value)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
-                >
-                  <option value="">-- SELECIONE O COLABORADOR --</option>
-                  {activeEmployees.map((emp) => (
-                    <option key={emp.id} value={emp.id} className="uppercase">
-                      {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="col-span-6">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                CONTA DE DÉBITO (ORIGEM) {status === 'pago' && <span className="text-rose-600">*</span>}
-              </label>
-              <div className="relative">
-                <select
-                  value={bankAccountId}
-                  onChange={(e) => setBankAccountId(e.target.value)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
-                >
-                  <option value="">-- SELECIONE O BANCO / CONTA --</option>
-                  {effectiveBankAccounts.map((acc) => {
-                    const name = (acc.name || acc.accountName || '').trim();
-                    const bank = (acc.bankName || '').trim();
-                    const cleanLabel = name && bank && name.toUpperCase() !== bank.toUpperCase()
-                      ? `${name} · ${bank}`
-                      : (name || bank || 'CONTA BANCÁRIA');
-                    return (
-                      <option key={acc.id} value={acc.id} className="uppercase">
-                        {cleanLabel.toUpperCase()}
-                      </option>
-                    );
-                  })}
-                </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+          {/* LINHA 3: RESPONSÁVEL PELO PAGAMENTO (100% DA LARGURA) */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              RESPONSÁVEL PELO PAGAMENTO {status === 'pago' && <span className="text-rose-600">*</span>}
+            </label>
+            <div className="relative">
+              <select
+                value={paidByEmployeeId}
+                onChange={(e) => setPaidByEmployeeId(e.target.value)}
+                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+              >
+                <option value="">-- SELECIONE O COLABORADOR --</option>
+                {activeEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id} className="uppercase">
+                    {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
-          {/* BLOCO CENTRAL DINÂMICO: SE MANUTENÇÃO, BORRACHARIA, ELÉTRICA OU PEÇAS => SELETORES DE FROTA; CASO CONTRÁRIO => RATEIO ADMINISTRATIVO GERAL */}
+          {/* BLOCO CENTRAL DINÂMICO: SE MANUTENÇÃO, BORRACHARIA, ELÉTRICA OU PEÇAS => SELETORES DE FROTA; SE ALIMENTAÇÃO => RATEIO; CASO CONTRÁRIO => OCULTO */}
           {isFleetMaintenanceCategory ? (
             <div className="border border-slate-300 dark:border-stone-700 rounded-lg p-1.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)] space-y-1">
               <div className="flex items-center justify-between">
@@ -1103,8 +1121,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 )}
               </div>
             </div>
-          ) : (
-            /* Rateio por Funcionários e Equipes (Seleção Múltipla) - Subcontainer Micro Slim */
+          ) : isAlimentacao ? (
+            /* Rateio por Funcionários e Equipes (Seleção Múltipla) - Subcontainer Micro Slim (Exclusivo para Alimentação) */
             <div className="border border-slate-300 dark:border-stone-700 rounded-lg p-1.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)] space-y-1">
               <div className="flex items-center justify-between">
                 <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider">
@@ -1338,10 +1356,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
 
-          {/* LINHA 4: STATUS DO PAGAMENTO (33%) + FORMA DE PAGAMENTO (33%) + DATA EFETIVA DA BAIXA (34%) */}
+          {/* BLOCO DE LIQUIDAÇÃO / PAGAMENTO: STATUS, FORMA, DATA E CONTA DE DÉBITO (ORIGEM) */}
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-4">
               <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
@@ -1350,11 +1368,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <div className="relative">
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as ExpenseStatus)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+                  onChange={(e) => handleStatusChange(e.target.value as ExpenseStatus)}
+                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
                 >
-                  <option value="pago">PAGO (LIQUIDADO)</option>
                   <option value="pendente">A PAGAR (PENDENTE)</option>
+                  <option value="pago">PAGO (LIQUIDADO)</option>
                 </select>
                 <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -1368,15 +1386,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
                 >
+                  <option value="assinado_nota">ASSINADO NOTA</option>
+                  <option value="boleto">BOLETO BANCÁRIO</option>
                   <option value="pix">PIX</option>
                   <option value="dinheiro">DINHEIRO EM ESPÉCIE</option>
-                  <option value="boleto">BOLETO BANCÁRIO</option>
                   <option value="cartao_credito">CARTÃO DE CRÉDITO</option>
                   <option value="cartao_debito">CARTÃO DE DÉBITO</option>
                   <option value="transferencia">TRANSFERÊNCIA BANCÁRIA (TED/DOC)</option>
                   <option value="cheque">CHEQUE</option>
+                  <option value="prazo_carteira">A PRAZO (CARTEIRA)</option>
+                  <option value="safra_prazo">SAFRA A PRAZO</option>
                 </select>
                 <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -1384,14 +1405,61 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
             <div className="col-span-4">
               <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                DATA EFETIVA DA BAIXA
+                DATA EFETIVA DA BAIXA {status === 'pago' ? <span className="text-rose-600 font-bold">*</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado)</span>}
               </label>
               <input
                 type="date"
-                value={paymentDate || dueDate}
+                disabled={status !== 'pago'}
+                required={status === 'pago'}
+                value={status === 'pago' ? (paymentDate || dueDate) : ''}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition ${
+                  status !== 'pago'
+                    ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
+                    : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
+                }`}
               />
+            </div>
+
+            {/* CONTA DE DÉBITO (ORIGEM) POSICIONADO LOGO ABAIXO DO STATUS DE PAGAMENTO */}
+            <div className="col-span-12">
+              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                CONTA DE DÉBITO (ORIGEM) {status === 'pago' ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
+              </label>
+              <div className="relative">
+                <select
+                  value={status === 'pago' ? bankAccountId : ''}
+                  onChange={(e) => setBankAccountId(e.target.value)}
+                  disabled={status !== 'pago'}
+                  required={status === 'pago'}
+                  className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase transition ${
+                    status !== 'pago'
+                      ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
+                      : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
+                  }`}
+                >
+                  {status !== 'pago' ? (
+                    <option value="">-- CONTA BLOQUEADA (DESPESA PENDENTE DE PAGAMENTO) --</option>
+                  ) : (
+                    <>
+                      <option value="">-- SELECIONE O BANCO / CONTA --</option>
+                      {effectiveBankAccounts.map((acc) => {
+                        const name = (acc.name || acc.accountName || '').trim();
+                        const bank = (acc.bankName || '').trim();
+                        const cleanLabel = name && bank && name.toUpperCase() !== bank.toUpperCase()
+                          ? `${name} · ${bank}`
+                          : (name || bank || 'CONTA BANCÁRIA');
+                        return (
+                          <option key={acc.id} value={acc.id} className="uppercase">
+                            {cleanLabel.toUpperCase()}
+                          </option>
+                        );
+                      })}
+                    </>
+                  )}
+                </select>
+                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           </div>
 

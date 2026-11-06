@@ -495,6 +495,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
               >
                 <option value="pix">PIX</option>
                 <option value="boleto">Boleto Bancário</option>
+                <option value="assinado_nota">Assinado nota</option>
                 <option value="transferencia">Transferência (TED / DOC)</option>
                 <option value="cartao_debito">Cartão de Débito</option>
                 <option value="cartao_credito">Cartão de Crédito</option>

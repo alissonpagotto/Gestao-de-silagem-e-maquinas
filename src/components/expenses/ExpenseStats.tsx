@@ -58,7 +58,7 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3.5">
       
       {/* Total Geral & Pagas */}
-      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
+      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-[#060606] dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider">Total em Despesas</span>
           <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-emerald-950/60 text-zinc-700 dark:text-emerald-400 border border-zinc-200 dark:border-emerald-800/60">
@@ -77,8 +77,8 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
       </div>
 
       {/* Contas a Pagar / Pendentes */}
-      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
-        <div className="flex items-center justify-between">
+      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-[#000000] dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
+        <div className="flex items-center justify-between bg-white dark:bg-transparent">
           <span className="text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider">A Pagar / Pendentes</span>
           <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-amber-950/60 text-zinc-700 dark:text-amber-400 border border-zinc-200 dark:border-amber-800/60">
             <Clock className="w-4 h-4" />
@@ -103,7 +103,7 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
       </div>
 
       {/* Custo Operacional (Diesel & Peças) */}
-      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
+      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-[#000000] dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider">Diesel & Manutenção</span>
           <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-blue-950/60 text-zinc-700 dark:text-blue-400 border border-zinc-200 dark:border-blue-800/60">
@@ -122,7 +122,7 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
       </div>
 
       {/* Indicador de Custo por Tonelada de Silagem */}
-      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
+      <div className="crm-card bg-white dark:bg-stone-900 p-3 sm:p-3.5 rounded-2xl border border-[#030303] dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider">Custo / Tonelada</span>
           <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-emerald-900/80 text-zinc-700 dark:text-emerald-400 border border-zinc-200 dark:border-emerald-700/50">

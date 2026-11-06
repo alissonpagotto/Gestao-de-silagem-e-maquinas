@@ -52,6 +52,7 @@ export const getPaymentMethodLabel = (method?: PaymentMethod | string): string =
     case 'prazo_carteira': return 'A prazo (carteira)';
     case 'safra_prazo': return 'Safra a Prazo';
     case 'boleto': return 'Boleto';
+    case 'assinado_nota': return 'Assinado nota';
     default: return method ? String(method).toUpperCase() : 'Não informado';
   }
 };
