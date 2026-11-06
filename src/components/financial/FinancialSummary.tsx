@@ -54,6 +54,7 @@ import { ExpenseStats } from '../expenses/ExpenseStats';
 import { ExpenseCharts } from '../expenses/ExpenseCharts';
 import { ExpenseList } from '../expenses/ExpenseList';
 import { hasFinanceiroSubPermission } from '../../lib/cadastrosBaseStorage';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, getCompetenceDateRange } from './CompetenceSelector';
 
 export type FinancialTabType = 
   | 'consolidado' 
@@ -541,55 +542,59 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     }
   }, [initialSubTab]);
 
-  // Period Filter State
-  const [quickPeriod, setQuickPeriod] = useState<'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses'>('mes_atual');
-  
-  // Custom Date Range
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonthNum = today.getMonth(); // 0-indexed
+  // Centralized Competence Month State (MM/AAAA)
+  const [competenceMonth, setCompetenceMonth] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_financial_competence');
+      if (saved && /^\d{2}\/\d{4}$/.test(saved)) return saved;
+    } catch {}
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
 
-  // Format Month Year in PT-BR (ex: "agosto/2026")
+  // Month names in PT-BR
   const monthNames = [
     'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
   ];
-  const currentMonthName = monthNames[currentMonthNum];
-  const capitalizedMonthName = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
 
-  // Default start & end of current month
-  const firstDayOfMonth = new Date(currentYear, currentMonthNum, 1).toISOString().split('T')[0];
-  const lastDayOfMonth = new Date(currentYear, currentMonthNum + 1, 0).toISOString().split('T')[0];
+  // Derive initial date range from active competence
+  const initialRange = getCompetenceDateRange(competenceMonth);
+  const [startDate, setStartDate] = useState(initialRange.start);
+  const [endDate, setEndDate] = useState(initialRange.end);
 
-  const [startDate, setStartDate] = useState(firstDayOfMonth);
-  const [endDate, setEndDate] = useState(lastDayOfMonth);
-
-  // Quick period handler
-  const handleQuickPeriodChange = (period: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses') => {
-    setQuickPeriod(period);
-    const now = new Date();
-    let start = new Date();
-    let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    if (period === 'mes_atual') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else if (period === '1_mes') {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    } else if (period === '3_meses') {
-      start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    } else if (period === '6_meses') {
-      start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-    } else if (period === '12_meses') {
-      start = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-    }
-
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+  const handlePrevCompetence = () => {
+    setCompetenceMonth((prev) => {
+      const next = getPrevCompetence(prev);
+      try { localStorage.setItem('agrocontrol_financial_competence', next); } catch {}
+      const range = getCompetenceDateRange(next);
+      setStartDate(range.start);
+      setEndDate(range.end);
+      return next;
+    });
   };
 
-  // Filter Data for Current Month (Row 1)
-  const currentMonthStart = `${currentYear}-${String(currentMonthNum + 1).padStart(2, '0')}-01`;
-  const currentMonthEnd = getLastDayOfMonth(currentYear, currentMonthNum);
+  const handleNextCompetence = () => {
+    setCompetenceMonth((prev) => {
+      const next = getNextCompetence(prev);
+      try { localStorage.setItem('agrocontrol_financial_competence', next); } catch {}
+      const range = getCompetenceDateRange(next);
+      setStartDate(range.start);
+      setEndDate(range.end);
+      return next;
+    });
+  };
+
+  // Active competence dates and month names
+  const [compMonthStr, compYearStr] = competenceMonth.split('/');
+  const compMonthNum = (parseInt(compMonthStr, 10) || 1) - 1; // 0-indexed
+  const compYear = parseInt(compYearStr, 10) || 2026;
+  const currentMonthName = monthNames[compMonthNum] || '';
+  const capitalizedMonthName = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
+
+  // Active month boundaries based on competence
+  const currentMonthStart = `${compYear}-${String(compMonthNum + 1).padStart(2, '0')}-01`;
+  const currentMonthEnd = getLastDayOfMonth(compYear, compMonthNum);
 
   // Carregamento reativo das receitas financeiras consolidadas e PDV (Print 3)
   const [receitasConsolidadas, setReceitasConsolidadas] = useState<any[]>(() => {
@@ -720,11 +725,8 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
   // Formatted period title label
   const periodLabel = useMemo(() => {
-    if (quickPeriod === 'mes_atual') {
-      return `${capitalizedMonthName}/${currentYear}`;
-    }
-    return `${startDate.split('-').reverse().join('/')} até ${endDate.split('-').reverse().join('/')}`;
-  }, [quickPeriod, capitalizedMonthName, currentYear, startDate, endDate]);
+    return `${capitalizedMonthName.toUpperCase()}/${compYear}`;
+  }, [capitalizedMonthName, compYear]);
 
   return (
     <div id="financial-module" className="w-full max-w-none space-y-4 sm:space-y-5">
@@ -922,90 +924,27 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       {/* ABA: Consolidado */}
       {activeTab === 'consolidado' && (
         <div className="space-y-4">
-          {/* 3. FILTRAR PERÍODO Section compact */}
+          {/* 3. Seletor de Competência Padronizado & Intervalo de Datas */}
           <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-zinc-900 dark:text-white">
-            <div className="flex items-center space-x-2">
-              <span className="text-[10px] font-black text-black dark:text-white uppercase tracking-wider whitespace-nowrap">
-                FILTRAR PERÍODO:
-              </span>
-              <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none">
-                <button
-                  type="button"
-                  onClick={() => handleQuickPeriodChange('mes_atual')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    quickPeriod === 'mes_atual'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'bg-white/80 dark:bg-stone-800 text-black dark:text-stone-200 hover:bg-white border border-slate-300 dark:border-stone-700'
-                  }`}
-                >
-                  Mês atual
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickPeriodChange('1_mes')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    quickPeriod === '1_mes'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'bg-white/80 dark:bg-stone-800 text-black dark:text-stone-200 hover:bg-white border border-slate-300 dark:border-stone-700'
-                  }`}
-                >
-                  1 mês
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickPeriodChange('3_meses')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    quickPeriod === '3_meses'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'bg-white/80 dark:bg-stone-800 text-black dark:text-stone-200 hover:bg-white border border-slate-300 dark:border-stone-700'
-                  }`}
-                >
-                  3 meses
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickPeriodChange('6_meses')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    quickPeriod === '6_meses'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'bg-white/80 dark:bg-stone-800 text-black dark:text-stone-200 hover:bg-white border border-slate-300 dark:border-stone-700'
-                  }`}
-                >
-                  6 meses
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickPeriodChange('12_meses')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    quickPeriod === '12_meses'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'bg-white/80 dark:bg-stone-800 text-black dark:text-stone-200 hover:bg-white border border-slate-300 dark:border-stone-700'
-                  }`}
-                >
-                  12 meses
-                </button>
-              </div>
-            </div>
+            <CompetenceSelector
+              competence={competenceMonth}
+              onPrev={handlePrevCompetence}
+              onNext={handleNextCompetence}
+            />
 
             {/* Date range pickers */}
             <div className="flex items-center space-x-1.5 text-xs text-black dark:text-white">
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setQuickPeriod('' as any);
-                }}
+                onChange={(e) => setStartDate(e.target.value)}
                 className="px-2.5 py-1 border border-slate-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white text-xs font-medium focus:ring-1 focus:ring-sky-600 outline-none"
               />
               <span className="text-[11px] font-bold text-black dark:text-white">até</span>
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setQuickPeriod('' as any);
-                }}
+                onChange={(e) => setEndDate(e.target.value)}
                 className="px-2.5 py-1 border border-slate-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white text-xs font-medium focus:ring-1 focus:ring-sky-600 outline-none"
               />
             </div>
@@ -1016,7 +955,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         {/* Row 1: Mês Atual */}
         <div className="space-y-1">
           <div className="text-[11px] font-black text-black dark:text-white uppercase tracking-wider">
-            Mês atual — {currentMonthName}/{currentYear}
+            Mês atual — {currentMonthName}/{compYear}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -1266,6 +1205,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           onDeleteExpense={onDeleteExpense}
           onViewReceipt={onViewReceipt}
           onNewExpense={onNewExpense}
+          competenceMonth={competenceMonth}
+          onPrevMonth={handlePrevCompetence}
+          onNextMonth={handleNextCompetence}
         />
       )}
 
@@ -1278,6 +1220,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           companyProfile={companyProfile}
           onSaveOrders={onSaveOrders}
           onSaveServices={onSaveServices}
+          competenceMonth={competenceMonth}
+          onPrevMonth={handlePrevCompetence}
+          onNextMonth={handleNextCompetence}
         />
       )}
 
@@ -1293,6 +1238,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         <ThirdPartySettlementsTab
           settlements={settlements}
           onSaveSettlements={onSaveSettlements}
+          competenceMonth={competenceMonth}
+          onPrevMonth={handlePrevCompetence}
+          onNextMonth={handleNextCompetence}
         />
       )}
 
@@ -1314,6 +1262,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           orders={orders}
           seasons={seasons}
           settlements={settlements}
+          competenceMonth={competenceMonth}
+          onPrevMonth={handlePrevCompetence}
+          onNextMonth={handleNextCompetence}
         />
       )}
 

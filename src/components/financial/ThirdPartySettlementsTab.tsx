@@ -19,56 +19,35 @@ import {
 import { ThirdPartySettlement } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 
 interface ThirdPartySettlementsTabProps {
-
   settlements: ThirdPartySettlement[];
   onSaveSettlements: (settlements: ThirdPartySettlement[]) => void;
+  competenceMonth?: string;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
 }
 
 export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> = ({
   settlements,
   onSaveSettlements,
+  competenceMonth,
+  onPrevMonth,
+  onNextMonth,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'pago'>('all');
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
-
-  // Month options based on current date: 1 previous, current, 5 next
-  const monthFilterOptions = React.useMemo(() => {
-    const monthNames = [
-      'Janeiro',
-      'Fevereiro',
-      'Março',
-      'Abril',
-      'Maio',
-      'Junho',
-      'Julho',
-      'Agosto',
-      'Setembro',
-      'Outubro',
-      'Novembro',
-      'Dezembro',
-    ];
+  
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-11
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
 
-    const options: { key: string; label: string; year: number; month: number }[] = [];
-
-    // -1 (Mês Anterior), 0 (Mês Atual), +1..+5 (5 Próximos Meses)
-    for (let offset = -1; offset <= 5; offset++) {
-      const d = new Date(currentYear, currentMonth + offset, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth(); // 0-11
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-      const label = monthNames[m];
-      options.push({ key, label, year: y, month: m });
-    }
-
-    return options;
-  }, []);
+  const activeCompetence = competenceMonth || internalCompetence;
+  const handlePrev = onPrevMonth || (() => setInternalCompetence((prev) => getPrevCompetence(prev)));
+  const handleNext = onNextMonth || (() => setInternalCompetence((prev) => getNextCompetence(prev)));
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ThirdPartySettlement | null>(null);
@@ -88,11 +67,15 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<ThirdPartySettlement['status']>('pendente');
 
-  // Calculations
-  const pendingSettlements = settlements.filter(s => s.status === 'pendente' || s.status === 'parcial');
-  const paidSettlements = settlements.filter(s => s.status === 'pago');
+  // Calculations filtered by competence
+  const competenceSettlements = React.useMemo(() => {
+    return settlements.filter((s) => matchesCompetence(s.date, activeCompetence));
+  }, [settlements, activeCompetence]);
 
-  const totalSettlementsAmount = settlements.reduce((acc, s) => acc + s.netAmount, 0);
+  const pendingSettlements = competenceSettlements.filter(s => s.status === 'pendente' || s.status === 'parcial');
+  const paidSettlements = competenceSettlements.filter(s => s.status === 'pago');
+
+  const totalSettlementsAmount = competenceSettlements.reduce((acc, s) => acc + s.netAmount, 0);
   const pendingAmount = pendingSettlements.reduce((acc, s) => acc + s.netAmount, 0);
   const paidAmount = paidSettlements.reduce((acc, s) => acc + s.netAmount, 0);
 
@@ -230,24 +213,15 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
   };
 
 
-  const filtered = settlements.filter((s) => {
+  const filtered = competenceSettlements.filter((s) => {
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'pendente' && (s.status === 'pendente' || s.status === 'parcial')) ||
       (statusFilter === 'pago' && s.status === 'pago');
 
-    // Monthly filter based on date (YYYY-MM)
-    let matchesMonth = true;
-    if (selectedMonthKey) {
-      if (s.date) {
-        matchesMonth = s.date.startsWith(selectedMonthKey);
-      } else {
-        matchesMonth = false;
-      }
-    }
-
     const q = searchTerm.toLowerCase();
     const matchesSearch =
+      !q ||
       s.thirdPartyName.toLowerCase().includes(q) ||
       s.role.toLowerCase().includes(q) ||
       s.description.toLowerCase().includes(q) ||
@@ -255,7 +229,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       (s.orderClientName && s.orderClientName.toLowerCase().includes(q)) ||
       (s.machineryPlateOrName && s.machineryPlateOrName.toLowerCase().includes(q));
 
-    return matchesStatus && matchesMonth && matchesSearch;
+    return matchesStatus && matchesSearch;
   });
 
   return (
@@ -317,6 +291,15 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       {/* Filters & Action Bar (Compact) */}
       <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-xs flex flex-col xl:flex-row items-center justify-between gap-2 text-black">
         <div className="flex items-center space-x-1.5 w-full xl:w-auto overflow-x-auto scrollbar-none pb-1 xl:pb-0">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
+          {/* Divisor sutil */}
+          <div className="h-5 w-px bg-slate-300 mx-1 shrink-0 hidden sm:block" />
+
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
@@ -326,7 +309,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
                 : 'bg-slate-100 text-black hover:bg-slate-200'
             }`}
           >
-            Todos ({settlements.length})
+            Todos ({competenceSettlements.length})
           </button>
           <button
             type="button"
@@ -350,29 +333,6 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
           >
             Liquidados ({paidSettlements.length})
           </button>
-
-          {/* Divisor sutil entre status e meses */}
-          <div className="h-4 w-px bg-slate-300 mx-0.5 shrink-0 hidden sm:block" />
-
-          {/* Botões de Filtro por Mês */}
-          {monthFilterOptions.map((m) => {
-            const isSelected = selectedMonthKey === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setSelectedMonthKey(isSelected ? null : m.key)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                  isSelected
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-black hover:bg-slate-200'
-                }`}
-                title={`Filtrar por ${m.label}/${m.year}`}
-              >
-                {m.label}
-              </button>
-            );
-          })}
         </div>
 
         <div className="flex items-center space-x-2 w-full xl:w-auto justify-end">

@@ -14,12 +14,16 @@ import { Expense, SilageOrder, CropSeason, ThirdPartySettlement } from '../../ty
 import { formatCurrencyBRL, formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
 import { PrintReportHeader } from '../common/PrintReportHeader';
 import { PrintReportFooter } from '../common/PrintReportFooter';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 
 interface FinancialExportTabProps {
   expenses: Expense[];
   orders: SilageOrder[];
   seasons: CropSeason[];
   settlements: ThirdPartySettlement[];
+  competenceMonth?: string;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
 }
 
 export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
@@ -27,11 +31,35 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
   orders,
   seasons,
   settlements,
+  competenceMonth,
+  onPrevMonth,
+  onNextMonth,
 }) => {
   const [selectedFormat, setSelectedFormat] = useState<'dre' | 'despesas' | 'receitas' | 'terceiros'>('dre');
 
-  const totalRevenue = orders.reduce((acc, o) => acc + o.totalAmount, 0);
-  const totalCosts = expenses.reduce((acc, e) => acc + e.amount, 0);
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
+
+  const activeCompetence = competenceMonth || internalCompetence;
+  const handlePrev = onPrevMonth || (() => setInternalCompetence((prev) => getPrevCompetence(prev)));
+  const handleNext = onNextMonth || (() => setInternalCompetence((prev) => getNextCompetence(prev)));
+
+  const competenceExpenses = React.useMemo(() => {
+    return expenses.filter((e) => matchesCompetence(e.date || e.dueDate, activeCompetence));
+  }, [expenses, activeCompetence]);
+
+  const competenceOrders = React.useMemo(() => {
+    return orders.filter((o) => matchesCompetence(o.date || o.deliveryDate || o.createdAt, activeCompetence));
+  }, [orders, activeCompetence]);
+
+  const competenceSettlements = React.useMemo(() => {
+    return settlements.filter((s) => matchesCompetence(s.date, activeCompetence));
+  }, [settlements, activeCompetence]);
+
+  const totalRevenue = competenceOrders.reduce((acc, o) => acc + o.totalAmount, 0);
+  const totalCosts = competenceExpenses.reduce((acc, e) => acc + e.amount, 0);
   const netResult = totalRevenue - totalCosts;
 
   const handleExportCSV = (type: string) => {
@@ -39,31 +67,31 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
     
     if (type === 'despesas') {
       csvContent += 'Data,Descricao,Fornecedor,Categoria,Valor,Status,FormaPagamento\n';
-      expenses.forEach((e) => {
+      competenceExpenses.forEach((e) => {
         csvContent += `"${e.date}","${e.description}","${e.supplier || ''}","${e.categoryName || ''}",${e.amount},"${e.status}","${e.paymentMethod || ''}"\n`;
       });
     } else if (type === 'receitas') {
       csvContent += 'Data,Cliente,Toneladas,ValorTotal,StatusPagamento,Observacoes\n';
-      orders.forEach((o) => {
+      competenceOrders.forEach((o) => {
         csvContent += `"${o.date || o.deliveryDate || o.createdAt}","${o.clientName}",${o.tons},${o.totalAmount},"${o.paymentStatus}","${o.notes || ''}"\n`;
       });
     } else if (type === 'terceiros') {
       csvContent += 'Data,Terceiro,Funcao,Descricao,Bruto,Deducoes,Liquido,Status\n';
-      settlements.forEach((s) => {
+      competenceSettlements.forEach((s) => {
         csvContent += `"${s.date}","${s.thirdPartyName}","${s.role}","${s.description}",${s.totalAmount},${s.deductions || 0},${s.netAmount},"${s.status}"\n`;
       });
     } else {
       // DRE CSV
       csvContent += 'Item,Valor\n';
-      csvContent += `"Receita Total Silagem",${totalRevenue}\n`;
-      csvContent += `"Custos Totais Operacionais",${totalCosts}\n`;
-      csvContent += `"Resultado Liquido",${netResult}\n`;
+      csvContent += `"Receita Total Silagem (${activeCompetence})",${totalRevenue}\n`;
+      csvContent += `"Custos Totais Operacionais (${activeCompetence})",${totalCosts}\n`;
+      csvContent += `"Resultado Liquido (${activeCompetence})",${netResult}\n`;
     }
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `financeiro_${type}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `financeiro_${type}_${activeCompetence.replace('/', '-')}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -77,10 +105,10 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
 
   const getReportTitle = () => {
     switch (selectedFormat) {
-      case 'dre': return 'RELATÓRIO DE DRE FINANCEIRO CONSOLIDADO';
-      case 'despesas': return 'RELATÓRIO DE DESPESAS E PAGAMENTOS';
-      case 'receitas': return 'RELATÓRIO DE FATURAMENTO E RECEITAS';
-      case 'terceiros': return 'RELATÓRIO DE ACERTOS DE TERCEIROS';
+      case 'dre': return `RELATÓRIO DE DRE FINANCEIRO CONSOLIDADO (${activeCompetence})`;
+      case 'despesas': return `RELATÓRIO DE DESPESAS E PAGAMENTOS (${activeCompetence})`;
+      case 'receitas': return `RELATÓRIO DE FATURAMENTO E RECEITAS (${activeCompetence})`;
+      case 'terceiros': return `RELATÓRIO DE ACERTOS DE TERCEIROS (${activeCompetence})`;
     }
   };
 
@@ -97,7 +125,13 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
           <button
             type="button"
             onClick={handlePrint}
@@ -140,7 +174,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
               : 'bg-slate-100 text-black hover:bg-slate-200'
           }`}
         >
-          Despesas & Pagamentos ({expenses.length})
+          Despesas & Pagamentos ({competenceExpenses.length})
         </button>
         <button
           type="button"
@@ -151,7 +185,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
               : 'bg-slate-100 text-black hover:bg-slate-200'
           }`}
         >
-          Receitas de Silagem ({orders.length})
+          Receitas de Silagem ({competenceOrders.length})
         </button>
         <button
           type="button"
@@ -162,7 +196,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
               : 'bg-slate-100 text-black hover:bg-slate-200'
           }`}
         >
-          Acertos de Terceiros ({settlements.length})
+          Acertos de Terceiros ({competenceSettlements.length})
         </button>
       </div>
 
@@ -174,7 +208,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
           <PrintReportHeader
             companyProfile={companyProfile}
             reportTitle={getReportTitle()}
-            reportSubtitle={`Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`}
+            reportSubtitle={`Competência: ${activeCompetence} | Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`}
             documentTypeBadge={selectedFormat.toUpperCase()}
           />
         </div>
@@ -182,7 +216,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
         <div className="flex items-center justify-between border-b border-slate-200 pb-4 print:hidden">
           <div>
             <h4 className="font-bold text-black text-base">
-              Pré-visualização do Relatório
+              Pré-visualização do Relatório ({activeCompetence})
             </h4>
             <p className="text-xs text-black/75 font-medium">
               Data de Emissão: {new Date().toLocaleDateString('pt-BR')}
@@ -216,22 +250,22 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
 
         {selectedFormat === 'despesas' && (
           <div className="text-xs text-black font-medium space-y-1">
-            <p>Total de {expenses.length} lançamentos de despesas.</p>
+            <p>Total de {competenceExpenses.length} lançamentos de despesas na competência {activeCompetence}.</p>
             <p>Soma total: <strong className="font-black text-black">{formatCurrencyBRL(totalCosts)}</strong></p>
           </div>
         )}
 
         {selectedFormat === 'receitas' && (
           <div className="text-xs text-black font-medium space-y-1">
-            <p>Total de {orders.length} pedidos e vendas de silagem.</p>
+            <p>Total de {competenceOrders.length} pedidos e vendas de silagem na competência {activeCompetence}.</p>
             <p>Faturamento total: <strong className="font-black text-black">{formatCurrencyBRL(totalRevenue)}</strong></p>
           </div>
         )}
 
         {selectedFormat === 'terceiros' && (
           <div className="text-xs text-black font-medium space-y-1">
-            <p>Total de {settlements.length} acertos de caminhões e operadores.</p>
-            <p>Total Líquido: <strong className="font-black text-black">{formatCurrencyBRL(settlements.reduce((acc, s) => acc + s.netAmount, 0))}</strong></p>
+            <p>Total de {competenceSettlements.length} acertos de caminhões e operadores na competência {activeCompetence}.</p>
+            <p>Total Líquido: <strong className="font-black text-black">{formatCurrencyBRL(competenceSettlements.reduce((acc, s) => acc + s.netAmount, 0))}</strong></p>
           </div>
         )}
 

@@ -26,6 +26,7 @@ import { Expense, BankAccount, Employee, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { PaymentSettlementModal } from './PaymentSettlementModal';
 import { useConfirm } from '../../context/ConfirmContext';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 
 interface PayablesTabProps {
   expenses: Expense[];
@@ -49,6 +50,9 @@ interface PayablesTabProps {
   onDeleteExpense?: (id: string) => void;
   onViewReceipt?: (exp: Expense) => void;
   onNewExpense?: () => void;
+  competenceMonth?: string;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
 }
 
 export const PayablesTab: React.FC<PayablesTabProps> = ({
@@ -62,41 +66,28 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   onDeleteExpense,
   onViewReceipt,
   onNewExpense,
+  competenceMonth,
+  onPrevMonth,
+  onNextMonth,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'pago'>('all');
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
+
+  const activeCompetence = competenceMonth || internalCompetence;
+  const handlePrev = onPrevMonth || (() => setInternalCompetence((prev) => getPrevCompetence(prev)));
+  const handleNext = onNextMonth || (() => setInternalCompetence((prev) => getNextCompetence(prev)));
+
   const [settlementExpense, setSettlementExpense] = useState<Expense | null>(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
 
   // Filtro opcional por intervalo de datas
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  // Month filter list based on current system date
-  const monthFilterOptions = useMemo(() => {
-    const monthNames = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    const options: { key: string; label: string; year: number; month: number }[] = [];
-
-    for (let offset = -1; offset <= 5; offset++) {
-      const d = new Date(currentYear, currentMonth + offset, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-      const label = monthNames[m];
-      options.push({ key, label, year: y, month: m });
-    }
-
-    return options;
-  }, []);
 
   const safeExpenses = useMemo(() => {
     const list = Array.isArray(expenses) ? expenses.filter(Boolean) : [];
@@ -140,29 +131,25 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
     return deduped;
   }, [expenses]);
-  const pendingExpenses = safeExpenses.filter((e) => e.status === 'pendente');
-  const paidExpenses = safeExpenses.filter((e) => e.status === 'pago');
+  const competenceExpenses = useMemo(() => {
+    return safeExpenses.filter((e) => {
+      const targetDate = e.dueDate || e.date;
+      return matchesCompetence(targetDate, activeCompetence);
+    });
+  }, [safeExpenses, activeCompetence]);
+
+  const pendingExpenses = competenceExpenses.filter((e) => e.status === 'pendente');
+  const paidExpenses = competenceExpenses.filter((e) => e.status === 'pago');
 
   const totalPending = pendingExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   const totalPaid = paidExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  const totalGeneral = safeExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalGeneral = competenceExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const filteredExpenses = safeExpenses.filter((e) => {
+  const filteredExpenses = competenceExpenses.filter((e) => {
     if (!e) return false;
     const matchesStatus = statusFilter === 'all' || e.status === statusFilter;
-
-    // Monthly filter based on dueDate (or date as fallback)
-    let matchesMonth = true;
-    if (selectedMonthKey) {
-      const targetDate = e.dueDate || e.date;
-      if (targetDate) {
-        matchesMonth = targetDate.startsWith(selectedMonthKey);
-      } else {
-        matchesMonth = false;
-      }
-    }
 
     // Intervalo de datas personalizado (se informado)
     let matchesDateRange = true;
@@ -172,7 +159,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
     const q = (searchTerm || '').trim().toLowerCase();
     if (!q) {
-      return matchesStatus && matchesMonth && matchesDateRange;
+      return matchesStatus && matchesDateRange;
     }
 
     const desc = (e.description || '').toLowerCase();
@@ -188,7 +175,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       paid.includes(q) ||
       bank.includes(q);
 
-    return matchesStatus && matchesMonth && matchesDateRange && matchesSearch;
+    return matchesStatus && matchesDateRange && matchesSearch;
   });
 
   // Handler para clique no botão de status ou liquidar
@@ -283,7 +270,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
               {formatCurrencyBRL(totalGeneral)}
             </div>
             <p className="text-[11px] text-black/70 font-medium">
-              {safeExpenses.length} despesas no total
+              {competenceExpenses.length} despesas no total
             </p>
           </div>
           <div className="p-2 rounded-lg bg-slate-100 text-black shrink-0 border border-slate-200">
@@ -295,6 +282,15 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       {/* Filters Bar (Compact) */}
       <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 text-black">
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
+          {/* Divisor sutil */}
+          <div className="h-5 w-px bg-slate-300 mx-1 shrink-0 hidden sm:block" />
+
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
@@ -304,7 +300,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 : 'bg-slate-100 text-black hover:bg-slate-200'
             }`}
           >
-            Todas ({safeExpenses.length})
+            Todas ({competenceExpenses.length})
           </button>
           <button
             type="button"
@@ -329,29 +325,6 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
             Pagas ({paidExpenses.length})
           </button>
 
-          {/* Divisor sutil entre status e meses */}
-          <div className="h-4 w-px bg-slate-300 mx-0.5 shrink-0 hidden sm:block" />
-
-          {/* Botões de Filtro por Mês */}
-          {monthFilterOptions.map((m) => {
-            const isSelected = selectedMonthKey === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setSelectedMonthKey(isSelected ? null : m.key)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                  isSelected
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-black hover:bg-slate-200'
-                }`}
-                title={`Filtrar por ${m.label}/${m.year}`}
-              >
-                {m.label}
-              </button>
-            );
-          })}
-
           {/* Divisor sutil */}
           <div className="h-4 w-px bg-slate-300 mx-0.5 shrink-0 hidden md:block" />
 
@@ -362,10 +335,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (selectedMonthKey) setSelectedMonthKey(null);
-                }}
+                onChange={(e) => setStartDate(e.target.value)}
                 className="bg-transparent text-xs text-black font-semibold outline-none cursor-pointer"
                 title="Filtrar a partir desta data"
               />
@@ -375,10 +345,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  if (selectedMonthKey) setSelectedMonthKey(null);
-                }}
+                onChange={(e) => setEndDate(e.target.value)}
                 className="bg-transparent text-xs text-black font-semibold outline-none cursor-pointer"
                 title="Filtrar até esta data"
               />

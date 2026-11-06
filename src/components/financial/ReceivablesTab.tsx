@@ -40,6 +40,7 @@ import {
   ReceivePaymentSuccessDetails, 
   InstallmentPreviewItem 
 } from './ReceivePaymentModal';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 
 export const getPaymentMethodLabel = (method?: PaymentMethod | string): string => {
   switch (method) {
@@ -65,6 +66,9 @@ interface ReceivablesTabProps {
   onToggleOrderStatus?: (orderId: string) => void;
   onSaveOrders?: (orders: SilageOrder[]) => void;
   onSaveServices?: (services: ServiceOrder[]) => void;
+  competenceMonth?: string;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
 }
 
 export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
@@ -75,6 +79,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   onToggleOrderStatus,
   onSaveOrders,
   onSaveServices,
+  competenceMonth,
+  onPrevMonth,
+  onNextMonth,
 }) => {
   const [localOrders, setLocalOrders] = useState<SilageOrder[]>(orders);
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
@@ -95,46 +102,19 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'pago'>('all');
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
+
+  const activeCompetence = competenceMonth || internalCompetence;
+  const handlePrev = onPrevMonth || (() => setInternalCompetence((prev) => getPrevCompetence(prev)));
+  const handleNext = onNextMonth || (() => setInternalCompetence((prev) => getNextCompetence(prev)));
 
   // Modal de Baixa de Contas a Receber
   const [settlingItem, setSettlingItem] = useState<ReceivableItem | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
-
-  // Month options based on current date: 1 previous, current, 5 next
-  const monthFilterOptions = useMemo(() => {
-    const monthNames = [
-      'Janeiro',
-      'Fevereiro',
-      'Março',
-      'Abril',
-      'Maio',
-      'Junho',
-      'Julho',
-      'Agosto',
-      'Setembro',
-      'Outubro',
-      'Novembro',
-      'Dezembro',
-    ];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-11
-
-    const options: { key: string; label: string; year: number; month: number }[] = [];
-
-    // -1 (Mês Anterior), 0 (Mês Atual), +1..+5 (5 Próximos Meses)
-    for (let offset = -1; offset <= 5; offset++) {
-      const d = new Date(currentYear, currentMonth + offset, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth(); // 0-11
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-      const label = monthNames[m];
-      options.push({ key, label, year: y, month: m });
-    }
-
-    return options;
-  }, []);
 
   // Combined Receivables Items
   const receivablesFromOrders: ReceivableItem[] = useMemo(() => {
@@ -183,36 +163,32 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     return [...receivablesFromOrders, ...receivablesFromServices];
   }, [receivablesFromOrders, receivablesFromServices]);
 
-  const pendingList = useMemo(() => allReceivables.filter((r) => r.status === 'pendente'), [allReceivables]);
-  const paidList = useMemo(() => allReceivables.filter((r) => r.status === 'pago'), [allReceivables]);
+  const competenceReceivables = useMemo(() => {
+    return allReceivables.filter((r) => {
+      const targetDate = r.dueDate || r.date;
+      return matchesCompetence(targetDate, activeCompetence);
+    });
+  }, [allReceivables, activeCompetence]);
+
+  const pendingList = useMemo(() => competenceReceivables.filter((r) => r.status === 'pendente'), [competenceReceivables]);
+  const paidList = useMemo(() => competenceReceivables.filter((r) => r.status === 'pago'), [competenceReceivables]);
 
   const totalPending = useMemo(() => pendingList.reduce((acc, r) => acc + r.totalAmount, 0), [pendingList]);
   const totalPaid = useMemo(() => paidList.reduce((acc, r) => acc + r.totalAmount, 0), [paidList]);
-  const totalOverall = useMemo(() => allReceivables.reduce((acc, r) => acc + r.totalAmount, 0), [allReceivables]);
+  const totalOverall = useMemo(() => competenceReceivables.reduce((acc, r) => acc + r.totalAmount, 0), [competenceReceivables]);
 
   const filtered = useMemo(() => {
-    return allReceivables.filter((r) => {
+    return competenceReceivables.filter((r) => {
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-
-      // Monthly filter based on dueDate (or date as fallback)
-      let matchesMonth = true;
-      if (selectedMonthKey) {
-        const targetDate = r.dueDate || r.date;
-        if (targetDate) {
-          matchesMonth = targetDate.startsWith(selectedMonthKey);
-        } else {
-          matchesMonth = false;
-        }
-      }
-
       const q = searchTerm.toLowerCase();
       const matchesSearch =
+        !q ||
         r.clientName.toLowerCase().includes(q) ||
         r.type.toLowerCase().includes(q) ||
         (r.notes || '').toLowerCase().includes(q);
-      return matchesStatus && matchesMonth && matchesSearch;
+      return matchesStatus && matchesSearch;
     });
-  }, [allReceivables, statusFilter, selectedMonthKey, searchTerm]);
+  }, [competenceReceivables, statusFilter, searchTerm]);
 
   // Executa a baixa com sucesso e desdobra parcelas quando aplicável
   const handleReceiptSuccess = (details: ReceivePaymentSuccessDetails) => {
@@ -517,6 +493,15 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       {/* Filters Bar (Compact) */}
       <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-black">
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
+          {/* Divisor sutil */}
+          <div className="h-5 w-px bg-slate-300 mx-1 shrink-0 hidden sm:block" />
+
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
@@ -526,7 +511,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 : 'bg-slate-100 text-black hover:bg-slate-200'
             }`}
           >
-            Todos ({allReceivables.length})
+            Todos ({competenceReceivables.length})
           </button>
           <button
             type="button"
@@ -550,29 +535,6 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           >
             Recebidos ({paidList.length})
           </button>
-
-          {/* Divisor sutil entre status e meses */}
-          <div className="h-4 w-px bg-slate-300 mx-0.5 shrink-0 hidden sm:block" />
-
-          {/* Botões de Filtro por Mês */}
-          {monthFilterOptions.map((m) => {
-            const isSelected = selectedMonthKey === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setSelectedMonthKey(isSelected ? null : m.key)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                  isSelected
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-black hover:bg-slate-200'
-                }`}
-                title={`Filtrar por ${m.label}/${m.year}`}
-              >
-                {m.label}
-              </button>
-            );
-          })}
         </div>
 
         <div className="relative w-full sm:w-72">
