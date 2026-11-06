@@ -10,8 +10,7 @@ import {
   TrendingUp,
   Scale,
   DollarSign,
-  FileCheck2,
-  Calendar
+  FileCheck2
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
@@ -20,6 +19,7 @@ import { SaleDetailsEditModal } from './SaleDetailsEditModal';
 import { PdvView } from './PdvView';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from '../financial/CompetenceSelector';
 
 interface VendaModuleProps {
   services?: ServiceOrder[];
@@ -55,42 +55,34 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     return () => window.removeEventListener('agrocontrol_pdv_fullscreen', handlePdvFullscreen);
   }, []);
 
-  // Filtro por Período e Atalhos Rápidos (Gabarito Mestre de Relatórios)
-  const [quickPeriod, setQuickPeriod] = useState<'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses'>('mes_atual');
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  
-  const [startDate, setStartDate] = useState(() => `${currentYear}-${pad(currentMonth + 1)}-01`);
-  const [endDate, setEndDate] = useState(() => {
-    const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-    return `${currentYear}-${pad(currentMonth + 1)}-${pad(lastDay)}`;
+  // Filtro por Competência Mensal Padronizado (MM/AAAA)
+  const [competenceMonth, setCompetenceMonth] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_vendas_competence') || localStorage.getItem('agrocontrol_financial_competence');
+      if (saved && /^\d{2}\/\d{4}$/.test(saved)) return saved;
+    } catch {}
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
   });
 
-  const handleQuickPeriodChange = (p: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses') => {
-    setQuickPeriod(p);
-    const today = new Date();
-    let startD = new Date();
+  const handlePrevCompetence = () => {
+    setCompetenceMonth((prev) => {
+      const next = getPrevCompetence(prev);
+      try {
+        localStorage.setItem('agrocontrol_vendas_competence', next);
+      } catch {}
+      return next;
+    });
+  };
 
-    if (p === 'mes_atual') {
-      startD = new Date(today.getFullYear(), today.getMonth(), 1);
-      const endD = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      setStartDate(`${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-01`);
-      setEndDate(`${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}`);
-      return;
-    } else if (p === '1_mes') {
-      startD.setMonth(today.getMonth() - 1);
-    } else if (p === '3_meses') {
-      startD.setMonth(today.getMonth() - 3);
-    } else if (p === '6_meses') {
-      startD.setMonth(today.getMonth() - 6);
-    } else if (p === '12_meses') {
-      startD.setMonth(today.getMonth() - 12);
-    }
-
-    setStartDate(`${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-${pad(startD.getDate())}`);
-    setEndDate(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+  const handleNextCompetence = () => {
+    setCompetenceMonth((prev) => {
+      const next = getNextCompetence(prev);
+      try {
+        localStorage.setItem('agrocontrol_vendas_competence', next);
+      } catch {}
+      return next;
+    });
   };
 
   // Modal Exclusivo de Detalhes e Edição da Venda (Desvinculação de Serviços)
@@ -233,20 +225,14 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     return list;
   }, [localServices, salesUpdateTick]);
 
-  // Vendas filtradas pelo período selecionado
+  // Vendas filtradas pela competência ativa
   const periodSales = useMemo(() => {
     return salesRecords.filter((srv) => {
       let srvDate = srv.startDate || srv.date || ((srv as any).createdAt ? (srv as any).createdAt.split('T')[0] : '');
-      if (srvDate && srvDate.includes('/')) {
-        const parts = srvDate.split('/');
-        if (parts.length === 3) srvDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-      }
-      if (!srvDate) return true;
-      if (startDate && srvDate < startDate) return false;
-      if (endDate && srvDate > endDate) return false;
-      return true;
+      if (!srvDate) return false;
+      return matchesCompetence(srvDate, competenceMonth);
     });
-  }, [salesRecords, startDate, endDate]);
+  }, [salesRecords, competenceMonth]);
 
   // Vendas filtradas por busca e status
   const filteredSales = useMemo(() => {
@@ -448,63 +434,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
             />
           ) : (
             <>
-              {/* BLOCO DE FILTROS SUPERIOR (FILTRAR POR PERÍODO...) */}
-              <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-slate-100/60 dark:bg-stone-800/60 p-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-600 dark:text-stone-300 uppercase">
-                {/* Esquerda: Rótulo + Seleção por Data De / Até */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center space-x-1.5 text-slate-700 dark:text-stone-300">
-                    <Calendar className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400" />
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
-                      FILTRAR POR PERÍODO:
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => {
-                        setStartDate(e.target.value);
-                        setQuickPeriod('' as any);
-                      }}
-                      className="px-2.5 py-0.5 text-xs font-semibold rounded border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
-                    />
-                    <span className="text-[11px] text-slate-600 dark:text-stone-400 font-bold lowercase">até</span>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => {
-                        setEndDate(e.target.value);
-                        setQuickPeriod('' as any);
-                      }}
-                      className="px-2.5 py-0.5 text-xs font-semibold rounded border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Direita: Sequência Contínua de Botões de Atalhos Rápidos */}
-                <div className="flex flex-wrap items-center gap-1">
-                  {[
-                    { id: 'mes_atual', label: 'Mês atual' },
-                    { id: '1_mes', label: '1 mês' },
-                    { id: '3_meses', label: '3 meses' },
-                    { id: '6_meses', label: '6 meses' },
-                    { id: '12_meses', label: '12 meses' },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleQuickPeriodChange(item.id as any)}
-                      className={`px-2 py-0.5 rounded text-xs font-bold transition cursor-pointer select-none ${
-                        quickPeriod === item.id
-                          ? 'bg-slate-700 text-white dark:bg-stone-200 dark:text-stone-900 shadow-xs'
-                          : 'bg-white dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-100 border border-slate-300 dark:border-stone-700 shadow-2xs'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
+              {/* BLOCO SUPERIOR: SELETOR DE COMPETÊNCIA PADRONIZADO */}
+              <div className="flex items-center justify-between gap-2">
+                <CompetenceSelector
+                  competence={competenceMonth}
+                  onPrev={handlePrevCompetence}
+                  onNext={handleNextCompetence}
+                />
               </div>
 
 
