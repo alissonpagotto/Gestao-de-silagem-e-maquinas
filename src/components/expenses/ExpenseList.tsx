@@ -327,7 +327,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           
           {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-md sm:max-w-lg">
             <Search className="absolute left-3 top-2 w-3.5 h-3.5 text-zinc-400 dark:text-stone-400" />
             <input
               type="text"
@@ -339,7 +339,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-2 text-zinc-400 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-white text-xs font-bold"
+                className="absolute right-2.5 top-2 text-zinc-400 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-white text-xs font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -347,7 +347,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </div>
 
           {/* Quick Action Buttons */}
-          <div className="flex items-center space-x-1.5 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center space-x-1.5 flex-wrap sm:flex-nowrap justify-end shrink-0">
             <button
               onClick={handleExportCSV}
               className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border border-zinc-200 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
