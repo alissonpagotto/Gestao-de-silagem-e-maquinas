@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
-import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries } from '../../lib/storage';
+import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts } from '../../lib/storage';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
 
@@ -120,6 +120,38 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setCategoryId(newCatId);
   };
 
+  // Lista resiliente e unificada de contas bancárias
+  const effectiveBankAccounts = useMemo(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const raw =
+          localStorage.getItem('agrocontrol_bancos') ||
+          localStorage.getItem('agrocontrol_contas_bancarias') ||
+          localStorage.getItem('agrocontrol_financeiro_contas');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed as BankAccount[];
+        }
+      } catch {}
+    }
+    if (Array.isArray(bankAccounts) && bankAccounts.length > 0) return bankAccounts;
+    return getStoredBankAccounts();
+  }, [bankAccounts, isOpen]);
+
+  // Identificação da conta prioritária ativa (com estrela amarela "PRIORITÁRIA" no módulo financeiro)
+  const priorityBankAccountId = useMemo(() => {
+    if (!Array.isArray(effectiveBankAccounts) || effectiveBankAccounts.length === 0) return '';
+    const priority = effectiveBankAccounts.find(
+      (b) =>
+        b.isPriority === true ||
+        b.prioritaria === true ||
+        (b as any).is_priority === true ||
+        (b as any).priority === true ||
+        String((b as any).status || '').toUpperCase() === 'PRIORITÁRIA'
+    );
+    return priority ? priority.id : (effectiveBankAccounts[0]?.id || '');
+  }, [effectiveBankAccounts]);
+
   const [supplierId, setSupplierId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [categoryId, setCategoryId] = useState('');
@@ -127,7 +159,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [paymentDate, setPaymentDate] = useState('');
   const [status, setStatus] = useState<ExpenseStatus>('pago');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
-  const [bankAccountId, setBankAccountId] = useState<string>('');
+  const [bankAccountId, setBankAccountId] = useState<string>(() => priorityBankAccountId);
   const [paidByEmployeeId, setPaidByEmployeeId] = useState<string>('');
   const [supplier, setSupplier] = useState('');
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -202,7 +234,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setPaymentDate(editingExpense.paymentDate || '');
       setStatus(editingExpense.status);
       setPaymentMethod(editingExpense.paymentMethod);
-      setBankAccountId(editingExpense.bankAccountId || '');
+      setBankAccountId(editingExpense.bankAccountId || priorityBankAccountId || '');
       setPaidByEmployeeId(editingExpense.paidByEmployeeId || '');
       setSupplier(editingExpense.supplier || editingExpense.description || '');
       setSupplierId(editingExpense.supplierId || editingExpense.fornecedorId || '');
@@ -248,7 +280,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setPaymentDate(today);
       setStatus('pago');
       setPaymentMethod('pix');
-      setBankAccountId(bankAccounts[0]?.id || '');
+      setBankAccountId(priorityBankAccountId);
       setPaidByEmployeeId(employees[0]?.id || '');
       setSupplier('');
       setSupplierId('');
@@ -269,7 +301,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setReceiptUrl(undefined);
       setReceiptName(undefined);
     }
-  }, [editingExpense, isOpen, safeCategories]);
+  }, [editingExpense, isOpen, safeCategories, priorityBankAccountId]);
+
+  // Garante que, ao abrir o modal para uma nova despesa, a conta prioritária esteja pré-selecionada
+  useEffect(() => {
+    if (isOpen && !editingExpense && priorityBankAccountId) {
+      setBankAccountId(priorityBankAccountId);
+    }
+  }, [isOpen, editingExpense, priorityBankAccountId]);
 
   // Close supplier dropdown on outside click
   useEffect(() => {
@@ -527,7 +566,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       ? activeEmployees.find((e) => e.id === selectedTargets[0])
       : undefined;
 
-    const selectedBankAccountObj = bankAccounts.find((b) => b.id === bankAccountId);
+    const selectedBankAccountObj = effectiveBankAccounts.find((b) => b.id === bankAccountId);
     const selectedPaidByEmpObj = employees.find((e) => e.id === paidByEmployeeId);
 
     if (isInstallment && installmentCount > 1 && !editingExpense) {
@@ -694,8 +733,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-        <div className="w-full max-w-4xl max-h-[96vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
+        <div
+          className="w-full max-w-4xl h-[95vh] flex flex-col mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          style={{ height: '95vh' }}
+        >
         
         {/* Header - Moldura Metálica 3D Acetinada Compacta */}
         <div className="px-3.5 py-2 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-200 flex items-center justify-between shrink-0 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg">
@@ -721,8 +763,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </button>
         </div>
 
-        {/* Form - Compacto Slim com Zero Rolagem Global */}
-        <form onSubmit={handleSubmit} className="p-2.5 sm:p-3 space-y-2 bg-[#edf4ff] dark:bg-stone-900 flex-1 overflow-hidden">
+        {/* Form - Altura Total 95vh com Scroll Interno e Rodapé Fixo */}
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col bg-[#edf4ff] dark:bg-stone-900 overflow-hidden">
+          {/* Bloco de Campos com Rolagem Vertical Reativa */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5">
           
           {/* LINHA SUPERIOR UNIFICADA: CATEGORIA (50%) + DATA (25%) + VALOR TOTAL (25%) */}
           <div className="grid grid-cols-12 gap-2">
@@ -969,11 +1013,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
                 >
                   <option value="">-- SELECIONE O BANCO / CONTA --</option>
-                  {bankAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id} className="uppercase">
-                      {acc.name.toUpperCase()} · {acc.bankName.toUpperCase()} (SALDO: R$ {acc.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                    </option>
-                  ))}
+                  {effectiveBankAccounts.map((acc) => {
+                    const name = (acc.name || acc.accountName || '').trim();
+                    const bank = (acc.bankName || '').trim();
+                    const cleanLabel = name && bank && name.toUpperCase() !== bank.toUpperCase()
+                      ? `${name} · ${bank}`
+                      : (name || bank || 'CONTA BANCÁRIA');
+                    return (
+                      <option key={acc.id} value={acc.id} className="uppercase">
+                        {cleanLabel.toUpperCase()}
+                      </option>
+                    );
+                  })}
                 </select>
                 <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -1378,8 +1429,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
           </div>
 
-          {/* Botões de Ação - Rodapé 3D Compacto */}
-          <div className="pt-2 border-t border-slate-200 dark:border-stone-800 flex items-center justify-end space-x-2 shrink-0">
+          </div>
+
+          {/* Botões de Ação - Rodapé 3D Compacto Fixo */}
+          <div className="px-3.5 py-2 border-t border-slate-300 dark:border-stone-800 bg-slate-100 dark:bg-stone-850 flex items-center justify-end space-x-2 shrink-0 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
             <button
               type="button"
               onClick={onClose}
