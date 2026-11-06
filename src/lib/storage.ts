@@ -15,6 +15,7 @@ import {
   FuelLog,
   MaintenanceLog,
   BankAccount,
+  CorporateCard,
   BankTransaction,
   ThirdPartySettlement,
   BrokerSettlement,

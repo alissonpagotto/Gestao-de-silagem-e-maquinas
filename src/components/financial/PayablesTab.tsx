@@ -19,7 +19,8 @@ import {
   Edit3,
   Trash2,
   Paperclip,
-  X
+  X,
+  CreditCard
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
@@ -484,6 +485,12 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                       <td className="py-1 px-2.5 text-black text-xs whitespace-nowrap max-w-[200px]">
                         {isPaid ? (
                           <div className="flex items-center space-x-1.5 truncate text-[10px] font-semibold text-emerald-900 uppercase">
+                            {exp.corporateCardName && (
+                              <span className="truncate flex items-center space-x-1 text-purple-800 font-bold bg-purple-50 px-1 py-0.5 rounded border border-purple-200">
+                                <CreditCard className="w-3 h-3 text-purple-600 shrink-0" />
+                                <span>{exp.corporateCardName}</span>
+                              </span>
+                            )}
                             {exp.paidByEmployeeName && (
                               <span className="truncate flex items-center space-x-1">
                                 <UserCheck className="w-3 h-3 text-emerald-700 shrink-0" />
@@ -496,13 +503,18 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                                 <span>{exp.bankAccountName}</span>
                               </span>
                             )}
-                            {!exp.paidByEmployeeName && !exp.bankAccountName && (
+                            {!exp.corporateCardName && !exp.paidByEmployeeName && !exp.bankAccountName && (
                               <span className="text-stone-400 italic">PAGO SEM REGISTRO</span>
                             )}
                           </div>
                         ) : (
-                          <div className="text-[10px] text-stone-500 font-medium uppercase truncate">
-                            {exp.bankAccountName ? (
+                          <div className="text-[10px] font-medium uppercase truncate flex items-center space-x-1.5">
+                            {exp.corporateCardName ? (
+                              <span className="truncate flex items-center space-x-1 text-purple-800 font-bold bg-purple-50 px-1 py-0.5 rounded border border-purple-200">
+                                <CreditCard className="w-3 h-3 text-purple-600 shrink-0" />
+                                <span>FATURA: {exp.corporateCardName}</span>
+                              </span>
+                            ) : exp.bankAccountName ? (
                               <span className="flex items-center space-x-1 text-stone-600 truncate">
                                 <Landmark className="w-3 h-3 text-[#0963cb] shrink-0" />
                                 <span>PREV: {exp.bankAccountName}</span>

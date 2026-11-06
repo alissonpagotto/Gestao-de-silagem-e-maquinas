@@ -112,6 +112,7 @@ import { AgroControlHome } from './components/home/AgroControlHome';
 import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu, HelpCircle, X, Keyboard } from 'lucide-react';
 import { UserSessionModal } from './components/cadastrosBase/UserSessionModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
+import { syncExpenseWithCardsAndBank, revertExpenseCardsAndBank } from './lib/cardFinancialSync';
 import { DespesasModule } from './components/expenses/DespesasModule';
 import { FuelModal } from './components/fleet/FuelModal';
 import { updateVehicleWithCalculatedMetrics } from './lib/fleetMetrics';
@@ -1959,7 +1960,18 @@ export default function App() {
   // Expense Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveExpense = (newOrUpdated: Expense | Expense[]) => {
     const items = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
+    let latestAccounts = bankAccounts;
+
     items.forEach(exp => {
+      // Sincroniza efeito em cartões corporativos e extrato/saldo bancário
+      const prevExp = editingExpense && editingExpense.id === exp.id 
+        ? editingExpense 
+        : expenses.find(e => e.id === exp.id);
+      const syncRes = syncExpenseWithCardsAndBank(exp, prevExp, latestAccounts);
+      if (syncRes.updatedAccounts) {
+        latestAccounts = syncRes.updatedAccounts;
+      }
+
       // Se for lançamento exclusivo de DRE / abatimento de estoque, NÃO insere na tabela contas_a_pagar
       if (exp.isDreOnly || exp.skipAccountsPayable || exp.status === 'compensado_estoque') {
         return;
@@ -1975,6 +1987,13 @@ export default function App() {
         status_pago: exp.status === 'pago'
       }, activeTenantId).catch(err => console.warn('Supabase upsertContaAPagar notice:', err));
     });
+
+    if (latestAccounts !== bankAccounts) {
+      setBankAccounts(latestAccounts);
+      saveCloudBankAccounts(latestAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+        console.warn('Supabase saveCloudBankAccounts notice:', err)
+      );
+    }
 
     if (Array.isArray(newOrUpdated)) {
       setExpenses((prev) => {
@@ -2038,6 +2057,16 @@ export default function App() {
       variant: 'danger',
     });
     if (isConfirmed) {
+      const expToDelete = expenses.find((e) => e.id === id);
+      if (expToDelete) {
+        const revertRes = revertExpenseCardsAndBank(expToDelete, bankAccounts);
+        if (revertRes.updatedAccounts) {
+          setBankAccounts(revertRes.updatedAccounts);
+          saveCloudBankAccounts(revertRes.updatedAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+            console.warn('Supabase revert notice:', err)
+          );
+        }
+      }
       deleteContaAPagar(id, activeTenantId).catch(err => console.warn('Supabase deleteContaAPagar notice:', err));
       setExpenses((prev) => prev.filter((e) => e.id !== id));
     }
@@ -4066,6 +4095,7 @@ export default function App() {
         onSaveEmployees={setEmployees}
         onSaveTeams={setFleetTeams}
         onSaveSuppliers={setSuppliers}
+        onSaveBankAccounts={handleSaveBankAccounts}
       />
 
       {/* Global Fuel Modal (Bypass Lógico do Controle de Despesas & Frotas) */}

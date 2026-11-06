@@ -22,7 +22,8 @@ import {
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts } from '../../lib/storage';
-import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate } from '../../lib/formatters';
+import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate, formatDateBR } from '../../lib/formatters';
+import { formatCorporateCardDisplay, syncExpenseWithCardsAndBank } from '../../lib/cardFinancialSync';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
 
@@ -45,6 +46,7 @@ interface ExpenseModalProps {
   onSaveEmployees?: (employees: Employee[]) => void;
   onSaveTeams?: (teams: FleetTeam[]) => void;
   onSaveSuppliers?: (suppliers: Supplier[]) => void;
+  onSaveBankAccounts?: (accounts: BankAccount[]) => void;
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -66,6 +68,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   onSaveEmployees,
   onSaveTeams,
   onSaveSuppliers,
+  onSaveBankAccounts,
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
@@ -178,6 +181,25 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [status, setStatus] = useState<ExpenseStatus>('pendente');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('assinado_nota');
   const [bankAccountId, setBankAccountId] = useState<string>(() => priorityBankAccountId);
+  const [corporateCardId, setCorporateCardId] = useState<string>('');
+
+  const selectedAccount = useMemo(() => {
+    return effectiveBankAccounts.find((a) => a.id === bankAccountId);
+  }, [effectiveBankAccounts, bankAccountId]);
+
+  const availableCards: CorporateCard[] = useMemo(() => {
+    if (!selectedAccount || !Array.isArray(selectedAccount.corporateCards)) {
+      return [];
+    }
+    return selectedAccount.corporateCards;
+  }, [selectedAccount]);
+
+  const selectedCard = useMemo(() => {
+    return availableCards.find((c) => c.id === corporateCardId) ||
+      effectiveBankAccounts.flatMap(a => a.corporateCards || []).find(c => c.id === corporateCardId);
+  }, [availableCards, effectiveBankAccounts, corporateCardId]);
+
+  const isCardPayment = paymentMethod === 'cartao_credito' || paymentMethod === 'cartao_debito';
 
   const handleStatusChange = (newStatus: ExpenseStatus) => {
     setStatus(newStatus);
@@ -194,8 +216,71 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
     } else {
       setPaymentDate('');
-      // Sempre que alterar para "A PAGAR (PENDENTE)", define automaticamente como "ASSINADO NOTA"
-      setPaymentMethod('assinado_nota');
+      // Sempre que alterar para "A PAGAR (PENDENTE)", se for cartão mantém o cartão
+      if (paymentMethod !== 'cartao_credito' && paymentMethod !== 'cartao_debito') {
+        setPaymentMethod('assinado_nota');
+      }
+    }
+  };
+
+  const handlePaymentMethodChange = (newMethod: PaymentMethod) => {
+    setPaymentMethod(newMethod);
+    if (newMethod === 'cartao_credito' || newMethod === 'cartao_debito') {
+      let currentAccId = bankAccountId;
+      if (!currentAccId && priorityBankAccountId) {
+        currentAccId = priorityBankAccountId;
+        setBankAccountId(priorityBankAccountId);
+      }
+      const acc = effectiveBankAccounts.find((a) => a.id === currentAccId) || effectiveBankAccounts[0];
+      const cards = acc?.corporateCards || [];
+      if (cards.length > 0) {
+        const matchingCard = cards.find((c) => c.id === corporateCardId) || cards[0];
+        setCorporateCardId(matchingCard.id);
+        if (newMethod === 'cartao_credito' && matchingCard.dueDay) {
+          setDueDate(calculateCardInvoiceDueDate(matchingCard.dueDay));
+          setStatus('pendente');
+        } else if (newMethod === 'cartao_debito') {
+          setStatus('pago');
+          if (!paymentDate) {
+            setPaymentDate(dueDate || today);
+          }
+        }
+      } else {
+        setCorporateCardId('');
+      }
+    } else {
+      // 3. Limpeza de Estados: Se a forma de pagamento for alterada de volta para Pix, Dinheiro ou outra modalidade,
+      // oculte o seletor de cartões e remova qualquer ID de cartão associado do payload final do formulário
+      setCorporateCardId('');
+    }
+  };
+
+  const handleCorporateCardChange = (cardId: string) => {
+    setCorporateCardId(cardId);
+    if (paymentMethod === 'cartao_credito' && cardId) {
+      const card = availableCards.find((c) => c.id === cardId);
+      if (card?.dueDay) {
+        setDueDate(calculateCardInvoiceDueDate(card.dueDay));
+      }
+    }
+  };
+
+  const handleBankAccountChange = (accId: string) => {
+    setBankAccountId(accId);
+    if (paymentMethod === 'cartao_credito' || paymentMethod === 'cartao_debito') {
+      const acc = effectiveBankAccounts.find((a) => a.id === accId);
+      const cards = acc?.corporateCards || [];
+      if (cards.length > 0) {
+        const stillValid = cards.some((c) => c.id === corporateCardId);
+        if (!stillValid) {
+          setCorporateCardId(cards[0].id);
+          if (paymentMethod === 'cartao_credito' && cards[0].dueDay) {
+            setDueDate(calculateCardInvoiceDueDate(cards[0].dueDay));
+          }
+        }
+      } else {
+        setCorporateCardId('');
+      }
     }
   };
   const [paidByEmployeeId, setPaidByEmployeeId] = useState<string>('');
@@ -337,6 +422,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setPaymentDate(editingExpense.status === 'pago' ? (editingExpense.paymentDate || '') : '');
       setPaymentMethod(editingExpense.paymentMethod);
       setBankAccountId(editingExpense.bankAccountId || (editingExpense.status === 'pago' ? priorityBankAccountId : ''));
+      setCorporateCardId(editingExpense.corporateCardId || '');
       setPaidByEmployeeId(editingExpense.paidByEmployeeId || '');
       setSupplier(editingExpense.supplier || editingExpense.description || '');
       setSupplierId(editingExpense.supplierId || editingExpense.fornecedorId || '');
@@ -392,6 +478,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setStatus('pendente');
       setPaymentMethod('assinado_nota');
       setBankAccountId(priorityBankAccountId);
+      setCorporateCardId('');
       setPaidByEmployeeId(employees[0]?.id || '');
       setSupplier('');
       setSupplierId('');
@@ -661,9 +748,20 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
-    if (status === 'pago' && !bankAccountId) {
+    if (status === 'pago' && !bankAccountId && !isCardPayment) {
       alert('POR FAVOR, SELECIONE A CONTA DE DÉBITO (ORIGEM) PARA A DESPESA PAGA.');
       return;
+    }
+
+    if (isCardPayment) {
+      if (!bankAccountId) {
+        alert('POR FAVOR, SELECIONE A CONTA BANCÁRIA VINCULADA AO CARTÃO.');
+        return;
+      }
+      if (!corporateCardId) {
+        alert('POR FAVOR, SELECIONE O CARTÃO CORPORATIVO UTILIZADO.');
+        return;
+      }
     }
 
     const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
@@ -682,10 +780,34 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     const selectedBankAccountObj = effectiveBankAccounts.find((b) => b.id === bankAccountId);
     const selectedPaidByEmpObj = employees.find((e) => e.id === paidByEmployeeId);
 
+    const cardObj = isCardPayment
+      ? (availableCards.find((c) => c.id === corporateCardId) || selectedCard)
+      : undefined;
+    const finalCorporateCardId = isCardPayment ? (cardObj?.id || corporateCardId) : undefined;
+    const finalCorporateCardName = isCardPayment ? (cardObj?.name || 'Cartão Corporativo') : undefined;
+
+    let finalDueDate = dueDate;
+    let finalStatus = status;
+    let finalPaymentDate = status === 'pago' ? (paymentDate || dueDate) : undefined;
+
+    if (paymentMethod === 'cartao_credito') {
+      finalStatus = 'pendente';
+      if (cardObj?.dueDay) {
+        finalDueDate = calculateCardInvoiceDueDate(cardObj.dueDay);
+      }
+      finalPaymentDate = undefined;
+    } else if (paymentMethod === 'cartao_debito') {
+      finalStatus = 'pago';
+      finalPaymentDate = paymentDate || dueDate || today;
+    }
+
+    const finalBankAccountId = (finalStatus === 'pago' || isCardPayment) ? selectedBankAccountObj?.id : undefined;
+    const finalBankAccountName = (finalStatus === 'pago' || isCardPayment) ? selectedBankAccountObj?.name : undefined;
+
     if (isInstallment && installmentCount > 1 && !editingExpense) {
       const installmentAmount = +(numAmount / installmentCount).toFixed(2);
       const installments: Expense[] = [];
-      const [bYear, bMonth, bDay] = dueDate.split('-').map(Number);
+      const [bYear, bMonth, bDay] = finalDueDate.split('-').map(Number);
 
       for (let i = 0; i < installmentCount; i++) {
         const totalMonths = (bMonth - 1) + i;
@@ -706,13 +828,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           categoryName: selectedCat?.name || 'Geral',
           categoryColor: selectedCat?.color || '#10b981',
           dueDate: dateStr,
-          paymentDate: i === 0 && status === 'pago' ? (paymentDate || dateStr) : undefined,
-          status: i === 0 ? status : 'pendente',
+          paymentDate: i === 0 && finalStatus === 'pago' ? (finalPaymentDate || dateStr) : undefined,
+          status: i === 0 ? finalStatus : 'pendente',
           paymentMethod,
-          bankAccountId: i === 0 && status === 'pago' ? selectedBankAccountObj?.id : undefined,
-          bankAccountName: i === 0 && status === 'pago' ? selectedBankAccountObj?.name : undefined,
-          paidByEmployeeId: i === 0 && status === 'pago' ? selectedPaidByEmpObj?.id : undefined,
-          paidByEmployeeName: i === 0 && status === 'pago' ? selectedPaidByEmpObj?.name : undefined,
+          bankAccountId: i === 0 && (finalStatus === 'pago' || isCardPayment) ? finalBankAccountId : undefined,
+          bankAccountName: i === 0 && (finalStatus === 'pago' || isCardPayment) ? finalBankAccountName : undefined,
+          paidByEmployeeId: i === 0 && finalStatus === 'pago' ? selectedPaidByEmpObj?.id : undefined,
+          paidByEmployeeName: i === 0 && finalStatus === 'pago' ? selectedPaidByEmpObj?.name : undefined,
+          corporateCardId: finalCorporateCardId,
+          corporateCardName: finalCorporateCardName,
           supplier: supplier.trim(),
           supplierId: resolvedSupplierId,
           fornecedorId: resolvedSupplierId,
@@ -737,6 +861,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           createdAt: new Date().toISOString(),
         });
       }
+
+      // Sincroniza cada parcela que utilize cartão ou débito
+      installments.forEach(inst => {
+        const syncRes = syncExpenseWithCardsAndBank(inst, null, effectiveBankAccounts);
+        if (onSaveBankAccounts && syncRes.updatedAccounts) {
+          onSaveBankAccounts(syncRes.updatedAccounts);
+        }
+      });
+
       onSave(installments);
     } else {
       const expenseData: Expense = {
@@ -746,14 +879,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         categoryId: selectedCat?.id || 'geral',
         categoryName: selectedCat?.name || 'Geral',
         categoryColor: selectedCat?.color || '#10b981',
-        dueDate,
-        paymentDate: status === 'pago' ? (paymentDate || dueDate) : undefined,
-        status,
+        dueDate: finalDueDate,
+        paymentDate: finalPaymentDate,
+        status: finalStatus,
         paymentMethod,
-        bankAccountId: status === 'pago' ? selectedBankAccountObj?.id : undefined,
-        bankAccountName: status === 'pago' ? selectedBankAccountObj?.name : undefined,
-        paidByEmployeeId: status === 'pago' ? selectedPaidByEmpObj?.id : undefined,
-        paidByEmployeeName: status === 'pago' ? selectedPaidByEmpObj?.name : undefined,
+        bankAccountId: finalBankAccountId,
+        bankAccountName: finalBankAccountName,
+        paidByEmployeeId: finalStatus === 'pago' ? selectedPaidByEmpObj?.id : undefined,
+        paidByEmployeeName: finalStatus === 'pago' ? selectedPaidByEmpObj?.name : undefined,
+        corporateCardId: finalCorporateCardId,
+        corporateCardName: finalCorporateCardName,
         supplier: supplier.trim(),
         supplierId: resolvedSupplierId,
         fornecedorId: resolvedSupplierId,
@@ -777,6 +912,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         items: expenseItems.length > 0 ? expenseItems : undefined,
         createdAt: editingExpense ? editingExpense.createdAt : new Date().toISOString(),
       };
+
+      const syncRes = syncExpenseWithCardsAndBank(expenseData, editingExpense, effectiveBankAccounts);
+      if (onSaveBankAccounts && syncRes.updatedAccounts) {
+        onSaveBankAccounts(syncRes.updatedAccounts);
+      }
+
       onSave(expenseData);
     }
 
@@ -1465,7 +1606,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <div className="relative">
                 <select
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                  onChange={(e) => handlePaymentMethodChange(e.target.value as PaymentMethod)}
                   className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
                 >
                   <option value="assinado_nota">ASSINADO NOTA</option>
@@ -1502,23 +1643,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             {/* CONTA DE DÉBITO (ORIGEM) POSICIONADO LOGO ABAIXO DO STATUS DE PAGAMENTO */}
-            <div className="col-span-12">
+            <div className={isCardPayment ? "col-span-6" : "col-span-12"}>
               <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                CONTA DE DÉBITO (ORIGEM) {status === 'pago' ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
+                CONTA DE DÉBITO (ORIGEM) {(status === 'pago' || isCardPayment) ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
               </label>
               <div className="relative">
                 <select
-                  value={status === 'pago' ? bankAccountId : ''}
-                  onChange={(e) => setBankAccountId(e.target.value)}
-                  disabled={status !== 'pago'}
-                  required={status === 'pago'}
+                  value={(status === 'pago' || isCardPayment) ? bankAccountId : ''}
+                  onChange={(e) => handleBankAccountChange(e.target.value)}
+                  disabled={status !== 'pago' && !isCardPayment}
+                  required={status === 'pago' || isCardPayment}
                   className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase transition ${
-                    status !== 'pago'
+                    (status !== 'pago' && !isCardPayment)
                       ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
                       : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
                   }`}
                 >
-                  {status !== 'pago' ? (
+                  {(status !== 'pago' && !isCardPayment) ? (
                     <option value="">-- CONTA BLOQUEADA (DESPESA PENDENTE DE PAGAMENTO) --</option>
                   ) : (
                     <>
@@ -1541,6 +1682,78 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
+
+            {/* CAMPO CONDICIONAL: SELECIONAR CARTÃO CORPORATIVO (INTERFACE REATIVA - PRINT 1) */}
+            {isCardPayment && (
+              <div className="col-span-6 animate-in fade-in">
+                <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <CreditCard className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                    SELECIONAR CARTÃO CORPORATIVO <span className="text-rose-600 font-bold">*</span>
+                  </span>
+                  {selectedCard && (
+                    <span className="text-[9px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">
+                      Disp: {formatCurrencyBRL(Math.max(0, selectedCard.totalLimit - selectedCard.usedLimit))}
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    value={corporateCardId}
+                    onChange={(e) => handleCorporateCardChange(e.target.value)}
+                    required
+                    className="w-full px-2.5 h-7.5 rounded-md border border-blue-400 dark:border-blue-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-7 cursor-pointer"
+                  >
+                    {availableCards.length === 0 ? (
+                      <option value="">-- NENHUM CARTÃO VINCULADO A ESTA CONTA --</option>
+                    ) : (
+                      <>
+                        <option value="">-- SELECIONE O CARTÃO CORPORATIVO * --</option>
+                        {availableCards.map((card) => (
+                          <option key={card.id} value={card.id}>
+                            {formatCorporateCardDisplay(card, selectedAccount)}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            )}
+
+            {/* NOTIFICAÇÃO DE REGRA FINANCEIRA AUTOMATIZADA POR TIPO DE CARTÃO */}
+            {isCardPayment && (
+              <div className="col-span-12">
+                {paymentMethod === 'cartao_credito' ? (
+                  <div className="flex items-center justify-between text-[10px] bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-md px-2.5 py-1 text-purple-900 dark:text-purple-300">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <span>
+                        Fatura Aberta: O valor será lançado no Limite Utilizado do cartão. Saldo em conta não é debitado imediatamente.
+                      </span>
+                    </span>
+                    {selectedCard && (
+                      <span className="font-mono font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                        Vencimento da Fatura: {formatDateBR(calculateCardInvoiceDueDate(selectedCard.dueDay || 10))}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[10px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-md px-2.5 py-1 text-emerald-900 dark:text-emerald-300">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>
+                        Cartão de Débito: Baixa imediata de {formatCurrencyBRL(parseFloat(amount) || 0)} no saldo da conta com lançamento no extrato bancário.
+                      </span>
+                    </span>
+                    <span className="font-bold text-emerald-800 dark:text-emerald-400 shrink-0 uppercase">
+                      Débito Imediato em Conta
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ADAPTAÇÃO DE BLOCOS SECUNDÁRIOS: FOTO / COMPROVANTE & OBSERVAÇÕES LADO A LADO */}

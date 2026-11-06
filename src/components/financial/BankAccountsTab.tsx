@@ -192,11 +192,13 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('agrocontrol_bancos_updated', handleStorageUpdate);
     window.addEventListener('agrocontrol_bancos_contas_updated', handleStorageUpdate);
+    window.addEventListener('agrocontrol_bank_accounts_updated', handleStorageUpdate);
     window.addEventListener('bank_accounts_updated', handleStorageUpdate);
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('agrocontrol_bancos_updated', handleStorageUpdate);
       window.removeEventListener('agrocontrol_bancos_contas_updated', handleStorageUpdate);
+      window.removeEventListener('agrocontrol_bank_accounts_updated', handleStorageUpdate);
       window.removeEventListener('bank_accounts_updated', handleStorageUpdate);
     };
   }, []);
