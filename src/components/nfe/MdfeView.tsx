@@ -23,6 +23,12 @@ import {
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
 
 export interface DocumentoVinculadoMdfe {
   tipo: 'CTE' | 'NFE';
@@ -105,16 +111,37 @@ export const saveStoredMdfe = (data: MdfeRecord[]) => {
 
 interface MdfeViewProps {
   companyProfile: CompanyProfile | null;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
   onRefreshAll?: () => void;
 }
 
 export const MdfeView: React.FC<MdfeViewProps> = ({
-  companyProfile
+  companyProfile,
+  competence,
+  onCompetenceChange
 }) => {
   const [manifestos, setManifestos] = useState<MdfeRecord[]>(() => getStoredMdfe());
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'TODOS' | 'AUTORIZADO' | 'ENCERRADO' | 'CANCELADO' | 'EM VIAGEM'>('TODOS');
   
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrevCompetence = () => {
+    const prev = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(prev);
+  };
+
+  const handleNextCompetence = () => {
+    const next = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(next);
+  };
+
   // Modais
   const [selectedMdfe, setSelectedMdfe] = useState<MdfeRecord | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -149,8 +176,13 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // Filtragem estrita por competência
+  const competenceManifestos = useMemo(() => {
+    return manifestos.filter(m => matchesCompetence(m.dataEmissao, activeCompetence));
+  }, [manifestos, activeCompetence]);
+
   const filteredManifestos = useMemo(() => {
-    return manifestos.filter(m => {
+    return competenceManifestos.filter(m => {
       const matchSearch = 
         m.numero.includes(searchTerm) ||
         m.chaveAcesso.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,16 +194,16 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
       const matchStatus = statusFilter === 'TODOS' || m.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [manifestos, searchTerm, statusFilter]);
+  }, [competenceManifestos, searchTerm, statusFilter]);
 
   // Indicadores
   const totalCargaValor = useMemo(() => {
-    return manifestos.reduce((acc, m) => acc + (m.status !== 'CANCELADO' ? m.valorTotalCarga : 0), 0);
-  }, [manifestos]);
+    return competenceManifestos.reduce((acc, m) => acc + (m.status !== 'CANCELADO' ? m.valorTotalCarga : 0), 0);
+  }, [competenceManifestos]);
 
   const totalPesoKg = useMemo(() => {
-    return manifestos.reduce((acc, m) => acc + (m.status !== 'CANCELADO' ? m.pesoBrutoTotalKg : 0), 0);
-  }, [manifestos]);
+    return competenceManifestos.reduce((acc, m) => acc + (m.status !== 'CANCELADO' ? m.pesoBrutoTotalKg : 0), 0);
+  }, [competenceManifestos]);
 
   const countEmViagem = useMemo(() => manifestos.filter(m => m.status === 'EM VIAGEM' || m.status === 'AUTORIZADO').length, [manifestos]);
   const countEncerrados = useMemo(() => manifestos.filter(m => m.status === 'ENCERRADO').length, [manifestos]);

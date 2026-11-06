@@ -35,6 +35,12 @@ import {
   getStoredMachineries,
   saveStoredMachineries
 } from '../../lib/storage';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence, 
+  matchesCompetence 
+} from '../financial/CompetenceSelector';
 
 export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'nfse';
 
@@ -86,6 +92,8 @@ export interface FiscalDocumentRecord {
 export interface FiscalDocumentTypeViewProps {
   category: FiscalDocumentCategory;
   companyProfile: CompanyProfile | null;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
   onRefreshAll?: () => void;
 }
 
@@ -169,10 +177,29 @@ const CATEGORY_CONFIG: Record<FiscalDocumentCategory, {
 export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   category,
   companyProfile,
+  competence,
+  onCompetenceChange,
   onRefreshAll
 }) => {
   const config = CATEGORY_CONFIG[category];
   const storageKey = FISCAL_DOCS_STORAGE_KEYS[category];
+
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrevCompetence = () => {
+    const prev = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(prev);
+  };
+
+  const handleNextCompetence = () => {
+    const next = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(next);
+  };
 
   // Estado dos documentos carregados do LocalStorage
   const [documents, setDocuments] = useState<FiscalDocumentRecord[]>([]);
@@ -1053,17 +1080,26 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     }
   };
 
+  // Filtragem estrita por competência
+  const competenceDocuments = useMemo(() => {
+    return documents.filter(d => {
+      if (d.issueDate && matchesCompetence(d.issueDate, activeCompetence)) return true;
+      if (!d.issueDate && d.createdAt && matchesCompetence(d.createdAt, activeCompetence)) return true;
+      return false;
+    });
+  }, [documents, activeCompetence]);
+
   // Filtragem dos documentos
   const filteredDocuments = useMemo(() => {
-    if (!searchQuery.trim()) return documents;
+    if (!searchQuery.trim()) return competenceDocuments;
     const q = searchQuery.toUpperCase();
-    return documents.filter(d => 
+    return competenceDocuments.filter(d => 
       d.number.includes(q) ||
       d.supplierName.includes(q) ||
       (d.vehiclePlate && d.vehiclePlate.includes(q)) ||
       (d.description && d.description.includes(q))
     );
-  }, [documents, searchQuery]);
+  }, [competenceDocuments, searchQuery]);
 
   const IconComp = config.icon;
 
@@ -1125,13 +1161,21 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           />
         </div>
 
-        <div className="flex items-center space-x-3 text-xs font-bold text-slate-700 dark:text-stone-300 self-end sm:self-center">
-          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700">
-            TOTAL DE REGISTROS: <strong className="text-slate-900 dark:text-white">{filteredDocuments.length}</strong>
-          </span>
-          <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
-            SOMA: <strong>{formatCurrencyBRL(filteredDocuments.reduce((acc, d) => acc + (d.totalAmount || 0), 0))}</strong>
-          </span>
+        <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-center">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrevCompetence}
+            onNext={handleNextCompetence}
+          />
+
+          <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-stone-300">
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700">
+              TOTAL DE REGISTROS: <strong className="text-slate-900 dark:text-white">{filteredDocuments.length}</strong>
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
+              SOMA: <strong>{formatCurrencyBRL(filteredDocuments.reduce((acc, d) => acc + (d.totalAmount || 0), 0))}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
