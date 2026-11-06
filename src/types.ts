@@ -74,6 +74,8 @@ export interface Expense {
   status: ExpenseStatus;
   paymentMethod: PaymentMethod;
   supplier: string;
+  supplierId?: string;
+  fornecedorId?: string;
   costCenterId?: string;
   costCenterName?: string;
   machineryId?: string;

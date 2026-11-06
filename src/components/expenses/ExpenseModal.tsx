@@ -120,7 +120,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setCategoryId(newCatId);
   };
 
-  const [description, setDescription] = useState('');
+  const [supplierId, setSupplierId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [categoryId, setCategoryId] = useState('');
   const [dueDate, setDueDate] = useState(today);
@@ -196,7 +196,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   // Load existing data if editing
   useEffect(() => {
     if (editingExpense) {
-      setDescription(editingExpense.description);
       setAmount(editingExpense.amount.toString());
       setCategoryId(editingExpense.categoryId);
       setDueDate(editingExpense.dueDate);
@@ -205,7 +204,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setPaymentMethod(editingExpense.paymentMethod);
       setBankAccountId(editingExpense.bankAccountId || '');
       setPaidByEmployeeId(editingExpense.paidByEmployeeId || '');
-      setSupplier(editingExpense.supplier || '');
+      setSupplier(editingExpense.supplier || editingExpense.description || '');
+      setSupplierId(editingExpense.supplierId || editingExpense.fornecedorId || '');
       setCostCenterId(editingExpense.costCenterId || '');
       setMachineryId(editingExpense.machineryId || '');
       if (editingExpense.quantity) {
@@ -242,7 +242,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setIsInstallment(false);
     } else {
       // Defaults for new expense
-      setDescription('');
       setAmount('');
       setCategoryId(safeCategories[0]?.id || '');
       setDueDate(today);
@@ -252,6 +251,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setBankAccountId(bankAccounts[0]?.id || '');
       setPaidByEmployeeId(employees[0]?.id || '');
       setSupplier('');
+      setSupplierId('');
       setCostCenterId('');
       setMachineryId('');
       setReadingKmOrHours('');
@@ -514,10 +514,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
-    const effectiveDesc = description.trim() || 
-      (isAlimentacao ? `Refeição (${mealType === 'cafe' ? 'Café da Manhã' : mealType === 'almoco' ? 'Almoço' : 'Janta'})` : selectedCategory?.name || 'Despesa Operacional');
-
     const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
+
+    const matchedSupplier = suppliers.find(
+      (s) => (supplierId && s.id === supplierId) || (s.name && s.name.trim().toLowerCase() === supplier.trim().toLowerCase())
+    );
+    const resolvedSupplierId = supplierId || matchedSupplier?.id || undefined;
+    const effectiveDesc = supplier.trim() || 
+      (editingExpense?.description ? editingExpense.description : (isAlimentacao ? `Refeição (${mealType === 'cafe' ? 'Café da Manhã' : mealType === 'almoco' ? 'Almoço' : 'Janta'})` : selectedCat?.name || 'Despesa Operacional'));
 
     const singleEmp = selectedTargets.length === 1 && activeEmployees.some((e) => e.id === selectedTargets[0])
       ? activeEmployees.find((e) => e.id === selectedTargets[0])
@@ -558,6 +562,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           paidByEmployeeId: i === 0 && status === 'pago' ? selectedPaidByEmpObj?.id : undefined,
           paidByEmployeeName: i === 0 && status === 'pago' ? selectedPaidByEmpObj?.name : undefined,
           supplier: supplier.trim(),
+          supplierId: resolvedSupplierId,
+          fornecedorId: resolvedSupplierId,
           costCenterId: defaultCostCenter?.id || undefined,
           costCenterName: defaultCostCenter?.name || undefined,
           machineryId: resolvedMachineryId,
@@ -595,6 +601,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         paidByEmployeeId: status === 'pago' ? selectedPaidByEmpObj?.id : undefined,
         paidByEmployeeName: status === 'pago' ? selectedPaidByEmpObj?.name : undefined,
         supplier: supplier.trim(),
+        supplierId: resolvedSupplierId,
+        fornecedorId: resolvedSupplierId,
         costCenterId: defaultCostCenter?.id || undefined,
         costCenterName: defaultCostCenter?.name || undefined,
         machineryId: resolvedMachineryId,
@@ -716,9 +724,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         {/* Form - Compacto Slim com Zero Rolagem Global */}
         <form onSubmit={handleSubmit} className="p-2.5 sm:p-3 space-y-2 bg-[#edf4ff] dark:bg-stone-900 flex-1 overflow-hidden">
           
-          {/* LINHA 1: CATEGORIA (60%) + DATA (40%) */}
+          {/* LINHA SUPERIOR UNIFICADA: CATEGORIA (50%) + DATA (25%) + VALOR TOTAL (25%) */}
           <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-7">
+            <div className="col-span-6">
               <div className="flex items-center justify-between mb-0.5">
                 <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
                   CATEGORIA <span className="text-rose-600">*</span>
@@ -759,7 +767,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             </div>
 
-            <div className="col-span-5">
+            <div className="col-span-3">
               <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                 DATA <span className="text-rose-600">*</span>
               </label>
@@ -771,69 +779,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
-          </div>
 
-          {/* LINHA 2: DESCRIÇÃO DA DESPESA (60%) + VALOR TOTAL (R$) (40%) */}
-          <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-7">
-              {isAlimentacao ? (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    TIPO DE REFEIÇÃO
-                  </label>
-                  <div className="grid grid-cols-3 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setMealType('cafe')}
-                      className={`h-7.5 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
-                        mealType === 'cafe'
-                          ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
-                          : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      CAFÉ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMealType('almoco')}
-                      className={`h-7.5 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
-                        mealType === 'almoco'
-                          ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
-                          : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      ALMOÇO
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMealType('janta')}
-                      className={`h-7.5 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
-                        mealType === 'janta'
-                          ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
-                          : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      JANTA
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    DESCRIÇÃO DA DESPESA
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="DESCRIÇÃO DETALHADA DA DESPESA..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase placeholder:uppercase"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="col-span-5">
+            <div className="col-span-3">
               <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                 VALOR TOTAL (R$) <span className="text-rose-600">*</span>
               </label>
@@ -849,6 +796,50 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               />
             </div>
           </div>
+
+          {/* REFEIÇÃO CONDICIONAL (SE CATEGORIA FOR ALIMENTAÇÃO) */}
+          {isAlimentacao && (
+            <div className="p-1.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white/70 dark:bg-stone-800/70">
+              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-1">
+                TIPO DE REFEIÇÃO
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 max-w-xs">
+                <button
+                  type="button"
+                  onClick={() => setMealType('cafe')}
+                  className={`h-7 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
+                    mealType === 'cafe'
+                      ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
+                  }`}
+                >
+                  CAFÉ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMealType('almoco')}
+                  className={`h-7 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
+                    mealType === 'almoco'
+                      ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
+                  }`}
+                >
+                  ALMOÇO
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMealType('janta')}
+                  className={`h-7 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
+                    mealType === 'janta'
+                      ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
+                  }`}
+                >
+                  JANTA
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* BLOCO CENTRAL DINÂMICO: SE MANUTENÇÃO, BORRACHARIA, ELÉTRICA OU PEÇAS => SELETORES DE FROTA; CASO CONTRÁRIO => RATEIO ADMINISTRATIVO GERAL */}
           {isFleetMaintenanceCategory ? (
@@ -1202,6 +1193,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         key={s.id}
                         onClick={() => {
                           setSupplier(s.name);
+                          setSupplierId(s.id);
                           setIsSupplierDropdownOpen(false);
                         }}
                         className="p-1.5 hover:bg-slate-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group uppercase"
@@ -1442,6 +1434,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             onSaveSuppliers(updated);
           }
           setSupplier(newSup.name);
+          setSupplierId(newSup.id);
           setIsSupplierModalOpen(false);
         }}
       />
