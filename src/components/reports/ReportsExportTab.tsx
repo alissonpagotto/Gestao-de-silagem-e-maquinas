@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Download, 
   FileSpreadsheet, 
@@ -23,6 +23,11 @@ import {
 } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
 import { DataBackupSecurityBlock } from '../settings/DataBackupSecurityBlock';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence 
+} from '../financial/CompetenceSelector';
 
 interface ReportsExportTabProps {
   expenses: Expense[];
@@ -33,6 +38,10 @@ interface ReportsExportTabProps {
   machineries?: Machinery[];
   startDate: string;
   endDate: string;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
+  onStartDateChange?: (d: string) => void;
+  onEndDateChange?: (d: string) => void;
 }
 
 export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
@@ -44,7 +53,30 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
   machineries = [],
   startDate,
   endDate,
+  competence,
+  onCompetenceChange,
+  onStartDateChange,
+  onEndDateChange,
 }) => {
+  const activeCompetence = useMemo(() => {
+    if (competence) return competence;
+    if (startDate && startDate.length >= 7) {
+      const [y, m] = startDate.split('-');
+      return `${m}/${y}`;
+    }
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence, startDate]);
+
+  const handlePrev = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
+
+  const handleNext = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
   const [selectedModules, setSelectedModules] = useState<{
     expenses: boolean;
     orders: boolean;
@@ -127,7 +159,7 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
     <div className="space-y-4 sm:space-y-6">
       
       {/* Header */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs">
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <FileSpreadsheet className="w-5 h-5" />
@@ -141,6 +173,12 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
             </p>
           </div>
         </div>
+
+        <CompetenceSelector
+          competence={activeCompetence}
+          onPrev={handlePrev}
+          onNext={handleNext}
+        />
       </div>
 
       {/* Module Selection */}

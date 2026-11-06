@@ -365,6 +365,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
               onOpenPrintModal={(html, whatsapp) => handleOpenPrintModal(html, whatsapp)}
             />
           )}
@@ -379,6 +383,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               machineries={machineries}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
             />
           )}
 
@@ -389,6 +397,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               seasons={seasons}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
             />
           )}
 
@@ -397,6 +409,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               orders={orders}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
             />
           )}
 
@@ -405,6 +421,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               expenses={expenses}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
             />
           )}
 
@@ -414,6 +434,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               machineries={machineries}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
             />
           )}
 

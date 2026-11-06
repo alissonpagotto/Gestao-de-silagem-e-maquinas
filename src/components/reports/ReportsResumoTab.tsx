@@ -13,6 +13,11 @@ import {
 } from 'lucide-react';
 import { Expense, SilageOrder, ServiceOrder, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence 
+} from '../financial/CompetenceSelector';
 
 interface ReportsResumoTabProps {
   expenses: Expense[];
@@ -22,6 +27,10 @@ interface ReportsResumoTabProps {
   startDate: string;
   endDate: string;
   onOpenPrintModal: (html: string, whatsappText: string) => void;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
+  onStartDateChange?: (d: string) => void;
+  onEndDateChange?: (d: string) => void;
 }
 
 export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
@@ -32,7 +41,32 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
   startDate,
   endDate,
   onOpenPrintModal,
+  competence,
+  onCompetenceChange,
+  onStartDateChange,
+  onEndDateChange,
 }) => {
+  // Active competence
+  const activeCompetence = useMemo(() => {
+    if (competence) return competence;
+    if (startDate && startDate.length >= 7) {
+      const [y, m] = startDate.split('-');
+      return `${m}/${y}`;
+    }
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence, startDate]);
+
+  const handlePrev = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
+
+  const handleNext = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
+
   // Period filter
   const filteredOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
   const filteredServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
@@ -183,7 +217,13 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
           <button
             type="button"
             onClick={() => onOpenPrintModal(dreHtml, whatsappText)}

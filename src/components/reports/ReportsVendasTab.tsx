@@ -12,18 +12,50 @@ import {
 } from 'lucide-react';
 import { SilageOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { 
+  CompetenceSelector, 
+  getPrevCompetence, 
+  getNextCompetence 
+} from '../financial/CompetenceSelector';
 
 interface ReportsVendasTabProps {
   orders: SilageOrder[];
   startDate: string;
   endDate: string;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
+  onStartDateChange?: (d: string) => void;
+  onEndDateChange?: (d: string) => void;
 }
 
 export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
   orders,
   startDate,
   endDate,
+  competence,
+  onCompetenceChange,
+  onStartDateChange,
+  onEndDateChange,
 }) => {
+  const activeCompetence = useMemo(() => {
+    if (competence) return competence;
+    if (startDate && startDate.length >= 7) {
+      const [y, m] = startDate.split('-');
+      return `${m}/${y}`;
+    }
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence, startDate]);
+
+  const handlePrev = () => {
+    const nextComp = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
+
+  const handleNext = () => {
+    const nextComp = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(nextComp);
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [productFilter, setProductFilter] = useState('todos');
 
@@ -81,14 +113,22 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleExportCsv}
-          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 font-bold text-xs rounded-xl transition cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Exportar Vendas (CSV)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 font-bold text-xs rounded-xl transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Exportar Vendas (CSV)</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
