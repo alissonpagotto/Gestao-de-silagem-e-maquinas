@@ -20,9 +20,7 @@ import {
   Check,
   Building2,
   Layers,
-  MessageCircle,
-  ChevronLeft,
-  ChevronRight
+  MessageCircle
 } from 'lucide-react';
 import { Expense, ExpenseCategory, ExpenseStatus, CostCenter, CompanyProfile, Employee, FleetTeam } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
@@ -35,9 +33,6 @@ interface ExpenseListProps {
   employees?: Employee[];
   teams?: FleetTeam[];
   companyProfile?: CompanyProfile;
-  competenceMonth?: string;
-  onPrevMonth?: () => void;
-  onNextMonth?: () => void;
   onNewExpense: () => void;
   onEditExpense: (expense: Expense) => void;
   onDeleteExpense: (id: string) => void;
@@ -53,9 +48,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   employees = [],
   teams = [],
   companyProfile,
-  competenceMonth = '11/2026',
-  onPrevMonth,
-  onNextMonth,
   onNewExpense,
   onEditExpense,
   onDeleteExpense,
@@ -332,7 +324,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       <div className="p-3 sm:p-3.5 border-b border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-800/50 space-y-2.5">
         
         {/* Search & Actions Row */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
@@ -352,35 +344,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 ✕
               </button>
             )}
-          </div>
-
-          {/* Seletor Unificado de Competência (estilo RH) */}
-          <div className="flex items-center justify-center space-x-1.5 shrink-0 self-center">
-            <button
-              type="button"
-              onClick={onPrevMonth}
-              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-              title="Mês Anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            
-            <div 
-              style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
-              className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
-            >
-              <span>Competência:</span>
-              <span className="text-black font-black text-sm">{competenceMonth}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={onNextMonth}
-              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-              title="Próximo Mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Quick Action Buttons */}
