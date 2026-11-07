@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   DollarSign,
   Lock,
@@ -41,12 +41,106 @@ import {
   syncCaixaComVendas
 } from '../../lib/caixaStorage';
 import { formatCurrencyBRL, formatDateBR, parseCurrencyToFloat } from '../../lib/formatters';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
+
+function itemMatchesCompetence(dateStr: string | undefined | null, comp: string): boolean {
+  if (!dateStr || !comp) return false;
+  if (matchesCompetence(dateStr, comp)) return true;
+  const ptMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (ptMatch) {
+    const formatted = `${ptMatch[2]}/${ptMatch[3]}`;
+    if (formatted === comp) return true;
+  }
+  const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const formatted = `${isoMatch[2]}/${isoMatch[1]}`;
+    if (formatted === comp) return true;
+  }
+  return false;
+}
 
 interface FluxoCaixaTabProps {
   companyProfile?: CompanyProfile | null;
+  competenceMonth?: string;
+  onPrevCompetence?: (e?: React.MouseEvent) => void;
+  onNextCompetence?: (e?: React.MouseEvent) => void;
+  onCompetenceChange?: (newCompetence: string) => void;
 }
 
-export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) => {
+export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
+  companyProfile,
+  competenceMonth,
+  onPrevCompetence,
+  onNextCompetence,
+  onCompetenceChange,
+}) => {
+  // Sincronização e Reatividade da Competência Mensal
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_vendas_competence') || localStorage.getItem('agrocontrol_financial_competence');
+      if (saved && /^\d{2}\/\d{4}$/.test(saved)) return saved;
+    } catch {}
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
+
+  const effectiveCompetence = competenceMonth || internalCompetence;
+
+  useEffect(() => {
+    const handleCompChange = (e: any) => {
+      if (e?.detail && typeof e.detail === 'string' && /^\d{2}\/\d{4}$/.test(e.detail)) {
+        setInternalCompetence((prev) => (prev === e.detail ? prev : e.detail));
+      }
+    };
+    window.addEventListener('agrocontrol_vendas_competence_changed', handleCompChange);
+    return () => window.removeEventListener('agrocontrol_vendas_competence_changed', handleCompChange);
+  }, []);
+
+  const isNavigatingRef = useRef(false);
+
+  const handlePrevComp = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => { isNavigatingRef.current = false; }, 250);
+
+    if (onPrevCompetence) {
+      onPrevCompetence(e);
+      return;
+    }
+    const next = getPrevCompetence(effectiveCompetence);
+    setInternalCompetence(next);
+    try {
+      localStorage.setItem('agrocontrol_vendas_competence', next);
+      window.dispatchEvent(new CustomEvent('agrocontrol_vendas_competence_changed', { detail: next }));
+    } catch {}
+    onCompetenceChange?.(next);
+  };
+
+  const handleNextComp = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => { isNavigatingRef.current = false; }, 250);
+
+    if (onNextCompetence) {
+      onNextCompetence(e);
+      return;
+    }
+    const next = getNextCompetence(effectiveCompetence);
+    setInternalCompetence(next);
+    try {
+      localStorage.setItem('agrocontrol_vendas_competence', next);
+      window.dispatchEvent(new CustomEvent('agrocontrol_vendas_competence_changed', { detail: next }));
+    } catch {}
+    onCompetenceChange?.(next);
+  };
   // Operador Ativo Conectado ao RH / Sessão
   const [operadorLogado, setOperadorLogado] = useState<string>(() => getOperadorLogadoNome());
 
@@ -173,10 +267,15 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
 
   const extratoFiltrado = useMemo(() => {
     return extratoItems.filter(item => {
+      // 1. Filtro de Competência Mensal
+      if (!itemMatchesCompetence(item.dataHora, effectiveCompetence)) return false;
+
+      // 2. Filtro de Categoria
       if (filtroExtrato === 'vendas' && item.tipo !== 'VENDA') return false;
       if (filtroExtrato === 'suprimentos' && item.tipo !== 'SUPRIMENTO') return false;
       if (filtroExtrato === 'sangrias' && item.tipo !== 'SANGRIA') return false;
 
+      // 3. Filtro de Busca Textual
       if (buscaExtrato.trim()) {
         const query = buscaExtrato.toLowerCase();
         return (
@@ -187,7 +286,15 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
       }
       return true;
     });
-  }, [extratoItems, filtroExtrato, buscaExtrato]);
+  }, [extratoItems, filtroExtrato, buscaExtrato, effectiveCompetence]);
+
+  // Histórico de Fechamentos Filtrado pela Competência Selecionada
+  const historicoFiltrado = useMemo(() => {
+    return historico.filter(cx => {
+      const dataRef = cx.dataFechamento || cx.dataHoraFechamento || cx.dataAbertura || cx.dataHoraAbertura;
+      return itemMatchesCompetence(dataRef, effectiveCompetence);
+    });
+  }, [historico, effectiveCompetence]);
 
   // Ações de Caixa
   const handleConfirmarAbertura = (e: React.FormEvent) => {
@@ -309,36 +416,48 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
           </div>
 
           {/* Histórico Recente de Fechamentos */}
-          {historico.length > 0 && (
-            <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-xs">
-              <div className="p-3 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <History className="w-4 h-4 text-slate-600 dark:text-stone-300" />
-                  <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
-                    HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES
-                  </span>
-                </div>
+          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-xs">
+            <div className="p-3 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-600 dark:text-stone-300" />
+                <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
+                  HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES
+                </span>
                 <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
-                  {historico.length} registro{historico.length > 1 ? 's' : ''}
+                  ({historicoFiltrado.length} registro{historicoFiltrado.length !== 1 ? 's' : ''})
                 </span>
               </div>
+              
+              <CompetenceSelector
+                competence={effectiveCompetence}
+                onPrev={handlePrevComp}
+                onNext={handleNextComp}
+              />
+            </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-stone-850 text-slate-600 dark:text-stone-400 uppercase text-[10px] font-bold border-b border-slate-200 dark:border-stone-700">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-stone-850 text-slate-600 dark:text-stone-400 uppercase text-[10px] font-bold border-b border-slate-200 dark:border-stone-700">
+                  <tr>
+                    <th className="py-1.5 px-3">ID Caixa</th>
+                    <th className="py-1.5 px-3">Abertura</th>
+                    <th className="py-1.5 px-3">Fechamento</th>
+                    <th className="py-1.5 px-3 text-right">Saldo Inicial</th>
+                    <th className="py-1.5 px-3 text-right">Vendas PDV</th>
+                    <th className="py-1.5 px-3 text-right">Saldo Apurado</th>
+                    <th className="py-1.5 px-3 text-center">Diferença</th>
+                    <th className="py-1.5 px-3 text-right">Reimpressão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-stone-800">
+                  {historicoFiltrado.length === 0 ? (
                     <tr>
-                      <th className="py-1.5 px-3">ID Caixa</th>
-                      <th className="py-1.5 px-3">Abertura</th>
-                      <th className="py-1.5 px-3">Fechamento</th>
-                      <th className="py-1.5 px-3 text-right">Saldo Inicial</th>
-                      <th className="py-1.5 px-3 text-right">Vendas PDV</th>
-                      <th className="py-1.5 px-3 text-right">Saldo Apurado</th>
-                      <th className="py-1.5 px-3 text-center">Diferença</th>
-                      <th className="py-1.5 px-3 text-right">Reimpressão</th>
+                      <td colSpan={8} className="py-6 text-center text-slate-400 dark:text-stone-500 font-medium">
+                        Nenhum fechamento de caixa registrado para a competência {effectiveCompetence}.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-stone-800">
-                    {historico.map((cx) => {
+                  ) : (
+                    historicoFiltrado.map((cx) => {
                       const t = calcularTotaisCaixa(cx);
                       const dif = Number(cx.diferenca || 0);
                       return (
@@ -382,12 +501,12 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
                           </td>
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
         </div>
       ) : (
         /* =========================================================================
@@ -516,8 +635,8 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
           {/* EXTRATO COMPACTO EM LINHA ÚNICA ZEBRADA (SLIM PRO) */}
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
             {/* Toolbar do Extrato */}
-            <div className="p-2.5 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
+            <div className="p-2.5 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
                   EXTRATO DE MOVIMENTAÇÕES DO CICLO ATIVO:
                 </span>
@@ -526,7 +645,14 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Seletor de Competência Padronizado por Setas (< Competência: MM/AAAA >) */}
+                <CompetenceSelector
+                  competence={effectiveCompetence}
+                  onPrev={handlePrevComp}
+                  onNext={handleNextComp}
+                />
+
                 {/* Abas Rápidas do Extrato */}
                 <div className="flex items-center bg-slate-200 dark:bg-stone-800 p-0.5 rounded-lg border border-slate-300 dark:border-stone-700 text-[10px] font-bold">
                   <button
@@ -641,6 +767,96 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ companyProfile }) 
                             }`}
                           >
                             {isSangria ? '-' : '+'}{formatCurrencyBRL(item.valor)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES NA COMPETÊNCIA SELECIONADA */}
+          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-xs mt-3">
+            <div className="p-3 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-600 dark:text-stone-300" />
+                <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
+                  HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES
+                </span>
+                <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-300">
+                  Competência {effectiveCompetence}
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
+                {historicoFiltrado.length} registro{historicoFiltrado.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-stone-850 text-slate-600 dark:text-stone-400 uppercase text-[10px] font-bold border-b border-slate-200 dark:border-stone-700">
+                  <tr>
+                    <th className="py-1.5 px-3">ID Caixa</th>
+                    <th className="py-1.5 px-3">Abertura</th>
+                    <th className="py-1.5 px-3">Fechamento</th>
+                    <th className="py-1.5 px-3 text-right">Saldo Inicial</th>
+                    <th className="py-1.5 px-3 text-right">Vendas PDV</th>
+                    <th className="py-1.5 px-3 text-right">Saldo Apurado</th>
+                    <th className="py-1.5 px-3 text-center">Diferença</th>
+                    <th className="py-1.5 px-3 text-right">Reimpressão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium">
+                  {historicoFiltrado.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-6 text-center text-slate-400 dark:text-stone-500">
+                        Nenhum fechamento de caixa registrado para a competência {effectiveCompetence}.
+                      </td>
+                    </tr>
+                  ) : (
+                    historicoFiltrado.map((cx) => {
+                      const t = calcularTotaisCaixa(cx);
+                      const dif = Number(cx.diferenca || 0);
+                      return (
+                        <tr key={cx.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/40 dark:odd:bg-stone-900 hover:bg-slate-100 dark:hover:bg-stone-800/70 transition">
+                          <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white">{cx.id}</td>
+                          <td className="py-1.5 px-3 text-slate-600 dark:text-stone-300">{cx.dataHoraAbertura || cx.dataAbertura}</td>
+                          <td className="py-1.5 px-3 text-slate-600 dark:text-stone-300">{cx.dataHoraFechamento || cx.dataFechamento || '-'}</td>
+                          <td className="py-1.5 px-3 text-right font-medium">{formatCurrencyBRL(cx.valorAbertura)}</td>
+                          <td className="py-1.5 px-3 text-right font-medium text-emerald-600">{formatCurrencyBRL(t.totalVendasPdv)}</td>
+                          <td className="py-1.5 px-3 text-right font-bold text-zinc-900 dark:text-white">{formatCurrencyBRL(cx.valorFechamentoReal)}</td>
+                          <td className="py-1.5 px-3 text-center">
+                            <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded ${
+                              dif === 0
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : dif > 0
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                            }`}>
+                              {dif === 0 ? 'EXATO' : dif > 0 ? `+${formatCurrencyBRL(dif)}` : formatCurrencyBRL(dif)}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => dispararImpressaoRelatorioCaixa(cx, companyProfile, 'a4')}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-zinc-800 dark:text-white transition cursor-pointer"
+                                title="Reimprimir em Folha A4"
+                              >
+                                📄 A4
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => dispararImpressaoRelatorioCaixa(cx, companyProfile, 'termica')}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-zinc-800 dark:text-white transition cursor-pointer"
+                                title="Reimprimir em Cupom Térmico 80mm"
+                              >
+                                📟 80MM
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

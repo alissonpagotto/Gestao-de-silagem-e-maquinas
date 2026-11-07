@@ -3,8 +3,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface CompetenceSelectorProps {
   competence: string;
-  onPrev: () => void;
-  onNext: () => void;
+  onPrev: (e?: React.MouseEvent) => void;
+  onNext: (e?: React.MouseEvent) => void;
   className?: string;
   title?: string;
 }
@@ -104,8 +104,12 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
     <div className={`flex items-center space-x-1.5 shrink-0 ${className}`}>
       <button
         type="button"
-        onClick={onPrev}
-        className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onPrev(e);
+        }}
+        className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white select-none active:scale-95"
         title="Mês Anterior"
         aria-label="Mês Anterior"
       >
@@ -123,8 +127,12 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
 
       <button
         type="button"
-        onClick={onNext}
-        className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onNext(e);
+        }}
+        className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white select-none active:scale-95"
         title="Próximo Mês"
         aria-label="Próximo Mês"
       >

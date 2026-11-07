@@ -68,25 +68,52 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
   });
 
-  const handlePrevCompetence = () => {
-    setCompetenceMonth((prev) => {
-      const next = getPrevCompetence(prev);
-      try {
-        localStorage.setItem('agrocontrol_vendas_competence', next);
-      } catch {}
-      return next;
-    });
+  const isNavigatingCompetenceRef = useRef(false);
+
+  const handlePrevCompetence = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isNavigatingCompetenceRef.current) return;
+    isNavigatingCompetenceRef.current = true;
+    setTimeout(() => { isNavigatingCompetenceRef.current = false; }, 250);
+
+    const next = getPrevCompetence(competenceMonth);
+    try {
+      localStorage.setItem('agrocontrol_vendas_competence', next);
+    } catch {}
+    setCompetenceMonth(next);
+    window.dispatchEvent(new CustomEvent('agrocontrol_vendas_competence_changed', { detail: next }));
   };
 
-  const handleNextCompetence = () => {
-    setCompetenceMonth((prev) => {
-      const next = getNextCompetence(prev);
-      try {
-        localStorage.setItem('agrocontrol_vendas_competence', next);
-      } catch {}
-      return next;
-    });
+  const handleNextCompetence = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isNavigatingCompetenceRef.current) return;
+    isNavigatingCompetenceRef.current = true;
+    setTimeout(() => { isNavigatingCompetenceRef.current = false; }, 250);
+
+    const next = getNextCompetence(competenceMonth);
+    try {
+      localStorage.setItem('agrocontrol_vendas_competence', next);
+    } catch {}
+    setCompetenceMonth(next);
+    window.dispatchEvent(new CustomEvent('agrocontrol_vendas_competence_changed', { detail: next }));
   };
+
+  // Escuta atualizações de competência vindas da aba Fluxo de Caixa ou outros componentes
+  useEffect(() => {
+    const handleCompEvent = (e: any) => {
+      if (e?.detail && typeof e.detail === 'string' && /^\d{2}\/\d{4}$/.test(e.detail)) {
+        setCompetenceMonth((prev) => (prev === e.detail ? prev : e.detail));
+      }
+    };
+    window.addEventListener('agrocontrol_vendas_competence_changed', handleCompEvent);
+    return () => window.removeEventListener('agrocontrol_vendas_competence_changed', handleCompEvent);
+  }, []);
 
   // Modal Exclusivo de Detalhes e Edição da Venda (Desvinculação de Serviços)
   const [isSaleEditModalOpen, setIsSaleEditModalOpen] = useState(false);
@@ -501,6 +528,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           ) : activeTab === 'fluxo_caixa' ? (
             <FluxoCaixaTab
               companyProfile={companyProfile}
+              competenceMonth={competenceMonth}
+              onPrevCompetence={handlePrevCompetence}
+              onNextCompetence={handleNextCompetence}
+              onCompetenceChange={setCompetenceMonth}
             />
           ) : (
             <>
