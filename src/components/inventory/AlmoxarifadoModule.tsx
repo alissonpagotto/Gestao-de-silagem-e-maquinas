@@ -43,6 +43,13 @@ import {
   CaixaFerramentaVeiculoRecord
 } from '../../types';
 import {
+  CompetenceSelector,
+  getCurrentCompetence,
+  getPrevCompetence,
+  getNextCompetence,
+  matchesCompetence,
+} from '../financial/CompetenceSelector';
+import {
   fetchRetiradasPecas,
   registrarRetiradaPeca,
   registrarPedidoRetiradaPecasLote,
@@ -160,6 +167,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<AlmoxTab>('retirada_pecas');
+
+  // Competência ativa global sincronizada entre as abas do Almoxarifado
+  const [almoxCompetence, setAlmoxCompetence] = useState<string>(() => getCurrentCompetence());
+
+  const handlePrevCompetence = () => {
+    setAlmoxCompetence(prev => getPrevCompetence(prev));
+  };
+
+  const handleNextCompetence = () => {
+    setAlmoxCompetence(prev => getNextCompetence(prev));
+  };
+
   const [isLoading, setIsLoading] = useState(false);
   const [feedbackBanner, setFeedbackBanner] = useState<{
     type: 'success' | 'error';
@@ -1387,10 +1406,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     showFeedback('success', 'Peça removida do pedido.');
   };
 
+  // Registros de saída de peças filtrados pela competência ativa (MM/AAAA)
+  const retiradasPecasCompetencia = useMemo(() => {
+    return retiradasPecas.filter(r =>
+      matchesCompetence(r.data_retirada || r.created_at || (r as any).data, almoxCompetence)
+    );
+  }, [retiradasPecas, almoxCompetence]);
+
   const filteredRetiradasPecas = useMemo(() => {
     const q = String(pecaSearchFilter || '').toLowerCase().trim();
-    if (!q) return retiradasPecas;
-    return retiradasPecas.filter(r => {
+    if (!q) return retiradasPecasCompetencia;
+    return retiradasPecasCompetencia.filter(r => {
       return (
         String(r.veiculo_nome || '').toLowerCase().includes(q) ||
         String(r.veiculo_placa || '').toLowerCase().includes(q) ||
@@ -1402,7 +1428,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         String(r.status || '').toLowerCase().includes(q)
       );
     });
-  }, [retiradasPecas, pecaSearchFilter]);
+  }, [retiradasPecasCompetencia, pecaSearchFilter]);
 
   // Agrupamento inteligente por Pedido / Lote (numero_pedido / lote_id) para a tabela expansível
   const groupedPedidosLotes = useMemo(() => {
@@ -1427,7 +1453,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       }
     >();
 
-    for (const r of retiradasPecas) {
+    for (const r of retiradasPecasCompetencia) {
       const anyR = r as any;
       const rawNumeroPedido = String(anyR.numero_pedido || r.lote_id || '').trim();
       const datePart = String(r.data_retirada || '').split('T')[0];
@@ -1520,7 +1546,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           String(it.endereco_formatado ?? '').toLowerCase().includes(q)
       );
     });
-  }, [retiradasPecas, frotasList, pecaSearchFilter, enrichAndSortItemsByPickingRoute]);
+  }, [retiradasPecasCompetencia, frotasList, pecaSearchFilter, enrichAndSortItemsByPickingRoute]);
 
   // =========================================================================
   // ESTADOS DA ABA 2: MOVIMENTAÇÃO E CAUTELA DE FERRAMENTAS
@@ -1673,9 +1699,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     showFeedback('success', 'Registro de movimentação removido.');
   };
 
+  // Movimentações de ferramentas filtradas pela competência ativa (MM/AAAA)
+  const movimentacoesFerramentasCompetencia = useMemo(() => {
+    return movimentacoesFerramentas.filter(m =>
+      matchesCompetence(m.data_retirada || m.created_at, almoxCompetence)
+    );
+  }, [movimentacoesFerramentas, almoxCompetence]);
+
   const filteredMovimentacoesFerramentas = useMemo(() => {
     const q = ferSearchTerm.toLowerCase().trim();
-    return movimentacoesFerramentas.filter(item => {
+    return movimentacoesFerramentasCompetencia.filter(item => {
       const isDevolvido = Boolean(item.data_devolucao) || String(item.status).toLowerCase() === 'devolvido';
       if (ferStatusFilter === 'ativas' && isDevolvido) return false;
       if (ferStatusFilter === 'devolvidas' && !isDevolvido) return false;
@@ -1689,7 +1722,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         String(item.conferido_por || '').toLowerCase().includes(q)
       );
     });
-  }, [movimentacoesFerramentas, ferStatusFilter, ferSearchTerm]);
+  }, [movimentacoesFerramentasCompetencia, ferStatusFilter, ferSearchTerm]);
 
   // =========================================================================
   // ESTADOS DA ABA 3: CAIXA DE FERRAMENTAS FIXA POR VEÍCULO
@@ -1914,10 +1947,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
   // Resumo de KPIs do Almoxarifado
   const totalEmprestimosAtivos = useMemo(() => {
-    return movimentacoesFerramentas.filter(
+    return movimentacoesFerramentasCompetencia.filter(
       m => !m.data_devolucao && String(m.status).toLowerCase() !== 'devolvido'
     ).length;
-  }, [movimentacoesFerramentas]);
+  }, [movimentacoesFerramentasCompetencia]);
 
   const resumoCaixaVeiculoAtual = useMemo(() => {
     const totalItens = itensCaixaDoVeiculo.length;
@@ -2078,7 +2111,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     Saídas de Peças
                   </span>
                   <div className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
-                    {retiradasPecas.length} {retiradasPecas.length === 1 ? 'retirada' : 'retiradas'}
+                    {retiradasPecasCompetencia.length} {retiradasPecasCompetencia.length === 1 ? 'retirada' : 'retiradas'}
                   </div>
                 </div>
                 <div className="w-6 h-6 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
