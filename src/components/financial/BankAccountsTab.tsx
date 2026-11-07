@@ -18,7 +18,8 @@ import {
   Sparkles, 
   FileText, 
   Link2,
-  Star 
+  Star,
+  X 
 } from 'lucide-react';
 import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard, PaymentMethod, SilageOrder, ServiceOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts, getStoredOrders, saveStoredOrders, getStoredServices, saveStoredServices } from '../../lib/storage';
@@ -143,6 +144,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const { confirm } = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
+
+  // Estados para confirmação e feedback de alteração da Conta Prioritária
+  const [priorityConfirmAccount, setPriorityConfirmAccount] = useState<BankAccount | null>(null);
+  const [priorityToast, setPriorityToast] = useState<string | null>(null);
 
   // Estados dos 4 botões operacionais rápidos
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -717,9 +722,46 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       if (target) {
         upsertContaBancaria(target, activeCompanyId).catch(console.warn);
       }
+
+      // Atualiza também no Supabase qualquer conta que tenha perdido a prioridade
+      const previousPriorities = baseList.filter((a) => (a.isPriority || a.prioritaria) && a.id !== accountId);
+      previousPriorities.forEach((prev) => {
+        const updatedPrev = updatedAccounts.find((a) => a.id === prev.id);
+        if (updatedPrev) {
+          upsertContaBancaria(updatedPrev, activeCompanyId).catch(console.warn);
+        }
+      });
     } catch (err) {
       console.warn('Erro ao alternar conta prioritária:', err);
     }
+  };
+
+  // Intercepta a tentativa de alteração da conta prioritária para exibir o modal de confirmação
+  const handleRequestPriorityChange = (account: BankAccount | undefined) => {
+    if (!account) return;
+    const isAlreadyPriority = account.isPriority === true || account.prioritaria === true;
+    if (isAlreadyPriority) {
+      // Conta já é prioritária ativa, não faz nada
+      return;
+    }
+    setPriorityConfirmAccount(account);
+  };
+
+  // Confirmação: executa o update, atualiza estados globais e dispara toast
+  const handleConfirmPriorityChange = () => {
+    if (!priorityConfirmAccount) return;
+    const targetId = priorityConfirmAccount.id;
+    handleSetPriorityAccount(targetId);
+    setPriorityConfirmAccount(null);
+    setPriorityToast('Conta prioritária atualizada com sucesso!');
+    setTimeout(() => {
+      setPriorityToast(null);
+    }, 4500);
+  };
+
+  // Cancelamento: mantém a conta anterior intacta e fecha o modal
+  const handleCancelPriorityChange = () => {
+    setPriorityConfirmAccount(null);
   };
 
   // Manipulador para provisionamento automático de fatura de cartão de crédito corporativo em Contas a Pagar
@@ -1262,7 +1304,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                       <button
                         type="button"
                         id={`btn-prioridade-${safeId}`}
-                        onClick={() => handleSetPriorityAccount(acc?.id || safeId)}
+                        onClick={() => handleRequestPriorityChange(acc)}
                         className={`inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-1 rounded transition cursor-pointer active:scale-95 uppercase tracking-wider border ${
                           isPriorityAccount
                             ? 'bg-amber-100/90 hover:bg-amber-200/90 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:hover:bg-amber-900/80 dark:text-amber-200 dark:border-amber-700/60 shadow-2xs'
@@ -1363,6 +1405,80 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         defaultAccountId={statementAccountId !== 'todas' ? statementAccountId : undefined}
         onAdjustBalance={handleConfirmAdjustBalance}
       />
+
+      {/* Modal de Confirmação para Alterar Conta Prioritária */}
+      {priorityConfirmAccount && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={handleCancelPriorityChange}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 sm:p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                    <Star className="w-5 h-5 fill-amber-400 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                    Alterar Conta Prioritária?
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelPriorityChange}
+                  className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition cursor-pointer p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="mt-3.5 text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+                Você tem certeza de que deseja definir a conta{' '}
+                <strong className="text-stone-900 dark:text-stone-100 font-bold uppercase">
+                  {priorityConfirmAccount.name || priorityConfirmAccount.accountName || priorityConfirmAccount.bankName || 'selecionada'}
+                </strong>{' '}
+                como a prioritária do sistema? Esta conta passará a vir pré-selecionada automaticamente em todos os novos lançamentos de despesas e faturamentos.
+              </p>
+
+              <div className="mt-6 flex items-center justify-end space-x-2.5">
+                <button
+                  type="button"
+                  onClick={handleCancelPriorityChange}
+                  className="px-4 py-2 text-xs sm:text-sm font-semibold text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPriorityChange}
+                  className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-sm transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Star className="w-4 h-4 fill-white" />
+                  <span>Sim, tenho certeza</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notificação de Sucesso */}
+      {priorityToast && (
+        <div className="fixed bottom-5 right-5 z-[10000] flex items-center gap-2.5 px-4 py-3 bg-emerald-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-2xl border border-emerald-500 animate-in slide-in-from-bottom duration-200">
+          <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+          <span>{priorityToast}</span>
+          <button
+            type="button"
+            onClick={() => setPriorityToast(null)}
+            className="ml-2 p-1 text-emerald-200 hover:text-white transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
