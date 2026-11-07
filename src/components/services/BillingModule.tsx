@@ -24,6 +24,13 @@ import { ServiceOrder, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BillingPaymentModal, getPaymentMethodLabel } from './BillingPaymentModal';
+import {
+  CompetenceSelector,
+  getCurrentCompetence,
+  getPrevCompetence,
+  getNextCompetence,
+  matchesCompetence,
+} from '../financial/CompetenceSelector';
 
 /**
  * Remove qualquer sufixo de parcelas e formata como #0001
@@ -59,6 +66,9 @@ interface BillingModuleProps {
   companyProfile?: CompanyProfile;
   onSaveServices: (updated: ServiceOrder[]) => void;
   onOpenServiceModal: (service: ServiceOrder) => void;
+  competence?: string;
+  onPrevCompetence?: () => void;
+  onNextCompetence?: () => void;
 }
 
 export const BillingModule: React.FC<BillingModuleProps> = ({
@@ -66,8 +76,17 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
   companyProfile,
   onSaveServices,
   onOpenServiceModal,
+  competence,
+  onPrevCompetence,
+  onNextCompetence,
 }) => {
   const { confirm } = useConfirm();
+
+  // Competência Ativa (Sincronizada globalmente com o módulo de Prestação de Serviços)
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => getCurrentCompetence());
+  const activeCompetence = competence || internalCompetence;
+  const handlePrev = onPrevCompetence || (() => setInternalCompetence(prev => getPrevCompetence(prev)));
+  const handleNext = onNextCompetence || (() => setInternalCompetence(prev => getNextCompetence(prev)));
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,13 +110,19 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
     }, 4500);
   };
 
-  // Identifica serviços na esteira de faturamento (ou com status em_faturamento ou faturado)
+  // Identifica serviços na esteira de faturamento filtrados pela competência ativa (MM/AAAA)
   const billingServices = useMemo(() => {
     return services.filter((s) => {
+      if (activeCompetence) {
+        const dateToCheck = s.billedAt || s.startDate || s.date || s.completionDate || (s as any).createdAt;
+        if (!matchesCompetence(dateToCheck, activeCompetence)) {
+          return false;
+        }
+      }
       // Itens que foram enviados para faturamento, ou já estão faturados
       return s.status === 'em_faturamento' || s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt;
     });
-  }, [services]);
+  }, [services, activeCompetence]);
 
   // UNIFICAÇÃO: Agrupa estritamente um único registro por ordem de serviço (OS) original
   const unifiedBillingServices = useMemo<UnifiedBillingItem[]>(() => {
@@ -557,6 +582,13 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
             <ChevronDown className="w-3.5 h-3.5" />
           </div>
         </div>
+
+        {/* Seletor de Competência */}
+        <CompetenceSelector
+          competence={activeCompetence}
+          onPrev={handlePrev}
+          onNext={handleNext}
+        />
       </section>
 
       {/* ========================================================

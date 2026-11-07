@@ -56,6 +56,13 @@ import { DispatchFieldModal } from './DispatchFieldModal';
 import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
 import { VehicleSearchModal } from './VehicleSearchModal';
 import { ServiceCalendarView } from './ServiceCalendarView';
+import {
+  CompetenceSelector,
+  getCurrentCompetence,
+  getPrevCompetence,
+  getNextCompetence,
+  matchesCompetence,
+} from '../financial/CompetenceSelector';
 
 interface ServiceAgendaModuleProps {
   machineries?: Machinery[];
@@ -63,6 +70,9 @@ interface ServiceAgendaModuleProps {
   clients?: Client[];
   companyProfile?: CompanyProfile;
   onExecuteAppointment: (appointment: ServiceAppointment) => void;
+  competence?: string;
+  onPrevCompetence?: () => void;
+  onNextCompetence?: () => void;
 }
 
 // Cores das Frentes de Colheita (mantendo estritamente verde, amarelo e bege/laranja)
@@ -87,7 +97,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   clients = [],
   companyProfile,
   onExecuteAppointment,
+  competence,
+  onPrevCompetence,
+  onNextCompetence,
 }) => {
+  // Competência Ativa (Sincronizada globalmente com o módulo de Prestação de Serviços)
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => getCurrentCompetence());
+  const activeCompetence = competence || internalCompetence;
+  const handlePrev = onPrevCompetence || (() => setInternalCompetence(prev => getPrevCompetence(prev)));
+  const handleNext = onNextCompetence || (() => setInternalCompetence(prev => getNextCompetence(prev)));
+
   // Estado principal de agendamentos
   const [appointments, setAppointments] = useState<ServiceAppointment[]>(() => {
     const stored = getStoredAppointments();
@@ -170,9 +189,17 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     return `AG-${year}-${String(count).padStart(3, '0')}`;
   }, [appointments]);
 
+  // Agendamentos filtrados pela competência ativa (MM/AAAA)
+  const appointmentsCompetencia = useMemo(() => {
+    if (!activeCompetence) return appointments;
+    return appointments.filter(a =>
+      matchesCompetence(a.startDate || a.createdAt, activeCompetence)
+    );
+  }, [appointments, activeCompetence]);
+
   // Lista filtrada
   const filteredAppointments = useMemo(() => {
-    return appointments.filter(app => {
+    return appointmentsCompetencia.filter(app => {
       // Filtro de Texto
       const term = searchTerm.toLowerCase();
       const matchText = 
@@ -198,16 +225,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       return matchText && matchStatus && matchDate;
     }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-  }, [appointments, searchTerm, statusFilter, dateFilter]);
+  }, [appointmentsCompetencia, searchTerm, statusFilter, dateFilter]);
 
   // Métricas de Resumo
   const metrics = useMemo(() => {
-    const total = appointments.length;
-    const agendados = appointments.filter(a => a.status === 'agendado').length;
-    const emExecucao = appointments.filter(a => a.status === 'em_execucao' || a.status === 'em_deslocamento').length;
-    const concluidos = appointments.filter(a => a.status === 'concluido').length;
+    const total = appointmentsCompetencia.length;
+    const agendados = appointmentsCompetencia.filter(a => a.status === 'agendado').length;
+    const emExecucao = appointmentsCompetencia.filter(a => a.status === 'em_execucao' || a.status === 'em_deslocamento').length;
+    const concluidos = appointmentsCompetencia.filter(a => a.status === 'concluido').length;
     
-    const nonCancelled = appointments.filter(a => a.status !== 'cancelado');
+    const nonCancelled = appointmentsCompetencia.filter(a => a.status !== 'cancelado');
 
     // Bloco 1: Total unificado em Hectares (convertendo alqueires por 2.42)
     const totalHectares = nonCancelled.reduce((acc, a) => {
@@ -240,7 +267,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     const totalHours = totalMinutes / 60;
 
     return { total, agendados, emExecucao, concluidos, totalHectares, totalAlqueires, totalHours };
-  }, [appointments]);
+  }, [appointmentsCompetencia]);
 
   // Agendamentos ativos para a visualização da Escala de Frotas
   const activeAppointmentsForFleet = useMemo(() => {
@@ -936,7 +963,12 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CompetenceSelector
+              competence={activeCompetence}
+              onPrev={handlePrev}
+              onNext={handleNext}
+            />
             <button
               type="button"
               onClick={() => handleCreateNew()}

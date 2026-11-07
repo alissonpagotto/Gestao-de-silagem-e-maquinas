@@ -1755,6 +1755,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     );
   }, [caixaFerramentasAll, selectedCaixaVeiculoId]);
 
+  const [caixaSearchTerm, setCaixaSearchTerm] = useState<string>('');
+
+  const filteredItensCaixaDoVeiculo = useMemo(() => {
+    const q = caixaSearchTerm.toLowerCase().trim();
+    if (!q) return itensCaixaDoVeiculo;
+    return itensCaixaDoVeiculo.filter(item =>
+      String(item.codigo_item_ferramenta || '').toLowerCase().includes(q) ||
+      String(item.nome_ferramenta || '').toLowerCase().includes(q) ||
+      String(item.conferido_por || '').toLowerCase().includes(q)
+    );
+  }, [itensCaixaDoVeiculo, caixaSearchTerm]);
+
   // Formulário para adicionar ferramenta fixa à caixa do veículo
   const [novaFerramentaCaixaCodigo, setNovaFerramentaCaixaCodigo] = useState<string>('');
   const [novaFerramentaCaixaNome, setNovaFerramentaCaixaNome] = useState<string>('');
@@ -2625,15 +2637,22 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={pecaSearchFilter}
-                  onChange={e => setPecaSearchFilter(e.target.value)}
-                  placeholder="Buscar #pedido, placa, veículo, peça..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <CompetenceSelector
+                  competence={almoxCompetence}
+                  onPrev={handlePrevCompetence}
+                  onNext={handleNextCompetence}
                 />
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={pecaSearchFilter}
+                    onChange={e => setPecaSearchFilter(e.target.value)}
+                    placeholder="Buscar #pedido, placa, veículo, peça..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -3073,7 +3092,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <CompetenceSelector
+                  competence={almoxCompetence}
+                  onPrev={handlePrevCompetence}
+                  onNext={handleNextCompetence}
+                />
                 <div className="inline-flex rounded-lg bg-zinc-100 dark:bg-stone-800 p-0.5">
                   <button
                     type="button"
@@ -3084,7 +3108,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                         : 'text-zinc-600 dark:text-stone-400'
                     }`}
                   >
-                    Todas ({movimentacoesFerramentas.length})
+                    Todas ({movimentacoesFerramentasCompetencia.length})
                   </button>
                   <button
                     type="button"
@@ -3106,7 +3130,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                         : 'text-zinc-600 dark:text-stone-400'
                     }`}
                   >
-                    Devolvidas ({movimentacoesFerramentas.length - totalEmprestimosAtivos})
+                    Devolvidas ({Math.max(0, movimentacoesFerramentasCompetencia.length - totalEmprestimosAtivos)})
                   </button>
                 </div>
 
@@ -3513,7 +3537,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
             {/* Tabela de Ferramentas Fixas do Veículo Selecionado */}
             <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
-              <div className="shrink-0 flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
+              <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
                 <div>
                   <h3 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
                     Inventário da Caixa de Ferramentas — {selectedCaixaVehicle?.name || 'Selecione um Veículo'}
@@ -3521,6 +3545,24 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
                     Sincronizado com <code className="font-mono">public.caixa_ferramentas_veiculo</code>
                   </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <CompetenceSelector
+                    competence={almoxCompetence}
+                    onPrev={handlePrevCompetence}
+                    onNext={handleNextCompetence}
+                  />
+                  <div className="relative w-full sm:w-48">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={caixaSearchTerm}
+                      onChange={e => setCaixaSearchTerm(e.target.value)}
+                      placeholder="Buscar na caixa..."
+                      className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3560,7 +3602,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">
-                      {itensCaixaDoVeiculo.map(item => {
+                      {filteredItensCaixaDoVeiculo.map(item => {
                         const qtdAtualExibida = isConferenciaMode
                           ? (conferenciaQuantidades[item.id] ?? item.quantidade_atual)
                           : item.quantidade_atual;

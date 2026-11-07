@@ -32,6 +32,13 @@ import { BillingModule } from './BillingModule';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
+import {
+  CompetenceSelector,
+  getCurrentCompetence,
+  getPrevCompetence,
+  getNextCompetence,
+  matchesCompetence,
+} from '../financial/CompetenceSelector';
 
 export type ServiceTab = 'faturamento' | 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'formularios';
 
@@ -133,12 +140,27 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
 
-  // Total de ordens aguardando auditoria na esteira de Faturamento
+  // Competência ativa global sincronizada entre todas as abas de Prestação de Serviços
+  const [servicesCompetence, setServicesCompetence] = useState<string>(() => getCurrentCompetence());
+
+  const handlePrevCompetence = () => {
+    setServicesCompetence(prev => getPrevCompetence(prev));
+  };
+
+  const handleNextCompetence = () => {
+    setServicesCompetence(prev => getNextCompetence(prev));
+  };
+
+  // Total de ordens aguardando auditoria na esteira de Faturamento para a competência ativa
   const pendingBillingCount = useMemo(() => {
-    return localServices.filter(
-      (s) => s.status === 'em_faturamento' && s.billingStatus !== 'faturado' && !s.billedAt
-    ).length;
-  }, [localServices]);
+    return localServices.filter((s) => {
+      if (servicesCompetence) {
+        const d = s.billedAt || s.startDate || s.date || s.completionDate || (s as any).createdAt;
+        if (!matchesCompetence(d, servicesCompetence)) return false;
+      }
+      return s.status === 'em_faturamento' && s.billingStatus !== 'faturado' && !s.billedAt;
+    }).length;
+  }, [localServices, servicesCompetence]);
 
   useEffect(() => {
     if (services) {
@@ -452,9 +474,17 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         if (!matchesClient && !matchesFarm && !matchesNumber && !matchesRoute) return false;
       }
 
+      // Filtro de Competência Ativa (MM/AAAA)
+      if (servicesCompetence) {
+        const dateToCheck = srv.startDate || srv.date || srv.completionDate || srv.billedAt || (srv as any).createdAt;
+        if (!matchesCompetence(dateToCheck, servicesCompetence)) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [sanitizedServices, activeTab, statusFilter, searchTerm]);
+  }, [sanitizedServices, activeTab, statusFilter, searchTerm, servicesCompetence]);
 
   // Determina a aba operacional real para o modal de formulário
   const modalOperationalTab = useMemo<ServiceTabType>(() => {
@@ -748,6 +778,9 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
               clients={clients}
               companyProfile={companyProfile}
               onExecuteAppointment={handleExecuteAppointmentFromAgenda}
+              competence={servicesCompetence}
+              onPrevCompetence={handlePrevCompetence}
+              onNextCompetence={handleNextCompetence}
             />
           ) : activeTab === 'formularios' ? (
             <FieldFormsView
@@ -768,6 +801,9 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                 setEditRecord(service);
                 setIsModalOpen(true);
               }}
+              competence={servicesCompetence}
+              onPrevCompetence={handlePrevCompetence}
+              onNextCompetence={handleNextCompetence}
             />
           ) : (
             <>
@@ -820,6 +856,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                     <ChevronDown className="w-3.5 h-3.5" />
                   </div>
                 </div>
+
+                {/* Seletor de Competência */}
+                <CompetenceSelector
+                  competence={servicesCompetence}
+                  onPrev={handlePrevCompetence}
+                  onNext={handleNextCompetence}
+                />
               </section>
 
               {/* ========================================================
