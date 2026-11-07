@@ -89,6 +89,8 @@ export interface Expense {
   costCenterName?: string;
   machineryId?: string;
   machineryName?: string;
+  cost_center_id?: string | null;
+  machine_id?: string | null;
   employeeId?: string;
   employeeName?: string;
   teamId?: string;

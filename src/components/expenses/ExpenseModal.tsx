@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   X, 
   Upload, 
@@ -379,6 +379,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     );
   }, [selectedCategoryName]);
 
+  const activeEmployees = useMemo(() => {
+    return Array.isArray(employees) ? employees.filter((e) => e.status !== 'inativo') : [];
+  }, [employees]);
+
   const availableMachineries = useMemo(() => {
     if (Array.isArray(machineries) && machineries.length > 0) return machineries;
     try {
@@ -394,6 +398,123 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const selectedMachinery = useMemo(() => {
     return availableMachineries.find((m) => m.id === machineryId);
   }, [availableMachineries, machineryId]);
+
+  // Busca inteligente de veículo vinculado ao colaborador selecionado
+  const getLinkedVehicleForEmployee = useCallback(
+    (empId: string): Machinery | undefined => {
+      if (!empId) return undefined;
+      const emp = activeEmployees.find((e) => e.id === empId) || (Array.isArray(employees) ? employees.find((e) => e.id === empId) : undefined);
+      if (!emp) return undefined;
+
+      const empIdLower = emp.id.toLowerCase();
+      const empNameLower = (emp.name || '').trim().toLowerCase();
+      const explicitVehId = String(
+        emp.machineryId ||
+        (emp as any).veiculo_id ||
+        (emp as any).assigned_vehicle_id ||
+        (emp as any).assignedVehicleId ||
+        ''
+      ).trim();
+
+      // 1. Vínculo explícito por ID no cadastro do colaborador
+      if (explicitVehId) {
+        const found = availableMachineries.find(
+          (m) =>
+            m.id === explicitVehId ||
+            String(m.id).toLowerCase() === explicitVehId.toLowerCase() ||
+            (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase() === explicitVehId.toLowerCase()) ||
+            (m.plate && m.plate.toLowerCase() === explicitVehId.toLowerCase())
+        );
+        if (found) return found;
+      }
+
+      // 2. Vínculo explícito por nome/placa no colaborador
+      const explicitVehName = String(emp.machineryName || (emp as any).veiculo_vinculado || '').trim().toLowerCase();
+      if (explicitVehName) {
+        const found = availableMachineries.find(
+          (m) =>
+            (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(explicitVehName)) ||
+            (m.plate && m.plate.toLowerCase().includes(explicitVehName)) ||
+            (m.model && m.model.toLowerCase().includes(explicitVehName)) ||
+            (m.name && m.name.toLowerCase().includes(explicitVehName))
+        );
+        if (found) return found;
+      }
+
+      // 3. Vínculo no cadastro da Frota (assignedDriverIds, driver_id, operatorOrDriver, assignedDrivers)
+      const byDriver = availableMachineries.find((m) => {
+        if (m.assignedDriverIds && Array.isArray(m.assignedDriverIds)) {
+          if (m.assignedDriverIds.some((id) => id === emp.id || id.toLowerCase() === empIdLower)) {
+            return true;
+          }
+        }
+        if ((m as any).driver_id && ((m as any).driver_id === emp.id || String((m as any).driver_id).toLowerCase() === empIdLower)) {
+          return true;
+        }
+        if (m.operatorOrDriver) {
+          const parts = m.operatorOrDriver.split(',').map((s) => s.trim().toLowerCase());
+          if (parts.includes(empNameLower) || (empNameLower && parts.some((p) => p.includes(empNameLower) || empNameLower.includes(p)))) {
+            return true;
+          }
+        }
+        if (m.assignedDrivers && Array.isArray(m.assignedDrivers)) {
+          return m.assignedDrivers.some((d: any) => {
+            if (typeof d === 'string') {
+              return d.toLowerCase().includes(empNameLower);
+            }
+            if (d && typeof d === 'object') {
+              return d.id === emp.id || (d.name && String(d.name).toLowerCase().includes(empNameLower));
+            }
+            return false;
+          });
+        }
+        return false;
+      });
+      if (byDriver) return byDriver;
+
+      // 4. Vínculo pela equipe da frota
+      if (emp.teamId) {
+        const team = teams.find((t) => t.id === emp.teamId);
+        if (team?.machineryId) {
+          const found = availableMachineries.find((m) => m.id === team.machineryId);
+          if (found) return found;
+        }
+      }
+
+      return undefined;
+    },
+    [activeEmployees, employees, availableMachineries, teams]
+  );
+
+  // Preenchimento automático inteligente do veículo ao escolher/alterar o responsável
+  const handlePaidByEmployeeChange = useCallback(
+    (empId: string) => {
+      setPaidByEmployeeId(empId);
+
+      if (!empId) {
+        setMachineryId('');
+        setCostCenterId('');
+        setReadingKmOrHours('');
+        return;
+      }
+
+      const linkedVeh = getLinkedVehicleForEmployee(empId);
+      if (linkedVeh) {
+        setMachineryId(linkedVeh.id);
+        setCostCenterId('');
+        const cur = linkedVeh.controlBy === 'km' 
+          ? (linkedVeh.currentKm || linkedVeh.horimetro_ou_km_atual || '') 
+          : (linkedVeh.hourMeter || linkedVeh.horimetro_ou_km_atual || '');
+        if (cur) setReadingKmOrHours(String(cur));
+      } else {
+        // Colaborador sem veículo cadastrado: inicializa o campo limpo
+        setMachineryId('');
+        setCostCenterId('');
+        setReadingKmOrHours('');
+      }
+    },
+    [getLinkedVehicleForEmployee]
+  );
 
   // Sub-modal state for direct category & cost center management
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -412,8 +533,53 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [receiptUrl, setReceiptUrl] = useState<string | undefined>(undefined);
   const [receiptName, setReceiptName] = useState<string | undefined>(undefined);
 
-  // Load existing data if editing
+  // Helper to cleanly reset all form states avoiding carryover between launches
+  const resetFormState = useCallback(() => {
+    setExpenseItems([]);
+    setItemDescription('');
+    setItemQuantity('1');
+    setItemUnitValue('');
+    setAmount('');
+    setCategoryId(safeCategories[0]?.id || '');
+    setDueDate(today);
+    setPaymentDate('');
+    setStatus('pendente');
+    setPaymentMethod('assinado_nota');
+    setBankAccountId(priorityBankAccountId);
+    setCorporateCardId('');
+    setPaidByEmployeeId(employees[0]?.id || '');
+    setSupplier('');
+    setSupplierId('');
+    setCostCenterId('');
+    setMachineryId('');
+    setReadingKmOrHours('');
+    setInvoiceNumber('');
+    setNotes('');
+    setMealType('almoco');
+    setSelectedTargets(['todos']);
+    setTargetToAdd('');
+    setHasQuantity(false);
+    setQuantity('');
+    setUnit('litros');
+    setUnitPrice('');
+    setIsInstallment(false);
+    setInstallmentCount(2);
+    setReceiptUrl(undefined);
+    setReceiptName(undefined);
+  }, [safeCategories, today, priorityBankAccountId, employees]);
+
+  const handleCloseModal = () => {
+    resetFormState();
+    onClose();
+  };
+
+  // Load existing data if editing or reset completely if new/closed
   useEffect(() => {
+    if (!isOpen) {
+      resetFormState();
+      return;
+    }
+
     if (editingExpense) {
       setAmount(editingExpense.amount.toString());
       setCategoryId(editingExpense.categoryId);
@@ -466,40 +632,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setItemUnitValue('');
       setIsInstallment(false);
     } else {
-      // Defaults for new expense
-      setExpenseItems([]);
-      setItemDescription('');
-      setItemQuantity('1');
-      setItemUnitValue('');
-      setAmount('');
-      setCategoryId(safeCategories[0]?.id || '');
-      setDueDate(today);
-      setPaymentDate('');
-      setStatus('pendente');
-      setPaymentMethod('assinado_nota');
-      setBankAccountId(priorityBankAccountId);
-      setCorporateCardId('');
-      setPaidByEmployeeId(employees[0]?.id || '');
-      setSupplier('');
-      setSupplierId('');
-      setCostCenterId('');
-      setMachineryId('');
-      setReadingKmOrHours('');
-      setInvoiceNumber('');
-      setNotes('');
-      setMealType('almoco');
-      setSelectedTargets(['todos']);
-      setTargetToAdd('');
-      setHasQuantity(false);
-      setQuantity('');
-      setUnit('litros');
-      setUnitPrice('');
-      setIsInstallment(false);
-      setInstallmentCount(2);
-      setReceiptUrl(undefined);
-      setReceiptName(undefined);
+      resetFormState();
     }
-  }, [editingExpense, isOpen, safeCategories, priorityBankAccountId]);
+  }, [editingExpense, isOpen, resetFormState, priorityBankAccountId]);
 
   // Garante que, ao abrir o modal para uma nova despesa, a conta prioritária esteja pré-selecionada
   useEffect(() => {
@@ -565,7 +700,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setReceiptName(undefined);
   };
 
-  const activeEmployees = employees.filter((e) => e.status !== 'inativo');
   const motoristasCount = activeEmployees.filter(
     (e) => e.role?.toLowerCase().includes('motorista') || e.role?.toLowerCase().includes('caminh')
   ).length;
@@ -586,6 +720,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       const withoutTodos = selectedTargets.filter((t) => t !== 'todos');
       if (!withoutTodos.includes(target)) {
         setSelectedTargets([...withoutTodos, target]);
+        // Se ainda não houver veículo ou centro de custo selecionado, preenche com o do colaborador adicionado
+        if (!machineryId && !costCenterId) {
+          const linkedVeh = getLinkedVehicleForEmployee(target);
+          if (linkedVeh) {
+            setMachineryId(linkedVeh.id);
+            setCostCenterId('');
+          }
+        }
       }
     }
     setTargetToAdd('');
@@ -727,14 +869,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const primaryTeam = resolvedTargetTeams[0] || (resolvedUniqueEmployees[0]?.teamId ? teams.find((t) => t.id === resolvedUniqueEmployees[0].teamId) : undefined);
   const resolvedTeamId = primaryTeam?.id;
   const resolvedTeamName = primaryTeam?.name ? `Equipe ${primaryTeam.name}` : undefined;
-  const primaryMachinery = isFleetMaintenanceCategory
-    ? (machineryId ? availableMachineries.find((m) => m.id === machineryId) : undefined)
-    : (linkedMachineries[0] || (machineryId ? availableMachineries.find((m) => m.id === machineryId) : undefined));
-  const resolvedMachineryId = primaryMachinery?.id || (isFleetMaintenanceCategory ? machineryId : undefined);
-  const resolvedMachineryName = primaryMachinery
-    ? (primaryMachinery.licensePlateOrSerial ? `${primaryMachinery.licensePlateOrSerial} - ${(primaryMachinery.model || primaryMachinery.name).toUpperCase()}` : (primaryMachinery.model || primaryMachinery.name).toUpperCase())
+  // Only resolve machinery if explicitly selected by the user (NO phantom auto-linking from employees)
+  const primaryMachinery = machineryId
+    ? availableMachineries.find((m) => m.id === machineryId)
     : undefined;
-  const defaultCostCenter = costCenterId ? costCenters.find((cc) => cc.id === costCenterId) : costCenters[0];
+  const resolvedMachineryId = machineryId ? (primaryMachinery?.id || machineryId) : undefined;
+  const resolvedMachineryName = machineryId && primaryMachinery
+    ? (primaryMachinery.licensePlateOrSerial
+        ? `${primaryMachinery.licensePlateOrSerial} - ${(primaryMachinery.model || primaryMachinery.name).toUpperCase()}`
+        : (primaryMachinery.model || primaryMachinery.name).toUpperCase())
+    : (machineryId ? machineryId : undefined);
+
+  // Only resolve cost center if explicitly selected by the user (NO fallback to costCenters[0])
+  const selectedCostCenter = costCenterId
+    ? costCenters.find((cc) => cc.id === costCenterId)
+    : undefined;
+  const resolvedCostCenterId = costCenterId ? (selectedCostCenter?.id || costCenterId) : undefined;
+  const resolvedCostCenterName = costCenterId ? (selectedCostCenter?.name || undefined) : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -840,10 +991,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           supplier: supplier.trim(),
           supplierId: resolvedSupplierId,
           fornecedorId: resolvedSupplierId,
-          costCenterId: defaultCostCenter?.id || undefined,
-          costCenterName: defaultCostCenter?.name || undefined,
-          machineryId: resolvedMachineryId,
-          machineryName: resolvedMachineryName,
+          costCenterId: resolvedCostCenterId || undefined,
+          costCenterName: resolvedCostCenterName || undefined,
+          machineryId: resolvedMachineryId || undefined,
+          machineryName: resolvedMachineryName || undefined,
+          cost_center_id: resolvedCostCenterId || null,
+          machine_id: resolvedMachineryId || null,
           employeeId: isAlimentacao && singleEmp ? singleEmp.id : undefined,
           employeeName: isAlimentacao ? resolvedEmployeeName : undefined,
           teamId: isAlimentacao ? resolvedTeamId : undefined,
@@ -892,10 +1045,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         supplier: supplier.trim(),
         supplierId: resolvedSupplierId,
         fornecedorId: resolvedSupplierId,
-        costCenterId: defaultCostCenter?.id || undefined,
-        costCenterName: defaultCostCenter?.name || undefined,
-        machineryId: resolvedMachineryId,
-        machineryName: resolvedMachineryName,
+        costCenterId: resolvedCostCenterId || undefined,
+        costCenterName: resolvedCostCenterName || undefined,
+        machineryId: resolvedMachineryId || undefined,
+        machineryName: resolvedMachineryName || undefined,
+        cost_center_id: resolvedCostCenterId || null,
+        machine_id: resolvedMachineryId || null,
         employeeId: isAlimentacao && singleEmp ? singleEmp.id : undefined,
         employeeName: isAlimentacao ? resolvedEmployeeName : undefined,
         teamId: isAlimentacao ? resolvedTeamId : undefined,
@@ -984,7 +1139,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
     }
 
-    onClose();
+    handleCloseModal();
   };
 
   if (!isOpen) return null;
@@ -1014,7 +1169,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="p-1 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5 text-slate-700 dark:text-stone-200" />
@@ -1256,8 +1411,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <div className="relative">
               <select
                 value={paidByEmployeeId}
-                onChange={(e) => setPaidByEmployeeId(e.target.value)}
-                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+                onChange={(e) => handlePaidByEmployeeChange(e.target.value)}
+                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
               >
                 <option value="">-- SELECIONE O COLABORADOR --</option>
                 {activeEmployees.map((emp) => (
@@ -1577,7 +1732,71 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 )}
               </div>
             </div>
-          ) : null}
+          ) : (
+            /* CAMPO OPCIONAL DE VÍNCULO: CENTRO DE CUSTO / MÁQUINA (QUANDO NÃO FOR MANUTENÇÃO DIRETA NEM ALIMENTAÇÃO) */
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                CENTRO DE CUSTO / MÁQUINA (VÍNCULO OPCIONAL)
+              </label>
+              <div className="relative">
+                <select
+                  value={
+                    machineryId
+                      ? `mach_${machineryId}`
+                      : costCenterId
+                      ? `cc_${costCenterId}`
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setMachineryId('');
+                      setCostCenterId('');
+                      setReadingKmOrHours('');
+                    } else if (val.startsWith('mach_')) {
+                      const mId = val.replace('mach_', '');
+                      setMachineryId(mId);
+                      setCostCenterId('');
+                      const mach = availableMachineries.find((m) => m.id === mId);
+                      if (mach) {
+                        const cur = mach.controlBy === 'km' 
+                          ? (mach.currentKm || mach.horimetro_ou_km_atual || '') 
+                          : (mach.hourMeter || mach.horimetro_ou_km_atual || '');
+                        if (cur) setReadingKmOrHours(String(cur));
+                      }
+                    } else if (val.startsWith('cc_')) {
+                      const cId = val.replace('cc_', '');
+                      setCostCenterId(cId);
+                      setMachineryId('');
+                      setReadingKmOrHours('');
+                    }
+                  }}
+                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
+                >
+                  <option value="">SELECIONE UM CENTRO DE CUSTO / MÁQUINA... (OPCIONAL)</option>
+                  {costCenters.length > 0 && (
+                    <optgroup label="CENTROS DE CUSTO">
+                      {costCenters.map((cc) => (
+                        <option key={cc.id} value={`cc_${cc.id}`}>
+                          {cc.name.toUpperCase()}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {availableMachineries.length > 0 && (
+                    <optgroup label="VEÍCULOS / MÁQUINAS (FROTA)">
+                      {availableMachineries.map((m) => (
+                        <option key={m.id} value={`mach_${m.id}`}>
+                          {(m.licensePlateOrSerial ? `${m.licensePlateOrSerial} · ${m.model || m.name}` : (m.model || m.name)).toUpperCase()}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          )}
 
 
           {/* BLOCO DE LIQUIDAÇÃO / PAGAMENTO: STATUS, FORMA, DATA E CONTA DE DÉBITO (ORIGEM) */}
@@ -1960,7 +2179,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           <div className="px-3.5 py-2 border-t border-slate-300 dark:border-stone-800 bg-slate-100 dark:bg-stone-850 flex items-center justify-end space-x-2 shrink-0 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="px-3.5 py-1 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 border border-slate-300 text-slate-700 text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] transition cursor-pointer"
             >
               CANCELAR

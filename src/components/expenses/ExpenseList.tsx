@@ -544,12 +544,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
                   {/* Cost Center / Machinery */}
                   <td className="py-1.5 px-3">
-                    {exp.machineryName ? (
+                    {exp.machineryId && exp.machineryName ? (
                       <div className="flex items-center space-x-1 text-[10px] text-black dark:text-blue-300 font-bold">
                         <Tractor className="w-3 h-3 text-black dark:text-blue-400 shrink-0" />
                         <span className="truncate max-w-[140px]">{exp.machineryName}</span>
                       </div>
-                    ) : exp.costCenterName ? (
+                    ) : exp.costCenterId && exp.costCenterName ? (
                       <div className="flex items-center space-x-1 text-[10px] text-black/85 dark:text-stone-300 font-medium">
                         <Building2 className="w-2.5 h-2.5 text-black/60 dark:text-stone-400 shrink-0" />
                         <span className="truncate max-w-[140px]">{exp.costCenterName}</span>
@@ -708,7 +708,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               <div className="flex items-center justify-between text-xs text-black/80 dark:text-stone-400 pt-1 border-t border-blue-200/60 dark:border-stone-800">
                 <div className="flex items-center space-x-3">
                   <span>Venc: <strong className="text-black dark:text-white">{formatDateBR(exp.dueDate)}</strong></span>
-                  {exp.machineryName && (
+                  {exp.machineryId && exp.machineryName && (
                     <span className="text-black dark:text-blue-400 font-bold flex items-center gap-1">
                       <Tractor className="w-3 h-3" /> {exp.machineryName.split(' ')[0]}
                     </span>
