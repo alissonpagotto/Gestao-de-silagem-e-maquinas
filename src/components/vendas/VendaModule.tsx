@@ -10,13 +10,16 @@ import {
   TrendingUp,
   Scale,
   DollarSign,
-  FileCheck2
+  FileCheck2,
+  AlertTriangle
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { SaleDetailsEditModal } from './SaleDetailsEditModal';
 import { PdvView } from './PdvView';
+import { FluxoCaixaTab } from '../financial/FluxoCaixaTab';
+import { isCaixaAbertoHojeParaOperador } from '../../lib/caixaStorage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from '../financial/CompetenceSelector';
@@ -91,8 +94,57 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
-  // Tab State: Dashboard ou PDV
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pdv'>('dashboard');
+  // Tab State: Dashboard, PDV ou Fluxo de Caixa
+  type VendaTabType = 'dashboard' | 'pdv' | 'fluxo_caixa';
+  const [activeTab, setActiveTab] = useState<VendaTabType>('dashboard');
+
+  // Alerta / Toast de Bloqueio do PDV caso o caixa não esteja aberto
+  const [caixaAlertToast, setCaixaAlertToast] = useState<string | null>(null);
+
+  // Verificação de Status do Caixa Diário do Operador (Trava de Segurança)
+  const verificarCaixaAbertoOperador = (): boolean => {
+    const res = isCaixaAbertoHojeParaOperador();
+    return res.aberto;
+  };
+
+  const handleSelectTab = (tab: VendaTabType) => {
+    if (tab === 'pdv') {
+      const caixaAberto = verificarCaixaAbertoOperador();
+      if (!caixaAberto) {
+        setActiveTab('fluxo_caixa');
+        setCaixaAlertToast('Atenção: É necessário realizar a abertura do caixa com o fundo de troco antes de iniciar as vendas no PDV!');
+        return;
+      }
+    }
+    setActiveTab(tab);
+  };
+
+  // Escuta atualizações de abertura/fechamento de caixa para proteção dinâmica contínua
+  useEffect(() => {
+    const handleCaixaChange = () => {
+      if (activeTab === 'pdv' && !verificarCaixaAbertoOperador()) {
+        setActiveTab('fluxo_caixa');
+        setCaixaAlertToast('Atenção: É necessário realizar a abertura do caixa com o fundo de troco antes de iniciar as vendas no PDV!');
+      }
+    };
+    window.addEventListener('agrocontrol_caixa_operacional_updated', handleCaixaChange);
+    window.addEventListener('agrocontrol_historico_caixas_updated', handleCaixaChange);
+    window.addEventListener('storage', handleCaixaChange);
+    return () => {
+      window.removeEventListener('agrocontrol_caixa_operacional_updated', handleCaixaChange);
+      window.removeEventListener('agrocontrol_historico_caixas_updated', handleCaixaChange);
+      window.removeEventListener('storage', handleCaixaChange);
+    };
+  }, [activeTab]);
+
+  // Auto-fechamento do Toast após 6 segundos
+  useEffect(() => {
+    if (!caixaAlertToast) return;
+    const timer = setTimeout(() => {
+      setCaixaAlertToast(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [caixaAlertToast]);
 
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
 
@@ -395,7 +447,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               <button
                 type="button"
                 id="tab-dashboard-vendas"
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => handleSelectTab('dashboard')}
                 className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'dashboard'
                     ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
@@ -409,8 +461,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               <button
                 type="button"
                 id="tab-pdv-frente-caixa"
-                onClick={() => setActiveTab('pdv')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                onClick={() => handleSelectTab('pdv')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'pdv'
                     ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -418,6 +470,20 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               >
                 <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 <span>PDV</span>
+              </button>
+
+              <button
+                type="button"
+                id="tab-fluxo-caixa-vendas"
+                onClick={() => handleSelectTab('fluxo_caixa')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'fluxo_caixa'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>FLUXO DE CAIXA</span>
               </button>
             </nav>
           </div>
@@ -431,6 +497,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               companyProfile={companyProfile}
               onSaveService={handleSaveService}
               salesCount={salesRecords.length}
+            />
+          ) : activeTab === 'fluxo_caixa' ? (
+            <FluxoCaixaTab
+              companyProfile={companyProfile}
             />
           ) : (
             <>
@@ -716,6 +786,32 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           }
         }}
       />
+      {/* ALERTA / TOAST DE BLOQUEIO DO PDV */}
+      {caixaAlertToast && (
+        <div className="fixed top-5 right-5 z-[9999] max-w-md animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start gap-3.5 p-4 bg-amber-500/10 dark:bg-amber-950/90 border-2 border-amber-500 rounded-xl shadow-2xl backdrop-blur-md text-amber-900 dark:text-amber-100">
+            <div className="p-2.5 bg-amber-500 text-white rounded-lg shadow-sm shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="flex-1 pr-1">
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                Acesso ao PDV Bloqueado
+              </h4>
+              <p className="text-xs font-semibold mt-1 text-amber-950 dark:text-amber-100 leading-relaxed">
+                {caixaAlertToast}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCaixaAlertToast(null)}
+              className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-white p-1 rounded-md transition hover:bg-amber-200/50 dark:hover:bg-amber-900/50"
+              title="Fechar alerta"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -188,6 +188,27 @@ export function abrirCaixaOperacional(valorInicial: number, operador?: string): 
   return novoCaixa;
 }
 
+export function isCaixaAbertoHojeParaOperador(operador?: string): { aberto: boolean; motivo?: 'fechado' | 'data_diferente' | 'operador_diferente' } {
+  const caixa = getStoredCaixaOperacional();
+  if (caixa.status !== 'ABERTO') {
+    return { aberto: false, motivo: 'fechado' };
+  }
+  const now = new Date();
+  const hojePtBr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  const dataCaixa = (caixa.dataAbertura || '').trim();
+  const dataValida = dataCaixa === hojePtBr || (caixa.dataHoraAbertura && caixa.dataHoraAbertura.startsWith(hojePtBr));
+  if (!dataValida) {
+    return { aberto: false, motivo: 'data_diferente' };
+  }
+  const opVerificar = (operador || getOperadorLogadoNome()).trim().toUpperCase();
+  const opCaixa = (caixa.operador || caixa.operadorAbertura || '').trim().toUpperCase();
+  const operadorValido = !opCaixa || opCaixa === opVerificar || opVerificar === 'ADMINISTRADOR GERAL' || opCaixa === 'ADMINISTRADOR GERAL';
+  if (!operadorValido) {
+    return { aberto: false, motivo: 'operador_diferente' };
+  }
+  return { aberto: true };
+}
+
 export function adicionarSuprimentoCaixa(valor: number, motivo: string): CaixaOperacional | null {
   const caixa = getStoredCaixaOperacional();
   if (caixa.status !== 'ABERTO') return null;
@@ -404,8 +425,11 @@ export function fecharCaixaOperacional(
   observacoes = '',
   operadorFechamento?: string
 ): { caixaFechado: CaixaOperacional; diferenca: number } | null {
-  const caixa = getStoredCaixaOperacional();
-  if (caixa.status !== 'ABERTO') return null;
+  const rawCaixa = getStoredCaixaOperacional();
+  if (rawCaixa.status !== 'ABERTO') return null;
+
+  // Garante sincronização integral de qualquer venda realizada no PDV até o momento do fechamento
+  const caixa = syncCaixaComVendas(rawCaixa);
 
   const now = new Date();
   const dataFormatadaPtBr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
@@ -430,6 +454,7 @@ export function fecharCaixaOperacional(
     operador: opFechamento,
     operadorFechamento: opFechamento,
     operadorAbertura: caixa.operadorAbertura || caixa.operador || opFechamento,
+    vendasPdv: Array.isArray(caixa.vendasPdv) ? [...caixa.vendasPdv] : [],
   };
 
   // Salva no histórico de caixas
