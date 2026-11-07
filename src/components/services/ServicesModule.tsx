@@ -44,10 +44,10 @@ export type ServiceTab = 'faturamento' | 'agenda' | 'corte' | 'colheita' | 'trat
 
 // Ordem Padrão Inicial: FATURAMENTO na PRIMEIRA posição (extrema esquerda)
 export const DEFAULT_SERVICES_TABS_CONFIG: { id: ServiceTab; label: string; icon: any }[] = [
-  { id: 'faturamento', label: 'Faturamento', icon: Receipt },
+  { id: 'faturamento', label: 'Faturamento dos Serviços', icon: Receipt },
   { id: 'agenda', label: 'Agenda de Serviços', icon: CalendarDays },
-  { id: 'corte', label: 'Corte', icon: Scissors },
-  { id: 'colheita', label: 'Colheita', icon: Wheat },
+  { id: 'corte', label: 'Serviço de Corte', icon: Scissors },
+  { id: 'colheita', label: 'Serviço de Colheita', icon: Wheat },
   { id: 'trator', label: 'Serviço de Trator', icon: Tractor },
   { id: 'maquina', label: 'Serviço de Máquina', icon: Wrench },
   { id: 'frete', label: 'Serviço de Frete', icon: Truck },

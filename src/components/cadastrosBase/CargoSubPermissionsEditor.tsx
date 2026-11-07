@@ -396,8 +396,8 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             <Tractor className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />,
             [
               { key: 'agenda', label: 'Agenda de Serviços' },
-              { key: 'corte', label: 'Corte' },
-              { key: 'colheita', label: 'Colheita' },
+              { key: 'corte', label: 'Serviço de Corte' },
+              { key: 'colheita', label: 'Serviço de Colheita' },
               { key: 'trator', label: 'Serviço de Trator' },
               { key: 'maquina', label: 'Serviço de Máquina' },
               { key: 'frete', label: 'Serviço de Frete' },
