@@ -18,11 +18,14 @@ import {
   Wrench,
   Package,
   CreditCard,
+  Coins,
+  FileText,
+  AlertCircle,
 } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts } from '../../lib/storage';
-import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate, formatDateBR } from '../../lib/formatters';
+import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate, formatDateBR, formatCpfCnpj, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatCorporateCardDisplay, syncExpenseWithCardsAndBank } from '../../lib/cardFinancialSync';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
@@ -207,12 +210,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       if (!paymentDate) {
         setPaymentDate(dueDate || today);
       }
-      if (!bankAccountId && priorityBankAccountId) {
-        setBankAccountId(priorityBankAccountId);
+      if (paymentMethod !== 'dinheiro' && paymentMethod !== 'assinado_nota' && paymentMethod !== 'cheque') {
+        if (!bankAccountId && priorityBankAccountId) {
+          setBankAccountId(priorityBankAccountId);
+        }
       }
       // Se estava em assinado_nota (típico de pendente), sugere pix ao liquidar
       if (paymentMethod === 'assinado_nota') {
         setPaymentMethod('pix');
+        if (priorityBankAccountId) {
+          setBankAccountId(priorityBankAccountId);
+        }
       }
     } else {
       setPaymentDate('');
@@ -225,7 +233,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const handlePaymentMethodChange = (newMethod: PaymentMethod) => {
     setPaymentMethod(newMethod);
-    if (newMethod === 'cartao_credito' || newMethod === 'cartao_debito') {
+    if (newMethod === 'dinheiro' || newMethod === 'assinado_nota') {
+      setBankAccountId('');
+      setCorporateCardId('');
+    } else if (newMethod === 'cheque') {
+      setBankAccountId('');
+      setCorporateCardId('');
+      if (!checkAmount) {
+        const currentAmountNum = parseFloat(amount) || 0;
+        if (currentAmountNum > 0) {
+          setCheckAmount(formatCurrencyInputDisplay(currentAmountNum));
+        }
+      }
+    } else if (newMethod === 'cartao_credito' || newMethod === 'cartao_debito') {
       let currentAccId = bankAccountId;
       if (!currentAccId && priorityBankAccountId) {
         currentAccId = priorityBankAccountId;
@@ -249,9 +269,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         setCorporateCardId('');
       }
     } else {
-      // 3. Limpeza de Estados: Se a forma de pagamento for alterada de volta para Pix, Dinheiro ou outra modalidade,
-      // oculte o seletor de cartões e remova qualquer ID de cartão associado do payload final do formulário
+      // Outras modalidades (Pix, Boleto, Transferência): remove cartão e restaura conta se necessário
       setCorporateCardId('');
+      if (!bankAccountId && priorityBankAccountId) {
+        setBankAccountId(priorityBankAccountId);
+      }
     }
   };
 
@@ -533,6 +555,22 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [receiptUrl, setReceiptUrl] = useState<string | undefined>(undefined);
   const [receiptName, setReceiptName] = useState<string | undefined>(undefined);
 
+  // Campos de Pagamento em Cheque e Pagamento Misto
+  const [checkNumber, setCheckNumber] = useState<string>('');
+  const [checkIssuerName, setCheckIssuerName] = useState<string>('');
+  const [checkIssuerCpf, setCheckIssuerCpf] = useState<string>('');
+  const [checkBank, setCheckBank] = useState<string>('');
+  const [checkAmount, setCheckAmount] = useState<string>('');
+
+  // Linhas de Pagamento Complementar (Pagamento Misto quando Cheque < Total)
+  interface ComplementaryPaymentRow {
+    id: string;
+    paymentMethod: PaymentMethod;
+    amount: string;
+    bankAccountId?: string;
+  }
+  const [complementaryPayments, setComplementaryPayments] = useState<ComplementaryPaymentRow[]>([]);
+
   // Helper to cleanly reset all form states avoiding carryover between launches
   const resetFormState = useCallback(() => {
     setExpenseItems([]);
@@ -547,7 +585,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setPaymentMethod('assinado_nota');
     setBankAccountId(priorityBankAccountId);
     setCorporateCardId('');
-    setPaidByEmployeeId(employees[0]?.id || '');
+    setPaidByEmployeeId('');
     setSupplier('');
     setSupplierId('');
     setCostCenterId('');
@@ -566,7 +604,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setInstallmentCount(2);
     setReceiptUrl(undefined);
     setReceiptName(undefined);
-  }, [safeCategories, today, priorityBankAccountId, employees]);
+    setCheckNumber('');
+    setCheckIssuerName('');
+    setCheckIssuerCpf('');
+    setCheckBank('');
+    setCheckAmount('');
+    setComplementaryPayments([]);
+  }, [safeCategories, today, priorityBankAccountId]);
 
   const handleCloseModal = () => {
     resetFormState();
@@ -603,6 +647,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setNotes(editingExpense.notes || '');
       setReceiptUrl(editingExpense.receiptUrl);
       setReceiptName(editingExpense.receiptName);
+
+      // Dados de Cheque e Pagamento Misto
+      setCheckNumber(editingExpense.checkNumber || '');
+      setCheckIssuerName(editingExpense.checkIssuerName || '');
+      setCheckIssuerCpf(editingExpense.checkIssuerCpf || '');
+      setCheckBank(editingExpense.checkBank || '');
+      setCheckAmount(editingExpense.checkAmount ? formatCurrencyInputDisplay(editingExpense.checkAmount) : '');
+      setComplementaryPayments(
+        Array.isArray(editingExpense.complementaryPayments)
+          ? editingExpense.complementaryPayments.map((c) => ({
+              id: c.id || `comp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              paymentMethod: c.paymentMethod,
+              amount: formatCurrencyInputDisplay(c.amount),
+              bankAccountId: c.bankAccountId,
+            }))
+          : []
+      );
       
       if (editingExpense.quantity && editingExpense.quantity > 0) {
         setHasQuantity(true);
@@ -841,6 +902,49 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const numAmount = parseFloat(amount) || 0;
   const rateioPerPerson = numAmount > 0 ? numAmount / totalParticipantsCount : 0;
 
+  const isCashOrSignedNote = paymentMethod === 'dinheiro' || paymentMethod === 'assinado_nota';
+  const isCheckPayment = paymentMethod === 'cheque';
+
+  const numCheckAmount = parseCurrencyToFloat(checkAmount);
+  const checkChangeAmount = isCheckPayment && numCheckAmount > numAmount ? +(numCheckAmount - numAmount).toFixed(2) : 0;
+  const complementaryPaymentsTotal = complementaryPayments.reduce((acc, c) => acc + parseCurrencyToFloat(c.amount), 0);
+  const isCheckUnderpaid = isCheckPayment && numAmount > 0 && numCheckAmount > 0 && numCheckAmount < numAmount;
+  const totalPaidWithCheckAndComp = +(numCheckAmount + complementaryPaymentsTotal).toFixed(2);
+  const saldoADistribuir = isCheckUnderpaid ? Math.max(0, +(numAmount - totalPaidWithCheckAndComp).toFixed(2)) : 0;
+
+  const handleAddComplementaryPayment = () => {
+    const missingAmount = Math.max(0, +(numAmount - (numCheckAmount + complementaryPaymentsTotal)).toFixed(2));
+    setComplementaryPayments((prev) => [
+      ...prev,
+      {
+        id: `comp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        paymentMethod: 'pix',
+        amount: missingAmount > 0 ? formatCurrencyInputDisplay(missingAmount) : '',
+        bankAccountId: priorityBankAccountId || effectiveBankAccounts[0]?.id || '',
+      },
+    ]);
+  };
+
+  const handleUpdateComplementaryPayment = (
+    id: string,
+    field: 'paymentMethod' | 'amount' | 'bankAccountId',
+    value: string
+  ) => {
+    setComplementaryPayments((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (field === 'amount') {
+          return { ...item, amount: maskCurrencyLive(value) };
+        }
+        return { ...item, [field]: value };
+      })
+    );
+  };
+
+  const handleRemoveComplementaryPayment = (id: string) => {
+    setComplementaryPayments((prev) => prev.filter((item) => item.id !== id));
+  };
+
   // Resolve display name for lists and reports
   let resolvedEmployeeName = '';
   if (selectedTargets.includes('todos')) {
@@ -899,7 +1003,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
-    if (status === 'pago' && !bankAccountId && !isCardPayment) {
+    if (isCheckPayment) {
+      if (!checkNumber.trim()) {
+        alert('POR FAVOR, INFORME O NÚMERO DO CHEQUE.');
+        return;
+      }
+      if (numCheckAmount <= 0) {
+        alert('POR FAVOR, INFORME O VALOR DO CHEQUE (R$).');
+        return;
+      }
+      if (isCheckUnderpaid && saldoADistribuir > 0.009) {
+        alert(`EXISTE UM SALDO RESTANTE DE ${formatCurrencyBRL(saldoADistribuir)} A DISTRIBUIR. ADICIONE UMA FORMA COMPLEMENTAR DE PAGAMENTO (EX: PIX OU DINHEIRO) ATÉ ZERAR O SALDO.`);
+        return;
+      }
+      for (const comp of complementaryPayments) {
+        const compVal = parseCurrencyToFloat(comp.amount);
+        if (compVal <= 0) {
+          alert('POR FAVOR, INFORME UM VALOR VÁLIDO PARA CADA FORMA COMPLEMENTAR.');
+          return;
+        }
+      }
+    }
+
+    if (status === 'pago' && !bankAccountId && !isCardPayment && !isCashOrSignedNote && !isCheckPayment) {
       alert('POR FAVOR, SELECIONE A CONTA DE DÉBITO (ORIGEM) PARA A DESPESA PAGA.');
       return;
     }
@@ -952,8 +1078,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       finalPaymentDate = paymentDate || dueDate || today;
     }
 
-    const finalBankAccountId = (finalStatus === 'pago' || isCardPayment) ? selectedBankAccountObj?.id : undefined;
-    const finalBankAccountName = (finalStatus === 'pago' || isCardPayment) ? selectedBankAccountObj?.name : undefined;
+    const finalBankAccountId = (finalStatus === 'pago' || isCardPayment) && !isCashOrSignedNote && !isCheckPayment ? selectedBankAccountObj?.id : undefined;
+    const finalBankAccountName = (finalStatus === 'pago' || isCardPayment) && !isCashOrSignedNote && !isCheckPayment ? selectedBankAccountObj?.name : undefined;
 
     if (isInstallment && installmentCount > 1 && !editingExpense) {
       const installmentAmount = +(numAmount / installmentCount).toFixed(2);
@@ -982,12 +1108,26 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           paymentDate: i === 0 && finalStatus === 'pago' ? (finalPaymentDate || dateStr) : undefined,
           status: i === 0 ? finalStatus : 'pendente',
           paymentMethod,
-          bankAccountId: i === 0 && (finalStatus === 'pago' || isCardPayment) ? finalBankAccountId : undefined,
-          bankAccountName: i === 0 && (finalStatus === 'pago' || isCardPayment) ? finalBankAccountName : undefined,
+          bankAccountId: i === 0 && (finalStatus === 'pago' || isCardPayment) && !isCashOrSignedNote && !isCheckPayment ? finalBankAccountId : undefined,
+          bankAccountName: i === 0 && (finalStatus === 'pago' || isCardPayment) && !isCashOrSignedNote && !isCheckPayment ? finalBankAccountName : undefined,
           paidByEmployeeId: i === 0 && finalStatus === 'pago' ? selectedPaidByEmpObj?.id : undefined,
           paidByEmployeeName: i === 0 && finalStatus === 'pago' ? selectedPaidByEmpObj?.name : undefined,
           corporateCardId: finalCorporateCardId,
           corporateCardName: finalCorporateCardName,
+          checkNumber: isCheckPayment && checkNumber.trim() ? checkNumber.trim() : undefined,
+          checkIssuerName: isCheckPayment && checkIssuerName.trim() ? checkIssuerName.trim() : undefined,
+          checkIssuerCpf: isCheckPayment && checkIssuerCpf.trim() ? checkIssuerCpf.trim() : undefined,
+          checkBank: isCheckPayment && checkBank.trim() ? checkBank.trim() : undefined,
+          checkAmount: isCheckPayment && numCheckAmount > 0 ? numCheckAmount : undefined,
+          checkChangeAmount: isCheckPayment && checkChangeAmount > 0 ? checkChangeAmount : undefined,
+          complementaryPayments: isCheckPayment && complementaryPayments.length > 0
+            ? complementaryPayments.map(c => ({
+                id: c.id,
+                paymentMethod: c.paymentMethod,
+                amount: parseCurrencyToFloat(c.amount),
+                bankAccountId: c.bankAccountId,
+              }))
+            : undefined,
           supplier: supplier.trim(),
           supplierId: resolvedSupplierId,
           fornecedorId: resolvedSupplierId,
@@ -1042,6 +1182,20 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         paidByEmployeeName: finalStatus === 'pago' ? selectedPaidByEmpObj?.name : undefined,
         corporateCardId: finalCorporateCardId,
         corporateCardName: finalCorporateCardName,
+        checkNumber: isCheckPayment && checkNumber.trim() ? checkNumber.trim() : undefined,
+        checkIssuerName: isCheckPayment && checkIssuerName.trim() ? checkIssuerName.trim() : undefined,
+        checkIssuerCpf: isCheckPayment && checkIssuerCpf.trim() ? checkIssuerCpf.trim() : undefined,
+        checkBank: isCheckPayment && checkBank.trim() ? checkBank.trim() : undefined,
+        checkAmount: isCheckPayment && numCheckAmount > 0 ? numCheckAmount : undefined,
+        checkChangeAmount: isCheckPayment && checkChangeAmount > 0 ? checkChangeAmount : undefined,
+        complementaryPayments: isCheckPayment && complementaryPayments.length > 0
+          ? complementaryPayments.map(c => ({
+              id: c.id,
+              paymentMethod: c.paymentMethod,
+              amount: parseCurrencyToFloat(c.amount),
+              bankAccountId: c.bankAccountId,
+            }))
+          : undefined,
         supplier: supplier.trim(),
         supplierId: resolvedSupplierId,
         fornecedorId: resolvedSupplierId,
@@ -1861,46 +2015,48 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               />
             </div>
 
-            {/* CONTA DE DÉBITO (ORIGEM) POSICIONADO LOGO ABAIXO DO STATUS DE PAGAMENTO */}
-            <div className={isCardPayment ? "col-span-6" : "col-span-12"}>
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                CONTA DE DÉBITO (ORIGEM) {(status === 'pago' || isCardPayment) ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
-              </label>
-              <div className="relative">
-                <select
-                  value={(status === 'pago' || isCardPayment) ? bankAccountId : ''}
-                  onChange={(e) => handleBankAccountChange(e.target.value)}
-                  disabled={status !== 'pago' && !isCardPayment}
-                  required={status === 'pago' || isCardPayment}
-                  className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase transition ${
-                    (status !== 'pago' && !isCardPayment)
-                      ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
-                      : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
-                  }`}
-                >
-                  {(status !== 'pago' && !isCardPayment) ? (
-                    <option value="">-- CONTA BLOQUEADA (DESPESA PENDENTE DE PAGAMENTO) --</option>
-                  ) : (
-                    <>
-                      <option value="">-- SELECIONE O BANCO / CONTA --</option>
-                      {effectiveBankAccounts.map((acc) => {
-                        const name = (acc.name || acc.accountName || '').trim();
-                        const bank = (acc.bankName || '').trim();
-                        const cleanLabel = name && bank && name.toUpperCase() !== bank.toUpperCase()
-                          ? `${name} · ${bank}`
-                          : (name || bank || 'CONTA BANCÁRIA');
-                        return (
-                          <option key={acc.id} value={acc.id} className="uppercase">
-                            {cleanLabel.toUpperCase()}
-                          </option>
-                        );
-                      })}
-                    </>
-                  )}
-                </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* CONTA DE DÉBITO (ORIGEM) - Ocultada para Dinheiro em Espécie, Assinado Nota e Cheque */}
+            {!isCashOrSignedNote && !isCheckPayment && (
+              <div className={isCardPayment ? "col-span-6" : "col-span-12"}>
+                <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                  CONTA DE DÉBITO (ORIGEM) {(status === 'pago' || isCardPayment) ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
+                </label>
+                <div className="relative">
+                  <select
+                    value={(status === 'pago' || isCardPayment) ? bankAccountId : ''}
+                    onChange={(e) => handleBankAccountChange(e.target.value)}
+                    disabled={status !== 'pago' && !isCardPayment}
+                    required={status === 'pago' || isCardPayment}
+                    className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase transition ${
+                      (status !== 'pago' && !isCardPayment)
+                        ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
+                        : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
+                    }`}
+                  >
+                    {(status !== 'pago' && !isCardPayment) ? (
+                      <option value="">-- CONTA BLOQUEADA (DESPESA PENDENTE DE PAGAMENTO) --</option>
+                    ) : (
+                      <>
+                        <option value="">-- SELECIONE O BANCO / CONTA --</option>
+                        {effectiveBankAccounts.map((acc) => {
+                          const name = (acc.name || acc.accountName || '').trim();
+                          const bank = (acc.bankName || '').trim();
+                          const cleanLabel = name && bank && name.toUpperCase() !== bank.toUpperCase()
+                            ? `${name} · ${bank}`
+                            : (name || bank || 'CONTA BANCÁRIA');
+                          return (
+                            <option key={acc.id} value={acc.id} className="uppercase">
+                              {cleanLabel.toUpperCase()}
+                            </option>
+                          );
+                        })}
+                      </>
+                    )}
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* CAMPO CONDICIONAL: SELECIONAR CARTÃO CORPORATIVO (INTERFACE REATIVA - PRINT 1) */}
             {isCardPayment && (
@@ -1969,6 +2125,249 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     <span className="font-bold text-emerald-800 dark:text-emerald-400 shrink-0 uppercase">
                       Débito Imediato em Conta
                     </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUBFORMULÁRIO DINÂMICO PARA PAGAMENTO EM CHEQUE */}
+            {isCheckPayment && (
+              <div className="col-span-12 p-3 rounded-lg border border-amber-300 dark:border-amber-800/70 bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-stone-900 dark:to-stone-850 space-y-3 animate-in fade-in">
+                {/* Cabeçalho do Bloco de Cheque */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-amber-200 dark:border-amber-900/50">
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-300">
+                      EMISSÃO E DADOS DO CHEQUE
+                    </span>
+                  </div>
+                  {numAmount > 0 && (
+                    <span className="text-[10px] font-semibold text-stone-600 dark:text-stone-400">
+                      Total da Despesa: <strong className="font-mono text-stone-900 dark:text-stone-100">{formatCurrencyBRL(numAmount)}</strong>
+                    </span>
+                  )}
+                </div>
+
+                {/* Grid dos Campos do Cheque */}
+                <div className="grid grid-cols-12 gap-2">
+                  {/* Número do Cheque * (Obrigatório) */}
+                  <div className="col-span-12 sm:col-span-4">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                      NÚMERO DO CHEQUE <span className="text-rose-600 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required={isCheckPayment}
+                      value={checkNumber}
+                      onChange={(e) => setCheckNumber(e.target.value.toUpperCase())}
+                      placeholder="Ex: 000124"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 uppercase tracking-wider"
+                    />
+                  </div>
+
+                  {/* Valor do Cheque * (Obrigatório) */}
+                  <div className="col-span-12 sm:col-span-4">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                      VALOR DO CHEQUE (R$) <span className="text-rose-600 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required={isCheckPayment}
+                      value={checkAmount}
+                      onChange={(e) => setCheckAmount(maskCurrencyLive(e.target.value))}
+                      placeholder="R$ 0,00"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-black font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  {/* Banco do Cheque (Opcional) */}
+                  <div className="col-span-12 sm:col-span-4">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                      BANCO DO CHEQUE <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={checkBank}
+                      onChange={(e) => setCheckBank(e.target.value.toUpperCase())}
+                      placeholder="Ex: SICREDI, BB, BRADESCO..."
+                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500 uppercase"
+                    />
+                  </div>
+
+                  {/* Nome do Emitente (Opcional) */}
+                  <div className="col-span-12 sm:col-span-7">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                      NOME DO EMITENTE <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={checkIssuerName}
+                      onChange={(e) => setCheckIssuerName(e.target.value.toUpperCase())}
+                      placeholder="Ex: NOME DO TITULAR DA FOLHA DE CHEQUE"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500 uppercase"
+                    />
+                  </div>
+
+                  {/* CPF / CNPJ do Emitente (Opcional) */}
+                  <div className="col-span-12 sm:col-span-5">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                      CPF / CNPJ DO EMITENTE <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={checkIssuerCpf}
+                      onChange={(e) => setCheckIssuerCpf(formatCpfCnpj(e.target.value))}
+                      placeholder="000.000.000-00"
+                      maxLength={18}
+                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* CASO 1: VALOR DO CHEQUE MAIOR QUE A DESPESA (TROCO EM DINHEIRO) */}
+                {checkChangeAmount > 0 && (
+                  <div className="flex items-center justify-between p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs animate-in fade-in">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <Coins className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Troco em Dinheiro:</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+                        (Valor do Cheque {formatCurrencyBRL(numCheckAmount)} - Total {formatCurrencyBRL(numAmount)})
+                      </span>
+                      <span className="font-mono font-black text-sm text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60">
+                        {formatCurrencyBRL(checkChangeAmount)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* CASO 2: VALOR DO CHEQUE MENOR QUE A DESPESA (PAGAMENTO MISTO / COMPLEMENTAR) */}
+                {isCheckUnderpaid && (
+                  <div className="p-3 rounded-md bg-orange-50/70 dark:bg-orange-950/30 border border-orange-300 dark:border-orange-800/60 space-y-2.5 animate-in fade-in">
+                    <div className="flex flex-wrap items-center justify-between gap-1 border-b border-orange-200 dark:border-orange-900/40 pb-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-orange-900 dark:text-orange-200">
+                        <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                        <span>Pagamento Misto: Cheque Parcial ({formatCurrencyBRL(numCheckAmount)})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold uppercase text-stone-700 dark:text-stone-300">
+                          Saldo a Distribuir:
+                        </span>
+                        <span
+                          className={`font-mono font-black text-xs px-2 py-0.5 rounded ${
+                            saldoADistribuir > 0.009
+                              ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                              : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                          }`}
+                        >
+                          {formatCurrencyBRL(saldoADistribuir)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Linhas de Formas Complementares */}
+                    {complementaryPayments.length > 0 && (
+                      <div className="space-y-2">
+                        {complementaryPayments.map((comp, idx) => {
+                          const requiresAcc = comp.paymentMethod !== 'dinheiro';
+                          return (
+                            <div
+                              key={comp.id}
+                              className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-stone-850 p-2 rounded border border-orange-200 dark:border-stone-700"
+                            >
+                              <div className="col-span-12 sm:col-span-4">
+                                <label className="block text-[9px] font-bold text-stone-500 uppercase mb-0.5">
+                                  Forma Complementar #{idx + 1}
+                                </label>
+                                <select
+                                  value={comp.paymentMethod}
+                                  onChange={(e) =>
+                                    handleUpdateComplementaryPayment(comp.id, 'paymentMethod', e.target.value as PaymentMethod)
+                                  }
+                                  className="w-full px-2 h-7 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold uppercase text-slate-800 dark:text-stone-200 focus:outline-none"
+                                >
+                                  <option value="pix">PIX</option>
+                                  <option value="dinheiro">DINHEIRO EM ESPÉCIE</option>
+                                  <option value="cartao_debito">CARTÃO DE DÉBITO</option>
+                                  <option value="transferencia">TRANSFERÊNCIA (TED)</option>
+                                  <option value="boleto">BOLETO BANCÁRIO</option>
+                                </select>
+                              </div>
+
+                              <div className="col-span-12 sm:col-span-3">
+                                <label className="block text-[9px] font-bold text-stone-500 uppercase mb-0.5">
+                                  Valor (R$)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={comp.amount}
+                                  onChange={(e) =>
+                                    handleUpdateComplementaryPayment(comp.id, 'amount', e.target.value)
+                                  }
+                                  placeholder="R$ 0,00"
+                                  className="w-full px-2 h-7 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black font-mono text-slate-900 dark:text-stone-100 focus:outline-none"
+                                />
+                              </div>
+
+                              <div className="col-span-10 sm:col-span-4">
+                                <label className="block text-[9px] font-bold text-stone-500 uppercase mb-0.5">
+                                  {requiresAcc ? 'Conta Débito' : 'Espécie (Sem Conta)'}
+                                </label>
+                                {requiresAcc ? (
+                                  <select
+                                    value={comp.bankAccountId || ''}
+                                    onChange={(e) =>
+                                      handleUpdateComplementaryPayment(comp.id, 'bankAccountId', e.target.value)
+                                    }
+                                    className="w-full px-2 h-7 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-[11px] font-semibold uppercase text-slate-800 dark:text-stone-200 focus:outline-none"
+                                  >
+                                    <option value="">-- SELECIONE CONTA --</option>
+                                    {effectiveBankAccounts.map((acc) => (
+                                      <option key={acc.id} value={acc.id}>
+                                        {(acc.name || acc.accountName || acc.bankName || 'Conta').toUpperCase()}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <div className="h-7 px-2 flex items-center bg-slate-100 dark:bg-stone-800 rounded text-[10px] text-slate-500 italic">
+                                    Pagamento direto em mãos
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="col-span-2 sm:col-span-1 flex justify-end pt-3 sm:pt-3.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveComplementaryPayment(comp.id)}
+                                  className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                  title="Remover forma complementar"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddComplementaryPayment}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold uppercase transition cursor-pointer shadow-xs"
+                      >
+                        <Plus className="w-3 h-3" />
+                        ADICIONAR FORMA COMPLEMENTAR
+                      </button>
+
+                      {saldoADistribuir > 0.009 && (
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                          Complete os pagamentos para zerar o saldo
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2186,7 +2585,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-1 rounded-md bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold uppercase transition cursor-pointer shadow-xs"
+              disabled={isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009}
+              title={
+                isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
+                  ? `Saldo restante de ${formatCurrencyBRL(saldoADistribuir)} a distribuir antes de salvar.`
+                  : undefined
+              }
+              className={`px-4 py-1 rounded-md text-white text-xs font-bold uppercase transition shadow-xs ${
+                isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
+                  ? 'bg-slate-400 dark:bg-stone-700 cursor-not-allowed opacity-60'
+                  : 'bg-[#059669] hover:bg-emerald-700 cursor-pointer'
+              }`}
             >
               {editingExpense ? 'ATUALIZAR DESPESA' : 'SALVAR DESPESA'}
             </button>

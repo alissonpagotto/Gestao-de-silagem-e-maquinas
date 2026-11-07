@@ -567,6 +567,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     <div className="text-[9px] text-black/75 dark:text-stone-400 uppercase font-black">
                       {exp.paymentMethod ? exp.paymentMethod.replace('_', ' ') : ''}
                     </div>
+                    {exp.paymentMethod === 'cheque' && exp.checkNumber && (
+                      <div className="text-[9px] text-amber-900 dark:text-amber-300 font-bold truncate max-w-[140px]" title={`Cheque Nº ${exp.checkNumber}${exp.checkBank ? ` · ${exp.checkBank}` : ''}`}>
+                        🧾 Cheque Nº {exp.checkNumber}
+                      </div>
+                    )}
                     {exp.corporateCardName && (
                       <div className="text-[9px] text-purple-900 dark:text-purple-300 font-bold truncate max-w-[140px]" title={exp.corporateCardName}>
                         💳 {exp.corporateCardName}

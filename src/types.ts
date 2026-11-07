@@ -128,6 +128,21 @@ export interface Expense {
   expense_items?: ExpenseItem[]; // Grade discriminada de produtos/itens da despesa
   items?: ExpenseItem[]; // Alias compatibilidade
   date?: string; // YYYY-MM-DD (compatibilidade)
+  // Dados de Cheque e Pagamento Misto
+  checkNumber?: string;
+  checkIssuerName?: string;
+  checkIssuerCpf?: string;
+  checkBank?: string;
+  checkAmount?: number;
+  checkChangeAmount?: number;
+  complementaryPayments?: {
+    id: string;
+    paymentMethod: PaymentMethod;
+    amount: number;
+    bankAccountId?: string;
+    bankAccountName?: string;
+    notes?: string;
+  }[];
   createdAt: string;
 }
 
