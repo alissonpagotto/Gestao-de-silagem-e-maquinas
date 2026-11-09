@@ -13343,6 +13343,16 @@ export async function saveFinanceiroCheque(
     imagem_url: chequeData.imagem_url || chequeData.imagemUrl || '',
     imagemUrl: chequeData.imagem_url || chequeData.imagemUrl || '',
     status: (chequeData.status as ChequeStatus) || 'EM_NOSSO_PODER',
+    conta_bancaria_destino_id: chequeData.conta_bancaria_destino_id || chequeData.contaBancariaDestinoId || '',
+    contaBancariaDestinoId: chequeData.conta_bancaria_destino_id || chequeData.contaBancariaDestinoId || '',
+    data_compensacao: chequeData.data_compensacao || chequeData.dataCompensacao || '',
+    dataCompensacao: chequeData.data_compensacao || chequeData.dataCompensacao || '',
+    ordem_id: chequeData.ordem_id || chequeData.ordemId || '',
+    ordemId: chequeData.ordem_id || chequeData.ordemId || '',
+    ordem_tipo: chequeData.ordem_tipo || chequeData.ordemTipo || '',
+    ordemTipo: chequeData.ordem_tipo || chequeData.ordemTipo || '',
+    parcela_numero: chequeData.parcela_numero,
+    total_parcelas: chequeData.total_parcelas,
     created_at: chequeData.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString()
   };

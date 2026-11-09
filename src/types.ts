@@ -237,6 +237,8 @@ export interface SilageOrder {
   installmentNumber?: number;
   totalInstallments?: number;
   parentOrderId?: string;
+  chequeId?: string;
+  chequeNumero?: string;
   updatedAt?: string;
   machineryId?: string;
   machineryPlateOrName?: string;
@@ -932,6 +934,8 @@ export interface ServiceOrder {
   installmentNumber?: number;
   totalInstallments?: number;
   parentOrderId?: string;
+  chequeId?: string;
+  chequeNumero?: string;
   updatedAt?: string;
   machineryId?: string;
   machineryAssigned?: string;
@@ -2108,6 +2112,16 @@ export interface FinanceiroCheque {
   imagem_url?: string;
   imagemUrl?: string;
   status: ChequeStatus;
+  conta_bancaria_destino_id?: string;
+  contaBancariaDestinoId?: string;
+  data_compensacao?: string;
+  dataCompensacao?: string;
+  ordem_id?: string;
+  ordemId?: string;
+  ordem_tipo?: string;
+  ordemTipo?: string;
+  parcela_numero?: number;
+  total_parcelas?: number;
   created_at?: string;
   updated_at?: string;
 }

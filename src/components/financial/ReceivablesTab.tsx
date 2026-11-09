@@ -29,8 +29,12 @@ import {
   formatDateBR, 
   saveStoredOrders, 
   saveStoredServices,
+  getStoredBankAccounts,
+  saveStoredBankAccounts,
   getStoredBankTransactions,
   saveStoredBankTransactions,
+  getStoredFinanceiroCheques,
+  saveStoredFinanceiroCheques,
   getActiveCompanyId
 } from '../../lib/storage';
 import { toValidUUID } from '../../lib/supabaseService';
@@ -118,20 +122,31 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
   // Combined Receivables Items
   const receivablesFromOrders: ReceivableItem[] = useMemo(() => {
-    return localOrders.map((o) => ({
-      id: o.id,
-      type: 'Venda de Silagem',
-      clientName: o.clientName,
-      date: o.date || o.deliveryDate || o.createdAt || '',
-      dueDate: o.dueDate || o.deliveryDate || o.date || o.createdAt || '',
-      volume: o.isInstallment && o.installmentNumber
-        ? `Parcela ${o.installmentNumber}/${o.totalInstallments} (${o.tons} tons)`
-        : `${o.tons} tons`,
-      totalAmount: o.totalAmount,
-      status: o.paymentStatus === 'pago' ? 'pago' : 'pendente',
-      notes: o.notes || '',
-      clientId: (o as any).clientId || (o as any).client_id,
-    }));
+    return localOrders.map((o) => {
+      const isCheque = o.paymentMethod === 'cheque' || /cheque/i.test(o.notes || '');
+      const chqMatch = (o.notes || '').match(/cheque\s+n[ºo°]?\s*[:\.]?\s*(\w+)/i);
+      const extractedNumero = chqMatch ? chqMatch[1] : undefined;
+      return {
+        id: o.id,
+        type: 'Venda de Silagem',
+        clientName: o.clientName,
+        date: o.date || o.deliveryDate || o.createdAt || '',
+        dueDate: o.dueDate || o.deliveryDate || o.date || o.createdAt || '',
+        volume: o.isInstallment && o.installmentNumber
+          ? `Parcela ${o.installmentNumber}/${o.totalInstallments} (${o.tons} tons)`
+          : `${o.tons} tons`,
+        totalAmount: o.totalAmount,
+        status: o.paymentStatus === 'pago' ? 'pago' : 'pendente',
+        notes: o.notes || '',
+        clientId: (o as any).clientId || (o as any).client_id,
+        paymentMethod: o.paymentMethod || (isCheque ? 'cheque' : undefined),
+        isInstallment: o.isInstallment,
+        installmentNumber: o.installmentNumber,
+        totalInstallments: o.totalInstallments,
+        chequeId: o.chequeId || (o as any).cheque_id,
+        chequeNumero: o.chequeNumero || (o as any).cheque_numero || extractedNumero,
+      };
+    });
   }, [localOrders]);
 
   const receivablesFromServices: ReceivableItem[] = useMemo(() => {
@@ -139,24 +154,35 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     // e foram disparados para Contas a Receber (status === 'faturado' ou s.billedAt) aparecem aqui.
     return localServices
       .filter((s) => s.status === 'faturado' || s.billingStatus === 'faturado' || !!s.billedAt || (s.status === 'finalizado' && !!s.billedAt))
-      .map((s) => ({
-        id: s.id,
-        type: 'Prestação de Serviço',
-        clientName: s.clientName,
-        date: s.date || s.startDate || (s as any).createdAt || '',
-        dueDate: s.dueDate || s.date || s.startDate || (s as any).createdAt || '',
-        volume: s.isInstallment && s.installmentNumber
-          ? `Parcela ${s.installmentNumber}/${s.totalInstallments} (${s.areaQuantity ? `${s.areaQuantity} ${s.areaUnit || 'UN'}` : (s.serviceType || 'Serviço')})`
-          : (s.areaQuantity
-            ? `${s.areaQuantity} ${s.areaUnit || 'UN'}`
-            : (s.serviceType || 'Serviço Agrícola')),
-        totalAmount: s.totalAmount || 0,
-        status: s.status === 'finalizado' || s.paymentStatus === 'pago' ? 'pago' : 'pendente',
-        notes: s.billingNotes
-          ? `${s.serviceType || 'Serviço'}: ${s.billingNotes}`
-          : (s.serviceType || s.farmLocation || ''),
-        clientId: (s as any).clientId || (s as any).client_id,
-      }));
+      .map((s) => {
+        const isCheque = s.paymentMethod === 'cheque' || /cheque/i.test(s.billingNotes || '');
+        const chqMatch = (s.billingNotes || '').match(/cheque\s+n[ºo°]?\s*[:\.]?\s*(\w+)/i);
+        const extractedNumero = chqMatch ? chqMatch[1] : undefined;
+        return {
+          id: s.id,
+          type: 'Prestação de Serviço',
+          clientName: s.clientName,
+          date: s.date || s.startDate || (s as any).createdAt || '',
+          dueDate: s.dueDate || s.date || s.startDate || (s as any).createdAt || '',
+          volume: s.isInstallment && s.installmentNumber
+            ? `Parcela ${s.installmentNumber}/${s.totalInstallments} (${s.areaQuantity ? `${s.areaQuantity} ${s.areaUnit || 'UN'}` : (s.serviceType || 'Serviço')})`
+            : (s.areaQuantity
+              ? `${s.areaQuantity} ${s.areaUnit || 'UN'}`
+              : (s.serviceType || 'Serviço Agrícola')),
+          totalAmount: s.totalAmount || 0,
+          status: s.status === 'finalizado' || s.paymentStatus === 'pago' ? 'pago' : 'pendente',
+          notes: s.billingNotes
+            ? `${s.serviceType || 'Serviço'}: ${s.billingNotes}`
+            : (s.serviceType || s.farmLocation || ''),
+          clientId: (s as any).clientId || (s as any).client_id,
+          paymentMethod: s.paymentMethod || (isCheque ? 'cheque' : undefined),
+          isInstallment: s.isInstallment,
+          installmentNumber: s.installmentNumber,
+          totalInstallments: s.totalInstallments,
+          chequeId: s.chequeId || (s as any).cheque_id,
+          chequeNumero: s.chequeNumero || (s as any).cheque_numero || extractedNumero,
+        };
+      });
   }, [localServices]);
 
   const allReceivables = useMemo(() => {
@@ -221,6 +247,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           installmentNumber: 1,
           totalInstallments: inst1.totalInstallments,
           parentOrderId: targetService.id,
+          chequeId: chq1?.id,
+          chequeNumero: chq1?.numero_cheque || chq1?.numeroCheque,
         };
 
         // Cria as parcelas subsequentes (2..N) com status 'pendente' no Contas a Receber
@@ -249,6 +277,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             installmentNumber: inst.number,
             totalInstallments: inst.totalInstallments,
             parentOrderId: targetService.id,
+            chequeId: chqN?.id,
+            chequeNumero: chqN?.numero_cheque || chqN?.numeroCheque,
           };
         });
 
@@ -261,6 +291,35 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         setLocalServices(updatedServicesList);
         saveStoredServices(updatedServicesList);
         if (onSaveServices) onSaveServices(updatedServicesList);
+
+        // Atualiza vínculo dos cheques salvos na custódia
+        try {
+          const storedChqs = getStoredFinanceiroCheques();
+          let chqsChanged = false;
+          if (details.cheques && details.cheques.length > 0) {
+            details.cheques.forEach((c, cIdx) => {
+              const matched = storedChqs.find(sc => sc.id === c.id || (sc.numero_cheque === c.numero_cheque && sc.banco === c.banco));
+              if (matched) {
+                matched.ordem_id = cIdx === 0 ? targetService.id : newInstallments[cIdx - 1]?.id;
+                matched.ordem_tipo = 'servico';
+                matched.parcela_numero = cIdx + 1;
+                matched.total_parcelas = details.installments?.length || 1;
+                if (cIdx === 0 && isInst1Paid) {
+                  matched.status = 'COMPENSADO';
+                  matched.data_compensacao = details.receiptDate;
+                  matched.conta_bancaria_destino_id = details.bankAccountId;
+                }
+                chqsChanged = true;
+              }
+            });
+          }
+          if (chqsChanged) {
+            saveStoredFinanceiroCheques(storedChqs);
+            window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+          }
+        } catch (e) {
+          console.warn('Erro ao vincular cheques na custódia:', e);
+        }
 
       } else {
         // Fluxo padrão sem parcelamento
@@ -280,7 +339,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               billingNotes: details.interestAmount 
                 ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
+              chequeId: chqSingle?.id || s.chequeId,
+              chequeNumero: chqSingle?.numero_cheque || chqSingle?.numeroCheque || s.chequeNumero,
             };
           }
           return s;
@@ -288,6 +349,27 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         setLocalServices(updated);
         saveStoredServices(updated);
         if (onSaveServices) onSaveServices(updated);
+
+        // Se baixou em cheque ou compensou cheque pré-existente
+        try {
+          const storedChqs = getStoredFinanceiroCheques();
+          const targetItem = allReceivables.find(r => r.id === details.itemId);
+          const chqToUpdate = storedChqs.find(sc => 
+            (chqSingle && sc.id === chqSingle.id) ||
+            (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
+            (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
+            (sc.ordem_id === details.itemId)
+          );
+          if (chqToUpdate) {
+            chqToUpdate.status = 'COMPENSADO';
+            chqToUpdate.data_compensacao = details.receiptDate;
+            if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+            saveStoredFinanceiroCheques(storedChqs);
+            window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+          }
+        } catch (e) {
+          console.warn('Erro ao atualizar status do cheque:', e);
+        }
       }
     } 
     // 2. Atualiza ordens de venda de silagem
@@ -317,6 +399,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           installmentNumber: 1,
           totalInstallments: inst1.totalInstallments,
           parentOrderId: targetOrder.id,
+          chequeId: chq1?.id,
+          chequeNumero: chq1?.numero_cheque || chq1?.numeroCheque,
         };
 
         // Cria as parcelas subsequentes (2..N) com status 'pendente'
@@ -343,6 +427,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             installmentNumber: inst.number,
             totalInstallments: inst.totalInstallments,
             parentOrderId: targetOrder.id,
+            chequeId: chqN?.id,
+            chequeNumero: chqN?.numero_cheque || chqN?.numeroCheque,
           };
         });
 
@@ -356,6 +442,35 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         saveStoredOrders(updatedOrdersList);
         if (onSaveOrders) onSaveOrders(updatedOrdersList);
         if (onToggleOrderStatus && isInst1Paid) onToggleOrderStatus(details.itemId);
+
+        // Atualiza vínculo dos cheques salvos na custódia
+        try {
+          const storedChqs = getStoredFinanceiroCheques();
+          let chqsChanged = false;
+          if (details.cheques && details.cheques.length > 0) {
+            details.cheques.forEach((c, cIdx) => {
+              const matched = storedChqs.find(sc => sc.id === c.id || (sc.numero_cheque === c.numero_cheque && sc.banco === c.banco));
+              if (matched) {
+                matched.ordem_id = cIdx === 0 ? targetOrder.id : newInstallmentOrders[cIdx - 1]?.id;
+                matched.ordem_tipo = 'venda';
+                matched.parcela_numero = cIdx + 1;
+                matched.total_parcelas = details.installments?.length || 1;
+                if (cIdx === 0 && isInst1Paid) {
+                  matched.status = 'COMPENSADO';
+                  matched.data_compensacao = details.receiptDate;
+                  matched.conta_bancaria_destino_id = details.bankAccountId;
+                }
+                chqsChanged = true;
+              }
+            });
+          }
+          if (chqsChanged) {
+            saveStoredFinanceiroCheques(storedChqs);
+            window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+          }
+        } catch (e) {
+          console.warn('Erro ao vincular cheques na custódia:', e);
+        }
 
       } else {
         // Fluxo padrão sem parcelamento
@@ -374,7 +489,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               notes: details.interestAmount
                 ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${o.notes || ''}${chqSingleNote}`.trim(),
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
+              chequeId: chqSingle?.id || o.chequeId,
+              chequeNumero: chqSingle?.numero_cheque || chqSingle?.numeroCheque || o.chequeNumero,
             };
           }
           return o;
@@ -383,10 +500,31 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         saveStoredOrders(updated);
         if (onSaveOrders) onSaveOrders(updated);
         if (onToggleOrderStatus) onToggleOrderStatus(details.itemId);
+
+        // Se baixou em cheque ou compensou cheque pré-existente
+        try {
+          const storedChqs = getStoredFinanceiroCheques();
+          const targetItem = allReceivables.find(r => r.id === details.itemId);
+          const chqToUpdate = storedChqs.find(sc => 
+            (chqSingle && sc.id === chqSingle.id) ||
+            (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
+            (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
+            (sc.ordem_id === details.itemId)
+          );
+          if (chqToUpdate) {
+            chqToUpdate.status = 'COMPENSADO';
+            chqToUpdate.data_compensacao = details.receiptDate;
+            if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+            saveStoredFinanceiroCheques(storedChqs);
+            window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+          }
+        } catch (e) {
+          console.warn('Erro ao atualizar status do cheque:', e);
+        }
       }
     }
 
-    // 3. Registra movimentação no Extrato Bancário / Caixa se houver valor liquidado
+    // 3. Registra movimentação no Extrato Bancário e atualiza Saldo da Conta Bancária
     const isFirstPaid = details.isInstallmentPlan ? Boolean(details.installments?.[0]?.isPaid) : true;
     const amountReceivedNow = details.isInstallmentPlan 
       ? (isFirstPaid ? (details.installments?.[0]?.amount || 0) : 0)
@@ -394,6 +532,14 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
     if (details.bankAccountId && amountReceivedNow > 0) {
       try {
+        // Atualiza saldo real da conta de destino
+        const allAccs = getStoredBankAccounts();
+        const targetAcc = allAccs.find(a => a.id === details.bankAccountId);
+        if (targetAcc) {
+          targetAcc.balance = Number(((Number(targetAcc.balance) || 0) + amountReceivedNow).toFixed(2));
+          saveStoredBankAccounts(allAccs);
+        }
+
         const currentTx = getStoredBankTransactions();
         const clientItem = allReceivables.find(r => r.id === details.itemId);
         const newTx: BankTransaction = {

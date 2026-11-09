@@ -23,7 +23,9 @@ import {
   Layers,
   CalendarClock,
   Percent,
-  Copy
+  Copy,
+  Lock,
+  Eye
 } from 'lucide-react';
 import { 
   BankAccount, 
@@ -32,7 +34,14 @@ import {
   ClienteCredito,
   CompanyProfile 
 } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredClients, getActiveCompanyId } from '../../lib/storage';
+import { 
+  formatCurrencyBRL, 
+  formatDateBR, 
+  getStoredClients, 
+  getActiveCompanyId,
+  getStoredFinanceiroCheques,
+  saveStoredFinanceiroCheques
+} from '../../lib/storage';
 import { 
   uploadChequeImagem, 
   saveFinanceiroCheque, 
@@ -55,6 +64,12 @@ export interface ReceivableItem {
   status: 'pendente' | 'pago';
   notes?: string;
   clientId?: string;
+  paymentMethod?: PaymentMethod | string;
+  isInstallment?: boolean;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  chequeId?: string;
+  chequeNumero?: string;
 }
 
 export interface InstallmentPreviewItem {
@@ -132,6 +147,10 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   // Grade Dinâmica de Cheques por Parcela
   const [chequesList, setChequesList] = useState<ChequeItemForm[]>([]);
 
+  // Metadados de Cheque Pré-Cadastrado (Read-Only)
+  const [preloadedCheque, setPreloadedCheque] = useState<FinanceiroCheque | null>(null);
+  const [showChequeZoomModal, setShowChequeZoomModal] = useState(false);
+
   // Opções de Parcelamento
   const [installmentsCount, setInstallmentsCount] = useState<number>(1);
   const [installmentsIntervalDays, setInstallmentsIntervalDays] = useState<number>(30);
@@ -193,7 +212,6 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     setErrorMessage('');
     setSuccessToast('');
     setReceiptDate(today);
-    setPaymentMethod('pix');
     setNotes('');
     setIsSubmitting(false);
 
@@ -207,26 +225,75 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     const accountTotal = Number(item.totalAmount) || 0;
     setReceivedAmount(accountTotal);
 
+    // 1. Identifica se o título foi originado de um parcelamento ou lançamento em Cheque
+    const isChequeOrigin = 
+      item.paymentMethod === 'cheque' ||
+      Boolean(item.chequeId) ||
+      Boolean(item.chequeNumero) ||
+      /cheque/i.test(item.notes || '') ||
+      /cheque/i.test(item.volume || '');
+
+    let foundCheque: FinanceiroCheque | null = null;
+    if (isChequeOrigin) {
+      try {
+        const storedChqs = getStoredFinanceiroCheques();
+        const chqMatch = (item.notes || '').match(/cheque\s+n[ºo°]?\s*[:\.]?\s*(\w+)/i);
+        const extractedNumero = chqMatch ? chqMatch[1] : undefined;
+
+        // Busca prioritária por ID do cheque ou número do cheque
+        foundCheque = storedChqs.find(sc => {
+          if (item.chequeId && sc.id === item.chequeId) return true;
+          if (item.chequeNumero && (sc.numero_cheque === item.chequeNumero || sc.numeroCheque === item.chequeNumero)) return true;
+          if (extractedNumero && (sc.numero_cheque === extractedNumero || sc.numeroCheque === extractedNumero)) return true;
+          if (sc.ordem_id && sc.ordem_id === item.id) return true;
+          return false;
+        }) || null;
+
+        // Fallback: busca por cliente e valor idêntico
+        if (!foundCheque) {
+          foundCheque = storedChqs.find(sc => {
+            const sameClient = (sc.cliente_nome || sc.clienteNome || sc.emitente_nome || '').toLowerCase().includes(item.clientName.toLowerCase()) ||
+                               item.clientName.toLowerCase().includes((sc.cliente_nome || sc.clienteNome || '').toLowerCase());
+            const sameVal = Math.abs(Number(sc.valor) - accountTotal) < 0.05;
+            return sameClient && sameVal;
+          }) || null;
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar cheque vinculado:', err);
+      }
+    }
+
+    setPreloadedCheque(foundCheque);
+
+    // 2. Se for originado de Cheque, força o método para Cheque e trava
+    if (isChequeOrigin || foundCheque) {
+      setPaymentMethod('cheque');
+    } else {
+      setPaymentMethod('pix');
+    }
+
     // Inicializa lista de cheques com 1 folha padrão
     const initialCheque: ChequeItemForm = {
       id: `chq_${Date.now()}_0`,
       installmentNumber: 1,
-      banco: '001 - Banco do Brasil',
-      bancoCodigo: '001',
-      numero: '',
-      emitenteNome: item.clientName || '',
-      emitenteDoc: resolvedClient?.cpfCnpj || '',
-      dataVencimento: item.dueDate || item.date || today,
-      valor: accountTotal,
+      banco: foundCheque?.banco || '001 - Banco do Brasil',
+      bancoCodigo: foundCheque?.banco ? foundCheque.banco.substring(0, 3) : '001',
+      numero: foundCheque?.numero_cheque || foundCheque?.numeroCheque || item.chequeNumero || '',
+      emitenteNome: foundCheque?.emitente_nome || foundCheque?.emitenteNome || item.clientName || '',
+      emitenteDoc: foundCheque?.emitente_documento || foundCheque?.emitenteDocumento || resolvedClient?.cpfCnpj || '',
+      dataVencimento: foundCheque?.data_vencimento || foundCheque?.dataVencimento || item.dueDate || item.date || today,
+      valor: Number(foundCheque?.valor) || accountTotal,
       selectedFile: null,
-      previewUrl: '',
-      uploadedImageUrl: '',
+      previewUrl: foundCheque?.imagem_url || foundCheque?.imagemUrl || '',
+      uploadedImageUrl: foundCheque?.imagem_url || foundCheque?.imagemUrl || '',
       isUploading: false
     };
     setChequesList([initialCheque]);
 
-    // Seleciona primeira conta bancária se houver
-    if (bankAccounts.length > 0) {
+    // Seleciona conta bancária de destino: se o cheque já tinha uma conta vinculada ou primeira conta
+    if (foundCheque?.conta_bancaria_destino_id) {
+      setSelectedBankAccountId(foundCheque.conta_bancaria_destino_id);
+    } else if (bankAccounts.length > 0) {
       setSelectedBankAccountId(bankAccounts[0].id);
     } else {
       setSelectedBankAccountId('');
@@ -293,6 +360,15 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   };
 
   const isCheque = paymentMethod === 'cheque';
+
+  // Identifica se o título já veio com folha de cheque pré-cadastrada (travado em cheque e read-only)
+  const isPreRegisteredCheque = useMemo(() => {
+    if (!item) return false;
+    if (item.paymentMethod === 'cheque') return true;
+    if (item.chequeId || item.chequeNumero) return true;
+    if (/cheque/i.test(item.notes || '') || /cheque/i.test(item.volume || '')) return true;
+    return Boolean(preloadedCheque);
+  }, [item, preloadedCheque]);
 
   // Bloco de Parcelamento Permitido Apenas para Cartão Crédito, Cheque e A Prazo (Carteira)
   const isInstallmentEligible = 
@@ -565,6 +641,83 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   const handleConfirm = async () => {
     if (!item) return;
     setErrorMessage('');
+
+    // 1. Tratamento específico para Títulos Originados de Cheques Pré-Cadastrados
+    if (isPreRegisteredCheque) {
+      setIsSubmitting(true);
+      try {
+        const storedChqs = getStoredFinanceiroCheques();
+        let targetChq = preloadedCheque;
+        const foundIdx = storedChqs.findIndex(sc => 
+          (preloadedCheque && sc.id === preloadedCheque.id) ||
+          (item.chequeId && sc.id === item.chequeId) ||
+          (item.chequeNumero && (sc.numero_cheque === item.chequeNumero || sc.numeroCheque === item.chequeNumero)) ||
+          (sc.ordem_id && sc.ordem_id === item.id)
+        );
+
+        if (foundIdx >= 0) {
+          storedChqs[foundIdx] = {
+            ...storedChqs[foundIdx],
+            status: 'COMPENSADO',
+            data_compensacao: receiptDate,
+            conta_bancaria_destino_id: selectedBankAccountId || storedChqs[foundIdx].conta_bancaria_destino_id,
+            updated_at: new Date().toISOString()
+          };
+          saveStoredFinanceiroCheques(storedChqs);
+          targetChq = storedChqs[foundIdx];
+          await saveFinanceiroCheque(targetChq);
+        } else if (preloadedCheque) {
+          targetChq = {
+            ...preloadedCheque,
+            status: 'COMPENSADO',
+            data_compensacao: receiptDate,
+            conta_bancaria_destino_id: selectedBankAccountId || preloadedCheque.conta_bancaria_destino_id,
+            updated_at: new Date().toISOString()
+          };
+          await saveFinanceiroCheque(targetChq);
+        }
+
+        window.dispatchEvent(new CustomEvent('financeiro_cheques_updated', { detail: targetChq }));
+
+        // Se utilizou créditos disponíveis do cliente, marca como UTILIZADO
+        if (useAvailableCredit && availableCredits.length > 0) {
+          const activeCid = toValidUUID(companyProfile?.id || getActiveCompanyId());
+          for (const cred of availableCredits) {
+            await updateClienteCreditoStatus(cred.id, 'UTILIZADO', activeCid);
+          }
+        }
+
+        setSuccessToast('Folha de cheque compensada e conta baixada com sucesso!');
+
+        if (onSuccess) {
+          onSuccess({
+            itemId: item.id,
+            itemType: item.type,
+            paymentMethod: 'cheque',
+            paidAmount: Number(targetChq?.valor) || valorTotalAtualizado,
+            receiptDate,
+            cheque: targetChq || undefined,
+            cheques: targetChq ? [targetChq] : undefined,
+            bankAccountId: selectedBankAccountId,
+            isInstallmentPlan: false,
+            firstPaidImmediately: true,
+            interestAmount: numericInterest > 0 ? numericInterest : undefined,
+            interestPercentage: typeof interestPercentage === 'number' && interestPercentage > 0 ? interestPercentage : undefined
+          });
+        }
+
+        setTimeout(() => {
+          setIsSubmitting(false);
+          onClose();
+        }, 700);
+        return;
+      } catch (err: any) {
+        console.error('Erro ao compensar cheque vinculado:', err);
+        setErrorMessage(err.message || 'Erro ao compensar cheque. Tente novamente.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     if (isCheque) {
       if (chequesList.length === 0) {
@@ -842,9 +995,40 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
 
           {/* 1. SELETOR FORMA DE PAGAMENTO (COM CHEQUE E A PRAZO EM DESTAQUE) */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1.5">
-              Forma de Pagamento <span className="text-rose-600">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200">
+                Forma de Pagamento <span className="text-rose-600">*</span>
+              </label>
+              {isPreRegisteredCheque && (
+                <span className="flex items-center space-x-1 text-[10px] font-black text-amber-900 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 rounded-full">
+                  <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                  <span>Travado em Cheque (Faturamento)</span>
+                </span>
+              )}
+            </div>
+
+            {/* Aviso informativo de travamento */}
+            {isPreRegisteredCheque && (
+              <div className="mb-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs font-medium flex items-center justify-between gap-2 shadow-2xs">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 rounded-md bg-amber-600 text-white shrink-0">
+                    <Lock className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-amber-900 dark:text-amber-200 block text-[11px] uppercase tracking-wider">
+                      Título Originado de Folha de Cheque no Faturamento
+                    </span>
+                    <span className="text-[11px] text-amber-800 dark:text-amber-300">
+                      A forma de pagamento está vinculada à folha de cheque já registrada na <strong>Custódia de Cheques</strong>.
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200/80 dark:bg-amber-900 text-amber-950 dark:text-amber-100 border border-amber-400 shrink-0">
+                  🔒 Travado
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
               {[
                 { id: 'dinheiro', label: 'Dinheiro', icon: Wallet },
@@ -857,25 +1041,31 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
               ].map((opt) => {
                 const Icon = opt.icon;
                 const isSelected = paymentMethod === opt.id;
+                const isLockedOther = isPreRegisteredCheque && opt.id !== 'cheque';
                 return (
                   <button
                     key={opt.id}
                     type="button"
+                    disabled={isLockedOther}
                     onClick={() => {
+                      if (isLockedOther) return;
                       const nextMethod = opt.id as PaymentMethod;
                       setPaymentMethod(nextMethod);
                       if (nextMethod !== 'cartao_credito' && nextMethod !== 'cheque' && nextMethod !== 'prazo_carteira' && nextMethod !== 'safra_prazo') {
                         setInstallmentsCount(1);
                       }
                     }}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                    title={isLockedOther ? 'Título gerado via Cheque (Forma de pagamento travada na baixa)' : undefined}
+                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition ${
+                      isLockedOther ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-stone-800 border-slate-200 dark:border-stone-700 text-slate-400' : 'cursor-pointer'
+                    } ${
                       isSelected
                         ? opt.id === 'prazo_carteira'
                           ? 'border-amber-600 bg-amber-50 text-amber-950 font-black shadow-xs ring-2 ring-amber-500'
                           : opt.highlight
                           ? 'border-sky-600 bg-sky-50 text-sky-950 font-black shadow-xs ring-2 ring-sky-500'
                           : 'border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-xs ring-2 ring-emerald-500'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-black font-semibold'
+                        : isLockedOther ? '' : 'border-slate-200 bg-white hover:bg-slate-50 text-black font-semibold'
                     }`}
                   >
                     <Icon className={`w-4 h-4 mb-1 ${
@@ -883,7 +1073,12 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                         ? opt.id === 'prazo_carteira' ? 'text-amber-700' : opt.highlight ? 'text-sky-700' : 'text-emerald-700' 
                         : 'text-slate-600'
                     }`} />
-                    <span className="text-[11px] leading-tight">{opt.label}</span>
+                    <span className="text-[11px] leading-tight flex items-center justify-center gap-1">
+                      <span>{opt.label}</span>
+                      {opt.id === 'cheque' && isPreRegisteredCheque && (
+                        <Lock className="w-2.5 h-2.5 text-sky-700 dark:text-sky-400 shrink-0" />
+                      )}
+                    </span>
                   </button>
                 );
               })}
@@ -977,7 +1172,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           </div>
 
           {/* 3. BLOCO CONDICIONAL DE PARCELAMENTO (CARTÃO CRÉDITO, CHEQUE, A PRAZO CARTEIRA) */}
-          {isInstallmentEligible && (
+          {isInstallmentEligible && !isPreRegisteredCheque && (
             <div className="border border-sky-300 dark:border-stone-700 bg-sky-50/50 dark:bg-stone-850/60 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between border-b border-sky-200 dark:border-stone-700 pb-2">
                 <div className="flex items-center space-x-2">
@@ -1108,25 +1303,174 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             </div>
           )}
 
-          {/* BLOCO ESPECÍFICO DINÂMICO: GRADE DE CHEQUES RECEBIDOS */}
+          {/* BLOCO ESPECÍFICO: GRADE DE CHEQUES RECEBIDOS OU METADADOS READ-ONLY */}
           {isCheque && (
             <div className="space-y-3">
-              {/* Topo Geral da Seção de Cheques */}
-              <div className="flex items-center justify-between border-b border-sky-300 dark:border-stone-700 pb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="p-1 rounded bg-sky-700 text-white shadow-2xs">
-                    <FileText className="w-3.5 h-3.5" />
+              {isPreRegisteredCheque ? (
+                /* MODO READ-ONLY: METADADOS DA FOLHA DE CHEQUE VINCULADA */
+                <div className="border border-sky-300 dark:border-stone-700 bg-sky-50/60 dark:bg-stone-850/60 rounded-2xl p-3.5 sm:p-4 space-y-3.5 shadow-2xs">
+                  {/* Cabeçalho */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 dark:border-stone-700 pb-2.5">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1.5 rounded-lg bg-sky-700 text-white shadow-2xs">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100 flex items-center gap-1.5">
+                          <span>Dados da Folha de Cheque Vinculada (Custódia)</span>
+                          <Lock className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
+                        </span>
+                        <span className="text-[11px] text-slate-600 dark:text-stone-400">
+                          Metadados importados automaticamente do faturamento / custódia
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[10px] font-black text-sky-900 dark:text-sky-300 bg-sky-100 dark:bg-stone-800 border border-sky-300 dark:border-stone-700 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                        Status: {preloadedCheque?.status === 'COMPENSADO' ? 'Compensado' : preloadedCheque?.status === 'DEVOLVIDO' ? 'Devolvido' : 'Em Carteira / Em Nosso Poder'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100">
-                    {chequesList.length > 1
-                      ? `Dados dos Cheques Recebidos (${chequesList.length} Folhas)`
-                      : 'Dados do Cheque Recebido'}
-                  </span>
+
+                  {/* Grade de Dados Read-only */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {/* Banco */}
+                    <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400 block mb-0.5">
+                        Banco de Origem
+                      </span>
+                      <div className="flex items-center space-x-2 text-xs font-black text-slate-900 dark:text-white">
+                        <Landmark className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+                        <span className="truncate">{preloadedCheque?.banco || 'Banco do Brasil (001)'}</span>
+                      </div>
+                    </div>
+
+                    {/* Número do Cheque */}
+                    <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400 block mb-0.5">
+                        Número do Cheque
+                      </span>
+                      <div className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                        {preloadedCheque?.numero_cheque || preloadedCheque?.numeroCheque || item.chequeNumero || '---'}
+                      </div>
+                    </div>
+
+                    {/* Valor de Face */}
+                    <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400 block mb-0.5">
+                        Valor de Face do Cheque
+                      </span>
+                      <div className="text-sm font-black text-emerald-700 dark:text-emerald-400 font-['Outfit']">
+                        {formatCurrencyBRL(preloadedCheque?.valor || item.totalAmount)}
+                      </div>
+                    </div>
+
+                    {/* Nome do Emitente */}
+                    <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400 block mb-0.5">
+                        Nome do Emitente
+                      </span>
+                      <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                        {preloadedCheque?.emitente_nome || preloadedCheque?.emitenteNome || item.clientName}
+                      </div>
+                    </div>
+
+                    {/* CPF/CNPJ */}
+                    <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400 block mb-0.5">
+                        CPF / CNPJ do Emitente
+                      </span>
+                      <div className="text-xs font-bold text-slate-800 dark:text-stone-200 font-mono">
+                        {preloadedCheque?.emitente_documento || preloadedCheque?.emitenteDocumento || resolvedClient?.cpfCnpj || '---'}
+                      </div>
+                    </div>
+
+                    {/* Vencimento / Bom Para */}
+                    <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-stone-400 block mb-0.5">
+                        Data de Vencimento / "Bom Para"
+                      </span>
+                      <div className="text-xs font-black text-slate-900 dark:text-white flex items-center space-x-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+                        <span>{formatDateBR(preloadedCheque?.data_vencimento || preloadedCheque?.dataVencimento || item.dueDate)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Foto / Anexo da Folha Física */}
+                  <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center space-x-3">
+                      {(preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl) ? (
+                        <div 
+                          onClick={() => setShowChequeZoomModal(true)}
+                          className="w-16 h-10 rounded-lg overflow-hidden border border-slate-300 dark:border-stone-600 cursor-pointer hover:opacity-85 transition shrink-0 group relative shadow-2xs"
+                        >
+                          <img 
+                            src={preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl} 
+                            alt="Cheque" 
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <Eye className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-12 h-10 rounded-lg bg-slate-100 dark:bg-stone-800 border border-slate-200 dark:border-stone-700 flex items-center justify-center text-slate-400 shrink-0">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-white block">
+                          {(preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl) 
+                            ? 'Comprovante / Imagem da Folha Física Anexada' 
+                            : 'Nenhuma foto anexada no faturamento'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                          {(preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl) 
+                            ? 'Clique para ampliar e auditar os dados da lâmina' 
+                            : 'O documento foi registrado sem anexo de foto'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowChequeZoomModal(true)}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900 text-sky-900 dark:text-sky-300 border border-sky-300 dark:border-sky-700 text-xs font-bold transition cursor-pointer shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
+                        <span>Visualizar Imagem da Folha</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Informação sobre Baixa e Compensação */}
+                  <div className="p-2.5 rounded-xl bg-sky-100/70 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 text-[11px] text-sky-900 dark:text-sky-300 flex items-start space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-sky-700 dark:text-sky-400 shrink-0 mt-0.5" />
+                    <span>
+                      Os metadados desta folha foram recuperados da <strong>Custódia de Cheques</strong> e estão travados para alteração nesta etapa. Ao confirmar a baixa, o cheque será automaticamente compensado e o valor creditado na Conta Bancária de destino.
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
-                  Status Inicial: Em Nosso Poder
-                </span>
-              </div>
+              ) : (
+                <>
+                  {/* Topo Geral da Seção de Cheques */}
+                  <div className="flex items-center justify-between border-b border-sky-300 dark:border-stone-700 pb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 rounded bg-sky-700 text-white shadow-2xs">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100">
+                        {chequesList.length > 1
+                          ? `Dados dos Cheques Recebidos (${chequesList.length} Folhas)`
+                          : 'Dados do Cheque Recebido'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
+                      Status Inicial: Em Nosso Poder
+                    </span>
+                  </div>
 
               {/* Se houver mais de 1 parcela, exibe mini-chips de navegação/status das folhas */}
               {chequesList.length > 1 && (
@@ -1400,6 +1744,8 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                   </div>
                 </div>
               )}
+                </>
+              )}
             </div>
           )}
 
@@ -1465,6 +1811,40 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal Zoom do Cheque Vinculado */}
+      {showChequeZoomModal && (preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl) && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative max-w-3xl w-full bg-white dark:bg-stone-900 rounded-2xl overflow-hidden border border-slate-300 dark:border-stone-700 p-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-stone-700 mb-3">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-sky-600" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Folha de Cheque Nº {preloadedCheque?.numero_cheque || preloadedCheque?.numeroCheque} - {preloadedCheque?.banco}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChequeZoomModal(false)}
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex items-center justify-center bg-slate-950/10 dark:bg-black/40 rounded-xl overflow-hidden max-h-[70vh] p-2">
+              <img 
+                src={preloadedCheque?.imagem_url || preloadedCheque?.imagemUrl} 
+                alt="Cheque ampliado" 
+                className="max-h-[68vh] w-auto object-contain rounded-lg shadow-md"
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-stone-400">
+              <span>Emitente: <strong className="text-slate-800 dark:text-stone-200">{preloadedCheque?.emitente_nome || preloadedCheque?.emitenteNome}</strong></span>
+              <span>Valor: <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrencyBRL(preloadedCheque?.valor || 0)}</strong></span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
