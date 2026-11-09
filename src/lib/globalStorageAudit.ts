@@ -24,7 +24,7 @@
  * - Preserva e espelha os maiores arrays entre chaves correlatas para evitar telas em branco.
  */
 
-import { safeLocalStorageSetItem } from './storage';
+import { safeLocalStorageSetItem, isCorruptedOrGhostDocumento, purgeGhostDocumentosEntrada } from './storage';
 
 export interface StorageAuditResult {
   auditedCategories: number;
@@ -137,6 +137,9 @@ export function isMockStorageRecord(item: any): boolean {
     name.includes('FANTASMA') ||
     name.includes('TRATORPARTS')
   ) {
+    return true;
+  }
+  if (isCorruptedOrGhostDocumento(item)) {
     return true;
   }
   return false;
@@ -347,8 +350,16 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     keys: [
       'agrocontrol_notas_entradas', 
       'colaca_silagem_documentos_entrada', 
-      'colaca_silagem_documentos_entrada_itens',
       'silagem_facil_clean_v1_documentos_entrada'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Itens de Documentos de Entrada',
+    categoryIndex: 7,
+    keys: [
+      'colaca_silagem_documentos_entrada_itens',
+      'silagem_facil_clean_v1_documentos_entrada_itens'
     ],
     type: 'array',
   },
@@ -501,12 +512,19 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     }
   },
   {
-    name: 'Abastecimentos e Tanques',
+    name: 'Abastecimentos de Combustível',
     categoryIndex: 12,
     keys: [
       'agrocontrol_combustivel',
       'silagem_facil_clean_v1_fuel_logs',
-      'colaca_silagem_abastecimentos',
+      'colaca_silagem_abastecimentos'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Tanques de Combustível da Fazenda',
+    categoryIndex: 12,
+    keys: [
       'silagem_facil_clean_v1_tanques_combustivel'
     ],
     type: 'array',
@@ -596,6 +614,9 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
       timestamp: new Date().toISOString()
     };
   }
+
+  // Purga defensiva preliminar de registros fantasmas/corrompidos
+  purgeGhostDocumentosEntrada();
 
   const companyId = getActiveCompanyId();
   let synchronizedKeysCount = 0;

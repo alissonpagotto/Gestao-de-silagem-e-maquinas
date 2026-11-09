@@ -3676,6 +3676,136 @@ export const updateAppointmentFieldReturn = (
 export const AGROCONTROL_NOTAS_ENTRADAS_KEY = 'agrocontrol_notas_entradas';
 export const STORAGE_KEY_DOCUMENTOS_ENTRADA = 'colaca_silagem_documentos_entrada';
 const LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA = 'silagem_facil_documentos_entrada_v1';
+export const DELETED_DOCUMENTOS_ENTRADA_KEY = 'agrocontrol_deleted_documentos_entrada_ids';
+
+/**
+ * Retorna o conjunto de IDs de documentos de entrada deletados pelo operador (tombstones).
+ * Previne que registros excluídos ressuscitem após recarregar a página (F5) ou em sync com a nuvem.
+ */
+export function getDeletedDocumentoEntradaIds(): Set<string> {
+  if (typeof window === 'undefined' || !window.localStorage) return new Set();
+  const list = getStoredList<string>(DELETED_DOCUMENTOS_ENTRADA_KEY, []);
+  return new Set<string>(list.map(s => String(s).trim()));
+}
+
+/**
+ * Registra um ID de documento de entrada como excluído definitivamente.
+ */
+export function recordDeletedDocumentoEntradaId(id: string): void {
+  if (!id) return;
+  const cleanId = String(id).trim();
+  const set = getDeletedDocumentoEntradaIds();
+  set.add(cleanId);
+  saveStoredList(DELETED_DOCUMENTOS_ENTRADA_KEY, Array.from(set));
+}
+
+/**
+ * Verifica se um ID está marcado como excluído definitivamente.
+ */
+export function isDeletedDocumentoEntradaId(id: string): boolean {
+  if (!id) return false;
+  return getDeletedDocumentoEntradaIds().has(String(id).trim());
+}
+
+/**
+ * Identifica se um registro de documento de entrada é fantasma, corrompido ou
+ * se trata de um item de entrada (linha de produto) indevidamente gravado como documento cabeçalho.
+ */
+export function isCorruptedOrGhostDocumento(d: any): boolean {
+  if (!d || typeof d !== 'object') return true;
+
+  const idStr = String(d.id || '').trim();
+  if (isDeletedDocumentoEntradaId(idStr)) return true;
+
+  // 1. É um item de entrada (possui documento_entrada_id ou prefixo de item)
+  if (d.documento_entrada_id) return true;
+  if (idStr.startsWith('item_') || idStr.startsWith('doc_item_')) return true;
+
+  // 2. Extrai dados para análise de padrão fantasma
+  const fornecedor = String(d.fornecedor || d.fornecedor_nome || d.supplier || '').trim().toUpperCase();
+  const obs = String(d.observacoes || d.description || '').trim().toUpperCase();
+  const tipo = String(d.tipo_documento || d.documentType || '').trim().toUpperCase();
+
+  const isGenericSupplier = !fornecedor || fornecedor === 'FORNECEDOR' || fornecedor === 'FORNECEDOR NF-E';
+  const isGenericObs = !obs || obs === 'ENTRADA MANUAL: ROMANEIO' || obs === 'ENTRADA MANUAL ROMANEIO';
+
+  // Se possui propriedades exclusivas de item de produto (quantidade, valor_unitario, produto_id, descricao de produto)
+  const hasLineItemProps = Boolean(
+    d.produto_id || 
+    (d.descricao && (d.quantidade !== undefined || d.valor_unitario !== undefined)) ||
+    (d.quantidade !== undefined && d.valor_unitario !== undefined && !d.numero && !d.chave_acesso)
+  );
+
+  if (hasLineItemProps && isGenericSupplier) {
+    return true;
+  }
+
+  // Se é o clone fantasma característico das imagens do usuário:
+  // Fornecedor genérico ("FORNECEDOR" ou vazio) + Obs genérica ("ENTRADA MANUAL: ROMANEIO" ou vazio) +
+  // Sem número de documento/chave e com tipo 'Romaneio' ou vazio
+  if (isGenericSupplier && isGenericObs && !d.numero && !d.numero_documento && !d.chave_acesso) {
+    if (d.documento_entrada_id || d.produto_id || d.quantidade !== undefined || idStr.startsWith('item_') || fornecedor === 'FORNECEDOR') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Purga registros fantasmas e corrompidos de todas as chaves de documentos de entrada no LocalStorage.
+ */
+export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingCount: number } {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { purgedCount: 0, remainingCount: 0 };
+  }
+
+  const keysToClean = [
+    AGROCONTROL_NOTAS_ENTRADAS_KEY,
+    STORAGE_KEY_DOCUMENTOS_ENTRADA,
+    LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA,
+  ];
+
+  let totalPurged = 0;
+  let remainingCount = 0;
+
+  for (const key of keysToClean) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(d => !isCorruptedOrGhostDocumento(d));
+        if (cleaned.length !== parsed.length) {
+          totalPurged += (parsed.length - cleaned.length);
+          localStorage.setItem(key, JSON.stringify(cleaned));
+        }
+        remainingCount = cleaned.length;
+      }
+    } catch (_) {}
+  }
+
+  // Limpa chaves com sufixo de tenant caso existam
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('agrocontrol_notas_entradas_') || k.startsWith('colaca_silagem_documentos_entrada_'))) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter(d => !isCorruptedOrGhostDocumento(d));
+            if (cleaned.length !== parsed.length) {
+              localStorage.setItem(k, JSON.stringify(cleaned));
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  return { purgedCount: totalPurged, remainingCount };
+}
 
 export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
   // Lê estritamente primeiro da chave agrocontrol_notas_entradas
@@ -3701,7 +3831,17 @@ export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
     return false;
   };
 
-  const cleaned = list.filter(d => !isMockNota(d));
+  // Filtra mocks, registros corrompidos/fantasmas e IDs deletados
+  const seenIds = new Set<string>();
+  const cleaned: DocumentoEntradaRecord[] = [];
+  for (const d of list) {
+    if (!d || !d.id) continue;
+    if (seenIds.has(d.id)) continue;
+    if (isMockNota(d) || isCorruptedOrGhostDocumento(d)) continue;
+    seenIds.add(d.id);
+    cleaned.push(d);
+  }
+
   if (cleaned.length !== list.length) {
     saveStoredDocumentosEntrada(cleaned);
   }
@@ -3709,24 +3849,52 @@ export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
 };
 
 export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[]): void => {
-  saveStoredList(AGROCONTROL_NOTAS_ENTRADAS_KEY, docs);
-  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
-  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
+  // Garante que nenhum fantasma ou registro deletado seja persistido
+  const cleanDocs: DocumentoEntradaRecord[] = [];
+  const seen = new Set<string>();
+  for (const d of docs) {
+    if (!d || !d.id) continue;
+    if (seen.has(d.id)) continue;
+    if (isCorruptedOrGhostDocumento(d)) continue;
+    seen.add(d.id);
+    cleanDocs.push(d);
+  }
+
+  saveStoredList(AGROCONTROL_NOTAS_ENTRADAS_KEY, cleanDocs);
+  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA, cleanDocs);
+  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, cleanDocs);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated', { detail: docs }));
-    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated', { detail: docs }));
+    window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated', { detail: cleanDocs }));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated', { detail: cleanDocs }));
   }
 };
 
 export const saveLocalDocumentoEntrada = (doc: DocumentoEntradaRecord): void => {
+  if (isCorruptedOrGhostDocumento(doc)) return;
   const current = getStoredDocumentosEntrada();
   const filtered = current.filter(d => d.id !== doc.id);
   saveStoredDocumentosEntrada([doc, ...filtered]);
 };
 
 export const deleteLocalDocumentoEntrada = (id: string): void => {
+  if (!id) return;
+  recordDeletedDocumentoEntradaId(id);
   const current = getStoredDocumentosEntrada();
   saveStoredDocumentosEntrada(current.filter(d => d.id !== id));
+
+  // Também limpa da lista de itens caso haja resíduo cruzado
+  try {
+    const rawItens = localStorage.getItem('colaca_silagem_documentos_entrada_itens');
+    if (rawItens) {
+      const parsedItens = JSON.parse(rawItens);
+      if (Array.isArray(parsedItens)) {
+        const cleanedItens = parsedItens.filter((i: any) => i.id !== id && i.documento_entrada_id !== id);
+        if (cleanedItens.length !== parsedItens.length) {
+          localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(cleanedItens));
+        }
+      }
+    }
+  } catch (_) {}
 };
 
 export const STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS = 'colaca_silagem_documentos_entrada_itens';

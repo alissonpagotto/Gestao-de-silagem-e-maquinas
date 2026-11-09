@@ -89,7 +89,10 @@ import {
   saveStoredClients,
   saveActiveNfeDraft,
   clearActiveNfeDraft,
-  getActiveNfeDraft
+  getActiveNfeDraft,
+  isCorruptedOrGhostDocumento,
+  purgeGhostDocumentosEntrada,
+  recordDeletedDocumentoEntradaId
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -1497,7 +1500,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const activeCompanyId = companyProfile?.companyId || companyProfile?.id || getActiveCompanyId(companyProfile);
       const data = await fetchDocumentosEntrada(activeCompanyId);
       if (data && Array.isArray(data)) {
-        setDocumentosEntrada(data);
+        const valid = data.filter(d => !isCorruptedOrGhostDocumento(d));
+        setDocumentosEntrada(valid);
       }
     } catch (err) {
       console.warn('Erro ao sincronizar documentos de entrada:', err);
@@ -1506,7 +1510,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         setTimeout(() => setIsSyncingDocs(false), 400);
       }
     }
-  }, [companyProfile]);
+  }, [companyProfile?.id, companyProfile?.companyId]);
 
   const handleManualSync = () => {
     reloadDocumentosEntrada(true);
@@ -1523,6 +1527,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+    // Purga imediata de registros fantasmas antes de qualquer render
+    purgeGhostDocumentosEntrada();
     reloadDocumentosEntrada(false);
 
     // 1. Canal Supabase Realtime dedicado com tópico estável e fechamento obrigatório
@@ -1595,7 +1601,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const handleCustomSyncEvent = (e?: any) => {
       if (isMounted) {
         if (e?.detail && Array.isArray(e.detail)) {
-          setDocumentosEntrada(e.detail);
+          const valid = e.detail.filter((d: any) => !isCorruptedOrGhostDocumento(d));
+          setDocumentosEntrada(valid);
         } else {
           setDocumentosEntrada(getStoredDocumentosEntrada());
         }
@@ -3109,6 +3116,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   const handleDeleteManualDoc = async (doc: DocumentoEntradaRecord) => {
     try {
+      if (!doc || !doc.id) return;
+      // Trava de tombstone: garante que o ID nunca volte após F5
+      recordDeletedDocumentoEntradaId(doc.id);
+
       await deleteDocumentoEntrada(doc.id);
       setDocumentosEntrada(prev => prev.filter(d => d.id !== doc.id));
 
@@ -3120,6 +3131,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           if (Array.isArray(parsed)) {
             const filtradas = parsed.filter((d: any) => d.id !== doc.id);
             localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
+          }
+        }
+      } catch (_) {}
+
+      // Limpeza estrita no colaca_silagem_documentos_entrada
+      try {
+        const rawColaca = localStorage.getItem('colaca_silagem_documentos_entrada');
+        if (rawColaca) {
+          const parsedColaca = JSON.parse(rawColaca);
+          if (Array.isArray(parsedColaca)) {
+            const filtradasColaca = parsedColaca.filter((d: any) => d.id !== doc.id);
+            localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
+          }
+        }
+      } catch (_) {}
+
+      // Limpeza estrita no colaca_silagem_documentos_entrada_itens
+      try {
+        const rawItens = localStorage.getItem('colaca_silagem_documentos_entrada_itens');
+        if (rawItens) {
+          const parsedItens = JSON.parse(rawItens);
+          if (Array.isArray(parsedItens)) {
+            const filtradasItens = parsedItens.filter((i: any) => i.id !== doc.id && i.documento_entrada_id !== doc.id);
+            localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(filtradasItens));
           }
         }
       } catch (_) {}
@@ -3198,8 +3233,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       });
     });
 
-    // 2. Entradas Manuais da tabela public.documentos_entrada
+    // 2. Entradas Manuais da tabela public.documentos_entrada (filtra itens fantasmas)
     documentosEntrada.forEach(doc => {
+      if (isCorruptedOrGhostDocumento(doc)) return;
       const tipo = doc.tipo_documento || 'Romaneio';
       let badge: 'sky' | 'amber' | 'purple' | 'emerald' | 'stone' = 'amber';
       if (tipo === 'Romaneio') badge = 'amber';
@@ -3224,8 +3260,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       });
     });
 
+    // 3. TRAVA DE UNICIDADE E DESDUPLICAÇÃO NA RENDERIZAÇÃO
+    const dedupedList: typeof list = [];
+    const seenIds = new Set<string>();
+    const seenSignatures = new Set<string>();
+
+    for (const item of list) {
+      const cleanId = String(item.id || '').trim();
+      if (cleanId && seenIds.has(cleanId)) continue;
+      if (cleanId) seenIds.add(cleanId);
+
+      const sig = `${item.sourceType}_${item.documentNumber}_${item.supplier.trim().toLowerCase()}_${item.date}_${item.amount.toFixed(2)}`;
+      if (seenSignatures.has(sig)) continue;
+      seenSignatures.add(sig);
+
+      dedupedList.push(item);
+    }
+
     // Ordena decrescente por data
-    list.sort((a, b) => {
+    dedupedList.sort((a, b) => {
       const timeA = a.date ? new Date(a.date).getTime() : 0;
       const timeB = b.date ? new Date(b.date).getTime() : 0;
       return timeB - timeA;
@@ -3234,7 +3287,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // Filtro de busca se informado
     if (searchNfeNumber && searchNfeNumber.trim()) {
       const term = searchNfeNumber.toLowerCase().trim();
-      return list.filter(item => 
+      return dedupedList.filter(item => 
         item.documentNumber.toLowerCase().includes(term) ||
         item.supplier.toLowerCase().includes(term) ||
         item.description.toLowerCase().includes(term) ||
@@ -3242,7 +3295,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       );
     }
 
-    return list;
+    return dedupedList;
   }, [notasFiscaisExibicao, documentosEntrada, searchNfeNumber]);
 
   // Lista unificada filtrada pela competência ativa (MM/AAAA)
@@ -7762,8 +7815,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               e.stopPropagation();
                               if (isXml) {
                                 setNotaParaExcluir(entry.id);
-                              } else if (entry.rawManualDoc) {
-                                setManualDocToDelete(entry.rawManualDoc);
+                              } else {
+                                setManualDocToDelete(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio' } as DocumentoEntradaRecord));
                               }
                             }}
                             className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"

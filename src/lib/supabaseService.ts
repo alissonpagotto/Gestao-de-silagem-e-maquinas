@@ -61,6 +61,11 @@ import {
   saveStoredDocumentosEntrada,
   saveLocalDocumentoEntrada,
   deleteLocalDocumentoEntrada,
+  isCorruptedOrGhostDocumento,
+  purgeGhostDocumentosEntrada,
+  getDeletedDocumentoEntradaIds,
+  recordDeletedDocumentoEntradaId,
+  isDeletedDocumentoEntradaId,
   getStoredDocumentosEntradaItens,
   saveStoredDocumentosEntradaItens,
   saveLocalDocumentoEntradaItem,
@@ -445,21 +450,44 @@ export async function insertDocumentoEntrada(
   companyId?: string
 ): Promise<DocumentoEntradaRecord> {
   const activeCompanyId = companyId || getActiveCompanyId();
+  const trimmedSupplier = (doc.fornecedor || '').trim();
+  const numericAmount = Number(doc.valor_total) || 0;
+  const targetDate = doc.data || new Date().toISOString().split('T')[0];
+  const targetType = doc.tipo_documento || 'Romaneio';
+
+  // TRAVA DE SEGURANÇA E DESDUPLICAÇÃO:
+  // Se já existe um documento com mesmo identificador ou mesma chave composta, retorna o existente
+  const currentLocal = getStoredDocumentosEntrada();
+  if (doc.id) {
+    const existingById = currentLocal.find(d => d.id === doc.id);
+    if (existingById) return existingById;
+  }
+  const existingDup = currentLocal.find(d => 
+    d.fornecedor.toLowerCase() === trimmedSupplier.toLowerCase() &&
+    d.data === targetDate &&
+    Math.abs(Number(d.valor_total) - numericAmount) < 0.01 &&
+    (d.tipo_documento || 'Romaneio') === targetType &&
+    d.status === (doc.status || 'Finalizado')
+  );
+  if (existingDup) {
+    return existingDup;
+  }
+
   const uuid = toValidUUID(doc.id || generateUUID());
   const now = new Date().toISOString();
 
   const localRecord: DocumentoEntradaRecord = {
     id: uuid,
     company_id: activeCompanyId || undefined,
-    fornecedor: doc.fornecedor.trim(),
-    fornecedor_nome: doc.fornecedor.trim(),
+    fornecedor: trimmedSupplier,
+    fornecedor_nome: trimmedSupplier,
     fornecedor_id: doc.fornecedor_id || null,
-    data: doc.data,
-    data_emissao: doc.data,
-    data_entrada: doc.data,
+    data: targetDate,
+    data_emissao: targetDate,
+    data_entrada: targetDate,
     data_vencimento: doc.data_vencimento || undefined,
-    tipo_documento: doc.tipo_documento,
-    valor_total: Number(doc.valor_total) || 0,
+    tipo_documento: targetType,
+    valor_total: numericAmount,
     observacoes: doc.observacoes?.trim() || '',
     status: doc.status || 'Finalizado',
     created_at: now,
@@ -561,6 +589,9 @@ export async function insertDocumentoEntrada(
 export async function fetchDocumentosEntrada(companyId?: string): Promise<DocumentoEntradaRecord[]> {
   const activeCompanyId = companyId || getActiveCompanyId();
   const companyUuid = activeCompanyId ? toValidUUID(activeCompanyId) : null;
+  
+  // 1. Purga preliminar de registros corrompidos e fantasmas no armazenamento local
+  purgeGhostDocumentosEntrada();
   const localList = getStoredDocumentosEntrada();
 
   if (!isSupabaseConfigured) {
@@ -568,6 +599,9 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
   }
 
   try {
+    // Dispara limpeza assíncrona na nuvem em segundo plano
+    purgeGhostDocumentosEntradaFromCloud().catch(() => {});
+
     // Ordena por created_at (coluna garantida na tabela)
     let query = supabase
       .from('documentos_entrada')
@@ -591,11 +625,19 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
     }
 
     if (!error && data && Array.isArray(data)) {
-      const cloudNormalized = data.map((d: any) => normalizeDocumentoEntradaFromRow(d));
+      // Normaliza dados da nuvem e descarta imediatamente fantasmas e deletados
+      const cloudNormalized = data
+        .map((d: any) => normalizeDocumentoEntradaFromRow(d))
+        .filter(c => !isCorruptedOrGhostDocumento(c));
 
-      // Mescla com a lista local existente para nunca perder notas salvas localmente no agrocontrol_notas_entradas
+      // Mescla com a lista local existente para nunca perder notas legítimas salvas localmente
       const localMap = new Map<string, DocumentoEntradaRecord>();
-      localList.forEach(l => localMap.set(l.id, l));
+      localList.forEach(l => {
+        if (!isCorruptedOrGhostDocumento(l)) {
+          localMap.set(l.id, l);
+        }
+      });
+
       cloudNormalized.forEach(c => {
         if (!localMap.has(c.id)) {
           localMap.set(c.id, c);
@@ -608,7 +650,7 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
         }
       });
 
-      const merged = Array.from(localMap.values());
+      const merged = Array.from(localMap.values()).filter(d => !isCorruptedOrGhostDocumento(d));
 
       // Ordena decrescente por data/criação
       merged.sort((a, b) => {
@@ -617,7 +659,13 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
         return tB - tA;
       });
 
-      saveStoredDocumentosEntrada(merged);
+      // Só persiste e notifica se houver alteração real no conjunto de registros locais
+      const localIds = localList.map(d => d.id).sort().join(',');
+      const mergedIds = merged.map(d => d.id).sort().join(',');
+      if (localIds !== mergedIds || localList.length !== merged.length) {
+        saveStoredDocumentosEntrada(merged);
+      }
+
       return merged;
     }
   } catch (err) {
@@ -631,6 +679,9 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
  * Exclui um Documento de Entrada no Supabase e no armazenamento local.
  */
 export async function deleteDocumentoEntrada(id: string): Promise<boolean> {
+  if (!id) return false;
+  // Registra nos tombstones para impedir que F5 ou sync ressuscitem a nota
+  recordDeletedDocumentoEntradaId(id);
   deleteLocalDocumentoEntrada(id);
   notifyDocumentosEntradaSync();
 
@@ -641,15 +692,44 @@ export async function deleteDocumentoEntrada(id: string): Promise<boolean> {
     const { error } = await supabase
       .from('documentos_entrada')
       .delete()
-      .eq('id', uuid);
+      .or(`id.eq.${uuid},id.eq.${id}`);
 
-    if (error && id !== uuid) {
+    if (error) {
+      await supabase.from('documentos_entrada').delete().eq('id', uuid);
       await supabase.from('documentos_entrada').delete().eq('id', id);
     }
     return true;
   } catch (err) {
     console.warn('deleteDocumentoEntrada error:', err);
     return false;
+  }
+}
+
+/**
+ * Executa varredura e exclusão definitiva de registros fantasmas diretamente no Supabase.
+ */
+export async function purgeGhostDocumentosEntradaFromCloud(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  try {
+    // Deleta registros da tabela documentos_entrada com o padrão fantasma (fornecedor genérico e obs genérica)
+    await supabase
+      .from('documentos_entrada')
+      .delete()
+      .or("fornecedor.eq.FORNECEDOR,fornecedor_nome.eq.FORNECEDOR,observacoes.ilike.%ENTRADA MANUAL: ROMANEIO%,observacoes.ilike.%ENTRADA MANUAL ROMANEIO%");
+
+    // Exclui no Supabase qualquer ID registrado nos tombstones locais
+    const deletedIds = Array.from(getDeletedDocumentoEntradaIds());
+    if (deletedIds.length > 0) {
+      for (let i = 0; i < deletedIds.length; i += 50) {
+        const chunk = deletedIds.slice(i, i + 50);
+        await supabase
+          .from('documentos_entrada')
+          .delete()
+          .in('id', chunk);
+      }
+    }
+  } catch (err) {
+    console.warn('purgeGhostDocumentosEntradaFromCloud notice:', err);
   }
 }
 
