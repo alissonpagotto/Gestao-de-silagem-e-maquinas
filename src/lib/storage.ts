@@ -123,6 +123,7 @@ export const STORAGE_KEYS = {
   DRAFT_NOTA_ATIVA: 'colaca_silagem_rascunho_nota_ativa',
   STOCK_SERVICES: 'colaca_silagem_servicos_estoque',
   STOCK_PRODUCTS: 'colaca_silagem_estoque_produtos',
+  FORM_SEQUENCES: 'agrocontrol_form_sequences',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -4221,4 +4222,42 @@ export function getPreventivePlanForVehicle(
 
 // Exportação e integração oficial do Motor de Contingência Universal do LocalStorage
 export { executeGlobalStorageAudit } from './globalStorageAudit';
+
+export interface FormSequences {
+  corte: number;
+  compactacao: number;
+  cargas: number;
+}
+
+const DEFAULT_FORM_SEQUENCES: FormSequences = {
+  corte: 0,
+  compactacao: 0,
+  cargas: 0,
+};
+
+export function getStoredFormSequences(): FormSequences {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.FORM_SEQUENCES) || localStorage.getItem('colaca_silagem_form_sequences');
+    if (!raw) return { ...DEFAULT_FORM_SEQUENCES };
+    const parsed = JSON.parse(raw);
+    return {
+      corte: typeof parsed.corte === 'number' ? parsed.corte : DEFAULT_FORM_SEQUENCES.corte,
+      compactacao: typeof parsed.compactacao === 'number' ? parsed.compactacao : DEFAULT_FORM_SEQUENCES.compactacao,
+      cargas: typeof parsed.cargas === 'number' ? parsed.cargas : DEFAULT_FORM_SEQUENCES.cargas,
+    };
+  } catch (e) {
+    console.error('Erro ao ler sequências de formulários:', e);
+    return { ...DEFAULT_FORM_SEQUENCES };
+  }
+}
+
+export function saveStoredFormSequences(sequences: FormSequences): void {
+  try {
+    const data = JSON.stringify(sequences);
+    localStorage.setItem(STORAGE_KEYS.FORM_SEQUENCES, data);
+    localStorage.setItem('colaca_silagem_form_sequences', data);
+  } catch (e) {
+    console.error('Erro ao salvar sequências de formulários:', e);
+  }
+}
 

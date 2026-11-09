@@ -21,7 +21,14 @@ import {
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Employee, Client, ServiceAppointment } from '../../types';
 import { findAppointmentByIdOrNumber, DEFAULT_INITIAL_APPOINTMENTS } from '../../lib/defaultAppointments';
-import { addStoredFieldSubmission, updateAppointmentFieldReturn } from '../../lib/storage';
+import { 
+  addStoredFieldSubmission, 
+  updateAppointmentFieldReturn, 
+  getStoredFormSequences, 
+  saveStoredFormSequences, 
+  FormSequences 
+} from '../../lib/storage';
+import { createPortal } from 'react-dom';
 
 interface FieldFormsViewProps {
   companyProfile?: CompanyProfile;
@@ -430,8 +437,64 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     setLoadToUncheck(null);
   };
 
-  const handlePrint = () => {
-    window.print();
+  // -------------------------------------------------------------
+  // CONTROLE SEQUENCIAL E IMPRESSÃO EM LOTE (TALÕES DE CAMPO)
+  // -------------------------------------------------------------
+  const [sequences, setSequences] = useState<FormSequences>(() => getStoredFormSequences());
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
+  const [batchQty, setBatchQty] = useState<number>(50);
+  const [batchStartNum, setBatchStartNum] = useState<number>(1);
+  const [batchPrintPages, setBatchPrintPages] = useState<number[] | null>(null);
+
+  // Sincronizar na montagem
+  useEffect(() => {
+    setSequences(getStoredFormSequences());
+  }, []);
+
+  const openBatchPrintModal = () => {
+    const lastNum = sequences[activeFormTab] ?? 0;
+    setBatchQty(50);
+    setBatchStartNum(lastNum + 1);
+    setIsBatchModalOpen(true);
+  };
+
+  const handleConfirmBatchPrint = () => {
+    const qty = Math.max(1, Math.floor(Number(batchQty) || 1));
+    const start = Math.max(1, Math.floor(Number(batchStartNum) || 1));
+    const end = start + qty - 1;
+
+    // Atualizar e persistir no LocalStorage
+    const newSeqs: FormSequences = {
+      ...sequences,
+      [activeFormTab]: Math.max(sequences[activeFormTab] || 0, end),
+    };
+    setSequences(newSeqs);
+    saveStoredFormSequences(newSeqs);
+
+    // Fechar modal
+    setIsBatchModalOpen(false);
+
+    // Preparar páginas do lote para renderização de impressão
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    setBatchPrintPages(pages);
+
+    if (typeof document !== 'undefined') {
+      document.body.classList.add('printing-field-forms-batch');
+    }
+
+    // Aguardar React montar as páginas no portal
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        if (typeof document !== 'undefined') {
+          document.body.classList.remove('printing-field-forms-batch');
+        }
+        setBatchPrintPages(null);
+      }, 1000);
+    }, 300);
   };
 
   // Estados de confirmação e sucesso do envio de volta
@@ -601,105 +664,12 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
     window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
-  return (
-    <div className="space-y-3">
-      
-      {/* 
-        NO MODO OPERADOR EXTERNO:
-        - O cabeçalho verde "ESCALA IDENTIFICADA" foi completamente removido.
-        - A barra cinza/azul de seleção de abas foi completamente ocultada.
-        - Exibe no topo apenas a barra de ação com o botão verde destacado "Enviar de volta".
-      */}
-      {isOperatorModeActive ? (
-        <div className="no-print w-full flex items-center justify-between gap-2 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-2.5 sm:p-3 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#188038] animate-pulse"></span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-black text-xs sm:text-sm uppercase tracking-tight text-stone-900 dark:text-stone-100">
-                {activeFormTab === 'corte' && '1. Pedido de Corte (Forrageira)'}
-                {activeFormTab === 'compactacao' && '2. Controle de Compactação (Trator)'}
-                {activeFormTab === 'cargas' && '3. Controle de Cargas (Motorista)'}
-              </span>
-              {loadedAppointment && (
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold hidden sm:inline">
-                  • {loadedAppointment.appointmentNumber} ({loadedAppointment.clientName})
-                </span>
-              )}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleEnviarDeVolta}
-            className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer transform hover:-translate-y-0.5 active:scale-95"
-            title="Salvar respostas e abrir WhatsApp da empresa"
-          >
-            <Send className="w-4 h-4" />
-            <span>Enviar de volta</span>
-          </button>
-        </div>
-      ) : (
-        /* Modo Administrativo Interno da Empresa (quando acessado pelo menu normal) */
-        <div className="no-print p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setActiveFormTab('corte')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeFormTab === 'corte'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50'
-              }`}
-            >
-              <Scissors className="w-3.5 h-3.5" />
-              <span>1. Pedido de Corte (Forrageira)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFormTab('compactacao')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeFormTab === 'compactacao'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50'
-              }`}
-            >
-              <Tractor className="w-3.5 h-3.5" />
-              <span>2. Controle de Compactação (Trator)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFormTab('cargas')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeFormTab === 'cargas'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5" />
-              <span>3. Controle de Cargas (01 a 64)</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border border-slate-400 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] cursor-pointer"
-              title="Imprimir Formulário / Salvar PDF"
-            >
-              <Printer className="w-3.5 h-3.5 text-slate-600" />
-              <span>Imprimir Bloco</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ÁREA DE EXIBIÇÃO DO FORMULÁRIO SELECIONADO */}
-      <div className="w-full flex justify-center py-2">
-        
-        {/* ========================================================================= */}
+  // -------------------------------------------------------------
+  // RENDERIZADOR DO ESPELHO DO FORMULÁRIO (TELA & IMPRESSÃO EM LOTE)
+  // -------------------------------------------------------------
+  const renderFormTemplate = (orderNumOverride?: string) => (
+    <>
+{/* ========================================================================= */}
         {/* 1. FORMULÁRIO DE PEDIDO DE CORTE (Operador da Forrageira) */}
         {/* ========================================================================= */}
         {activeFormTab === 'corte' && (
@@ -733,13 +703,13 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 </div>
               </div>
 
-              {/* Badge Verde PEDIDO 0001 */}
+              {/* Badge Verde PEDIDO */}
               <div className="text-center shrink-0">
                 <div className="bg-[#188038] text-white px-5 py-1 rounded-md font-black text-sm uppercase tracking-wider shadow-xs">
                   PEDIDO
                 </div>
                 <div className="text-rose-600 font-mono font-black text-lg mt-1 tracking-widest">
-                  0001
+                  {orderNumOverride || String(sequences.corte + 1).padStart(4, '0')}
                 </div>
               </div>
             </div>
@@ -1107,12 +1077,20 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 </div>
               </div>
 
-              {/* Título Verde CONTROLE COMPACTAÇÃO */}
-              <div className="text-right shrink-0">
-                <span className="font-black text-sm sm:text-base text-[#188038] uppercase tracking-tight block">
+              {/* Título Verde CONTROLE COMPACTAÇÃO + Badge PEDIDO */}
+              <div className="flex flex-col items-end shrink-0">
+                <span className="font-black text-sm sm:text-base text-[#188038] uppercase tracking-tight block text-right">
                   CONTROLE COMPACTAÇÃO
                 </span>
-                <span className="text-[10px] font-mono text-stone-500 font-bold">LIVRO DE CAMPO</span>
+                <span className="text-[10px] font-mono text-stone-500 font-bold mb-1 text-right">LIVRO DE CAMPO</span>
+                <div className="text-center">
+                  <div className="bg-[#188038] text-white px-4 py-0.5 rounded-md font-black text-xs uppercase tracking-wider shadow-xs">
+                    PEDIDO
+                  </div>
+                  <div className="text-rose-600 font-mono font-black text-base mt-0.5 tracking-widest">
+                    {orderNumOverride || String(sequences.compactacao + 1).padStart(4, '0')}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1372,12 +1350,20 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 </div>
               </div>
 
-              {/* Título Verde */}
-              <div className="text-right shrink-0">
-                <span className="font-black text-sm sm:text-base text-[#188038] uppercase tracking-tight block">
+              {/* Título Verde CONTROLE DE CARGAS + Badge PEDIDO */}
+              <div className="flex flex-col items-end shrink-0">
+                <span className="font-black text-sm sm:text-base text-[#188038] uppercase tracking-tight block text-right">
                   CONTROLE DE CARGAS
                 </span>
-                <span className="text-[10px] font-mono text-stone-500 font-bold">TRANSPORTE / CAMINHÕES</span>
+                <span className="text-[10px] font-mono text-stone-500 font-bold mb-1 text-right">TRANSPORTE / CAMINHÕES</span>
+                <div className="text-center">
+                  <div className="bg-[#188038] text-white px-4 py-0.5 rounded-md font-black text-xs uppercase tracking-wider shadow-xs">
+                    PEDIDO
+                  </div>
+                  <div className="text-rose-600 font-mono font-black text-base mt-0.5 tracking-widest">
+                    {orderNumOverride || String(sequences.cargas + 1).padStart(4, '0')}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1493,9 +1479,9 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
             <div className="pt-1">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-stone-800">
-                  Cargas: <span className="text-[#188038] font-black">({Object.keys(f3Data.loadsRecord).length} marcadas)</span>
+                  Cargas: <span className="text-[#188038] font-black">({Object.keys(orderNumOverride ? {} : f3Data.loadsRecord).length} marcadas)</span>
                 </span>
-                {Object.keys(f3Data.loadsRecord).length > 0 && (
+                {!orderNumOverride && Object.keys(f3Data.loadsRecord).length > 0 && (
                   <span className="text-[11px] text-stone-500 font-medium">
                     Toque no número para marcar com horário automático. Toque novamente para desmarcar.
                   </span>
@@ -1506,7 +1492,8 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               <div className="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-8 lg:grid-cols-8 xl:grid-cols-8 gap-1.5 p-2 bg-stone-100 rounded-lg border border-stone-300">
                 {Array.from({ length: 64 }, (_, i) => i + 1).map(num => {
                   const numStr = num < 10 ? `0${num}` : `${num}`;
-                  const recordTime = f3Data.loadsRecord[num];
+                  const currentLoadsRecord = orderNumOverride ? {} : f3Data.loadsRecord;
+                  const recordTime = currentLoadsRecord[num];
                   const isChecked = !!recordTime;
 
                   return (
@@ -1654,6 +1641,109 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
 
           </div>
         )}
+    </>
+  );
+
+  return (
+    <div className="space-y-3">
+      
+      {/* 
+        NO MODO OPERADOR EXTERNO:
+        - O cabeçalho verde "ESCALA IDENTIFICADA" foi completamente removido.
+        - A barra cinza/azul de seleção de abas foi completamente ocultada.
+        - Exibe no topo apenas a barra de ação com o botão verde destacado "Enviar de volta".
+      */}
+      {isOperatorModeActive ? (
+        <div className="no-print w-full flex items-center justify-between gap-2 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-2.5 sm:p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#188038] animate-pulse"></span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-black text-xs sm:text-sm uppercase tracking-tight text-stone-900 dark:text-stone-100">
+                {activeFormTab === 'corte' && '1. Pedido de Corte (Forrageira)'}
+                {activeFormTab === 'compactacao' && '2. Controle de Compactação (Trator)'}
+                {activeFormTab === 'cargas' && '3. Controle de Cargas (Motorista)'}
+              </span>
+              {loadedAppointment && (
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold hidden sm:inline">
+                  • {loadedAppointment.appointmentNumber} ({loadedAppointment.clientName})
+                </span>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleEnviarDeVolta}
+            className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer transform hover:-translate-y-0.5 active:scale-95"
+            title="Salvar respostas e abrir WhatsApp da empresa"
+          >
+            <Send className="w-4 h-4" />
+            <span>Enviar de volta</span>
+          </button>
+        </div>
+      ) : (
+        /* Modo Administrativo Interno da Empresa (quando acessado pelo menu normal) */
+        <div className="no-print p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveFormTab('corte')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeFormTab === 'corte'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50'
+              }`}
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>1. Pedido de Corte (Forrageira)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveFormTab('compactacao')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeFormTab === 'compactacao'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50'
+              }`}
+            >
+              <Tractor className="w-3.5 h-3.5" />
+              <span>2. Controle de Compactação (Trator)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveFormTab('cargas')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeFormTab === 'cargas'
+                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>3. Controle de Cargas (01 a 64)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openBatchPrintModal}
+              className="px-3 py-1.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border border-slate-400 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] cursor-pointer"
+              title="Configurar e Imprimir Bloco de Formulários (Lote)"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-600" />
+              <span>Imprimir Bloco</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ÁREA DE EXIBIÇÃO DO FORMULÁRIO SELECIONADO */}
+      <div className="w-full flex justify-center py-2">
+        
+                {renderFormTemplate()}
+
 
       </div>
 
@@ -1791,6 +1881,171 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
         </div>
       )}
 
+
+      {/* MODAL DE CONFIGURAÇÃO DE IMPRESSÃO EM BLOCO (TALÕES DE CAMPO) */}
+      {isBatchModalOpen && (
+        <div
+          id="modal-config-batch-print"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-[#188038] shrink-0 shadow-xs">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-stone-900 dark:text-stone-100 tracking-tight">
+                    Imprimir Bloco de Formulários
+                  </h3>
+                  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">
+                    {activeFormTab === "corte" && "Formulário: 1. Pedido de Corte (Forrageira)"}
+                    {activeFormTab === "compactacao" && "Formulário: 2. Controle de Compactação (Trator)"}
+                    {activeFormTab === "cargas" && "Formulário: 3. Controle de Cargas (01 a 64)"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsBatchModalOpen(false)}
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Inputs de Configuração */}
+            <div className="space-y-4">
+              {/* Quantidade de Páginas */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                  Quantidade de Páginas a Imprimir:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    step="1"
+                    value={batchQty}
+                    onChange={(e) => setBatchQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl px-3 py-2 text-sm font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#188038] focus:border-[#188038] outline-hidden"
+                    placeholder="50"
+                  />
+                  {/* Botões Rápidos */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[25, 50, 100].map(qty => (
+                      <button
+                        key={qty}
+                        type="button"
+                        onClick={() => setBatchQty(qty)}
+                        className={`px-2.5 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                          batchQty === qty
+                            ? "bg-[#188038] text-white border-[#188038] shadow-xs"
+                            : "bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700"
+                        }`}
+                      >
+                        {qty} fls
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 mt-1 block">
+                  Define quantas folhas numeradas serão geradas no lote (padrão 50 folhas para bloco físico).
+                </span>
+              </div>
+
+              {/* Grid: Número Inicial e Número Final */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Número Inicial */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                    Número Inicial do Pedido:
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={batchStartNum}
+                    onChange={(e) => setBatchStartNum(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl px-3 py-2 text-sm font-mono font-black text-rose-600 focus:ring-2 focus:ring-[#188038] focus:border-[#188038] outline-hidden"
+                  />
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400 mt-1 block">
+                    Padrão: Último impresso + 1 (editável).
+                  </span>
+                </div>
+
+                {/* Número Final */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                    Número Final do Pedido:
+                  </label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}
+                    className="w-full bg-stone-100 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700 rounded-xl px-3 py-2 text-sm font-mono font-black text-stone-600 dark:text-stone-400 cursor-not-allowed outline-hidden"
+                  />
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400 mt-1 block">
+                    Calculado automaticamente (somente leitura).
+                  </span>
+                </div>
+              </div>
+
+              {/* Card de Resumo Visual */}
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800/60 rounded-xl p-3.5 space-y-1.5 text-xs text-stone-800 dark:text-stone-200">
+                <div className="flex items-center gap-1.5 font-bold text-[#188038]">
+                  <CheckCircle className="w-4 h-4 text-[#188038]" />
+                  <span>Resumo do Lote de Impressão</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Serão geradas <strong>{batchQty} páginas</strong> com o formulário espelho e badges numerados de{" "}
+                  <span className="font-mono font-bold text-rose-600">#{String(batchStartNum).padStart(4, "0")}</span> até{" "}
+                  <span className="font-mono font-bold text-rose-600">#{String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}</span>.
+                </p>
+                <p className="text-[10px] text-stone-500 dark:text-stone-400">
+                  Ao confirmar a impressão, o limite <strong>#{String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}</strong> será salvo na base para dar continuidade no próximo bloco sem repetições.
+                </p>
+              </div>
+            </div>
+
+            {/* Ações do Rodapé */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-stone-200 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setIsBatchModalOpen(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmBatchPrint}
+                className="px-5 py-2.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer transform hover:-translate-y-0.5 active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir Lote ({batchQty} folhas)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PORTAL DE IMPRESSÃO EM LOTE (TALÕES DE CAMPO) */}
+      {batchPrintPages && batchPrintPages.length > 0 && typeof document !== "undefined" && createPortal(
+        <div id="printable-field-forms-batch" className="hidden print:block bg-white text-stone-900">
+          {batchPrintPages.map(pageNumber => (
+            <div key={pageNumber} className="batch-form-page">
+              {renderFormTemplate(String(pageNumber).padStart(4, "0"))}
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
