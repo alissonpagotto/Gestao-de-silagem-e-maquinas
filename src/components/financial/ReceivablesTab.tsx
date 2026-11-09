@@ -361,10 +361,19 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             (sc.ordem_id === details.itemId)
           );
           if (chqToUpdate) {
-            chqToUpdate.status = 'COMPENSADO';
-            chqToUpdate.data_compensacao = details.receiptDate;
-            if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+            if (details.paymentMethod === 'cheque') {
+              chqToUpdate.status = 'COMPENSADO';
+              chqToUpdate.data_compensacao = details.receiptDate;
+              if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+            } else {
+              chqToUpdate.status = 'DEVOLVIDO';
+              chqToUpdate.ordem_id = undefined;
+              chqToUpdate.observacoes = (chqToUpdate.observacoes ? chqToUpdate.observacoes + ' | ' : '') + `Substituído por ${String(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+            }
             saveStoredFinanceiroCheques(storedChqs);
+            try {
+              localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
+            } catch {}
             window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
           }
         } catch (e) {
@@ -512,10 +521,19 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             (sc.ordem_id === details.itemId)
           );
           if (chqToUpdate) {
-            chqToUpdate.status = 'COMPENSADO';
-            chqToUpdate.data_compensacao = details.receiptDate;
-            if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+            if (details.paymentMethod === 'cheque') {
+              chqToUpdate.status = 'COMPENSADO';
+              chqToUpdate.data_compensacao = details.receiptDate;
+              if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+            } else {
+              chqToUpdate.status = 'DEVOLVIDO';
+              chqToUpdate.ordem_id = undefined;
+              chqToUpdate.observacoes = (chqToUpdate.observacoes ? chqToUpdate.observacoes + ' | ' : '') + `Substituído por ${String(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+            }
             saveStoredFinanceiroCheques(storedChqs);
+            try {
+              localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
+            } catch {}
             window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
           }
         } catch (e) {

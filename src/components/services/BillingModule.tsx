@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Receipt,
   Search,
@@ -20,8 +20,8 @@ import {
   FileCheck2,
   Undo2
 } from 'lucide-react';
-import { ServiceOrder, CompanyProfile } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { ServiceOrder, CompanyProfile, BankAccount } from '../../types';
+import { formatCurrencyBRL, formatDateBR, getStoredBankAccounts } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BillingPaymentModal, getPaymentMethodLabel } from './BillingPaymentModal';
 import {
@@ -102,6 +102,33 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
   // Modal Avançado de Condições Comerciais e Definição de Recebimento
   const [billingPaymentService, setBillingPaymentService] = useState<ServiceOrder | null>(null);
+
+  // Sincronização reativa de contas bancárias cadastradas
+  const [storedBankAccounts, setStoredBankAccounts] = useState<BankAccount[]>(() => {
+    try {
+      return getStoredBankAccounts();
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        setStoredBankAccounts(getStoredBankAccounts());
+      } catch (err) {
+        console.warn('Erro ao atualizar contas bancárias no faturamento:', err);
+      }
+    };
+    window.addEventListener('agrocontrol_bancos_updated', handleUpdate);
+    window.addEventListener('agrocontrol_contas_bancarias_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_bancos_updated', handleUpdate);
+      window.removeEventListener('agrocontrol_contas_bancarias_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -285,6 +312,9 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
   // Abrir Modal Avançado de Condições Comerciais e Definição de Recebimento
   const handleSendToReceivables = (service: ServiceOrder) => {
+    try {
+      setStoredBankAccounts(getStoredBankAccounts());
+    } catch {}
     setBillingPaymentService(service);
   };
 
@@ -961,6 +991,8 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       <BillingPaymentModal
         isOpen={!!billingPaymentService}
         service={billingPaymentService}
+        bankAccounts={storedBankAccounts}
+        companyProfile={companyProfile}
         onClose={() => setBillingPaymentService(null)}
         onConfirm={handleConfirmBillingPayment}
       />

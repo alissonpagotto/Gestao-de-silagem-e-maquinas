@@ -28,6 +28,7 @@ export interface CompanyProfile {
   bankAccount?: string; // Conta Corrente
   pixKeyType?: 'cnpj' | 'cpf' | 'email' | 'telefone' | 'aleatoria' | string; // Tipo de Chave PIX
   pixKey?: string; // Chave PIX
+  adminPassword?: string; // Senha Mestre do Administrador
 }
 
 export type ExpenseStatus = 'pago' | 'pendente' | 'atrasado' | 'agendado' | 'compensado_estoque';
@@ -2124,6 +2125,7 @@ export interface FinanceiroCheque {
   total_parcelas?: number;
   created_at?: string;
   updated_at?: string;
+  observacoes?: string;
 }
 
 export interface ClienteCredito {
