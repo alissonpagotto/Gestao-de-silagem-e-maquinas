@@ -201,6 +201,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       if (targetService && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
         const inst1 = details.installments[0];
         const isInst1Paid = Boolean(inst1.isPaid);
+        const chq1 = details.cheques?.[0] || details.cheque;
+        const chqDesc1 = chq1 ? ` - Cheque nº ${chq1.numero_cheque || chq1.numeroCheque} (${chq1.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
 
         // Atualiza o serviço de origem para representar a 1ª parcela
         const updatedOriginal: ServiceOrder = {
@@ -213,7 +215,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           paymentMethod: details.paymentMethod,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
           paidAmount: isInst1Paid ? inst1.amount : 0,
-          billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela 1/${inst1.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`,
+          billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`,
           updatedAt: new Date().toISOString(),
           isInstallment: true,
           installmentNumber: 1,
@@ -222,29 +224,33 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         };
 
         // Cria as parcelas subsequentes (2..N) com status 'pendente' no Contas a Receber
-        const newInstallments: ServiceOrder[] = details.installments.slice(1).map((inst, idx) => ({
-          ...targetService,
-          id: `serv_inst_${targetService.id}_${inst.number}_${Date.now()}_${idx}`,
-          orderNumber: targetService.orderNumber ? `${targetService.orderNumber}-${inst.number}/${inst.totalInstallments}` : undefined,
-          totalAmount: inst.amount,
-          startDate: inst.dueDate,
-          date: inst.dueDate,
-          dueDate: inst.dueDate,
-          billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela ${inst.number}/${inst.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`,
-          status: 'faturado' as const,
-          billingStatus: 'faturado' as const,
-          billedAt: targetService.billedAt || new Date().toISOString(),
-          paymentStatus: 'pendente' as const,
-          paymentMethod: details.paymentMethod,
-          paymentDate: undefined,
-          paidAmount: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isInstallment: true,
-          installmentNumber: inst.number,
-          totalInstallments: inst.totalInstallments,
-          parentOrderId: targetService.id,
-        }));
+        const newInstallments: ServiceOrder[] = details.installments.slice(1).map((inst, idx) => {
+          const chqN = details.cheques?.[idx + 1];
+          const chqDescN = chqN ? ` - Cheque nº ${chqN.numero_cheque || chqN.numeroCheque} (${chqN.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
+          return {
+            ...targetService,
+            id: `serv_inst_${targetService.id}_${inst.number}_${Date.now()}_${idx}`,
+            orderNumber: targetService.orderNumber ? `${targetService.orderNumber}-${inst.number}/${inst.totalInstallments}` : undefined,
+            totalAmount: inst.amount,
+            startDate: inst.dueDate,
+            date: inst.dueDate,
+            dueDate: inst.dueDate,
+            billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela ${inst.number}/${inst.totalInstallments}${chqDescN})`,
+            status: 'faturado' as const,
+            billingStatus: 'faturado' as const,
+            billedAt: targetService.billedAt || new Date().toISOString(),
+            paymentStatus: 'pendente' as const,
+            paymentMethod: details.paymentMethod,
+            paymentDate: undefined,
+            paidAmount: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isInstallment: true,
+            installmentNumber: inst.number,
+            totalInstallments: inst.totalInstallments,
+            parentOrderId: targetService.id,
+          };
+        });
 
         const updatedServicesList = [
           ...localServices.filter(s => s.id !== details.itemId),
@@ -258,6 +264,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
       } else {
         // Fluxo padrão sem parcelamento
+        const chqSingle = details.cheques?.[0] || details.cheque;
+        const chqSingleNote = chqSingle ? ` (Cheque nº ${chqSingle.numero_cheque || chqSingle.numeroCheque} - ${chqSingle.banco})` : '';
+
         const updated = localServices.map(s => {
           if (s.id === details.itemId) {
             return {
@@ -269,8 +278,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               paymentDate: details.receiptDate,
               paidAmount: details.paidAmount,
               billingNotes: details.interestAmount 
-                ? `${s.billingNotes || s.serviceType || 'Serviço'} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
-                : s.billingNotes,
+                ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
               updatedAt: new Date().toISOString()
             };
           }
@@ -288,6 +297,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       if (targetOrder && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
         const inst1 = details.installments[0];
         const isInst1Paid = Boolean(inst1.isPaid);
+        const chq1 = details.cheques?.[0] || details.cheque;
+        const chqDesc1 = chq1 ? ` - Cheque nº ${chq1.numero_cheque || chq1.numeroCheque} (${chq1.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
 
         // Atualiza a ordem original para a 1ª parcela
         const updatedOriginalOrder: SilageOrder = {
@@ -300,7 +311,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           paymentMethod: details.paymentMethod,
           paidAmount: isInst1Paid ? inst1.amount : 0,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
-          notes: `${targetOrder.notes || ''} (Parcela 1/${inst1.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`.trim(),
+          notes: `${targetOrder.notes || ''} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`.trim(),
           updatedAt: new Date().toISOString(),
           isInstallment: true,
           installmentNumber: 1,
@@ -309,27 +320,31 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         };
 
         // Cria as parcelas subsequentes (2..N) com status 'pendente'
-        const newInstallmentOrders: SilageOrder[] = details.installments.slice(1).map((inst, idx) => ({
-          ...targetOrder,
-          id: `ord_inst_${targetOrder.id}_${inst.number}_${Date.now()}_${idx}`,
-          orderNumber: targetOrder.orderNumber ? `${targetOrder.orderNumber}-${inst.number}/${inst.totalInstallments}` : undefined,
-          totalAmount: inst.amount,
-          deliveryDate: inst.dueDate,
-          date: inst.dueDate,
-          dueDate: inst.dueDate,
-          paymentStatus: 'pendente' as const,
-          paymentMethod: details.paymentMethod,
-          paidAmount: 0,
-          paymentDate: undefined,
-          notes: `${targetOrder.notes || ''} (Parcela ${inst.number}/${inst.totalInstallments} - ${getPaymentMethodLabel(details.paymentMethod)})`.trim(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: 'confirmado' as const,
-          isInstallment: true,
-          installmentNumber: inst.number,
-          totalInstallments: inst.totalInstallments,
-          parentOrderId: targetOrder.id,
-        }));
+        const newInstallmentOrders: SilageOrder[] = details.installments.slice(1).map((inst, idx) => {
+          const chqN = details.cheques?.[idx + 1];
+          const chqDescN = chqN ? ` - Cheque nº ${chqN.numero_cheque || chqN.numeroCheque} (${chqN.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
+          return {
+            ...targetOrder,
+            id: `ord_inst_${targetOrder.id}_${inst.number}_${Date.now()}_${idx}`,
+            orderNumber: targetOrder.orderNumber ? `${targetOrder.orderNumber}-${inst.number}/${inst.totalInstallments}` : undefined,
+            totalAmount: inst.amount,
+            deliveryDate: inst.dueDate,
+            date: inst.dueDate,
+            dueDate: inst.dueDate,
+            paymentStatus: 'pendente' as const,
+            paymentMethod: details.paymentMethod,
+            paidAmount: 0,
+            paymentDate: undefined,
+            notes: `${targetOrder.notes || ''} (Parcela ${inst.number}/${inst.totalInstallments}${chqDescN})`.trim(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'confirmado' as const,
+            isInstallment: true,
+            installmentNumber: inst.number,
+            totalInstallments: inst.totalInstallments,
+            parentOrderId: targetOrder.id,
+          };
+        });
 
         const updatedOrdersList = [
           ...localOrders.filter(o => o.id !== details.itemId),
@@ -344,6 +359,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
       } else {
         // Fluxo padrão sem parcelamento
+        const chqSingle = details.cheques?.[0] || details.cheque;
+        const chqSingleNote = chqSingle ? ` (Cheque nº ${chqSingle.numero_cheque || chqSingle.numeroCheque} - ${chqSingle.banco})` : '';
+
         const updated = localOrders.map(o => {
           if (o.id === details.itemId) {
             return {
@@ -354,8 +372,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               paidAmount: details.paidAmount,
               paymentDate: details.receiptDate,
               notes: details.interestAmount
-                ? `${o.notes || ''} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
-                : o.notes,
+                ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                : `${o.notes || ''}${chqSingleNote}`.trim(),
               updatedAt: new Date().toISOString()
             };
           }

@@ -22,7 +22,8 @@ import {
   WalletCards,
   Layers,
   CalendarClock,
-  Percent
+  Percent,
+  Copy
 } from 'lucide-react';
 import { 
   BankAccount, 
@@ -65,6 +66,22 @@ export interface InstallmentPreviewItem {
   notes?: string;
 }
 
+export interface ChequeItemForm {
+  id: string;
+  installmentNumber: number;
+  banco: string;
+  bancoCodigo: string;
+  numero: string;
+  emitenteNome: string;
+  emitenteDoc: string;
+  dataVencimento: string;
+  valor: number;
+  selectedFile?: File | null;
+  previewUrl?: string;
+  uploadedImageUrl?: string;
+  isUploading?: boolean;
+}
+
 export interface ReceivePaymentSuccessDetails {
   itemId: string;
   itemType: string;
@@ -72,6 +89,7 @@ export interface ReceivePaymentSuccessDetails {
   paidAmount: number;
   receiptDate: string;
   cheque?: FinanceiroCheque;
+  cheques?: FinanceiroCheque[];
   creditoGerado?: number;
   bankAccountId?: string;
   isInstallmentPlan?: boolean;
@@ -111,14 +129,8 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   const [availableCredits, setAvailableCredits] = useState<ClienteCredito[]>([]);
   const [useAvailableCredit, setUseAvailableCredit] = useState(false);
 
-  // Dados Específicos para Cheque
-  const [chequeBanco, setChequeBanco] = useState('001 - Banco do Brasil');
-  const [chequeBancoCodigo, setChequeBancoCodigo] = useState('001');
-  const [chequeNumero, setChequeNumero] = useState('');
-  const [chequeEmitenteNome, setChequeEmitenteNome] = useState('');
-  const [chequeEmitenteDoc, setChequeEmitenteDoc] = useState('');
-  const [chequeVencimento, setChequeVencimento] = useState(today);
-  const [chequeValor, setChequeValor] = useState<number>(0);
+  // Grade Dinâmica de Cheques por Parcela
+  const [chequesList, setChequesList] = useState<ChequeItemForm[]>([]);
 
   // Opções de Parcelamento
   const [installmentsCount, setInstallmentsCount] = useState<number>(1);
@@ -129,17 +141,9 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
   const [interestAmount, setInterestAmount] = useState<number | ''>('');
   const [interestPercentage, setInterestPercentage] = useState<number | ''>('');
 
-  // Upload e Captura de Imagem do Cheque
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successToast, setSuccessToast] = useState('');
-
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Identificação do Cliente
   const resolvedClient = useMemo(() => {
@@ -192,9 +196,6 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     setPaymentMethod('pix');
     setNotes('');
     setIsSubmitting(false);
-    setSelectedFile(null);
-    setPreviewUrl('');
-    setUploadedImageUrl('');
 
     // Reset Parcelamento e Juros
     setInstallmentsCount(1);
@@ -205,15 +206,24 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
 
     const accountTotal = Number(item.totalAmount) || 0;
     setReceivedAmount(accountTotal);
-    setChequeValor(accountTotal);
 
-    // Pré-preenche dados do emitente do cheque
-    setChequeEmitenteNome(item.clientName || '');
-    setChequeEmitenteDoc(resolvedClient?.cpfCnpj || '');
-    setChequeNumero('');
-    setChequeBanco('001 - Banco do Brasil');
-    setChequeBancoCodigo('001');
-    setChequeVencimento(item.dueDate || item.date || today);
+    // Inicializa lista de cheques com 1 folha padrão
+    const initialCheque: ChequeItemForm = {
+      id: `chq_${Date.now()}_0`,
+      installmentNumber: 1,
+      banco: '001 - Banco do Brasil',
+      bancoCodigo: '001',
+      numero: '',
+      emitenteNome: item.clientName || '',
+      emitenteDoc: resolvedClient?.cpfCnpj || '',
+      dataVencimento: item.dueDate || item.date || today,
+      valor: accountTotal,
+      selectedFile: null,
+      previewUrl: '',
+      uploadedImageUrl: '',
+      isUploading: false
+    };
+    setChequesList([initialCheque]);
 
     // Seleciona primeira conta bancária se houver
     if (bankAccounts.length > 0) {
@@ -282,15 +292,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     setInterestAmount(amt);
   };
 
-  // Validação matemática do Cheque (Troco em Crédito)
   const isCheque = paymentMethod === 'cheque';
-  const diferencaCheque = useMemo(() => {
-    if (!isCheque) return 0;
-    const valorComparado = valorTotalAtualizado;
-    return Number((chequeValor - valorComparado).toFixed(2));
-  }, [isCheque, chequeValor, valorTotalAtualizado]);
-
-  const chequeGeraCredito = isCheque && diferencaCheque > 0.009;
 
   // Bloco de Parcelamento Permitido Apenas para Cartão Crédito, Cheque e A Prazo (Carteira)
   const isInstallmentEligible = 
@@ -299,15 +301,19 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     paymentMethod === 'prazo_carteira' || 
     paymentMethod === 'safra_prazo';
 
+  const singleChequeFaceValue = chequesList[0]?.valor ?? valorTotalAtualizado;
+  const singleChequeDueDate = chequesList[0]?.dataVencimento || item?.dueDate || item?.date || receiptDate || today;
+
   // Prévia em tempo real das parcelas calculadas com tratamento de centavos
   const previewInstallments: InstallmentPreviewItem[] = useMemo(() => {
-    const totalToDivide = isCheque ? chequeValor : valorTotalAtualizado;
+    // Quando parcelado (>1x), divide com precisão a dívida total atualizada
+    const totalToDivide = (isCheque && installmentsCount <= 1) ? singleChequeFaceValue : valorTotalAtualizado;
 
     if (!isInstallmentEligible || installmentsCount <= 1) {
       return [{
         number: 1,
         totalInstallments: 1,
-        dueDate: isCheque ? chequeVencimento : receiptDate,
+        dueDate: isCheque ? singleChequeDueDate : receiptDate,
         amount: totalToDivide,
         isPaid: true
       }];
@@ -359,42 +365,200 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     }
 
     return items;
-  }, [isInstallmentEligible, installmentsCount, isCheque, chequeVencimento, chequeValor, valorTotalAtualizado, receiptDate, today, installmentsIntervalDays, firstPaidImmediately]);
+  }, [isInstallmentEligible, installmentsCount, isCheque, singleChequeFaceValue, singleChequeDueDate, valorTotalAtualizado, receiptDate, today, installmentsIntervalDays, firstPaidImmediately]);
 
-  // Gerenciador de Arquivo do Cheque (Câmera ou Upload)
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Sincroniza dinamicamente a grade de cheques com a quantidade e valores das parcelas
+  useEffect(() => {
+    if (!isOpen || !item || !isCheque) return;
+
+    const count = Math.max(1, installmentsCount);
+
+    setChequesList(prev => {
+      const newList: ChequeItemForm[] = [];
+
+      for (let i = 0; i < count; i++) {
+        const inst = previewInstallments[i];
+        const existing = prev[i];
+        const prevInNew = newList[i - 1] || prev[0];
+
+        const targetAmount = inst ? inst.amount : (count === 1 ? (existing?.valor || valorTotalAtualizado) : 0);
+        const targetDueDate = inst ? inst.dueDate : (existing?.dataVencimento || item.dueDate || item.date || today);
+
+        if (existing) {
+          newList.push({
+            ...existing,
+            installmentNumber: i + 1,
+            // Trava o valor de face na parcela calculada quando for parcelado (>1)
+            valor: count > 1 ? targetAmount : existing.valor,
+            // Herda a data calculada da parcela por padrão
+            dataVencimento: count > 1 ? (inst?.dueDate || existing.dataVencimento) : existing.dataVencimento
+          });
+        } else {
+          newList.push({
+            id: `chq_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+            installmentNumber: i + 1,
+            banco: prevInNew?.banco || '001 - Banco do Brasil',
+            bancoCodigo: prevInNew?.bancoCodigo || '001',
+            numero: '',
+            emitenteNome: prevInNew?.emitenteNome || item.clientName || '',
+            emitenteDoc: prevInNew?.emitenteDoc || resolvedClient?.cpfCnpj || '',
+            dataVencimento: targetDueDate,
+            valor: targetAmount,
+            selectedFile: null,
+            previewUrl: '',
+            uploadedImageUrl: '',
+            isUploading: false
+          });
+        }
+      }
+
+      return newList;
+    });
+  }, [isOpen, item?.id, isCheque, installmentsCount, previewInstallments, valorTotalAtualizado]);
+
+  // Total acumulado de todos os cheques
+  const totalChequesValor = useMemo(() => {
+    return Number(chequesList.reduce((acc, c) => acc + (Number(c.valor) || 0), 0).toFixed(2));
+  }, [chequesList]);
+
+  // Validação matemática do Cheque (Troco em Crédito para pagamento único)
+  const diferencaCheque = useMemo(() => {
+    if (!isCheque) return 0;
+    const valorComparado = valorTotalAtualizado;
+    return Number((totalChequesValor - valorComparado).toFixed(2));
+  }, [isCheque, totalChequesValor, valorTotalAtualizado]);
+
+  const chequeGeraCredito = isCheque && installmentsCount <= 1 && diferencaCheque > 0.009;
+  const isAnyChequeUploading = isCheque && chequesList.some(c => Boolean(c.isUploading));
+
+  // Atualizador de campo individual de cheque
+  const handleUpdateChequeField = (index: number, field: keyof ChequeItemForm, value: any) => {
+    setChequesList(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], [field]: value };
+      }
+      return next;
+    });
+  };
+
+  const handleUpdateChequeBank = (index: number, bankName: string, bankCode?: string) => {
+    setChequesList(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = {
+          ...next[index],
+          banco: bankName,
+          bancoCodigo: bankCode || next[index].bancoCodigo
+        };
+      }
+      return next;
+    });
+  };
+
+  // Ação Rápida: "📋 Clonar dados para o próximo cheque"
+  const handleCloneChequeToNext = (index: number) => {
+    if (index >= chequesList.length - 1) return;
+    const current = chequesList[index];
+
+    if (!current.banco && !current.emitenteNome && !current.emitenteDoc) {
+      setErrorMessage(`Preencha o Banco ou Emitente do Cheque ${index + 1} antes de clonar.`);
+      return;
+    }
+
+    setChequesList(prev => {
+      const next = [...prev];
+      const target = next[index + 1];
+      if (target) {
+        next[index + 1] = {
+          ...target,
+          banco: current.banco,
+          bancoCodigo: current.bancoCodigo,
+          emitenteNome: current.emitenteNome,
+          emitenteDoc: current.emitenteDoc
+          // Número do cheque permanece em branco / inalterado para entrada do novo número de folha
+        };
+      }
+      return next;
+    });
+
+    setSuccessToast(`📋 Dados clonados com sucesso para o Cheque ${index + 2}! Informe o número da folha.`);
+    setTimeout(() => setSuccessToast(''), 3000);
+  };
+
+  // Gerenciador de Arquivo do Cheque (Câmera ou Upload) por folha
+  const handleChequeFileChange = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setSelectedFile(file);
     const localUrl = URL.createObjectURL(file);
-    setPreviewUrl(localUrl);
+    setChequesList(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = {
+          ...next[index],
+          selectedFile: file,
+          previewUrl: localUrl,
+          isUploading: true
+        };
+      }
+      return next;
+    });
 
-    // Dispara upload em segundo plano para o bucket cheques-imagens
-    setIsUploading(true);
-    setErrorMessage('');
     try {
       const activeCid = companyProfile?.id || getActiveCompanyId();
       const uploadRes = await uploadChequeImagem(file, activeCid, file.name);
       if (uploadRes && uploadRes.publicUrl) {
-        setUploadedImageUrl(uploadRes.publicUrl);
+        setChequesList(prev => {
+          const next = [...prev];
+          if (next[index]) {
+            next[index] = {
+              ...next[index],
+              uploadedImageUrl: uploadRes.publicUrl,
+              isUploading: false
+            };
+          }
+          return next;
+        });
+      } else {
+        setChequesList(prev => {
+          const next = [...prev];
+          if (next[index]) next[index].isUploading = false;
+          return next;
+        });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.warn('Erro ao enviar imagem do cheque:', err);
-    } finally {
-      setIsUploading(false);
+      setChequesList(prev => {
+        const next = [...prev];
+        if (next[index]) next[index].isUploading = false;
+        return next;
+      });
     }
   };
 
-  const handleRemovePhoto = () => {
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setSelectedFile(null);
-    setPreviewUrl('');
-    setUploadedImageUrl('');
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const handleRemoveChequePhoto = (index: number) => {
+    setChequesList(prev => {
+      const next = [...prev];
+      const chq = next[index];
+      if (chq) {
+        if (chq.previewUrl && chq.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(chq.previewUrl);
+        }
+        next[index] = {
+          ...chq,
+          selectedFile: null,
+          previewUrl: '',
+          uploadedImageUrl: '',
+          isUploading: false
+        };
+      }
+      return next;
+    });
+    const camEl = document.getElementById(`camera-input-${index}`) as HTMLInputElement | null;
+    const fileEl = document.getElementById(`file-input-${index}`) as HTMLInputElement | null;
+    if (camEl) camEl.value = '';
+    if (fileEl) fileEl.value = '';
   };
 
   // Submissão da Baixa / Quitação
@@ -403,25 +567,34 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     setErrorMessage('');
 
     if (isCheque) {
-      if (!chequeBanco.trim()) {
-        setErrorMessage('Por favor, informe o Banco do Cheque.');
+      if (chequesList.length === 0) {
+        setErrorMessage('Nenhum cheque configurado para efetuar a baixa.');
         return;
       }
-      if (!chequeNumero.trim()) {
-        setErrorMessage('Por favor, informe o Número do Cheque.');
-        return;
-      }
-      if (!chequeEmitenteNome.trim()) {
-        setErrorMessage('Por favor, informe o Nome do Emitente.');
-        return;
-      }
-      if (!chequeVencimento) {
-        setErrorMessage('Por favor, informe a Data de Vencimento do Cheque.');
-        return;
-      }
-      if (chequeValor <= 0) {
-        setErrorMessage('O valor do cheque deve ser maior que zero.');
-        return;
+
+      for (let i = 0; i < chequesList.length; i++) {
+        const chq = chequesList[i];
+        const label = chequesList.length > 1 ? `Cheque ${i + 1}/${chequesList.length}` : 'Cheque';
+        if (!chq.banco.trim()) {
+          setErrorMessage(`Por favor, informe o Banco no ${label}.`);
+          return;
+        }
+        if (!chq.numero.trim()) {
+          setErrorMessage(`Por favor, informe o Número no ${label}.`);
+          return;
+        }
+        if (!chq.emitenteNome.trim()) {
+          setErrorMessage(`Por favor, informe o Nome do Emitente no ${label}.`);
+          return;
+        }
+        if (!chq.dataVencimento) {
+          setErrorMessage(`Por favor, informe a Data de Vencimento no ${label}.`);
+          return;
+        }
+        if (chq.valor <= 0) {
+          setErrorMessage(`O valor do ${label} deve ser maior que zero.`);
+          return;
+        }
       }
     }
 
@@ -429,56 +602,68 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
 
     try {
       const activeCid = toValidUUID(companyProfile?.id || getActiveCompanyId());
-      let finalImageUrl = uploadedImageUrl;
+      const savedCheques: FinanceiroCheque[] = [];
 
-      // Se há um arquivo selecionado e ainda não tem URL remota, realiza o upload agora
-      if (isCheque && selectedFile && !finalImageUrl) {
-        setIsUploading(true);
-        const uploadRes = await uploadChequeImagem(selectedFile, activeCid, selectedFile.name);
-        if (uploadRes && uploadRes.publicUrl) {
-          finalImageUrl = uploadRes.publicUrl;
-          setUploadedImageUrl(finalImageUrl);
-        }
-        setIsUploading(false);
-      }
-
-      let savedCheque: FinanceiroCheque | undefined;
-
-      // 1. Se foi recebido em Cheque: grava na tabela public.financeiro_cheques
+      // 1. Se foi recebido em Cheque: grava todas as folhas na tabela public.financeiro_cheques
       if (isCheque) {
-        const chequeId = toValidUUID();
-        const chequePayload: Partial<FinanceiroCheque> = {
-          id: chequeId,
-          company_id: activeCid,
-          cliente_id: targetClientId ? toValidUUID(targetClientId) : null,
-          cliente_nome: item.clientName,
-          banco: chequeBanco,
-          numero_cheque: chequeNumero.trim(),
-          emitente_nome: chequeEmitenteNome.trim(),
-          emitente_documento: chequeEmitenteDoc.trim(),
-          data_vencimento: chequeVencimento,
-          valor: chequeValor,
-          imagem_url: finalImageUrl || '',
-          status: 'EM_NOSSO_PODER',
-          created_at: new Date().toISOString()
-        };
+        for (let i = 0; i < chequesList.length; i++) {
+          const chq = chequesList[i];
+          let finalImageUrl = chq.uploadedImageUrl || '';
 
-        const resCheque = await saveFinanceiroCheque(chequePayload);
-        savedCheque = resCheque.data || (chequePayload as FinanceiroCheque);
+          if (chq.selectedFile && !finalImageUrl) {
+            try {
+              const uploadRes = await uploadChequeImagem(chq.selectedFile, activeCid, chq.selectedFile.name);
+              if (uploadRes && uploadRes.publicUrl) {
+                finalImageUrl = uploadRes.publicUrl;
+              }
+            } catch (err) {
+              console.warn('Erro ao subir imagem pendente:', err);
+            }
+          }
 
-        // 2. Regra de Negócio: Cheque com Valor Maior -> Gera Crédito Automático
-        if (chequeGeraCredito) {
-          const creditoPayload: Partial<ClienteCredito> = {
-            id: toValidUUID(),
+          const chequeId = toValidUUID();
+          const chequePayload: Partial<FinanceiroCheque> = {
+            id: chequeId,
             company_id: activeCid,
-            cliente_id: targetClientId ? toValidUUID(targetClientId) : toValidUUID(),
+            companyId: activeCid,
+            cliente_id: targetClientId ? toValidUUID(targetClientId) : null,
+            clienteId: targetClientId ? toValidUUID(targetClientId) : null,
             cliente_nome: item.clientName,
-            cheque_origem_id: chequeId,
-            valor_credito: diferencaCheque,
-            status: 'DISPONIVEL',
+            clienteNome: item.clientName,
+            banco: chq.banco,
+            numero_cheque: chq.numero.trim(),
+            numeroCheque: chq.numero.trim(),
+            emitente_nome: chq.emitenteNome.trim(),
+            emitenteNome: chq.emitenteNome.trim(),
+            emitente_documento: chq.emitenteDoc.trim(),
+            emitenteDocumento: chq.emitenteDoc.trim(),
+            data_vencimento: chq.dataVencimento,
+            dataVencimento: chq.dataVencimento,
+            valor: chq.valor,
+            imagem_url: finalImageUrl,
+            imagemUrl: finalImageUrl,
+            status: 'EM_NOSSO_PODER',
             created_at: new Date().toISOString()
           };
-          await saveClienteCredito(creditoPayload);
+
+          const resCheque = await saveFinanceiroCheque(chequePayload);
+          const saved = resCheque.data || (chequePayload as FinanceiroCheque);
+          savedCheques.push(saved);
+
+          // 2. Se for cheque único e tiver troco em crédito
+          if (installmentsCount <= 1 && chequeGeraCredito && i === 0) {
+            const creditoPayload: Partial<ClienteCredito> = {
+              id: toValidUUID(),
+              company_id: activeCid,
+              cliente_id: targetClientId ? toValidUUID(targetClientId) : toValidUUID(),
+              cliente_nome: item.clientName,
+              cheque_origem_id: chequeId,
+              valor_credito: diferencaCheque,
+              status: 'DISPONIVEL',
+              created_at: new Date().toISOString()
+            };
+            await saveClienteCredito(creditoPayload);
+          }
         }
       }
 
@@ -500,9 +685,10 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
           itemId: item.id,
           itemType: item.type,
           paymentMethod,
-          paidAmount: isCheque ? chequeValor : valorTotalAtualizado,
+          paidAmount: isCheque ? totalChequesValor : valorTotalAtualizado,
           receiptDate,
-          cheque: savedCheque,
+          cheque: savedCheques[0],
+          cheques: savedCheques,
           creditoGerado: chequeGeraCredito ? diferencaCheque : undefined,
           bankAccountId: selectedBankAccountId,
           isInstallmentPlan: isInstallmentActive,
@@ -804,7 +990,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                 </div>
                 <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
                   {installmentsCount > 1 
-                    ? `${installmentsCount}x de ${formatCurrencyBRL((isCheque ? chequeValor : valorTotalAtualizado) / installmentsCount)}` 
+                    ? `${installmentsCount}x de ${formatCurrencyBRL(valorTotalAtualizado / installmentsCount)}` 
                     : 'À Vista (1x)'}
                 </span>
               </div>
@@ -824,7 +1010,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
                     <option value={1}>1x (À vista - Sem parcelar)</option>
                     {Array.from({ length: 11 }, (_, i) => i + 2).map((num) => (
                       <option key={num} value={num}>
-                        {num}x parcelas ({formatCurrencyBRL((isCheque ? chequeValor : valorTotalAtualizado) / num)})
+                        {num}x parcelas ({formatCurrencyBRL(valorTotalAtualizado / num)})
                       </option>
                     ))}
                   </select>
@@ -922,206 +1108,298 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             </div>
           )}
 
-          {/* BLOCO ESPECÍFICO DINÂMICO: FORMULÁRIO DO CHEQUE */}
+          {/* BLOCO ESPECÍFICO DINÂMICO: GRADE DE CHEQUES RECEBIDOS */}
           {isCheque && (
-            <div className="border border-sky-300 bg-sky-50/40 rounded-2xl p-3.5 sm:p-4 space-y-3.5">
-              <div className="flex items-center justify-between border-b border-sky-200 pb-2">
+            <div className="space-y-3">
+              {/* Topo Geral da Seção de Cheques */}
+              <div className="flex items-center justify-between border-b border-sky-300 dark:border-stone-700 pb-2">
                 <div className="flex items-center space-x-2">
-                  <div className="p-1 rounded bg-sky-600 text-white">
+                  <div className="p-1 rounded bg-sky-700 text-white shadow-2xs">
                     <FileText className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-wider text-sky-950">
-                    Dados do Cheque Recebido
+                  <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100">
+                    {chequesList.length > 1
+                      ? `Dados dos Cheques Recebidos (${chequesList.length} Folhas)`
+                      : 'Dados do Cheque Recebido'}
                   </span>
                 </div>
-                <span className="text-[10px] font-bold text-sky-800 bg-sky-100 border border-sky-300 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
                   Status Inicial: Em Nosso Poder
                 </span>
               </div>
 
-              {/* Grid 1: Banco e Número do Cheque */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    Banco do Cheque <span className="text-rose-600">*</span>
-                  </label>
-                  <BankCombobox
-                    value={chequeBanco}
-                    bankCode={chequeBancoCodigo}
-                    onChange={(bName, bCode) => {
-                      setChequeBanco(bName);
-                      if (bCode) setChequeBancoCodigo(bCode);
-                    }}
-                  />
+              {/* Se houver mais de 1 parcela, exibe mini-chips de navegação/status das folhas */}
+              {chequesList.length > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {chequesList.map((chq, idx) => {
+                    const isComplete = Boolean(chq.numero.trim() && chq.banco.trim() && chq.emitenteNome.trim());
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          document.getElementById(`cheque-card-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition flex items-center space-x-1.5 shrink-0 cursor-pointer ${
+                          isComplete
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300'
+                            : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300'
+                        }`}
+                      >
+                        <span>{isComplete ? '✓' : '⚠️'}</span>
+                        <span>Cheque {idx + 1}/{chequesList.length} ({formatCurrencyBRL(chq.valor)})</span>
+                      </button>
+                    );
+                  })}
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    Número do Cheque <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 000421"
-                    value={chequeNumero}
-                    onChange={(e) => setChequeNumero(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-black font-semibold outline-none focus:ring-2 focus:ring-sky-600"
-                  />
+              {/* Grade Sequencial de Blocos de Cheque */}
+              {chequesList.map((chq, index) => (
+                <div
+                  key={chq.id || index}
+                  id={`cheque-card-${index}`}
+                  className="border border-sky-300 dark:border-stone-700 bg-sky-50/50 dark:bg-stone-850/60 rounded-2xl p-3.5 sm:p-4 space-y-3.5 transition shadow-2xs"
+                >
+                  {/* Cabeçalho Individual do Bloco de Cheque */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 dark:border-stone-700 pb-2.5">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 rounded-md bg-sky-700 text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100">
+                          {chequesList.length > 1
+                            ? `Cheque ${index + 1}/${chequesList.length} (${formatCurrencyBRL(chq.valor)})`
+                            : `Cheque (${formatCurrencyBRL(chq.valor)})`}
+                        </span>
+                        <span className="text-[11px] text-slate-600 dark:text-stone-400 font-medium ml-2">
+                          • Vencimento Parcela: <strong className="text-slate-800 dark:text-stone-200">{formatDateBR(chq.dataVencimento)}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {/* Ação Rápida: "📋 Clonar dados para o próximo cheque" */}
+                      {index < chequesList.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleCloneChequeToNext(index)}
+                          className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-stone-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-200 border border-sky-300 dark:border-sky-700 text-[11px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Copiar Banco, Emitente e CPF/CNPJ para o próximo cheque"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
+                          <span>📋 Clonar dados para o próximo cheque</span>
+                        </button>
+                      )}
+                      <span className="text-[10px] font-bold text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
+                        Em Nosso Poder
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Grid 1: Banco e Número do Cheque */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-200 mb-1">
+                        Banco do Cheque <span className="text-rose-600">*</span>
+                      </label>
+                      <BankCombobox
+                        value={chq.banco}
+                        bankCode={chq.bancoCodigo}
+                        onChange={(bName, bCode) => handleUpdateChequeBank(index, bName, bCode)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-200 mb-1">
+                        Número do Cheque <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={`Ex: ${String(420 + index + 1).padStart(6, '0')}`}
+                        value={chq.numero}
+                        onChange={(e) => handleUpdateChequeField(index, 'numero', e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-sky-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Grid 2: Emitente e CPF/CNPJ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-200 mb-1">
+                        Nome do Emitente <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Nome completo do titular que assinou"
+                        value={chq.emitenteNome}
+                        onChange={(e) => handleUpdateChequeField(index, 'emitenteNome', e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-sky-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-200 mb-1">
+                        CPF ou CNPJ do Emitente
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        value={chq.emitenteDoc}
+                        onChange={(e) => handleUpdateChequeField(index, 'emitenteDoc', e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-sky-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Grid 3: Data de Vencimento / Bom Para e Valor do Cheque */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-black dark:text-stone-200">
+                          Data de Vencimento / "Bom para" <span className="text-rose-600">*</span>
+                        </label>
+                        {previewInstallments[index]?.dueDate && (
+                          <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                            Calculado: {formatDateBR(previewInstallments[index].dueDate)}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        value={chq.dataVencimento}
+                        onChange={(e) => handleUpdateChequeField(index, 'dataVencimento', e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-sky-600"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-black dark:text-stone-200">
+                          Valor de Face do Cheque (R$) <span className="text-rose-600">*</span>
+                        </label>
+                        {installmentsCount > 1 ? (
+                          <span className="text-[10px] text-sky-800 dark:text-stone-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-1.5 py-0.2 rounded font-bold">
+                            Travado na Parcela {index + 1}
+                          </span>
+                        ) : null}
+                      </div>
+                      {installmentsCount > 1 ? (
+                        <input
+                          type="text"
+                          readOnly
+                          disabled
+                          value={formatCurrencyBRL(chq.valor)}
+                          className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-slate-100 dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-black text-sm cursor-not-allowed outline-none select-none"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0,00"
+                          value={chq.valor || ''}
+                          onChange={(e) => handleUpdateChequeField(index, 'valor', parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-black dark:text-white font-black text-sm outline-none focus:ring-2 focus:ring-sky-600"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Anexo / Imagem do Cheque Individual */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1.5">
+                      Anexar Imagem / Foto do Cheque Físico {chequesList.length > 1 ? `(${index + 1}/${chequesList.length})` : ''}
+                    </label>
+
+                    <input
+                      id={`camera-input-${index}`}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => handleChequeFileChange(index, e)}
+                    />
+
+                    <input
+                      id={`file-input-${index}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg,application/pdf"
+                      className="hidden"
+                      onChange={(e) => handleChequeFileChange(index, e)}
+                    />
+
+                    {!chq.previewUrl && !chq.uploadedImageUrl ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById(`camera-input-${index}`)?.click()}
+                          className="flex items-center justify-center space-x-2 px-3 py-2 rounded-xl border border-sky-400 dark:border-stone-600 bg-white dark:bg-stone-900 hover:bg-sky-50 dark:hover:bg-stone-800 text-sky-900 dark:text-sky-300 font-bold transition cursor-pointer shadow-2xs active:scale-95 text-xs"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
+                          <span>Tirar Foto (Câmera)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById(`file-input-${index}`)?.click()}
+                          className="flex items-center justify-center space-x-2 px-3 py-2 rounded-xl border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 hover:bg-slate-50 dark:hover:bg-stone-800 text-black dark:text-white font-bold transition cursor-pointer shadow-2xs active:scale-95 text-xs"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-slate-700 dark:text-stone-400" />
+                          <span>Selecionar Arquivo</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-200">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-emerald-400 dark:border-emerald-700 bg-white dark:bg-stone-800 shrink-0 flex items-center justify-center">
+                            <img
+                              src={chq.previewUrl || chq.uploadedImageUrl}
+                              alt={`Preview Cheque ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-black text-emerald-900 dark:text-emerald-300 block truncate">
+                              {chq.selectedFile?.name || `cheque_${index + 1}.jpg`}
+                            </span>
+                            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-semibold block">
+                              {chq.isUploading ? 'Enviando imagem...' : 'Imagem anexada e vinculada à folha'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveChequePhoto(index)}
+                          className="p-1.5 rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition cursor-pointer"
+                          title="Remover foto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ))}
 
-              {/* Grid 2: Emitente e CPF/CNPJ */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    Nome do Emitente <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Nome completo do titular que assinou"
-                    value={chequeEmitenteNome}
-                    onChange={(e) => setChequeEmitenteNome(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-black font-semibold outline-none focus:ring-2 focus:ring-sky-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    CPF ou CNPJ do Emitente
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                    value={chequeEmitenteDoc}
-                    onChange={(e) => setChequeEmitenteDoc(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-black font-semibold outline-none focus:ring-2 focus:ring-sky-600"
-                  />
-                </div>
-              </div>
-
-              {/* Grid 3: Data de Vencimento / Bom Para e Valor do Cheque */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    Data de Vencimento / "Bom para" <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={chequeVencimento}
-                    onChange={(e) => setChequeVencimento(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-black font-semibold outline-none focus:ring-2 focus:ring-sky-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-black mb-1">
-                    Valor de Face do Cheque (R$) <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={chequeValor || ''}
-                    onChange={(e) => setChequeValor(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white text-black font-black text-base outline-none focus:ring-2 focus:ring-sky-600"
-                  />
-                </div>
-              </div>
-
-              {/* 3. INTERFACE DE COMPARAÇÃO DE VALORES (AVISO DE CRÉDITO) */}
+              {/* Alerta de Troco em Crédito Automático (para recebimento em cheque à vista) */}
               {chequeGeraCredito && (
-                <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-950 flex items-start space-x-2.5 shadow-2xs">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-950 dark:text-emerald-200 flex items-start space-x-2.5 shadow-2xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div className="text-[11px] leading-relaxed">
-                    <span className="font-black text-emerald-900 block text-xs">
+                    <span className="font-black text-emerald-900 dark:text-emerald-300 block text-xs">
                       Troco em Crédito Automático Detectado:
                     </span>
                     Atenção: O valor do cheque é maior que a dívida. Um crédito de{' '}
-                    <strong className="text-emerald-900 font-black font-['Outfit'] text-xs">
+                    <strong className="text-emerald-900 dark:text-emerald-300 font-black font-['Outfit'] text-xs">
                       {formatCurrencyBRL(diferencaCheque)}
                     </strong>{' '}
                     será gerado automaticamente para a próxima compra deste cliente.
                   </div>
                 </div>
               )}
-
-              {/* 2. BOTÃO DE ACESSO À CÂMERA / COMPONENTE DE UPLOAD */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1.5">
-                  Anexar Imagem / Foto do Cheque Físico
-                </label>
-
-                {/* Input escondido para Câmera (Mobile / Tablet) com capture="environment" */}
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-
-                {/* Input escondido para Seleção de Arquivo (Desktop / Galeria) */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/jpg,application/pdf"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-
-                {!previewUrl ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Botão 1: Abrir Câmera */}
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-sky-400 bg-white hover:bg-sky-50 text-sky-900 font-bold transition cursor-pointer shadow-2xs active:scale-95"
-                    >
-                      <Camera className="w-4 h-4 text-sky-700" />
-                      <span>Tirar Foto (Câmera)</span>
-                    </button>
-
-                    {/* Botão 2: Selecionar Arquivo do Computador / Galeria */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-black font-bold transition cursor-pointer shadow-2xs active:scale-95"
-                    >
-                      <Upload className="w-4 h-4 text-slate-700" />
-                      <span>Selecionar Arquivo</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950">
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-emerald-400 bg-white shrink-0 flex items-center justify-center">
-                        <img
-                          src={previewUrl}
-                          alt="Preview do Cheque"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[11px] font-black text-emerald-900 block truncate">
-                          {selectedFile?.name || 'cheque_digitalizado.jpg'}
-                        </span>
-                        <span className="text-[10px] text-emerald-800 font-semibold block">
-                          {isUploading ? 'Fazendo upload para o Supabase...' : 'Imagem anexada e pronta para o banco'}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-100 transition cursor-pointer"
-                      title="Remover foto e tirar outra"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -1145,7 +1423,13 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
         <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-black/70 font-semibold">
             {isCheque ? (
-              <span>Total do Cheque: <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(chequeValor)}</strong></span>
+              <span>
+                {installmentsCount > 1 ? (
+                  <>Total dos Cheques ({chequesList.length} folhas): <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(totalChequesValor)}</strong></>
+                ) : (
+                  <>Total do Cheque: <strong className="text-black font-bold font-['Outfit']">{formatCurrencyBRL(totalChequesValor)}</strong></>
+                )}
+              </span>
             ) : isInstallmentEligible && installmentsCount > 1 ? (
               <span>
                 Total Parcelado ({installmentsCount}x){numericInterest > 0 ? ' com Juros' : ''}:{' '}
@@ -1172,7 +1456,7 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={isSubmitting || isUploading}
+              disabled={isSubmitting || isAnyChequeUploading}
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition cursor-pointer shadow-xs flex items-center space-x-1.5 active:scale-95 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
