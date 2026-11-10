@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, FileText, CheckCircle2 } from 'lucide-react';
-import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
+import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem, PayrollType } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf, calculateOfficialFgts } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
@@ -12,6 +12,8 @@ interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
   employee?: Employee;
   currentMonthRef: string;
+  payrollType?: PayrollType;
+  monthsWorked13th?: number;
   baseSalary: number;
   admissionInfo?: {
     isAdmittedInCompetenceMonth: boolean;
@@ -51,6 +53,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   companyProfile,
   employee,
   currentMonthRef,
+  payrollType = 'monthly',
+  monthsWorked13th = 12,
   baseSalary,
   admissionInfo,
   overtimeAmount,
@@ -94,13 +98,25 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const [editingCell, setEditingCell] = useState<{ rowKey: string; field: 'codigo' | 'descricao' } | null>(null);
   const [cellDraft, setCellDraft] = useState<string>('');
 
+  // 0. Adiantamento da 1ª Parcela do 13º Salário (Rubrica 505)
+  const thirteenth1stList = deductionItems.filter(
+    (d) =>
+      d.verbaCode === '505' ||
+      d.type?.includes('13') ||
+      d.description?.toLowerCase().includes('1ª parcela') ||
+      d.description?.toLowerCase().includes('13°') ||
+      d.description?.toLowerCase().includes('13º')
+  );
+  const thirteenth1stTotal = thirteenth1stList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+
   // 1. Apuração Inteligente das Faltas (Falta é Falta -> Rubrica 501 - FALTAS INTEGRADAS (DIAS))
   const faltasList = deductionItems.filter(
     (d) =>
-      d.verbaCode === '501' ||
-      d.type === 'Falta / Atraso' ||
-      d.description?.toLowerCase().includes('falta') ||
-      d.description?.toLowerCase().includes('dias anteriores')
+      !thirteenth1stList.includes(d) &&
+      (d.verbaCode === '501' ||
+        d.type === 'Falta / Atraso' ||
+        d.description?.toLowerCase().includes('falta') ||
+        d.description?.toLowerCase().includes('dias anteriores'))
   );
   const faltasTotal = faltasList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 
@@ -122,6 +138,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   // 2. Apuração dos Vales / Adiantamentos (Rubrica 502 / 110)
   const valesList = deductionItems.filter(
     (d) =>
+      !thirteenth1stList.includes(d) &&
       !faltasList.includes(d) &&
       (d.verbaCode === '502' ||
         d.verbaCode === '110' ||
@@ -137,6 +154,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   // 3. Apuração de Equipamentos / Avarias / Peças (Rubrica 503)
   const avariasList = deductionItems.filter(
     (d) =>
+      !thirteenth1stList.includes(d) &&
       !faltasList.includes(d) &&
       !valesList.includes(d) &&
       (d.verbaCode === '503' ||
@@ -153,6 +171,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   // 4. Outros Descontos manuais isolados (não agrupados nos anteriores)
   const outrosList = deductionItems.filter(
     (d) =>
+      !thirteenth1stList.includes(d) &&
       !faltasList.includes(d) &&
       !valesList.includes(d) &&
       !avariasList.includes(d) &&
@@ -300,9 +319,9 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   return (
     <div className="w-full flex flex-col items-center">
       {/* Top Banner de Status Live */}
-      <div className="w-full max-w-[580px] flex items-center justify-between pb-2 text-stone-600 dark:text-stone-300 text-xs font-bold">
+      <div className="w-full max-w-[580px] flex items-center justify-between pb-1 text-stone-600 dark:text-stone-300 text-xs font-bold">
         <div className="flex items-center gap-1.5">
-          <FileText className="w-4 h-4 text-[#0963cb]" />
+          <FileText className="w-3.5 h-3.5 text-[#0963cb]" />
           <span>Espelho do Holerite Oficial (Ao Vivo)</span>
         </div>
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold flex items-center gap-1">
@@ -314,10 +333,10 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
       {/* Folha Física Branca Estilizada */}
       <div 
         id="live-holerite-sheet"
-        className="w-full max-w-[580px] bg-white text-stone-900 rounded-xl shadow-lg border border-stone-300 p-4 sm:p-5 space-y-3 font-sans transition-all text-xs"
+        className="w-full max-w-[580px] bg-white text-stone-900 rounded-xl shadow-lg border border-stone-300 p-3 sm:p-3.5 space-y-2 font-sans transition-all text-xs"
       >
         {/* TOPO: Dados da Empresa e do Recibo */}
-        <div className="flex items-start justify-between border-b-2 border-stone-800 pb-2.5 gap-2">
+        <div className="flex items-start justify-between border-b-2 border-stone-800 pb-1.5 gap-2">
           <div className="flex items-start gap-2.5 flex-1 min-w-0">
             <div className="w-10 h-10 rounded-lg border border-stone-200 bg-stone-50 flex items-center justify-center shrink-0 text-[#0963cb] overflow-hidden p-0.5">
               {companyProfile?.logoUrl ? (
@@ -332,7 +351,11 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                   {tradeName}
                 </h4>
                 <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-blue-50 text-[#0963cb] border border-blue-200">
-                  Holerite
+                  {payrollType === '13_first_packet'
+                    ? '13º Salário • 1ª Parcela'
+                    : payrollType === '13_second_packet'
+                    ? '13º Salário • 2ª Parcela'
+                    : 'Holerite'}
                 </span>
               </div>
               <p className="text-[10px] text-stone-600 truncate mt-0.5">
@@ -344,7 +367,11 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
 
           <div className="text-right shrink-0">
             <p className="text-[11px] font-black text-stone-900 uppercase tracking-tight font-['Outfit']">
-              Recibo de Salário
+              {payrollType === '13_first_packet'
+                ? 'Recibo 13º (1ª Parc.)'
+                : payrollType === '13_second_packet'
+                ? 'Recibo 13º (2ª Parc.)'
+                : 'Recibo de Salário'}
             </p>
             <p className="text-[10px] text-stone-600">
               Ref: <strong className="text-[#0963cb] font-bold">{currentMonthRef}</strong>
@@ -356,10 +383,10 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         </div>
 
         {/* DADOS DO COLABORADOR */}
-        <div className="border border-stone-300 rounded-lg p-2 bg-stone-50/80 flex flex-row items-stretch justify-between w-full gap-3 sm:gap-4 print:gap-3">
+        <div className="border border-stone-300 rounded-lg p-1.5 bg-stone-50/80 flex flex-row items-stretch justify-between w-full gap-2.5 sm:gap-3 print:gap-3">
           {/* Sub-bloco da Esquerda: Dados textuais do colaborador */}
           <div className="flex-1 min-w-0">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 text-[11px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-0.5 text-[11px]">
               <div className="col-span-2 sm:col-span-2">
                 <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Colaborador:</span>
                 <span className="font-bold text-stone-900 block mt-0.5">
@@ -404,9 +431,9 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
 
           {/* Sub-bloco da Direita: Espaço isolado e dedicado exclusivamente para o QR Code do PIX */}
           {isPixPayment && pixPayload && (
-            <div className="flex flex-col items-center justify-center p-1.5 border border-slate-200 rounded bg-white shrink-0 self-center">
-              <QRCode value={pixPayload} size={70} className="mx-auto" />
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight text-center mt-1.5 w-full block">
+            <div className="flex flex-col items-center justify-center p-1 border border-slate-200 rounded bg-white shrink-0 self-center">
+              <QRCode value={pixPayload} size={60} className="mx-auto" />
+              <span className="text-[8.5px] font-bold text-slate-500 uppercase tracking-tight text-center mt-1 w-full block">
                 QR CODE PIX PARA PAGAMENTO
               </span>
             </div>
@@ -422,19 +449,25 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
           <table className="w-full text-[10.5px]">
             <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[9px] border-b border-stone-300">
               <tr>
-                <th className="py-1.5 px-2 text-left w-12">Cód</th>
-                <th className="py-1.5 px-2 text-left">Descrição da Verba</th>
-                <th className="py-1.5 px-1.5 text-center w-14">Ref.</th>
-                <th className="py-1.5 px-2 text-right w-24">Proventos</th>
-                <th className="py-1.5 px-2 text-right w-24">Descontos</th>
+                <th className="py-1 px-2 text-left w-12">Cód</th>
+                <th className="py-1 px-2 text-left">Descrição da Verba</th>
+                <th className="py-1 px-1.5 text-center w-14">Ref.</th>
+                <th className="py-1 px-2 text-right w-24">Proventos</th>
+                <th className="py-1 px-2 text-right w-24">Descontos</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {/* Salário Base */}
+              {/* Salário Base / 13º Salário */}
               <tr>
-                {renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
+                {payrollType === '13_first_packet'
+                  ? renderEditableCells('salario_13_1', '002', '13º SALÁRIO - 1ª PARCELA (ADIANTAMENTO)')
+                  : payrollType === '13_second_packet'
+                  ? renderEditableCells('salario_13_2', '003', '13º SALÁRIO INTEGRAL (2ª PARCELA)')
+                  : renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
                 <td className="py-1 px-1.5 text-center text-stone-600 font-medium text-[9.5px]">
-                  {employee ? (admissionInfo?.isAdmittedInCompetenceMonth ? `${admissionInfo.daysWorked}d` : '30d') : '--'}
+                  {payrollType !== 'monthly'
+                    ? `${monthsWorked13th || 12}/12`
+                    : (employee ? (admissionInfo?.isAdmittedInCompetenceMonth ? `${admissionInfo.daysWorked}d` : '30d') : '--')}
                 </td>
                 <td className="py-1 px-2 text-right font-bold text-emerald-700 font-['Outfit']">
                   {formatCurrencyBRL(baseSalary)}
@@ -522,6 +555,20 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
                 </tr>
               )}
 
+              {/* Adiantamento 1ª Parcela 13º Salário (Rubrica 505) */}
+              {thirteenth1stTotal > 0 && (
+                <tr>
+                  {renderEditableCells('adiant_13_1', '505', 'ADIANTAMENTO 1ª PARCELA 13º SALÁRIO')}
+                  <td className="py-1 px-1.5 text-center text-stone-600 font-bold text-[9.5px]">
+                    50%
+                  </td>
+                  <td className="py-1 px-2 text-right text-stone-300">-</td>
+                  <td className="py-1 px-2 text-right font-bold text-rose-700 font-['Outfit']">
+                    {formatCurrencyBRL(thirteenth1stTotal)}
+                  </td>
+                </tr>
+              )}
+
               {/* Faltas Integradas (Falta é Falta -> 501) */}
               {faltasTotal > 0 && (
                 <tr>
@@ -585,13 +632,13 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
             {/* Totais do Quadro de Verbas */}
             <tfoot className="bg-stone-50 font-bold border-t border-stone-300 text-[10.5px]">
               <tr>
-                <td colSpan={3} className="py-1.5 px-2 text-right text-stone-700">
+                <td colSpan={3} className="py-1 px-2 text-right text-stone-700">
                   Totais das Verbas:
                 </td>
-                <td className="py-1.5 px-2 text-right text-emerald-800 font-black font-['Outfit']">
+                <td className="py-1 px-2 text-right text-emerald-800 font-black font-['Outfit']">
                   {formatCurrencyBRL(modalGrossTotal)}
                 </td>
-                <td className="py-1.5 px-2 text-right text-rose-700 font-black font-['Outfit']">
+                <td className="py-1 px-2 text-right text-rose-700 font-black font-['Outfit']">
                   {formatCurrencyBRL(modalDiscountsTotal)}
                 </td>
               </tr>
@@ -600,7 +647,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         </div>
 
         {/* RODAPÉ: CARDS DE TOTAIS */}
-        <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-stone-50 border border-stone-300">
+        <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-lg bg-stone-50 border border-stone-300">
           <div>
             <span className="text-[8.5px] text-stone-500 font-black uppercase block tracking-wider leading-none">
               Total Bruto (+)
@@ -628,7 +675,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         </div>
 
         {/* BADGES CINZAS DE BASES FISCAIS */}
-        <div className="grid grid-cols-4 gap-1.5 p-2 bg-stone-100 border border-stone-300 rounded-lg text-center text-xs">
+        <div className="grid grid-cols-4 gap-1.5 p-1.5 bg-stone-100 border border-stone-300 rounded-lg text-center text-xs">
           <div className="bg-white border border-stone-200 rounded p-1 shadow-2xs">
             <span className="text-[8px] font-black uppercase text-stone-500 block leading-none">Base FGTS</span>
             <span className="text-[10.5px] font-black text-stone-900 font-['Outfit'] block mt-0.5 truncate">
@@ -656,11 +703,11 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         </div>
 
         {/* QUITAÇÃO E ASSINATURA */}
-        <div className="pt-2 border-t border-dashed border-stone-300 space-y-1 text-center">
+        <div className="pt-1.5 border-t border-dashed border-stone-300 space-y-0.5 text-center">
           <p className="text-[8.5px] text-stone-500 leading-tight italic">
             Declaro ter recebido a importância líquida discriminada neste recibo, referente à quitação das verbas.
           </p>
-          <div className="pt-3 max-w-[200px] mx-auto border-b border-stone-400" />
+          <div className="pt-2 max-w-[200px] mx-auto border-b border-stone-400" />
           <p className="text-[9px] font-bold text-stone-700 uppercase">
             {employee?.name || 'Assinatura do Colaborador'}
           </p>

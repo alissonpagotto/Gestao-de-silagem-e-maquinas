@@ -29,7 +29,7 @@ import {
   Send,
   Share2
 } from 'lucide-react';
-import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord, Expense, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
+import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord, Expense, PayrollCommissionItem, PayrollDeductionItem, PayrollType } from '../../types';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -74,7 +74,10 @@ import {
   calculateOfficialIrrf,
   getAdmissionProportionality,
   AdmissionProportionality,
-  getFaixaIrrf
+  getFaixaIrrf,
+  getWorkedMonthsInYear,
+  calculate13thSalaryValues,
+  findEmployeeFirstInstallment13th
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 import { LivePayslipPreview } from './LivePayslipPreview';
@@ -165,8 +168,8 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between mb-0.5">
-        <label htmlFor={id} className="block text-xs font-semibold text-stone-900 dark:text-stone-200 truncate">
+      <div className="flex items-center justify-between">
+        <label htmlFor={id} className="block text-[11px] font-semibold text-stone-900 dark:text-stone-200 truncate leading-tight">
           {label}
         </label>
         {headerRight}
@@ -185,7 +188,7 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
           disabled={disabled}
           required={required}
           title={title}
-          className={`w-full px-2 py-1 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs transition ${
+          className={`w-full px-2 py-0.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs transition ${
             disabled ? 'opacity-50 bg-stone-100 dark:bg-stone-900/60 cursor-not-allowed' : ''
           } ${inputClassName}`}
         />
@@ -317,6 +320,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const companyProfile = getStoredCompanyProfile();
   const effectiveCompanyId = activeCompanyId || companyProfile?.id || getActiveCompanyId() || activeUid || '';
   const [searchTerm, setSearchTerm] = useState('');
+  const [payrollType, setPayrollType] = useState<PayrollType>('monthly');
+
+  const getRecordPayrollType = (p: PayrollRecord): PayrollType =>
+    (p.payrollType || p.payroll_type || p.payload?.payrollType || p.payload?.payroll_type || 'monthly') as PayrollType;
 
   const employeesRef = useRef(employees);
   employeesRef.current = employees;
@@ -533,7 +540,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               const isMatch = (p: PayrollRecord) => {
                 if (mappedId && (toValidUUID(p.id) === mappedId || p.id === mappedId || p.id === payload.new.id)) return true;
                 if (p.employeeId && mapped.employeeId && (p.employeeId === mapped.employeeId || toValidUUID(p.employeeId) === toValidUUID(mapped.employeeId))) {
-                  if (p.referenceMonth && mapped.referenceMonth && p.referenceMonth === mapped.referenceMonth) return true;
+                  if (
+                    p.referenceMonth &&
+                    mapped.referenceMonth &&
+                    p.referenceMonth === mapped.referenceMonth &&
+                    getRecordPayrollType(p) === getRecordPayrollType(mapped)
+                  ) {
+                    return true;
+                  }
                 }
                 return false;
               };
@@ -592,6 +606,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [otherDiscounts, setOtherDiscounts] = useState<number>(0);
   const [payrollStatus, setPayrollStatus] = useState<'pendente' | 'pago' | 'integrado' | 'lancado' | string>('pendente');
   const [notes, setNotes] = useState('');
+  const [modalPayrollType, setModalPayrollType] = useState<PayrollType>('monthly');
+  const [monthsWorked13th, setMonthsWorked13th] = useState<number>(12);
+  const [thirteenthFirstInstallmentPaid, setThirteenthFirstInstallmentPaid] = useState<number>(0);
   const [integratingId, setIntegratingId] = useState<string | null>(null);
   const [integrationBanner, setIntegrationBanner] = useState<{
     type: 'success' | 'info' | 'error';
@@ -804,15 +821,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       alert('Por favor, selecione um colaborador primeiro.');
       return;
     }
-    const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
-    const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
-    const activeSindical = sindicalEnabled ? (sindicalDiscount || 0) : 0;
-    const currentGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
-    const currentNet = Math.max(
-      0,
-      currentGross - (activeInss + activeIrrf + activeSindical + advancesDiscount + otherDiscounts)
-    );
-    const calculatedBase = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+    const activeInss = modalPayrollType === '13_first_packet' ? 0 : (inssEnabled ? (inssDiscount || 0) : 0);
+    const activeIrrf = modalPayrollType === '13_first_packet' ? 0 : (irrfEnabled ? (irrfDiscount || 0) : 0);
+    const activeSindical = modalPayrollType === '13_first_packet' ? 0 : (sindicalEnabled ? (sindicalDiscount || 0) : 0);
+    const currentGross = modalGrossTotal;
+    const currentNet = calculatedModalNet;
+    const calculatedBase = modalPayrollType === '13_first_packet' ? 0 : (baseCalculoInssFgts || baseSalaryContratual || baseSalary);
     const calculatedBaseIrrf = Math.max(0, calculatedBase - activeInss);
     const calculatedFaixaIrrf = getFaixaIrrf(calculatedBaseIrrf);
     const calculatedFgtsDoMes = calculateOfficialFgts(calculatedBase);
@@ -823,6 +837,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       employeeName: emp.name,
       employeeRole: emp.role,
       referenceMonth: currentMonthRef,
+      payrollType: modalPayrollType,
+      payroll_type: modalPayrollType,
+      monthsWorked13th: modalPayrollType !== 'monthly' ? monthsWorked13th : undefined,
+      thirteenthFirstInstallmentPaid: modalPayrollType === '13_second_packet' ? thirteenthFirstInstallmentPaid : undefined,
       baseSalary: baseSalary,
       baseSalaryContratual,
       baseCalculoInssFgts: calculatedBase,
@@ -857,6 +875,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       notes: notes,
       payload: {
         ...(editingPayroll?.payload || {}),
+        payrollType: modalPayrollType,
+        payroll_type: modalPayrollType,
+        monthsWorked13th: modalPayrollType !== 'monthly' ? monthsWorked13th : undefined,
+        thirteenthFirstInstallmentPaid: modalPayrollType === '13_second_packet' ? thirteenthFirstInstallmentPaid : undefined,
         baseSalaryContratual,
         baseCalculoInssFgts: calculatedBase,
         base_inss: calculatedBase,
@@ -883,9 +905,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     }, 250);
   };
 
-  // Filtered Payrolls - Exclusão estrita de Terceirizados (gerenciados pelo Financeiro)
+  // Filtered Payrolls - Isolamento estrito por Competência, Tipo de Folha e Exclusão de Terceirizados
   const monthPayrolls = (Array.isArray(localPayrolls) ? localPayrolls : []).filter(p => {
     if (p.referenceMonth !== currentMonthRef) return false;
+    if (getRecordPayrollType(p) !== payrollType) return false;
     const emp = employees.find(e => e.id === p.employeeId);
     if (emp && isThirdPartyDriver(emp)) return false;
     if ((p.employeeRole || '').toLowerCase().includes('terceiriz')) return false;
@@ -930,18 +953,158 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     onChangeMonthRef(`${String(newMonth).padStart(2, '0')}/${newYear}`);
   };
 
-  // Sincronização centralizada de Comissões, Vales e Faltas para o Colaborador
+  // Recalcula valores do 13° Salário reativamente quando altera salário contratual ou avos (1..12)
+  const apply13thRecalculation = (
+    empId: string,
+    contratualSal: number,
+    months: number,
+    mode: '13_first_packet' | '13_second_packet',
+    firstPaidAmount?: number
+  ) => {
+    const emp = employees.find(e => e.id === empId);
+    const isClt = isCltContract(emp);
+    const paidFirst = firstPaidAmount !== undefined
+      ? firstPaidAmount
+      : findEmployeeFirstInstallment13th(localPayrolls, empId, currentMonthRef).totalPaid;
+
+    const calc = calculate13thSalaryValues({
+      baseSalaryContratual: contratualSal,
+      monthsWorked: months,
+      mode,
+      isClt,
+      firstInstallmentPaid: paidFirst,
+    });
+
+    setMonthsWorked13th(calc.monthsWorked);
+    setBaseSalary(calc.grossEarnings);
+
+    if (mode === '13_first_packet') {
+      setBaseCalculoInssFgts(0);
+      setInssEnabled(false);
+      setInssDiscount(0);
+      setAliquotaInss(0);
+      setAliquotaInssStr('0,0');
+      setIrrfEnabled(false);
+      setIrrfDiscount(0);
+      setAliquotaIrrf(0);
+      setAliquotaIrrfStr('0,0');
+      setSindicalEnabled(false);
+      setSindicalDiscount(0);
+      setAliquotaSindicato(0);
+      setAliquotaSindicatoStr('0,0');
+      setThirteenthFirstInstallmentPaid(0);
+    } else {
+      setThirteenthFirstInstallmentPaid(calc.firstInstallmentDiscount);
+      setBaseCalculoInssFgts(calc.integralAmount);
+      if (isClt && calc.integralAmount > 0) {
+        setInssEnabled(true);
+        setInssDiscount(calc.inssDiscount);
+        const aliqInss = Number(((calc.inssDiscount / calc.integralAmount) * 100).toFixed(2));
+        setAliquotaInss(aliqInss);
+        setAliquotaInssStr(aliqInss.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+
+        const baseIrrf = Math.max(0, calc.integralAmount - calc.inssDiscount);
+        setIrrfDiscount(calc.irrfDiscount);
+        setIrrfEnabled(calc.irrfDiscount > 0);
+        const aliqIrrf = (calc.irrfDiscount > 0 && baseIrrf > 0)
+          ? Number(((calc.irrfDiscount / baseIrrf) * 100).toFixed(2))
+          : 0.0;
+        setAliquotaIrrf(aliqIrrf);
+        setAliquotaIrrfStr(aliqIrrf.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+      } else {
+        setInssEnabled(false);
+        setInssDiscount(0);
+        setAliquotaInss(0);
+        setAliquotaInssStr('0,0');
+        setIrrfEnabled(false);
+        setIrrfDiscount(0);
+        setAliquotaIrrf(0);
+        setAliquotaIrrfStr('0,0');
+      }
+      setSindicalEnabled(false);
+      setSindicalDiscount(0);
+      setAliquotaSindicato(0);
+      setAliquotaSindicatoStr('0,0');
+    }
+  };
+
+  // Sincronização centralizada de Comissões, Vales, Faltas ou 13° Salário para o Colaborador
   const syncEmployeeData = (
     empId: string, 
     customSalary?: number,
-    forceContractualSalary?: boolean
+    forceContractualSalary?: boolean,
+    typeOverride?: PayrollType
   ) => {
     if (!empId) return;
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
+    const activeMode = typeOverride ?? modalPayrollType;
     const fullContractual = emp.salary || emp.baseSalary || 2523.21;
     setBaseSalaryContratual(fullContractual);
+
+    // MODO 13° SALÁRIO (1ª PARCELA OU 2ª PARCELA / INTEGRAL)
+    if (activeMode === '13_first_packet' || activeMode === '13_second_packet') {
+      setAdmissionInfo(null);
+      setUseProportionalSalary(false);
+      setOvertimeAmount(0);
+      setBonusAmount(0);
+      setCommissionAmount(0);
+      setCommissionItems([]);
+      setCommissionsInfo(null);
+      setShowCommissionBreakdown(false);
+      setSyncedAdvances([]);
+      setSyncedAbsences([]);
+      setAdvancesDiscount(0);
+
+      const workedMonths = getWorkedMonthsInYear(emp.admissionDate, currentMonthRef);
+      const first13 = activeMode === '13_second_packet'
+        ? findEmployeeFirstInstallment13th(localPayrolls, empId, currentMonthRef)
+        : { totalPaid: 0, records: [], referenceLabel: '' };
+
+      apply13thRecalculation(empId, fullContractual, workedMonths, activeMode, first13.totalPaid);
+
+      if (activeMode === '13_first_packet') {
+        setOtherDiscounts(0);
+        setDeductionItems(prev => prev.filter(it => it.isManual));
+        if (!editingPayroll) {
+          setNotes(`13° Salário - 1ª Parcela (${workedMonths}/12 avos • 50% sem INSS/IRRF)`);
+        }
+      } else {
+        const dedItems: PayrollDeductionItem[] = [];
+        if (first13.totalPaid > 0) {
+          dedItems.push({
+            id: `ded_13_1st_${empId}`,
+            type: 'Adiantamento 13° Salário (1ª Parcela)',
+            description: `Desconto 1ª Parcela 13° (${first13.referenceLabel || currentMonthRef})`,
+            verbaCode: '505',
+            verbaDescription: 'ADIANTAMENTO 1ª PARCELA 13º SALÁRIO',
+            date: first13.referenceLabel || currentMonthRef,
+            amount: first13.totalPaid,
+            isManual: false,
+            sourceId: first13.records[0]?.id,
+          });
+        }
+        setDeductionItems(prev => {
+          const manuals = prev.filter(
+            it => it.isManual &&
+              !it.description?.toLowerCase().includes('sindicat') &&
+              !it.description?.toLowerCase().includes('taxa assist') &&
+              !it.type?.toLowerCase().includes('sindicat')
+          );
+          return [...dedItems, ...manuals];
+        });
+        setOtherDiscounts(first13.totalPaid);
+        if (!editingPayroll) {
+          setNotes(
+            first13.totalPaid > 0
+              ? `13° Salário - 2ª Parcela (${workedMonths}/12 avos • Desc. 1ª Parc: ${formatCurrencyBRL(first13.totalPaid)})`
+              : `13° Salário Integral (${workedMonths}/12 avos)`
+          );
+        }
+      }
+      return;
+    }
     
     // Regra da Data de Admissão no mês:
     const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
@@ -1203,6 +1366,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setSyncedAdvances([]);
       setSyncedAbsences([]);
       setCustomVerbaOverrides({});
+      setMonthsWorked13th(12);
+      setThirteenthFirstInstallmentPaid(0);
       return;
     }
     syncEmployeeData(empId);
@@ -1220,6 +1385,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
   const handleOpenModal = (payroll?: PayrollRecord) => {
     if (payroll) {
+      const recType = getRecordPayrollType(payroll);
+      setModalPayrollType(recType);
       setEditingPayroll(payroll);
       setSelectedEmployeeId(payroll.employeeId);
       setBaseSalary(payroll.baseSalary);
@@ -1230,43 +1397,63 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const fullSal = emp?.salary || emp?.baseSalary || payroll.baseSalary || 2523.21;
       const contratual = payroll.baseSalaryContratual ?? payroll.payload?.baseSalaryContratual ?? fullSal;
       setBaseSalaryContratual(contratual);
-
-      const baseInssFgts = payroll.baseCalculoInssFgts ?? payroll.base_inss ?? payroll.payload?.baseCalculoInssFgts ?? payroll.payload?.base_inss ?? contratual;
-      setBaseCalculoInssFgts(baseInssFgts);
-
-      const admData = getAdmissionProportionality(emp?.admissionDate, currentMonthRef, fullSal);
-      setAdmissionInfo(admData);
-      setUseProportionalSalary(
-        payroll.isProportional !== undefined 
-          ? Boolean(payroll.isProportional) 
-          : (admData.isAdmittedInCompetenceMonth && Math.abs(payroll.baseSalary - admData.proportionalSalary) < 0.5)
+      setMonthsWorked13th(
+        payroll.monthsWorked13th ?? payroll.payload?.monthsWorked13th ?? getWorkedMonthsInYear(emp?.admissionDate, currentMonthRef)
+      );
+      setThirteenthFirstInstallmentPaid(
+        payroll.thirteenthFirstInstallmentPaid ?? payroll.payload?.thirteenthFirstInstallmentPaid ?? 0
       );
 
-      // Apuração ativa das comissões do mês
-      const commData = getEmployeeMonthCommissions(payroll.employeeId, currentMonthRef, internalServices, employees);
+      const baseInssFgts = payroll.baseCalculoInssFgts ?? payroll.base_inss ?? payroll.payload?.baseCalculoInssFgts ?? payroll.payload?.base_inss ?? contratual;
+      setBaseCalculoInssFgts(recType === '13_first_packet' ? 0 : baseInssFgts);
+
+      const admData = recType === 'monthly'
+        ? getAdmissionProportionality(emp?.admissionDate, currentMonthRef, fullSal)
+        : null;
+      setAdmissionInfo(admData);
+      setUseProportionalSalary(
+        recType === 'monthly' && (
+          payroll.isProportional !== undefined 
+            ? Boolean(payroll.isProportional) 
+            : Boolean(admData?.isAdmittedInCompetenceMonth && Math.abs(payroll.baseSalary - (admData?.proportionalSalary || 0)) < 0.5)
+        )
+      );
+
+      // Apuração ativa das comissões do mês (apenas para Folha Mensal)
+      const commData = recType === 'monthly'
+        ? getEmployeeMonthCommissions(payroll.employeeId, currentMonthRef, internalServices, employees)
+        : { total: 0, count: 0, totalCommission: 0, servicesCount: 0, breakdown: [] };
       setCommissionsInfo(commData);
       setCommissionAmount(payroll.commissionAmount !== undefined ? payroll.commissionAmount : commData.total);
 
       // INSS
       const isClt = isCltContract(emp);
-      setInssDiscount(payroll.inssDiscount || 0);
-      setInssEnabled(payroll.inssEnabled !== undefined ? Boolean(payroll.inssEnabled) : (payroll.inssDiscount > 0 || isClt));
+      setInssDiscount(recType === '13_first_packet' ? 0 : (payroll.inssDiscount || 0));
+      setInssEnabled(
+        recType === '13_first_packet'
+          ? false
+          : (payroll.inssEnabled !== undefined ? Boolean(payroll.inssEnabled) : (payroll.inssDiscount > 0 || isClt))
+      );
       const savedAliqInss = payroll.aliquotaInss ?? payroll.aliquota_inss ?? payroll.payload?.aliquotaInss ?? payroll.payload?.aliquota_inss;
-      const finalAliqInss = savedAliqInss !== undefined 
-        ? Number(savedAliqInss) 
-        : (baseInssFgts > 0 && (payroll.inssDiscount || 0) > 0 ? Number((((payroll.inssDiscount || 0) / baseInssFgts) * 100).toFixed(2)) : (isClt ? 8.04 : 0));
+      const finalAliqInss = recType === '13_first_packet'
+        ? 0
+        : (savedAliqInss !== undefined 
+            ? Number(savedAliqInss) 
+            : (baseInssFgts > 0 && (payroll.inssDiscount || 0) > 0 ? Number((((payroll.inssDiscount || 0) / baseInssFgts) * 100).toFixed(2)) : (isClt ? 8.04 : 0)));
       setAliquotaInss(finalAliqInss);
       setAliquotaInssStr(finalAliqInss.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 
       // IRRF
-      const irrfVal = payroll.irrfDiscount || 0;
+      const irrfVal = recType === '13_first_packet' ? 0 : (payroll.irrfDiscount || 0);
       setIrrfDiscount(irrfVal);
-      setIrrfEnabled(payroll.irrfEnabled !== undefined ? Boolean(payroll.irrfEnabled) : (irrfVal > 0));
+      setIrrfEnabled(recType === '13_first_packet' ? false : (payroll.irrfEnabled !== undefined ? Boolean(payroll.irrfEnabled) : (irrfVal > 0)));
       const savedAliqIrrf = payroll.aliquotaIrrf ?? payroll.aliquota_irrf ?? payroll.payload?.aliquotaIrrf ?? payroll.payload?.aliquota_irrf;
       const baseIrrf = Math.max(0, baseInssFgts - (payroll.inssDiscount || 0));
-      const finalAliqIrrf = savedAliqIrrf !== undefined 
-        ? Number(savedAliqIrrf) 
-        : (baseIrrf > 0 && irrfVal > 0 ? Number(((irrfVal / baseIrrf) * 100).toFixed(2)) : 0.0);
+      const finalAliqIrrf = recType === '13_first_packet'
+        ? 0
+        : (savedAliqIrrf !== undefined 
+            ? Number(savedAliqIrrf) 
+            : (baseIrrf > 0 && irrfVal > 0 ? Number(((irrfVal / baseIrrf) * 100).toFixed(2)) : 0.0));
       setAliquotaIrrf(finalAliqIrrf);
       setAliquotaIrrfStr(finalAliqIrrf.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 
@@ -1274,13 +1461,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const savedSindical = payroll.sindicalDiscount !== undefined 
         ? payroll.sindicalDiscount 
         : ((payroll as any).taxaSindical !== undefined ? (payroll as any).taxaSindical : ((payroll as any).desconto_sindical ?? (payroll as any).payload?.sindicalDiscount ?? (payroll as any).payload?.taxaSindical));
-      const savedSindicalEnabled = payroll.sindicalEnabled !== undefined 
-        ? Boolean(payroll.sindicalEnabled) 
-        : ((payroll as any).payload?.sindicalEnabled !== undefined 
-            ? Boolean((payroll as any).payload.sindicalEnabled) 
-            : (savedSindical !== undefined ? Number(savedSindical) > 0 : isClt));
+      const savedSindicalEnabled = recType !== 'monthly'
+        ? Boolean(payroll.sindicalEnabled ?? (Number(savedSindical || 0) > 0))
+        : (payroll.sindicalEnabled !== undefined 
+            ? Boolean(payroll.sindicalEnabled) 
+            : ((payroll as any).payload?.sindicalEnabled !== undefined 
+                ? Boolean((payroll as any).payload.sindicalEnabled) 
+                : (savedSindical !== undefined ? Number(savedSindical) > 0 : isClt)));
 
-      let finalSindicalAmount = savedSindical !== undefined ? Number(savedSindical) : (isClt ? 25.23 : 0);
+      let finalSindicalAmount = savedSindical !== undefined ? Number(savedSindical) : (recType === 'monthly' && isClt ? 25.23 : 0);
       let finalSindicalEnabled = savedSindicalEnabled;
 
       setAdvancesDiscount(payroll.advancesDiscount || 0);
@@ -1289,12 +1478,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setNotes(payroll.notes || '');
       setShowCommissionBreakdown(commData.count > 0);
 
-      // Carregar listas detalhadas de vales e faltas para inspeção imediata no modal
-      const empAdvances = (advances || []).filter(
-        a => a.employeeId === payroll.employeeId && 
-             a.referenceMonth === currentMonthRef && 
-             (a.status as string) !== 'cancelado'
-      );
+      // Carregar listas detalhadas de vales e faltas para inspeção imediata no modal (apenas Folha Mensal)
+      const empAdvances = recType === 'monthly'
+        ? (advances || []).filter(
+            a => a.employeeId === payroll.employeeId && 
+                 a.referenceMonth === currentMonthRef && 
+                 (a.status as string) !== 'cancelado'
+          )
+        : [];
       setSyncedAdvances(empAdvances);
       setShowAdvancesBreakdown(empAdvances.length > 0);
 
@@ -1302,25 +1493,27 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         ? internalAbsences 
         : getStoredAbsences();
       const targetEmpObj = employees.find(e => e.id === payroll.employeeId);
-      const empAbsences = currentAbsencesList.filter(a => {
-        const isTargetEmployee = a.employeeId === payroll.employeeId || 
-          (targetEmpObj && a.employeeName && a.employeeName.trim().toLowerCase() === targetEmpObj.name.trim().toLowerCase());
-        if (!isTargetEmployee) return false;
-        if (a.status === 'abonada') return false;
-        if (a.discountPayroll === false) return false;
-        if (a.referenceMonth) {
-          if (a.referenceMonth.trim() === currentMonthRef.trim()) return true;
-          const [mRef, yRef] = currentMonthRef.split('/');
-          if (a.referenceMonth === `${yRef}-${mRef.padStart(2, '0')}`) return true;
-        }
-        if (a.date) {
-          const [mRef, yRef] = currentMonthRef.split('/');
-          const mPad = mRef.padStart(2, '0');
-          if (a.date.startsWith(`${yRef}-${mPad}`) || a.date.startsWith(`${yRef}-${Number(mRef)}`)) return true;
-          if (a.date.includes(`/${mPad}/${yRef}`) || a.date.endsWith(`${mPad}/${yRef}`)) return true;
-        }
-        return false;
-      });
+      const empAbsences = recType === 'monthly'
+        ? currentAbsencesList.filter(a => {
+            const isTargetEmployee = a.employeeId === payroll.employeeId || 
+              (targetEmpObj && a.employeeName && a.employeeName.trim().toLowerCase() === targetEmpObj.name.trim().toLowerCase());
+            if (!isTargetEmployee) return false;
+            if (a.status === 'abonada') return false;
+            if (a.discountPayroll === false) return false;
+            if (a.referenceMonth) {
+              if (a.referenceMonth.trim() === currentMonthRef.trim()) return true;
+              const [mRef, yRef] = currentMonthRef.split('/');
+              if (a.referenceMonth === `${yRef}-${mRef.padStart(2, '0')}`) return true;
+            }
+            if (a.date) {
+              const [mRef, yRef] = currentMonthRef.split('/');
+              const mPad = mRef.padStart(2, '0');
+              if (a.date.startsWith(`${yRef}-${mPad}`) || a.date.startsWith(`${yRef}-${Number(mRef)}`)) return true;
+              if (a.date.includes(`/${mPad}/${yRef}`) || a.date.endsWith(`${mPad}/${yRef}`)) return true;
+            }
+            return false;
+          })
+        : [];
       setSyncedAbsences(empAbsences);
       setShowAbsencesBreakdown(empAbsences.length > 0);
       // Carregar itens de comissão existentes ou gerar da apuração
@@ -1329,7 +1522,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         loadedCommItems = payroll.commissionItems;
       } else if (Array.isArray(payroll.payload?.commissionItems) && payroll.payload.commissionItems.length > 0) {
         loadedCommItems = payroll.payload.commissionItems;
-      } else {
+      } else if (recType === 'monthly') {
         loadedCommItems = commData.breakdown.map((b, idx) => {
           let desc = (b.formattedLine || b.description || 'Comissão de Produção / Silagem').replace(/\s*\(\s*cla?ss\s*\)/gi, '');
           if (b.clientName && !desc.toLowerCase().includes(b.clientName.toLowerCase())) {
@@ -1352,7 +1545,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         loadedDeductItems = payroll.deductionItems;
       } else if (Array.isArray(payroll.payload?.deductionItems) && payroll.payload.deductionItems.length > 0) {
         loadedDeductItems = payroll.payload.deductionItems;
-      } else {
+      } else if (recType === 'monthly') {
         empAdvances.forEach((adv, idx) => {
           const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
             ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
@@ -1454,6 +1647,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const loadedOverrides = payroll.customVerbaOverrides || payroll.payload?.customVerbaOverrides || {};
       setCustomVerbaOverrides(loadedOverrides);
     } else {
+      setModalPayrollType(payrollType);
+      setMonthsWorked13th(12);
+      setThirteenthFirstInstallmentPaid(0);
       setEditingPayroll(null);
       setCommissionsInfo(null);
       setShowCommissionBreakdown(false);
@@ -1595,10 +1791,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setDeductionItems(updatedDeductions);
     }
 
-    // Recalcula reativamente a Base Cálc. INSS / FGTS se as faltas tiverem sido alteradas
-    const totalFaltas = calculateTotalFaltasFromDeductions(updatedDeductions);
-    const newBase = Math.max(0, (baseSalaryContratual || baseSalary) - totalFaltas);
-    handleBaseCalculoChange(newBase);
+    // Recalcula reativamente a Base Cálc. INSS / FGTS se as faltas tiverem sido alteradas (apenas Folha Mensal)
+    if (modalPayrollType === 'monthly') {
+      const totalFaltas = calculateTotalFaltasFromDeductions(updatedDeductions);
+      const newBase = Math.max(0, (baseSalaryContratual || baseSalary) - totalFaltas);
+      handleBaseCalculoChange(newBase);
+    }
 
     setEditingDeductItemId(null);
     setNewDeductDesc('');
@@ -1619,9 +1817,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const handleDeleteDeductionItem = (id: string) => {
     const updatedDeductions = deductionItems.filter(it => it.id !== id);
     setDeductionItems(updatedDeductions);
-    const totalFaltas = calculateTotalFaltasFromDeductions(updatedDeductions);
-    const newBase = Math.max(0, (baseSalaryContratual || baseSalary) - totalFaltas);
-    handleBaseCalculoChange(newBase);
+    if (modalPayrollType === 'monthly') {
+      const totalFaltas = calculateTotalFaltasFromDeductions(updatedDeductions);
+      const newBase = Math.max(0, (baseSalaryContratual || baseSalary) - totalFaltas);
+      handleBaseCalculoChange(newBase);
+    }
   };
 
   const handleSaveModal = (e: React.FormEvent) => {
@@ -1645,14 +1845,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       ? cleanDeductionsList.filter(it => it.type !== 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
       : (otherDiscounts || 0);
 
-    const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
-    const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
-    const activeSindical = sindicalEnabled ? (sindicalDiscount || 0) : 0;
+    const activeInss = modalPayrollType === '13_first_packet' ? 0 : (inssEnabled ? (inssDiscount || 0) : 0);
+    const activeIrrf = modalPayrollType === '13_first_packet' ? 0 : (irrfEnabled ? (irrfDiscount || 0) : 0);
+    const activeSindical = modalPayrollType === '13_first_packet' ? 0 : (sindicalEnabled ? (sindicalDiscount || 0) : 0);
     const totalGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + activeCommission;
     const totalDeductions = activeInss + activeIrrf + activeSindical + (cleanDeductionsList.length > 0 ? totalDeductionsList : (totalAdv + totalOth));
     const netSalary = Math.max(0, totalGross - totalDeductions);
 
-    const calculatedBase = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+    const calculatedBase = modalPayrollType === '13_first_packet' ? 0 : (baseCalculoInssFgts || baseSalaryContratual || baseSalary);
     const calculatedBaseIrrf = Math.max(0, calculatedBase - activeInss);
     const calculatedFaixaIrrf = getFaixaIrrf(calculatedBaseIrrf);
     const calculatedFgtsDoMes = calculateOfficialFgts(calculatedBase);
@@ -1667,6 +1867,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       employeeName: emp.name,
       employeeRole: emp.role,
       referenceMonth: currentMonthRef,
+      payrollType: modalPayrollType,
+      payroll_type: modalPayrollType,
+      monthsWorked13th: modalPayrollType !== 'monthly' ? monthsWorked13th : undefined,
+      thirteenthFirstInstallmentPaid: modalPayrollType === '13_second_packet' ? thirteenthFirstInstallmentPaid : undefined,
       baseSalary,
       baseSalaryContratual,
       baseCalculoInssFgts: calculatedBase,
@@ -1686,11 +1890,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       commissionAmount: activeCommission,
       commissionItems,
       inssDiscount: activeInss,
-      inssEnabled,
+      inssEnabled: modalPayrollType === '13_first_packet' ? false : inssEnabled,
       irrfDiscount: activeIrrf,
-      irrfEnabled,
+      irrfEnabled: modalPayrollType === '13_first_packet' ? false : irrfEnabled,
       sindicalDiscount: activeSindical,
-      sindicalEnabled,
+      sindicalEnabled: modalPayrollType === '13_first_packet' ? false : sindicalEnabled,
       taxaSindical: activeSindical,
       daysWorked: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.daysWorked : 30,
       unworkedDays: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.unworkedDays : 0,
@@ -1704,6 +1908,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       notes,
       payload: {
         ...(editingPayroll?.payload || {}),
+        payrollType: modalPayrollType,
+        payroll_type: modalPayrollType,
+        monthsWorked13th: modalPayrollType !== 'monthly' ? monthsWorked13th : undefined,
+        thirteenthFirstInstallmentPaid: modalPayrollType === '13_second_packet' ? thirteenthFirstInstallmentPaid : undefined,
         baseSalaryContratual,
         baseCalculoInssFgts: calculatedBase,
         base_inss: calculatedBase,
@@ -1721,7 +1929,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         deductionItems: cleanDeductionsList,
         customVerbaOverrides,
         sindicalDiscount: activeSindical,
-        sindicalEnabled,
+        sindicalEnabled: modalPayrollType === '13_first_packet' ? false : sindicalEnabled,
         taxaSindical: activeSindical,
       },
     };
@@ -1817,9 +2025,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const activeEmployees = employees.filter(e => e.status === 'ativo' && !isThirdPartyDriver(e) && !isBrokerEmployee(e));
     const existingEmpIds = new Set(monthPayrolls.map(p => p.employeeId));
 
-    // Atualiza folhas pendentes do mês com eventuais novas comissões apuradas nas ordens de serviço
+    // Atualiza folhas mensais pendentes do mês com eventuais novas comissões apuradas nas ordens de serviço
     const updatedPayrolls = localPayrolls.map(p => {
-      if (p.referenceMonth !== currentMonthRef || p.status !== 'pendente') return p;
+      if (payrollType !== 'monthly') return p;
+      if (p.referenceMonth !== currentMonthRef || p.status !== 'pendente' || getRecordPayrollType(p) !== 'monthly') return p;
       const emp = employees.find(e => e.id === p.employeeId);
       if (!emp || isThirdPartyDriver(emp) || isBrokerEmployee(emp)) return p;
 
@@ -1842,76 +2051,233 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     });
 
     const missing = activeEmployees.filter(e => !existingEmpIds.has(e.id));
-    const newRecords: PayrollRecord[] = missing.map(emp => {
-      const fullContractual = emp.salary || emp.baseSalary || 3500;
-      const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
-      const salary = admData.isAdmittedInCompetenceMonth ? admData.proportionalSalary : fullContractual;
-      
-      // INTEGRAÇÃO DE VALORES: Apuração ativa de comissões apuradas no mês
-      const commData = getEmployeeMonthCommissions(emp.id, currentMonthRef, internalServices, employees);
-      const commTotal = commData.total;
-      const grossBase = salary + commTotal;
+    const newRecords: PayrollRecord[] = missing
+      .map(emp => {
+        const fullContractual = emp.salary || emp.baseSalary || 3500;
+        const isClt = isCltContract(emp);
 
-      // REGRA: Apenas colaboradores Registrado (CLT) recebem cálculo automático de INSS, IRRF e Taxa Sindical
-      const isClt = isCltContract(emp);
-      const inss = isClt ? calculateProgressiveInss(grossBase) : 0;
-      const irrf = isClt ? calculateOfficialIrrf(grossBase, inss) : 0;
-      const sindical = isClt ? 25.23 : 0;
-      
-      const empAdvances = advances.filter(a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef);
-      const advTotal = empAdvances.reduce((sum, a) => sum + a.amount, 0);
-      const net = Math.max(0, grossBase - inss - irrf - sindical - advTotal);
+        // 13° SALÁRIO - 1ª PARCELA (50% sem descontos de INSS/IRRF)
+        if (payrollType === '13_first_packet') {
+          const monthsWorked = getWorkedMonthsInYear(emp.admissionDate, currentMonthRef);
+          if (monthsWorked <= 0) return null;
+          const calc = calculate13thSalaryValues({
+            baseSalaryContratual: fullContractual,
+            monthsWorked,
+            mode: '13_first_packet',
+            isClt,
+          });
+          const note13 = `13º Salário - 1ª Parcela (${monthsWorked}/12 avos • 50% sem INSS/IRRF)`;
 
-      let initialNote = '';
-      if (commTotal > 0) {
-        initialNote = `Comissões apuradas: ${formatCurrencyBRL(commTotal)} (${commData.count} OS de silagem)`;
-      }
-      if (admData.isAdmittedInCompetenceMonth) {
-        const admNote = `Admissão em ${formatEmployeeAdmissionDate(admData.admissionDate)}: Proporcional a ${admData.daysWorked}/30 dias`;
-        initialNote = initialNote ? `${initialNote} • ${admNote}` : admNote;
-      }
+          return {
+            id: `pay_13_1_${Date.now()}_${emp.id}`,
+            companyId: effectiveCompanyId,
+            userId: activeUid,
+            employeeId: emp.id,
+            employeeName: emp.name,
+            employeeRole: emp.role,
+            referenceMonth: currentMonthRef,
+            payrollType: '13_first_packet' as PayrollType,
+            payroll_type: '13_first_packet' as PayrollType,
+            monthsWorked13th: monthsWorked,
+            baseSalary: calc.grossEarnings,
+            baseSalaryContratual: fullContractual,
+            baseCalculoInssFgts: 0,
+            base_inss: 0,
+            aliquota_inss: 0,
+            aliquotaInss: 0,
+            aliquota_sindicato: 0,
+            aliquotaSindicato: 0,
+            aliquota_irrf: 0,
+            aliquotaIrrf: 0,
+            baseCalculoFgts: 0,
+            fgtsDoMes: 0,
+            baseCalculoIrrf: 0,
+            faixaIrrf: 'Isento (0,0%)',
+            overtimeAmount: 0,
+            bonusAmount: 0,
+            commissionAmount: 0,
+            inssDiscount: 0,
+            inssEnabled: false,
+            irrfDiscount: 0,
+            irrfEnabled: false,
+            sindicalDiscount: 0,
+            sindicalEnabled: false,
+            taxaSindical: 0,
+            daysWorked: 30,
+            unworkedDays: 0,
+            isProportional: false,
+            advancesDiscount: 0,
+            otherDiscounts: 0,
+            deductionItems: [],
+            netSalary: calc.netAmount,
+            status: 'pendente',
+            notes: note13,
+            payload: {
+              payrollType: '13_first_packet',
+              payroll_type: '13_first_packet',
+              monthsWorked13th: monthsWorked,
+              baseSalaryContratual: fullContractual,
+              baseCalculoInssFgts: 0,
+              base_inss: 0,
+              aliquota_inss: 0,
+              aliquotaInss: 0,
+              aliquota_sindicato: 0,
+              aliquotaSindicato: 0,
+              aliquota_irrf: 0,
+              aliquotaIrrf: 0,
+              baseCalculoFgts: 0,
+              fgtsDoMes: 0,
+              baseCalculoIrrf: 0,
+              faixaIrrf: 'Isento (0,0%)',
+              deductionItems: [],
+            },
+            createdAt: new Date().toISOString(),
+          } as PayrollRecord;
+        }
 
-      return {
-        id: `pay_${Date.now()}_${emp.id}`,
-        companyId: effectiveCompanyId,
-        userId: activeUid,
-        employeeId: emp.id,
-        employeeName: emp.name,
-        employeeRole: emp.role,
-        referenceMonth: currentMonthRef,
-        baseSalary: salary,
-        baseSalaryContratual: fullContractual,
-        baseCalculoInssFgts: fullContractual,
-        base_inss: fullContractual,
-        aliquota_inss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
-        aliquotaInss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
-        aliquota_sindicato: isClt ? 1.0 : 0,
-        aliquotaSindicato: isClt ? 1.0 : 0,
-        aliquota_irrf: 0,
-        aliquotaIrrf: 0,
-        baseCalculoFgts: fullContractual,
-        fgtsDoMes: Math.round((fullContractual * 0.08) * 100) / 100,
-        baseCalculoIrrf: Math.max(0, fullContractual - inss),
-        faixaIrrf: getFaixaIrrf(Math.max(0, fullContractual - inss)),
-        overtimeAmount: 0,
-        bonusAmount: 0,
-        commissionAmount: commTotal,
-        inssDiscount: inss,
-        inssEnabled: isClt,
-        irrfDiscount: irrf,
-        irrfEnabled: irrf > 0,
-        sindicalDiscount: sindical,
-        sindicalEnabled: isClt,
-        taxaSindical: sindical,
-        daysWorked: admData.isAdmittedInCompetenceMonth ? admData.daysWorked : 30,
-        unworkedDays: admData.isAdmittedInCompetenceMonth ? admData.unworkedDays : 0,
-        isProportional: admData.isAdmittedInCompetenceMonth,
-        advancesDiscount: advTotal,
-        otherDiscounts: 0,
-        netSalary: net,
-        status: 'pendente',
-        notes: initialNote,
-        payload: {
+        // 13° SALÁRIO - 2ª PARCELA / INTEGRAL (INSS + IRRF sobre integral + Desconto 1ª Parcela)
+        if (payrollType === '13_second_packet') {
+          const monthsWorked = getWorkedMonthsInYear(emp.admissionDate, currentMonthRef);
+          if (monthsWorked <= 0) return null;
+          const first13 = findEmployeeFirstInstallment13th(localPayrolls, emp.id, currentMonthRef);
+          const calc = calculate13thSalaryValues({
+            baseSalaryContratual: fullContractual,
+            monthsWorked,
+            mode: '13_second_packet',
+            isClt,
+            firstInstallmentPaid: first13.totalPaid,
+          });
+          const aliqInss = calc.integralAmount > 0 && calc.inssDiscount > 0
+            ? Number(((calc.inssDiscount / calc.integralAmount) * 100).toFixed(2))
+            : 0;
+          const baseIrrf = Math.max(0, calc.integralAmount - calc.inssDiscount);
+          const aliqIrrf = baseIrrf > 0 && calc.irrfDiscount > 0
+            ? Number(((calc.irrfDiscount / baseIrrf) * 100).toFixed(2))
+            : 0;
+          const dedItems13: PayrollDeductionItem[] = first13.totalPaid > 0
+            ? [{
+                id: `ded_13_1st_${emp.id}`,
+                type: 'Adiantamento 13° Salário (1ª Parcela)',
+                description: `Desconto 1ª Parcela 13° (${first13.referenceLabel || currentMonthRef})`,
+                verbaCode: '505',
+                verbaDescription: 'ADIANTAMENTO 1ª PARCELA 13º SALÁRIO',
+                date: first13.referenceLabel || currentMonthRef,
+                amount: first13.totalPaid,
+                isManual: false,
+                sourceId: first13.records[0]?.id,
+              }]
+            : [];
+          const note13_2 = first13.totalPaid > 0
+            ? `13º Salário - 2ª Parcela (${monthsWorked}/12 avos • Desc. 1ª Parc: ${formatCurrencyBRL(first13.totalPaid)})`
+            : `13º Salário Integral (${monthsWorked}/12 avos)`;
+
+          return {
+            id: `pay_13_2_${Date.now()}_${emp.id}`,
+            companyId: effectiveCompanyId,
+            userId: activeUid,
+            employeeId: emp.id,
+            employeeName: emp.name,
+            employeeRole: emp.role,
+            referenceMonth: currentMonthRef,
+            payrollType: '13_second_packet' as PayrollType,
+            payroll_type: '13_second_packet' as PayrollType,
+            monthsWorked13th: monthsWorked,
+            thirteenthFirstInstallmentPaid: first13.totalPaid,
+            baseSalary: calc.grossEarnings,
+            baseSalaryContratual: fullContractual,
+            baseCalculoInssFgts: calc.integralAmount,
+            base_inss: calc.integralAmount,
+            aliquota_inss: aliqInss,
+            aliquotaInss: aliqInss,
+            aliquota_sindicato: 0,
+            aliquotaSindicato: 0,
+            aliquota_irrf: aliqIrrf,
+            aliquotaIrrf: aliqIrrf,
+            baseCalculoFgts: calc.integralAmount,
+            fgtsDoMes: calculateOfficialFgts(calc.integralAmount),
+            baseCalculoIrrf: baseIrrf,
+            faixaIrrf: getFaixaIrrf(baseIrrf),
+            overtimeAmount: 0,
+            bonusAmount: 0,
+            commissionAmount: 0,
+            inssDiscount: calc.inssDiscount,
+            inssEnabled: isClt,
+            irrfDiscount: calc.irrfDiscount,
+            irrfEnabled: calc.irrfDiscount > 0,
+            sindicalDiscount: 0,
+            sindicalEnabled: false,
+            taxaSindical: 0,
+            daysWorked: 30,
+            unworkedDays: 0,
+            isProportional: false,
+            advancesDiscount: 0,
+            otherDiscounts: first13.totalPaid,
+            deductionItems: dedItems13,
+            netSalary: calc.netAmount,
+            status: 'pendente',
+            notes: note13_2,
+            payload: {
+              payrollType: '13_second_packet',
+              payroll_type: '13_second_packet',
+              monthsWorked13th: monthsWorked,
+              thirteenthFirstInstallmentPaid: first13.totalPaid,
+              baseSalaryContratual: fullContractual,
+              baseCalculoInssFgts: calc.integralAmount,
+              base_inss: calc.integralAmount,
+              aliquota_inss: aliqInss,
+              aliquotaInss: aliqInss,
+              aliquota_sindicato: 0,
+              aliquotaSindicato: 0,
+              aliquota_irrf: aliqIrrf,
+              aliquotaIrrf: aliqIrrf,
+              baseCalculoFgts: calc.integralAmount,
+              fgtsDoMes: calculateOfficialFgts(calc.integralAmount),
+              baseCalculoIrrf: baseIrrf,
+              faixaIrrf: getFaixaIrrf(baseIrrf),
+              deductionItems: dedItems13,
+            },
+            createdAt: new Date().toISOString(),
+          } as PayrollRecord;
+        }
+
+        // FOLHA MENSAL PADRÃO
+        const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
+        const salary = admData.isAdmittedInCompetenceMonth ? admData.proportionalSalary : fullContractual;
+        
+        // INTEGRAÇÃO DE VALORES: Apuração ativa de comissões apuradas no mês
+        const commData = getEmployeeMonthCommissions(emp.id, currentMonthRef, internalServices, employees);
+        const commTotal = commData.total;
+        const grossBase = salary + commTotal;
+
+        // REGRA: Apenas colaboradores Registrado (CLT) recebem cálculo automático de INSS, IRRF e Taxa Sindical
+        const inss = isClt ? calculateProgressiveInss(grossBase) : 0;
+        const irrf = isClt ? calculateOfficialIrrf(grossBase, inss) : 0;
+        const sindical = isClt ? 25.23 : 0;
+        
+        const empAdvances = advances.filter(a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef);
+        const advTotal = empAdvances.reduce((sum, a) => sum + a.amount, 0);
+        const net = Math.max(0, grossBase - inss - irrf - sindical - advTotal);
+
+        let initialNote = '';
+        if (commTotal > 0) {
+          initialNote = `Comissões apuradas: ${formatCurrencyBRL(commTotal)} (${commData.count} OS de silagem)`;
+        }
+        if (admData.isAdmittedInCompetenceMonth) {
+          const admNote = `Admissão em ${formatEmployeeAdmissionDate(admData.admissionDate)}: Proporcional a ${admData.daysWorked}/30 dias`;
+          initialNote = initialNote ? `${initialNote} • ${admNote}` : admNote;
+        }
+
+        return {
+          id: `pay_${Date.now()}_${emp.id}`,
+          companyId: effectiveCompanyId,
+          userId: activeUid,
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeRole: emp.role,
+          referenceMonth: currentMonthRef,
+          payrollType: 'monthly' as PayrollType,
+          payroll_type: 'monthly' as PayrollType,
+          baseSalary: salary,
           baseSalaryContratual: fullContractual,
           baseCalculoInssFgts: fullContractual,
           base_inss: fullContractual,
@@ -1925,10 +2291,45 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           fgtsDoMes: Math.round((fullContractual * 0.08) * 100) / 100,
           baseCalculoIrrf: Math.max(0, fullContractual - inss),
           faixaIrrf: getFaixaIrrf(Math.max(0, fullContractual - inss)),
-        },
-        createdAt: new Date().toISOString(),
-      };
-    });
+          overtimeAmount: 0,
+          bonusAmount: 0,
+          commissionAmount: commTotal,
+          inssDiscount: inss,
+          inssEnabled: isClt,
+          irrfDiscount: irrf,
+          irrfEnabled: irrf > 0,
+          sindicalDiscount: sindical,
+          sindicalEnabled: isClt,
+          taxaSindical: sindical,
+          daysWorked: admData.isAdmittedInCompetenceMonth ? admData.daysWorked : 30,
+          unworkedDays: admData.isAdmittedInCompetenceMonth ? admData.unworkedDays : 0,
+          isProportional: admData.isAdmittedInCompetenceMonth,
+          advancesDiscount: advTotal,
+          otherDiscounts: 0,
+          netSalary: net,
+          status: 'pendente',
+          notes: initialNote,
+          payload: {
+            payrollType: 'monthly',
+            payroll_type: 'monthly',
+            baseSalaryContratual: fullContractual,
+            baseCalculoInssFgts: fullContractual,
+            base_inss: fullContractual,
+            aliquota_inss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
+            aliquotaInss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
+            aliquota_sindicato: isClt ? 1.0 : 0,
+            aliquotaSindicato: isClt ? 1.0 : 0,
+            aliquota_irrf: 0,
+            aliquotaIrrf: 0,
+            baseCalculoFgts: fullContractual,
+            fgtsDoMes: Math.round((fullContractual * 0.08) * 100) / 100,
+            baseCalculoIrrf: Math.max(0, fullContractual - inss),
+            faixaIrrf: getFaixaIrrf(Math.max(0, fullContractual - inss)),
+          },
+          createdAt: new Date().toISOString(),
+        } as PayrollRecord;
+      })
+      .filter((r): r is PayrollRecord => r !== null);
 
     const nextList = newRecords.length > 0 ? [...newRecords, ...updatedPayrolls] : updatedPayrolls;
     setLocalPayrolls(nextList);
@@ -2154,12 +2555,26 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         compMonthIso = item.referenceMonth.slice(0, 7);
       }
 
+      const recType = getRecordPayrollType(item);
+      const paymentTitleLabel =
+        recType === '13_first_packet'
+          ? '13º Salário (1ª Parcela)'
+          : recType === '13_second_packet'
+          ? '13º Salário (2ª Parcela)'
+          : 'Pagamento de Salário';
+      const integratedBannerPrefix =
+        recType === '13_first_packet'
+          ? '13º Salário (1ª Parcela) Integrado ao Financeiro'
+          : recType === '13_second_packet'
+          ? '13º Salário (2ª Parcela) Integrado ao Financeiro'
+          : 'Salário Integrado ao Financeiro';
+
       // 4. REGRA DE NEGÓCIO 1: Lançamento no Contas a Pagar (tabela 'public.financeiro_contas_a_pagar' do Supabase)
       await insertFinanceiroContasAPagar({
         id: payableId,
         valor: netSalaryVal,
-        descricao: `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth}`,
-        historico: `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth}`,
+        descricao: `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth}`,
+        historico: `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth}`,
         categoria: 'Despesas com Pessoal / Salários',
         categoria_financeira: 'Despesas com Pessoal / Salários',
         centro_custo: linkedMachinery
@@ -2181,8 +2596,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         id: payableId,
         companyId: activeTenantId,
         description: linkedMachinery
-          ? `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth} | DRE Veículo: ${vehicleLabel}`
-          : `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth} | Custos Administrativos / Escritório`,
+          ? `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth} | DRE Veículo: ${vehicleLabel}`
+          : `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth} | Custos Administrativos / Escritório`,
         amount: netSalaryVal,
         dreGrossAmount: proventosDRE,
         dreCategory: linkedMachinery
@@ -2276,7 +2691,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       // 7. Feedback visual de sucesso
       setIntegrationBanner({
         type: 'success',
-        title: `Salário Integrado ao Financeiro: ${item.employeeName}`,
+        title: `${integratedBannerPrefix}: ${item.employeeName}`,
         details: linkedMachinery
           ? `Título de ${formatCurrencyBRL(netSalaryVal)} lançado no Contas a Pagar (vencimento em ${formatDateBR(dueDateIso)}) • Custo de ${formatCurrencyBRL(proventosDRE)} lançado no DRE do Veículo [${vehicleLabel}] como Despesa Operacional de Mão de Obra/Pessoal.`
           : `Título de ${formatCurrencyBRL(netSalaryVal)} lançado no Contas a Pagar (vencimento em ${formatDateBR(dueDateIso)}) • Custo de ${formatCurrencyBRL(proventosDRE)} lançado no DRE Geral da Empresa como Custos Administrativos / Escritório.`,
@@ -2297,9 +2712,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const activeCommissionTotal = commissionItems.length > 0 ? totalCommissionsFromItems : (commissionAmount || 0);
   const modalGrossTotal = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + activeCommissionTotal;
 
-  const activeInssDiscount = inssEnabled ? (inssDiscount || 0) : 0;
-  const activeIrrfDiscount = irrfEnabled ? (irrfDiscount || 0) : 0;
-  const activeSindicalDiscount = sindicalEnabled ? (sindicalDiscount || 0) : 0;
+  const activeInssDiscount = modalPayrollType === '13_first_packet' ? 0 : (inssEnabled ? (inssDiscount || 0) : 0);
+  const activeIrrfDiscount = modalPayrollType === '13_first_packet' ? 0 : (irrfEnabled ? (irrfDiscount || 0) : 0);
+  const activeSindicalDiscount = modalPayrollType === '13_first_packet' ? 0 : (sindicalEnabled ? (sindicalDiscount || 0) : 0);
   const totalDeductionsFromItems = deductionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
   const activeListDeductions = deductionItems.length > 0 ? totalDeductionsFromItems : ((advancesDiscount || 0) + (otherDiscounts || 0));
   const modalDiscountsTotal = activeInssDiscount + activeIrrfDiscount + activeSindicalDiscount + activeListDeductions;
@@ -2339,33 +2754,57 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       {/* Month Selector Bar & Action Controls */}
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         
-        {/* Month Selector */}
-        <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
-          <button
-            type="button"
-            onClick={handlePrevMonth}
-            className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-            title="Mês Anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          
-          <div 
-            style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
-            className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
-          >
-            <span>Competência:</span>
-            <span className="text-black font-black text-sm">{currentMonthRef}</span>
+        {/* Month Selector + Tipo de Folha */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
+              title="Mês Anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            
+            <div 
+              style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
+              className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
+            >
+              <span>Competência:</span>
+              <span className="text-black font-black text-sm">{currentMonthRef}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
+              title="Próximo Mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleNextMonth}
-            className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-            title="Próximo Mês"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-white/85 dark:bg-stone-800 text-xs font-bold text-black dark:text-white shadow-2xs">
+            <span className="text-[11px] font-black uppercase tracking-wide text-black/80 dark:text-stone-300 whitespace-nowrap">
+              Tipo de Folha:
+            </span>
+            <select
+              aria-label="Tipo de Folha"
+              value={payrollType}
+              onChange={(e) => setPayrollType(e.target.value as PayrollType)}
+              className="bg-transparent font-black text-xs text-black dark:text-white outline-none cursor-pointer pr-1"
+            >
+              <option value="monthly" className="bg-white dark:bg-stone-800 text-black dark:text-white">
+                Folha Mensal
+              </option>
+              <option value="13_first_packet" className="bg-white dark:bg-stone-800 text-black dark:text-white">
+                13° Salário - 1ª Parcela
+              </option>
+              <option value="13_second_packet" className="bg-white dark:bg-stone-800 text-black dark:text-white">
+                13° Salário - 2ª Parcela / Integral
+              </option>
+            </select>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -2374,7 +2813,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             type="button"
             onClick={handleBatchGenerate}
             className="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 border border-emerald-400 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 font-bold text-xs rounded-lg hover:bg-emerald-600 hover:text-white transition cursor-pointer"
-            title="Gera folhas automáticas com proventos de comissões integradas para todos os colaboradores ativos"
+            title={
+              payrollType === '13_first_packet'
+                ? 'Gera adiantamentos da 1ª parcela do 13° salário em lote (50% sem INSS/IRRF)'
+                : payrollType === '13_second_packet'
+                ? 'Gera 2ª parcela / integral do 13° salário em lote com INSS, IRRF e abatimento da 1ª parcela'
+                : 'Gera folhas automáticas com proventos de comissões integradas para todos os colaboradores ativos'
+            }
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Gerar Folha em Lote</span>
@@ -2429,9 +2874,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       <div className="crm-card bg-blue-100/80 dark:bg-stone-800/80 border border-blue-300 dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
         <div className="flex items-center space-x-2 text-black dark:text-stone-200">
           <ShieldCheck className="w-4 h-4 text-[#0963cb] shrink-0" />
-          <span>
-            <strong className="text-black dark:text-white">Integração de Comissões & Regras de Vínculo:</strong> Comissões apuradas em ordens de serviço de silagem e produção são somadas automaticamente em <strong className="text-black dark:text-white">Proventos (+)</strong> de colaboradores internos. Motoristas <strong className="text-black dark:text-white">Terceirizados</strong> e <strong className="text-black dark:text-white">Agenciadores</strong> têm repasses geridos exclusivamente pelo Financeiro. Cálculo automático de <strong className="text-black dark:text-white">INSS</strong> restrito ao regime CLT.
-          </span>
+          {payrollType === '13_first_packet' ? (
+            <span>
+              <strong className="text-black dark:text-white">13° Salário — 1ª Parcela (Adiantamento):</strong> Cálculo proporcional aos meses trabalhados no ano (<strong className="text-black dark:text-white">Salário Base ÷ 12 × Avos × 50%</strong>). Conforme legislação trabalhista, não há incidência de <strong className="text-black dark:text-white">INSS</strong> ou <strong className="text-black dark:text-white">IRRF</strong> nesta parcela.
+            </span>
+          ) : payrollType === '13_second_packet' ? (
+            <span>
+              <strong className="text-black dark:text-white">13° Salário — 2ª Parcela / Integral:</strong> Cálculo integral dos avos trabalhados no ano (<strong className="text-black dark:text-white">Salário Base ÷ 12 × Avos</strong>) com incidência oficial de <strong className="text-black dark:text-white">INSS</strong> e <strong className="text-black dark:text-white">IRRF</strong> (regime CLT) e abatimento automático da <strong className="text-black dark:text-white">1ª Parcela</strong> já lançada no exercício.
+            </span>
+          ) : (
+            <span>
+              <strong className="text-black dark:text-white">Integração de Comissões & Regras de Vínculo:</strong> Comissões apuradas em ordens de serviço de silagem e produção são somadas automaticamente em <strong className="text-black dark:text-white">Proventos (+)</strong> de colaboradores internos. Motoristas <strong className="text-black dark:text-white">Terceirizados</strong> e <strong className="text-black dark:text-white">Agenciadores</strong> têm repasses geridos exclusivamente pelo Financeiro. Cálculo automático de <strong className="text-black dark:text-white">INSS</strong> restrito ao regime CLT.
+            </span>
+          )}
         </div>
       </div>
 
@@ -2448,7 +2903,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           />
         </div>
         <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
-          {filtered.length} holerite(s) na competência {currentMonthRef}
+          {filtered.length} holerite(s) •{' '}
+          {payrollType === '13_first_packet'
+            ? '13° Salário (1ª Parcela)'
+            : payrollType === '13_second_packet'
+            ? '13° Salário (2ª Parcela / Integral)'
+            : 'Folha Mensal'}{' '}
+          • {currentMonthRef}
         </span>
       </div>
 
@@ -2634,36 +3095,41 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       {isModalOpen && (
         <div 
           id="payroll-edit-modal-overlay" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden print:hidden"
         >
-          <div className="bg-stone-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[96vw] max-w-[1550px] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 h-[92vh] max-h-[92vh] flex flex-col print:hidden">
+          <div className="bg-stone-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[96vw] max-w-[1550px] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 h-[95vh] max-h-[95vh] flex flex-col print:hidden">
             
             {/* Header - Moldura Metálica 3D Acetinada */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl shadow-xs">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-2xl shadow-xs">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                  <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex flex-wrap items-center gap-2 leading-tight">
                     <span>{editingPayroll ? 'EDITAR FOLHA DE PAGAMENTO' : 'LANÇAR FOLHA DE PAGAMENTO'}</span>
                     <span className="text-[10px] bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded-md font-mono font-bold">
                       {currentMonthRef}
                     </span>
+                    {modalPayrollType !== 'monthly' && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-md font-bold uppercase">
+                        {modalPayrollType === '13_first_packet' ? '13° Salário • 1ª Parcela' : '13° Salário • 2ª Parcela / Integral'}
+                      </span>
+                    )}
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                  <p className="text-[10.5px] text-slate-600 dark:text-stone-400 font-medium leading-tight">
                     Apuração de proventos, comissões, deduções legais e espelho em tempo real
                   </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="hidden md:inline-block text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-white/70 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 px-2.5 py-1 rounded-lg shadow-2xs">
+                <span className="hidden md:inline-block text-[10.5px] font-bold text-slate-700 dark:text-stone-300 bg-white/70 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 px-2 py-0.5 rounded-lg shadow-2xs">
                   Split Screen • Lançamentos & Espelho do Holerite
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                  className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                   title="Fechar Modal"
                 >
                   <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
@@ -2678,12 +3144,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 {/* ======================================================== */}
                 {/* COLUNA DA ESQUERDA: Painel de Lançamentos (Slim/Compact) */}
                 {/* ======================================================== */}
-                <div className="overflow-y-hidden p-2 space-y-1.5 bg-[#edf4ff] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col justify-between">
+                <div className="overflow-y-auto p-1.5 space-y-1 bg-[#edf4ff] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col">
                   
                   {/* 1. Colaborador & Informações de Enquadramento */}
-                  <div className="bg-[#edf4ff] dark:bg-stone-800 rounded-xl p-2 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-1">
+                  <div className="bg-[#edf4ff] dark:bg-stone-800 rounded-xl p-1.5 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-1">
                     <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold text-stone-900 dark:text-stone-100">
+                      <label className="block text-[11px] font-semibold text-stone-900 dark:text-stone-100">
                         Colaborador / Funcionário <span className="text-rose-600">*</span>
                       </label>
                       <span className="text-[9px] text-stone-500 dark:text-stone-400 font-medium">
@@ -2694,7 +3160,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     <select
                       value={selectedEmployeeId}
                       onChange={(e) => handleSelectEmployee(e.target.value)}
-                      className="w-full px-2 py-1 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-semibold shadow-2xs"
+                      className="w-full px-2 py-0.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-semibold shadow-2xs"
                       required
                     >
                       <option value="">Selecione um funcionário...</option>
@@ -2712,7 +3178,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
                       if (!selectedEmployee) return null;
                       return (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
                           <div className="p-1 bg-stone-50 dark:bg-stone-900 rounded border border-stone-200 dark:border-stone-700">
                             <span className="text-[8px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                               Regime / Vínculo:
@@ -2745,10 +3211,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
 
                   {/* 2. Bloco de Proventos com Grid 2 Colunas para os Inputs */}
-                  <div className="p-2 bg-[#edf4ff] dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1 shadow-2xs">
+                  <div className="p-1.5 bg-[#edf4ff] dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
+                        <span className="text-[11px] font-bold uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
                           Proventos (Vencimentos)
                         </span>
                         <span className="px-1.5 py-0.2 rounded bg-blue-200/60 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200 font-bold text-[9.5px] font-['Outfit']">
@@ -2770,7 +3236,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
                     {/* Destaque Inteligente: Regra de Proporcionalidade da Data de Admissão */}
                     {admissionInfo?.isAdmittedInCompetenceMonth && (
-                      <div className="p-1 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[9.5px]">
+                      <div className="px-2 py-0.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[9.5px]">
                         <div className="flex items-center space-x-1.5 text-amber-950 dark:text-amber-200 font-semibold">
                           <Calendar className="w-3 h-3 text-amber-600 shrink-0" />
                           <span>
@@ -2810,17 +3276,84 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </div>
                     )}
 
+                    {/* Controles de Proporcionalidade (Avos/12) para 13° Salário */}
+                    {modalPayrollType !== 'monthly' && (
+                      <div className="px-2 py-1 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-800 rounded-lg flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
+                        <div className="flex items-center space-x-1.5 text-emerald-950 dark:text-emerald-200 font-semibold">
+                          <Calendar className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-bold">Meses Trabalhados (Avos):</span>
+                            <select
+                              aria-label="Meses Trabalhados 13º"
+                              value={monthsWorked13th}
+                              onChange={(e) => {
+                                const parsed = Number(e.target.value);
+                                const m = Math.max(0, Math.min(12, isNaN(parsed) ? 12 : parsed));
+                                if (selectedEmployeeId) {
+                                  apply13thRecalculation(
+                                    selectedEmployeeId,
+                                    baseSalaryContratual,
+                                    m,
+                                    modalPayrollType,
+                                    thirteenthFirstInstallmentPaid
+                                  );
+                                } else {
+                                  setMonthsWorked13th(m);
+                                  const calc = calculate13thSalaryValues({
+                                    baseSalaryContratual,
+                                    monthsWorked: m,
+                                    mode: modalPayrollType,
+                                    isClt: true,
+                                    firstInstallmentPaid: thirteenthFirstInstallmentPaid,
+                                  });
+                                  setBaseSalary(calc.grossEarnings);
+                                }
+                                setNotes((prev) =>
+                                  prev && /\(\d+\/12\s+avos/i.test(prev)
+                                    ? prev.replace(/\(\d+\/12\s+avos/i, `(${m}/12 avos`)
+                                    : prev
+                                );
+                              }}
+                              className="px-1.5 py-0.2 rounded border border-emerald-400 dark:border-emerald-700 bg-white dark:bg-stone-800 text-emerald-950 dark:text-emerald-100 font-black text-[10px] outline-none cursor-pointer"
+                            >
+                              {monthsWorked13th === 0 && <option value={0}>0/12 avos</option>}
+                              {Array.from({ length: 12 }, (_, idx) => idx + 1).map((m) => (
+                                <option key={m} value={m}>
+                                  {m}/12 avos
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-bold text-emerald-900 dark:text-emerald-300">
+                          {modalPayrollType === '13_first_packet'
+                            ? `Fórmula: ${formatMoneyBRL(baseSalaryContratual)} ÷ 12 × ${monthsWorked13th} × 50% (Isento INSS/IRRF)`
+                            : `Integral (${monthsWorked13th}/12)${thirteenthFirstInstallmentPaid > 0 ? ` • 1ª Parc. abatida: -${formatMoneyBRL(thirteenthFirstInstallmentPaid)}` : ''}`}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Grid Compacto de 2 Colunas para os Inputs de Proventos */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1">
                       <BrlCurrencyInput
                         id="baseSalaryContratual"
                         label="Salário Base Contratual (R$)"
                         value={baseSalaryContratual}
                         onChange={(val) => {
                           setBaseSalaryContratual(val);
-                          const totalFaltas = calculateTotalFaltasFromDeductions(deductionItems);
-                          const newBase = Math.max(0, val - totalFaltas);
-                          handleBaseCalculoChange(newBase);
+                          if (modalPayrollType !== 'monthly' && selectedEmployeeId) {
+                            apply13thRecalculation(
+                              selectedEmployeeId,
+                              val,
+                              monthsWorked13th,
+                              modalPayrollType,
+                              thirteenthFirstInstallmentPaid
+                            );
+                          } else {
+                            const totalFaltas = calculateTotalFaltasFromDeductions(deductionItems);
+                            const newBase = Math.max(0, val - totalFaltas);
+                            handleBaseCalculoChange(newBase);
+                          }
                         }}
                         title="Valor fixo da ficha do funcionário"
                         inputClassName="border-stone-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold"
@@ -2830,16 +3363,25 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         label="Base Cálc. INSS / FGTS (R$)"
                         value={baseCalculoInssFgts}
                         onChange={handleBaseCalculoChange}
+                        disabled={modalPayrollType === '13_first_packet'}
                         title="Valor usado efetivamente no mês para incidir as taxas"
                         inputClassName="border-[#0963cb]/40 bg-blue-50/80 dark:bg-blue-950/40 text-[#0963cb] dark:text-sky-300 font-black focus:ring-[#0963cb]"
                       />
                       <BrlCurrencyInput
                         id="baseSalary"
-                        label={admissionInfo?.isAdmittedInCompetenceMonth && useProportionalSalary ? "Salário Base (Proporcional)" : "Salário Base (Folha)"}
+                        label={
+                          modalPayrollType === '13_first_packet'
+                            ? `13° Salário - 1ª Parcela (${monthsWorked13th}/12 × 50%)`
+                            : modalPayrollType === '13_second_packet'
+                            ? `13° Salário Integral (${monthsWorked13th}/12 avos)`
+                            : admissionInfo?.isAdmittedInCompetenceMonth && useProportionalSalary
+                            ? 'Salário Base (Proporcional)'
+                            : 'Salário Base (Folha)'
+                        }
                         value={baseSalary}
                         onChange={(val) => {
                           setBaseSalary(val);
-                          if (admissionInfo?.isAdmittedInCompetenceMonth) {
+                          if (modalPayrollType === 'monthly' && admissionInfo?.isAdmittedInCompetenceMonth) {
                             setUseProportionalSalary(Math.abs(val - admissionInfo.proportionalSalary) < 0.05);
                           }
                         }}
@@ -2875,7 +3417,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </div>
 
                     {/* Mini-tabela de Detalhamento de Proventos (Extrato de Comissões) */}
-                    <div className="p-1 sm:p-1.5 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-lg space-y-1 shadow-2xs my-0.5">
+                    <div className="p-1 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-lg space-y-0.5 shadow-2xs">
                       <div className="flex items-center justify-between pb-0.5 border-b border-blue-100 dark:border-stone-700">
                         <div className="flex items-center space-x-1.5">
                           <FileText className="w-3 h-3 text-[#0963cb] shrink-0" />
@@ -2895,7 +3437,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             setNewCommRef(currentMonthRef);
                             setNewCommAmount(0);
                           }}
-                          className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[9px] transition cursor-pointer shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[9px] transition cursor-pointer shadow-2xs"
                         >
                           <Plus className="w-2.5 h-2.5 text-[#0963cb]" />
                           <span>+ Comissão</span>
@@ -2979,21 +3521,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       )}
 
                       {/* Tabela de Itens de Comissão */}
-                      <div className="max-h-16 overflow-y-auto border border-stone-200 rounded bg-stone-50/50">
-                        <table className="w-full text-left border-collapse text-[9px]">
-                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[7.5px] sticky top-0 border-b border-stone-200 z-10">
-                            <tr>
-                              <th className="py-1 px-1.5">Descrição</th>
-                              <th className="py-1 px-1.5 w-16">Ref.</th>
-                              <th className="py-1 px-1.5 text-right w-20">Valor (+)</th>
-                              <th className="py-1 px-1.5 text-center w-10">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-stone-200/70 bg-white">
-                            {commissionItems.length > 0 ? (
-                              commissionItems.map((item) => (
+                      {commissionItems.length > 0 ? (
+                        <div className="max-h-14 overflow-y-auto border border-stone-200 rounded bg-stone-50/50">
+                          <table className="w-full text-left border-collapse text-[9px]">
+                            <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[7.5px] sticky top-0 border-b border-stone-200 z-10">
+                              <tr>
+                                <th className="py-0.5 px-1.5">Descrição</th>
+                                <th className="py-0.5 px-1.5 w-16">Ref.</th>
+                                <th className="py-0.5 px-1.5 text-right w-20">Valor (+)</th>
+                                <th className="py-0.5 px-1.5 text-center w-10">Ações</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-stone-200/70 bg-white">
+                              {commissionItems.map((item) => (
                                 <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
-                                  <td className="py-1 px-1.5 font-medium text-stone-900">
+                                  <td className="py-0.5 px-1.5 font-medium text-stone-900">
                                     <div className="flex items-center space-x-1">
                                       <span className="truncate max-w-[130px] text-[9px]">{item.description}</span>
                                       <span className={`px-1 py-0.2 rounded text-[7px] font-bold shrink-0 ${
@@ -3003,13 +3545,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                       </span>
                                     </div>
                                   </td>
-                                  <td className="py-1 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
+                                  <td className="py-0.5 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
                                     {item.referenceDate || currentMonthRef}
                                   </td>
-                                  <td className="py-1 px-1.5 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap text-[9px]">
+                                  <td className="py-0.5 px-1.5 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap text-[9px]">
                                     + {formatCurrencyBRL(item.amount)}
                                   </td>
-                                  <td className="py-1 px-1.5 text-center whitespace-nowrap">
+                                  <td className="py-0.5 px-1.5 text-center whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-1">
                                       {item.isManual && (
                                         <button
@@ -3032,24 +3574,22 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                     </div>
                                   </td>
                                 </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={4} className="py-1 text-center text-stone-500 text-[8.5px]">
-                                  Nenhuma comissão lançada nesta competência.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="py-0.5 px-2 text-center text-stone-500 dark:text-stone-400 text-[8.5px] bg-stone-50/70 dark:bg-stone-900/40 border border-stone-200 dark:border-stone-700 rounded">
+                          Nenhuma comissão lançada nesta competência.
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* 3. Bloco de Deduções (Descontos & Impostos) */}
-                  <div className="p-2 bg-[#edf4ff] dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-1 shadow-2xs">
-                    <div className="flex items-center justify-between pb-0.5">
-                      <span className="text-xs font-bold uppercase text-stone-900 dark:text-stone-100 tracking-wider block">
+                  <div className="p-1.5 bg-[#edf4ff] dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-1 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase text-stone-900 dark:text-stone-100 tracking-wider block">
                         Deduções (Descontos & Impostos)
                       </span>
                       <span className="text-[9.5px] font-bold text-rose-700 font-['Outfit']">
@@ -3058,9 +3598,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </div>
 
                     {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                       {/* INSS */}
-                      <div className="bg-stone-50 dark:bg-stone-900 p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-1 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1 flex-wrap">
                             <span className="text-xs font-semibold text-stone-900 dark:text-stone-100">INSS</span>
@@ -3081,7 +3621,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           <div className="flex items-center space-x-1">
                             <button
                               type="button"
+                              disabled={modalPayrollType === '13_first_packet'}
                               onClick={() => {
+                                if (modalPayrollType === '13_first_packet') return;
                                 const next = !inssEnabled;
                                 setInssEnabled(next);
                                 if (next) {
@@ -3092,16 +3634,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                   setInssDiscount(0);
                                 }
                               }}
-                              className={`relative inline-flex h-3 w-5.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                                inssEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
-                              }`}
+                              className={`relative inline-flex h-3 w-5.5 shrink-0 rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                modalPayrollType === '13_first_packet' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                              } ${inssEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'}`}
                             >
                               <span className={`inline-block h-2 w-2 transform rounded-full bg-white transition duration-200 ease-in-out ${
                                 inssEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
                               }`} />
                             </button>
                             <span className={`text-[8px] font-bold ${inssEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
-                              {inssEnabled ? 'Ativo' : 'Isento'}
+                              {modalPayrollType === '13_first_packet' ? 'Isento (Lei)' : (inssEnabled ? 'Ativo' : 'Isento')}
                             </span>
                           </div>
                         </div>
@@ -3111,13 +3653,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           label=""
                           value={inssDiscount}
                           onChange={handleInssDiscountChange}
-                          disabled={!inssEnabled}
+                          disabled={!inssEnabled || modalPayrollType === '13_first_packet'}
                           inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
                         />
                       </div>
 
                       {/* IRRF */}
-                      <div className="bg-stone-50 dark:bg-stone-900 p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-1 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1 flex-wrap">
                             <span className="text-xs font-semibold text-stone-900 dark:text-stone-100">IRRF</span>
@@ -3127,7 +3669,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 inputMode="decimal"
                                 value={aliquotaIrrfStr}
                                 onChange={(e) => handleAliquotaIrrfChange(e.target.value)}
-                                disabled={!irrfEnabled}
+                                disabled={!irrfEnabled || modalPayrollType === '13_first_packet'}
                                 className="w-8 text-center font-black text-[10px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
                                 title="Alíquota (%)"
                               />
@@ -3138,7 +3680,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           <div className="flex items-center space-x-1">
                             <button
                               type="button"
+                              disabled={modalPayrollType === '13_first_packet'}
                               onClick={() => {
+                                if (modalPayrollType === '13_first_packet') return;
                                 const next = !irrfEnabled;
                                 setIrrfEnabled(next);
                                 if (next) {
@@ -3153,16 +3697,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                   setIrrfDiscount(0);
                                 }
                               }}
-                              className={`relative inline-flex h-3 w-5.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                                irrfEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
-                              }`}
+                              className={`relative inline-flex h-3 w-5.5 shrink-0 rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                modalPayrollType === '13_first_packet' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                              } ${irrfEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'}`}
                             >
                               <span className={`inline-block h-2 w-2 transform rounded-full bg-white transition duration-200 ease-in-out ${
                                 irrfEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
                               }`} />
                             </button>
                             <span className={`text-[8px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
-                              {irrfEnabled ? 'Ativo' : 'Isento'}
+                              {modalPayrollType === '13_first_packet' ? 'Isento (Lei)' : (irrfEnabled ? 'Ativo' : 'Isento')}
                             </span>
                           </div>
                         </div>
@@ -3172,13 +3716,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           label=""
                           value={irrfDiscount}
                           onChange={handleIrrfDiscountChange}
-                          disabled={!irrfEnabled}
+                          disabled={!irrfEnabled || modalPayrollType === '13_first_packet'}
                           inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
                         />
                       </div>
 
                       {/* Sindicato */}
-                      <div className="bg-stone-50 dark:bg-stone-900 p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-1 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1 flex-wrap">
                             <span className="text-xs font-semibold text-stone-900 dark:text-stone-100 truncate" title="Taxa Assistencial Sindicato">
@@ -3190,7 +3734,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 inputMode="decimal"
                                 value={aliquotaSindicatoStr}
                                 onChange={(e) => handleAliquotaSindicatoChange(e.target.value)}
-                                disabled={!sindicalEnabled}
+                                disabled={!sindicalEnabled || modalPayrollType === '13_first_packet'}
                                 className="w-8 text-center font-black text-[10px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
                                 title="Alíquota (%)"
                               />
@@ -3201,7 +3745,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           <div className="flex items-center space-x-1">
                             <button
                               type="button"
+                              disabled={modalPayrollType === '13_first_packet'}
                               onClick={() => {
+                                if (modalPayrollType === '13_first_packet') return;
                                 const next = !sindicalEnabled;
                                 setSindicalEnabled(next);
                                 if (next) {
@@ -3216,16 +3762,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                   setSindicalDiscount(0);
                                 }
                               }}
-                              className={`relative inline-flex h-3 w-5.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                                sindicalEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
-                              }`}
+                              className={`relative inline-flex h-3 w-5.5 shrink-0 rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                modalPayrollType === '13_first_packet' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                              } ${sindicalEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'}`}
                             >
                               <span className={`inline-block h-2 w-2 transform rounded-full bg-white transition duration-200 ease-in-out ${
                                 sindicalEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
                               }`} />
                             </button>
                             <span className={`text-[8px] font-bold ${sindicalEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
-                              {sindicalEnabled ? 'Ativo' : 'Isento'}
+                              {modalPayrollType === '13_first_packet' ? 'Isento (Lei)' : (sindicalEnabled ? 'Ativo' : 'Isento')}
                             </span>
                           </div>
                         </div>
@@ -3235,14 +3781,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           label=""
                           value={sindicalDiscount}
                           onChange={handleSindicalDiscountChange}
-                          disabled={!sindicalEnabled}
+                          disabled={!sindicalEnabled || modalPayrollType === '13_first_packet'}
                           inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
                         />
                       </div>
                     </div>
 
                     {/* Mini-tabela de Detalhamento de Deduções (Extrato de Descontos Ocorridos no Mês) */}
-                    <div className="pt-0.5 space-y-1 my-0.5">
+                    <div className="space-y-0.5 bg-white/95 dark:bg-stone-800/95 border border-stone-200 dark:border-stone-700 rounded-lg p-1 shadow-2xs">
                       <div className="flex items-center justify-between pb-0.5 border-b border-stone-200 dark:border-stone-700">
                         <div className="flex items-center space-x-1.5">
                           <CreditCard className="w-3 h-3 text-rose-600 shrink-0" />
@@ -3263,7 +3809,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             setNewDeductDate(formatDateBR(new Date().toISOString().split('T')[0]));
                             setNewDeductAmount(0);
                           }}
-                          className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[9px] transition cursor-pointer shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[9px] transition cursor-pointer shadow-2xs"
                         >
                           <Plus className="w-2.5 h-2.5 text-rose-600" />
                           <span>+ Desconto</span>
@@ -3363,21 +3909,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       )}
 
                       {/* Tabela de Lançamentos de Deduções */}
-                      <div className="max-h-16 overflow-y-auto border border-stone-200 rounded bg-stone-50/50">
-                        <table className="w-full text-left border-collapse text-[9px]">
-                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[7.5px] sticky top-0 border-b border-stone-200 z-10">
-                            <tr>
-                              <th className="py-1 px-1.5">Tipo / Descrição</th>
-                              <th className="py-1 px-1.5 w-16">Data</th>
-                              <th className="py-1 px-1.5 text-right w-20">Valor (-)</th>
-                              <th className="py-1 px-1.5 text-center w-10">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-stone-200/70 bg-white">
-                            {deductionItems.length > 0 ? (
-                              deductionItems.map((item) => (
+                      {deductionItems.length > 0 ? (
+                        <div className="max-h-14 overflow-y-auto border border-stone-200 rounded bg-stone-50/50">
+                          <table className="w-full text-left border-collapse text-[9px]">
+                            <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[7.5px] sticky top-0 border-b border-stone-200 z-10">
+                              <tr>
+                                <th className="py-0.5 px-1.5">Tipo / Descrição</th>
+                                <th className="py-0.5 px-1.5 w-16">Data</th>
+                                <th className="py-0.5 px-1.5 text-right w-20">Valor (-)</th>
+                                <th className="py-0.5 px-1.5 text-center w-10">Ações</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-stone-200/70 bg-white">
+                              {deductionItems.map((item) => (
                                 <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
-                                  <td className="py-1 px-1.5 font-medium text-stone-900">
+                                  <td className="py-0.5 px-1.5 font-medium text-stone-900">
                                     {(() => {
                                       const isFalta = item.type === 'Falta / Atraso' || item.description?.toLowerCase().includes('falta') || item.description?.toLowerCase().includes('dias anteriores');
                                       const verba = getVerbaForDeduction(item.type, item.description);
@@ -3405,13 +3951,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                       );
                                     })()}
                                   </td>
-                                  <td className="py-1 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
+                                  <td className="py-0.5 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
                                     {item.date || '-'}
                                   </td>
-                                  <td className="py-1 px-1.5 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap text-[9px]">
+                                  <td className="py-0.5 px-1.5 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap text-[9px]">
                                     - {formatCurrencyBRL(item.amount)}
                                   </td>
-                                  <td className="py-1 px-1.5 text-center whitespace-nowrap">
+                                  <td className="py-0.5 px-1.5 text-center whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-1">
                                       {item.isManual && (
                                         <button
@@ -3434,25 +3980,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                     </div>
                                   </td>
                                 </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={4} className="py-1 text-center text-stone-500 text-[8.5px]">
-                                  Nenhum vale ou falta adicionado nesta competência.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="py-0.5 px-2 text-center text-stone-500 dark:text-stone-400 text-[8.5px] bg-stone-50/70 dark:bg-stone-900/40 border border-stone-200 dark:border-stone-700 rounded">
+                          Nenhum vale ou falta adicionado nesta competência.
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* 4. Situação do Pagamento & Observações */}
-                  <div className="bg-white dark:bg-stone-800 rounded-xl p-1.5 border border-stone-300 dark:border-stone-700 shadow-2xs">
+                  <div className="bg-white dark:bg-stone-800 rounded-xl px-2 py-1 border border-stone-300 dark:border-stone-700 shadow-2xs">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
+                        <span className="text-[11px] font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
                           Situação:
                         </span>
                         <div className="flex items-center space-x-2 bg-stone-50 dark:bg-stone-900 px-2 py-0.5 rounded-lg border border-stone-200 dark:border-stone-700">
@@ -3480,7 +4024,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </div>
 
                       <div className="flex-1 sm:max-w-xs flex items-center gap-1.5">
-                        <label className="text-xs font-semibold text-stone-900 dark:text-stone-100 tracking-wider shrink-0">
+                        <label className="text-[11px] font-semibold text-stone-900 dark:text-stone-100 tracking-wider shrink-0">
                           Obs:
                         </label>
                         <input
@@ -3488,7 +4032,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
                           placeholder="Ex: Pagamento via Pix..."
-                          className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
+                          className="w-full px-2 py-0.5 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
                         />
                       </div>
                     </div>
@@ -3499,11 +4043,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 {/* ======================================================== */}
                 {/* COLUNA DA DIREITA: Espelho do Holerite em Tempo Real    */}
                 {/* ======================================================== */}
-                <div className="overflow-y-auto p-3 sm:p-5 bg-[#edf4ff] dark:bg-stone-950 flex flex-col items-center">
+                <div className="overflow-y-auto p-2 sm:p-2.5 bg-[#edf4ff] dark:bg-stone-950 flex flex-col items-center">
                   <LivePayslipPreview
                     companyProfile={companyProfile}
                     employee={employees.find(e => e.id === selectedEmployeeId)}
                     currentMonthRef={currentMonthRef}
+                    payrollType={modalPayrollType}
+                    monthsWorked13th={monthsWorked13th}
                     baseSalary={baseSalary}
                     admissionInfo={admissionInfo}
                     overtimeAmount={overtimeAmount}
@@ -3539,7 +4085,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               {/* ======================================================== */}
               {/* BARRA INFERIOR DE AÇÕES (Fixa no rodapé do modal)        */}
               {/* ======================================================== */}
-              <div className="px-4 py-2.5 bg-[#e0e6f1] dark:bg-stone-850 border-t border-stone-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+              <div className="px-3 sm:px-4 py-1.5 bg-[#e0e6f1] dark:bg-stone-850 border-t border-stone-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-stone-500 font-bold uppercase">Colaborador:</span>
@@ -3561,7 +4107,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     type="button"
                     onClick={handlePrintCurrentModalPayroll}
                     disabled={!selectedEmployeeId}
-                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 font-bold transition shadow-2xs cursor-pointer text-xs disabled:opacity-40"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 font-bold transition shadow-2xs cursor-pointer text-xs disabled:opacity-40"
                     title="Imprimir Holerite Oficial (Recibo Limpo em PDF)"
                   >
                     <Printer className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300" />
@@ -3570,14 +4116,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 font-bold hover:bg-stone-50 dark:hover:bg-stone-700 cursor-pointer transition text-xs shadow-2xs"
+                    className="px-3 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 font-bold hover:bg-stone-50 dark:hover:bg-stone-700 cursor-pointer transition text-xs shadow-2xs"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={!selectedEmployeeId}
-                    className="px-4.5 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 cursor-pointer text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-1 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold transition shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 cursor-pointer text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Salvar Folha de Pagamento
                   </button>

@@ -1123,5 +1123,208 @@ export const getDefaultCompetenceMonth = (baseDate: Date = new Date()): string =
   return `${month}/${year}`;
 };
 
+// ==========================================
+// CÁLCULO DE 13° SALÁRIO (1ª E 2ª PARCELA)
+// ==========================================
+
+export const parseCompetenceMonthYear = (competenceRef?: string): { month: number; year: number } => {
+  const now = new Date();
+  let month = now.getMonth() + 1;
+  let year = now.getFullYear();
+
+  if (competenceRef) {
+    const clean = competenceRef.trim();
+    if (clean.includes('/')) {
+      const [m, y] = clean.split('/');
+      const parsedM = parseInt(m, 10);
+      const parsedY = parseInt(y, 10);
+      if (!isNaN(parsedM) && parsedM >= 1 && parsedM <= 12) month = parsedM;
+      if (!isNaN(parsedY) && parsedY >= 1900) year = parsedY;
+    } else if (clean.includes('-')) {
+      const [y, m] = clean.split('-');
+      const parsedM = parseInt(m, 10);
+      const parsedY = parseInt(y, 10);
+      if (!isNaN(parsedM) && parsedM >= 1 && parsedM <= 12) month = parsedM;
+      if (!isNaN(parsedY) && parsedY >= 1900) year = parsedY;
+    }
+  }
+  return { month, year };
+};
+
+/**
+ * Calcula quantos avos (0 a 12) de 13º Salário o colaborador tem direito no ano corrente da competência.
+ * Regra CLT / Lei 4.090/62:
+ * - O cálculo do 13º salário projeta os meses trabalhados SEMPRE até Dezembro (mês 12) do ano da competência.
+ * - Colaborador admitido até 31 de Dezembro do ano anterior recebe automaticamente 12/12 avos.
+ * - Colaborador admitido no ano corrente conta os meses da admissão até Dezembro, computando o mês de admissão apenas se tiver 15 dias ou mais trabalhados (fração >= 15 dias).
+ */
+export const getWorkedMonthsInYear = (
+  admissionDateStr?: string | null,
+  competenceRef?: string
+): number => {
+  const { year: compYear } = parseCompetenceMonthYear(competenceRef);
+  const targetEndMonth = 12;
+
+  if (!admissionDateStr) {
+    return targetEndMonth;
+  }
+
+  let admDay = 0;
+  let admMonth = 0;
+  let admYear = 0;
+
+  const cleanDate = admissionDateStr.split('T')[0].trim();
+  if (cleanDate.includes('-')) {
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        admYear = parseInt(parts[0], 10);
+        admMonth = parseInt(parts[1], 10);
+        admDay = parseInt(parts[2], 10);
+      } else {
+        admDay = parseInt(parts[0], 10);
+        admMonth = parseInt(parts[1], 10);
+        admYear = parseInt(parts[2], 10);
+      }
+    }
+  } else if (cleanDate.includes('/')) {
+    const parts = cleanDate.split('/');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        admYear = parseInt(parts[0], 10);
+        admMonth = parseInt(parts[1], 10);
+        admDay = parseInt(parts[2], 10);
+      } else {
+        admDay = parseInt(parts[0], 10);
+        admMonth = parseInt(parts[1], 10);
+        admYear = parseInt(parts[2], 10);
+      }
+    }
+  }
+
+  if (!admYear || !admMonth || !admDay) {
+    return targetEndMonth;
+  }
+
+  if (admYear > compYear) {
+    return 0;
+  }
+
+  // Admitido antes ou até 31 de Dezembro do ano anterior -> 12/12 avos
+  if (admYear < compYear) {
+    return 12;
+  }
+
+  // Admissão no mesmo ano da competência: conta até Dezembro (mês 12)
+  if (admMonth > targetEndMonth) {
+    return 0;
+  }
+
+  const daysInAdmMonth = new Date(compYear, admMonth, 0).getDate();
+  const workedDaysFirstMonth = daysInAdmMonth - admDay + 1;
+  const firstMonthCounts = workedDaysFirstMonth >= 15;
+  const months = (targetEndMonth - admMonth) + (firstMonthCounts ? 1 : 0);
+
+  return Math.min(12, Math.max(0, months));
+};
+
+export interface ThirteenthCalculationResult {
+  monthsWorked: number;
+  integralAmount: number;
+  grossEarnings: number;
+  inssDiscount: number;
+  irrfDiscount: number;
+  firstInstallmentDiscount: number;
+  netAmount: number;
+}
+
+/**
+ * Calcula valores oficiais da 1ª ou 2ª Parcela do 13° Salário:
+ * - 1ª Parcela (`13_first_packet`): [Salário Base / 12 * Meses] * 50%, sem INSS e sem IRRF (líquido = provento).
+ * - 2ª Parcela (`13_second_packet`): [Salário Base / 12 * Meses], com INSS e IRRF progressivos sobre o integral
+ *   e desconto do valor já pago na 1ª Parcela.
+ */
+export const calculate13thSalaryValues = (params: {
+  baseSalaryContratual: number;
+  monthsWorked: number;
+  mode: '13_first_packet' | '13_second_packet';
+  isClt: boolean;
+  firstInstallmentPaid?: number;
+  dependentsCount?: number;
+}): ThirteenthCalculationResult => {
+  const safeSalary = Math.max(0, Number(params.baseSalaryContratual) || 0);
+  const safeMonths = Math.min(12, Math.max(0, Number(params.monthsWorked) || 0));
+  const integralAmount = Math.round(((safeSalary / 12) * safeMonths) * 100) / 100;
+
+  if (params.mode === '13_first_packet') {
+    const grossEarnings = Math.round((integralAmount * 0.5) * 100) / 100;
+    return {
+      monthsWorked: safeMonths,
+      integralAmount,
+      grossEarnings,
+      inssDiscount: 0,
+      irrfDiscount: 0,
+      firstInstallmentDiscount: 0,
+      netAmount: grossEarnings,
+    };
+  }
+
+  // 2ª Parcela / Integral
+  const inssDiscount = params.isClt ? calculateProgressiveInss(integralAmount) : 0;
+  const irrfDiscount = params.isClt ? calculateOfficialIrrf(integralAmount, inssDiscount, params.dependentsCount || 0) : 0;
+  const firstInstallmentDiscount = Math.max(0, Math.round((Number(params.firstInstallmentPaid) || 0) * 100) / 100);
+  const netAmount = Math.max(0, Math.round((integralAmount - inssDiscount - irrfDiscount - firstInstallmentDiscount) * 100) / 100);
+
+  return {
+    monthsWorked: safeMonths,
+    integralAmount,
+    grossEarnings: integralAmount,
+    inssDiscount,
+    irrfDiscount,
+    firstInstallmentDiscount,
+    netAmount,
+  };
+};
+
+/**
+ * Localiza o valor já lançado/pago na 1ª Parcela do 13° Salário para o colaborador no mesmo ano.
+ */
+export const findEmployeeFirstInstallment13th = (
+  payrolls: any[],
+  employeeId: string,
+  competenceRef: string
+): { totalPaid: number; records: any[]; referenceLabel: string } => {
+  if (!Array.isArray(payrolls) || !employeeId) {
+    return { totalPaid: 0, records: [], referenceLabel: '' };
+  }
+  const { year: targetYear } = parseCompetenceMonthYear(competenceRef);
+
+  const matches = payrolls.filter((p) => {
+    if (!p) return false;
+    const pType = p.payrollType || p.payroll_type || p.payload?.payrollType || p.payload?.payroll_type || 'monthly';
+    if (pType !== '13_first_packet') return false;
+    if (p.employeeId !== employeeId) return false;
+    const { year: pYear } = parseCompetenceMonthYear(p.referenceMonth);
+    return pYear === targetYear;
+  });
+
+  const totalPaid = matches.reduce((sum, r) => {
+    const val = Number(r.netSalary ?? r.baseSalary ?? 0);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
+  const referenceLabel = matches
+    .map((r) => r.referenceMonth)
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    totalPaid: Math.round(totalPaid * 100) / 100,
+    records: matches,
+    referenceLabel,
+  };
+};
+
+
 
 

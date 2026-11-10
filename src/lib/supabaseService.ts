@@ -11242,6 +11242,10 @@ export function buildRhFolhaPagamentoRow(
   if (activeCols.has('bonus_amount')) fullCandidate.bonus_amount = bonusFloat;
   if (activeCols.has('commission_amount')) fullCandidate.commission_amount = commissionFloat;
 
+  // 9.5 Tipo de Folha (Folha Mensal / 13° Salário)
+  const resolvedPayrollType = p.payroll_type || p.payrollType || 'monthly';
+  if (activeCols.has('payroll_type')) fullCandidate.payroll_type = resolvedPayrollType;
+
   // 10. Empacotamento unificado em JSONB ('payload', 'dados')
   const unifiedPayload = {
     ...p,
@@ -11251,6 +11255,8 @@ export function buildRhFolhaPagamentoRow(
     funcionario_id: canonicalEmpId,
     employee_id: canonicalEmpId,
     competencia: formattedCompetencia,
+    payroll_type: resolvedPayrollType,
+    payrollType: resolvedPayrollType,
     salario_base: baseSalaryFloat,
     proventos: proventosFloat,
     inss: inssFloat,
@@ -11281,6 +11287,7 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
   const vales = parseFloat(String(row.vales_descontos ?? row.advances_discount ?? p.advancesDiscount ?? 0)) || 0;
   const otherDiscounts = parseFloat(String(row.deducoes ?? row.total_descontos ?? row.other_discounts ?? p.otherDiscounts ?? (inss + vales))) || 0;
   const net = parseFloat(String(row.liquido_a_pagar ?? row.valor_liquido ?? row.net_salary ?? row.salario_liquido ?? p.netSalary ?? 0)) || 0;
+  const resolvedType = (row.payroll_type || p.payroll_type || p.payrollType || 'monthly') as PayrollRecord['payrollType'];
 
   return {
     id: row.id || p.id || '',
@@ -11288,14 +11295,31 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     employeeName: row.employee_name || row.nome_funcionario || row.nome || p.employeeName || '',
     employeeRole: row.employee_role || row.cargo || row.funcao || p.employeeRole || '',
     referenceMonth: row.competencia || row.mes_referencia || row.reference_month || p.referenceMonth || p.competencia || '',
+    payrollType: resolvedType,
+    payroll_type: resolvedType,
+    monthsWorked13th: p.monthsWorked13th !== undefined ? Number(p.monthsWorked13th) : undefined,
+    thirteenthFirstInstallmentPaid: p.thirteenthFirstInstallmentPaid !== undefined ? Number(p.thirteenthFirstInstallmentPaid) : undefined,
     baseSalary,
+    baseSalaryContratual: p.baseSalaryContratual,
+    baseCalculoInssFgts: p.baseCalculoInssFgts,
+    aliquotaInss: p.aliquotaInss,
+    aliquotaIrrf: p.aliquotaIrrf,
+    aliquotaSindicato: p.aliquotaSindicato,
     overtimeHours: p.overtimeHours,
     overtimeAmount: parseFloat(String(row.overtime_amount ?? p.overtimeAmount ?? 0)) || 0,
     bonusAmount: parseFloat(String(row.bonus_amount ?? p.bonusAmount ?? 0)) || 0,
     commissionAmount: parseFloat(String(row.commission_amount ?? p.commissionAmount ?? 0)) || 0,
+    commissionItems: p.commissionItems,
     inssDiscount: inss,
+    inssEnabled: p.inssEnabled,
+    irrfDiscount: parseFloat(String(p.irrfDiscount ?? 0)) || 0,
+    irrfEnabled: p.irrfEnabled,
+    sindicalDiscount: parseFloat(String(p.sindicalDiscount ?? p.taxaSindical ?? 0)) || 0,
+    sindicalEnabled: p.sindicalEnabled,
     advancesDiscount: vales,
-    otherDiscounts: Math.max(0, otherDiscounts - inss - vales),
+    otherDiscounts: p.otherDiscounts !== undefined ? (parseFloat(String(p.otherDiscounts)) || 0) : Math.max(0, otherDiscounts - inss - vales),
+    deductionItems: p.deductionItems,
+    customVerbaOverrides: p.customVerbaOverrides,
     netSalary: net,
     status: row.status || p.status || 'pendente',
     paymentDate: row.payment_date || p.paymentDate,
@@ -11303,6 +11327,7 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     integratedAt: p.integratedAt,
     financePayableId: p.financePayableId,
     notes: row.notes || p.notes || '',
+    payload: p,
     createdAt: row.created_at || p.createdAt || new Date().toISOString(),
   };
 }

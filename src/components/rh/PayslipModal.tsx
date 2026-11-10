@@ -328,16 +328,35 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
     ? payroll.deductionItems
     : (Array.isArray(payroll.payload?.deductionItems) && payroll.payload.deductionItems.length > 0 ? payroll.payload.deductionItems : []);
 
+  const resolvedPayrollType = (payroll.payrollType || payroll.payroll_type || payroll.payload?.payrollType || payroll.payload?.payroll_type || 'monthly') as 'monthly' | '13_first_packet' | '13_second_packet';
+  const resolvedMonths13th = payroll.monthsWorked13th ?? payroll.payload?.monthsWorked13th ?? 12;
+
+  // Adiantamento 1ª Parcela do 13º Salário (Rubrica 505)
+  const thirteenth1stFromItems = allDeductions.filter(d =>
+    d.verbaCode === '505' ||
+    d.type?.includes('13') ||
+    d.description?.toLowerCase().includes('1ª parcela') ||
+    d.description?.toLowerCase().includes('13°') ||
+    d.description?.toLowerCase().includes('13º')
+  );
+  const thirteenth1stItemsAmount = thirteenth1stFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+  const totalThirteenth1stAmount = thirteenth1stItemsAmount > 0
+    ? thirteenth1stItemsAmount
+    : (resolvedPayrollType === '13_second_packet' ? Number(payroll.thirteenthFirstInstallmentPaid ?? payroll.payload?.thirteenthFirstInstallmentPaid ?? 0) : 0);
+
   // Faltas (Rubrica 501 - FALTAS INTEGRADAS (DIAS))
   const faltasFromItems = allDeductions.filter(d => 
-    d.verbaCode === '501' || d.type === 'Falta / Atraso' || d.description?.toLowerCase().includes('falta') || d.description?.toLowerCase().includes('dias anteriores')
+    !thirteenth1stFromItems.includes(d) &&
+    (d.verbaCode === '501' || d.type === 'Falta / Atraso' || d.description?.toLowerCase().includes('falta') || d.description?.toLowerCase().includes('dias anteriores'))
   );
   const faltasItemsAmount = faltasFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
-  const faltasAbsencesAmount = resolvedAbsences.reduce((sum, a) => {
-    if (a.discountAmount !== undefined && a.discountAmount > 0) return sum + Number(a.discountAmount);
-    const daily = (payroll.baseSalary || 3500) / 30;
-    return sum + Math.round((daily * (a.daysCount || 1)) * 100) / 100;
-  }, 0);
+  const faltasAbsencesAmount = resolvedPayrollType === 'monthly'
+    ? resolvedAbsences.reduce((sum, a) => {
+        if (a.discountAmount !== undefined && a.discountAmount > 0) return sum + Number(a.discountAmount);
+        const daily = (payroll.baseSalary || 3500) / 30;
+        return sum + Math.round((daily * (a.daysCount || 1)) * 100) / 100;
+      }, 0)
+    : 0;
   const totalFaltasAmount = faltasItemsAmount > 0 ? faltasItemsAmount : (payroll.totalFaltas || faltasAbsencesAmount || 0);
 
   const totalFaltasDays = (() => {
@@ -359,14 +378,16 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
   // Vales / Adiantamentos (Rubrica 502)
   const valesFromItems = allDeductions.filter(d => 
+    !thirteenth1stFromItems.includes(d) &&
     !faltasFromItems.includes(d) &&
     (d.verbaCode === '502' || d.verbaCode === '110' || d.type === 'Vale / Adiantamento' || d.description?.toLowerCase().includes('vale') || d.description?.toLowerCase().includes('adiantamento'))
   );
   const valesItemsAmount = valesFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
-  const totalValesAmount = valesItemsAmount > 0 ? valesItemsAmount : (payroll.advancesDiscount || resolvedAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0));
+  const totalValesAmount = valesItemsAmount > 0 ? valesItemsAmount : (payroll.advancesDiscount || (resolvedPayrollType === 'monthly' ? resolvedAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0) : 0));
 
   // Equipamentos / Avarias (Rubrica 503)
   const avariasFromItems = allDeductions.filter(d => 
+    !thirteenth1stFromItems.includes(d) &&
     !faltasFromItems.includes(d) &&
     !valesFromItems.includes(d) &&
     (d.verbaCode === '503' || d.type === 'Peças / Oficina' || d.type?.toLowerCase().includes('avaria') || d.type?.toLowerCase().includes('equipamento') || d.description?.toLowerCase().includes('peça') || d.description?.toLowerCase().includes('peca') || d.description?.toLowerCase().includes('avaria') || d.description?.toLowerCase().includes('equipamento'))
@@ -374,7 +395,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   const totalAvariasAmount = avariasFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 
   // Outros Descontos residuais
-  const residualOtherDiscounts = Math.max(0, (payroll.otherDiscounts || 0) - totalFaltasAmount - totalAvariasAmount);
+  const residualOtherDiscounts = Math.max(0, (payroll.otherDiscounts || 0) - totalFaltasAmount - totalAvariasAmount - totalThirteenth1stAmount);
 
   const handleDownloadPDF = async () => {
     if (!payroll) return;
@@ -565,7 +586,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     {tradeName}
                   </h1>
                   <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border shrink-0 bg-blue-50 text-[#0963cb] border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60 tracking-wider">
-                    DEMONSTRATIVO DE SALÁRIO
+                    {resolvedPayrollType === '13_first_packet'
+                      ? '13º SALÁRIO - 1ª PARCELA'
+                      : resolvedPayrollType === '13_second_packet'
+                      ? '13º SALÁRIO - 2ª PARCELA'
+                      : 'DEMONSTRATIVO DE SALÁRIO'}
                   </span>
                 </div>
 
@@ -703,10 +728,16 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200 dark:divide-stone-800">
-                {/* Salário Base Mensal */}
+                {/* Salário Base Mensal / 13º Salário */}
                 <tr>
-                  {renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
-                  <td className="py-2 px-3 text-center text-stone-500">30d</td>
+                  {resolvedPayrollType === '13_first_packet'
+                    ? renderEditableCells('salario_13_1', '002', '13º SALÁRIO - 1ª PARCELA (ADIANTAMENTO)')
+                    : resolvedPayrollType === '13_second_packet'
+                    ? renderEditableCells('salario_13_2', '003', '13º SALÁRIO INTEGRAL (2ª PARCELA)')
+                    : renderEditableCells('salario_base', '001', 'SALÁRIO BASE MENSAL')}
+                  <td className="py-2 px-3 text-center text-stone-500">
+                    {resolvedPayrollType !== 'monthly' ? `${resolvedMonths13th}/12` : '30d'}
+                  </td>
                   <td className="py-2 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                     {formatCurrencyBRL(payroll.baseSalary)}
                   </td>
@@ -793,6 +824,20 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
                       {formatCurrencyBRL(activeSindical)}
+                    </td>
+                  </tr>
+                )}
+
+                {/* ADIANTAMENTO 1ª PARCELA 13º SALÁRIO (Rubrica 505) */}
+                {totalThirteenth1stAmount > 0 && (
+                  <tr>
+                    {renderEditableCells('adiant_13_1', '505', 'ADIANTAMENTO 1ª PARCELA 13º SALÁRIO')}
+                    <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
+                      50%
+                    </td>
+                    <td className="py-2 px-3 text-right text-stone-400">-</td>
+                    <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
+                      {formatCurrencyBRL(totalThirteenth1stAmount)}
                     </td>
                   </tr>
                 )}

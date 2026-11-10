@@ -1475,6 +1475,8 @@ export interface PayrollDeductionItem {
   sourceId?: string;
 }
 
+export type PayrollType = 'monthly' | '13_first_packet' | '13_second_packet';
+
 export interface PayrollRecord {
   id: string;
   companyId?: string;
@@ -1483,6 +1485,10 @@ export interface PayrollRecord {
   employeeName: string;
   employeeRole: string;
   referenceMonth: string; // MM/YYYY (ex: '09/2026')
+  payrollType?: PayrollType;
+  payroll_type?: PayrollType;
+  monthsWorked13th?: number; // Avos trabalhados no ano corrente (0 a 12) para 13º Salário
+  thirteenthFirstInstallmentPaid?: number; // Valor da 1ª parcela do 13º abatido na 2ª parcela
   baseSalary: number;
   baseSalaryContratual?: number; // Salário Base Contratual (R$) fixo da ficha
   baseCalculoInssFgts?: number; // Base Cálc. INSS / FGTS (R$)

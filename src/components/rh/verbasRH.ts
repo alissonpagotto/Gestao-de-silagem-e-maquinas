@@ -8,10 +8,13 @@ export const VERBAS_STORAGE_KEY = 'colaca_silagem_verbas_rh';
 
 export const DEFAULT_VERBAS_RH: VerbaRH[] = [
   { codigo: '001', descricao: 'SALÁRIO BASE MENSAL', tipo: 'VENCIMENTO' },
+  { codigo: '002', descricao: '13º SALÁRIO - 1ª PARCELA (ADIANTAMENTO)', tipo: 'VENCIMENTO' },
+  { codigo: '003', descricao: '13º SALÁRIO INTEGRAL (2ª PARCELA)', tipo: 'VENCIMENTO' },
   { codigo: '501', descricao: 'FALTAS INTEGRADAS (DIAS)', tipo: 'DESCONTO' },
   { codigo: '502', descricao: 'ADIANTAMENTO DE SALÁRIO (VALE)', tipo: 'DESCONTO' },
   { codigo: '503', descricao: 'DESCONTO DE EQUIPAMENTOS / AVARIAS', tipo: 'DESCONTO' },
   { codigo: '504', descricao: 'DESCONTO CONTRIBUIÇÃO SINDICAL', tipo: 'DESCONTO' },
+  { codigo: '505', descricao: 'ADIANTAMENTO 1ª PARCELA 13º SALÁRIO', tipo: 'DESCONTO' },
   { codigo: '012', descricao: 'HORAS EXTRAS / ADICIONAL SAFRA & COLHEITA', tipo: 'VENCIMENTO' },
   { codigo: '024', descricao: 'INSALUBRIDADE / BÔNUS PRODUTIVIDADE', tipo: 'VENCIMENTO' },
   { codigo: '035', descricao: 'COMISSÕES VARIÁVEIS DE SILAGEM / PRODUÇÃO', tipo: 'VENCIMENTO' },
@@ -135,6 +138,23 @@ export function getVerbaForDeduction(
     return {
       codigo: v501?.codigo || '501',
       descricao: v501?.descricao || 'FALTAS INTEGRADAS (DIAS)',
+      tipo: 'DESCONTO',
+    };
+  }
+
+  // 1.5 ADIANTAMENTO 1ª PARCELA DO 13º SALÁRIO: Rubrica 505
+  if (
+    lowerType.includes('13º') ||
+    lowerType.includes('13°') ||
+    lowerType.includes('1ª parcela') ||
+    lowerDesc.includes('13º') ||
+    lowerDesc.includes('13°') ||
+    lowerDesc.includes('1ª parcela')
+  ) {
+    const v505 = verbas.find((v) => v.codigo === '505');
+    return {
+      codigo: v505?.codigo || '505',
+      descricao: v505?.descricao || 'ADIANTAMENTO 1ª PARCELA 13º SALÁRIO',
       tipo: 'DESCONTO',
     };
   }
