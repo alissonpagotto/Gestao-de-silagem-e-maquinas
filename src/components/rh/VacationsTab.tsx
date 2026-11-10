@@ -2919,25 +2919,25 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
       <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-stone-700">
+          <table className="w-full text-left text-xs sm:text-sm border-separate border-spacing-0">
+            <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider">
               <tr>
-                <th className="py-1.5 px-3">Colaborador</th>
-                <th className="py-1.5 px-3">Período Aquisitivo</th>
-                <th className="py-1.5 px-3 text-center">Dias de Direito</th>
-                <th className="py-1.5 px-3 text-center">Status do Período</th>
-                <th className="py-1.5 px-3">Limite para Gozo</th>
-                <th className="py-1.5 px-3 text-right">Ações</th>
+                <th className="py-1.5 px-3 sticky left-0 z-10 bg-white dark:bg-stone-900 border-b border-r border-gray-200 dark:border-stone-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Colaborador</th>
+                <th className="py-1.5 px-3 border-b border-slate-200 dark:border-stone-700">Período Aquisitivo</th>
+                <th className="py-1.5 px-3 text-center border-b border-slate-200 dark:border-stone-700">Dias de Direito</th>
+                <th className="py-1.5 px-3 text-center border-b border-slate-200 dark:border-stone-700">Status do Período</th>
+                <th className="py-1.5 px-3 border-b border-slate-200 dark:border-stone-700">Limite para Gozo</th>
+                <th className="py-1.5 px-3 text-right border-b border-slate-200 dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+            <tbody>
               {filteredRows.length > 0 ? (
                 filteredRows.map((row) => {
                   const vac = row.vacationRecord;
                   return (
-                    <tr key={row.rowKey} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                    <tr key={row.rowKey} className="group even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition">
                       {/* 1. Colaborador (Linha Única Compacta: Avatar Local + Nome + Cargo + Adm + DRE) */}
-                      <td className="py-1 px-3 whitespace-nowrap">
+                      <td className="py-1 px-3 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-stone-900 border-r border-gray-200 dark:border-stone-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-b border-b-slate-200 dark:border-b-stone-800 group-last:border-b-0">
                         <div className="flex items-center space-x-2">
                           <div className="w-6 h-6 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-[10px] shrink-0 select-none">
                             {getColabInitials(row.employee.name)}
@@ -2968,7 +2968,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 2. Período Aquisitivo (Linha Única: Datas + Gozo Programado + Badges + Líquido) */}
-                      <td className="py-1 px-3 whitespace-nowrap">
+                      <td className="py-1 px-3 whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <div className="flex items-center gap-1.5 whitespace-nowrap">
                           <div className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-stone-700 shrink-0">
                             <Calendar className="w-3 h-3 text-[#0963cb] shrink-0" />
@@ -3002,7 +3002,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 3. Dias de Direito (Linha Única - CLT: Vencidos + Proporcionais em CAIXA ALTA) */}
-                      <td className="py-1 px-3 text-center whitespace-nowrap">
+                      <td className="py-1 px-3 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <div className="inline-flex items-center gap-1.5 justify-center whitespace-nowrap">
                           <span
                             className={`text-[10px] sm:text-[11px] font-black uppercase px-2 py-0.5 rounded-full border tracking-tight ${
@@ -3027,7 +3027,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 4. Status do Período (Linha Única - Badges Atualizados CLT) */}
-                      <td className="py-1 px-3 text-center whitespace-nowrap">
+                      <td className="py-1 px-3 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <div className="inline-flex items-center gap-1 justify-center whitespace-nowrap">
                           {row.periodStatus === 'vencido' && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
@@ -3066,7 +3066,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 5. Limite para Gozo (Linha Única) */}
-                      <td className="py-1 px-3 whitespace-nowrap">
+                      <td className="py-1 px-3 whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <span
                           className={`inline-flex items-center px-1.5 py-0.5 rounded border font-mono text-[11px] font-bold ${
                             row.periodStatus === 'vencido'
@@ -3082,7 +3082,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 6. Ações (Botões Horizontais Achatados de Perfil Baixo com Mini-Ícones) */}
-                      <td className="py-1 px-3 text-right whitespace-nowrap">
+                      <td className="py-1 px-3 text-right whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <div className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
                           {/* Botão "Efetivar Gozo" (quando programado) */}
                           {row.isProgramado && vac && (
