@@ -3717,38 +3717,16 @@ export function isCorruptedOrGhostDocumento(d: any): boolean {
   const idStr = String(d.id || '').trim();
   if (isDeletedDocumentoEntradaId(idStr)) return true;
 
-  // 1. É um item de entrada (possui documento_entrada_id ou prefixo de item)
+  // 1. É estritamente um item de linha (possui documento_entrada_id apontando para outro documento ou prefixo de item)
   if (d.documento_entrada_id) return true;
   if (idStr.startsWith('item_') || idStr.startsWith('doc_item_')) return true;
 
-  // 2. Extrai dados para análise de padrão fantasma
-  const fornecedor = String(d.fornecedor || d.fornecedor_nome || d.supplier || '').trim().toUpperCase();
-  const obs = String(d.observacoes || d.description || '').trim().toUpperCase();
-  const tipo = String(d.tipo_documento || d.documentType || '').trim().toUpperCase();
-
-  const isGenericSupplier = !fornecedor || fornecedor === 'FORNECEDOR' || fornecedor === 'FORNECEDOR NF-E';
-  const isGenericObs = !obs || obs === 'ENTRADA MANUAL: ROMANEIO' || obs === 'ENTRADA MANUAL ROMANEIO';
-
-  // Se possui propriedades exclusivas de item de produto (quantidade, valor_unitario, produto_id, descricao de produto)
-  const hasLineItemProps = Boolean(
-    d.produto_id || 
-    (d.descricao && (d.quantidade !== undefined || d.valor_unitario !== undefined)) ||
-    (d.quantidade !== undefined && d.valor_unitario !== undefined && !d.numero && !d.chave_acesso)
-  );
-
-  if (hasLineItemProps && isGenericSupplier) {
+  // 2. É um produto avulso sem qualquer atributo de cabeçalho (não tem tipo de documento, valor total nem status)
+  if (d.produto_id && !d.tipo_documento && d.valor_total === undefined && !d.status) {
     return true;
   }
 
-  // Se é o clone fantasma característico das imagens do usuário:
-  // Fornecedor genérico ("FORNECEDOR" ou vazio) + Obs genérica ("ENTRADA MANUAL: ROMANEIO" ou vazio) +
-  // Sem número de documento/chave e com tipo 'Romaneio' ou vazio
-  if (isGenericSupplier && isGenericObs && !d.numero && !d.numero_documento && !d.chave_acesso) {
-    if (d.documento_entrada_id || d.produto_id || d.quantidade !== undefined || idStr.startsWith('item_') || fornecedor === 'FORNECEDOR') {
-      return true;
-    }
-  }
-
+  // Registros de documentos legítimos (mesmo entradas manuais sem chave de acesso, sem número ou com observação padrão) NUNCA são fantasmas
   return false;
 }
 

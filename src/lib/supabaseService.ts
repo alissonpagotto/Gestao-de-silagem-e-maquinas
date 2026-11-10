@@ -711,12 +711,6 @@ export async function deleteDocumentoEntrada(id: string): Promise<boolean> {
 export async function purgeGhostDocumentosEntradaFromCloud(): Promise<void> {
   if (!isSupabaseConfigured) return;
   try {
-    // Deleta registros da tabela documentos_entrada com o padrão fantasma (fornecedor genérico e obs genérica)
-    await supabase
-      .from('documentos_entrada')
-      .delete()
-      .or("fornecedor.eq.FORNECEDOR,fornecedor_nome.eq.FORNECEDOR,observacoes.ilike.%ENTRADA MANUAL: ROMANEIO%,observacoes.ilike.%ENTRADA MANUAL ROMANEIO%");
-
     // Exclui no Supabase qualquer ID registrado nos tombstones locais
     const deletedIds = Array.from(getDeletedDocumentoEntradaIds());
     if (deletedIds.length > 0) {

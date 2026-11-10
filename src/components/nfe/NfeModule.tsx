@@ -2843,9 +2843,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       let activeDocId = currentManualDoc?.id;
       let finalDoc: DocumentoEntradaRecord;
 
+      const docNumero = currentManualDoc?.numero || currentManualDoc?.numero_documento || (activeDocId ? activeDocId.slice(0, 8).toUpperCase() : `DOC-${Date.now().toString().slice(-6)}`);
+
       if (currentManualDoc) {
         finalDoc = {
           ...currentManualDoc,
+          numero: docNumero,
+          numero_documento: docNumero,
           fornecedor: trimmedSupplier,
           fornecedor_nome: trimmedSupplier,
           data: manualDate,
@@ -2854,18 +2858,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
-          observacoes: manualNotes.trim(),
+          observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
           status: 'Finalizado',
           updated_at: new Date().toISOString()
         };
         activeDocId = finalDoc.id;
         updateDocumentoEntrada(currentManualDoc.id, {
+          numero: docNumero,
+          numero_documento: docNumero,
           fornecedor: trimmedSupplier,
           data: manualDate,
           data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
-          observacoes: manualNotes.trim(),
+          observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
           status: 'Finalizado'
         }).catch(e => console.warn('Aviso updateDocumentoEntrada:', e));
       } else {
@@ -2873,6 +2879,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         activeDocId = newDocId;
         finalDoc = {
           id: newDocId,
+          numero: docNumero,
+          numero_documento: docNumero,
           fornecedor: trimmedSupplier,
           fornecedor_nome: trimmedSupplier,
           data: manualDate,
@@ -2881,7 +2889,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
-          observacoes: manualNotes.trim(),
+          observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
           status: 'Finalizado',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -2890,7 +2898,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
 
       // 1. CORREÇÃO DA EXIBIÇÃO NO HISTÓRICO (PRINT 1):
-      // Salva o cabeçalho completo da nota estritamente na chave 'agrocontrol_notas_entradas' do LocalStorage
+      // Salva o cabeçalho completo da nota estritamente nas chaves de persistência e atualiza o estado
       const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
       let notasAtuais: DocumentoEntradaRecord[] = [];
       if (rawNotas) {
@@ -3218,13 +3226,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // 1. Notas Fiscais Eletrônicas via XML
     notasFiscaisExibicao.forEach(exp => {
+      const expDate = (exp as any).issueDate || (exp as any).entryDate || (exp as any).data_emissao || (exp as any).data_entrada || (exp as any).date || exp.dueDate || exp.createdAt || '';
       list.push({
         id: exp.id,
         sourceType: 'xml',
         documentNumber: exp.invoiceNumber || 'NF-e',
         supplier: exp.supplier || 'Fornecedor NF-e',
         description: exp.description || 'Importada via NF-e (XML)',
-        date: exp.dueDate || exp.createdAt || '',
+        date: expDate,
         amount: Number(exp.amount) || 0,
         status: exp.status || 'pendente',
         documentType: 'XML / NF-e',
@@ -3239,19 +3248,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const tipo = doc.tipo_documento || 'Romaneio';
       let badge: 'sky' | 'amber' | 'purple' | 'emerald' | 'stone' = 'amber';
       if (tipo === 'Romaneio') badge = 'amber';
-      else if (tipo === 'Nota avulsa') badge = 'sky';
+      else if (tipo === 'Nota avulsa' || tipo === 'Nota Fiscal' || tipo === 'NF-e') badge = 'sky';
       else if (tipo === 'Cupom sem valor fiscal') badge = 'purple';
       else if (tipo === 'Nota de Produtor') badge = 'emerald';
       else if (tipo === 'Recibo') badge = 'purple';
       else badge = 'stone';
 
+      const docNum = doc.numero || doc.numero_documento || (doc.chave_acesso ? doc.chave_acesso.slice(25, 34) : '') || tipo;
+      const docDate = doc.data || doc.data_entrada || doc.data_emissao || doc.created_at || doc.data_vencimento || '';
+
       list.push({
         id: doc.id,
-        sourceType: 'manual',
-        documentNumber: tipo,
+        sourceType: (tipo === 'Nota Fiscal' || tipo === 'NF-e' || tipo === 'XML / NF-e') ? 'xml' : 'manual',
+        documentNumber: docNum,
         supplier: doc.fornecedor || doc.fornecedor_nome || 'Fornecedor',
-        description: doc.observacoes ? doc.observacoes : `Entrada manual: ${tipo}`,
-        date: doc.data || doc.data_entrada || doc.data_emissao || doc.created_at || '',
+        description: doc.observacoes ? doc.observacoes : (doc.descricao ? doc.descricao : `Entrada manual: ${tipo}`),
+        date: docDate,
         amount: Number(doc.valor_total) || 0,
         status: doc.status || 'Finalizado',
         documentType: tipo,
@@ -3263,16 +3275,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 3. TRAVA DE UNICIDADE E DESDUPLICAÇÃO NA RENDERIZAÇÃO
     const dedupedList: typeof list = [];
     const seenIds = new Set<string>();
-    const seenSignatures = new Set<string>();
+    const seenAccessKeys = new Set<string>();
+    const seenDocSignatures = new Set<string>();
 
     for (const item of list) {
       const cleanId = String(item.id || '').trim();
       if (cleanId && seenIds.has(cleanId)) continue;
       if (cleanId) seenIds.add(cleanId);
 
-      const sig = `${item.sourceType}_${item.documentNumber}_${item.supplier.trim().toLowerCase()}_${item.date}_${item.amount.toFixed(2)}`;
-      if (seenSignatures.has(sig)) continue;
-      seenSignatures.add(sig);
+      // Desduplica por chave de acesso quando existente
+      const accessKey = item.rawExpense?.accessKey || item.rawManualDoc?.chave_acesso || '';
+      if (accessKey && accessKey.length === 44) {
+        const keySig = `key_${accessKey}`;
+        if (seenAccessKeys.has(keySig)) continue;
+        seenAccessKeys.add(keySig);
+      }
+
+      // Desduplica registros idênticos por número de documento + fornecedor + valor
+      const cleanDocDigits = item.documentNumber.replace(/\D/g, '');
+      const supplierNorm = item.supplier.trim().toLowerCase();
+      if (cleanDocDigits && cleanDocDigits.length >= 3 && supplierNorm) {
+        const docSig = `num_${cleanDocDigits}_${supplierNorm}_${item.amount.toFixed(2)}`;
+        if (seenDocSignatures.has(docSig)) continue;
+        seenDocSignatures.add(docSig);
+      }
 
       dedupedList.push(item);
     }
@@ -3298,9 +3324,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return dedupedList;
   }, [notasFiscaisExibicao, documentosEntrada, searchNfeNumber]);
 
-  // Lista unificada filtrada pela competência ativa (MM/AAAA)
+  // Lista unificada filtrada pela competência ativa (MM/AAAA) com tolerância a múltiplos campos de data
   const filteredUnifiedEntries = useMemo(() => {
-    return unifiedEntries.filter(item => matchesCompetence(item.date, fiscalCompetence));
+    return unifiedEntries.filter(item => {
+      // 1. Data primária consolidada do registro
+      if (matchesCompetence(item.date, fiscalCompetence)) return true;
+
+      // 2. Datas do registro de despesa / NF-e XML
+      if (item.rawExpense) {
+        const exp = item.rawExpense;
+        if (matchesCompetence((exp as any).issueDate, fiscalCompetence)) return true;
+        if (matchesCompetence((exp as any).entryDate, fiscalCompetence)) return true;
+        if (matchesCompetence(exp.dueDate, fiscalCompetence)) return true;
+        if (matchesCompetence(exp.paymentDate, fiscalCompetence)) return true;
+        if (matchesCompetence(exp.createdAt, fiscalCompetence)) return true;
+      }
+
+      // 3. Datas do documento de entrada manual
+      if (item.rawManualDoc) {
+        const doc = item.rawManualDoc;
+        if (matchesCompetence(doc.data, fiscalCompetence)) return true;
+        if (matchesCompetence(doc.data_entrada, fiscalCompetence)) return true;
+        if (matchesCompetence(doc.data_emissao, fiscalCompetence)) return true;
+        if (matchesCompetence(doc.data_vencimento, fiscalCompetence)) return true;
+        if (matchesCompetence(doc.created_at, fiscalCompetence)) return true;
+      }
+
+      // 4. Se a data for ausente ou vazia, não descarta o registro recém-criado na competência ativa
+      if (!item.date || item.date.trim() === '') {
+        return true;
+      }
+
+      return false;
+    });
   }, [unifiedEntries, fiscalCompetence]);
 
   // Centros de Custo locais e sincronização
@@ -5923,13 +5979,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 2. UNICIDADE DO REGISTRO FISCAL: Salva rigorosamente 1 ÚNICA LINHA no Histórico de Notas Fiscais Lançadas
     // Exibindo o VALOR TOTAL BRUTO CONSOLIDADO da NF-e (ex: R$ 600,00 ou R$ 44.365,25)
     const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
+    const issueDateFinal = parsedData.issueDate || parsedData.entryDate || new Date().toISOString().split('T')[0];
+    const entryDateFinal = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
+    const dueDateFinal = detailedInstallments[0]?.dueDate || parsedData.dueDate || issueDateFinal;
+
     const singleFiscalRecord: Expense = {
       id: fiscalRecordId,
       invoiceNumber: cleanInvoiceNumber,
       supplier: parsedData.supplier,
       description: `Compra ${cleanInvoiceNumber} - ${parsedData.supplier}${totalParcs > 1 ? ` (${totalParcs} parcelas)` : ''}`,
       amount: Number(parsedData.totalAmount) || 0, // VALOR TOTAL BRUTO CONSOLIDADO
-      dueDate: detailedInstallments[0]?.dueDate || parsedData.dueDate || parsedData.issueDate,
+      date: issueDateFinal,
+      dueDate: dueDateFinal,
+      issueDate: issueDateFinal,
+      entryDate: entryDateFinal,
       status: 'pendente' as const,
       categoryId: catId,
       categoryName: catName,
@@ -5953,6 +6016,38 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     );
     const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
     saveStoredFiscalRecords(updatedFiscalList);
+
+    // 3. PERSISTÊNCIA DEFINITIVA DO CABEÇALHO DA NOTA (tabela documentos_entrada + LocalStorage):
+    const docEntradaFinal: DocumentoEntradaRecord = {
+      id: fiscalRecordId,
+      numero: cleanInvoiceNumber,
+      numero_documento: cleanInvoiceNumber,
+      serie: parsedData.series || '1',
+      chave_acesso: parsedData.accessKey || undefined,
+      fornecedor: parsedData.supplier,
+      fornecedor_nome: parsedData.supplier,
+      fornecedor_cnpj: parsedData.supplierCnpj || undefined,
+      data: issueDateFinal,
+      data_entrada: entryDateFinal,
+      data_emissao: issueDateFinal,
+      data_vencimento: dueDateFinal,
+      tipo_documento: 'Nota Fiscal',
+      valor_total: Number(parsedData.totalAmount) || 0,
+      natureza_operacao: parsedData.transactionType || parsedData.operationNature,
+      observacoes: `NF-e ${cleanInvoiceNumber} importada via XML. Fornecedor: ${parsedData.supplier}. Total: ${formatCurrencyBRL(parsedData.totalAmount)}.`,
+      status: 'Finalizado',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    insertDocumentoEntrada(docEntradaFinal).catch(e => console.warn('Aviso insertDocumentoEntrada para NF-e:', e));
+
+    const currentStoredDocs = getStoredDocumentosEntrada();
+    const updatedDocsList = [docEntradaFinal, ...currentStoredDocs.filter(d => 
+      d.id !== fiscalRecordId && 
+      (d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+    )];
+    saveStoredDocumentosEntrada(updatedDocsList);
+    setDocumentosEntrada(updatedDocsList);
 
     // Atualiza o estado da tabela de Histórico Fiscal com unicidade estrita
     setNotasLancadas(prev => {
@@ -7677,9 +7772,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         if (target && target.closest('button')) {
                           return;
                         }
-                        if (isXml && entry.rawExpense) {
+                        if (entry.rawExpense) {
                           handleEditNota(entry.rawExpense);
-                        } else if (!isXml && entry.rawManualDoc) {
+                        } else if (entry.rawManualDoc) {
                           if (entry.rawManualDoc.status === 'Rascunho') {
                             handleOpenEditManualDoc(entry.rawManualDoc);
                           } else {
@@ -7746,13 +7841,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           )}
 
                           {/* 2. Botão Editar (Lápis) */}
-                          {isXml ? (
+                          {entry.rawExpense ? (
                             <button
                               type="button"
                               id={`btn-edit-nfe-${entry.id}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (entry.rawExpense) handleEditNota(entry.rawExpense);
+                                handleEditNota(entry.rawExpense!);
                               }}
                               className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={`Editar detalhes da nota ${entry.documentNumber}`}
@@ -7777,13 +7872,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           )}
 
                           {/* 3. Botão Ver (Olho) */}
-                          {isXml ? (
+                          {entry.rawExpense ? (
                             <button
                               type="button"
                               id={`btn-view-nfe-${entry.id}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (entry.rawExpense) handleEditNota(entry.rawExpense);
+                                handleEditNota(entry.rawExpense!);
                               }}
                               className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={`Visualizar detalhes da nota ${entry.documentNumber}`}

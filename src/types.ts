@@ -98,6 +98,8 @@ export interface Expense {
   teamName?: string;
   employeeApportionment?: string;
   invoiceNumber?: string;
+  issueDate?: string;
+  entryDate?: string;
   receiptUrl?: string; // Data URL or filename
   receiptName?: string;
   notes?: string;
@@ -1995,15 +1997,22 @@ export interface DocumentoEntrada {
 
 export interface DocumentoEntradaRecord {
   id: string;
+  numero?: string;
+  numero_documento?: string;
+  serie?: string;
+  chave_acesso?: string;
   company_id?: string;
   fornecedor: string;
   fornecedor_nome?: string;
   fornecedor_id?: string | null;
+  fornecedor_cnpj?: string;
   data: string;
   data_emissao?: string;
   data_entrada?: string;
   data_vencimento?: string;
   tipo_documento: string;
+  natureza_operacao?: string;
+  descricao?: string;
   valor_total: number;
   observacoes?: string;
   status?: 'Rascunho' | 'Finalizado' | string;
