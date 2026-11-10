@@ -226,151 +226,121 @@ export function generateVacationScheduleReportHtml({
           new Date(a.updatedAt || a.createdAt || 0).getTime()
       );
 
-    // Registro ativo prioritário (programado ou em gozo)
-    const activeVac = empVacations.find((v) => {
-      const sit = String(v.situacao_execucao || v.status || '').toUpperCase();
-      return sit === 'PROGRAMADO' || sit === 'AGENDADO' || sit === 'EM_GOZO';
+    // Varre todos os períodos de 12 meses completados desde a admissão até hoje + o ciclo proporcional em curso
+    const admParts = rawAdm.split('-').map(Number);
+    const admDate =
+      admParts.length === 3 && !isNaN(admParts[0])
+        ? new Date(admParts[0], admParts[1] - 1, admParts[2], 12, 0, 0)
+        : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+    const todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+
+    interface ReportCycle {
+      startIso: string;
+      endIso: string;
+      isCompleted: boolean;
+    }
+
+    const cyclesList: ReportCycle[] = [];
+    let cycleIdx = 0;
+    while (true) {
+      const cStart = new Date(admDate.getFullYear() + cycleIdx, admDate.getMonth(), admDate.getDate(), 12, 0, 0);
+      const cEnd = new Date(admDate.getFullYear() + cycleIdx + 1, admDate.getMonth(), admDate.getDate() - 1, 12, 0, 0);
+      const sIso = formatIsoDateOnly(cStart.toISOString()) || '';
+      const eIso = formatIsoDateOnly(cEnd.toISOString()) || '';
+      if (!sIso || !eIso) break;
+      if (cEnd <= todayNoon) {
+        cyclesList.push({ startIso: sIso, endIso: eIso, isCompleted: true });
+        cycleIdx++;
+      } else {
+        cyclesList.push({ startIso: sIso, endIso: eIso, isCompleted: false });
+        break;
+      }
+    }
+
+    for (const v of empVacations) {
+      const vStart = formatIsoDateOnly(v.acquisitionPeriodStart || '');
+      const vEnd = formatIsoDateOnly(v.acquisitionPeriodEnd || '') || (vStart ? calculateAcqEnd(vStart) : '');
+      if (vStart && vEnd && !cyclesList.some((c) => c.startIso === vStart || c.endIso === vEnd)) {
+        cyclesList.push({ startIso: vStart, endIso: vEnd, isCompleted: vEnd <= todayIso });
+      }
+    }
+    cyclesList.sort((a, b) => a.startIso.localeCompare(b.startIso));
+
+    const cycleRecordMap = new Map<string, VacationRecord>();
+    const unassigned: VacationRecord[] = [];
+    for (const v of empVacations) {
+      const vStart = formatIsoDateOnly(v.acquisitionPeriodStart || '');
+      const vEnd = formatIsoDateOnly(v.acquisitionPeriodEnd || '');
+      const matched = cyclesList.find((c) => (vStart && c.startIso === vStart) || (vEnd && c.endIso === vEnd));
+      if (matched) {
+        if (!cycleRecordMap.has(matched.startIso)) cycleRecordMap.set(matched.startIso, v);
+      } else {
+        unassigned.push(v);
+      }
+    }
+    if (unassigned.length > 0) {
+      for (const leg of unassigned) {
+        const target = cyclesList.find((c) => c.isCompleted && !cycleRecordMap.has(c.startIso)) ||
+          cyclesList.find((c) => !cycleRecordMap.has(c.startIso));
+        if (target) cycleRecordMap.set(target.startIso, leg);
+      }
+    }
+
+    const lastC = cyclesList[cyclesList.length - 1];
+    if (lastC) {
+      const lastRec = cycleRecordMap.get(lastC.startIso);
+      if (lastRec) {
+        const sit = String(lastRec.situacao_execucao || lastRec.status || '').toUpperCase();
+        if (sit === 'EM_GOZO' || sit === 'CONCLUIDO' || sit === 'QUITADO' || sit === 'REGULAR') {
+          const nextStart = calculateNextAcqStart(lastC.endIso);
+          const nextEnd = calculateAcqEnd(nextStart);
+          if (nextStart && nextEnd && !cyclesList.some((c) => c.startIso === nextStart)) {
+            cyclesList.push({ startIso: nextStart, endIso: nextEnd, isCompleted: nextEnd <= todayIso });
+          }
+        }
+      }
+    }
+
+    cyclesList.forEach((cycle, cIdx) => {
+      const vac = cycleRecordMap.get(cycle.startIso);
+      const sit = vac ? String(vac.situacao_execucao || vac.status || '').toUpperCase() : '';
+      const isSettled = sit === 'CONCLUIDO' || sit === 'QUITADO' || sit === 'REGULAR' || String(vac?.status || '').toLowerCase() === 'concluido';
+      const isEmGozo = sit === 'EM_GOZO';
+
+      const cLimit = calculateConcessiveLimit(cycle.endIso);
+      const cFaltas = getAbsencesCount(emp.id, emp.name, cycle.startIso, cycle.endIso, absences);
+      const cAfast = getLeavesCount(emp.id, emp.name, cycle.startIso, cycle.endIso, leaves);
+      const cDir = getCltRightDays(cFaltas);
+
+      const cGozoStart = vac?.startDate ? formatDateBR(vac.startDate) : '..../..../......';
+      const cDiasFerias = vac?.daysCount ? vac.daysCount : (vac?.startDate ? 30 : '-');
+      const cDiasAbono = vac?.sellDaysCount ? vac.sellDaysCount : '-';
+      const cDecimo = vac ? (vac.thirteenthAdvance ? 'S' : 'N') : '-';
+      const cGozados = isSettled ? (vac?.daysCount || cDir) : 0;
+      const cRestantes = Math.max(0, cDir - cGozados - (vac?.sellDaysCount || 0));
+
+      reportRows.push({
+        isFirstRowOfEmployee: cIdx === 0,
+        employeeCode: cIdx === 0 ? empCode : '',
+        employeeName: cIdx === 0 ? empName : '',
+        admissionDate: cIdx === 0 ? admFormatted : '',
+        venctoFerias: cycle.isCompleted ? formatDateBR(cycle.endIso) : '..../..../......',
+        ferVenc: cycle.isCompleted && !isSettled && !isEmGozo ? 'S' : 'N',
+        ferPro: !cycle.isCompleted ? 'S' : 'N',
+        inicioAquisitivo: formatDateBR(cycle.startIso),
+        fimAquisitivo: formatDateBR(cycle.endIso),
+        inicioGozoFerias: cGozoStart,
+        diasFerias: cDiasFerias,
+        diasAbono: cDiasAbono,
+        decimoTerceiro: cDecimo,
+        diasDireito: cDir,
+        diasGozados: cGozados,
+        diasRestantes: cRestantes,
+        limiteGozo: formatDateBR(cLimit),
+        diasAfastamento: cAfast > 0 ? cAfast : 0,
+        diasFaltas: cFaltas > 0 ? cFaltas : 0,
+      });
     });
-
-    // Período aquisitivo cadastrado ou deduzido da admissão
-    let primaryStart = formatIsoDateOnly(
-      emp.acquisitionPeriodStart || (emp as any).periodo_aquisitivo_inicio || ''
-    );
-    if (!primaryStart && activeVac?.acquisitionPeriodStart) {
-      primaryStart = formatIsoDateOnly(activeVac.acquisitionPeriodStart);
-    }
-    if (!primaryStart) {
-      primaryStart = rawAdm;
-    }
-
-    let primaryEnd = formatIsoDateOnly(
-      emp.acquisitionPeriodEnd || (emp as any).periodo_aquisitivo_fim || ''
-    );
-    if (!primaryEnd && activeVac?.acquisitionPeriodEnd) {
-      primaryEnd = formatIsoDateOnly(activeVac.acquisitionPeriodEnd);
-    }
-    if (!primaryEnd && primaryStart) {
-      primaryEnd = calculateAcqEnd(primaryStart);
-    }
-
-    // Identifica se o período primário já está vencido
-    const isPrimaryExpired = Boolean(primaryEnd && primaryEnd <= todayIso);
-
-    // Tratamento especial para colaboradores com múltiplos períodos (ex: Casssiano Gregolin ou quem tem período vencido + proporcional em curso)
-    const hasMultiplePeriods = isPrimaryExpired || empVacations.length > 1 || empName.includes('GREGOLIN') || empNameReduced.includes('CASSIANO');
-
-    if (hasMultiplePeriods) {
-      // -------------------------------------------------------------
-      // 1. LINHA DO PERÍODO VENCIDO
-      // -------------------------------------------------------------
-      const vStart = primaryStart;
-      const vEnd = primaryEnd || calculateAcqEnd(vStart);
-      const vLimit = calculateConcessiveLimit(vEnd);
-      const vFaltas = getAbsencesCount(emp.id, emp.name, vStart, vEnd, absences);
-      const vAfast = getLeavesCount(emp.id, emp.name, vStart, vEnd, leaves);
-      const vDir = getCltRightDays(vFaltas);
-
-      // Dados de gozo se houver férias programadas ou vinculadas a este período
-      const vGozoStart = activeVac?.startDate ? formatDateBR(activeVac.startDate) : '..../..../......';
-      const vDiasFerias = activeVac?.daysCount ? activeVac.daysCount : (activeVac?.startDate ? 30 : 30);
-      const vDiasAbono = activeVac?.sellDaysCount ? activeVac.sellDaysCount : '-';
-      const vDecimo = activeVac?.thirteenthAdvance ? 'S' : 'N';
-      const vGozados = String(activeVac?.status || '').toLowerCase() === 'concluido' ? (activeVac?.daysCount || 30) : 0;
-      const vRestantes = Math.max(0, vDir - vGozados - (activeVac?.sellDaysCount || 0));
-
-      reportRows.push({
-        isFirstRowOfEmployee: true,
-        employeeCode: empCode,
-        employeeName: empName,
-        admissionDate: admFormatted,
-        venctoFerias: formatDateBR(vEnd),
-        ferVenc: 'S',
-        ferPro: 'N',
-        inicioAquisitivo: formatDateBR(vStart),
-        fimAquisitivo: formatDateBR(vEnd),
-        inicioGozoFerias: vGozoStart,
-        diasFerias: vDiasFerias,
-        diasAbono: vDiasAbono,
-        decimoTerceiro: vDecimo,
-        diasDireito: vDir,
-        diasGozados: vGozados,
-        diasRestantes: vRestantes,
-        limiteGozo: formatDateBR(vLimit),
-        diasAfastamento: vAfast > 0 ? vAfast : 0,
-        diasFaltas: vFaltas > 0 ? vFaltas : 0,
-      });
-
-      // -------------------------------------------------------------
-      // 2. LINHA SUBSEQUENTE: PERÍODO PROPORCIONAL EM ANDAMENTO
-      // -------------------------------------------------------------
-      const propStart = calculateNextAcqStart(vEnd);
-      const propEnd = calculateAcqEnd(propStart);
-      const propLimit = calculateConcessiveLimit(propEnd);
-      const propFaltas = getAbsencesCount(emp.id, emp.name, propStart, propEnd, absences);
-      const propAfast = getLeavesCount(emp.id, emp.name, propStart, propEnd, leaves);
-      const propDir = getCltRightDays(propFaltas);
-
-      reportRows.push({
-        isFirstRowOfEmployee: false,
-        employeeCode: '',
-        employeeName: '',
-        admissionDate: '',
-        venctoFerias: '..../..../......',
-        ferVenc: 'N',
-        ferPro: 'S',
-        inicioAquisitivo: formatDateBR(propStart),
-        fimAquisitivo: formatDateBR(propEnd),
-        inicioGozoFerias: '..../..../......',
-        diasFerias: '-',
-        diasAbono: '-',
-        decimoTerceiro: '-',
-        diasDireito: propDir,
-        diasGozados: 0,
-        diasRestantes: propDir,
-        limiteGozo: formatDateBR(propLimit),
-        diasAfastamento: propAfast > 0 ? propAfast : 0,
-        diasFaltas: propFaltas > 0 ? propFaltas : 0,
-      });
-    } else {
-      // -------------------------------------------------------------
-      // CASO DE PERÍODO ÚNICO (FUNCIONÁRIO ADMITIDO MAIS RECENTEMENTE)
-      // -------------------------------------------------------------
-      const pStart = primaryStart;
-      const pEnd = primaryEnd || calculateAcqEnd(pStart);
-      const pLimit = calculateConcessiveLimit(pEnd);
-      const pFaltas = getAbsencesCount(emp.id, emp.name, pStart, pEnd, absences);
-      const pAfast = getLeavesCount(emp.id, emp.name, pStart, pEnd, leaves);
-      const pDir = getCltRightDays(pFaltas);
-
-      const pGozoStart = activeVac?.startDate ? formatDateBR(activeVac.startDate) : '..../..../......';
-      const pDiasFerias = activeVac?.daysCount ? activeVac.daysCount : (activeVac?.startDate ? 30 : '-');
-      const pDiasAbono = activeVac?.sellDaysCount ? activeVac.sellDaysCount : '-';
-      const pDecimo = activeVac?.thirteenthAdvance ? 'S' : '-';
-      const pGozados = String(activeVac?.status || '').toLowerCase() === 'concluido' ? (activeVac?.daysCount || 30) : 0;
-      const pRestantes = Math.max(0, pDir - pGozados - (activeVac?.sellDaysCount || 0));
-
-      reportRows.push({
-        isFirstRowOfEmployee: true,
-        employeeCode: empCode,
-        employeeName: empName,
-        admissionDate: admFormatted,
-        venctoFerias: isPrimaryExpired ? formatDateBR(pEnd) : '..../..../......',
-        ferVenc: isPrimaryExpired ? 'S' : 'N',
-        ferPro: isPrimaryExpired ? 'N' : 'S',
-        inicioAquisitivo: formatDateBR(pStart),
-        fimAquisitivo: formatDateBR(pEnd),
-        inicioGozoFerias: pGozoStart,
-        diasFerias: pDiasFerias,
-        diasAbono: pDiasAbono,
-        decimoTerceiro: pDecimo,
-        diasDireito: pDir,
-        diasGozados: pGozados,
-        diasRestantes: pRestantes,
-        limiteGozo: formatDateBR(pLimit),
-        diasAfastamento: pAfast > 0 ? pAfast : 0,
-        diasFaltas: pFaltas > 0 ? pFaltas : 0,
-      });
-    }
   });
 
   const totalEmployeesCount = activeEmployees.length;

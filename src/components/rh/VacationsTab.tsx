@@ -491,6 +491,71 @@ function calculateAcquisitionEndIso(startIso: string): string {
 }
 
 /**
+ * Calcula o início do próximo período aquisitivo (+1 dia após o término do anterior, ou +1 ano do início).
+ */
+function calculateNextAcquisitionStartIso(acquisitionEndIso: string, fallbackStartIso?: string): string {
+  const cleanEnd = formatIsoDateOnly(acquisitionEndIso);
+  if (cleanEnd) {
+    const parts = cleanEnd.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0])) {
+      const nextObj = new Date(parts[0], parts[1] - 1, parts[2] + 1, 12, 0, 0);
+      return formatIsoDateOnly(nextObj.toISOString()) || '';
+    }
+  }
+  const cleanStart = formatIsoDateOnly(fallbackStartIso || '');
+  if (cleanStart) {
+    const parts = cleanStart.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0])) {
+      const nextObj = new Date(parts[0] + 1, parts[1] - 1, parts[2], 12, 0, 0);
+      return formatIsoDateOnly(nextObj.toISOString()) || '';
+    }
+  }
+  return '';
+}
+
+/**
+ * Calcula meses e dias proporcionais (regra >= 14 dias da CLT = 1 mês integral) a partir do início de um ciclo.
+ */
+function calculateProportionalMonthsAndDays(
+  startIso: string,
+  referenceDate: Date = new Date()
+): { proportionalMonths: number; proportionalDays: number; formattedProp: string } {
+  const clean = formatIsoDateOnly(startIso);
+  if (!clean) return { proportionalMonths: 0, proportionalDays: 0, formattedProp: '0' };
+  const parts = clean.split('-').map(Number);
+  if (parts.length !== 3 || isNaN(parts[0])) {
+    return { proportionalMonths: 0, proportionalDays: 0, formattedProp: '0' };
+  }
+  const curStart = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+  const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate(), 12, 0, 0);
+
+  let proportionalMonths = 0;
+  if (curStart < today) {
+    let cursor = new Date(curStart.getTime());
+    while (proportionalMonths < 12) {
+      const nextMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate(), 12, 0, 0);
+      if (nextMonth <= today) {
+        proportionalMonths++;
+        cursor = nextMonth;
+      } else {
+        const msDiff = today.getTime() - cursor.getTime();
+        const daysDiff = Math.floor(msDiff / (1000 * 60 * 60 * 24));
+        if (daysDiff >= 14) {
+          proportionalMonths++;
+        }
+        break;
+      }
+    }
+  }
+  proportionalMonths = Math.min(12, proportionalMonths);
+  const proportionalDays = Math.round(proportionalMonths * 2.5 * 10) / 10;
+  const formattedProp =
+    proportionalDays % 1 === 0 ? String(proportionalDays) : proportionalDays.toString().replace('.', ',');
+
+  return { proportionalMonths, proportionalDays, formattedProp };
+}
+
+/**
  * Calcula a data Limite para Gozo (data final do período concessivo),
  * somando estritamente 11 meses ao fim do período aquisitivo para evitar pagamento em dobro.
  */
@@ -838,6 +903,9 @@ export interface VacationManagementRow {
   proportionalMonths: number;
   diasDireitoLabel: string;
   statusPeriodoLabel: string;
+  cycleNumber: number;
+  totalCycles: number;
+  isCurrentOngoingCycle: boolean;
 }
 
 export const VacationsTab: React.FC<VacationsTabProps> = ({
@@ -1073,11 +1141,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     activeEmployees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
 
-    const rows: VacationManagementRow[] = activeEmployees.map((emp) => {
+    const rows: VacationManagementRow[] = activeEmployees.flatMap((emp) => {
       const empUuid = toValidUUID(emp.id);
       const empNameNorm = (emp.name || '').trim().toUpperCase();
 
-      // Busca registros de férias deste colaborador na tabela rh_ferias ordenados pelo mais recente
+      // Busca todos os registros de férias não-cancelados deste colaborador ordenados do mais recente ao mais antigo
       const empVacations = (vacations || [])
         .filter((v) => {
           if (!v || v.status === 'cancelado' || String(v.situacao_execucao || '').toUpperCase() === 'CANCELADO') {
@@ -1092,9 +1160,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             new Date(b.updatedAt || b.createdAt || 0).getTime() -
             new Date(a.updatedAt || a.createdAt || 0).getTime()
         );
-
-      // Avalia o alerta automático de férias (mesma função unificada da aba Funcionários)
-      const alertInfo = evaluateEmployeeVacationAlert(emp, vacations);
 
       let rawAdm =
         formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at || (emp as any).dataAdmissao || '');
@@ -1112,188 +1177,304 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         }
       }
 
-      // Prioriza qualquer registro ativo ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO') salvo para este colaborador
-      const activeExecutionRecord = empVacations.find((v) => {
-        const sit = normalizeSituacaoExecucaoFerias(v.situacao_execucao || v.status);
-        return sit === 'PROGRAMADO' || sit === 'AGENDADO' || sit === 'EM_GOZO';
-      });
+      // Motor Dinâmico de Cálculo de Férias da CLT (Passos A e B):
+      // Gera TODOS os ciclos completados desde a admissão até hoje + o ciclo proporcional corrente
+      const cltCalc = calculateDynamicCltVacation(rawAdm, empVacations, now);
 
-      // Motor Dinâmico de Cálculo de Férias da CLT (Passos A e B)
-      const cltCalc = calculateDynamicCltVacation(rawAdm, empVacations);
-
-      let acqStart = cltCalc.activePeriodStart;
-      let acqEnd = cltCalc.activePeriodEnd;
-      let concessiveLimit = cltCalc.concessiveLimit;
-
-      // Se houver registro de execução ativo ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO'),
-      // exibe o período aquisitivo correspondente à programação ativa
-      if (activeExecutionRecord && activeExecutionRecord.acquisitionPeriodStart) {
-        acqStart = formatIsoDateOnly(activeExecutionRecord.acquisitionPeriodStart) || acqStart;
-        acqEnd =
-          formatIsoDateOnly(activeExecutionRecord.acquisitionPeriodEnd || '') ||
-          calculateAcquisitionEndIso(acqStart) ||
-          acqEnd;
-        concessiveLimit = calculateConcessiveLimitIso(acqEnd);
+      interface CycleDescriptor {
+        startIso: string;
+        endIso: string;
+        concessiveLimitIso: string;
+        isCompleted: boolean;
       }
 
-      if (!acqEnd && acqStart) {
-        acqEnd = calculateAcquisitionEndIso(acqStart);
-        concessiveLimit = calculateConcessiveLimitIso(acqEnd);
+      const cyclesList: CycleDescriptor[] = [
+        ...cltCalc.completedCycles.map((c) => ({
+          startIso: c.startIso,
+          endIso: c.endIso,
+          concessiveLimitIso: c.concessiveLimitIso,
+          isCompleted: true,
+        })),
+        {
+          startIso: cltCalc.currentCycle.startIso,
+          endIso: cltCalc.currentCycle.endIso,
+          concessiveLimitIso: cltCalc.currentCycle.concessiveLimitIso,
+          isCompleted: false,
+        },
+      ];
+
+      // Garante presença de eventuais ciclos salvos explicitamente em empVacations (ex: período futuro aberto após transição)
+      for (const v of empVacations) {
+        const vStart = formatIsoDateOnly(v.acquisitionPeriodStart || '');
+        const vEnd = formatIsoDateOnly(v.acquisitionPeriodEnd || '') || (vStart ? calculateAcquisitionEndIso(vStart) : '');
+        if (vStart && vEnd) {
+          const alreadyExists = cyclesList.some((c) => c.startIso === vStart || c.endIso === vEnd);
+          if (!alreadyExists) {
+            cyclesList.push({
+              startIso: vStart,
+              endIso: vEnd,
+              concessiveLimitIso: calculateConcessiveLimitIso(vEnd),
+              isCompleted: vEnd <= todayIso,
+            });
+          }
+        }
       }
 
-      const { rightDays, unjustifiedAbsencesCount } = calculateCltRightDays(
-        emp.id,
-        emp.name,
-        acqStart,
-        acqEnd,
-        activeAbsences
-      );
+      cyclesList.sort((a, b) => a.startIso.localeCompare(b.startIso));
 
-      let periodStatus: 'vencido' | 'proximo' | 'quitado' | 'proporcional' = cltCalc.statusPeriodo;
-      if (cltCalc.hasExpiredPeriod) {
-        periodStatus = 'vencido';
-      } else if (alertInfo.level === 'warning') {
-        periodStatus = 'proximo';
-      } else {
-        periodStatus = cltCalc.statusPeriodo;
+      // Mapeamento estrito por ciclo (1 registro de férias por ciclo aquisitivo)
+      const cycleRecordMap = new Map<string, VacationRecord>();
+      const unassignedRecords: VacationRecord[] = [];
+
+      for (const v of empVacations) {
+        const vStart = formatIsoDateOnly(v.acquisitionPeriodStart || '');
+        const vEnd = formatIsoDateOnly(v.acquisitionPeriodEnd || '');
+        const matchedCycle = cyclesList.find(
+          (c) => (vStart && c.startIso === vStart) || (vEnd && c.endIso === vEnd)
+        );
+        if (matchedCycle) {
+          if (!cycleRecordMap.has(matchedCycle.startIso)) {
+            cycleRecordMap.set(matchedCycle.startIso, v);
+          }
+        } else {
+          unassignedRecords.push(v);
+        }
       }
 
-      // Vincula o registro de férias correspondente a este período (priorizando o registro de execução ativo)
-      const matchingRecord =
-        activeExecutionRecord ||
-        empVacations.find(
-          (v) =>
-            formatIsoDateOnly(v.acquisitionPeriodStart || '') === acqStart ||
-            formatIsoDateOnly(v.acquisitionPeriodEnd || '') === acqEnd
-        ) ||
-        null;
+      // Compatibilidade com registros legados sem acquisitionPeriodStart: atribui cronologicamente aos ciclos completados sem registro
+      if (unassignedRecords.length > 0) {
+        const sortedLegacy = [...unassignedRecords].sort((a, b) =>
+          (formatIsoDateOnly(a.startDate || a.createdAt || '') || '').localeCompare(
+            formatIsoDateOnly(b.startDate || b.createdAt || '') || ''
+          )
+        );
+        for (const legacyRec of sortedLegacy) {
+          const targetCycle =
+            cyclesList.find((c) => c.isCompleted && !cycleRecordMap.has(c.startIso)) ||
+            cyclesList.find((c) => !cycleRecordMap.has(c.startIso));
+          if (targetCycle) {
+            cycleRecordMap.set(targetCycle.startIso, legacyRec);
+          }
+        }
+      }
 
-      const situacaoExecucao = matchingRecord
-        ? normalizeSituacaoExecucaoFerias(matchingRecord.situacao_execucao || matchingRecord.status)
-        : null;
+      // REGRA DE TRANSIÇÃO AUTOMÁTICA: Se o último ciclo visível do colaborador entrou em EM_GOZO ou QUITADO/CONCLUIDO,
+      // abre e desbloqueia imediatamente o próximo período aquisitivo subsequente para nova programação.
+      const lastCycle = cyclesList[cyclesList.length - 1];
+      if (lastCycle) {
+        const lastRec = cycleRecordMap.get(lastCycle.startIso);
+        if (lastRec) {
+          const lastSit = normalizeSituacaoExecucaoFerias(lastRec.situacao_execucao || lastRec.status);
+          const isLastEmGozoOrSettled =
+            lastSit === 'EM_GOZO' ||
+            lastSit === 'CONCLUIDO' ||
+            lastSit === 'QUITADO' ||
+            lastSit === 'REGULAR' ||
+            lastRec.status === 'em_gozo' ||
+            lastRec.status === 'concluido';
 
-      // CARD "FÉRIAS PROGRAMADAS": registros onde 'situacao_execucao' seja igual a 'PROGRAMADO' ou 'AGENDADO',
-      // independentemente se a data de início é a data de hoje
-      const isProgramado = Boolean(
-        matchingRecord &&
-        (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO')
-      );
-
-      // CARD "FÉRIAS EM GOZO AGORA": APENAS os registros onde a 'situacao_execucao' seja explicitamente 'EM_GOZO'
-      const isEmGozo = Boolean(
-        matchingRecord &&
-        situacaoExecucao === 'EM_GOZO'
-      );
-
-      // CARD "QUITADOS / REGULARES": Estritamente colaboradores cujo status do período seja 'QUITADO'
-      // e que NÃO possuam nenhuma pendência de férias vencidas ou em andamento proporcional.
-      const isQuitadoRegular = Boolean(
-        periodStatus === 'quitado' &&
-        !cltCalc.hasExpiredPeriod &&
-        alertInfo.level === 'none' &&
-        !isProgramado &&
-        !isEmGozo
-      );
+          if (isLastEmGozoOrSettled) {
+            const nextStart =
+              formatIsoDateOnly((lastRec as any).nextAcquisitionPeriodStart || '') ||
+              calculateNextAcquisitionStartIso(lastCycle.endIso, lastCycle.startIso);
+            const nextEnd =
+              formatIsoDateOnly((lastRec as any).nextAcquisitionPeriodEnd || '') ||
+              calculateAcquisitionEndIso(nextStart);
+            if (nextStart && nextEnd && !cyclesList.some((c) => c.startIso === nextStart)) {
+              cyclesList.push({
+                startIso: nextStart,
+                endIso: nextEnd,
+                concessiveLimitIso: calculateConcessiveLimitIso(nextEnd),
+                isCompleted: nextEnd <= todayIso,
+              });
+            }
+          }
+        }
+      }
 
       const linkedMachinery = findEmployeeLinkedMachinery(emp, machineriesList);
-
       const roleLabel =
         Array.isArray(emp.roles) && emp.roles.length > 0
           ? emp.roles.join(', ')
           : emp.role || 'Colaborador';
-
-      // 1. CORREÇÃO DO VALOR DO CASSSIANO GREGO LIN (BUSCA DE SALÁRIO BASE):
-      // Busca dinamicamente o salário base real cadastrado na ficha deste colaborador na tabela 'public.funcionarios'
       const activeSalary = getEmployeeContractualSalary(emp.id, emp.name);
+      const totalCycles = cyclesList.length;
 
-      // Sempre que carregar a linha de férias, recalcula o valor bruto e líquido com base no salário contratual ativo atualizado daquele ID
-      let dynamicVacationRecord = matchingRecord;
-      if (matchingRecord && activeSalary > 0) {
-        const effectiveDays = matchingRecord.daysCount || 30;
-        const dailyRate = activeSalary / 30;
-        const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
-        const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
-        const sellDays = matchingRecord.sellDaysCount || 0;
-        const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
-        const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
-        const recalcDecimo = matchingRecord.thirteenthAdvance ? Math.round((activeSalary / 2) * 100) / 100 : 0;
-        const recalcTotalBruto = Math.round(
-          (recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100
-        ) / 100;
+      return cyclesList.map((cycle, idx): VacationManagementRow => {
+        const acqStart = cycle.startIso;
+        const acqEnd = cycle.endIso;
+        const concessiveLimit = cycle.concessiveLimitIso || calculateConcessiveLimitIso(acqEnd);
+        const matchingRecord = cycleRecordMap.get(acqStart) || null;
 
-        const totalDesc = matchingRecord.totalDiscounts ?? (
-          (matchingRecord.inssDiscount || 0) + (matchingRecord.irrfDiscount || 0)
+        const { rightDays, unjustifiedAbsencesCount } = calculateCltRightDays(
+          emp.id,
+          emp.name,
+          acqStart,
+          acqEnd,
+          activeAbsences
         );
-        let recalcLiquido = matchingRecord.valor_liquido_pago !== undefined && matchingRecord.valor_liquido_pago !== null
-          ? Number(matchingRecord.valor_liquido_pago)
-          : (matchingRecord.netAmount !== undefined && matchingRecord.netAmount !== null
-              ? Number(matchingRecord.netAmount)
-              : Math.max(0, Math.round((recalcTotalBruto - totalDesc) * 100) / 100));
 
-        // Como o recibo do Alisson Pagotto está sem descontos (Isento), o valor líquido dele é exatamente R$ 4.000,00
-        if (empNameNorm.includes('ALISSON PAGOTTO')) {
-          recalcLiquido = 4000;
+        const situacaoExecucao = matchingRecord
+          ? normalizeSituacaoExecucaoFerias(matchingRecord.situacao_execucao || matchingRecord.status)
+          : null;
+
+        const isProgramado = Boolean(
+          matchingRecord && (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO')
+        );
+        const isEmGozo = Boolean(matchingRecord && situacaoExecucao === 'EM_GOZO');
+        const isSettled = Boolean(
+          matchingRecord &&
+            (situacaoExecucao === 'CONCLUIDO' ||
+              situacaoExecucao === 'QUITADO' ||
+              situacaoExecucao === 'REGULAR' ||
+              matchingRecord.status === 'concluido')
+        );
+
+        let periodStatus: 'vencido' | 'proximo' | 'quitado' | 'proporcional' = 'proporcional';
+        let statusPeriodoLabel = 'EM ANDAMENTO (PROPORCIONAL)';
+        let expiredDays = 0;
+        let propMonths = 0;
+        let propDays = 0;
+        let diasDireitoLabel = '';
+        let overdueLabel = '';
+        let calculatedMonthsLabel = '';
+
+        if (isSettled) {
+          periodStatus = 'quitado';
+          statusPeriodoLabel = 'QUITADO';
+          expiredDays = 0;
+          const settledDays = matchingRecord?.daysCount || rightDays;
+          diasDireitoLabel = `${settledDays} DIAS QUITADOS`;
+          calculatedMonthsLabel = 'QUITADO';
+        } else if (isEmGozo) {
+          periodStatus = cycle.isCompleted ? 'proporcional' : 'proporcional';
+          statusPeriodoLabel = 'EM GOZO';
+          expiredDays = 0;
+          const gozoDays = matchingRecord?.daysCount || rightDays;
+          diasDireitoLabel = `${gozoDays} DIAS EM GOZO`;
+          calculatedMonthsLabel = 'EM GOZO';
+        } else if (cycle.isCompleted) {
+          periodStatus = 'vencido';
+          statusPeriodoLabel = 'VENCIDO';
+          expiredDays = rightDays;
+          diasDireitoLabel = `${rightDays} DIAS VENCIDOS`;
+          const overdueTime = calculateOverdueTimeFromPeriodEnd(acqEnd, now);
+          overdueLabel = overdueTime.label;
+          calculatedMonthsLabel = overdueTime.label;
+        } else {
+          const prop = calculateProportionalMonthsAndDays(acqStart, now);
+          propMonths = prop.proportionalMonths;
+          propDays = prop.proportionalDays;
+          expiredDays = 0;
+          diasDireitoLabel = `${prop.formattedProp} DIAS PROPORCIONAIS`;
+
+          // Próximo a vencer: entre 11 e 12 meses acumulados no ciclo atual
+          const acqStartParts = acqStart.split('-').map(Number);
+          const elevenMonthsIso =
+            acqStartParts.length === 3
+              ? formatIsoDateOnly(
+                  new Date(acqStartParts[0], acqStartParts[1] - 1 + 11, acqStartParts[2], 12, 0, 0).toISOString()
+                ) || ''
+              : '';
+          if (prop.proportionalMonths >= 11 || (elevenMonthsIso && todayIso >= elevenMonthsIso)) {
+            periodStatus = 'proximo';
+            statusPeriodoLabel = 'PRÓXIMO';
+          } else {
+            periodStatus = 'proporcional';
+            statusPeriodoLabel = 'EM ANDAMENTO (PROPORCIONAL)';
+          }
+          calculatedMonthsLabel = `${prop.proportionalMonths}M ACUMULADOS`;
         }
 
-        dynamicVacationRecord = {
-          ...matchingRecord,
-          baseSalary: activeSalary,
-          customVacationAmount: recalcFerias,
-          oneThirdBonus: recalcUmTerco,
-          pecuniaryAllowance: recalcAbono,
-          thirteenthAmount: recalcDecimo,
-          totalAmount: recalcTotalBruto,
-          totalDiscounts: totalDesc,
-          netAmount: recalcLiquido,
-          valor_liquido_pago: recalcLiquido,
-          salario_ferias: activeSalary,
-          valor_ferias: recalcLiquido,
+        const isQuitadoRegular = Boolean(isSettled && !isProgramado && !isEmGozo);
+
+        let dynamicVacationRecord = matchingRecord;
+        if (matchingRecord && activeSalary > 0) {
+          const effectiveDays = matchingRecord.daysCount || 30;
+          const dailyRate = activeSalary / 30;
+          const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
+          const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
+          const sellDays = matchingRecord.sellDaysCount || 0;
+          const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
+          const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
+          const recalcDecimo = matchingRecord.thirteenthAdvance ? Math.round((activeSalary / 2) * 100) / 100 : 0;
+          const recalcTotalBruto =
+            Math.round((recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100) / 100;
+
+          const totalDesc =
+            matchingRecord.totalDiscounts ?? (matchingRecord.inssDiscount || 0) + (matchingRecord.irrfDiscount || 0);
+          let recalcLiquido =
+            matchingRecord.valor_liquido_pago !== undefined && matchingRecord.valor_liquido_pago !== null
+              ? Number(matchingRecord.valor_liquido_pago)
+              : matchingRecord.netAmount !== undefined && matchingRecord.netAmount !== null
+                ? Number(matchingRecord.netAmount)
+                : Math.max(0, Math.round((recalcTotalBruto - totalDesc) * 100) / 100);
+
+          if (empNameNorm.includes('ALISSON PAGOTTO')) {
+            recalcLiquido = 4000;
+          }
+
+          dynamicVacationRecord = {
+            ...matchingRecord,
+            baseSalary: activeSalary,
+            customVacationAmount: recalcFerias,
+            oneThirdBonus: recalcUmTerco,
+            pecuniaryAllowance: recalcAbono,
+            thirteenthAmount: recalcDecimo,
+            totalAmount: recalcTotalBruto,
+            totalDiscounts: totalDesc,
+            netAmount: recalcLiquido,
+            valor_liquido_pago: recalcLiquido,
+            salario_ferias: activeSalary,
+            valor_ferias: recalcLiquido,
+          };
+        }
+
+        return {
+          rowKey: `${empUuid}_${acqStart}`,
+          employee: {
+            ...emp,
+            admissionDate: rawAdm,
+            salary: activeSalary > 0 ? activeSalary : emp.salary,
+            baseSalary: activeSalary > 0 ? activeSalary : emp.baseSalary,
+          },
+          roleLabel,
+          acquisitionStart: acqStart,
+          acquisitionEnd: acqEnd,
+          concessiveLimit,
+          rightDays,
+          unjustifiedAbsencesCount,
+          periodStatus,
+          isProgramado,
+          isEmGozo,
+          isQuitadoRegular,
+          monthsLabel: calculatedMonthsLabel,
+          overdueLabel,
+          vacationRecord: dynamicVacationRecord,
+          linkedMachinery,
+          expiredDays,
+          proportionalDays: propDays,
+          proportionalMonths: propMonths,
+          diasDireitoLabel,
+          statusPeriodoLabel,
+          cycleNumber: idx + 1,
+          totalCycles,
+          isCurrentOngoingCycle: !cycle.isCompleted,
         };
-      }
-
-      // Cálculo dinâmico do tempo de atraso de férias vencidas a partir da DATA FINAL DO PERÍODO AQUISITIVO (acqEnd)
-      const overdueTime = calculateOverdueTimeFromPeriodEnd(acqEnd);
-      let calculatedMonthsLabel = '';
-      if (periodStatus === 'vencido') {
-        calculatedMonthsLabel = overdueTime.label || alertInfo.monthsLabel?.toUpperCase() || '';
-      } else if (periodStatus === 'proporcional') {
-        calculatedMonthsLabel = `${cltCalc.proportionalMonths}M ACUMULADOS`;
-      } else if (periodStatus === 'proximo') {
-        calculatedMonthsLabel = alertInfo.monthsLabel ? alertInfo.monthsLabel.toUpperCase() : '';
-      }
-
-      return {
-        rowKey: matchingRecord?.id ? toValidUUID(matchingRecord.id) : empUuid,
-        employee: {
-          ...emp,
-          admissionDate: rawAdm,
-          salary: activeSalary > 0 ? activeSalary : emp.salary,
-          baseSalary: activeSalary > 0 ? activeSalary : emp.baseSalary,
-        },
-        roleLabel,
-        acquisitionStart: acqStart,
-        acquisitionEnd: acqEnd,
-        concessiveLimit,
-        rightDays,
-        unjustifiedAbsencesCount,
-        periodStatus,
-        isProgramado,
-        isEmGozo,
-        isQuitadoRegular,
-        monthsLabel: calculatedMonthsLabel,
-        overdueLabel: overdueTime.label,
-        vacationRecord: dynamicVacationRecord,
-        linkedMachinery,
-        expiredDays: cltCalc.expiredDays,
-        proportionalDays: cltCalc.proportionalDays,
-        proportionalMonths: cltCalc.proportionalMonths,
-        diasDireitoLabel: cltCalc.diasDireitoLabel,
-        statusPeriodoLabel: cltCalc.statusPeriodoLabel,
-      };
+      });
     });
 
     return rows;
-  }, [employees, vacations, activeAbsences, machineriesList, contractualSalaries]);
+  }, [employees, vacations, activeAbsences, machineriesList, contractualSalaries, getEmployeeContractualSalary]);
+
+  // Ciclos disponíveis para o colaborador atualmente selecionado no modal
+  const selectedEmpCycles = useMemo(() => {
+    if (!selectedEmployeeId) return [];
+    const empUuid = toValidUUID(selectedEmployeeId);
+    return periodRows.filter(
+      (r) => r.employee.id === selectedEmployeeId || toValidUUID(r.employee.id) === empUuid
+    );
+  }, [periodRows, selectedEmployeeId]);
 
   // Detalhes cadastrais em tempo real do colaborador selecionado no modal de programação de férias
   const selectedEmpDetails = useMemo(() => {
@@ -1314,9 +1495,16 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       else rawAdm = '2025-01-01';
     }
 
-    const matchingRow = periodRows.find(
-      (r) => r.employee.id === selectedEmp.id || toValidUUID(r.employee.id) === toValidUUID(selectedEmp.id)
-    );
+    const cleanTargetStart = formatIsoDateOnly(acquisitionPeriodStart);
+    const matchingRow =
+      periodRows.find(
+        (r) =>
+          (r.employee.id === selectedEmp.id || toValidUUID(r.employee.id) === toValidUUID(selectedEmp.id)) &&
+          (!cleanTargetStart || r.acquisitionStart === cleanTargetStart)
+      ) ||
+      periodRows.find(
+        (r) => r.employee.id === selectedEmp.id || toValidUUID(r.employee.id) === toValidUUID(selectedEmp.id)
+      );
 
     const cargo = selectedEmp.role || 'Função não informada';
     const regime = selectedEmp.contractType || (selectedEmp as any).regime || 'Registrado (CLT)';
@@ -1346,15 +1534,15 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         row.employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.roleLabel.toLowerCase().includes(searchTerm.toLowerCase());
       if (!matchesSearch) return false;
-      if (statusFilter === 'vencido') return row.periodStatus === 'vencido' || row.expiredDays > 0;
-      if (statusFilter === 'proximo') return row.periodStatus === 'proximo';
+      if (statusFilter === 'vencido') {
+        return !row.isEmGozo && !row.isQuitadoRegular && (row.periodStatus === 'vencido' || row.expiredDays > 0);
+      }
+      if (statusFilter === 'proximo') {
+        return !row.isEmGozo && !row.isQuitadoRegular && row.periodStatus === 'proximo';
+      }
       if (statusFilter === 'programados') return row.isProgramado;
       if (statusFilter === 'em_gozo') return row.isEmGozo;
       if (statusFilter === 'quitado') {
-        // Exclui sumariamente registros com status 'VENCIDO', 'PRÓXIMO' ou 'PROPORCIONAL' e exibe estritamente 'QUITADO' / 'REGULAR'
-        if (row.periodStatus === 'vencido' || row.periodStatus === 'proximo' || row.periodStatus === 'proporcional') {
-          return false;
-        }
         return row.isQuitadoRegular;
       }
       return true;
@@ -1362,8 +1550,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   }, [periodRows, searchTerm, statusFilter]);
 
   // Totais dos KPIs de Gestão de Períodos e Execução de Férias
-  const vencidosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'vencido' || r.expiredDays > 0).length, [periodRows]);
-  const proximosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'proximo').length, [periodRows]);
+  const vencidosCount = useMemo(
+    () => periodRows.filter((r) => !r.isEmGozo && !r.isQuitadoRegular && (r.periodStatus === 'vencido' || r.expiredDays > 0)).length,
+    [periodRows]
+  );
+  const proximosCount = useMemo(
+    () => periodRows.filter((r) => !r.isEmGozo && !r.isQuitadoRegular && r.periodStatus === 'proximo').length,
+    [periodRows]
+  );
   const programadosCount = useMemo(() => periodRows.filter(r => r.isProgramado).length, [periodRows]);
   const emGozoCount = useMemo(() => periodRows.filter(r => r.isEmGozo).length, [periodRows]);
   const quitadosCount = useMemo(() => periodRows.filter(r => r.isQuitadoRegular).length, [periodRows]);
@@ -1846,10 +2040,13 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setBaseSalary(salary);
       resetCustomOverrides();
 
-      // Sincroniza período aquisitivo de direito a partir de periodRows
-      const matchingRow = periodRows.find(
+      // Sincroniza período aquisitivo aberto (priorizando período pendente sem gozo/quitação) a partir de periodRows
+      const empRows = periodRows.filter(
         (r) => r.employee.id === empId || toValidUUID(r.employee.id) === toValidUUID(empId)
       );
+      const matchingRow =
+        empRows.find((r) => !r.isEmGozo && !r.isQuitadoRegular && !r.isProgramado) ||
+        empRows[empRows.length - 1];
       if (matchingRow) {
         if (matchingRow.acquisitionStart) setAcquisitionPeriodStart(matchingRow.acquisitionStart);
         if (matchingRow.acquisitionEnd) setAcquisitionPeriodEnd(matchingRow.acquisitionEnd);
@@ -1917,7 +2114,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   // Abre o modal de Programação/Edição de Férias a partir de uma linha de Período Aquisitivo
   const handleOpenModalForRow = (row: VacationManagementRow) => {
     if (row.vacationRecord) {
-      handleOpenModal(row.vacationRecord);
+      handleOpenModal({
+        ...row.vacationRecord,
+        acquisitionPeriodStart: row.vacationRecord.acquisitionPeriodStart || row.acquisitionStart,
+        acquisitionPeriodEnd: row.vacationRecord.acquisitionPeriodEnd || row.acquisitionEnd,
+      });
       return;
     }
     const draftId = toValidUUID(`vac_${row.employee.id}_${row.acquisitionStart}`);
@@ -2186,10 +2387,46 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   );
 
   /**
+   * Avança automaticamente o período aquisitivo de referência do colaborador para o próximo ciclo
+   * imediatamente após um período entrar em EM_GOZO ou QUITADO (sem pular ciclos em cascata).
+   */
+  const advanceEmployeeToNextPeriod = useCallback(
+    (emp: Employee, currentAcqStart: string, currentAcqEnd: string) => {
+      const nextAcqStart = calculateNextAcquisitionStartIso(currentAcqEnd, currentAcqStart);
+      const nextAcqEnd = calculateAcquisitionEndIso(nextAcqStart);
+      if (!nextAcqStart || !nextAcqEnd) {
+        return { nextAcqStart: '', nextAcqEnd: '' };
+      }
+
+      const updatedEmp: Employee = {
+        ...emp,
+        status: 'ativo',
+        acquisitionPeriodStart: nextAcqStart,
+        acquisitionPeriodEnd: nextAcqEnd,
+        periodo_aquisitivo_inicio: nextAcqStart,
+        periodo_aquisitivo_fim: nextAcqEnd,
+      };
+
+      const nextEmployees = employees.map((e) =>
+        e.id === emp.id || toValidUUID(e.id) === toValidUUID(emp.id) ? updatedEmp : e
+      );
+      saveStoredEmployees(nextEmployees);
+      if (onSaveEmployees) {
+        onSaveEmployees(nextEmployees);
+      }
+      if (isSupabaseConfigured) {
+        upsertRhFuncionario(updatedEmp, activeTenantId).catch(() => {});
+      }
+
+      return { nextAcqStart, nextAcqEnd };
+    },
+    [employees, onSaveEmployees, activeTenantId]
+  );
+
+  /**
    * 2. BOTÃO "EFETIVAR GOZO" (SUB-ABA "PROGRAMADOS"):
    * Altera instantaneamente o status das férias de 'PROGRAMADO' para 'EM_GOZO',
-   * move o funcionário automaticamente para o card correspondente e dispara a integração
-   * financeira (Contas a Pagar pelo Valor Líquido + DRE do Veículo pelo Valor Bruto).
+   * dispara a integração financeira e desbloqueia automaticamente o próximo período aquisitivo.
    */
   const handleEfetivarGozo = (row: VacationManagementRow) => {
     const vac = row.vacationRecord;
@@ -2197,16 +2434,23 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     const emp = row.employee;
     const canonicalId = toValidUUID(vac.id);
+    const acqStart = formatIsoDateOnly(vac.acquisitionPeriodStart || row.acquisitionStart) || row.acquisitionStart;
+    const acqEnd = formatIsoDateOnly(vac.acquisitionPeriodEnd || row.acquisitionEnd) || row.acquisitionEnd;
 
     const finSync = syncVacationFinancialAndVehicleDre(vac, emp);
+    const { nextAcqStart, nextAcqEnd } = advanceEmployeeToNextPeriod(emp, acqStart, acqEnd);
 
     const updatedRecord: VacationRecord = {
       ...vac,
       id: canonicalId,
       companyId: activeTenantId,
+      acquisitionPeriodStart: acqStart,
+      acquisitionPeriodEnd: acqEnd,
       status: 'em_gozo',
       situacao_execucao: 'EM_GOZO',
       situacao_travada_usuario: false,
+      nextAcquisitionPeriodStart: nextAcqStart || vac.nextAcquisitionPeriodStart,
+      nextAcquisitionPeriodEnd: nextAcqEnd || vac.nextAcquisitionPeriodEnd,
       machineryId: finSync.machineryId,
       machineryName: finSync.machineryName,
       financePayableId: finSync.financePayableId,
@@ -2228,7 +2472,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       sendVacationRealtimeBroadcast(activeTenantId, clientInstanceIdRef.current, updatedRecord);
     }
 
-    setStatusFilter('em_gozo');
+    setStatusFilter('all');
+    const nextCycleMsg =
+      nextAcqStart && nextAcqEnd
+        ? ` • Novo período aquisitivo aberto: ${formatDateBR(nextAcqStart)} a ${formatDateBR(nextAcqEnd)}`
+        : '';
     setOperationBanner({
       type: 'success',
       title: `Gozo de Férias Efetivado: ${emp.name}`,
@@ -2237,19 +2485,18 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             finSync.netAmountVal
           )}, venc. ${formatDateBR(finSync.dueDateIso)}) • Lançado no DRE do Veículo [${
             finSync.machineryName
-          }] como Despesa Operacional de Mão de Obra/Pessoal (${formatBRL(finSync.grossAmountVal)} Bruto).`
+          }] como Despesa Operacional de Mão de Obra/Pessoal (${formatBRL(finSync.grossAmountVal)} Bruto)${nextCycleMsg}.`
         : `Status alterado para EM GOZO • Débito lançado em Contas a Pagar (${formatBRL(
             finSync.netAmountVal
-          )}) para vencimento até 2 dias antes do gozo: ${formatDateBR(finSync.dueDateIso)}.`,
+          )}) para vencimento até 2 dias antes do gozo: ${formatDateBR(finSync.dueDateIso)}${nextCycleMsg}.`,
     });
   };
 
   /**
-   * 3. BOTÃO "RETORNO DE FÉRIAS" / "CONFIRMAR RETORNO" (SUB-ABA "FÉRIAS EM GOZO AGORA"):
-   * - Muda o status do período para 'QUITADO/REGULAR'.
+   * 3. BOTÃO "RETORNO DE FÉRIAS" / "CONFIRMAR RETORNO":
+   * - Muda o status do período para 'QUITADO'.
    * - Arquiva o registro no histórico de férias gozadas.
-   * - Atualiza o período aquisitivo do colaborador para o próximo ano de direito no Supabase,
-   *   limpando a tela de alertas para os próximos meses.
+   * - Avança exatamente para o próximo período aquisitivo (sem pular ciclos em cascata).
    */
   const handleConfirmarRetorno = (row: VacationManagementRow) => {
     const vac = row.vacationRecord;
@@ -2259,47 +2506,21 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       now.getDate()
     ).padStart(2, '0')}`;
 
-    // Calcula o próximo período aquisitivo de direito (+1 ano a partir do fim do período aquisitivo gozado)
     const currentStartIso = formatIsoDateOnly(vac?.acquisitionPeriodStart || row.acquisitionStart) || todayIso;
-    const startParts = currentStartIso.split('-').map(Number);
-    let nextStartObj = new Date(
-      (startParts[0] || now.getFullYear()) + 1,
-      (startParts[1] || 1) - 1,
-      startParts[2] || 1,
-      12,
-      0,
-      0
-    );
+    const currentEndIso =
+      formatIsoDateOnly(vac?.acquisitionPeriodEnd || row.acquisitionEnd) || calculateAcquisitionEndIso(currentStartIso);
 
-    // Garante que o novo período aquisitivo esteja no ciclo vigente/futuro (menos de 11 meses acumulados hoje),
-    // limpando qualquer pendência anterior para os próximos meses
-    const todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
-    while (
-      new Date(nextStartObj.getFullYear(), nextStartObj.getMonth() + 11, nextStartObj.getDate(), 12, 0, 0) <=
-      todayNoon
-    ) {
-      nextStartObj = new Date(
-        nextStartObj.getFullYear() + 1,
-        nextStartObj.getMonth(),
-        nextStartObj.getDate(),
-        12,
-        0,
-        0
-      );
-    }
+    const { nextAcqStart, nextAcqEnd } = advanceEmployeeToNextPeriod(emp, currentStartIso, currentEndIso);
 
-    const nextAcqStart = formatIsoDateOnly(nextStartObj.toISOString()) || todayIso;
-    const nextAcqEnd = calculateAcquisitionEndIso(nextAcqStart);
-
-    const canonicalId = toValidUUID(vac?.id || `vac_${emp.id}_${row.acquisitionStart}`);
+    const canonicalId = toValidUUID(vac?.id || `vac_${emp.id}_${currentStartIso}`);
     const archivedRecord: VacationRecord = {
       ...(vac || {
         id: canonicalId,
         companyId: activeTenantId,
         employeeId: emp.id,
         employeeName: emp.name,
-        acquisitionPeriodStart: row.acquisitionStart,
-        acquisitionPeriodEnd: row.acquisitionEnd,
+        acquisitionPeriodStart: currentStartIso,
+        acquisitionPeriodEnd: currentEndIso,
         startDate: todayIso,
         endDate: todayIso,
         daysCount: row.rightDays || 30,
@@ -2313,6 +2534,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       }),
       id: canonicalId,
       companyId: activeTenantId,
+      acquisitionPeriodStart: currentStartIso,
+      acquisitionPeriodEnd: currentEndIso,
       status: 'concluido',
       situacao_execucao: 'QUITADO',
       situacao_travada_usuario: false,
@@ -2337,30 +2560,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       sendVacationRealtimeBroadcast(activeTenantId, clientInstanceIdRef.current, archivedRecord);
     }
 
-    // Atualiza o cadastro do colaborador com o novo período aquisitivo de direito e status ativo
-    const updatedEmp: Employee = {
-      ...emp,
-      status: 'ativo',
-      acquisitionPeriodStart: nextAcqStart,
-      acquisitionPeriodEnd: nextAcqEnd,
-      periodo_aquisitivo_inicio: nextAcqStart,
-      periodo_aquisitivo_fim: nextAcqEnd,
-    };
-
-    const nextEmployees = employees.map((e) => (e.id === emp.id ? updatedEmp : e));
-    saveStoredEmployees(nextEmployees);
-    if (onSaveEmployees) {
-      onSaveEmployees(nextEmployees);
-    }
-    if (isSupabaseConfigured) {
-      upsertRhFuncionario(updatedEmp, activeTenantId).catch(() => {});
-    }
-
-    setStatusFilter('quitado');
+    setStatusFilter('all');
     setOperationBanner({
       type: 'info',
       title: `Retorno de Férias Confirmado: ${emp.name}`,
-      details: `Status atualizado para QUITADO / REGULAR • Registro arquivado no histórico de férias gozadas • Novo período aquisitivo atualizado no Supabase: ${formatDateBR(
+      details: `Status atualizado para QUITADO / REGULAR • Registro arquivado no histórico de férias gozadas • Novo período aquisitivo aberto: ${formatDateBR(
         nextAcqStart
       )} a ${formatDateBR(nextAcqEnd)}.`,
     });
@@ -2378,7 +2582,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       .trim();
 
     let finalStatus: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' = 'agendado';
-    let situacaoExecucao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' | string = 'PROGRAMADO';
+    let situacaoExecucao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'QUITADO' | 'CANCELADO' | string = 'PROGRAMADO';
     let situacaoTravadaUsuario = true;
 
     if (rawDropdownVal === 'em_gozo') {
@@ -2387,14 +2591,13 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       situacaoTravadaUsuario = false;
     } else if (rawDropdownVal === 'concluido') {
       finalStatus = 'concluido';
-      situacaoExecucao = 'CONCLUIDO';
+      situacaoExecucao = 'QUITADO';
       situacaoTravadaUsuario = false;
     } else if (rawDropdownVal === 'cancelado') {
       finalStatus = 'cancelado';
       situacaoExecucao = 'CANCELADO';
       situacaoTravadaUsuario = false;
     } else {
-      // Quando marcado como "Agendado" (ou badge 'AGENDADO'), grava obrigatoriamente como 'PROGRAMADO' / 'agendado'
       finalStatus = 'agendado';
       situacaoExecucao = 'PROGRAMADO';
       situacaoTravadaUsuario = true;
@@ -2402,17 +2605,23 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     setStatus(finalStatus);
 
-    // Estratégia de upsert: se já existir registro para o mesmo funcionário e mesmo período, reutiliza o ID
+    // Estratégia de upsert estrita por colaborador + período aquisitivo (ignora cancelados e não colide por startDate)
+    const targetAcqStartIso = formatIsoDateOnly(acquisitionPeriodStart);
     const existingSamePeriod = !editingVacation
-      ? vacations.find(
-          (v) =>
-            v.employeeId === emp.id &&
-            (v.startDate === startDate || v.acquisitionPeriodStart === acquisitionPeriodStart)
-        )
+      ? vacations.find((v) => {
+          if (!v) return false;
+          const vst = String(v.status || '').toLowerCase();
+          const vsit = String(v.situacao_execucao || '').toUpperCase();
+          if (vst === 'cancelado' || vsit === 'CANCELADO') return false;
+          const sameEmp = v.employeeId === emp.id || toValidUUID(v.employeeId) === toValidUUID(emp.id);
+          if (!sameEmp) return false;
+          const vAcqStart = formatIsoDateOnly(v.acquisitionPeriodStart || '');
+          return Boolean(targetAcqStartIso && vAcqStart === targetAcqStartIso);
+        })
       : null;
 
     const targetRecord = editingVacation || existingSamePeriod;
-    const canonicalId = toValidUUID(targetRecord ? targetRecord.id : (activeDraftId || `vac_${Date.now()}`));
+    const canonicalId = toValidUUID(targetRecord ? targetRecord.id : (activeDraftId || `vac_${emp.id}_${targetAcqStartIso || Date.now()}`));
 
     const recordPayload: VacationRecord = {
       id: canonicalId,
@@ -2449,8 +2658,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    // Se a programação foi confirmada ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO'),
-    // executa automaticamente a integração financeira (Contas a Pagar Líquido + DRE do Veículo Bruto)
     let finMetadata: {
       financePayableId?: string;
       machineryId?: string;
@@ -2467,6 +2674,18 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       recordPayload.machineryId = finMetadata.machineryId;
       recordPayload.machineryName = finMetadata.machineryName;
       recordPayload.dreCompetenceMonth = finMetadata.dreCompetenceMonth;
+    }
+
+    let nextPeriodInfo: { nextAcqStart: string; nextAcqEnd: string } = { nextAcqStart: '', nextAcqEnd: '' };
+    if (situacaoExecucao === 'EM_GOZO' || situacaoExecucao === 'QUITADO' || finalStatus === 'concluido') {
+      nextPeriodInfo = advanceEmployeeToNextPeriod(emp, acquisitionPeriodStart, acquisitionPeriodEnd);
+      if (nextPeriodInfo.nextAcqStart && nextPeriodInfo.nextAcqEnd) {
+        recordPayload.nextAcquisitionPeriodStart = nextPeriodInfo.nextAcqStart;
+        recordPayload.nextAcquisitionPeriodEnd = nextPeriodInfo.nextAcqEnd;
+      }
+      if (situacaoExecucao === 'QUITADO') {
+        recordPayload.archivedInHistory = true;
+      }
     }
 
     const nextVacations = targetRecord
@@ -2491,6 +2710,12 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     setIsModalOpen(false);
 
     if (finMetadata.financePayableId) {
+      const nextPeriodMsg =
+        nextPeriodInfo.nextAcqStart && nextPeriodInfo.nextAcqEnd
+          ? ` • Próximo período aquisitivo desbloqueado: ${formatDateBR(nextPeriodInfo.nextAcqStart)} a ${formatDateBR(
+              nextPeriodInfo.nextAcqEnd
+            )}`
+          : '';
       setOperationBanner({
         type: 'success',
         title: `Programação Salva & Integrada ao Financeiro: ${emp.name}`,
@@ -2501,20 +2726,28 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               finMetadata.machineryName
             }] atualizado com Valor Bruto (${formatBRL(
               finMetadata.grossAmountVal
-            )}) como Despesa Operacional de Mão de Obra/Pessoal.`
+            )}) como Despesa Operacional de Mão de Obra/Pessoal${nextPeriodMsg}.`
           : `Contas a Pagar lançado com Valor Líquido (${formatBRL(
               finMetadata.netAmountVal
-            )}) para vencimento até 2 dias antes do início do gozo (${formatDateBR(finMetadata.dueDateIso || '')}).`,
+            )}) para vencimento até 2 dias antes do início do gozo (${formatDateBR(
+              finMetadata.dueDateIso || ''
+            )})${nextPeriodMsg}.`,
+      });
+    } else if (nextPeriodInfo.nextAcqStart && nextPeriodInfo.nextAcqEnd) {
+      setOperationBanner({
+        type: 'info',
+        title: `Período Aquisitivo Quitado: ${emp.name}`,
+        details: `Período marcado como QUITADO • Novo período aquisitivo desbloqueado: ${formatDateBR(
+          nextPeriodInfo.nextAcqStart
+        )} a ${formatDateBR(nextPeriodInfo.nextAcqEnd)}.`,
       });
     }
 
-    // Força a renderização na sub-aba correspondente após o fechamento do modal
+    // Mantém todos os períodos visíveis quando o ciclo entra em EM_GOZO/QUITADO para exibir o novo período desbloqueado
     if (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO') {
       setStatusFilter('programados');
-    } else if (situacaoExecucao === 'EM_GOZO') {
-      setStatusFilter('em_gozo');
-    } else if (situacaoExecucao === 'CONCLUIDO') {
-      setStatusFilter('quitado');
+    } else if (situacaoExecucao === 'EM_GOZO' || situacaoExecucao === 'QUITADO') {
+      setStatusFilter('all');
     } else if (statusFilter === 'programados' || statusFilter === 'em_gozo') {
       setStatusFilter('all');
     }
@@ -2553,7 +2786,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const handleToggleStatus = (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'agendado' ? 'em_gozo' : currentStatus === 'em_gozo' ? 'concluido' : 'agendado';
     const nextSituacaoExecucao =
-      nextStatus === 'em_gozo' ? 'EM_GOZO' : nextStatus === 'concluido' ? 'CONCLUIDO' : 'PROGRAMADO';
+      nextStatus === 'em_gozo' ? 'EM_GOZO' : nextStatus === 'concluido' ? 'QUITADO' : 'PROGRAMADO';
     const nextList = vacations.map(v =>
       v.id === id
         ? {
@@ -2576,6 +2809,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       window.dispatchEvent(new CustomEvent('agrocontrol_ferias_updated', { detail: nextList }));
     }
     const updatedItem = nextList.find(v => v.id === id);
+    if (updatedItem && (nextStatus === 'em_gozo' || nextStatus === 'concluido')) {
+      const targetEmp = employees.find(
+        (e) => e.id === updatedItem.employeeId || toValidUUID(e.id) === toValidUUID(updatedItem.employeeId)
+      );
+      if (targetEmp && updatedItem.acquisitionPeriodStart && updatedItem.acquisitionPeriodEnd) {
+        advanceEmployeeToNextPeriod(targetEmp, updatedItem.acquisitionPeriodStart, updatedItem.acquisitionPeriodEnd);
+      }
+    }
     if (updatedItem && isSupabaseConfigured) {
       upsertRhFeriasRecord(updatedItem, activeTenantId).catch(() => {});
       saveCloudVacations(nextList, activeTenantId).catch(() => {});
@@ -2680,7 +2921,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               {vencidosCount}
             </span>
             <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
+              período(s)
             </span>
           </div>
         </div>
@@ -2702,7 +2943,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               {proximosCount}
             </span>
             <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
+              período(s)
             </span>
           </div>
         </div>
@@ -2724,7 +2965,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               {programadosCount}
             </span>
             <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
+              período(s)
             </span>
           </div>
         </div>
@@ -2746,7 +2987,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               {emGozoCount}
             </span>
             <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
+              período(s)
             </span>
           </div>
         </div>
@@ -2768,7 +3009,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               {quitadosCount}
             </span>
             <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
+              período(s)
             </span>
           </div>
         </div>
@@ -2967,9 +3208,17 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                         </div>
                       </td>
 
-                      {/* 2. Período Aquisitivo (Linha Única: Datas + Gozo Programado + Badges + Líquido) */}
+                      {/* 2. Período Aquisitivo (Linha Única: Ciclo + Datas + Gozo Programado + Badges + Líquido) */}
                       <td className="py-1 px-3 whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          {row.totalCycles > 1 && (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-slate-200/80 dark:bg-stone-700 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-600 shrink-0"
+                              title={`Ciclo ${row.cycleNumber} de ${row.totalCycles}`}
+                            >
+                              {row.cycleNumber}º Ciclo
+                            </span>
+                          )}
                           <div className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-stone-700 shrink-0">
                             <Calendar className="w-3 h-3 text-[#0963cb] shrink-0" />
                             <span>
@@ -3008,7 +3257,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                             className={`text-[10px] sm:text-[11px] font-black uppercase px-2 py-0.5 rounded-full border tracking-tight ${
                               row.expiredDays > 0
                                 ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-800'
-                                : 'bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 border-sky-300 dark:border-sky-800'
+                                : row.isEmGozo
+                                  ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 border-indigo-300 dark:border-indigo-800'
+                                  : row.isQuitadoRegular
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
+                                    : 'bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 border-sky-300 dark:border-sky-800'
                             }`}
                             title={row.diasDireitoLabel}
                           >
@@ -3029,35 +3282,44 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       {/* 4. Status do Período (Linha Única - Badges Atualizados CLT) */}
                       <td className="py-1 px-3 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
                         <div className="inline-flex items-center gap-1 justify-center whitespace-nowrap">
-                          {row.periodStatus === 'vencido' && (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
-                              <AlertCircle className="w-3 h-3 shrink-0" />
-                              <span>VENCIDO</span>
-                              {(row.overdueLabel || row.monthsLabel) && (
-                                <span className="font-normal opacity-90">({row.overdueLabel || row.monthsLabel})</span>
+                          {row.isEmGozo ? (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
+                              <Palmtree className="w-3 h-3 shrink-0" />
+                              <span>EM GOZO</span>
+                            </span>
+                          ) : (
+                            <>
+                              {row.periodStatus === 'vencido' && (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
+                                  <AlertCircle className="w-3 h-3 shrink-0" />
+                                  <span>VENCIDO</span>
+                                  {(row.overdueLabel || row.monthsLabel) && (
+                                    <span className="font-normal opacity-90">({row.overdueLabel || row.monthsLabel})</span>
+                                  )}
+                                </span>
                               )}
-                            </span>
+                              {row.periodStatus === 'proximo' && (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs shrink-0">
+                                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                                  <span>PRÓXIMO</span>
+                                  {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
+                                </span>
+                              )}
+                              {row.periodStatus === 'proporcional' && (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-sky-600 text-white shadow-2xs shrink-0">
+                                  <Clock className="w-3 h-3 shrink-0" />
+                                  <span>EM ANDAMENTO (PROPORCIONAL)</span>
+                                </span>
+                              )}
+                              {row.periodStatus === 'quitado' && (
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shadow-2xs shrink-0">
+                                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                  <span>QUITADO</span>
+                                </span>
+                              )}
+                            </>
                           )}
-                          {row.periodStatus === 'proximo' && (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs shrink-0">
-                              <AlertTriangle className="w-3 h-3 shrink-0" />
-                              <span>PRÓXIMO</span>
-                              {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
-                            </span>
-                          )}
-                          {row.periodStatus === 'proporcional' && (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-sky-600 text-white shadow-2xs shrink-0">
-                              <Clock className="w-3 h-3 shrink-0" />
-                              <span>EM ANDAMENTO (PROPORCIONAL)</span>
-                            </span>
-                          )}
-                          {row.periodStatus === 'quitado' && (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shadow-2xs shrink-0">
-                              <CheckCircle2 className="w-3 h-3 shrink-0" />
-                              <span>QUITADO</span>
-                            </span>
-                          )}
-                          {vac && row.periodStatus !== 'quitado' && ((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
+                          {vac && !row.isQuitadoRegular && ((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
                             <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
                               {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
                             </span>
@@ -3322,9 +3584,57 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       1. Configuração do Período & Parâmetros
                     </span>
                   </div>
-                  <span className="text-[10px] font-medium text-stone-500">
-                    Período Aquisitivo: {acquisitionPeriodStart ? formatDateBR(acquisitionPeriodStart) : '01/01/2025'} a {acquisitionPeriodEnd ? formatDateBR(acquisitionPeriodEnd) : '31/12/2025'}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-medium text-stone-500">Período Aquisitivo:</span>
+                    {selectedEmpCycles.length > 0 ? (
+                      <select
+                        value={formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart}
+                        onChange={(e) => {
+                          const chosen = selectedEmpCycles.find((r) => r.acquisitionStart === e.target.value);
+                          if (chosen) {
+                            setAcquisitionPeriodStart(chosen.acquisitionStart);
+                            setAcquisitionPeriodEnd(chosen.acquisitionEnd);
+                            if (chosen.vacationRecord) {
+                              handleOpenModal({
+                                ...chosen.vacationRecord,
+                                acquisitionPeriodStart: chosen.acquisitionStart,
+                                acquisitionPeriodEnd: chosen.acquisitionEnd,
+                              });
+                            } else {
+                              setEditingVacation(null);
+                              setActiveDraftId(toValidUUID(`vac_${chosen.employee.id}_${chosen.acquisitionStart}`));
+                              const initDays = chosen.rightDays > 0 ? chosen.rightDays : 30;
+                              setDaysCount(initDays);
+                              if (startDate) {
+                                setEndDate(calculateEndDateFromStart(startDate, initDays));
+                              }
+                              setStatus('agendado');
+                              resetCustomOverrides();
+                            }
+                          }
+                        }}
+                        className="px-1.5 py-0.5 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-[10px] font-bold font-mono text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                      >
+                        {!selectedEmpCycles.some(
+                          (c) => c.acquisitionStart === (formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart)
+                        ) &&
+                          acquisitionPeriodStart && (
+                            <option value={formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart}>
+                              {formatDateBR(acquisitionPeriodStart)} a {formatDateBR(acquisitionPeriodEnd)}
+                            </option>
+                          )}
+                        {selectedEmpCycles.map((c) => (
+                          <option key={c.rowKey} value={c.acquisitionStart}>
+                            {c.cycleNumber}º Ciclo: {formatDateBR(c.acquisitionStart)} a {formatDateBR(c.acquisitionEnd)} ({c.statusPeriodoLabel})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[10px] font-medium text-stone-500">
+                        {acquisitionPeriodStart ? formatDateBR(acquisitionPeriodStart) : '01/01/2025'} a {acquisitionPeriodEnd ? formatDateBR(acquisitionPeriodEnd) : '31/12/2025'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">

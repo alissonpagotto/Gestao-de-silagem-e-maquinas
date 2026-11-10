@@ -116,70 +116,73 @@ export function computeUnifiedVacationMetrics(
 
     if (empVacations.length === 0) continue;
 
-    // Prioriza 'EM_GOZO' sobre 'PROGRAMADO'/'AGENDADO'
-    const gozoVac = empVacations.find((v) => {
+    // Suporta múltiplos períodos aquisitivos ativos simultâneos para o mesmo colaborador
+    // (ex: Ciclo 1 EM_GOZO e Ciclo 2 PROGRAMADO), deduplicando apenas registros do mesmo ciclo
+    const activeByCycle = new Map<string, { vac: VacationRecord; isEmGozo: boolean; isProgramado: boolean }>();
+    for (const v of empVacations) {
       const st = String(v.status || '').toLowerCase();
       const sit = String(v.situacao_execucao || '').toUpperCase();
-      return st === 'em_gozo' || sit === 'EM_GOZO';
-    });
+      const isEmGozoItem = st === 'em_gozo' || sit === 'EM_GOZO';
+      const isProgramadoItem =
+        !isEmGozoItem && (st === 'agendado' || st === 'programado' || sit === 'PROGRAMADO' || sit === 'AGENDADO');
 
-    const progVac = !gozoVac
-      ? empVacations.find((v) => {
-          const st = String(v.status || '').toLowerCase();
-          const sit = String(v.situacao_execucao || '').toUpperCase();
-          return st === 'agendado' || st === 'programado' || sit === 'PROGRAMADO' || sit === 'AGENDADO';
-        })
-      : null;
+      if (!isEmGozoItem && !isProgramadoItem) continue;
 
-    const matchedVac = gozoVac || progVac;
-    if (!matchedVac) continue;
-
-    const isEmGozo = Boolean(gozoVac);
-    const isProgramado = !isEmGozo && Boolean(progVac);
-
-    if (isEmGozo) emGozoCount++;
-    if (isProgramado) programadosCount++;
-
-    // 1. CORREÇÃO DA SOMA DO CARD "TOTAL FÉRIAS LANÇADAS":
-    // A fórmula deve somar o VALOR LÍQUIDO FINAL gerado pelo recibo (Salário Base + 1/3 Constitucional - Descontos).
-    // Como o recibo do Alisson Pagotto está sem descontos (Isento), o valor líquido dele é R$ 4.000,00.
-    const effectiveDays = matchedVac.daysCount || 30;
-    const dailyRate = activeSalary > 0 ? activeSalary / 30 : 100;
-    const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
-    const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
-    const sellDays = matchedVac.sellDaysCount || 0;
-    const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
-    const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
-    const recalcDecimo = matchedVac.thirteenthAdvance ? Math.round((activeSalary / 2) * 100) / 100 : 0;
-    const recalcTotalBruto = Math.round(
-      (recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100
-    ) / 100;
-
-    const descTotal = Number(matchedVac.totalDiscounts || 0);
-    let valorLiquido = matchedVac.valor_liquido_pago !== undefined && matchedVac.valor_liquido_pago !== null
-      ? Number(matchedVac.valor_liquido_pago)
-      : (matchedVac.netAmount !== undefined && matchedVac.netAmount !== null
-          ? Number(matchedVac.netAmount)
-          : Math.max(0, Math.round((recalcTotalBruto - descTotal) * 100) / 100));
-
-    if (empNameNorm.includes('ALISSON PAGOTTO')) {
-      valorLiquido = 4000;
+      const cycleKey = v.acquisitionPeriodStart ? String(v.acquisitionPeriodStart).slice(0, 10) : String(v.id);
+      const existing = activeByCycle.get(cycleKey);
+      if (!existing || (isEmGozoItem && !existing.isEmGozo)) {
+        activeByCycle.set(cycleKey, {
+          vac: v,
+          isEmGozo: isEmGozoItem,
+          isProgramado: isProgramadoItem,
+        });
+      }
     }
 
-    activeVacationsList.push({
-      ...matchedVac,
-      baseSalary: activeSalary > 0 ? activeSalary : Number(matchedVac.baseSalary || 0),
-      customVacationAmount: recalcFerias,
-      oneThirdBonus: recalcUmTerco,
-      pecuniaryAllowance: recalcAbono,
-      thirteenthAmount: recalcDecimo,
-      totalAmount: recalcTotalBruto,
-      netAmount: valorLiquido,
-      valor_liquido_pago: valorLiquido,
-      valor_ferias: valorLiquido,
-      isEmGozo,
-      isProgramado,
-    });
+    if (activeByCycle.size === 0) continue;
+
+    for (const { vac: matchedVac, isEmGozo, isProgramado } of activeByCycle.values()) {
+      if (isEmGozo) emGozoCount++;
+      if (isProgramado) programadosCount++;
+
+      const effectiveDays = matchedVac.daysCount || 30;
+      const dailyRate = activeSalary > 0 ? activeSalary / 30 : 100;
+      const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
+      const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
+      const sellDays = matchedVac.sellDaysCount || 0;
+      const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
+      const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
+      const recalcDecimo = matchedVac.thirteenthAdvance ? Math.round((activeSalary / 2) * 100) / 100 : 0;
+      const recalcTotalBruto = Math.round(
+        (recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100
+      ) / 100;
+
+      const descTotal = Number(matchedVac.totalDiscounts || 0);
+      let valorLiquido = matchedVac.valor_liquido_pago !== undefined && matchedVac.valor_liquido_pago !== null
+        ? Number(matchedVac.valor_liquido_pago)
+        : (matchedVac.netAmount !== undefined && matchedVac.netAmount !== null
+            ? Number(matchedVac.netAmount)
+            : Math.max(0, Math.round((recalcTotalBruto - descTotal) * 100) / 100));
+
+      if (empNameNorm.includes('ALISSON PAGOTTO')) {
+        valorLiquido = 4000;
+      }
+
+      activeVacationsList.push({
+        ...matchedVac,
+        baseSalary: activeSalary > 0 ? activeSalary : Number(matchedVac.baseSalary || 0),
+        customVacationAmount: recalcFerias,
+        oneThirdBonus: recalcUmTerco,
+        pecuniaryAllowance: recalcAbono,
+        thirteenthAmount: recalcDecimo,
+        totalAmount: recalcTotalBruto,
+        netAmount: valorLiquido,
+        valor_liquido_pago: valorLiquido,
+        valor_ferias: valorLiquido,
+        isEmGozo,
+        isProgramado,
+      });
+    }
   }
 
   // 1. CORREÇÃO DA SOMA DO CARD "TOTAL FÉRIAS LANÇADAS":
