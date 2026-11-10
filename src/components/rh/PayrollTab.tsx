@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -77,7 +77,8 @@ import {
   getFaixaIrrf,
   getWorkedMonthsInYear,
   calculate13thSalaryValues,
-  findEmployeeFirstInstallment13th
+  findEmployeeFirstInstallment13th,
+  parseCompetenceMonthYear
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 import { LivePayslipPreview } from './LivePayslipPreview';
@@ -919,6 +920,92 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     (p.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.employeeRole || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Alertas Inteligentes & Auditoria de Fechamento (Sazonal 13º + Folhas Pendentes)
+  const {
+    isSeasonal13thPeriod,
+    missingMonthlyEmployees,
+    missing13thEmployees,
+  } = useMemo(() => {
+    const { month: compMonth, year: compYear } = parseCompetenceMonthYear(currentMonthRef);
+    const seasonal13th = compMonth === 11 || compMonth === 12;
+
+    const isAdmittedUpToCompetence = (admissionDateStr?: string | null): boolean => {
+      if (!admissionDateStr) return true;
+      const cleanDate = admissionDateStr.split('T')[0].trim();
+      let admYear = 0;
+      let admMonth = 0;
+      if (cleanDate.includes('-')) {
+        const parts = cleanDate.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            admYear = parseInt(parts[0], 10);
+            admMonth = parseInt(parts[1], 10);
+          } else {
+            admMonth = parseInt(parts[1], 10);
+            admYear = parseInt(parts[2], 10);
+          }
+        }
+      } else if (cleanDate.includes('/')) {
+        const parts = cleanDate.split('/');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            admYear = parseInt(parts[0], 10);
+            admMonth = parseInt(parts[1], 10);
+          } else {
+            admMonth = parseInt(parts[1], 10);
+            admYear = parseInt(parts[2], 10);
+          }
+        }
+      }
+      if (!admYear || !admMonth) return true;
+      if (admYear > compYear) return false;
+      if (admYear === compYear && admMonth > compMonth) return false;
+      return true;
+    };
+
+    const allPayrolls = Array.isArray(localPayrolls) ? localPayrolls : [];
+    const activeEligible = employees.filter(
+      e => e.status === 'ativo' && !isThirdPartyDriver(e) && !isBrokerEmployee(e)
+    );
+
+    const hasRecordForEmployee = (emp: Employee, records: PayrollRecord[]) =>
+      records.some(
+        p =>
+          p.employeeId === emp.id ||
+          (Boolean(p.employeeName) &&
+            Boolean(emp.name) &&
+            p.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase())
+      );
+
+    // Auditoria de Folha Mensal na competência selecionada
+    const monthlyRecordsInMonth = allPayrolls.filter(
+      p => p.referenceMonth === currentMonthRef && getRecordPayrollType(p) === 'monthly'
+    );
+    const missingMonthly = activeEligible.filter(
+      emp => isAdmittedUpToCompetence(emp.admissionDate) && !hasRecordForEmployee(emp, monthlyRecordsInMonth)
+    );
+
+    // Auditoria de 13º Salário no ano da competência para a parcela selecionada
+    const thirteenthType: PayrollType =
+      payrollType === '13_second_packet' ? '13_second_packet' : '13_first_packet';
+    const thirteenthRecordsInYear = allPayrolls.filter(p => {
+      if (getRecordPayrollType(p) !== thirteenthType) return false;
+      const { year: pYear } = parseCompetenceMonthYear(p.referenceMonth);
+      return pYear === compYear;
+    });
+    const missing13th = activeEligible.filter(
+      emp =>
+        getWorkedMonthsInYear(emp.admissionDate, currentMonthRef) > 0 &&
+        !hasRecordForEmployee(emp, thirteenthRecordsInYear)
+    );
+
+    return {
+      isSeasonal13thPeriod: seasonal13th,
+      missingMonthlyEmployees: missingMonthly,
+      missing13thEmployees: missing13th,
+    };
+  }, [currentMonthRef, payrollType, employees, localPayrolls]);
 
   // Totais
   const totalBase = monthPayrolls.reduce((sum, p) => sum + (p.baseSalary || 0), 0);
@@ -2755,7 +2842,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         
         {/* Month Selector + Tipo de Folha */}
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-start shrink-0">
           <div className="flex items-center space-x-2">
             <button
               type="button"
@@ -2807,8 +2894,54 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           </div>
         </div>
 
+        {/* Alertas Inteligentes & Lembretes de Auditoria */}
+        {(isSeasonal13thPeriod ||
+          (payrollType === 'monthly' && missingMonthlyEmployees.length > 0) ||
+          ((payrollType === '13_first_packet' || payrollType === '13_second_packet') &&
+            missing13thEmployees.length > 0)) && (
+          <div className="flex-1 min-w-0 flex flex-wrap items-center justify-center lg:justify-start gap-1.5 w-full sm:w-auto">
+            {isSeasonal13thPeriod && (
+              <div
+                role="status"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100/95 dark:bg-amber-950/75 border border-amber-400 dark:border-amber-600 text-amber-950 dark:text-amber-200 text-[11px] font-extrabold leading-tight shadow-2xs animate-pulse"
+              >
+                <span>
+                  📅 Período de 13° Salário Ativo: Lembre-se de rodar a 1ª parcela até 30/11 e a 2ª parcela até 20/12!
+                </span>
+              </div>
+            )}
+
+            {(payrollType === '13_first_packet' || payrollType === '13_second_packet') &&
+              missing13thEmployees.length > 0 && (
+                <div
+                  role="alert"
+                  title={`${missing13thEmployees.length} funcionário(s) ativo(s) sem lançamento: ${missing13thEmployees.map(e => e.name).join(', ')}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 text-[11px] font-black leading-tight shadow-2xs animate-pulse"
+                >
+                  <span>⚠️ Atenção: Existe 13° NÃO gerado para funcionários ativos!</span>
+                  <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black">
+                    {missing13thEmployees.length}
+                  </span>
+                </div>
+              )}
+
+            {payrollType === 'monthly' && missingMonthlyEmployees.length > 0 && (
+              <div
+                role="alert"
+                title={`${missingMonthlyEmployees.length} funcionário(s) ativo(s) sem folha mensal em ${currentMonthRef}: ${missingMonthlyEmployees.map(e => e.name).join(', ')}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 text-[11px] font-black leading-tight shadow-2xs animate-pulse"
+              >
+                <span>⚠️ Alerta: Existem funcionários sem Folha Mensal gerada neste mês!</span>
+                <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black">
+                  {missingMonthlyEmployees.length}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
           <button
             type="button"
             onClick={handleBatchGenerate}
