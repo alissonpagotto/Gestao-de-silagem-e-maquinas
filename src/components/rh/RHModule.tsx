@@ -716,7 +716,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full min-h-0 border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-x-hidden overflow-y-auto global p-3 space-y-3">
 
       {/* Renderização do Conteúdo de Cada Aba */}
       {activeTab === 'dashboard' && (

@@ -2860,7 +2860,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   };
 
   return (
-    <div className="space-y-2.5 max-w-full overflow-hidden">
+    <div className="space-y-2.5 max-w-full overflow-visible">
       
       {/* Top Header & Actions */}
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
@@ -3158,17 +3158,20 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       )}
 
       {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl shadow-xs text-black dark:text-white">
+        <div
+          className="max-h-[500px] overflow-y-auto overflow-x-auto rounded-xl"
+          style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', display: 'block' }}
+        >
           <table className="w-full text-left text-xs sm:text-sm border-separate border-spacing-0">
             <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider">
               <tr>
-                <th className="py-1.5 px-3 sticky left-0 z-10 bg-white dark:bg-stone-900 border-b border-r border-gray-200 dark:border-stone-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Colaborador</th>
-                <th className="py-1.5 px-3 border-b border-slate-200 dark:border-stone-700">Período Aquisitivo</th>
-                <th className="py-1.5 px-3 text-center border-b border-slate-200 dark:border-stone-700">Dias de Direito</th>
-                <th className="py-1.5 px-3 text-center border-b border-slate-200 dark:border-stone-700">Status do Período</th>
-                <th className="py-1.5 px-3 border-b border-slate-200 dark:border-stone-700">Limite para Gozo</th>
-                <th className="py-1.5 px-3 text-right border-b border-slate-200 dark:border-stone-700">Ações</th>
+                <th className="py-1.5 px-3 sticky top-0 left-0 z-30 bg-white dark:bg-stone-900 border-b border-r border-gray-200 dark:border-stone-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Colaborador</th>
+                <th className="py-1.5 px-3 sticky top-0 z-20 bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700">Período Aquisitivo</th>
+                <th className="py-1.5 px-3 text-center sticky top-0 z-20 bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700">Dias de Direito</th>
+                <th className="py-1.5 px-3 text-center sticky top-0 z-20 bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700">Status do Período</th>
+                <th className="py-1.5 px-3 sticky top-0 z-20 bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700">Limite para Gozo</th>
+                <th className="py-1.5 px-3 text-right sticky top-0 z-20 bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700">Ações</th>
               </tr>
             </thead>
             <tbody>

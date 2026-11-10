@@ -3560,7 +3560,7 @@ export default function App() {
 
           {/* Main Body Area with left padding for desktop sidebar */}
           <div 
-            className={`${isPdvFullscreen ? 'pl-0' : isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'} flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-[#edf4ff] dark:bg-stone-950 transition-all duration-200`}
+            className={`${isPdvFullscreen ? 'pl-0' : isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'} flex flex-col flex-1 min-h-0 h-full w-full overflow-y-auto bg-[#edf4ff] dark:bg-stone-950 transition-all duration-200`}
           >
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 
