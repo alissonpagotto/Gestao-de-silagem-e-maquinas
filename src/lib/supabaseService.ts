@@ -111,7 +111,9 @@ import {
   saveCompanyAbastecimentos,
   getCompanyAbastecimentos,
   saveCompanyManutencoes,
-  getCompanyManutencoes
+  getCompanyManutencoes,
+  getStoredExpenses,
+  getStoredFiscalRecords
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -1068,22 +1070,33 @@ export async function fetchContasAPagar(companyId?: string): Promise<ContaAPagar
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) return [];
   try {
+    const altUuid = toValidUUID(activeCompanyId);
+    const orFilter = altUuid && altUuid !== activeCompanyId
+      ? `company_id.eq.${activeCompanyId},company_id.eq.${altUuid},company_id.is.null`
+      : `company_id.eq.${activeCompanyId},company_id.is.null`;
+
     let { data, error } = await supabase
       .from('contas_a_pagar')
       .select('*')
-      .eq('company_id', activeCompanyId)
+      .or(orFilter)
       .order('data_vencimento', { ascending: true });
 
-    if ((!data || data.length === 0) && activeCompanyId) {
-      const altUuid = toValidUUID(activeCompanyId);
-      if (altUuid && altUuid !== activeCompanyId) {
-        const retry = await supabase
+    if (error && altUuid) {
+      const retryUuid = await supabase
+        .from('contas_a_pagar')
+        .select('*')
+        .or(`company_id.eq.${altUuid},company_id.is.null`)
+        .order('data_vencimento', { ascending: true });
+      if (!retryUuid.error) {
+        data = retryUuid.data;
+        error = null;
+      } else {
+        const retryAll = await supabase
           .from('contas_a_pagar')
           .select('*')
-          .eq('company_id', altUuid)
           .order('data_vencimento', { ascending: true });
-        if (retry.data && retry.data.length > 0) {
-          data = retry.data;
+        if (!retryAll.error) {
+          data = retryAll.data;
           error = null;
         }
       }
@@ -1091,12 +1104,12 @@ export async function fetchContasAPagar(companyId?: string): Promise<ContaAPagar
 
     if (error) {
       console.warn('Supabase fetchContasAPagar notice:', error.message);
-      return [];
+      return null;
     }
     return (data || []) as ContaAPagarRecord[];
   } catch (err) {
     console.warn('Supabase fetchContasAPagar err:', err);
-    return [];
+    return null;
   }
 }
 
@@ -1159,11 +1172,12 @@ export async function upsertContaAPagar(parcela: {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
+    const companyUuid = activeCompanyId ? toValidUUID(activeCompanyId) : null;
     const catFinal = parcela.centro_custo || parcela.categoria || parcela.tipo_despesa || 'Insumos & Entradas';
     // Schema estrito de public.contas_a_pagar: sem 'categoria' ou 'tipo_despesa' para evitar erro PGRST204
     const payload: Record<string, any> = {
       id: toValidUUID(parcela.id),
-      company_id: activeCompanyId,
+      company_id: activeCompanyId || companyUuid,
       nota_fiscal_id: parcela.nota_fiscal_id ? toValidUUID(parcela.nota_fiscal_id) : null,
       numero_parcela: parcela.numero_parcela || '01/01',
       valor_parcela: Number(parcela.valor_parcela) || 0,
@@ -1178,15 +1192,22 @@ export async function upsertContaAPagar(parcela: {
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      // Se for violação de FK 23503 em nota_fiscal_id, anula e retenta
+      // Se for violação de FK 23503 em nota_fiscal_id, anula e retenta mantendo company_id
       if (error.code === '23503' && payload.nota_fiscal_id) {
         payload.nota_fiscal_id = null;
         const retryNF = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
         if (!retryNF.error) return true;
         error = retryNF.error;
       }
+      // Se company_id exigir UUID (22P02 / 23503), retenta usando companyUuid antes de omitir company_id
+      if (error && companyUuid && payload.company_id !== companyUuid) {
+        const uuidPayload = { ...payload, company_id: companyUuid };
+        const retryUuid = await supabase.from('contas_a_pagar').upsert(uuidPayload, { onConflict: 'id' });
+        if (!retryUuid.error) return true;
+        error = retryUuid.error;
+      }
       // Se for violação em company_id ou coluna inexistente no cache do PostgREST (PGRST204 / 42703)
-      if (error && (error.code === '23503' || error.code === 'PGRST204' || error.code === '42703' || (error.message && (error.message.includes('company_id') || error.message.includes('column') || error.message.includes('schema cache'))))) {
+      if (error && (error.code === '23503' || error.code === '22P02' || error.code === 'PGRST204' || error.code === '42703' || (error.message && (error.message.includes('company_id') || error.message.includes('column') || error.message.includes('schema cache'))))) {
         const leanPayload: Record<string, any> = {
           id: payload.id,
           numero_parcela: payload.numero_parcela,
@@ -6706,30 +6727,92 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
       fetchDocumentosEntrada(activeCompanyId)
     ]);
 
+    const storedExpenses = getStoredExpenses();
+    const localExpenseByUuid = new Map<string, Expense>();
+    storedExpenses.forEach(exp => {
+      if (exp?.id) {
+        localExpenseByUuid.set(exp.id, exp);
+        localExpenseByUuid.set(toValidUUID(exp.id), exp);
+      }
+    });
+
+    const docByUuid = new Map<string, DocumentoEntradaRecord>();
+    (documentos_entrada || []).forEach(doc => {
+      if (doc?.id) {
+        docByUuid.set(doc.id, doc);
+        docByUuid.set(toValidUUID(doc.id), doc);
+      }
+    });
+
+    const fiscalByUuid = new Map<string, Expense>();
+    (getStoredFiscalRecords() || []).forEach(fr => {
+      if (fr?.id) {
+        fiscalByUuid.set(fr.id, fr);
+        fiscalByUuid.set(toValidUUID(fr.id), fr);
+      }
+    });
+
     const formattedExpenses: Expense[] = (contas_a_pagar || []).map((d: any) => {
-      const catExact = d.categoria || d.tipo_despesa || d.category || (d.centro_custo?.includes('Combustível') ? 'Combustível & Arla' : d.centro_custo?.includes('Insumos') ? 'Insumos & Entradas' : d.centro_custo) || 'Insumos & Entradas';
+      const localMatch = localExpenseByUuid.get(d.id) || localExpenseByUuid.get(toValidUUID(d.id));
+      const docMatch = d.nota_fiscal_id
+        ? (docByUuid.get(d.nota_fiscal_id) || docByUuid.get(toValidUUID(d.nota_fiscal_id)))
+        : undefined;
+      const fiscalMatch = d.nota_fiscal_id
+        ? (fiscalByUuid.get(d.nota_fiscal_id) || fiscalByUuid.get(toValidUUID(d.nota_fiscal_id)))
+        : undefined;
+
+      const catExact = d.categoria || d.tipo_despesa || d.category || localMatch?.categoryName || (d.centro_custo?.includes('Combustível') ? 'Combustível & Arla' : d.centro_custo?.includes('Insumos') ? 'Insumos & Entradas' : d.centro_custo) || 'Insumos & Entradas';
       const isComb = catExact === 'Combustível & Arla' || (typeof d.centro_custo === 'string' && d.centro_custo.toLowerCase().includes('combust'));
-      const finalCatName = isComb ? 'Combustível & Arla' : (catExact === 'Insumos & Entradas' ? 'Insumos & Entradas' : (d.categoryName || catExact));
-      const finalCatColor = isComb ? '#d97706' : (catExact === 'Insumos & Entradas' ? '#059669' : (d.categoryColor || '#10b981'));
-      const finalCatId = isComb ? 'cat_combustivel' : (catExact === 'Insumos & Entradas' ? 'cat_insumos' : (d.categoryId || 'despesa_geral'));
+      const finalCatName = isComb ? 'Combustível & Arla' : (catExact === 'Insumos & Entradas' ? 'Insumos & Entradas' : (localMatch?.categoryName || d.categoryName || catExact));
+      const finalCatColor = localMatch?.categoryColor || (isComb ? '#d97706' : (catExact === 'Insumos & Entradas' ? '#059669' : (d.categoryColor || '#10b981')));
+      const finalCatId = localMatch?.categoryId || (isComb ? 'cat_combustivel' : (catExact === 'Insumos & Entradas' ? 'cat_insumos' : (d.categoryId || 'despesa_geral')));
+
+      const resolvedSupplier =
+        d.fornecedor ||
+        d.credor ||
+        d.supplier ||
+        localMatch?.supplier ||
+        docMatch?.fornecedor ||
+        docMatch?.fornecedor_nome ||
+        fiscalMatch?.supplier ||
+        'Fornecedor N/I';
+
+      const docNum = docMatch?.numero || docMatch?.numero_documento || fiscalMatch?.invoiceNumber || localMatch?.invoiceNumber;
+      const parcLabel = d.numero_parcela || (localMatch as any)?.numero_parcela;
+      const resolvedDesc =
+        d.descricao ||
+        localMatch?.description ||
+        (docNum
+          ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
+          : d.centro_custo || d.description || 'Despesa Lançada');
+
+      const resolvedAmount = Number(d.valor_parcela ?? d.amount ?? localMatch?.amount ?? 0);
+      const resolvedDueDate = d.data_vencimento || d.dueDate || localMatch?.dueDate || new Date().toISOString().split('T')[0];
 
       return {
-        id: d.id,
-        title: d.centro_custo || d.title || 'Despesa Fornecedor',
-        description: d.descricao || d.centro_custo || d.description || 'Despesa Fornecedor',
-        amount: Number(d.valor_parcela ?? d.amount ?? 0),
-        dueDate: d.data_vencimento || d.dueDate || new Date().toISOString().split('T')[0],
+        ...(localMatch || {}),
+        id: localMatch?.id || d.id,
+        title: d.centro_custo || d.title || resolvedDesc,
+        description: resolvedDesc,
+        amount: resolvedAmount,
+        valor_parcela: resolvedAmount,
+        dueDate: resolvedDueDate,
+        data_vencimento: resolvedDueDate,
+        numero_parcela: parcLabel,
+        notaId: (localMatch as any)?.notaId || d.nota_fiscal_id || undefined,
+        nota_fiscal_id: d.nota_fiscal_id || undefined,
         status: ((d.status_pago || d.status === 'pago') ? 'pago' : 'pendente') as ExpenseStatus,
         categoryId: finalCatId,
         categoryColor: finalCatColor,
         category: finalCatName,
         categoryName: finalCatName,
-        paymentMethod: (d.forma_pagamento || d.paymentMethod || 'boleto') as PaymentMethod,
-        supplier: d.fornecedor || d.credor || d.supplier || 'Fornecedor',
+        paymentMethod: (d.forma_pagamento || d.paymentMethod || localMatch?.paymentMethod || 'boleto') as PaymentMethod,
+        supplier: resolvedSupplier,
+        invoiceNumber: docNum,
         recurrence: d.recurrence || 'none',
-        createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+        createdAt: d.created_at || d.createdAt || localMatch?.createdAt || new Date().toISOString(),
         updatedAt: d.updated_at || d.updatedAt || new Date().toISOString(),
-      };
+      } as Expense;
     });
 
     return {

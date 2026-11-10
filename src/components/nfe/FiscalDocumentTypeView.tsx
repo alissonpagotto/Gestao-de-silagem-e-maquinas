@@ -41,6 +41,7 @@ import {
   getNextCompetence, 
   matchesCompetence 
 } from '../financial/CompetenceSelector';
+import { upsertContaAPagar, isSupabaseConfigured } from '../../lib/supabaseService';
 
 export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'nfse';
 
@@ -477,16 +478,18 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     const netPayableVal = formIssRetained ? Math.max(0, Number((finalTotal - issAmountVal).toFixed(2))) : finalTotal;
     const payableForInstallments = formIssRetained ? netPayableVal : finalTotal;
 
-    // Geração de Parcelas no Contas a Pagar
+    // Geração de Parcelas no Contas a Pagar (aritmética de data local para evitar deslocamento UTC)
     const installments = [];
     const count = Math.max(1, formInstallmentsCount);
     const parcelValue = Number((payableForInstallments / count).toFixed(2));
-    const baseDate = new Date(formDate);
+    const [baseYear, baseMonth, baseDay] = (formDate && /^\d{4}-\d{2}-\d{2}/.test(formDate))
+      ? formDate.split('T')[0].split('-').map(Number)
+      : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()];
 
     for (let i = 1; i <= count; i++) {
-      const due = new Date(baseDate);
+      const due = new Date(baseYear, baseMonth - 1, baseDay);
       due.setDate(due.getDate() + (i * 30));
-      const dueStr = due.toISOString().split('T')[0];
+      const dueStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
       installments.push({
         number: `${String(i).padStart(2, '0')}/${String(count).padStart(2, '0')}`,
         dueDate: dueStr,
@@ -591,15 +594,17 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         console.warn('Erro ao atualizar estoque da NF-e:', err);
       }
 
-      // Gera parcelas no Contas a Pagar (agrocontrol_financeiro)
+      // Gera parcelas no Contas a Pagar (agrocontrol_financeiro + contas_a_pagar)
       try {
-        const storedExpenses = getStoredExpenses();
+        const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_nfe_${docId}_${idx + 1}`,
           description: `NF-E ${newRecord.number} - ${newRecord.supplierName} (PARC ${inst.number})`,
           amount: inst.amount,
+          valor_parcela: inst.amount,
           date: newRecord.issueDate,
           dueDate: inst.dueDate,
+          data_vencimento: inst.dueDate,
           categoryId: 'cat_insumos',
           categoryName: 'Compras e Insumos Agrícolas',
           categoryColor: '#10b981',
@@ -608,7 +613,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
           supplierName: newRecord.supplierName,
+          invoiceNumber: newRecord.number,
           notaId: docId,
+          documento_entrada_id: docId,
           numero_parcela: inst.number,
           createdAt: new Date().toISOString()
         }));
@@ -617,6 +624,20 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (isSupabaseConfigured) {
+          newExpenses.forEach(exp => {
+            upsertContaAPagar({
+              id: exp.id,
+              nota_fiscal_id: null,
+              numero_parcela: exp.numero_parcela,
+              valor_parcela: exp.amount,
+              data_vencimento: exp.dueDate,
+              forma_pagamento: exp.paymentMethod,
+              centro_custo: exp.costCenterName,
+              status_pago: false
+            }).catch(() => {});
+          });
+        }
       } catch (err) {
         console.warn('Erro ao gerar despesas financeiras da NF-e:', err);
       }
@@ -647,13 +668,15 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       // 2. Lança no Contas a Pagar
       try {
-        const storedExpenses = getStoredExpenses();
+        const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_cte_${docId}_${idx + 1}`,
           description: `CT-E ${newRecord.number} - FRETE VEÍCULO ${plate || 'FROTA'} (${newRecord.supplierName})`,
           amount: inst.amount,
+          valor_parcela: inst.amount,
           date: newRecord.issueDate,
           dueDate: inst.dueDate,
+          data_vencimento: inst.dueDate,
           categoryId: 'cat_fretes',
           categoryName: 'Fretes e Logística de Frota',
           categoryColor: '#0284c7',
@@ -662,9 +685,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
           supplierName: newRecord.supplierName,
+          invoiceNumber: newRecord.number,
           vehicleId: formVehicleId,
           vehiclePlate: plate,
           notaId: docId,
+          documento_entrada_id: docId,
           numero_parcela: inst.number,
           createdAt: new Date().toISOString()
         }));
@@ -673,6 +698,20 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (isSupabaseConfigured) {
+          newExpenses.forEach(exp => {
+            upsertContaAPagar({
+              id: exp.id,
+              nota_fiscal_id: null,
+              numero_parcela: exp.numero_parcela,
+              valor_parcela: exp.amount,
+              data_vencimento: exp.dueDate,
+              forma_pagamento: exp.paymentMethod,
+              centro_custo: exp.costCenterName,
+              status_pago: false
+            }).catch(() => {});
+          });
+        }
       } catch (err) {
         console.warn('Erro ao gerar despesas financeiras do CT-e:', err);
       }
@@ -682,13 +721,15 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     // Lança valor complementar no Contas a Pagar sem movimentar estoque
     if (category === 'nfe_c') {
       try {
-        const storedExpenses = getStoredExpenses();
+        const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_nfec_${docId}_${idx + 1}`,
           description: `NF-E COMPLEMENTAR ${newRecord.number} - ${newRecord.supplierName}`,
           amount: inst.amount,
+          valor_parcela: inst.amount,
           date: newRecord.issueDate,
           dueDate: inst.dueDate,
+          data_vencimento: inst.dueDate,
           categoryId: 'cat_fiscal',
           categoryName: 'Complementos e Ajustes Fiscais',
           categoryColor: '#d97706',
@@ -697,7 +738,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
           supplierName: newRecord.supplierName,
+          invoiceNumber: newRecord.number,
           notaId: docId,
+          documento_entrada_id: docId,
           numero_parcela: inst.number,
           createdAt: new Date().toISOString()
         }));
@@ -706,6 +749,20 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (isSupabaseConfigured) {
+          newExpenses.forEach(exp => {
+            upsertContaAPagar({
+              id: exp.id,
+              nota_fiscal_id: null,
+              numero_parcela: exp.numero_parcela,
+              valor_parcela: exp.amount,
+              data_vencimento: exp.dueDate,
+              forma_pagamento: exp.paymentMethod,
+              centro_custo: exp.costCenterName,
+              status_pago: false
+            }).catch(() => {});
+          });
+        }
       } catch (err) {
         console.warn('Erro ao gerar despesas financeiras da NF-e C:', err);
       }
@@ -734,15 +791,17 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         }
       }
 
-      // 2. Lança parcelas automáticas no Contas a Pagar (agrocontrol_financeiro)
+      // 2. Lança parcelas automáticas no Contas a Pagar (agrocontrol_financeiro + contas_a_pagar)
       try {
-        const storedExpenses = getStoredExpenses();
+        const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_nfse_${docId}_${idx + 1}`,
           description: `NFS-E ${newRecord.number} - ${newRecord.supplierName}${plate ? ` (VEÍCULO ${plate})` : ''} [PARC ${inst.number}]`,
           amount: inst.amount,
+          valor_parcela: inst.amount,
           date: newRecord.issueDate,
           dueDate: inst.dueDate,
+          data_vencimento: inst.dueDate,
           categoryId: 'cat_manutencao',
           categoryName: 'Serviços Terceirizados & Manutenção',
           categoryColor: '#0ea5e9',
@@ -751,9 +810,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
           supplierName: newRecord.supplierName,
+          invoiceNumber: newRecord.number,
           vehicleId: formVehicleId || undefined,
           vehiclePlate: plate || undefined,
           notaId: docId,
+          documento_entrada_id: docId,
           numero_parcela: inst.number,
           createdAt: new Date().toISOString()
         }));
@@ -762,6 +823,20 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (isSupabaseConfigured) {
+          newExpenses.forEach(exp => {
+            upsertContaAPagar({
+              id: exp.id,
+              nota_fiscal_id: null,
+              numero_parcela: exp.numero_parcela,
+              valor_parcela: exp.amount,
+              data_vencimento: exp.dueDate,
+              forma_pagamento: exp.paymentMethod,
+              centro_custo: exp.costCenterName,
+              status_pago: false
+            }).catch(() => {});
+          });
+        }
       } catch (err) {
         console.warn('Erro ao gerar despesas financeiras da NFS-e:', err);
       }

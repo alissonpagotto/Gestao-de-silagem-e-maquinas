@@ -54,7 +54,9 @@ import {
   getStoredExpenses,
   saveStoredFuelLogs,
   getStoredFuelLogs,
-  getActiveCompanyId
+  getActiveCompanyId,
+  getStoredDocumentosEntrada,
+  getStoredFiscalRecords
 } from '../../lib/storage';
 import { calculatePredictiveMaintenanceAlerts, PredictiveMaintenanceAlert } from '../../lib/predictiveMaintenance';
 import { supabase } from '../../lib/supabaseClient';
@@ -65,7 +67,8 @@ import {
   fetchAbastecimentos,
   saveCloudExpenses,
   saveCloudFuelLogs,
-  getAbastecimentosTableName
+  getAbastecimentosTableName,
+  toValidUUID
 } from '../../lib/supabaseService';
 
 interface MainDashboardProps {
@@ -172,40 +175,88 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         fetchAbastecimentos(activeCompanyId)
       ]);
 
-      // 1. Reconciliação de Contas a Pagar / Despesas
-      if (cloudContas !== null && Array.isArray(cloudContas)) {
-        if (cloudContas.length === 0) {
-          // Banco esvaziado / sem registros de contas a pagar: ZERA IMEDIATAMENTE
-          setActiveExpenses([]);
-          saveStoredExpenses([]);
-          if (activeCompanyId) {
-            saveCloudExpenses([], activeCompanyId).catch(() => {});
+      // 1. Reconciliação segura de Contas a Pagar / Despesas (preserva lançamentos locais e enriquece fornecedores)
+      if (cloudContas !== null && Array.isArray(cloudContas) && cloudContas.length > 0) {
+        const currentStored = getStoredExpenses();
+        const existingMap = new Map<string, Expense>();
+        const uuidToKey = new Map<string, string>();
+        currentStored.forEach(e => {
+          if (e?.id) {
+            existingMap.set(e.id, e);
+            uuidToKey.set(toValidUUID(e.id), e.id);
           }
-          onExpensesChangeRef.current?.([]);
-        } else {
-          const mapped: Expense[] = cloudContas.map((d: any) => ({
-            id: d.id,
-            title: d.centro_custo || 'Parcela Fornecedor',
-            description: d.centro_custo || 'Parcela Fornecedor',
-            amount: Number(d.valor_parcela) || 0,
-            dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+        });
+
+        const docsMap = new Map<string, any>();
+        getStoredDocumentosEntrada().forEach(doc => {
+          if (doc?.id) {
+            docsMap.set(doc.id, doc);
+            docsMap.set(toValidUUID(doc.id), doc);
+          }
+        });
+        getStoredFiscalRecords().forEach(fr => {
+          if (fr?.id) {
+            docsMap.set(fr.id, fr);
+            docsMap.set(toValidUUID(fr.id), fr);
+          }
+        });
+
+        cloudContas.forEach((d: any) => {
+          const matchedKey = existingMap.has(d.id) ? d.id : uuidToKey.get(toValidUUID(d.id));
+          const existing = matchedKey ? existingMap.get(matchedKey) : undefined;
+          const docMatch = d.nota_fiscal_id
+            ? (docsMap.get(d.nota_fiscal_id) || docsMap.get(toValidUUID(d.nota_fiscal_id)))
+            : undefined;
+
+          const resolvedSupplier =
+            (existing?.supplier && existing.supplier !== 'Fornecedor' && existing.supplier !== 'Fornecedor N/I' ? existing.supplier : '') ||
+            d.fornecedor ||
+            d.credor ||
+            docMatch?.fornecedor ||
+            docMatch?.fornecedor_nome ||
+            docMatch?.supplier ||
+            'Fornecedor N/I';
+
+          const docNum = docMatch?.numero || docMatch?.numero_documento || docMatch?.invoiceNumber || existing?.invoiceNumber;
+          const parcLabel = d.numero_parcela || (existing as any)?.numero_parcela;
+          const resolvedDesc =
+            existing?.description ||
+            d.descricao ||
+            (docNum
+              ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
+              : d.centro_custo || 'Despesa Lançada');
+
+          const reconciled: Expense = {
+            ...(existing || {}),
+            id: existing?.id || d.id,
+            title: d.centro_custo || existing?.description || resolvedDesc,
+            description: resolvedDesc,
+            amount: Number(d.valor_parcela ?? existing?.amount ?? 0),
+            dueDate: d.data_vencimento || existing?.dueDate || new Date().toISOString().split('T')[0],
             status: d.status_pago ? 'pago' : 'pendente',
-            categoryId: 'despesa_geral',
-            categoryColor: '#10b981',
-            category: 'despesa_geral',
-            categoryName: d.centro_custo || 'Geral',
-            paymentMethod: d.forma_pagamento || 'Boleto',
-            supplier: 'Fornecedor',
-            createdAt: d.created_at || new Date().toISOString()
-          } as unknown as Expense));
-          const currentStored = getStoredExpenses();
-          const serMapped = JSON.stringify(mapped);
-          const serStored = JSON.stringify(currentStored);
-          if (serMapped !== serStored) {
-            setActiveExpenses(mapped);
-            saveStoredExpenses(mapped);
-            onExpensesChangeRef.current?.(mapped);
-          }
+            categoryId: existing?.categoryId || 'despesa_geral',
+            categoryColor: existing?.categoryColor || '#10b981',
+            category: existing?.category || d.centro_custo || 'Geral',
+            categoryName: existing?.categoryName || d.centro_custo || 'Geral',
+            paymentMethod: (d.forma_pagamento || existing?.paymentMethod || 'boleto') as any,
+            supplier: resolvedSupplier,
+            invoiceNumber: docNum,
+            createdAt: existing?.createdAt || d.created_at || new Date().toISOString()
+          } as unknown as Expense;
+
+          if (d.nota_fiscal_id) (reconciled as any).notaId = (existing as any)?.notaId || d.nota_fiscal_id;
+          if (parcLabel) (reconciled as any).numero_parcela = parcLabel;
+
+          existingMap.set(reconciled.id, reconciled);
+        });
+
+        const mergedList = Array.from(existingMap.values());
+        const serMapped = JSON.stringify(mergedList);
+        const serStored = JSON.stringify(currentStored);
+        if (serMapped !== serStored) {
+          setActiveExpenses(mergedList);
+          saveStoredExpenses(mergedList);
+          onExpensesChangeRef.current?.(mergedList);
         }
       }
 

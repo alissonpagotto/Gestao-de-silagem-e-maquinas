@@ -41,7 +41,7 @@ import {
   BankTransaction,
   PaymentMethod
 } from '../../types';
-import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getActiveCompanyId } from '../../lib/storage';
+import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchContasAPagar, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { BankAccountsTab } from './BankAccountsTab';
@@ -212,41 +212,85 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       expensesDebounceTimerRef.current = setTimeout(async () => {
         try {
           const fresh = await fetchContasAPagar(companyId);
-          if (isMounted && fresh && Array.isArray(fresh)) {
+          if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0) {
             const currentStored: Expense[] = getStoredExpenses();
-            const existingMap = new Map<string, Expense>(currentStored.map(e => [e.id, e]));
-            const mapped: Expense[] = fresh.map((d: any) => {
-              const existing = existingMap.get(d.id);
-              const baseExp: Expense = {
-                id: d.id,
-                description: d.centro_custo || 'Parcela Fornecedor',
-                amount: Number(d.valor_parcela) || 0,
-                dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-                status: d.status_pago ? 'pago' : 'pendente',
-                categoryId: 'despesa_geral',
-                categoryColor: '#10b981',
-                category: 'despesa_geral',
-                categoryName: d.centro_custo || 'Geral',
-                paymentMethod: d.forma_pagamento || 'Boleto',
-                supplier: 'Fornecedor',
-                createdAt: d.created_at || new Date().toISOString()
-              };
-              return existing
-                ? {
-                    ...baseExp,
-                    ...existing,
-                    amount: baseExp.amount,
-                    dueDate: baseExp.dueDate,
-                    status: baseExp.status,
-                  }
-                : baseExp;
+            const existingMap = new Map<string, Expense>();
+            const uuidToKey = new Map<string, string>();
+            currentStored.forEach(e => {
+              if (e?.id) {
+                existingMap.set(e.id, e);
+                uuidToKey.set(toValidUUID(e.id), e.id);
+              }
             });
-            const mergedMap = new Map<string, Expense>(currentStored.map(e => [e.id, e]));
-            mapped.forEach(m => mergedMap.set(m.id, m));
-            const mergedList = Array.from(mergedMap.values());
-            setLocalExpenses(mergedList);
-            saveStoredExpenses(mergedList);
-            onSaveExpensesRef.current?.(mergedList);
+
+            const docsMap = new Map<string, any>();
+            getStoredDocumentosEntrada().forEach(doc => {
+              if (doc?.id) {
+                docsMap.set(doc.id, doc);
+                docsMap.set(toValidUUID(doc.id), doc);
+              }
+            });
+            getStoredFiscalRecords().forEach(fr => {
+              if (fr?.id) {
+                docsMap.set(fr.id, fr);
+                docsMap.set(toValidUUID(fr.id), fr);
+              }
+            });
+
+            fresh.forEach((d: any) => {
+              const matchedKey = existingMap.has(d.id) ? d.id : uuidToKey.get(toValidUUID(d.id));
+              const existing = matchedKey ? existingMap.get(matchedKey) : undefined;
+              const docMatch = d.nota_fiscal_id
+                ? (docsMap.get(d.nota_fiscal_id) || docsMap.get(toValidUUID(d.nota_fiscal_id)))
+                : undefined;
+
+              const resolvedSupplier =
+                (existing?.supplier && existing.supplier !== 'Fornecedor' && existing.supplier !== 'Fornecedor N/I' ? existing.supplier : '') ||
+                d.fornecedor ||
+                d.credor ||
+                docMatch?.fornecedor ||
+                docMatch?.fornecedor_nome ||
+                docMatch?.supplier ||
+                'Fornecedor N/I';
+
+              const docNum = docMatch?.numero || docMatch?.numero_documento || docMatch?.invoiceNumber || existing?.invoiceNumber;
+              const parcLabel = d.numero_parcela || (existing as any)?.numero_parcela;
+              const resolvedDesc =
+                existing?.description ||
+                d.descricao ||
+                (docNum
+                  ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
+                  : d.centro_custo || 'Despesa Lançada');
+
+              const baseExp: Expense = {
+                ...(existing || {}),
+                id: existing?.id || d.id,
+                description: resolvedDesc,
+                amount: Number(d.valor_parcela ?? existing?.amount ?? 0),
+                dueDate: d.data_vencimento || existing?.dueDate || new Date().toISOString().split('T')[0],
+                status: d.status_pago ? 'pago' : 'pendente',
+                categoryId: existing?.categoryId || 'despesa_geral',
+                categoryColor: existing?.categoryColor || '#10b981',
+                category: existing?.category || d.centro_custo || 'Geral',
+                categoryName: existing?.categoryName || d.centro_custo || 'Geral',
+                paymentMethod: (d.forma_pagamento || existing?.paymentMethod || 'boleto') as PaymentMethod,
+                supplier: resolvedSupplier,
+                invoiceNumber: docNum,
+                createdAt: existing?.createdAt || d.created_at || new Date().toISOString()
+              };
+
+              if (d.nota_fiscal_id) (baseExp as any).notaId = (existing as any)?.notaId || d.nota_fiscal_id;
+              if (parcLabel) (baseExp as any).numero_parcela = parcLabel;
+
+              existingMap.set(baseExp.id, baseExp);
+            });
+
+            const mergedList = Array.from(existingMap.values());
+            if (JSON.stringify(mergedList) !== JSON.stringify(currentStored)) {
+              setLocalExpenses(mergedList);
+              saveStoredExpenses(mergedList);
+              onSaveExpensesRef.current?.(mergedList);
+            }
           }
         } catch (_) {}
       }, 400);
@@ -1197,7 +1241,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       {/* ABA: A Pagar */}
       {activeTab === 'a_pagar' && (
         <PayablesTab
-          expenses={expenses}
+          expenses={localExpenses}
           bankAccounts={bankAccounts}
           employees={employees}
           onToggleStatus={onToggleExpenseStatus}

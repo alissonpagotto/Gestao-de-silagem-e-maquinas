@@ -98,7 +98,9 @@ import {
   saveCompanyEstoque,
   getCompanyEstoque,
   saveCompanyAbastecimentos,
-  getCompanyAbastecimentos
+  getCompanyAbastecimentos,
+  getStoredDocumentosEntrada,
+  getStoredFiscalRecords
 } from './lib/storage';
 import { IS_OFFLINE_LOCAL_STORAGE_MODE } from './lib/supabase';
 import { useConfirm } from './context/ConfirmContext';
@@ -508,25 +510,57 @@ export default function App() {
             setMachineries(cloudData.gestao_frotas);
           }
           if (cloudData.contas_a_pagar !== undefined && Array.isArray(cloudData.contas_a_pagar) && cloudData.contas_a_pagar.length > 0) {
-            const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => ({
-              id: d.id,
-              title: d.centro_custo || 'Parcela Fornecedor',
-              description: d.centro_custo || 'Parcela Fornecedor',
-              amount: Number(d.valor_parcela) || 0,
-              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-              status: d.status_pago ? 'pago' : 'pendente',
-              categoryId: 'despesa_geral',
-              categoryColor: '#10b981',
-              category: 'despesa_geral',
-              categoryName: d.centro_custo || 'Geral',
-              paymentMethod: d.forma_pagamento || 'Boleto',
-              supplier: 'Fornecedor',
-              createdAt: d.created_at || new Date().toISOString()
-            } as unknown as Expense));
+            const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => {
+              const amt = Number(d.amount ?? d.valor_parcela ?? 0);
+              const due = d.dueDate || d.data_vencimento || new Date().toISOString().split('T')[0];
+              const isPaid = d.status === 'pago' || Boolean(d.status_pago);
+              return {
+                ...d,
+                id: d.id,
+                title: d.title || d.centro_custo || d.description || 'Despesa Lançada',
+                description: d.description || d.descricao || d.centro_custo || 'Despesa Lançada',
+                amount: amt,
+                valor_parcela: amt,
+                dueDate: due,
+                data_vencimento: due,
+                status: isPaid ? 'pago' : 'pendente',
+                categoryId: d.categoryId || 'despesa_geral',
+                categoryColor: d.categoryColor || '#10b981',
+                category: d.category || d.categoryName || d.centro_custo || 'Insumos & Entradas',
+                categoryName: d.categoryName || d.centro_custo || 'Geral',
+                paymentMethod: d.paymentMethod || d.forma_pagamento || 'boleto',
+                supplier: d.supplier || d.fornecedor || d.credor || 'Fornecedor N/I',
+                createdAt: d.createdAt || d.created_at || new Date().toISOString()
+              } as Expense;
+            });
 
             setExpenses(prev => {
-              const map = new Map(prev.map(e => [e.id, e]));
-              mappedExpenses.forEach(e => map.set(e.id, e));
+              const map = new Map<string, Expense>();
+              const uuidToKey = new Map<string, string>();
+              prev.forEach(e => {
+                map.set(e.id, e);
+                uuidToKey.set(toValidUUID(e.id), e.id);
+              });
+              mappedExpenses.forEach(e => {
+                const matchedKey = map.has(e.id) ? e.id : uuidToKey.get(toValidUUID(e.id));
+                const existing = matchedKey ? map.get(matchedKey) : undefined;
+                if (existing) {
+                  map.set(existing.id, {
+                    ...e,
+                    ...existing,
+                    id: existing.id,
+                    amount: e.amount > 0 ? e.amount : existing.amount,
+                    dueDate: e.dueDate || existing.dueDate,
+                    status: e.status || existing.status,
+                    supplier: (existing.supplier && existing.supplier !== 'Fornecedor' && existing.supplier !== 'Fornecedor N/I')
+                      ? existing.supplier
+                      : e.supplier,
+                  });
+                } else {
+                  map.set(e.id, e);
+                  uuidToKey.set(toValidUUID(e.id), e.id);
+                }
+              });
               const merged = Array.from(map.values());
               lastSyncedState.current.rel_expenses = JSON.stringify(merged);
               return merged;
@@ -581,8 +615,32 @@ export default function App() {
           }
           if (Array.isArray(cloudModules.expenses) && cloudModules.expenses.length > 0) {
             setExpenses(prev => {
-              const map = new Map(prev.map(e => [e.id, e]));
-              cloudModules.expenses!.forEach(e => map.set(e.id, e));
+              const map = new Map<string, Expense>();
+              const uuidToKey = new Map<string, string>();
+              prev.forEach(e => {
+                map.set(e.id, e);
+                uuidToKey.set(toValidUUID(e.id), e.id);
+              });
+              cloudModules.expenses!.forEach(ce => {
+                const matchedKey = map.has(ce.id) ? ce.id : uuidToKey.get(toValidUUID(ce.id));
+                const existing = matchedKey ? map.get(matchedKey) : undefined;
+                if (existing) {
+                  map.set(existing.id, {
+                    ...existing,
+                    ...ce,
+                    id: existing.id,
+                    supplier: (ce.supplier && ce.supplier !== 'Fornecedor' && ce.supplier !== 'Fornecedor N/I')
+                      ? ce.supplier
+                      : existing.supplier,
+                    dueDate: ce.dueDate || existing.dueDate,
+                    amount: (ce.amount && ce.amount > 0) ? ce.amount : existing.amount,
+                    status: existing.status || ce.status,
+                  });
+                } else {
+                  map.set(ce.id, ce);
+                  uuidToKey.set(toValidUUID(ce.id), ce.id);
+                }
+              });
               const merged = Array.from(map.values());
               lastSyncedState.current.expenses = JSON.stringify(merged);
               return merged;
@@ -1041,40 +1099,79 @@ export default function App() {
           const ser = JSON.stringify(fresh);
           if (ser !== lastSyncedState.current.rel_expenses) {
             lastSyncedState.current.rel_expenses = ser;
-            const mapped = fresh.map((d: any) => ({
-              id: d.id,
-              title: d.centro_custo || 'Parcela Fornecedor',
-              description: d.centro_custo || 'Parcela Fornecedor',
-              amount: Number(d.valor_parcela) || 0,
-              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-              status: d.status_pago ? 'pago' : 'pendente',
-              categoryId: 'despesa_geral',
-              categoryColor: '#10b981',
-              category: 'despesa_geral',
-              categoryName: d.centro_custo || 'Geral',
-              paymentMethod: d.forma_pagamento || 'Boleto',
-              supplier: 'Fornecedor',
-              createdAt: d.created_at || new Date().toISOString()
-            } as unknown as Expense));
+            const docsMap = new Map<string, any>();
+            getStoredDocumentosEntrada().forEach(doc => {
+              if (doc?.id) {
+                docsMap.set(doc.id, doc);
+                docsMap.set(toValidUUID(doc.id), doc);
+              }
+            });
+            getStoredFiscalRecords().forEach(fr => {
+              if (fr?.id) {
+                docsMap.set(fr.id, fr);
+                docsMap.set(toValidUUID(fr.id), fr);
+              }
+            });
+
             setExpenses(prev => {
-              const map = new Map(prev.map(e => [e.id, e]));
-              mapped.forEach(e => {
-                const existing = map.get(e.id);
-                map.set(
-                  e.id,
-                  existing
-                    ? {
-                        ...e,
-                        ...existing,
-                        amount: e.amount,
-                        dueDate: e.dueDate,
-                        status: e.status,
-                      }
-                    : e
-                );
+              const map = new Map<string, Expense>();
+              const uuidToKey = new Map<string, string>();
+              prev.forEach(e => {
+                map.set(e.id, e);
+                uuidToKey.set(toValidUUID(e.id), e.id);
               });
-              const merged = Array.from(map.values());
-              return merged;
+
+              fresh.forEach((d: any) => {
+                const matchedKey = map.has(d.id) ? d.id : uuidToKey.get(toValidUUID(d.id));
+                const existing = matchedKey ? map.get(matchedKey) : undefined;
+                const docMatch = d.nota_fiscal_id
+                  ? (docsMap.get(d.nota_fiscal_id) || docsMap.get(toValidUUID(d.nota_fiscal_id)))
+                  : undefined;
+
+                const resolvedSupplier =
+                  existing?.supplier ||
+                  d.fornecedor ||
+                  d.credor ||
+                  docMatch?.fornecedor ||
+                  docMatch?.fornecedor_nome ||
+                  docMatch?.supplier ||
+                  'Fornecedor N/I';
+
+                const docNum = docMatch?.numero || docMatch?.numero_documento || docMatch?.invoiceNumber || existing?.invoiceNumber;
+                const parcLabel = d.numero_parcela || (existing as any)?.numero_parcela;
+                const resolvedDesc =
+                  existing?.description ||
+                  d.descricao ||
+                  (docNum
+                    ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
+                    : d.centro_custo || 'Despesa Lançada');
+
+                const baseExp: Expense = {
+                  ...(existing || {}),
+                  id: existing?.id || d.id,
+                  title: d.centro_custo || existing?.description || resolvedDesc,
+                  description: resolvedDesc,
+                  amount: Number(d.valor_parcela ?? existing?.amount ?? 0),
+                  dueDate: d.data_vencimento || existing?.dueDate || new Date().toISOString().split('T')[0],
+                  status: d.status_pago ? 'pago' : 'pendente',
+                  categoryId: existing?.categoryId || 'despesa_geral',
+                  categoryColor: existing?.categoryColor || '#10b981',
+                  category: existing?.category || d.centro_custo || 'Geral',
+                  categoryName: existing?.categoryName || d.centro_custo || 'Geral',
+                  paymentMethod: (d.forma_pagamento || existing?.paymentMethod || 'boleto') as PaymentMethod,
+                  supplier: resolvedSupplier,
+                  invoiceNumber: docNum,
+                  createdAt: existing?.createdAt || d.created_at || new Date().toISOString(),
+                } as unknown as Expense;
+
+                if (d.nota_fiscal_id) (baseExp as any).notaId = (existing as any)?.notaId || d.nota_fiscal_id;
+                if (parcLabel) (baseExp as any).numero_parcela = parcLabel;
+
+                map.set(baseExp.id, baseExp);
+                uuidToKey.set(toValidUUID(baseExp.id), baseExp.id);
+              });
+
+              return Array.from(map.values());
             });
           }
         }
@@ -1976,14 +2073,15 @@ export default function App() {
       if (exp.isDreOnly || exp.skipAccountsPayable || exp.status === 'compensado_estoque') {
         return;
       }
+      const notaRef = (exp as any).nota_fiscal_id || (exp as any).notaId || null;
       upsertContaAPagar({
         id: exp.id,
-        nota_fiscal_id: exp.invoiceNumber ? toValidUUID(exp.invoiceNumber) : null,
-        numero_parcela: '01/01',
-        valor_parcela: Number(exp.amount) || 0,
-        data_vencimento: exp.dueDate || new Date().toISOString().split('T')[0],
-        forma_pagamento: exp.paymentMethod || 'Boleto',
-        centro_custo: exp.costCenterName || exp.description || 'Geral',
+        nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+        numero_parcela: (exp as any).numero_parcela || '01/01',
+        valor_parcela: Number(exp.amount ?? (exp as any).valor_parcela ?? 0),
+        data_vencimento: exp.dueDate || (exp as any).data_vencimento || new Date().toISOString().split('T')[0],
+        forma_pagamento: (exp as any).forma_pagamento || exp.paymentMethod || 'Boleto',
+        centro_custo: exp.costCenterName || exp.categoryName || exp.description || 'Geral',
         status_pago: exp.status === 'pago'
       }, activeTenantId).catch(err => console.warn('Supabase upsertContaAPagar notice:', err));
     });
@@ -3812,33 +3910,36 @@ export default function App() {
                   }, 0);
                 }}
                 onAddExpenseFromNfe={(newExpOrList) => {
-                  setTimeout(() => {
-                    const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];
-                    const createdList: Expense[] = list.map((newExp, idx) => {
-                      const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
-                      const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
-                      return {
-                        id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
-                        description: newExp.description || 'Despesa Importada via NF-e',
-                        amount: newExp.amount || 0,
-                        categoryId: newExp.categoryId || 'cat_combustivel',
-                        categoryName: newExp.categoryName || cat?.name || 'Combustível & Arla (Diesel)',
-                        categoryColor: newExp.categoryColor || cat?.color || '#d97706',
-                        dueDate: newExp.dueDate || new Date().toISOString().split('T')[0],
-                        paymentDate: newExp.paymentDate,
-                        status: newExp.status || 'pendente',
-                        paymentMethod: newExp.paymentMethod || 'boleto',
-                        supplier: newExp.supplier || 'Fornecedor NF-e',
-                        invoiceNumber: newExp.invoiceNumber || 'NF-e',
-                        costCenterId: newExp.costCenterId || cc?.id,
-                        costCenterName: newExp.costCenterName || cc?.name,
-                        notes: newExp.notes,
-                        nfeItems: newExp.nfeItems,
-                        createdAt: newExp.createdAt || new Date().toISOString(),
-                      };
-                    });
-                    handleSaveExpense(createdList.length === 1 ? createdList[0] : createdList);
-                  }, 0);
+                  const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];
+                  const createdList: Expense[] = list.map((newExp: any, idx) => {
+                    const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
+                    const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
+                    const resolvedDueDate = newExp.dueDate || newExp.data_vencimento || new Date().toISOString().split('T')[0];
+                    const resolvedAmount = Number(newExp.amount ?? newExp.valor_parcela ?? 0);
+                    return {
+                      ...newExp,
+                      id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
+                      description: newExp.description || 'Despesa Importada via NF-e',
+                      amount: resolvedAmount,
+                      valor_parcela: resolvedAmount,
+                      categoryId: newExp.categoryId || 'cat_combustivel',
+                      categoryName: newExp.categoryName || cat?.name || 'Combustível & Arla (Diesel)',
+                      categoryColor: newExp.categoryColor || cat?.color || '#d97706',
+                      dueDate: resolvedDueDate,
+                      data_vencimento: resolvedDueDate,
+                      paymentDate: newExp.paymentDate,
+                      status: newExp.status || 'pendente',
+                      paymentMethod: newExp.paymentMethod || 'boleto',
+                      supplier: newExp.supplier || newExp.fornecedor || 'Fornecedor N/I',
+                      invoiceNumber: newExp.invoiceNumber || 'NF-e',
+                      costCenterId: newExp.costCenterId || cc?.id,
+                      costCenterName: newExp.costCenterName || cc?.name,
+                      notes: newExp.notes,
+                      nfeItems: newExp.nfeItems,
+                      createdAt: newExp.createdAt || new Date().toISOString(),
+                    };
+                  });
+                  handleSaveExpense(createdList.length === 1 ? createdList[0] : createdList);
                 }}
               />
             </div>

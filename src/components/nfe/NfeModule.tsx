@@ -1698,16 +1698,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // Janela 2 (Entrada Manual): Forma de Pagamento e Condições de Lançamento Financeiro
   const [isManualInstallmentsModalOpen, setIsManualInstallmentsModalOpen] = useState(false);
 
-  // Helper para cálculo de vencimento padrão (30 dias)
+  // Helper para cálculo de vencimento padrão (30 dias) em horário local seguro
   const calculateDefaultDueDate = (dateStr?: string): string => {
     try {
-      if (!dateStr) {
-        const now = new Date();
-        now.setDate(now.getDate() + 30);
-        return now.toISOString().split('T')[0];
+      let d: Date;
+      if (dateStr && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+        d = new Date(year, month - 1, day);
+      } else {
+        d = new Date();
       }
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
       d.setDate(d.getDate() + 30);
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -1716,7 +1716,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     } catch {
       const d = new Date();
       d.setDate(d.getDate() + 30);
-      return d.toISOString().split('T')[0];
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dayStr}`;
     }
   };
 
@@ -2863,7 +2866,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           updated_at: new Date().toISOString()
         };
         activeDocId = finalDoc.id;
-        updateDocumentoEntrada(currentManualDoc.id, {
+        await updateDocumentoEntrada(currentManualDoc.id, {
           numero: docNumero,
           numero_documento: docNumero,
           fornecedor: trimmedSupplier,
@@ -2894,7 +2897,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        insertDocumentoEntrada(finalDoc).catch(e => console.warn('Aviso insertDocumentoEntrada:', e));
+        await insertDocumentoEntrada(finalDoc).catch(e => console.warn('Aviso insertDocumentoEntrada:', e));
       }
 
       // 1. CORREÇÃO DA EXIBIÇÃO NO HISTÓRICO (PRINT 1):
@@ -2940,6 +2943,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const instId = totalParcs === 1 ? `pagar_${activeDocId}` : `pagar_${activeDocId}_parc_${idx + 1}`;
         const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
         const docDescricao = `ENTRADA MANUAL REF. ${manualDocumentType}${suffix} - ${trimmedSupplier}`.toUpperCase();
+        const dueResolved = inst.dueDate || firstDueDate;
 
         return {
           id: instId,
@@ -2955,8 +2959,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           categoria: primaryCategory.toUpperCase(),
           centro_custo: primaryCategory.toUpperCase(),
           categoryColor: catColor,
-          dueDate: inst.dueDate || firstDueDate,
-          data_vencimento: inst.dueDate || firstDueDate,
+          date: manualDate,
+          dueDate: dueResolved,
+          data_vencimento: dueResolved,
           status: 'pendente' as const,
           status_pago: false,
           paymentMethod: mapPaymentMethodCode(inst.paymentMethodCode),
@@ -3009,19 +3014,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // Persistência segura no schema do Supabase (se configurado) sem duplicações
       if (isSupabaseConfigured) {
-        for (const item of novosLancamentosFinanceiros) {
-          upsertContaAPagar({
-            id: item.id,
-            nota_fiscal_id: null,
-            numero_parcela: (item as any).numero_parcela || '01/01',
-            valor_parcela: (item as any).valor_parcela || item.amount || 0,
-            data_vencimento: (item as any).data_vencimento || item.dueDate,
-            forma_pagamento: (item as any).forma_pagamento || item.paymentMethod || 'Boleto',
-            centro_custo: (item as any).centro_custo || item.categoryName || 'Geral',
-            categoria: (item as any).categoria || item.categoryName || 'Geral',
-            status_pago: false
-          }).catch(err => console.warn('Notice upsertContaAPagar:', err));
-        }
+        await Promise.all(
+          novosLancamentosFinanceiros.map(item =>
+            upsertContaAPagar({
+              id: item.id,
+              nota_fiscal_id: null,
+              numero_parcela: (item as any).numero_parcela || '01/01',
+              valor_parcela: (item as any).valor_parcela || item.amount || 0,
+              data_vencimento: (item as any).data_vencimento || item.dueDate,
+              forma_pagamento: (item as any).forma_pagamento || item.paymentMethod || 'Boleto',
+              centro_custo: (item as any).centro_custo || item.categoryName || 'Geral',
+              categoria: (item as any).categoria || item.categoryName || 'Geral',
+              status_pago: false
+            }).catch(err => console.warn('Notice upsertContaAPagar:', err))
+          )
+        );
       }
 
       // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
@@ -5755,7 +5762,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   // 2. Confirmação e Gravação Final das Parcelas validadas na Janela 2
-  const handleConfirmAndSaveInstallments = (detailedInstallments: NfeDetailedInstallment[]) => {
+  const handleConfirmAndSaveInstallments = async (detailedInstallments: NfeDetailedInstallment[]) => {
     if (!parsedData) return;
 
     // ENTRADA AUTOMÁTICA NO ESTOQUE (Itens Vinculados e Novos Itens Extraídos)
@@ -5911,7 +5918,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       : '';
 
     const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
+    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
     const expenseId = editingExpenseId || `exp_nfe_${Date.now()}`;
+    const issueDateFinal = parsedData.issueDate || parsedData.entryDate || new Date().toISOString().split('T')[0];
+    const entryDateFinal = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
+    const dueDateFinal = detailedInstallments[0]?.dueDate || parsedData.dueDate || calculateDefaultDueDate(issueDateFinal);
+
     const itemsJson = JSON.stringify(parsedData.items || []);
     const itemsEmbed = `<!-- NFE_ITEMS_JSON:${itemsJson} -->`;
 
@@ -5945,22 +5957,33 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
       const instId = totalParcs === 1 ? expenseId : `${expenseId}_parc_${idx + 1}`;
       const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
-      
+      const dueResolved = inst.dueDate || dueDateFinal;
+
       const contabNote = ` [Contábil - Crédito: ${inst.creditAccount || 'N/A'} | Débito: ${inst.debitAccount || 'N/A'}]`;
       const obsNote = inst.observations ? ` Obs: ${inst.observations}.` : '';
 
       return {
         id: instId,
+        notaId: fiscalRecordId,
+        documento_entrada_id: fiscalRecordId,
+        nota_fiscal_id: fiscalRecordId,
+        numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
         description: `Compra ${cleanInvoiceNumber}${suffix} - ${parsedData.supplier}`,
         amount: Number(inst.amount) || 0,
+        valor_parcela: Number(inst.amount) || 0,
         categoryId: catId,
         categoryName: catName,
         categoryColor: catColor,
-        dueDate: inst.dueDate || parsedData.issueDate,
+        date: issueDateFinal,
+        issueDate: issueDateFinal,
+        entryDate: entryDateFinal,
+        dueDate: dueResolved,
+        data_vencimento: dueResolved,
         supplier: parsedData.supplier,
         invoiceNumber: `${cleanInvoiceNumber}${suffix}`,
         status: 'pendente' as const,
         paymentMethod: mapPayCode(inst.paymentMethodCode),
+        forma_pagamento: inst.paymentMethodLabel || 'Boleto',
         costCenterId: selectedCC?.id,
         costCenterName: selectedCC?.name || primaryCategory,
         notes: `Lançamento de parcela via NF-e XML. Parcela ${parcelNum}/${totalParcs}. Prazo: ${inst.daysInterval} dias.${contabNote}${obsNote} Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`,
@@ -5970,18 +5993,29 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         operationNature: parsedData.transactionType || parsedData.operationNature,
         transactionType: parsedData.transactionType,
         createdAt: new Date().toISOString(),
-      };
+      } as Expense;
     });
+
+    // Sincroniza imediatamente com o armazenamento local antes mesmo da nuvem para refletir instantaneamente em "A Pagar"
+    try {
+      const currentStoredExp = getStoredExpenses();
+      const baseExpId = expenseId.split('_parc_')[0];
+      const cleanedStored = currentStoredExp.filter((e: any) => {
+        if (e.notaId === fiscalRecordId || e.documento_entrada_id === fiscalRecordId) return false;
+        const eBase = typeof e.id === 'string' && e.id.includes('_parc_') ? e.id.split('_parc_')[0] : e.id;
+        if (eBase === baseExpId) return false;
+        return true;
+      });
+      saveStoredExpenses([...installmentRecords, ...cleanedStored]);
+    } catch (e) {
+      console.warn('Aviso ao sincronizar parcelas no armazenamento local:', e);
+    }
 
     // 1. Envia as parcelas individualmente para o Contas a Pagar (Financeiro), iniciando rigorosamente pelo Item 1
     onAddExpenseFromNfe(installmentRecords);
 
     // 2. UNICIDADE DO REGISTRO FISCAL: Salva rigorosamente 1 ÚNICA LINHA no Histórico de Notas Fiscais Lançadas
     // Exibindo o VALOR TOTAL BRUTO CONSOLIDADO da NF-e (ex: R$ 600,00 ou R$ 44.365,25)
-    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
-    const issueDateFinal = parsedData.issueDate || parsedData.entryDate || new Date().toISOString().split('T')[0];
-    const entryDateFinal = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
-    const dueDateFinal = detailedInstallments[0]?.dueDate || parsedData.dueDate || issueDateFinal;
 
     const singleFiscalRecord: Expense = {
       id: fiscalRecordId,
@@ -6039,7 +6073,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-    insertDocumentoEntrada(docEntradaFinal).catch(e => console.warn('Aviso insertDocumentoEntrada para NF-e:', e));
 
     const currentStoredDocs = getStoredDocumentosEntrada();
     const updatedDocsList = [docEntradaFinal, ...currentStoredDocs.filter(d => 
@@ -6075,35 +6108,42 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     saveCachedNfe(updatedParsedData, fiscalRecordId);
 
-    // Persistência direta no PostgreSQL Supabase (tabelas notas_fiscais e contas_a_pagar)
-    upsertNotaFiscal({
-      id: fiscalRecordId,
-      number: cleanInvoiceNumber,
-      series: parsedData.series || '1',
-      accessKey: parsedData.accessKey,
-      supplierName: parsedData.supplier,
-      totalAmount: Number(parsedData.totalAmount) || 0,
-      operationNature: parsedData.operationNature,
-      issueDate: parsedData.issueDate,
-      entryDate: parsedData.entryDate || new Date().toISOString().split('T')[0],
-      items: parsedData.items
-    });
+    // Persistência direta no PostgreSQL Supabase (aguarda notas_fiscais e documentos_entrada antes de gravar contas_a_pagar para evitar FK 23503)
+    if (isSupabaseConfigured) {
+      await Promise.all([
+        upsertNotaFiscal({
+          id: fiscalRecordId,
+          number: cleanInvoiceNumber,
+          series: parsedData.series || '1',
+          accessKey: parsedData.accessKey,
+          supplierName: parsedData.supplier,
+          totalAmount: Number(parsedData.totalAmount) || 0,
+          operationNature: parsedData.operationNature,
+          issueDate: issueDateFinal,
+          entryDate: entryDateFinal,
+          items: parsedData.items
+        }).catch(err => console.warn('Notice upsertNotaFiscal:', err)),
+        insertDocumentoEntrada(docEntradaFinal).catch(e => console.warn('Aviso insertDocumentoEntrada para NF-e:', e))
+      ]);
 
-    detailedInstallments.forEach((inst, idx) => {
-      const instId = totalParcs === 1 ? expenseId : `${expenseId}_parc_${idx + 1}`;
-      upsertContaAPagar({
-        id: instId,
-        nota_fiscal_id: fiscalRecordId,
-        numero_parcela: inst.number || `${idx + 1}/${totalParcs}`,
-        valor_parcela: Number(inst.amount) || 0,
-        data_vencimento: inst.dueDate || parsedData.issueDate,
-        forma_pagamento: mapPayCode(inst.paymentMethodCode),
-        centro_custo: selectedCC?.name || primaryCategory,
-        categoria: primaryCategory,
-        tipo_despesa: primaryCategory,
-        status_pago: false
-      });
-    });
+      await Promise.all(
+        installmentRecords.map((rec, idx) => {
+          const inst = detailedInstallments[idx];
+          return upsertContaAPagar({
+            id: rec.id,
+            nota_fiscal_id: fiscalRecordId,
+            numero_parcela: (rec as any).numero_parcela || `${idx + 1}/${totalParcs}`,
+            valor_parcela: Number(rec.amount) || 0,
+            data_vencimento: rec.dueDate || dueDateFinal,
+            forma_pagamento: inst ? mapPayCode(inst.paymentMethodCode) : 'boleto',
+            centro_custo: selectedCC?.name || primaryCategory,
+            categoria: primaryCategory,
+            tipo_despesa: primaryCategory,
+            status_pago: false
+          }).catch(err => console.warn('Notice upsertContaAPagar XML:', err));
+        })
+      );
+    }
 
     setIsInstallmentsModalOpen(false);
     const isEdit = Boolean(editingExpenseId);

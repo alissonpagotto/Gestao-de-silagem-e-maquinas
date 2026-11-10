@@ -404,31 +404,30 @@ export function getStoredExpenses(): Expense[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EXPENSES;
 
-    // 3. EXPULSÃO DE DADOS FAKES NO CONTAS A PAGAR:
-    // Delete permanentemente do LocalStorage qualquer registro cujo fornecedor seja "Fornecedor"
-    // ou cujo valor seja estritamente igual a R$ 0,00.
-    let hasFake = false;
+    // Remove apenas registros estruturalmente inválidos (nulos, sem ID ou com valor inválido <= 0 quando não compensados)
+    let hasInvalid = false;
     const cleaned = parsed.filter((item: any) => {
-      if (!item) {
-        hasFake = true;
+      if (!item || !item.id) {
+        hasInvalid = true;
         return false;
       }
-      const sup = String(item.supplier || item.fornecedor || item.credor || '').trim().toLowerCase();
-      const val = typeof item.amount === 'number' 
-        ? item.amount 
-        : (typeof item.valor === 'number' 
-            ? item.valor 
+      const val = typeof item.amount === 'number'
+        ? item.amount
+        : (typeof item.valor === 'number'
+            ? item.valor
             : parseFloat(String(item.amount ?? item.valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
 
-      // Expulsão estrita de fornecedor genérico ou valor zero
-      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || val === 0 || isNaN(val)) {
-        hasFake = true;
+      const sup = String(item.supplier || item.fornecedor || item.credor || '').trim().toLowerCase();
+      const desc = String(item.description || item.title || '').trim().toLowerCase();
+      // Remove apenas placeholders vazios de valor zero (exceto compensados em estoque)
+      if (isNaN(val) || (val <= 0 && item.status !== 'compensado_estoque') || (sup === 'fornecedor' && desc === 'despesa fornecedor' && val === 0)) {
+        hasInvalid = true;
         return false;
       }
       return true;
     });
 
-    if (hasFake || cleaned.length !== parsed.length) {
+    if (hasInvalid && cleaned.length !== parsed.length) {
       const cleanedJson = JSON.stringify(cleaned);
       safeLocalStorageSetItem('agrocontrol_despesas', cleanedJson);
       safeLocalStorageSetItem('agrocontrol_financeiro', cleanedJson);
@@ -436,11 +435,6 @@ export function getStoredExpenses(): Expense[] {
       safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, cleanedJson);
       const cId = (getActiveCompanyId() || 'default').trim();
       safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, cleanedJson);
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
-        }, 0);
-      }
     }
 
     return cleaned;
@@ -454,16 +448,15 @@ let lastSavedExpensesJson = '';
 
 export function saveStoredExpenses(expenses: Expense[]): void {
   try {
-    // Purga registros fakes antes da gravação permanente (Fornecedor ou R$ 0,00)
+    // Filtra apenas registros nulos ou sem valor válido (> 0), preservando todos os fornecedores reais
     const cleaned = expenses.filter((item: any) => {
-      if (!item) return false;
-      const sup = String(item.supplier || item.fornecedor || item.credor || '').trim().toLowerCase();
-      const val = typeof item.amount === 'number' 
-        ? item.amount 
-        : (typeof item.valor === 'number' 
-            ? item.valor 
+      if (!item || !item.id) return false;
+      const val = typeof item.amount === 'number'
+        ? item.amount
+        : (typeof item.valor === 'number'
+            ? item.valor
             : parseFloat(String(item.amount ?? item.valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
-      return sup !== 'fornecedor' && !sup.startsWith('fornecedor') && val !== 0 && !isNaN(val);
+      return !isNaN(val) && (val > 0 || item.status === 'compensado_estoque');
     });
 
     const json = JSON.stringify(cleaned);
@@ -481,6 +474,19 @@ export function saveStoredExpenses(expenses: Expense[]): void {
   } catch (e) {
     console.warn('Erro ao salvar despesas:', e);
   }
+}
+
+export function getStoredFiscalRecords(): Expense[] {
+  try {
+    const raw = localStorage.getItem('silagem_facil_clean_v1_nfe_fiscal_records');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn('Failed to load fiscal records:', e);
+  }
+  return [];
 }
 
 export function getStoredCategories(): ExpenseCategory[] {
