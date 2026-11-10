@@ -121,12 +121,18 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   }, [expenses]);
   const competenceExpenses = useMemo(() => {
     return safeExpenses.filter((e) => {
-      const targetDate = e.dueDate || (e as any).data_vencimento || (e as any).date || e.issueDate || (e as any).data_emissao;
+      const targetDate =
+        e.dueDate ||
+        (e as any).data_vencimento ||
+        (e as any).date ||
+        e.issueDate ||
+        (e as any).data_emissao ||
+        (e.createdAt ? String(e.createdAt).split('T')[0] : '');
       return matchesCompetence(targetDate, activeCompetence);
     });
   }, [safeExpenses, activeCompetence]);
 
-  const pendingExpenses = competenceExpenses.filter((e) => e.status === 'pendente');
+  const pendingExpenses = competenceExpenses.filter((e) => (e.status || 'pendente') === 'pendente');
   const paidExpenses = competenceExpenses.filter((e) => e.status === 'pago');
 
   const totalPending = pendingExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);

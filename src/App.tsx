@@ -1128,13 +1128,20 @@ export default function App() {
                   ? (docsMap.get(d.nota_fiscal_id) || docsMap.get(toValidUUID(d.nota_fiscal_id)))
                   : undefined;
 
+                const cleanSup = (v?: string) => {
+                  const s = String(v || '').trim();
+                  if (!s) return '';
+                  const low = s.toLowerCase();
+                  if (low === 'fornecedor' || low === 'fornecedor n/i' || low === 'n/i') return '';
+                  return s;
+                };
                 const resolvedSupplier =
-                  existing?.supplier ||
-                  d.fornecedor ||
-                  d.credor ||
-                  docMatch?.fornecedor ||
-                  docMatch?.fornecedor_nome ||
-                  docMatch?.supplier ||
+                  cleanSup(existing?.supplier) ||
+                  cleanSup(d.fornecedor) ||
+                  cleanSup(d.credor) ||
+                  cleanSup(docMatch?.fornecedor) ||
+                  cleanSup(docMatch?.fornecedor_nome) ||
+                  cleanSup(docMatch?.supplier) ||
                   'Fornecedor N/I';
 
                 const docNum = docMatch?.numero || docMatch?.numero_documento || docMatch?.invoiceNumber || existing?.invoiceNumber;
@@ -1149,6 +1156,7 @@ export default function App() {
                 const baseExp: Expense = {
                   ...(existing || {}),
                   id: existing?.id || d.id,
+                  companyId: existing?.companyId || d.company_id || activeTenantId,
                   title: d.centro_custo || existing?.description || resolvedDesc,
                   description: resolvedDesc,
                   amount: Number(d.valor_parcela ?? existing?.amount ?? 0),
@@ -1177,17 +1185,6 @@ export default function App() {
         }
       });
     });
-
-    const handleLocalExpensesUpdated = (ev: any) => {
-      const updated = ev?.detail;
-      if (Array.isArray(updated)) {
-        setExpenses(prev => {
-          if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
-          return updated;
-        });
-      }
-    };
-    window.addEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
 
     const unsubSettings = subscribeToCloudTable('site_settings', () => {
       fetchAllClientModulesFromSupabase(activeTenantId).then(fresh => {
@@ -1512,6 +1509,31 @@ export default function App() {
       window.removeEventListener('focus', handleFocusSync);
     };
   }, [activeTenantId, currentUser?.uid]);
+
+  // Escuta sempre ativa de atualizacoes locais do Contas a Pagar (Notas/Entradas, RH, Frotas)
+  useEffect(() => {
+    const handleLocalExpensesUpdated = (ev: any) => {
+      const updated = ev?.detail;
+      if (Array.isArray(updated)) {
+        setExpenses(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
+          return updated;
+        });
+      } else {
+        const stored = getStoredExpenses();
+        if (Array.isArray(stored)) {
+          setExpenses(prev => {
+            if (JSON.stringify(prev) === JSON.stringify(stored)) return prev;
+            return stored;
+          });
+        }
+      }
+    };
+    window.addEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
+    return () => {
+      window.removeEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
+    };
+  }, []);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
     const ser = JSON.stringify(newAccounts);
@@ -2056,14 +2078,22 @@ export default function App() {
 
   // Expense Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveExpense = (newOrUpdated: Expense | Expense[]) => {
-    const items = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
+    const rawItems = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
+    const todayIso = new Date().toISOString().split('T')[0];
+    const items: Expense[] = rawItems.map(exp => ({
+      ...exp,
+      companyId: exp.companyId || activeTenantId,
+      supplier: exp.supplier || (exp as any).fornecedor || 'Fornecedor N/I',
+      dueDate: exp.dueDate || (exp as any).data_vencimento || (exp as any).date || todayIso,
+      amount: Number(exp.amount ?? (exp as any).valor_parcela ?? 0),
+    }));
     let latestAccounts = bankAccounts;
 
     items.forEach(exp => {
       // Sincroniza efeito em cartões corporativos e extrato/saldo bancário
       const prevExp = editingExpense && editingExpense.id === exp.id 
         ? editingExpense 
-        : expenses.find(e => e.id === exp.id);
+        : expenses.find(e => e.id === exp.id || toValidUUID(e.id) === toValidUUID(exp.id));
       const syncRes = syncExpenseWithCardsAndBank(exp, prevExp, latestAccounts);
       if (syncRes.updatedAccounts) {
         latestAccounts = syncRes.updatedAccounts;
@@ -2079,7 +2109,7 @@ export default function App() {
         nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
         numero_parcela: (exp as any).numero_parcela || '01/01',
         valor_parcela: Number(exp.amount ?? (exp as any).valor_parcela ?? 0),
-        data_vencimento: exp.dueDate || (exp as any).data_vencimento || new Date().toISOString().split('T')[0],
+        data_vencimento: exp.dueDate || (exp as any).data_vencimento || todayIso,
         forma_pagamento: (exp as any).forma_pagamento || exp.paymentMethod || 'Boleto',
         centro_custo: exp.costCenterName || exp.categoryName || exp.description || 'Geral',
         status_pago: exp.status === 'pago'
@@ -2095,15 +2125,17 @@ export default function App() {
 
     if (Array.isArray(newOrUpdated)) {
       setExpenses((prev) => {
-        const newIds = new Set(newOrUpdated.map((n) => n.id));
+        const newIds = new Set(items.map((n) => n.id));
+        const newUuids = new Set(items.map((n) => toValidUUID(n.id)));
+        const payrollIds = new Set(items.map((n: any) => n.payrollId || '').filter(Boolean));
         const notaIds = new Set(
-          newOrUpdated
+          items
             .map((n: any) => n.notaId || n.documento_entrada_id || '')
             .filter(Boolean)
         );
         // Coleta identificadores base das parcelas para substituir com segurança versões antigas da mesma OS ou NF-e
         const baseKeys = new Set(
-          newOrUpdated
+          items
             .map((n) => {
               if (n.id && n.id.includes('_parc_')) {
                 return n.id.split('_parc_')[0];
@@ -2114,7 +2146,8 @@ export default function App() {
         );
 
         const filtered = prev.filter((e: any) => {
-          if (newIds.has(e.id)) return false;
+          if (newIds.has(e.id) || newUuids.has(toValidUUID(e.id))) return false;
+          if (payrollIds.size > 0 && e.payrollId && payrollIds.has(e.payrollId)) return false;
           if (baseKeys.size > 0) {
             const eBase = e.id.includes('_parc_') ? e.id.split('_parc_')[0] : e.id;
             if (baseKeys.has(eBase)) return false;
@@ -2131,19 +2164,42 @@ export default function App() {
           return true;
         });
 
-        return [...newOrUpdated, ...filtered];
+        const nextList = [...items, ...filtered];
+        saveStoredExpenses(nextList);
+        return nextList;
       });
     } else {
+      const single = items[0];
       setExpenses((prev) => {
-        const index = prev.findIndex((e) => e.id === newOrUpdated.id);
+        const singleUuid = toValidUUID(single.id);
+        const index = prev.findIndex((e) => e.id === single.id || toValidUUID(e.id) === singleUuid);
+        let nextList: Expense[];
         if (index >= 0) {
-          const updated = [...prev];
-          updated[index] = newOrUpdated;
-          return updated;
+          nextList = [...prev];
+          nextList[index] = single;
+        } else {
+          nextList = [single, ...prev];
         }
-        return [newOrUpdated, ...prev];
+        saveStoredExpenses(nextList);
+        return nextList;
       });
     }
+  };
+
+  const handleRemovePayrollExpense = (payableId: string, payrollId?: string) => {
+    const payableUuid = toValidUUID(payableId);
+    setExpenses((prev) => {
+      const next = prev.filter((e: any) => {
+        if (e.id === payableId || toValidUUID(e.id) === payableUuid) return false;
+        if (payrollId && e.payrollId === payrollId) return false;
+        return true;
+      });
+      saveStoredExpenses(next);
+      return next;
+    });
+    deleteContaAPagar(payableId, activeTenantId).catch(err =>
+      console.warn('Supabase deleteContaAPagar payroll notice:', err)
+    );
   };
 
   const handleDeleteExpense = async (id: string) => {
@@ -3058,17 +3114,24 @@ export default function App() {
         }
 
         if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
-          setExpenses(cloudData.contas_a_pagar as Expense[]);
+          const nextExps = cloudData.contas_a_pagar as Expense[];
+          setExpenses(nextExps);
+          saveStoredExpenses(nextExps);
         } else if (cloudModules?.expenses && cloudModules.expenses.length > 0) {
           setExpenses(cloudModules.expenses);
+          saveStoredExpenses(cloudModules.expenses);
         } else {
           setExpenses([]);
+          saveStoredExpenses([]);
         }
       } else if (cloudModules) {
         if (cloudModules.clients) setClients(cloudModules.clients);
         if (cloudModules.inventory) setInventory(cloudModules.inventory);
         if (cloudModules.machineries) setMachineries(cloudModules.machineries);
-        if (cloudModules.expenses) setExpenses(cloudModules.expenses);
+        if (cloudModules.expenses) {
+          setExpenses(cloudModules.expenses);
+          saveStoredExpenses(cloudModules.expenses);
+        }
       }
     } catch (e) {
       console.warn('Erro ao carregar dados da empresa personificada:', e);
@@ -3962,6 +4025,8 @@ export default function App() {
               onSaveVacations={handleSaveVacations}
               onSaveLeaves={handleSaveLeaves}
               onSaveAdvances={handleSaveAdvances}
+              onSyncPayrollExpenses={handleSaveExpense}
+              onRemovePayrollExpense={handleRemovePayrollExpense}
               externalNewEmployeeTrigger={rhAutoOpenNewEmployeeTrigger}
               defaultEmployeeRole={rhDefaultEmployeeRole}
             />

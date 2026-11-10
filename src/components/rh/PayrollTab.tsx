@@ -54,6 +54,8 @@ import {
   deleteRhFolhaPagamento,
   mapRowToPayrollRecord,
   fetchCloudAbsences,
+  upsertContaAPagar,
+  deleteContaAPagar,
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -302,7 +304,20 @@ interface PayrollTabProps {
   onChangeMonthRef: (month: string) => void;
   onSavePayrolls: (payrolls: PayrollRecord[]) => void;
   onViewPayslip: (payroll: PayrollRecord) => void;
+  onSyncPayrollExpenses?: (expenseOrList: Expense | Expense[]) => void;
+  onRemovePayrollExpense?: (payableId: string, payrollId?: string) => void;
 }
+
+export const getDefaultPayrollDueDate = (monthRef: string, recType: PayrollType): string => {
+  const { year } = parseCompetenceMonthYear(monthRef);
+  if (recType === '13_first_packet') {
+    return `${year}-11-30`;
+  }
+  if (recType === '13_second_packet') {
+    return `${year}-12-20`;
+  }
+  return getFifthBusinessDayOfSubsequentMonth(monthRef);
+};
 
 export const PayrollTab: React.FC<PayrollTabProps> = ({
   employees,
@@ -314,6 +329,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   onChangeMonthRef,
   onSavePayrolls,
   onViewPayslip,
+  onSyncPayrollExpenses,
+  onRemovePayrollExpense,
 }) => {
   const { confirm } = useConfirm();
   const { currentUser, activeCompanyId } = useAuth();
@@ -606,6 +623,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [advancesDiscount, setAdvancesDiscount] = useState<number>(0);
   const [otherDiscounts, setOtherDiscounts] = useState<number>(0);
   const [payrollStatus, setPayrollStatus] = useState<'pendente' | 'pago' | 'integrado' | 'lancado' | string>('pendente');
+  const [paymentDueDate, setPaymentDueDate] = useState<string>(() => getDefaultPayrollDueDate(currentMonthRef, 'monthly'));
   const [notes, setNotes] = useState('');
   const [modalPayrollType, setModalPayrollType] = useState<PayrollType>('monthly');
   const [monthsWorked13th, setMonthsWorked13th] = useState<number>(12);
@@ -616,6 +634,178 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     title: string;
     details: string;
   } | null>(null);
+
+  const buildPayrollPayableExpense = (
+    item: PayrollRecord,
+    empObj?: Employee,
+    explicitDueDate?: string,
+    explicitCompanyId?: string
+  ): Expense => {
+    const activeTenantId = explicitCompanyId || effectiveCompanyId || getActiveCompanyId() || 'default';
+    const canonicalId = toValidUUID(item.id);
+    const payableId = item.financePayableId || toValidUUID(`cap_folha_${canonicalId}`);
+    const recType = getRecordPayrollType(item);
+    const dueDateIso =
+      explicitDueDate ||
+      (item as any).dueDate ||
+      item.payload?.dueDate ||
+      getDefaultPayrollDueDate(item.referenceMonth || currentMonthRef, recType);
+
+    const emp =
+      empObj ||
+      employees.find(
+        (e) =>
+          e.id === item.employeeId ||
+          (item.employeeName && e.name.trim().toLowerCase() === item.employeeName.trim().toLowerCase())
+      );
+    const empName = item.employeeName || emp?.name || 'Colaborador';
+    const machineriesList = getStoredMachineries();
+    const linkedMachinery = findEmployeeLinkedMachinery(emp, machineriesList);
+    const vehicleLabel = linkedMachinery
+      ? `${linkedMachinery.name || linkedMachinery.model || 'Veículo'}${
+          linkedMachinery.licensePlateOrSerial ? ` (${linkedMachinery.licensePlateOrSerial})` : ''
+        }`
+      : undefined;
+
+    const netSalaryVal = Math.max(0, Math.round(Number(item.netSalary || 0) * 100) / 100);
+    const additionalEarnings = (item.overtimeAmount || 0) + (item.bonusAmount || 0) + (item.commissionAmount || 0);
+    const totalEarningsVal = Math.max(0, Math.round(((item.baseSalary || 0) + additionalEarnings) * 100) / 100);
+    const proventosDRE = totalEarningsVal > 0 ? totalEarningsVal : netSalaryVal;
+
+    let compMonthIso = new Date().toISOString().slice(0, 7);
+    const refStr = item.referenceMonth || currentMonthRef;
+    if (refStr.includes('/')) {
+      const [m, y] = refStr.split('/');
+      compMonthIso = `${y}-${m.padStart(2, '0')}`;
+    } else if (refStr.includes('-')) {
+      compMonthIso = refStr.slice(0, 7);
+    }
+
+    const paymentTitleLabel =
+      recType === '13_first_packet'
+        ? '13º Salário (1ª Parcela)'
+        : recType === '13_second_packet'
+        ? '13º Salário (2ª Parcela)'
+        : 'Folha de Pagamento';
+
+    const isPaid = item.status === 'pago';
+
+    return {
+      id: payableId,
+      companyId: activeTenantId,
+      payrollId: item.id,
+      description: linkedMachinery
+        ? `${paymentTitleLabel} - ${empName} (${refStr}) | DRE Veículo: ${vehicleLabel}`
+        : `${paymentTitleLabel} - ${empName} (${refStr})`,
+      amount: netSalaryVal,
+      valor_parcela: netSalaryVal,
+      dreGrossAmount: proventosDRE,
+      dreCategory: linkedMachinery
+        ? 'Despesa Operacional de Mão de Obra/Pessoal'
+        : 'Salários e Encargos',
+      competenceMonth: compMonthIso,
+      categoryId: 'cat_mao_de_obra',
+      categoryName: 'Salários e Encargos',
+      category: 'Salários e Encargos',
+      categoryColor: '#0284c7',
+      dueDate: dueDateIso,
+      data_vencimento: dueDateIso,
+      date: `${compMonthIso}-01`,
+      status: isPaid ? 'pago' : 'pendente',
+      paymentDate: isPaid ? (item.paymentDate || new Date().toISOString().split('T')[0]) : undefined,
+      paymentMethod: 'pix',
+      supplier: empName,
+      fornecedor: empName,
+      employeeId: item.employeeId,
+      employeeName: empName,
+      machineryId: linkedMachinery?.id,
+      machineryName: vehicleLabel,
+      costCenterName: linkedMachinery
+        ? `DRE Veículo: ${vehicleLabel}`
+        : 'Salários e Encargos',
+      notes: linkedMachinery
+        ? `Lançamento automático RH (${refStr}) • Venc. ${formatDateBR(dueDateIso)} • DRE Veículo: ${vehicleLabel} [${formatCurrencyBRL(proventosDRE)} Bruto]`
+        : `Lançamento automático RH (${refStr}) • Venc. ${formatDateBR(dueDateIso)} • Salários e Encargos`,
+      createdAt: item.createdAt || new Date().toISOString(),
+    } as Expense;
+  };
+
+  const syncPayrollsToContasAPagar = (records: PayrollRecord[], explicitDueDate?: string) => {
+    const validRecords = records.filter(r => Number(r.netSalary || 0) > 0);
+    if (validRecords.length === 0) return [];
+
+    const activeTenantId = effectiveCompanyId || getActiveCompanyId() || 'default';
+    const generatedExpenses = validRecords.map(rec => {
+      const emp = employees.find(
+        e => e.id === rec.employeeId || (rec.employeeName && e.name.trim().toLowerCase() === rec.employeeName.trim().toLowerCase())
+      );
+      return buildPayrollPayableExpense(rec, emp, explicitDueDate, activeTenantId);
+    });
+
+    try {
+      const storedExpenses = getStoredExpenses();
+      const genIds = new Set(generatedExpenses.map(g => g.id));
+      const genUuids = new Set(generatedExpenses.map(g => toValidUUID(g.id)));
+      const genPayrollIds = new Set(generatedExpenses.map(g => (g as any).payrollId).filter(Boolean));
+
+      const filtered = storedExpenses.filter((e: any) => {
+        if (!e) return false;
+        if (genIds.has(e.id) || genUuids.has(toValidUUID(e.id))) return false;
+        if (e.payrollId && genPayrollIds.has(e.payrollId)) return false;
+        return true;
+      });
+
+      const merged = [...generatedExpenses, ...filtered];
+      saveStoredExpenses(merged);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: merged }));
+      }
+    } catch (err) {
+      console.warn('Erro ao sincronizar folha com localStorage de Contas a Pagar:', err);
+    }
+
+    if (onSyncPayrollExpenses) {
+      onSyncPayrollExpenses(generatedExpenses.length === 1 ? generatedExpenses[0] : generatedExpenses);
+    }
+
+    if (isSupabaseConfigured) {
+      generatedExpenses.forEach((exp, idx) => {
+        const rec = validRecords[idx];
+        upsertContaAPagar({
+          id: exp.id,
+          nota_fiscal_id: null,
+          numero_parcela: '01/01',
+          valor_parcela: Number(exp.amount) || 0,
+          data_vencimento: exp.dueDate,
+          forma_pagamento: 'pix',
+          centro_custo: exp.costCenterName || 'Salários e Encargos',
+          categoria: 'Salários e Encargos',
+          status_pago: exp.status === 'pago',
+        }, activeTenantId).catch(() => {});
+
+        insertFinanceiroContasAPagar({
+          id: exp.id,
+          valor: Number(exp.amount) || 0,
+          descricao: exp.description,
+          historico: exp.description,
+          categoria: 'Salários e Encargos',
+          categoria_financeira: 'Salários e Encargos',
+          centro_custo: exp.costCenterName || 'Salários e Encargos',
+          data_vencimento: exp.dueDate,
+          forma_pagamento: 'pix',
+          employee_id: rec.employeeId,
+          colaborador_id: rec.employeeId,
+          colaborador_nome: exp.employeeName || rec.employeeName,
+          competencia: rec.referenceMonth,
+          veiculo_id: exp.machineryId,
+          veiculo_nome: exp.machineryName,
+          custo_dre: exp.dreGrossAmount,
+        }, activeTenantId).catch(() => {});
+      });
+    }
+
+    return generatedExpenses;
+  };
 
   // Manipuladores de Cálculo Reativo Automático (Base Cálc. INSS/FGTS e Alíquotas Progressivas)
   const handleBaseCalculoChange = (newBase: number) => {
@@ -1562,6 +1752,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setAdvancesDiscount(payroll.advancesDiscount || 0);
       setOtherDiscounts(payroll.otherDiscounts || 0);
       setPayrollStatus(payroll.status);
+      setPaymentDueDate(
+        (payroll as any).dueDate ||
+          payroll.payload?.dueDate ||
+          getDefaultPayrollDueDate(payroll.referenceMonth || currentMonthRef, recType)
+      );
       setNotes(payroll.notes || '');
       setShowCommissionBreakdown(commData.count > 0);
 
@@ -1771,6 +1966,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setOvertimeAmount(0);
       setBonusAmount(0);
       setPayrollStatus('pendente');
+      setPaymentDueDate(getDefaultPayrollDueDate(currentMonthRef, payrollType));
       setNotes('');
     }
     setIsAddingCommission(false);
@@ -1947,6 +2143,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     let recordToSave: PayrollRecord;
     let nextList: PayrollRecord[];
 
+    const resolvedDueDate = paymentDueDate || getDefaultPayrollDueDate(currentMonthRef, modalPayrollType);
+    const targetId = editingPayroll?.id || `pay_${Date.now()}_${emp.id}`;
+    const payableId = editingPayroll?.financePayableId || toValidUUID(`cap_folha_${toValidUUID(targetId)}`);
+
     const baseRecordData = {
       companyId: effectiveCompanyId,
       userId: activeUid,
@@ -1956,6 +2156,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       referenceMonth: currentMonthRef,
       payrollType: modalPayrollType,
       payroll_type: modalPayrollType,
+      dueDate: resolvedDueDate,
+      financePayableId: payableId,
       monthsWorked13th: modalPayrollType !== 'monthly' ? monthsWorked13th : undefined,
       thirteenthFirstInstallmentPaid: modalPayrollType === '13_second_packet' ? thirteenthFirstInstallmentPaid : undefined,
       baseSalary,
@@ -1997,6 +2199,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         ...(editingPayroll?.payload || {}),
         payrollType: modalPayrollType,
         payroll_type: modalPayrollType,
+        dueDate: resolvedDueDate,
+        financePayableId: payableId,
         monthsWorked13th: modalPayrollType !== 'monthly' ? monthsWorked13th : undefined,
         thirteenthFirstInstallmentPaid: modalPayrollType === '13_second_packet' ? thirteenthFirstInstallmentPaid : undefined,
         baseSalaryContratual,
@@ -2030,7 +2234,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     } else {
       recordToSave = {
         ...baseRecordData,
-        id: `pay_${Date.now()}_${emp.id}`,
+        id: targetId,
         createdAt: new Date().toISOString(),
       };
       nextList = [recordToSave, ...localPayrolls];
@@ -2047,6 +2251,17 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       window.dispatchEvent(new CustomEvent('silagem_payrolls_updated', { detail: nextList }));
       window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
     }
+
+    // Gatilho automático no Contas a Pagar (Salários e Encargos)
+    const generatedPayables = syncPayrollsToContasAPagar([recordToSave], resolvedDueDate);
+    if (generatedPayables.length > 0) {
+      setIntegrationBanner({
+        type: 'success',
+        title: `Folha salva e lançada no Contas a Pagar: ${recordToSave.employeeName}`,
+        details: `Título de ${formatCurrencyBRL(recordToSave.netSalary)} gerado na categoria "Salários e Encargos" (vencimento em ${formatDateBR(resolvedDueDate)}).`,
+      });
+    }
+
     setIsModalOpen(false);
 
     // Gravação direta na tabela public.rh_folhas_pagamento do Supabase (abandonando localStorage)
@@ -2431,6 +2646,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
     }
 
+    // Gatilho automático no Contas a Pagar para todas as folhas da competência/tipo geradas em lote
+    const batchToSync = nextList.filter(
+      r => r.referenceMonth === currentMonthRef && getRecordPayrollType(r) === payrollType && Number(r.netSalary || 0) > 0
+    );
+    if (batchToSync.length > 0) {
+      const syncedExps = syncPayrollsToContasAPagar(batchToSync);
+      if (syncedExps.length > 0) {
+        setIntegrationBanner({
+          type: 'success',
+          title: `Lote de folhas sincronizado com Contas a Pagar (${syncedExps.length} título(s))`,
+          details: `Obrigacões lançadas automaticamente na categoria "Salários e Encargos" com vencimento em ${formatDateBR(syncedExps[0].dueDate)}.`,
+        });
+      }
+    }
+
     // Gravação direta das folhas geradas no Supabase (abandonando localStorage)
     if (isSupabaseConfigured) {
       (async () => {
@@ -2504,6 +2734,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
     }
 
+    if (updatedItem) {
+      syncPayrollsToContasAPagar([updatedItem]);
+    }
+
     if (updatedItem && isSupabaseConfigured) {
       (async () => {
         let uid = activeUid;
@@ -2571,6 +2805,29 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         window.dispatchEvent(new CustomEvent('agrocontrol_folhas_updated', { detail: nextList }));
       }
 
+      // Remove obrigação financeira vinculada do Contas a Pagar
+      const canonicalId = toValidUUID(id);
+      const payableId = item?.financePayableId || toValidUUID(`cap_folha_${canonicalId}`);
+      try {
+        const storedExpenses = getStoredExpenses();
+        const payableUuid = toValidUUID(payableId);
+        const filteredExpenses = storedExpenses.filter((e: any) => {
+          if (!e) return false;
+          if (e.id === payableId || toValidUUID(e.id) === payableUuid) return false;
+          if (e.payrollId === id) return false;
+          return true;
+        });
+        if (filteredExpenses.length !== storedExpenses.length) {
+          saveStoredExpenses(filteredExpenses);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: filteredExpenses }));
+          }
+        }
+      } catch (_) {}
+      if (onRemovePayrollExpense) {
+        onRemovePayrollExpense(payableId, id);
+      }
+
       if (isSupabaseConfigured) {
         (async () => {
           let uid = activeUid;
@@ -2583,6 +2840,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           if (uid) {
             await deleteRhFolhaPagamento(id, uid);
           }
+          await deleteContaAPagar(payableId, effectiveCompanyId).catch(() => {});
         })();
       }
     }
@@ -2611,10 +2869,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const canonicalId = toValidUUID(item.id);
       const payableId = toValidUUID(`cap_folha_${canonicalId}`);
 
-      // 1. Data de Vencimento: 5º dia útil do mês subsequente à competência da folha
-      const dueDateIso = getFifthBusinessDayOfSubsequentMonth(item.referenceMonth);
+      const recType = getRecordPayrollType(item);
+      const dueDateIso =
+        (item as any).dueDate ||
+        item.payload?.dueDate ||
+        getDefaultPayrollDueDate(item.referenceMonth, recType);
 
-      // 2. Colaborador ativo e verificação de veículo / maquinário fixo vinculado
       const emp = employees.find(
         (e) => e.id === item.employeeId || e.name.trim().toLowerCase() === item.employeeName.trim().toLowerCase()
       );
@@ -2626,29 +2886,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           }`
         : undefined;
 
-      // 3. Valores da Folha:
-      // Valor do Título = exatamente o valor da coluna "LÍQUIDO A PAGAR"
       const netSalaryVal = Math.max(0, Math.round(Number(item.netSalary || 0) * 100) / 100);
-      // Proventos (+) / Custo total da folha daquele colaborador
       const additionalEarnings = (item.overtimeAmount || 0) + (item.bonusAmount || 0) + (item.commissionAmount || 0);
       const totalEarningsVal = Math.max(0, Math.round(((item.baseSalary || 0) + additionalEarnings) * 100) / 100);
       const proventosDRE = totalEarningsVal > 0 ? totalEarningsVal : netSalaryVal;
-
-      let compMonthIso = new Date().toISOString().slice(0, 7);
-      if (item.referenceMonth.includes('/')) {
-        const [m, y] = item.referenceMonth.split('/');
-        compMonthIso = `${y}-${m.padStart(2, '0')}`;
-      } else if (item.referenceMonth.includes('-')) {
-        compMonthIso = item.referenceMonth.slice(0, 7);
-      }
-
-      const recType = getRecordPayrollType(item);
-      const paymentTitleLabel =
-        recType === '13_first_packet'
-          ? '13º Salário (1ª Parcela)'
-          : recType === '13_second_packet'
-          ? '13º Salário (2ª Parcela)'
-          : 'Pagamento de Salário';
       const integratedBannerPrefix =
         recType === '13_first_packet'
           ? '13º Salário (1ª Parcela) Integrado ao Financeiro'
@@ -2656,17 +2897,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           ? '13º Salário (2ª Parcela) Integrado ao Financeiro'
           : 'Salário Integrado ao Financeiro';
 
-      // 4. REGRA DE NEGÓCIO 1: Lançamento no Contas a Pagar (tabela 'public.financeiro_contas_a_pagar' do Supabase)
+      const expenseEntry = buildPayrollPayableExpense(item, emp, dueDateIso, activeTenantId);
+
+      // 4. REGRA DE NEGÓCIO 1: Lançamento no Contas a Pagar
       await insertFinanceiroContasAPagar({
         id: payableId,
         valor: netSalaryVal,
-        descricao: `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth}`,
-        historico: `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth}`,
-        categoria: 'Despesas com Pessoal / Salários',
-        categoria_financeira: 'Despesas com Pessoal / Salários',
+        descricao: expenseEntry.description,
+        historico: expenseEntry.description,
+        categoria: 'Salários e Encargos',
+        categoria_financeira: 'Salários e Encargos',
         centro_custo: linkedMachinery
           ? `DRE Veículo: ${vehicleLabel}`
-          : 'Custos Administrativos / Escritório',
+          : 'Salários e Encargos',
         data_vencimento: dueDateIso,
         employee_id: item.employeeId,
         colaborador_id: item.employeeId,
@@ -2678,42 +2921,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         custo_dre: proventosDRE,
       }, activeTenantId);
 
-      // 5. REGRA DE NEGÓCIO 2: Lançamento no DRE do Veículo / DRE Geral da Empresa
-      const expenseEntry: Expense = {
-        id: payableId,
-        companyId: activeTenantId,
-        description: linkedMachinery
-          ? `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth} | DRE Veículo: ${vehicleLabel}`
-          : `${paymentTitleLabel} - ${item.employeeName} - Competência ${item.referenceMonth} | Custos Administrativos / Escritório`,
-        amount: netSalaryVal,
-        dreGrossAmount: proventosDRE,
-        dreCategory: linkedMachinery
-          ? 'Despesa Operacional de Mão de Obra/Pessoal'
-          : 'Custos Administrativos / Escritório',
-        competenceMonth: compMonthIso,
-        categoryId: linkedMachinery ? 'cat_mao_de_obra' : 'cat_administrativo',
-        categoryName: linkedMachinery
-          ? 'Despesas com Pessoal / Salários'
-          : 'Custos Administrativos / Escritório',
-        categoryColor: linkedMachinery ? '#0284c7' : '#64748b',
-        dueDate: dueDateIso,
-        date: `${compMonthIso}-01`,
-        status: 'pendente',
-        paymentMethod: 'pix',
-        supplier: item.employeeName,
-        employeeId: item.employeeId,
-        employeeName: item.employeeName,
-        machineryId: linkedMachinery?.id,
-        machineryName: vehicleLabel,
-        costCenterName: linkedMachinery
-          ? `DRE Veículo: ${vehicleLabel}`
-          : 'Custos Administrativos / Escritório',
-        notes: linkedMachinery
-          ? `Contas a Pagar: ${formatCurrencyBRL(netSalaryVal)} (Venc. ${formatDateBR(dueDateIso)}) • DRE Veículo: ${vehicleLabel} [${formatCurrencyBRL(proventosDRE)} Bruto]`
-          : `Contas a Pagar: ${formatCurrencyBRL(netSalaryVal)} (Venc. ${formatDateBR(dueDateIso)}) • DRE Geral Escritório [${formatCurrencyBRL(proventosDRE)} Bruto]`,
-        createdAt: new Date().toISOString(),
-      };
-
+      // 5. REGRA DE NEGÓCIO 2: Sincronização com estado local + App.tsx
       const storedExpenses = getStoredExpenses();
       const existingExpIdx = storedExpenses.findIndex(
         (e) => e.id === payableId || toValidUUID(e.id) === payableId
@@ -2727,6 +2935,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         updatedExpenses = [expenseEntry, ...storedExpenses];
       }
       saveStoredExpenses(updatedExpenses);
+      if (onSyncPayrollExpenses) {
+        onSyncPayrollExpenses(expenseEntry);
+      }
       if (isSupabaseConfigured) {
         saveCloudExpenses(updatedExpenses, activeTenantId).catch(() => {});
       }
@@ -4125,7 +4336,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </div>
                   </div>
 
-                  {/* 4. Situação do Pagamento & Observações */}
+                  {/* 4. Situação do Pagamento, Vencimento & Observações */}
                   <div className="bg-white dark:bg-stone-800 rounded-xl px-2 py-1 border border-stone-300 dark:border-stone-700 shadow-2xs">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                       <div className="flex items-center space-x-2">
@@ -4156,7 +4367,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex-1 sm:max-w-xs flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 shrink-0">
+                        <label className="text-[11px] font-semibold text-stone-900 dark:text-stone-100 tracking-wider shrink-0">
+                          Venc.:
+                        </label>
+                        <input
+                          type="date"
+                          value={paymentDueDate}
+                          onChange={(e) => setPaymentDueDate(e.target.value)}
+                          title="Data de vencimento no Contas a Pagar"
+                          className="px-1.5 py-0.5 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded text-stone-900 dark:text-stone-100 text-[11px] font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        />
+                      </div>
+
+                      <div className="flex-1 sm:max-w-[200px] flex items-center gap-1">
                         <label className="text-[11px] font-semibold text-stone-900 dark:text-stone-100 tracking-wider shrink-0">
                           Obs:
                         </label>
@@ -4164,8 +4388,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           type="text"
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
-                          placeholder="Ex: Pagamento via Pix..."
-                          className="w-full px-2 py-0.5 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
+                          placeholder="Ex: Pix..."
+                          className="w-full px-1.5 py-0.5 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
                         />
                       </div>
                     </div>

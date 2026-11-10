@@ -186,6 +186,22 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     }
   }, [expenses]);
 
+  useEffect(() => {
+    const handleLocalExpensesUpdated = (ev: any) => {
+      const updated = ev?.detail;
+      if (Array.isArray(updated)) {
+        setLocalExpenses((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
+          return updated;
+        });
+      }
+    };
+    window.addEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
+    return () => {
+      window.removeEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
+    };
+  }, []);
+
   const onSaveExpensesRef = useRef(onSaveExpenses);
   useEffect(() => {
     onSaveExpensesRef.current = onSaveExpenses;

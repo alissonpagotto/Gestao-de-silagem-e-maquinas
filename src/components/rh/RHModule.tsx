@@ -25,7 +25,8 @@ import {
   CompanyProfile,
   MedicalCertificateRecord,
   AbsenceRecord,
-  ServiceOrder
+  ServiceOrder,
+  Expense
 } from '../../types';
 import { 
   getStoredMedicalCertificates, 
@@ -87,6 +88,8 @@ interface RHModuleProps {
   onSaveAdvances: (advances: SalaryAdvance[]) => void;
   onSaveCertificates?: (certificates: MedicalCertificateRecord[]) => void;
   onSaveAbsences?: (absences: AbsenceRecord[]) => void;
+  onSyncPayrollExpenses?: (expenseOrList: Expense | Expense[]) => void;
+  onRemovePayrollExpense?: (payableId: string, payrollId?: string) => void;
   onNavigateToEmployees?: () => void;
   externalNewEmployeeTrigger?: number;
   defaultEmployeeRole?: string;
@@ -122,6 +125,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
   onSaveAdvances,
   onSaveCertificates,
   onSaveAbsences,
+  onSyncPayrollExpenses,
+  onRemovePayrollExpense,
   onNavigateToEmployees,
   externalNewEmployeeTrigger: propExternalNewEmployeeTrigger,
   defaultEmployeeRole,
@@ -765,6 +770,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
           onChangeMonthRef={handleUpdateMonthRef}
           onSavePayrolls={onSavePayrolls}
           onViewPayslip={(p) => setViewingPayslip(p)}
+          onSyncPayrollExpenses={onSyncPayrollExpenses}
+          onRemovePayrollExpense={onRemovePayrollExpense}
         />
       )}
 

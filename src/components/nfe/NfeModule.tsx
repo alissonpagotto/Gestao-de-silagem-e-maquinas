@@ -2947,6 +2947,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
         return {
           id: instId,
+          companyId: getActiveCompanyId() || 'default',
           notaId: activeDocId,
           documento_entrada_id: activeDocId,
           description: docDescricao,
@@ -5964,6 +5965,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       return {
         id: instId,
+        companyId: getActiveCompanyId() || 'default',
         notaId: fiscalRecordId,
         documento_entrada_id: fiscalRecordId,
         nota_fiscal_id: fiscalRecordId,
@@ -6678,6 +6680,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 companyProfile={companyProfile}
                 competence={fiscalCompetence}
                 onCompetenceChange={setFiscalCompetence}
+                onAddExpenseFromNfe={onAddExpenseFromNfe}
                 onRefreshAll={() => {
                   try {
                     const rn = localStorage.getItem('agrocontrol_notas_nfe');
@@ -6698,6 +6701,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               companyProfile={companyProfile}
               competence={fiscalCompetence}
               onCompetenceChange={setFiscalCompetence}
+              onAddExpenseFromNfe={onAddExpenseFromNfe}
               onRefreshAll={() => {
                 try {
                   const rp = localStorage.getItem('agrocontrol_pedidos_compra');

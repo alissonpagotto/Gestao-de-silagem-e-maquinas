@@ -128,6 +128,10 @@ export interface Expense {
   competenceMonth?: string; // Mês de competência (YYYY-MM)
   isVacationExpense?: boolean; // Lançamento originado do módulo de férias
   vacationId?: string; // ID do registro de férias vinculado
+  payrollId?: string; // ID da folha de pagamento vinculada
+  fornecedor?: string; // Compatibilidade fornecedor
+  data_vencimento?: string; // Compatibilidade vencimento
+  valor_parcela?: number; // Compatibilidade parcela
   expense_items?: ExpenseItem[]; // Grade discriminada de produtos/itens da despesa
   items?: ExpenseItem[]; // Alias compatibilidade
   date?: string; // YYYY-MM-DD (compatibilidade)
@@ -1527,6 +1531,7 @@ export interface PayrollRecord {
   customVerbaOverrides?: Record<string, { codigo: string; descricao: string }>;
   netSalary: number;
   status: 'pendente' | 'pago' | 'integrado' | 'lancado' | string;
+  dueDate?: string;
   paymentDate?: string;
   isIntegrated?: boolean;
   integratedAt?: string;

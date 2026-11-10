@@ -33,7 +33,8 @@ import {
   getStoredInventory,
   saveStoredInventory,
   getStoredMachineries,
-  saveStoredMachineries
+  saveStoredMachineries,
+  getActiveCompanyId
 } from '../../lib/storage';
 import { 
   CompetenceSelector, 
@@ -41,7 +42,7 @@ import {
   getNextCompetence, 
   matchesCompetence 
 } from '../financial/CompetenceSelector';
-import { upsertContaAPagar, isSupabaseConfigured } from '../../lib/supabaseService';
+import { upsertContaAPagar, deleteContaAPagar, isSupabaseConfigured } from '../../lib/supabaseService';
 
 export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'nfse';
 
@@ -95,6 +96,7 @@ export interface FiscalDocumentTypeViewProps {
   companyProfile: CompanyProfile | null;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
+  onAddExpenseFromNfe?: (expenseOrList: any) => void;
   onRefreshAll?: () => void;
 }
 
@@ -180,6 +182,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   companyProfile,
   competence,
   onCompetenceChange,
+  onAddExpenseFromNfe,
   onRefreshAll
 }) => {
   const config = CATEGORY_CONFIG[category];
@@ -222,6 +225,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const [formNumber, setFormNumber] = useState('');
   const [formSeries, setFormSeries] = useState('1');
   const [formDate, setFormDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [formFirstDueDate, setFormFirstDueDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [formSupplierId, setFormSupplierId] = useState('');
   const [formSupplierName, setFormSupplierName] = useState('');
   const [formSupplierCnpj, setFormSupplierCnpj] = useState('');
@@ -342,6 +346,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     setFormDescription(category === 'cte' ? 'Frete rodoviário de silagem / insumos agrícolas' : category === 'nfse' ? 'Serviços de mecânica / manutenção terceirizada da frota' : '');
     setFormPaymentMethod('Boleto Bancário');
     setFormInstallmentsCount(1);
+    setFormFirstDueDate(formDate || new Date().toISOString().split('T')[0]);
     setFormNotes('');
     setFormItems([]);
     setFormIssRetained(false);
@@ -482,13 +487,16 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     const installments = [];
     const count = Math.max(1, formInstallmentsCount);
     const parcelValue = Number((payableForInstallments / count).toFixed(2));
-    const [baseYear, baseMonth, baseDay] = (formDate && /^\d{4}-\d{2}-\d{2}/.test(formDate))
-      ? formDate.split('T')[0].split('-').map(Number)
+    const anchorDate = (formFirstDueDate && /^\d{4}-\d{2}-\d{2}/.test(formFirstDueDate))
+      ? formFirstDueDate
+      : formDate;
+    const [baseYear, baseMonth, baseDay] = (anchorDate && /^\d{4}-\d{2}-\d{2}/.test(anchorDate))
+      ? anchorDate.split('T')[0].split('-').map(Number)
       : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()];
 
     for (let i = 1; i <= count; i++) {
       const due = new Date(baseYear, baseMonth - 1, baseDay);
-      due.setDate(due.getDate() + (i * 30));
+      due.setDate(due.getDate() + ((i - 1) * 30));
       const dueStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
       installments.push({
         number: `${String(i).padStart(2, '0')}/${String(count).padStart(2, '0')}`,
@@ -498,6 +506,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       });
     }
 
+    const activeTenantId = getActiveCompanyId() || companyProfile?.id || 'default';
     const docId = `doc_${category}_${Date.now()}`;
     const newRecord: FiscalDocumentRecord = {
       id: docId,
@@ -599,6 +608,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_nfe_${docId}_${idx + 1}`,
+          companyId: activeTenantId,
           description: `NF-E ${newRecord.number} - ${newRecord.supplierName} (PARC ${inst.number})`,
           amount: inst.amount,
           valor_parcela: inst.amount,
@@ -612,6 +622,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           status: 'pendente',
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
+          fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
           invoiceNumber: newRecord.number,
           notaId: docId,
@@ -624,6 +635,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (onAddExpenseFromNfe && newExpenses.length > 0) {
+          onAddExpenseFromNfe(newExpenses);
+        }
         if (isSupabaseConfigured) {
           newExpenses.forEach(exp => {
             upsertContaAPagar({
@@ -635,7 +649,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               forma_pagamento: exp.paymentMethod,
               centro_custo: exp.costCenterName,
               status_pago: false
-            }).catch(() => {});
+            }, activeTenantId).catch(() => {});
           });
         }
       } catch (err) {
@@ -671,6 +685,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_cte_${docId}_${idx + 1}`,
+          companyId: activeTenantId,
           description: `CT-E ${newRecord.number} - FRETE VEÍCULO ${plate || 'FROTA'} (${newRecord.supplierName})`,
           amount: inst.amount,
           valor_parcela: inst.amount,
@@ -684,6 +699,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           status: 'pendente',
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
+          fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
           invoiceNumber: newRecord.number,
           vehicleId: formVehicleId,
@@ -698,6 +714,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (onAddExpenseFromNfe && newExpenses.length > 0) {
+          onAddExpenseFromNfe(newExpenses);
+        }
         if (isSupabaseConfigured) {
           newExpenses.forEach(exp => {
             upsertContaAPagar({
@@ -709,7 +728,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               forma_pagamento: exp.paymentMethod,
               centro_custo: exp.costCenterName,
               status_pago: false
-            }).catch(() => {});
+            }, activeTenantId).catch(() => {});
           });
         }
       } catch (err) {
@@ -724,6 +743,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_nfec_${docId}_${idx + 1}`,
+          companyId: activeTenantId,
           description: `NF-E COMPLEMENTAR ${newRecord.number} - ${newRecord.supplierName}`,
           amount: inst.amount,
           valor_parcela: inst.amount,
@@ -737,6 +757,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           status: 'pendente',
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
+          fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
           invoiceNumber: newRecord.number,
           notaId: docId,
@@ -749,6 +770,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (onAddExpenseFromNfe && newExpenses.length > 0) {
+          onAddExpenseFromNfe(newExpenses);
+        }
         if (isSupabaseConfigured) {
           newExpenses.forEach(exp => {
             upsertContaAPagar({
@@ -760,7 +784,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               forma_pagamento: exp.paymentMethod,
               centro_custo: exp.costCenterName,
               status_pago: false
-            }).catch(() => {});
+            }, activeTenantId).catch(() => {});
           });
         }
       } catch (err) {
@@ -796,6 +820,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== docId);
         const newExpenses: any[] = installments.map((inst, idx) => ({
           id: `desp_nfse_${docId}_${idx + 1}`,
+          companyId: activeTenantId,
           description: `NFS-E ${newRecord.number} - ${newRecord.supplierName}${plate ? ` (VEÍCULO ${plate})` : ''} [PARC ${inst.number}]`,
           amount: inst.amount,
           valor_parcela: inst.amount,
@@ -809,6 +834,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           status: 'pendente',
           paymentMethod: 'boleto',
           supplier: newRecord.supplierName,
+          fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
           invoiceNumber: newRecord.number,
           vehicleId: formVehicleId || undefined,
@@ -823,6 +849,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         saveStoredExpenses(updatedExpenses as any);
         localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+        if (onAddExpenseFromNfe && newExpenses.length > 0) {
+          onAddExpenseFromNfe(newExpenses);
+        }
         if (isSupabaseConfigured) {
           newExpenses.forEach(exp => {
             upsertContaAPagar({
@@ -834,7 +863,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               forma_pagamento: exp.paymentMethod,
               centro_custo: exp.costCenterName,
               status_pago: false
-            }).catch(() => {});
+            }, activeTenantId).catch(() => {});
           });
         }
       } catch (err) {
@@ -902,13 +931,17 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
     // Gera parcelas no Contas a Pagar
     try {
-      const storedExpenses = getStoredExpenses();
+      const activeTenantId = getActiveCompanyId() || companyProfile?.id || 'default';
+      const storedExpenses = getStoredExpenses().filter((e: any) => e.notaId !== target.id);
       const newExpenses: any[] = target.installments.map((inst, idx) => ({
         id: `desp_ped_${target.id}_${idx + 1}`,
+        companyId: activeTenantId,
         description: `PEDIDO EFETIVADO ${target.number} - ${target.supplierName}`,
         amount: inst.amount,
+        valor_parcela: inst.amount,
         date: new Date().toISOString().split('T')[0],
         dueDate: inst.dueDate,
+        data_vencimento: inst.dueDate,
         categoryId: 'cat_insumos',
         categoryName: 'Compras e Insumos Agrícolas',
         categoryColor: '#10b981',
@@ -916,8 +949,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         status: 'pendente',
         paymentMethod: 'boleto',
         supplier: target.supplierName,
+        fornecedor: target.supplierName,
         supplierName: target.supplierName,
+        invoiceNumber: target.number,
         notaId: target.id,
+        documento_entrada_id: target.id,
+        numero_parcela: inst.number || `${idx + 1}/${target.installments.length}`,
         createdAt: new Date().toISOString()
       }));
 
@@ -925,6 +962,23 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       saveStoredExpenses(updatedExpenses as any);
       localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+      if (onAddExpenseFromNfe && newExpenses.length > 0) {
+        onAddExpenseFromNfe(newExpenses);
+      }
+      if (isSupabaseConfigured) {
+        newExpenses.forEach(exp => {
+          upsertContaAPagar({
+            id: exp.id,
+            nota_fiscal_id: null,
+            numero_parcela: exp.numero_parcela,
+            valor_parcela: exp.amount,
+            data_vencimento: exp.dueDate,
+            forma_pagamento: exp.paymentMethod,
+            centro_custo: exp.costCenterName,
+            status_pago: false
+          }, activeTenantId).catch(() => {});
+        });
+      }
     } catch (err) {
       console.warn('Erro ao efetivar financeiro do pedido:', err);
     }
@@ -954,6 +1008,32 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         if (Array.isArray(list)) {
           const filtered = list.filter(d => d.id !== deletingDocId);
           localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtered));
+        }
+      }
+    } catch {}
+
+    // Remove despesas vinculadas ao documento excluido no Contas a Pagar
+    try {
+      const activeTenantId = getActiveCompanyId() || companyProfile?.id || 'default';
+      const storedExpenses = getStoredExpenses();
+      const removedIds: string[] = [];
+      const keptExpenses = storedExpenses.filter((e: any) => {
+        const match =
+          e?.notaId === deletingDocId ||
+          e?.documento_entrada_id === deletingDocId ||
+          (typeof e?.id === 'string' && e.id.includes(deletingDocId));
+        if (match) {
+          if (e?.id) removedIds.push(e.id);
+          return false;
+        }
+        return true;
+      });
+      if (removedIds.length > 0) {
+        saveStoredExpenses(keptExpenses);
+        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(keptExpenses));
+        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: keptExpenses }));
+        if (isSupabaseConfigured) {
+          removedIds.forEach(rid => deleteContaAPagar(rid, activeTenantId).catch(() => {}));
         }
       }
     } catch {}
@@ -1768,7 +1848,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
                       NÚMERO DE PARCELAS
@@ -1778,13 +1858,25 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       onChange={(e) => setFormInstallmentsCount(parseInt(e.target.value) || 1)}
                       className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold"
                     >
-                      <option value="1">1X (À Vista / 30 Dias)</option>
-                      <option value="2">2X (30 / 60 Dias)</option>
+                      <option value="1">1X (À Vista / Na Data)</option>
+                      <option value="2">2X (Parcelado)</option>
                       <option value="3">3X (30 / 60 / 90 Dias)</option>
-                      <option value="4">4X (30 / 60 / 90 / 120 Dias)</option>
+                      <option value="4">4X (Mensal)</option>
                       <option value="6">6X Semestral</option>
                       <option value="12">12X Safra Anual</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                      1º VENCIMENTO
+                    </label>
+                    <input
+                      type="date"
+                      value={formFirstDueDate}
+                      onChange={(e) => setFormFirstDueDate(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold"
+                    />
                   </div>
 
                   <div className="sm:col-span-2">
