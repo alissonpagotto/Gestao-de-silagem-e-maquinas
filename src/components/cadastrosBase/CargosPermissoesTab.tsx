@@ -1082,26 +1082,26 @@ export const CargosPermissoesTab: React.FC = () => {
       {/* ========================================================================= */}
       {isEditorOpen && (
         <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[95vw] max-w-[95%] h-[92vh] max-h-[92vh] flex flex-col shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150">
+          <div className="bg-[#cad4e6] border border-black rounded-2xl w-[95vw] max-w-[95%] h-[92vh] max-h-[92vh] flex flex-col shadow-2xl overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150">
             
-            {/* Header - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
+            {/* Header */}
+            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0 rounded-t-2xl">
               <div className="flex items-center space-x-2.5 min-w-0 pr-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+                  <Shield className="w-4 h-4 text-indigo-700" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 truncate">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black truncate">
                       {isCreatingNew ? 'CADASTRAR NOVO CARGO' : `EDITAR CARGO: ${nome || selectedCargo?.nome}`}
                     </h3>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 border ${
-                      isCreatingNew ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300' : 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/80 dark:text-indigo-300'
+                      isCreatingNew ? 'bg-amber-100 text-amber-900 border-amber-400' : 'bg-indigo-100 text-indigo-900 border-indigo-400'
                     }`}>
                       {isCreatingNew ? 'Novo Cadastro' : 'Edição Dinâmica'}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 truncate">
+                  <p className="text-[11px] text-slate-800 truncate">
                     Painel integrado de 3 seções: seleção rápida A-Z, dados e chaves centrais, e refinamento granular de telas
                   </p>
                 </div>
@@ -1113,8 +1113,8 @@ export const CargosPermissoesTab: React.FC = () => {
                   onClick={handleOpenCreateModal}
                   className={`hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border shadow-xs ${
                     isCreatingNew 
-                      ? 'bg-gradient-to-b from-amber-500 to-amber-600 text-white border-amber-700' 
-                      : 'bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border-slate-300'
+                      ? 'bg-amber-500 text-white border-black' 
+                      : 'bg-white hover:bg-gray-100 text-black border-black'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1125,49 +1125,49 @@ export const CargosPermissoesTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCloseEditor}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                  className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
                   title="Sair e retornar para a Tabela Geral"
                 >
-                  <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                  <X className="w-4 h-4 text-black" />
                 </button>
               </div>
             </div>
 
             {/* CORPO DO MODAL: AS 3 COLUNAS PARALELAS */}
-            <div className="flex-1 overflow-y-hidden overflow-x-hidden p-3 sm:p-4 bg-zinc-100/60 dark:bg-stone-950/40 min-h-0">
+            <div className="flex-1 overflow-y-hidden overflow-x-hidden p-3 sm:p-4 bg-[#cad4e6] min-h-0">
               <div className="flex flex-col lg:flex-row gap-3.5 items-stretch h-full min-h-0 w-full">
                 
                 {/* ======================================================== */}
                 {/* COLUNA 1 (EXTREMIDADE ESQUERDA - LISTAGEM FIXA A-Z)      */}
                 {/* ======================================================== */}
-                <div className="w-full lg:w-[310px] xl:w-[320px] shrink-0 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs overflow-hidden h-full min-h-0">
-                  <div className="p-3 bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 space-y-2 shrink-0">
+                <div className="w-full lg:w-[310px] xl:w-[320px] shrink-0 flex flex-col bg-[#e0e6f1] border border-black rounded-2xl shadow-xs overflow-hidden h-full min-h-0">
+                  <div className="p-3 bg-[#e0e6f1] border-b border-black space-y-2 shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                        <h4 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                        <Building2 className="w-4 h-4 text-indigo-700" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-black">
                           1. Lista de Cargos
                         </h4>
                       </div>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-stone-700 text-zinc-800 dark:text-stone-200">
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-white border border-gray-400 text-black">
                         {editorFilteredCargos.length} A-Z
                       </span>
                     </div>
 
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                       <input
                         type="text"
                         placeholder="Filtrar cargos..."
                         value={editorSearchTerm}
                         onChange={(e) => setEditorSearchTerm(e.target.value)}
-                        className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                        className="w-full pl-8 pr-7 py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
                       />
                       {editorSearchTerm && (
                         <button
                           type="button"
                           onClick={() => setEditorSearchTerm('')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-stone-200"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black cursor-pointer"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1175,9 +1175,9 @@ export const CargosPermissoesTab: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="divide-y divide-zinc-100 dark:divide-stone-800 flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                  <div className="p-2 space-y-1.5 flex-1 overflow-y-auto custom-scrollbar min-h-0 bg-[#e0e6f1]">
                     {editorFilteredCargos.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-zinc-500">
+                      <div className="p-4 text-center text-xs text-slate-700 bg-white border border-gray-300 rounded-xl">
                         Nenhum cargo encontrado.
                       </div>
                     ) : (
@@ -1189,23 +1189,23 @@ export const CargosPermissoesTab: React.FC = () => {
                           <div
                             key={`${cargo.id}-${idx}`}
                             onClick={() => handleSelectCargo(cargo)}
-                            className={`p-2.5 transition-all duration-150 cursor-pointer border-l-4 text-left select-none relative group ${
+                            className={`p-2.5 rounded-xl border transition-all duration-150 cursor-pointer text-left select-none relative group ${
                               isSelected
-                                ? 'bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-600 text-indigo-950 dark:text-white shadow-2xs font-semibold'
-                                : 'border-transparent hover:bg-zinc-50 dark:hover:bg-stone-800/50 text-zinc-800 dark:text-stone-200'
+                                ? 'bg-indigo-50 border-indigo-600 border-l-4 text-indigo-950 shadow-2xs font-semibold'
+                                : 'bg-white border-gray-300 hover:border-gray-500 text-black'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-1.5">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center space-x-1.5">
-                                  <span className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-zinc-900 dark:text-white'}`}>
+                                  <span className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-800' : 'text-black'}`}>
                                     {cargo.nome}
                                   </span>
                                   {isSelected && (
                                     <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
                                   )}
                                 </div>
-                                <div className="text-[10px] text-zinc-500 dark:text-stone-400 uppercase tracking-tight truncate mt-0.5 font-semibold">
+                                <div className="text-[10px] text-slate-600 uppercase tracking-tight truncate mt-0.5 font-semibold">
                                   {cargo.setor || 'Geral'}
                                 </div>
                               </div>
@@ -1218,7 +1218,7 @@ export const CargosPermissoesTab: React.FC = () => {
                                     handleSelectCargo(cargo);
                                     setIsEditingInline(true);
                                   }}
-                                  className="p-1 rounded-md text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                                  className="p-1 rounded-md text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition cursor-pointer"
                                   title={`Editar ${cargo.nome}`}
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
@@ -1229,13 +1229,13 @@ export const CargosPermissoesTab: React.FC = () => {
                                     e.stopPropagation();
                                     setSelectedCargoForEmployees(cargo);
                                   }}
-                                  className="shrink-0 flex items-center space-x-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-1.5 py-0.5 rounded bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 transition cursor-pointer"
+                                  className="shrink-0 flex items-center space-x-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline px-1.5 py-0.5 rounded bg-blue-50 border border-blue-300 transition cursor-pointer"
                                   title={`Colaboradores vinculados`}
                                 >
-                                  <Users className="w-3 h-3 text-blue-500 shrink-0" />
+                                  <Users className="w-3 h-3 text-blue-600 shrink-0" />
                                   <span>{empCount}</span>
                                 </button>
-                                <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-600' : 'text-zinc-300 dark:text-stone-600'}`} />
+                                <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-700' : 'text-gray-400'}`} />
                               </div>
                             </div>
                           </div>
@@ -1248,17 +1248,17 @@ export const CargosPermissoesTab: React.FC = () => {
                 {/* ======================================================== */}
                 {/* COLUNA 2 (CENTRAL - PAINEL DE IDENTIFICAÇÃO E CHAVES)    */}
                 {/* ======================================================== */}
-                <div className="w-full lg:w-[480px] xl:w-[500px] shrink-0 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs p-3.5 sm:p-4 h-full min-h-0 overflow-hidden">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200 dark:border-stone-800 shrink-0">
+                <div className="w-full lg:w-[480px] xl:w-[500px] shrink-0 flex flex-col bg-[#e0e6f1] border border-black rounded-2xl shadow-xs p-3.5 sm:p-4 h-full min-h-0 overflow-hidden">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-black shrink-0">
                     <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-                      <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                      <div className="p-1.5 rounded-lg bg-white text-indigo-700 border border-black shrink-0">
                         <Shield className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white truncate">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-black truncate">
                           2. Identificação & Chaves Principais
                         </h4>
-                        <p className="text-[11px] text-zinc-500 dark:text-stone-400 truncate">
+                        <p className="text-[11px] text-slate-700 truncate">
                           {isCreatingNew ? 'Cadastrando um novo cargo' : `Editando: ${selectedCargo?.nome || 'Cargo selecionado'}`}
                         </p>
                       </div>
@@ -1266,27 +1266,27 @@ export const CargosPermissoesTab: React.FC = () => {
                   </div>
 
                   {formError && (
-                    <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center space-x-2 text-xs font-bold text-rose-700 dark:text-rose-300 shrink-0">
+                    <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-500 flex items-center space-x-2 text-xs font-bold text-rose-800 shrink-0">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
                       <span>{formError}</span>
                     </div>
                   )}
 
                   {/* Formulário com Autocomplete e Chaves Principais */}
-                  <form onSubmit={handleSaveCargo} className="flex-1 flex flex-col min-h-0 justify-between">
+                  <form onSubmit={handleSaveCargo} className="flex-1 flex flex-col min-h-0 justify-between pt-3">
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0 space-y-3.5">
                       {!isEditingInline && !isCreatingNew ? (
                         /* ======================================================== */
                         /* 1. MODO DE LEITURA (READ-ONLY TEXT COMPACTO E SLIM)     */
                         /* ======================================================== */
-                        <div className="p-3 bg-zinc-50 dark:bg-stone-850/80 border border-zinc-200/80 dark:border-stone-800 rounded-xl space-y-1.5 transition-all shadow-2xs">
+                        <div className="p-3 bg-[#e0e6f1] border border-black rounded-xl space-y-1.5 transition-all shadow-2xs">
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                                <h3 className="text-base font-black text-zinc-900 dark:text-white truncate">
+                                <h3 className="text-base font-black text-black truncate">
                                   {nome || selectedCargo?.nome || 'Cargo sem nome'}
                                 </h3>
-                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 uppercase tracking-wide shrink-0">
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-white border border-gray-400 text-indigo-800 uppercase tracking-wide shrink-0">
                                   {setor || selectedCargo?.setor || 'GERAL'}
                                 </span>
                               </div>
@@ -1296,7 +1296,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setIsEditingInline(true)}
-                              className="px-2.5 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/80 transition cursor-pointer flex items-center space-x-1.5 shrink-0 shadow-2xs active:scale-95"
+                              className="px-2.5 py-1 rounded-lg bg-white text-indigo-700 hover:bg-indigo-50 border border-black transition cursor-pointer flex items-center space-x-1.5 shrink-0 shadow-2xs active:scale-95"
                               title="Editar identificação do cargo (Nome, Setor, Descrição)"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -1305,11 +1305,11 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
 
                           {descricao ? (
-                            <p className="text-xs text-zinc-600 dark:text-stone-300 leading-snug line-clamp-2">
+                            <p className="text-xs text-slate-800 leading-snug line-clamp-2">
                               {descricao}
                             </p>
                           ) : (
-                            <p className="text-[11px] text-zinc-400 dark:text-stone-500 italic">
+                            <p className="text-[11px] text-slate-600 italic">
                               Sem descrição informada. Clique em 'Editar' para adicionar atribuições.
                             </p>
                           )}
@@ -1318,10 +1318,10 @@ export const CargosPermissoesTab: React.FC = () => {
                         /* ======================================================== */
                         /* 2. MODO DE EDIÇÃO INLINE ATIVO (INPUTS HABILITADOS)       */
                         /* ======================================================== */
-                        <div className="p-3 bg-zinc-50/90 dark:bg-stone-850/90 border border-indigo-200 dark:border-indigo-900/60 rounded-xl space-y-3 transition-all shadow-xs">
-                          <div className="flex items-center justify-between pb-1 border-b border-zinc-200/80 dark:border-stone-800">
-                            <span className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-                              <Pencil className="w-3.5 h-3.5" />
+                        <div className="p-3 bg-[#e0e6f1] border border-black rounded-xl space-y-3 transition-all shadow-xs">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-black">
+                            <span className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
+                              <Pencil className="w-3.5 h-3.5 text-indigo-700" />
                               <span>{isCreatingNew ? 'Identificação do Novo Cargo' : 'Editando Identificação'}</span>
                             </span>
 
@@ -1333,7 +1333,7 @@ export const CargosPermissoesTab: React.FC = () => {
                                   setIsComboboxOpen(false);
                                   setIsSetorDropdownOpen(false);
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1 shadow-2xs cursor-pointer transition active:scale-95"
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-black text-xs font-bold flex items-center space-x-1 shadow-2xs cursor-pointer transition active:scale-95"
                                 title="Confirmar e voltar ao modo leitura"
                               >
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1345,11 +1345,11 @@ export const CargosPermissoesTab: React.FC = () => {
                           {/* Campo 1: Nome do Cargo (Textbox Inteligente / Combobox com Busca) */}
                           <div className="relative" ref={comboboxRef}>
                             <div className="flex items-center justify-between mb-1">
-                              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
+                              <label className="text-xs font-bold text-black flex items-center gap-1">
                                 <span>Nome do Cargo</span>
                                 <span className="text-rose-600">*</span>
                               </label>
-                              <span className="text-[10px] text-zinc-400">Sugestões inteligentes ativas</span>
+                              <span className="text-[10px] text-slate-700 font-medium">Sugestões inteligentes ativas</span>
                             </div>
 
                             <div className="relative">
@@ -1372,7 +1372,7 @@ export const CargosPermissoesTab: React.FC = () => {
                                   setNome(e.target.value);
                                   setIsComboboxOpen(true);
                                 }}
-                                className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                                className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
                               />
 
                               {nome && (
@@ -1382,7 +1382,7 @@ export const CargosPermissoesTab: React.FC = () => {
                                     setNome('');
                                     setIsComboboxOpen(true);
                                   }}
-                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-stone-200 cursor-pointer"
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black cursor-pointer"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
@@ -1391,13 +1391,13 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Dropdown de Sugestões de Nomes de Cargos */}
                             {isComboboxOpen && existingCargoSuggestions.length > 0 && (
-                              <div className="absolute left-0 right-0 z-30 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100">
-                                <div className="p-1.5 bg-zinc-50 dark:bg-stone-800 text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                              <div className="absolute left-0 right-0 z-30 mt-1 max-h-48 overflow-y-auto bg-white border border-black rounded-xl shadow-xl divide-y divide-gray-200 animate-in fade-in zoom-in-95 duration-100">
+                                <div className="p-1.5 bg-[#e0e6f1] border-b border-gray-300 text-[10px] font-bold text-black uppercase tracking-wider flex items-center justify-between">
                                   <span>Cargos já cadastrados:</span>
                                   <button 
                                     type="button" 
                                     onClick={() => setIsComboboxOpen(false)}
-                                    className="text-zinc-400 hover:text-zinc-700"
+                                    className="text-slate-700 hover:text-black cursor-pointer"
                                   >
                                     ✕
                                   </button>
@@ -1410,10 +1410,10 @@ export const CargosPermissoesTab: React.FC = () => {
                                       setNome(suggestion);
                                       setIsComboboxOpen(false);
                                     }}
-                                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-zinc-800 dark:text-stone-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 hover:text-indigo-600 transition flex items-center justify-between cursor-pointer"
+                                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-black hover:bg-indigo-50 hover:text-indigo-700 transition flex items-center justify-between cursor-pointer"
                                   >
                                     <span>{suggestion}</span>
-                                    <Sparkles className="w-3 h-3 text-indigo-400 opacity-60" />
+                                    <Sparkles className="w-3 h-3 text-indigo-500 opacity-70" />
                                   </button>
                                 ))}
                               </div>
@@ -1423,23 +1423,23 @@ export const CargosPermissoesTab: React.FC = () => {
                           {/* Campo 2: Setor / Departamento (Dropdown Select/Combobox Inteligente Embutido) */}
                           <div className="relative" ref={setorDropdownRef}>
                             <div className="flex items-center justify-between mb-1">
-                              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
+                              <label className="text-xs font-bold text-black flex items-center gap-1">
                                 <span>Setor / Departamento</span>
                                 <span className="text-rose-600">*</span>
                               </label>
-                              <span className="text-[10px] text-zinc-400">Selecione na lista oficial</span>
+                              <span className="text-[10px] text-slate-700 font-medium">Selecione na lista oficial</span>
                             </div>
 
                             <div className="relative">
                               <button
                                 type="button"
                                 onClick={() => setIsSetorDropdownOpen(prev => !prev)}
-                                className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs flex items-center justify-between text-left cursor-pointer"
+                                className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs flex items-center justify-between text-left cursor-pointer"
                               >
-                                <span className={setor ? 'text-zinc-900 dark:text-white font-bold' : 'text-zinc-400 font-normal'}>
+                                <span className={setor ? 'text-black font-bold' : 'text-gray-500 font-normal'}>
                                   {setor || 'Selecione o setor oficial...'}
                                 </span>
-                                <div className="flex items-center space-x-1 shrink-0 text-zinc-400">
+                                <div className="flex items-center space-x-1 shrink-0 text-gray-500">
                                   {setor && (
                                     <span
                                       role="button"
@@ -1449,22 +1449,22 @@ export const CargosPermissoesTab: React.FC = () => {
                                         setSetor('');
                                         setIsSetorDropdownOpen(true);
                                       }}
-                                      className="p-0.5 hover:text-zinc-700 dark:hover:text-stone-200 cursor-pointer"
+                                      className="p-0.5 hover:text-black cursor-pointer"
                                       title="Limpar seleção"
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </span>
                                   )}
-                                  <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isSetorDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                                  <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isSetorDropdownOpen ? 'rotate-180 text-indigo-700' : ''}`} />
                                 </div>
                               </button>
 
                               {/* Dropdown Embutido com os 6 Setores Oficiais */}
                               {isSetorDropdownOpen && (
-                                <div className="absolute left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
-                                  <div className="p-2 bg-zinc-50 dark:bg-stone-850 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                                <div className="absolute left-0 right-0 z-30 mt-1 bg-white border border-black rounded-xl shadow-xl divide-y divide-gray-200 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                                  <div className="p-2 bg-[#e0e6f1] border-b border-gray-300 text-[10px] font-extrabold text-black uppercase tracking-wider flex items-center justify-between">
                                     <span>Setores Oficiais:</span>
-                                    <span className="text-[9px] bg-zinc-200 dark:bg-stone-700 px-1.5 py-0.2 rounded font-bold">6 opções</span>
+                                    <span className="text-[9px] bg-white border border-gray-400 px-1.5 py-0.2 rounded font-bold">6 opções</span>
                                   </div>
                                   <div className="py-1 max-h-56 overflow-y-auto custom-scrollbar">
                                     {SETORES_DISPONIVEIS.map((s) => {
@@ -1479,13 +1479,13 @@ export const CargosPermissoesTab: React.FC = () => {
                                           }}
                                           className={`w-full px-3 py-2 text-left text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                                             isSelected
-                                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
-                                              : 'text-zinc-800 dark:text-stone-200 hover:bg-zinc-50 dark:hover:bg-stone-700/60'
+                                              ? 'bg-indigo-50 text-indigo-800'
+                                              : 'text-black hover:bg-gray-100'
                                           }`}
                                         >
                                           <span className="truncate">{s}</span>
                                           {isSelected && (
-                                            <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                            <Check className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
                                           )}
                                         </button>
                                       );
@@ -1498,7 +1498,7 @@ export const CargosPermissoesTab: React.FC = () => {
 
                           {/* Campo 3: Descrição Básica do Cargo */}
                           <div>
-                            <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                            <label className="block text-xs font-bold text-black mb-1">
                               Descrição básica do Cargo
                             </label>
                             <textarea
@@ -1506,22 +1506,22 @@ export const CargosPermissoesTab: React.FC = () => {
                               placeholder="Resumo das atribuições, responsabilidades e escopo..."
                               value={descricao}
                               onChange={(e) => setDescricao(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs resize-none"
+                              className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs resize-none"
                             />
                           </div>
                         </div>
                       )}
 
                     {/* Chaves Centrais Liga/Desliga */}
-                    <div className="pt-2 border-t border-zinc-200 dark:border-stone-800 space-y-2">
+                    <div className="pt-2.5 border-t border-black space-y-2">
                       <div className="flex items-center justify-between pb-1">
                         <div className="flex items-center space-x-1.5">
-                          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                          <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                          <span className="text-xs font-black uppercase tracking-wider text-black">
                             Chaves de Acesso Principais
                           </span>
                         </div>
-                        <span className="text-[10px] text-zinc-400 font-semibold">
+                        <span className="text-[10px] text-slate-700 font-semibold">
                           Toggles Ativos
                         </span>
                       </div>
@@ -1530,26 +1530,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-servicos"
                         onClick={() => setActiveModuleFocus('servicos')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.servicos
-                            ? 'bg-teal-50/90 dark:bg-teal-950/40 border-teal-400 dark:border-teal-600 shadow-xs ring-1 ring-teal-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.servicos ? 'bg-teal-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.servicos ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <Tractor className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Prestação de Serviços</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.servicos ? 'bg-teal-200 text-teal-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.servicos ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.servicos ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Agenda, Corte, Colheita, Trator, Máquinas e Orçamento
                             </div>
                           </div>
@@ -1563,7 +1563,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('servicos', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.servicos ? 'bg-teal-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.servicos ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.servicos ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1573,26 +1573,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-frotas"
                         onClick={() => setActiveModuleFocus('frotas')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.frotas
-                            ? 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 shadow-xs ring-1 ring-blue-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.frotas ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.frotas ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <Truck className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso a Frotas & Veículos</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.frotas ? 'bg-blue-200 text-blue-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.frotas ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.frotas ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Veículos, Manutenções, Abastecimento, Pneus
                             </div>
                           </div>
@@ -1606,7 +1606,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('frotas', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.frotas ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.frotas ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.frotas ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1616,26 +1616,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-financeiro"
                         onClick={() => setActiveModuleFocus('financeiro')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.financeiro
-                            ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.financeiro ? 'bg-emerald-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.financeiro ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <DollarSign className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Financeiro</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.financeiro ? 'bg-emerald-200 text-emerald-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.financeiro ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.financeiro ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Bancos, Saldos, DRE, Contas a Pagar e Receber
                             </div>
                           </div>
@@ -1649,7 +1649,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('financeiro', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.financeiro ? 'bg-emerald-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.financeiro ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.financeiro ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1659,26 +1659,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-notas"
                         onClick={() => setActiveModuleFocus('notas')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.notas || permissoes.estoque
-                            ? 'bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-600 shadow-xs ring-1 ring-indigo-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.notas || permissoes.estoque ? 'bg-indigo-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.notas || permissoes.estoque ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <Receipt className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Notas e Entradas</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.notas || permissoes.estoque ? 'bg-indigo-200 text-indigo-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.notas || permissoes.estoque ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.notas || permissoes.estoque ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Histórico, Importação XML, Entradas Manuais e Ações
                             </div>
                           </div>
@@ -1692,7 +1692,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('notas', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.notas || permissoes.estoque ? 'bg-indigo-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.notas || permissoes.estoque ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.notas || permissoes.estoque ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1702,26 +1702,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-rh"
                         onClick={() => setActiveModuleFocus('rh')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.rh
-                            ? 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-xs ring-1 ring-purple-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.rh ? 'bg-purple-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.rh ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <HeartHandshake className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso a Recursos Humanos</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.rh ? 'bg-purple-200 text-purple-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.rh ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.rh ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Dashboard, Funcionários, Folha, Férias, Afastamentos, Rescisão
                             </div>
                           </div>
@@ -1735,7 +1735,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('rh', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.rh ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.rh ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.rh ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1745,26 +1745,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-relatorios"
                         onClick={() => setActiveModuleFocus('relatorios')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.relatorios
-                            ? 'bg-sky-50/90 dark:bg-sky-950/40 border-sky-400 dark:border-sky-600 shadow-xs ring-1 ring-sky-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.relatorios ? 'bg-sky-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.relatorios ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <FileSpreadsheet className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Relatórios</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.relatorios ? 'bg-sky-200 text-sky-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.relatorios ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.relatorios ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Dashboards, Resumo Geral, Ativo Imobilizado e Cortes
                             </div>
                           </div>
@@ -1778,7 +1778,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('relatorios', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.relatorios ? 'bg-sky-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.relatorios ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.relatorios ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1788,26 +1788,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-clientes"
                         onClick={() => setActiveModuleFocus('clientes')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.clientes
-                            ? 'bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-400 dark:border-cyan-600 shadow-xs ring-1 ring-cyan-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.clientes ? 'bg-cyan-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.clientes ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <Users className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Clientes</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.clientes ? 'bg-cyan-200 text-cyan-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.clientes ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.clientes ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Lista de Clientes, Funil Kanban e Novos Cadastros
                             </div>
                           </div>
@@ -1821,7 +1821,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('clientes', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.clientes ? 'bg-cyan-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.clientes ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.clientes ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1831,26 +1831,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-fornecedores"
                         onClick={() => setActiveModuleFocus('fornecedores')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.fornecedores
-                            ? 'bg-orange-50/90 dark:bg-orange-950/40 border-orange-400 dark:border-orange-600 shadow-xs ring-1 ring-orange-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.fornecedores ? 'bg-orange-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.fornecedores ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <Truck className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Fornecedores</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.fornecedores ? 'bg-orange-200 text-orange-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.fornecedores ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.fornecedores ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Lista de Fornecedores, Cadastros e Edições
                             </div>
                           </div>
@@ -1864,7 +1864,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('fornecedores', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.fornecedores ? 'bg-orange-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.fornecedores ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.fornecedores ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1874,26 +1874,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-cadastros"
                         onClick={() => setActiveModuleFocus('cadastros')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.cadastros_base
-                            ? 'bg-violet-50/90 dark:bg-violet-950/40 border-violet-400 dark:border-violet-600 shadow-xs ring-1 ring-violet-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.cadastros_base ? 'bg-violet-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.cadastros_base ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <ClipboardList className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso ao Módulo Configurações</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.cadastros_base ? 'bg-violet-200 text-violet-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.cadastros_base ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.cadastros_base ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Centros de Custo, Plano de Contas e Cargos
                             </div>
                           </div>
@@ -1907,7 +1907,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('cadastros_base', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.cadastros_base ? 'bg-violet-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.cadastros_base ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.cadastros_base ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1917,26 +1917,26 @@ export const CargosPermissoesTab: React.FC = () => {
                       <label 
                         htmlFor="modal-toggle-empresa"
                         onClick={() => setActiveModuleFocus('empresa')}
-                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.empresa
-                            ? 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-400 dark:border-rose-600 shadow-xs ring-1 ring-rose-400/30'
-                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.empresa ? 'bg-rose-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.empresa ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
                             <Building className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
                               <span className="truncate">Acesso a Dados da Empresa</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.empresa ? 'bg-rose-200 text-rose-900' : 'bg-zinc-200 text-zinc-600'
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.empresa ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
                                 {permissoes.empresa ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
                               Identificação, Localização, Contatos, PIX e Sócios
                             </div>
                           </div>
@@ -1950,7 +1950,7 @@ export const CargosPermissoesTab: React.FC = () => {
                             onChange={(e) => atualizarPermissao('empresa', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.empresa ? 'bg-rose-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.empresa ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.empresa ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
@@ -1960,13 +1960,13 @@ export const CargosPermissoesTab: React.FC = () => {
                     </div>
 
                     {/* Botões de Ação na Base da Coluna 2 */}
-                    <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-2 shrink-0">
+                    <div className="pt-3 mt-2 border-t border-black bg-[#e0e6f1] flex items-center justify-between gap-2 shrink-0">
                       <div>
                         {!isCreatingNew && selectedCargoId && (
                           <button
                             type="button"
                             onClick={() => handleDeleteCargo(selectedCargoId)}
-                            className="p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition cursor-pointer text-xs font-bold flex items-center gap-1.5"
+                            className="p-2 rounded-xl bg-white text-rose-700 hover:bg-rose-50 border border-black transition cursor-pointer text-xs font-bold flex items-center gap-1.5"
                             title="Excluir este cargo"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1979,14 +1979,14 @@ export const CargosPermissoesTab: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleCloseEditor}
-                          className="px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-100 dark:hover:bg-stone-800 font-bold text-xs transition cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-white border border-black text-black hover:bg-gray-100 font-bold text-xs transition cursor-pointer"
                         >
                           Sair
                         </button>
 
                         <button
                           type="submit"
-                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95 flex items-center space-x-1.5"
+                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white border border-black font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95 flex items-center space-x-1.5"
                         >
                           <Save className="w-4 h-4" />
                           <span>{isCreatingNew ? 'Cadastrar Cargo' : 'Salvar Alterações'}</span>
@@ -1999,23 +1999,23 @@ export const CargosPermissoesTab: React.FC = () => {
                 {/* ======================================================== */}
                 {/* COLUNA 3 (EXTREMIDADE DIREITA - SUB-PERMISSÕES POR TELA)  */}
                 {/* ======================================================== */}
-                <div className="w-full flex-1 min-w-0 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs p-3.5 sm:p-4 space-y-3.5 h-full min-h-0 overflow-hidden">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200 dark:border-stone-800 shrink-0">
+                <div className="w-full flex-1 min-w-0 flex flex-col bg-[#e0e6f1] border border-black rounded-2xl shadow-xs p-3.5 sm:p-4 space-y-3.5 h-full min-h-0 overflow-hidden">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-black shrink-0">
                     <div className="flex items-center space-x-2 min-w-0 pr-2">
-                      <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800 shrink-0">
+                      <div className="p-1.5 rounded-lg bg-white text-teal-700 border border-black shrink-0">
                         <Sliders className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white truncate">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-black truncate">
                           3. Sub-permissões por Tela
                         </h4>
-                        <p className="text-[11px] text-zinc-500 dark:text-stone-400 truncate">
+                        <p className="text-[11px] text-slate-700 truncate">
                           Controle granular por tela e funcionalidade
                         </p>
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-100 text-teal-900 dark:bg-teal-950/80 dark:text-teal-300 uppercase shrink-0">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-100 border border-teal-500 text-teal-950 uppercase shrink-0">
                       Granular
                     </span>
                   </div>

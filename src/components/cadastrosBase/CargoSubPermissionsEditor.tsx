@@ -89,31 +89,29 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
     return (
       <div 
         key={id}
-        className={`rounded-xl border transition-all duration-150 p-3 space-y-2.5 shadow-2xs w-full ${
-          isModuloActive
-            ? 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-800'
-            : 'bg-zinc-50/80 dark:bg-stone-900/60 border-zinc-200/70 dark:border-stone-800/60 opacity-80'
+        className={`rounded-xl border border-black transition-all duration-150 p-3 space-y-2.5 shadow-2xs w-full bg-[#e0e6f1] ${
+          isModuloActive ? '' : 'opacity-90'
         }`}
       >
-        {/* Topo do Bloco Branco com Botões Rápidos e Badge */}
-        <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-stone-800 gap-2">
+        {/* Topo do Bloco com Botões Rápidos e Badge */}
+        <div className="flex items-center justify-between pb-2 border-b border-black gap-2">
           <div className="flex items-center space-x-2 min-w-0 pr-2">
-            <div className="p-1 rounded-md bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 shrink-0">
+            <div className="p-1 rounded-md bg-white border border-black text-black shrink-0">
               {icon}
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                <span className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-tight">
+                <span className="text-xs font-black text-black uppercase tracking-tight">
                   {title}
                 </span>
-                <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase shrink-0 ${
+                <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase shrink-0 border ${
                   isModuloActive 
-                    ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800' 
-                    : 'bg-zinc-200 text-zinc-600 dark:bg-stone-800 dark:text-stone-400'
+                    ? 'bg-emerald-200 text-emerald-950 border-emerald-500' 
+                    : 'bg-white text-slate-700 border-gray-400'
                 }`}>
                   {isModuloActive ? 'Liberado' : 'Bloqueado'}
                 </span>
-                <span className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 shrink-0">
+                <span className="text-[10px] font-bold text-slate-700 shrink-0">
                   ({items.filter(it => subValues?.[it.key] !== false).length}/{items.length} ativas)
                 </span>
               </div>
@@ -125,15 +123,14 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             <button
               type="button"
               onClick={() => onSetAllSubPermissions(subModuloKey, true)}
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline px-1 py-0.5 rounded cursor-pointer whitespace-nowrap"
+              className="text-indigo-700 hover:text-indigo-900 hover:underline px-1.5 py-0.5 rounded bg-white border border-gray-400 cursor-pointer whitespace-nowrap"
             >
               Marcar Todas
             </button>
-            <span className="text-zinc-300 dark:text-stone-600">|</span>
             <button
               type="button"
               onClick={() => onSetAllSubPermissions(subModuloKey, false)}
-              className="text-zinc-500 dark:text-stone-400 hover:text-zinc-800 dark:hover:text-white hover:underline px-1 py-0.5 rounded cursor-pointer whitespace-nowrap"
+              className="text-slate-700 hover:text-black hover:underline px-1.5 py-0.5 rounded bg-white border border-gray-400 cursor-pointer whitespace-nowrap"
             >
               Desmarcar
             </button>
@@ -142,15 +139,15 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
 
         {/* Alerta caso o módulo esteja desligado na coluna central */}
         {!isModuloActive && (
-          <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-[11px] text-amber-800 dark:text-amber-300">
+          <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50 border border-black text-[11px] text-amber-950">
             <div className="flex items-center space-x-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-700" />
               <span>Chave principal desligada. Clique para liberar este módulo:</span>
             </div>
             <button
               type="button"
               onClick={() => onActivateModulo(mainModuloKey)}
-              className="px-2 py-0.5 rounded font-black bg-amber-600 text-white hover:bg-amber-700 transition cursor-pointer text-[10px] shrink-0"
+              className="px-2 py-0.5 rounded font-black bg-amber-600 text-white hover:bg-amber-700 border border-black transition cursor-pointer text-[10px] shrink-0"
             >
               Ativar
             </button>
@@ -164,10 +161,10 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             return (
               <label 
                 key={item.key}
-                className={`flex items-center space-x-2 p-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+                className={`flex items-center space-x-2 p-1.5 rounded-lg border transition-all cursor-pointer select-none bg-white ${
                   isChecked
-                    ? 'bg-zinc-50/80 dark:bg-stone-850/80 border-indigo-200 dark:border-indigo-900/60 shadow-2xs'
-                    : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-800 hover:border-zinc-300 opacity-70'
+                    ? 'border-gray-600 shadow-2xs'
+                    : 'border-gray-400 hover:border-gray-600 opacity-75'
                 }`}
               >
                 <input
@@ -177,7 +174,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
                   className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                 />
                 <span className={`text-[11px] font-semibold truncate ${
-                  isChecked ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-stone-400'
+                  isChecked ? 'text-black' : 'text-gray-600'
                 }`}>
                   {item.label}
                 </span>
@@ -204,18 +201,18 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
               onClick={() => onSelectModuleFocus(tab.id)}
               className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 border ${
                 isSelected
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                  : 'bg-zinc-50 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-zinc-200 dark:border-stone-700 hover:bg-zinc-100 dark:hover:bg-stone-700'
+                  ? 'bg-indigo-600 text-white border-black shadow-2xs'
+                  : 'bg-white text-black border-gray-400 hover:bg-gray-100'
               }`}
             >
-              <TabIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-zinc-500 dark:text-stone-400'}`} />
+              <TabIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-700'}`} />
               <span>{tab.label}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
                 isSelected 
                   ? 'bg-white/20 text-white' 
                   : tab.active 
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                    : 'bg-zinc-200 text-zinc-600 dark:bg-stone-700 dark:text-stone-400'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-400' 
+                    : 'bg-gray-200 text-gray-700'
               }`}>
                 {tab.count}/{tab.total}
               </span>
@@ -429,12 +426,12 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
       </div>
 
       {/* 3. Rodapé Resumo Granular */}
-      <div className="p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 text-[11px] text-indigo-950 dark:text-indigo-300 flex items-center justify-between shrink-0 w-full">
+      <div className="p-2.5 rounded-xl bg-[#e0e6f1] border border-black text-[11px] text-black flex items-center justify-between shrink-0 w-full">
         <div className="flex items-center space-x-2">
-          <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-          <span>Total de Telas e Abas Ativas:</span>
+          <Info className="w-4 h-4 text-indigo-700 shrink-0" />
+          <span className="font-bold">Total de Telas e Abas Ativas:</span>
         </div>
-        <span className="font-extrabold px-2 py-0.5 rounded-md bg-indigo-600 text-white text-xs">
+        <span className="font-extrabold px-2 py-0.5 rounded-md bg-indigo-600 text-white border border-black text-xs">
           {totalAtivas} de 60 ativas
         </span>
       </div>

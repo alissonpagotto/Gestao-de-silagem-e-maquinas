@@ -1300,23 +1300,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
+      <div id="modal-nova-despesa" className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
         <div
-          className="w-full max-w-4xl h-[95vh] flex flex-col mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          className="w-full max-w-4xl h-[95vh] flex flex-col mx-auto my-auto bg-[#cad4e6] border border-black rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
           style={{ height: '95vh' }}
         >
         
-        {/* Header - Moldura Metálica 3D Acetinada Compacta */}
-        <div className="px-3.5 py-2 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-200 flex items-center justify-between shrink-0 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg">
+        {/* Header */}
+        <div className="px-3.5 py-2 border-b border-black bg-[#cad4e6] text-black flex items-center justify-between shrink-0 rounded-t-lg">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Receipt className="w-3.5 h-3.5 text-slate-700 dark:text-stone-200" />
+            <div className="w-6 h-6 rounded-md bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+              <Receipt className="w-3.5 h-3.5 text-slate-800" />
             </div>
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-black">
                 {editingExpense ? 'EDITAR DESPESA' : 'NOVA DESPESA'}
               </h2>
-              <p className="text-[10px] text-slate-600 dark:text-stone-400 font-medium uppercase mt-0.5">
+              <p className="text-[10px] text-slate-800 font-medium uppercase mt-0.5">
                 LANÇAMENTO FINANCEIRO, RATEIO E CENTRO DE CUSTO
               </p>
             </div>
@@ -1324,28 +1324,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           <button
             type="button"
             onClick={handleCloseModal}
-            className="p-1 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            className="p-1 rounded-md text-slate-800 hover:text-black hover:bg-black/10 transition-colors cursor-pointer"
           >
-            <X className="w-3.5 h-3.5 text-slate-700 dark:text-stone-200" />
+            <X className="w-3.5 h-3.5 text-black" />
           </button>
         </div>
 
         {/* Form - Altura Total 95vh com Scroll Interno e Rodapé Fixo */}
-        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col bg-[#edf4ff] dark:bg-stone-900 overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col bg-[#cad4e6] text-black overflow-hidden">
           {/* Bloco de Campos com Rolagem Vertical Reativa */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5 bg-[#cad4e6]">
           
-          {/* LINHA SUPERIOR UNIFICADA: CATEGORIA (50%) + DATA (25%) + VALOR TOTAL (25%) */}
-          <div className="grid grid-cols-12 gap-2">
+          {/* BLOCO 1 (CARD): CATEGORIA (50%) + DATA (25%) + VALOR TOTAL (25%) */}
+          <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
             <div className="col-span-6">
               <div className="flex items-center justify-between mb-0.5">
-                <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
                   CATEGORIA <span className="text-rose-600">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(true)}
-                  className="inline-flex items-center space-x-1 text-[9px] font-bold text-slate-700 dark:text-stone-300 hover:text-black dark:hover:text-white px-1.5 py-0.5 rounded bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 transition cursor-pointer border border-slate-300 dark:border-stone-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] uppercase"
+                  className="inline-flex items-center space-x-1 text-[9px] font-bold text-black hover:bg-slate-100 px-1.5 py-0.5 rounded bg-white transition cursor-pointer border border-gray-400 uppercase"
                   title="Incluir, editar ou excluir categorias de despesas"
                 >
                   <Edit2 className="w-2.5 h-2.5" />
@@ -1357,7 +1357,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <select
                     value={categoryId}
                     onChange={(e) => handleSelectCategory(e.target.value)}
-                    className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase"
+                    className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
                   >
                     {safeCategories.map((cat) => (
                       <option key={cat.id} value={cat.id} className="uppercase">
@@ -1365,12 +1365,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(true)}
-                  className="w-7.5 h-7.5 shrink-0 rounded-md bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-white flex items-center justify-center transition border border-slate-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.25)] cursor-pointer"
+                  className="w-7.5 h-7.5 shrink-0 rounded-md bg-slate-800 hover:bg-slate-900 text-white flex items-center justify-center transition border border-black cursor-pointer"
                   title="Incluir nova categoria ou gerenciar existentes"
                 >
                   <Plus className="w-3 h-3" />
@@ -1379,7 +1379,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div className="col-span-3">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                 DATA <span className="text-rose-600">*</span>
               </label>
               <input
@@ -1387,15 +1387,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 required
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
               />
             </div>
 
             <div className="col-span-3">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5 flex items-center justify-between">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5 flex items-center justify-between">
                 <span>VALOR TOTAL (R$) <span className="text-rose-600">*</span></span>
                 {expenseItems.length > 0 && (
-                  <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-300 dark:border-emerald-700">
+                  <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-400">
                     TRAVADO (SOMA ITENS)
                   </span>
                 )}
@@ -1409,10 +1409,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="R$ 0,00"
-                className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400 ${
+                className={`w-full px-2.5 h-7.5 rounded-md border border-gray-400 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
                   expenseItems.length > 0
-                    ? 'bg-slate-100 dark:bg-stone-900/90 text-emerald-700 dark:text-emerald-400 cursor-not-allowed border-emerald-300 dark:border-emerald-800'
-                    : ''
+                    ? 'bg-gray-100 text-emerald-800 cursor-not-allowed'
+                    : 'bg-white text-black'
                 }`}
                 title={expenseItems.length > 0 ? 'Valor calculado automaticamente pelo somatório dos itens discriminados nesta despesa' : undefined}
               />
@@ -1421,8 +1421,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* REFEIÇÃO CONDICIONAL (SE CATEGORIA FOR ALIMENTAÇÃO) */}
           {isAlimentacao && (
-            <div className="p-1.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white/70 dark:bg-stone-800/70">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-1">
+            <div className="p-2.5 rounded-xl border border-black bg-[#e0e6f1] shadow-2xs">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
                 TIPO DE REFEIÇÃO
               </label>
               <div className="grid grid-cols-3 gap-1.5 max-w-xs">
@@ -1431,8 +1431,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   onClick={() => setMealType('cafe')}
                   className={`h-7 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
                     mealType === 'cafe'
-                      ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
-                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
+                      ? 'bg-slate-800 text-white border-black font-bold shadow-xs'
+                      : 'bg-white border-gray-400 text-black hover:bg-slate-100'
                   }`}
                 >
                   CAFÉ
@@ -1442,8 +1442,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   onClick={() => setMealType('almoco')}
                   className={`h-7 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
                     mealType === 'almoco'
-                      ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
-                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
+                      ? 'bg-slate-800 text-white border-black font-bold shadow-xs'
+                      : 'bg-white border-gray-400 text-black hover:bg-slate-100'
                   }`}
                 >
                   ALMOÇO
@@ -1453,8 +1453,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   onClick={() => setMealType('janta')}
                   className={`h-7 px-1.5 text-xs font-bold uppercase rounded-md border transition cursor-pointer ${
                     mealType === 'janta'
-                      ? 'bg-slate-800 text-white border-slate-700 font-bold shadow-xs'
-                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-50'
+                      ? 'bg-slate-800 text-white border-black font-bold shadow-xs'
+                      : 'bg-white border-gray-400 text-black hover:bg-slate-100'
                   }`}
                 >
                   JANTA
@@ -1463,138 +1463,207 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
           )}
 
-          {/* FORNECEDOR */}
-          <div ref={supplierContainerRef} className="relative">
-            <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-              FORNECEDOR
-            </label>
-            <div className="flex items-center space-x-1">
-              <div className="relative flex-1">
-                <Search className="w-3 h-3 text-stone-400 absolute left-2 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="BUSCAR FORNECEDOR CADASTRADO..."
-                  value={supplier}
-                  onChange={(e) => {
-                    setSupplier(e.target.value);
-                    setIsSupplierDropdownOpen(true);
+          {/* BLOCO 2 (CARD): IDENTIFICAÇÃO — FORNECEDOR, RESPONSÁVEL PELO PAGAMENTO E CENTRO DE CUSTO / MÁQUINA */}
+          <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 space-y-2 shadow-2xs">
+            {/* FORNECEDOR */}
+            <div ref={supplierContainerRef} className="relative">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                FORNECEDOR
+              </label>
+              <div className="flex items-center space-x-1">
+                <div className="relative flex-1">
+                  <Search className="w-3 h-3 text-slate-600 absolute left-2 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="BUSCAR FORNECEDOR CADASTRADO..."
+                    value={supplier}
+                    onChange={(e) => {
+                      setSupplier(e.target.value);
+                      setIsSupplierDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsSupplierDropdownOpen(true)}
+                    className="w-full pl-7 pr-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSupplierModalOpen(true);
+                    setIsSupplierDropdownOpen(false);
                   }}
-                  onFocus={() => setIsSupplierDropdownOpen(true)}
-                  className="w-full pl-7 pr-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase placeholder:uppercase"
-                />
+                  className="w-7.5 h-7.5 rounded-md border border-gray-400 bg-white hover:bg-slate-100 text-black flex items-center justify-center transition cursor-pointer shrink-0"
+                  title="Cadastrar Novo Fornecedor"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSupplierModalOpen(true);
-                  setIsSupplierDropdownOpen(false);
-                }}
-                className="w-7.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-700 dark:text-stone-300 flex items-center justify-center transition cursor-pointer shrink-0 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
-                title="Cadastrar Novo Fornecedor"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
+
+              {/* Dropdown Lista de Fornecedores */}
+              {isSupplierDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white border border-black rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                  {filteredSuppliers.length > 0 ? (
+                    <div className="divide-y divide-gray-200">
+                      {filteredSuppliers.map((s) => (
+                        <div
+                          key={s.id}
+                          onClick={() => {
+                            setSupplier(s.name);
+                            setSupplierId(s.id);
+                            setIsSupplierDropdownOpen(false);
+                          }}
+                          className="p-1.5 hover:bg-slate-100 cursor-pointer transition flex flex-col justify-center text-left group uppercase"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-black text-xs">
+                              {s.name.toUpperCase()}
+                            </span>
+                            {s.category && (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 border border-gray-300 text-slate-700 font-medium shrink-0">
+                                {s.category.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[9px] text-slate-600 flex items-center gap-1.5 mt-0.5">
+                            {s.cnpjOrCpf && <span>{s.cnpjOrCpf}</span>}
+                            {s.tradeName && s.tradeName !== s.name && (
+                              <span>· {s.tradeName.toUpperCase()}</span>
+                            )}
+                            {s.city && (
+                              <span>· {s.city.toUpperCase()}{s.state ? `/${s.state.toUpperCase()}` : ''}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-2 text-xs text-slate-600 text-center uppercase">
+                      Nenhum fornecedor cadastrado com esse termo.
+                    </div>
+                  )}
+
+                  {/* Opção de Cadastrar Novo Fornecedor */}
+                  <div className="border-t border-black/20 bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSupplierModalOpen(true);
+                        setIsSupplierDropdownOpen(false);
+                      }}
+                      className="w-full p-1.5 flex items-center space-x-1.5 text-black hover:bg-slate-100 text-xs font-semibold transition cursor-pointer text-left uppercase"
+                    >
+                      <Plus className="w-3 h-3 text-black" />
+                      <span>+ CADASTRAR NOVO FORNECEDOR</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Dropdown Lista de Fornecedores */}
-            {isSupplierDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                {filteredSuppliers.length > 0 ? (
-                  <div className="divide-y divide-slate-100 dark:divide-stone-700">
-                    {filteredSuppliers.map((s) => (
-                      <div
-                        key={s.id}
-                        onClick={() => {
-                          setSupplier(s.name);
-                          setSupplierId(s.id);
-                          setIsSupplierDropdownOpen(false);
-                        }}
-                        className="p-1.5 hover:bg-slate-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group uppercase"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-slate-900 dark:text-stone-100 text-xs group-hover:text-black dark:group-hover:text-white">
-                            {s.name.toUpperCase()}
-                          </span>
-                          {s.category && (
-                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-medium shrink-0">
-                              {s.category.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[9px] text-slate-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
-                          {s.cnpjOrCpf && <span>{s.cnpjOrCpf}</span>}
-                          {s.tradeName && s.tradeName !== s.name && (
-                            <span>· {s.tradeName.toUpperCase()}</span>
-                          )}
-                          {s.city && (
-                            <span>· {s.city.toUpperCase()}{s.state ? `/${s.state.toUpperCase()}` : ''}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-2 text-xs text-slate-500 dark:text-stone-400 text-center uppercase">
-                    Nenhum fornecedor cadastrado com esse termo.
-                  </div>
-                )}
+            {/* LINHA 3: RESPONSÁVEL PELO PAGAMENTO (100% DA LARGURA) */}
+            <div>
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                RESPONSÁVEL PELO PAGAMENTO {status === 'pago' && <span className="text-rose-600">*</span>}
+              </label>
+              <div className="relative">
+                <select
+                  value={paidByEmployeeId}
+                  onChange={(e) => handlePaidByEmployeeChange(e.target.value)}
+                  className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
+                >
+                  <option value="">-- SELECIONE O COLABORADOR --</option>
+                  {activeEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id} className="uppercase">
+                      {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
 
-                {/* Opção de Cadastrar Novo Fornecedor */}
-                <div className="border-t border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSupplierModalOpen(true);
-                      setIsSupplierDropdownOpen(false);
+            {/* CAMPO OPCIONAL DE VÍNCULO: CENTRO DE CUSTO / MÁQUINA (QUANDO NÃO FOR MANUTENÇÃO DIRETA NEM ALIMENTAÇÃO) */}
+            {!isFleetMaintenanceCategory && !isAlimentacao && (
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                  CENTRO DE CUSTO / MÁQUINA (VÍNCULO OPCIONAL)
+                </label>
+                <div className="relative">
+                  <select
+                    value={
+                      machineryId
+                        ? `mach_${machineryId}`
+                        : costCenterId
+                        ? `cc_${costCenterId}`
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setMachineryId('');
+                        setCostCenterId('');
+                        setReadingKmOrHours('');
+                      } else if (val.startsWith('mach_')) {
+                        const mId = val.replace('mach_', '');
+                        setMachineryId(mId);
+                        setCostCenterId('');
+                        const mach = availableMachineries.find((m) => m.id === mId);
+                        if (mach) {
+                          const cur = mach.controlBy === 'km' 
+                            ? (mach.currentKm || mach.horimetro_ou_km_atual || '') 
+                            : (mach.hourMeter || mach.horimetro_ou_km_atual || '');
+                          if (cur) setReadingKmOrHours(String(cur));
+                        }
+                      } else if (val.startsWith('cc_')) {
+                        const cId = val.replace('cc_', '');
+                        setCostCenterId(cId);
+                        setMachineryId('');
+                        setReadingKmOrHours('');
+                      }
                     }}
-                    className="w-full p-1.5 flex items-center space-x-1.5 text-slate-800 dark:text-stone-200 hover:text-black dark:hover:text-white hover:bg-slate-100 dark:hover:bg-stone-700 text-xs font-semibold transition cursor-pointer text-left uppercase"
+                    className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
                   >
-                    <Plus className="w-3 h-3 text-slate-800 dark:text-stone-200" />
-                    <span>+ CADASTRAR NOVO FORNECEDOR</span>
-                  </button>
+                    <option value="">SELECIONE UM CENTRO DE CUSTO / MÁQUINA... (OPCIONAL)</option>
+                    {costCenters.length > 0 && (
+                      <optgroup label="CENTROS DE CUSTO">
+                        {costCenters.map((cc) => (
+                          <option key={cc.id} value={`cc_${cc.id}`}>
+                            {cc.name.toUpperCase()}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {availableMachineries.length > 0 && (
+                      <optgroup label="VEÍCULOS / MÁQUINAS (FROTA)">
+                        {availableMachineries.map((m) => (
+                          <option key={m.id} value={`mach_${m.id}`}>
+                            {(m.licensePlateOrSerial ? `${m.licensePlateOrSerial} · ${m.model || m.name}` : (m.model || m.name)).toUpperCase()}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* LINHA 3: RESPONSÁVEL PELO PAGAMENTO (100% DA LARGURA) */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-              RESPONSÁVEL PELO PAGAMENTO {status === 'pago' && <span className="text-rose-600">*</span>}
-            </label>
-            <div className="relative">
-              <select
-                value={paidByEmployeeId}
-                onChange={(e) => handlePaidByEmployeeChange(e.target.value)}
-                className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
-              >
-                <option value="">-- SELECIONE O COLABORADOR --</option>
-                {activeEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id} className="uppercase">
-                    {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* BLOCO CENTRAL DINÂMICO: SE MANUTENÇÃO, BORRACHARIA, ELÉTRICA OU PEÇAS => SELETORES DE FROTA; SE ALIMENTAÇÃO => RATEIO; CASO CONTRÁRIO => OCULTO */}
+          {/* BLOCO CENTRAL DINÂMICO (CARD CONDICIONAL): MANUTENÇÃO & FROTAS OU RATEIO ALIMENTAÇÃO */}
           {isFleetMaintenanceCategory ? (
-            <div className="border border-slate-300 dark:border-stone-700 rounded-lg p-1.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)] space-y-1">
+            <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider flex items-center gap-1.5">
                   <Wrench className="w-3 h-3 text-amber-600" />
                   <span>VÍNCULO DE MANUTENÇÃO & FROTAS</span>
                 </label>
-                <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 px-1.5 py-0.2 rounded uppercase">
+                <span className="text-[9px] font-bold text-amber-800 bg-amber-100 border border-amber-400 px-1.5 py-0.2 rounded uppercase">
                   CUSTO DIRETO DO MAQUINÁRIO PESADO
                 </span>
               </div>
 
               <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-7">
-                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                  <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                     VEÍCULO / MÁQUINA <span className="text-rose-600">*</span>
                   </label>
                   <div className="relative">
@@ -1610,7 +1679,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         }
                       }}
                       required={isFleetMaintenanceCategory}
-                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
                     >
                       <option value="">-- SELECIONE O VEÍCULO / MÁQUINA --</option>
                       {availableMachineries.map((m) => (
@@ -1619,12 +1688,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
                 <div className="col-span-5">
-                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                  <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                     HORÍMETRO / ODÔMETRO <span className="text-rose-600">*</span>
                   </label>
                   <input
@@ -1633,12 +1702,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     placeholder="EX: 1250"
                     value={readingKmOrHours}
                     onChange={(e) => setReadingKmOrHours(e.target.value)}
-                    className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                   />
                 </div>
               </div>
 
-              <div className="px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/40 text-[9px] flex items-center justify-between text-amber-950 dark:text-amber-200">
+              <div className="px-2 py-0.5 rounded border border-gray-400 bg-white text-[9px] flex items-center justify-between text-black">
                 <span className="font-semibold uppercase truncate">
                   {selectedMachinery
                     ? `EQUIPAMENTO: ${(selectedMachinery.licensePlateOrSerial || selectedMachinery.name).toUpperCase()} (${(selectedMachinery.categoriaVeiculo || selectedMachinery.categoryType || 'FROTA').toUpperCase()})`
@@ -1652,10 +1721,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             </div>
           ) : isAlimentacao ? (
-            /* Rateio por Funcionários e Equipes (Seleção Múltipla) - Subcontainer Micro Slim (Exclusivo para Alimentação) */
-            <div className="border border-slate-300 dark:border-stone-700 rounded-lg p-1.5 bg-gradient-to-b from-slate-50 to-white dark:from-stone-900/60 dark:to-stone-850/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.9)] space-y-1">
+            /* Rateio por Funcionários e Equipes (Seleção Múltipla) - Exclusivo para Alimentação */
+            <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider">
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
                   FUNCIONÁRIOS E EQUIPES NO RATEIO ({totalParticipantsCount} {totalParticipantsCount === 1 ? 'PESSOA' : 'PESSOAS'})
                 </label>
                 <div className="flex items-center space-x-2 text-[9px]">
@@ -1663,7 +1732,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setSelectedTargets(['todos'])}
-                      className="text-slate-800 dark:text-stone-100 font-bold hover:underline cursor-pointer uppercase"
+                      className="text-black font-bold hover:underline cursor-pointer uppercase"
                     >
                       + TODOS DA EMPRESA
                     </button>
@@ -1672,7 +1741,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setSelectedTargets(['todos'])}
-                      className="text-slate-500 hover:text-slate-700 font-medium cursor-pointer uppercase"
+                      className="text-slate-700 hover:text-black font-medium cursor-pointer uppercase"
                     >
                       LIMPAR
                     </button>
@@ -1691,7 +1760,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         handleAddTarget(e.target.value);
                       }
                     }}
-                    className="w-full px-2 h-7 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 cursor-pointer uppercase"
+                    className="w-full px-2 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 cursor-pointer uppercase"
                   >
                     <option value="">+ SELECIONE PARA ADICIONAR AO RATEIO...</option>
                     
@@ -1743,13 +1812,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       </optgroup>
                     )}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
                 
                 <button
                   type="button"
                   onClick={() => handleAddTarget()}
-                  className="h-7 px-2.5 shrink-0 rounded-md bg-[#059669] hover:bg-emerald-700 text-white flex items-center space-x-1 shadow-xs text-[10px] font-bold uppercase transition cursor-pointer"
+                  className="h-7.5 px-2.5 shrink-0 rounded-md bg-[#059669] hover:bg-emerald-700 text-white border border-black flex items-center space-x-1 shadow-xs text-[10px] font-bold uppercase transition cursor-pointer"
                   title="Adicionar equipe ou funcionário ao rateio"
                 >
                   <Plus className="w-3 h-3" />
@@ -1764,9 +1833,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     return (
                       <div
                         key="todos"
-                        className="inline-flex items-center space-x-1 bg-blue-100/90 dark:bg-blue-950/70 border border-blue-300 dark:border-blue-800 text-blue-950 dark:text-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
                       >
-                        <Users className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                        <Users className="w-3 h-3 text-blue-700" />
                         <span>TODOS OS FUNCIONÁRIOS ({activeEmployees.length} PESSOAS)</span>
                       </div>
                     );
@@ -1776,14 +1845,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     return (
                       <div
                         key="grupo_operadores"
-                        className="inline-flex items-center space-x-1 bg-emerald-100/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
                       >
-                        <Tractor className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <Tractor className="w-3 h-3 text-emerald-700" />
                         <span>OPERADORES & TRATORISTAS ({operadoresCount})</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveTarget('grupo_operadores')}
-                          className="w-3.5 h-3.5 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900 flex items-center justify-center text-emerald-900 dark:text-emerald-300 cursor-pointer ml-0.5"
+                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
                           title="Remover do rateio"
                         >
                           <X className="w-2.5 h-2.5" />
@@ -1796,14 +1865,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     return (
                       <div
                         key="grupo_motoristas"
-                        className="inline-flex items-center space-x-1 bg-emerald-100/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
                       >
-                        <Users className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <Users className="w-3 h-3 text-emerald-700" />
                         <span>MOTORISTAS DE CAMINHÃO ({motoristasCount})</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveTarget('grupo_motoristas')}
-                          className="w-3.5 h-3.5 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900 flex items-center justify-center text-emerald-900 dark:text-emerald-300 cursor-pointer ml-0.5"
+                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
                           title="Remover do rateio"
                         >
                           <X className="w-2.5 h-2.5" />
@@ -1818,9 +1887,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     return (
                       <div
                         key={teamMatch.id}
-                        className="inline-flex items-center space-x-1 bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
                       >
-                        <Users className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                        <Users className="w-3 h-3 text-amber-700" />
                         <span>EQUIPE {teamMatch.name.toUpperCase()} ({teamMembers.length} FUNC.)</span>
                         {teamMatch.machineryName && (
                           <span className="text-[9px] opacity-75 font-normal">· {teamMatch.machineryName.toUpperCase()}</span>
@@ -1828,7 +1897,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveTarget(teamMatch.id)}
-                          className="w-3.5 h-3.5 rounded hover:bg-amber-200 dark:hover:bg-amber-900 flex items-center justify-center text-amber-900 dark:text-amber-300 cursor-pointer ml-0.5"
+                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
                           title="Remover equipe do rateio"
                         >
                           <X className="w-2.5 h-2.5" />
@@ -1843,19 +1912,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     return (
                       <div
                         key={empMatch.id}
-                        className="inline-flex items-center space-x-1 bg-emerald-100/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
                       >
                         <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white text-[8px] flex items-center justify-center font-bold">
                           {empMatch.name.charAt(0).toUpperCase()}
                         </div>
                         <span>{empMatch.name.toUpperCase()}</span>
-                        <span className="text-[9px] text-emerald-800 dark:text-emerald-400 font-normal">
+                        <span className="text-[9px] text-slate-700 font-normal">
                           ({(empMatch.role || 'FUNCIONÁRIO').toUpperCase()}{empTeam ? ` · EQ. ${empTeam.name.toUpperCase()}` : ''})
                         </span>
                         <button
                           type="button"
                           onClick={() => handleRemoveTarget(empMatch.id)}
-                          className="w-3.5 h-3.5 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900 flex items-center justify-center text-emerald-900 dark:text-emerald-300 cursor-pointer ml-0.5"
+                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
                           title="Remover funcionário do rateio"
                         >
                           <X className="w-2.5 h-2.5" />
@@ -1869,118 +1938,53 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
 
               {/* Informative Rateio / Auto-Linking Feedback Box Compacto */}
-              <div className="px-2 py-1 rounded border border-stone-200 dark:border-stone-700 bg-white/90 dark:bg-stone-900/60 text-[10px] flex items-center justify-between">
-                <div className="flex items-center space-x-1.5 font-bold text-stone-800 dark:text-stone-200 uppercase">
-                  <Calculator className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+              <div className="px-2 py-1 rounded border border-gray-400 bg-white text-[10px] flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 font-bold text-black uppercase">
+                  <Calculator className="w-3 h-3 text-blue-600" />
                   <span>RATEIO: {totalParticipantsCount} {totalParticipantsCount === 1 ? 'PESSOA' : 'PESSOAS'} NO TOTAL</span>
                   {linkedMachineries.length > 0 && (
-                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold ml-2">
+                    <span className="text-emerald-700 font-semibold ml-2">
                       · MÁQ: {linkedMachineries.map((m) => m.licensePlateOrSerial || m.model || m.name).join(', ').toUpperCase()}
                     </span>
                   )}
                 </div>
                 {numAmount > 0 && (
-                  <span className="text-emerald-700 dark:text-emerald-400 font-extrabold text-xs">
+                  <span className="text-emerald-700 font-extrabold text-xs">
                     R$ {rateioPerPerson.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / PESSOA
                   </span>
                 )}
               </div>
             </div>
-          ) : (
-            /* CAMPO OPCIONAL DE VÍNCULO: CENTRO DE CUSTO / MÁQUINA (QUANDO NÃO FOR MANUTENÇÃO DIRETA NEM ALIMENTAÇÃO) */
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                CENTRO DE CUSTO / MÁQUINA (VÍNCULO OPCIONAL)
-              </label>
-              <div className="relative">
-                <select
-                  value={
-                    machineryId
-                      ? `mach_${machineryId}`
-                      : costCenterId
-                      ? `cc_${costCenterId}`
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) {
-                      setMachineryId('');
-                      setCostCenterId('');
-                      setReadingKmOrHours('');
-                    } else if (val.startsWith('mach_')) {
-                      const mId = val.replace('mach_', '');
-                      setMachineryId(mId);
-                      setCostCenterId('');
-                      const mach = availableMachineries.find((m) => m.id === mId);
-                      if (mach) {
-                        const cur = mach.controlBy === 'km' 
-                          ? (mach.currentKm || mach.horimetro_ou_km_atual || '') 
-                          : (mach.hourMeter || mach.horimetro_ou_km_atual || '');
-                        if (cur) setReadingKmOrHours(String(cur));
-                      }
-                    } else if (val.startsWith('cc_')) {
-                      const cId = val.replace('cc_', '');
-                      setCostCenterId(cId);
-                      setMachineryId('');
-                      setReadingKmOrHours('');
-                    }
-                  }}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
-                >
-                  <option value="">SELECIONE UM CENTRO DE CUSTO / MÁQUINA... (OPCIONAL)</option>
-                  {costCenters.length > 0 && (
-                    <optgroup label="CENTROS DE CUSTO">
-                      {costCenters.map((cc) => (
-                        <option key={cc.id} value={`cc_${cc.id}`}>
-                          {cc.name.toUpperCase()}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {availableMachineries.length > 0 && (
-                    <optgroup label="VEÍCULOS / MÁQUINAS (FROTA)">
-                      {availableMachineries.map((m) => (
-                        <option key={m.id} value={`mach_${m.id}`}>
-                          {(m.licensePlateOrSerial ? `${m.licensePlateOrSerial} · ${m.model || m.name}` : (m.model || m.name)).toUpperCase()}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-          )}
+          ) : null}
 
-
-          {/* BLOCO DE LIQUIDAÇÃO / PAGAMENTO: STATUS, FORMA, DATA E CONTA DE DÉBITO (ORIGEM) */}
-          <div className="grid grid-cols-12 gap-2">
+          {/* BLOCO 3 (CARD): PAGAMENTO — STATUS, FORMA, DATA EFETIVA E CONTA DE DÉBITO / CARTÃO / CHEQUE */}
+          <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
             <div className="col-span-4">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                 STATUS DO PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={status}
                   onChange={(e) => handleStatusChange(e.target.value as ExpenseStatus)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
+                  className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
                 >
                   <option value="pendente">A PAGAR (PENDENTE)</option>
                   <option value="pago">PAGO (LIQUIDADO)</option>
                 </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             <div className="col-span-4">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                 FORMA DE PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={paymentMethod}
                   onChange={(e) => handlePaymentMethodChange(e.target.value as PaymentMethod)}
-                  className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase cursor-pointer"
+                  className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
                 >
                   <option value="assinado_nota">ASSINADO NOTA</option>
                   <option value="boleto">BOLETO BANCÁRIO</option>
@@ -1993,13 +1997,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <option value="prazo_carteira">A PRAZO (CARTEIRA)</option>
                   <option value="safra_prazo">SAFRA A PRAZO</option>
                 </select>
-                <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             <div className="col-span-4">
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                DATA EFETIVA DA BAIXA {status === 'pago' ? <span className="text-rose-600 font-bold">*</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado)</span>}
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                DATA EFETIVA DA BAIXA {status === 'pago' ? <span className="text-rose-600 font-bold">*</span> : <span className="text-slate-600 font-normal lowercase">(desabilitado)</span>}
               </label>
               <input
                 type="date"
@@ -2007,10 +2011,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 required={status === 'pago'}
                 value={status === 'pago' ? (paymentDate || dueDate) : ''}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 transition ${
+                className={`w-full px-2.5 h-7.5 rounded-md border border-gray-400 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] transition ${
                   status !== 'pago'
-                    ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
-                    : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
+                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-dashed select-none'
+                    : 'bg-white text-black cursor-pointer'
                 }`}
               />
             </div>
@@ -2018,8 +2022,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             {/* CONTA DE DÉBITO (ORIGEM) - Ocultada para Dinheiro em Espécie, Assinado Nota e Cheque */}
             {!isCashOrSignedNote && !isCheckPayment && (
               <div className={isCardPayment ? "col-span-6" : "col-span-12"}>
-                <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                  CONTA DE DÉBITO (ORIGEM) {(status === 'pago' || isCardPayment) ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-400 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                  CONTA DE DÉBITO (ORIGEM) {(status === 'pago' || isCardPayment) ? <span className="text-rose-600 font-bold">* (OBRIGATÓRIO)</span> : <span className="text-slate-600 font-normal lowercase">(desabilitado - nenhum débito realizado)</span>}
                 </label>
                 <div className="relative">
                   <select
@@ -2027,10 +2031,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     onChange={(e) => handleBankAccountChange(e.target.value)}
                     disabled={status !== 'pago' && !isCardPayment}
                     required={status === 'pago' || isCardPayment}
-                    className={`w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none pr-7 uppercase transition ${
+                    className={`w-full px-2.5 h-7.5 rounded-md border border-gray-400 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase transition ${
                       (status !== 'pago' && !isCardPayment)
-                        ? 'bg-slate-100 dark:bg-stone-850 text-slate-400 dark:text-stone-500 cursor-not-allowed border-dashed select-none'
-                        : 'bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 cursor-pointer'
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-dashed select-none'
+                        : 'bg-white text-black cursor-pointer'
                     }`}
                   >
                     {(status !== 'pago' && !isCardPayment) ? (
@@ -2053,21 +2057,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       </>
                     )}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             )}
 
-            {/* CAMPO CONDICIONAL: SELECIONAR CARTÃO CORPORATIVO (INTERFACE REATIVA - PRINT 1) */}
+            {/* CAMPO CONDICIONAL: SELECIONAR CARTÃO CORPORATIVO */}
             {isCardPayment && (
               <div className="col-span-6 animate-in fade-in">
-                <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5 flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5 flex items-center justify-between">
                   <span className="flex items-center gap-1">
-                    <CreditCard className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                    <CreditCard className="w-3 h-3 text-blue-700" />
                     SELECIONAR CARTÃO CORPORATIVO <span className="text-rose-600 font-bold">*</span>
                   </span>
                   {selectedCard && (
-                    <span className="text-[9px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">
+                    <span className="text-[9px] font-mono text-emerald-800 font-bold">
                       Disp: {formatCurrencyBRL(Math.max(0, selectedCard.totalLimit - selectedCard.usedLimit))}
                     </span>
                   )}
@@ -2077,7 +2081,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     value={corporateCardId}
                     onChange={(e) => handleCorporateCardChange(e.target.value)}
                     required
-                    className="w-full px-2.5 h-7.5 rounded-md border border-blue-400 dark:border-blue-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-7 cursor-pointer"
+                    className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 cursor-pointer"
                   >
                     {availableCards.length === 0 ? (
                       <option value="">-- NENHUM CARTÃO VINCULADO A ESTA CONTA --</option>
@@ -2092,7 +2096,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       </>
                     )}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-stone-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             )}
@@ -2101,28 +2105,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             {isCardPayment && (
               <div className="col-span-12">
                 {paymentMethod === 'cartao_credito' ? (
-                  <div className="flex items-center justify-between text-[10px] bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-md px-2.5 py-1 text-purple-900 dark:text-purple-300">
+                  <div className="flex items-center justify-between text-[10px] bg-white border border-black rounded-md px-2.5 py-1 text-purple-950">
                     <span className="font-semibold flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <CreditCard className="w-3.5 h-3.5 text-purple-700 shrink-0" />
                       <span>
                         Fatura Aberta: O valor será lançado no Limite Utilizado do cartão. Saldo em conta não é debitado imediatamente.
                       </span>
                     </span>
                     {selectedCard && (
-                      <span className="font-mono font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                      <span className="font-mono font-bold text-purple-800 shrink-0">
                         Vencimento da Fatura: {formatDateBR(calculateCardInvoiceDueDate(selectedCard.dueDay || 10))}
                       </span>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between text-[10px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-md px-2.5 py-1 text-emerald-900 dark:text-emerald-300">
+                  <div className="flex items-center justify-between text-[10px] bg-white border border-black rounded-md px-2.5 py-1 text-emerald-950">
                     <span className="font-semibold flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                       <span>
                         Cartão de Débito: Baixa imediata de {formatCurrencyBRL(parseFloat(amount) || 0)} no saldo da conta com lançamento no extrato bancário.
                       </span>
                     </span>
-                    <span className="font-bold text-emerald-800 dark:text-emerald-400 shrink-0 uppercase">
+                    <span className="font-bold text-emerald-800 shrink-0 uppercase">
                       Débito Imediato em Conta
                     </span>
                   </div>
@@ -2132,18 +2136,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
             {/* SUBFORMULÁRIO DINÂMICO PARA PAGAMENTO EM CHEQUE */}
             {isCheckPayment && (
-              <div className="col-span-12 p-3 rounded-lg border border-amber-300 dark:border-amber-800/70 bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-stone-900 dark:to-stone-850 space-y-3 animate-in fade-in">
+              <div className="col-span-12 p-3 rounded-lg border border-black bg-[#e0e6f1] space-y-3 animate-in fade-in">
                 {/* Cabeçalho do Bloco de Cheque */}
-                <div className="flex items-center justify-between pb-1.5 border-b border-amber-200 dark:border-amber-900/50">
+                <div className="flex items-center justify-between pb-1.5 border-b border-black/20">
                   <div className="flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-300">
+                    <FileText className="w-4 h-4 text-slate-800" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-black">
                       EMISSÃO E DADOS DO CHEQUE
                     </span>
                   </div>
                   {numAmount > 0 && (
-                    <span className="text-[10px] font-semibold text-stone-600 dark:text-stone-400">
-                      Total da Despesa: <strong className="font-mono text-stone-900 dark:text-stone-100">{formatCurrencyBRL(numAmount)}</strong>
+                    <span className="text-[10px] font-semibold text-slate-800">
+                      Total da Despesa: <strong className="font-mono text-black">{formatCurrencyBRL(numAmount)}</strong>
                     </span>
                   )}
                 </div>
@@ -2152,7 +2156,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <div className="grid grid-cols-12 gap-2">
                   {/* Número do Cheque * (Obrigatório) */}
                   <div className="col-span-12 sm:col-span-4">
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                    <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                       NÚMERO DO CHEQUE <span className="text-rose-600 font-bold">*</span>
                     </label>
                     <input
@@ -2161,13 +2165,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       value={checkNumber}
                       onChange={(e) => setCheckNumber(e.target.value.toUpperCase())}
                       placeholder="Ex: 000124"
-                      className="w-full px-2.5 h-7.5 rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 uppercase tracking-wider"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase tracking-wider"
                     />
                   </div>
 
                   {/* Valor do Cheque * (Obrigatório) */}
                   <div className="col-span-12 sm:col-span-4">
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                    <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                       VALOR DO CHEQUE (R$) <span className="text-rose-600 font-bold">*</span>
                     </label>
                     <input
@@ -2176,42 +2180,42 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       value={checkAmount}
                       onChange={(e) => setCheckAmount(maskCurrencyLive(e.target.value))}
                       placeholder="R$ 0,00"
-                      className="w-full px-2.5 h-7.5 rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-black font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-black font-mono focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
                   {/* Banco do Cheque (Opcional) */}
                   <div className="col-span-12 sm:col-span-4">
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                      BANCO DO CHEQUE <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                    <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                      BANCO DO CHEQUE <span className="text-slate-700 font-normal lowercase">(opcional)</span>
                     </label>
                     <input
                       type="text"
                       value={checkBank}
                       onChange={(e) => setCheckBank(e.target.value.toUpperCase())}
                       placeholder="Ex: SICREDI, BB, BRADESCO..."
-                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500 uppercase"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                     />
                   </div>
 
                   {/* Nome do Emitente (Opcional) */}
                   <div className="col-span-12 sm:col-span-7">
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                      NOME DO EMITENTE <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                    <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                      NOME DO EMITENTE <span className="text-slate-700 font-normal lowercase">(opcional)</span>
                     </label>
                     <input
                       type="text"
                       value={checkIssuerName}
                       onChange={(e) => setCheckIssuerName(e.target.value.toUpperCase())}
                       placeholder="Ex: NOME DO TITULAR DA FOLHA DE CHEQUE"
-                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500 uppercase"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                     />
                   </div>
 
                   {/* CPF / CNPJ do Emitente (Opcional) */}
                   <div className="col-span-12 sm:col-span-5">
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                      CPF / CNPJ DO EMITENTE <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                    <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                      CPF / CNPJ DO EMITENTE <span className="text-slate-700 font-normal lowercase">(opcional)</span>
                     </label>
                     <input
                       type="text"
@@ -2219,23 +2223,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       onChange={(e) => setCheckIssuerCpf(formatCpfCnpj(e.target.value))}
                       placeholder="000.000.000-00"
                       maxLength={18}
-                      className="w-full px-2.5 h-7.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-medium font-mono focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
                 </div>
 
                 {/* CASO 1: VALOR DO CHEQUE MAIOR QUE A DESPESA (TROCO EM DINHEIRO) */}
                 {checkChangeAmount > 0 && (
-                  <div className="flex items-center justify-between p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs animate-in fade-in">
+                  <div className="flex items-center justify-between p-2.5 rounded-md bg-white border border-black text-emerald-950 text-xs animate-in fade-in">
                     <div className="flex items-center gap-1.5 font-bold">
-                      <Coins className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <Coins className="w-4 h-4 text-emerald-700" />
                       <span>Troco em Dinheiro:</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+                      <span className="text-[11px] text-slate-700 font-medium">
                         (Valor do Cheque {formatCurrencyBRL(numCheckAmount)} - Total {formatCurrencyBRL(numAmount)})
                       </span>
-                      <span className="font-mono font-black text-sm text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60">
+                      <span className="font-mono font-black text-sm text-emerald-800 px-2 py-0.5 rounded bg-emerald-100 border border-emerald-400">
                         {formatCurrencyBRL(checkChangeAmount)}
                       </span>
                     </div>
@@ -2244,21 +2248,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
                 {/* CASO 2: VALOR DO CHEQUE MENOR QUE A DESPESA (PAGAMENTO MISTO / COMPLEMENTAR) */}
                 {isCheckUnderpaid && (
-                  <div className="p-3 rounded-md bg-orange-50/70 dark:bg-orange-950/30 border border-orange-300 dark:border-orange-800/60 space-y-2.5 animate-in fade-in">
-                    <div className="flex flex-wrap items-center justify-between gap-1 border-b border-orange-200 dark:border-orange-900/40 pb-1.5">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-orange-900 dark:text-orange-200">
-                        <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                  <div className="p-3 rounded-md bg-[#e0e6f1] border border-black space-y-2.5 animate-in fade-in">
+                    <div className="flex flex-wrap items-center justify-between gap-1 border-b border-black/20 pb-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-black">
+                        <AlertCircle className="w-4 h-4 text-amber-700" />
                         <span>Pagamento Misto: Cheque Parcial ({formatCurrencyBRL(numCheckAmount)})</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase text-stone-700 dark:text-stone-300">
+                        <span className="text-[11px] font-bold uppercase text-black">
                           Saldo a Distribuir:
                         </span>
                         <span
                           className={`font-mono font-black text-xs px-2 py-0.5 rounded ${
                             saldoADistribuir > 0.009
-                              ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
-                              : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                              ? 'bg-rose-100 text-rose-800 border border-rose-400'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-400'
                           }`}
                         >
                           {formatCurrencyBRL(saldoADistribuir)}
@@ -2274,10 +2278,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                           return (
                             <div
                               key={comp.id}
-                              className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-stone-850 p-2 rounded border border-orange-200 dark:border-stone-700"
+                              className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-400"
                             >
                               <div className="col-span-12 sm:col-span-4">
-                                <label className="block text-[9px] font-bold text-stone-500 uppercase mb-0.5">
+                                <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
                                   Forma Complementar #{idx + 1}
                                 </label>
                                 <select
@@ -2285,7 +2289,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                                   onChange={(e) =>
                                     handleUpdateComplementaryPayment(comp.id, 'paymentMethod', e.target.value as PaymentMethod)
                                   }
-                                  className="w-full px-2 h-7 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold uppercase text-slate-800 dark:text-stone-200 focus:outline-none"
+                                  className="w-full px-2 h-7 rounded border border-gray-400 bg-white text-xs font-bold uppercase text-black focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                                 >
                                   <option value="pix">PIX</option>
                                   <option value="dinheiro">DINHEIRO EM ESPÉCIE</option>
@@ -2296,7 +2300,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                               </div>
 
                               <div className="col-span-12 sm:col-span-3">
-                                <label className="block text-[9px] font-bold text-stone-500 uppercase mb-0.5">
+                                <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
                                   Valor (R$)
                                 </label>
                                 <input
@@ -2306,12 +2310,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                                     handleUpdateComplementaryPayment(comp.id, 'amount', e.target.value)
                                   }
                                   placeholder="R$ 0,00"
-                                  className="w-full px-2 h-7 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-black font-mono text-slate-900 dark:text-stone-100 focus:outline-none"
+                                  className="w-full px-2 h-7 rounded border border-gray-400 bg-white text-xs font-black font-mono text-black focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                                 />
                               </div>
 
                               <div className="col-span-10 sm:col-span-4">
-                                <label className="block text-[9px] font-bold text-stone-500 uppercase mb-0.5">
+                                <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
                                   {requiresAcc ? 'Conta Débito' : 'Espécie (Sem Conta)'}
                                 </label>
                                 {requiresAcc ? (
@@ -2320,7 +2324,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                                     onChange={(e) =>
                                       handleUpdateComplementaryPayment(comp.id, 'bankAccountId', e.target.value)
                                     }
-                                    className="w-full px-2 h-7 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-[11px] font-semibold uppercase text-slate-800 dark:text-stone-200 focus:outline-none"
+                                    className="w-full px-2 h-7 rounded border border-gray-400 bg-white text-[11px] font-semibold uppercase text-black focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                                   >
                                     <option value="">-- SELECIONE CONTA --</option>
                                     {effectiveBankAccounts.map((acc) => (
@@ -2330,7 +2334,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                                     ))}
                                   </select>
                                 ) : (
-                                  <div className="h-7 px-2 flex items-center bg-slate-100 dark:bg-stone-800 rounded text-[10px] text-slate-500 italic">
+                                  <div className="h-7 px-2 flex items-center bg-gray-100 border border-gray-400 rounded text-[10px] text-gray-600 italic">
                                     Pagamento direto em mãos
                                   </div>
                                 )}
@@ -2340,7 +2344,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveComplementaryPayment(comp.id)}
-                                  className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                  className="p-1 rounded text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                                   title="Remover forma complementar"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -2356,14 +2360,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       <button
                         type="button"
                         onClick={handleAddComplementaryPayment}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold uppercase transition cursor-pointer shadow-xs"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white border border-black text-[11px] font-bold uppercase transition cursor-pointer shadow-xs"
                       >
                         <Plus className="w-3 h-3" />
                         ADICIONAR FORMA COMPLEMENTAR
                       </button>
 
                       {saldoADistribuir > 0.009 && (
-                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                        <span className="text-[10px] font-bold text-rose-700">
                           Complete os pagamentos para zerar o saldo
                         </span>
                       )}
@@ -2374,14 +2378,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             )}
           </div>
 
-          {/* ADAPTAÇÃO DE BLOCOS SECUNDÁRIOS: FOTO / COMPROVANTE & OBSERVAÇÕES LADO A LADO */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* BLOCO 4 (CARD): FOTO / COMPROVANTE & OBSERVAÇÕES LADO A LADO */}
+          <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-2 gap-2 shadow-2xs">
             <div>
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                 FOTO / COMPROVANTE
               </label>
-              <label className="cursor-pointer border border-dashed border-slate-300 dark:border-stone-700 hover:border-slate-500 rounded-md h-7.5 px-2 flex items-center justify-center gap-1.5 text-slate-600 dark:text-stone-400 hover:text-black dark:hover:text-white transition bg-white dark:bg-stone-800">
-                <Camera className="w-3 h-3 text-slate-500 shrink-0" />
+              <label className="cursor-pointer border border-dashed border-gray-400 hover:border-black rounded-md h-7.5 px-2 flex items-center justify-center gap-1.5 text-black transition bg-white">
+                <Camera className="w-3 h-3 text-slate-700 shrink-0" />
                 <span className="text-[10px] font-bold truncate uppercase">
                   {receiptName ? `ANEXADO: ${receiptName.toUpperCase()}` : 'TIRAR FOTO OU SELECIONAR IMAGEM'}
                 </span>
@@ -2395,7 +2399,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                 OBSERVAÇÕES
               </label>
               <input
@@ -2403,36 +2407,36 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 placeholder="OBSERVAÇÕES SOBRE A DESPESA..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full h-7.5 px-2.5 rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase placeholder:uppercase"
+                className="w-full h-7.5 px-2.5 rounded-md border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
               />
             </div>
           </div>
 
-          {/* SEÇÃO: ITENS / PRODUTOS LANÇADOS NESTA DESPESA */}
-          <div className="w-full rounded-lg border border-slate-300 dark:border-stone-700 bg-slate-50/70 dark:bg-stone-850 p-2.5 space-y-2 shadow-xs">
+          {/* BLOCO 5 (CARD): ITENS / PRODUTOS LANÇADOS NESTA DESPESA */}
+          <div className="w-full rounded-xl border border-black bg-[#e0e6f1] p-2.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
-                <span className="text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wide">
+                <Package className="w-3.5 h-3.5 text-black" />
+                <span className="text-[11px] font-bold text-black uppercase tracking-wide">
                   ITENS / PRODUTOS LANÇADOS NESTA DESPESA
                 </span>
                 {expenseItems.length > 0 && (
-                  <span className="text-[10px] font-bold text-slate-600 dark:text-stone-300 bg-white dark:bg-stone-700 px-1.5 py-0.2 rounded border border-slate-200 dark:border-stone-600">
+                  <span className="text-[10px] font-bold text-black bg-white px-1.5 py-0.2 rounded border border-gray-400">
                     {expenseItems.length} {expenseItems.length === 1 ? 'item' : 'itens'}
                   </span>
                 )}
               </div>
               {expenseItems.length > 0 && (
-                <div className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400">
+                <div className="text-[11px] font-extrabold text-emerald-800">
                   TOTAL ITENS: {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
                 </div>
               )}
             </div>
 
             {/* Linha de Inclusão Rápida */}
-            <div className="grid grid-cols-12 gap-1.5 items-end bg-white dark:bg-stone-800 p-2 rounded-md border border-slate-200 dark:border-stone-700">
+            <div className="grid grid-cols-12 gap-1.5 items-end bg-[#e0e6f1] p-2 rounded-lg border border-black">
               <div className="col-span-12 sm:col-span-5">
-                <label className="block text-[9px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
                   Item / Descrição do Gasto
                 </label>
                 <input
@@ -2446,12 +2450,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       handleAddItem();
                     }
                   }}
-                  className="w-full h-7.5 px-2 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-slate-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase placeholder:normal-case"
+                  className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:normal-case"
                 />
               </div>
 
               <div className="col-span-4 sm:col-span-2">
-                <label className="block text-[9px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
                   Qtd
                 </label>
                 <input
@@ -2467,16 +2471,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       handleAddItem();
                     }
                   }}
-                  className="w-full h-7.5 px-2 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-slate-900 dark:text-stone-100 text-xs font-semibold text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold text-center focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                 />
               </div>
 
               <div className="col-span-4 sm:col-span-3">
-                <label className="block text-[9px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider mb-0.5">
+                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
                   Valor Unit. (R$)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 pointer-events-none">
                     R$
                   </span>
                   <input
@@ -2490,7 +2494,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         handleAddItem();
                       }
                     }}
-                    className="w-full h-7.5 pl-7 pr-2 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-slate-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full h-7.5 pl-7 pr-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                   />
                 </div>
               </div>
@@ -2499,7 +2503,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white text-[11px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white border border-black text-[11px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                   title="Inserir item na despesa"
                 >
                   <Plus className="w-3.5 h-3.5 shrink-0" />
@@ -2510,14 +2514,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
             {/* Tabela Dinâmica de Listagem Interna */}
             {expenseItems.length === 0 ? (
-              <div className="py-2.5 px-3 text-center rounded border border-dashed border-slate-300 dark:border-stone-700 text-[11px] text-slate-500 dark:text-stone-400">
+              <div className="py-2.5 px-3 text-center rounded-lg border border-dashed border-gray-400 bg-white text-[11px] text-slate-700 font-medium">
                 Nenhum item discriminado. Adicione itens acima para discriminar produtos/serviços e calcular automaticamente o valor total.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-slate-200 dark:border-stone-700 bg-white dark:bg-stone-850">
+              <div className="overflow-x-auto rounded-lg border border-black bg-white">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700 text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
+                    <tr className="bg-[#cad4e6] border-b border-black text-[10px] font-bold text-black uppercase tracking-wider">
                       <th className="py-1 px-2.5">Item / Descrição</th>
                       <th className="py-1 px-2 text-center w-16">Qtd</th>
                       <th className="py-1 px-2 text-right w-28">Valor Unit. (R$)</th>
@@ -2525,28 +2529,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       <th className="py-1 px-2 text-center w-12">Remover</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-stone-800">
+                  <tbody className="divide-y divide-gray-200">
                     {expenseItems.map((item, idx) => {
                       const totalItemVal = (item.quantity || 0) * (item.unit_value || 0);
                       return (
-                        <tr key={item.id || idx} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
-                          <td className="py-1.5 px-2.5 font-medium text-slate-900 dark:text-stone-100 uppercase">
+                        <tr key={item.id || idx} className="hover:bg-slate-50 transition">
+                          <td className="py-1.5 px-2.5 font-medium text-black uppercase">
                             {item.description}
                           </td>
-                          <td className="py-1.5 px-2 text-center font-semibold text-slate-700 dark:text-stone-300">
+                          <td className="py-1.5 px-2 text-center font-semibold text-black">
                             {item.quantity}
                           </td>
-                          <td className="py-1.5 px-2 text-right text-slate-700 dark:text-stone-300">
+                          <td className="py-1.5 px-2 text-right text-black">
                             {formatCurrencyBRL(item.unit_value)}
                           </td>
-                          <td className="py-1.5 px-2 text-right font-bold text-emerald-700 dark:text-emerald-400">
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">
                             {formatCurrencyBRL(totalItemVal)}
                           </td>
                           <td className="py-1.5 px-2 text-center">
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(idx)}
-                              className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                              className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                               title="Remover item"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -2557,11 +2561,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-50 dark:bg-stone-800/80 border-t border-slate-200 dark:border-stone-700 font-bold text-xs">
-                      <td colSpan={3} className="py-1.5 px-2.5 text-right uppercase text-slate-700 dark:text-stone-300">
+                    <tr className="bg-[#e0e6f1] border-t border-black font-bold text-xs">
+                      <td colSpan={3} className="py-1.5 px-2.5 text-right uppercase text-black">
                         Total Geral dos Itens:
                       </td>
-                      <td className="py-1.5 px-2 text-right font-extrabold text-emerald-700 dark:text-emerald-400">
+                      <td className="py-1.5 px-2 text-right font-extrabold text-emerald-800">
                         {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
                       </td>
                       <td></td>
@@ -2574,12 +2578,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           </div>
 
-          {/* Botões de Ação - Rodapé 3D Compacto Fixo */}
-          <div className="px-3.5 py-2 border-t border-slate-300 dark:border-stone-800 bg-slate-100 dark:bg-stone-850 flex items-center justify-end space-x-2 shrink-0 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
+          {/* Botões de Ação - Rodapé Compacto Fixo */}
+          <div className="px-3.5 py-2 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2 shrink-0">
             <button
               type="button"
               onClick={handleCloseModal}
-              className="px-3.5 py-1 rounded-md bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 border border-slate-300 text-slate-700 text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] transition cursor-pointer"
+              className="px-3.5 py-1 rounded-md bg-white hover:bg-slate-100 border border-black text-black text-xs font-bold uppercase transition cursor-pointer"
             >
               CANCELAR
             </button>
@@ -2591,9 +2595,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   ? `Saldo restante de ${formatCurrencyBRL(saldoADistribuir)} a distribuir antes de salvar.`
                   : undefined
               }
-              className={`px-4 py-1 rounded-md text-white text-xs font-bold uppercase transition shadow-xs ${
+              className={`px-4 py-1 rounded-md text-white border border-black text-xs font-bold uppercase transition shadow-xs ${
                 isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
-                  ? 'bg-slate-400 dark:bg-stone-700 cursor-not-allowed opacity-60'
+                  ? 'bg-slate-400 cursor-not-allowed opacity-60'
                   : 'bg-[#059669] hover:bg-emerald-700 cursor-pointer'
               }`}
             >
