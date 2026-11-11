@@ -2222,7 +2222,11 @@ export default function App() {
         }
       }
       deleteContaAPagar(id, activeTenantId).catch(err => console.warn('Supabase deleteContaAPagar notice:', err));
-      setExpenses((prev) => prev.filter((e) => e.id !== id));
+      setExpenses((prev) => {
+        const nextList = prev.filter((e) => e.id !== id);
+        saveStoredExpenses(nextList);
+        return nextList;
+      });
     }
   };
 
@@ -3968,9 +3972,22 @@ export default function App() {
                   setTimeout(() => setActiveTab(tab), 0);
                 }}
                 onDeleteExpense={(idOrNumber) => {
-                  setTimeout(() => {
-                    setExpenses((prev) => prev.filter((e) => e.id !== idOrNumber && e.invoiceNumber !== idOrNumber));
-                  }, 0);
+                  setExpenses((prev) => {
+                    const cleanArg = String(idOrNumber || '').toLowerCase().replace(/\D/g, '');
+                    const nextList = prev.filter((e) => {
+                      if (e.id === idOrNumber) return false;
+                      if (e.invoiceNumber === idOrNumber) return false;
+                      if ((e as any).notaId === idOrNumber || (e as any).documento_entrada_id === idOrNumber || (e as any).nota_fiscal_id === idOrNumber) return false;
+                      if (typeof e.id === 'string' && idOrNumber && e.id.startsWith(idOrNumber)) return false;
+                      if (cleanArg && cleanArg.length >= 2) {
+                        const eClean = (e.invoiceNumber || '').replace(/\D/g, '');
+                        if (eClean && eClean === cleanArg) return false;
+                      }
+                      return true;
+                    });
+                    saveStoredExpenses(nextList);
+                    return nextList;
+                  });
                 }}
                 onAddExpenseFromNfe={(newExpOrList) => {
                   const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];

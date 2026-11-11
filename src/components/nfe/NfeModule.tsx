@@ -92,7 +92,9 @@ import {
   getActiveNfeDraft,
   isCorruptedOrGhostDocumento,
   purgeGhostDocumentosEntrada,
-  recordDeletedDocumentoEntradaId
+  recordDeletedDocumentoEntradaId,
+  getDeletedDocumentoEntradaIds,
+  deleteLocalDocumentoEntrada
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -412,6 +414,27 @@ export const mapPaymentMethodCode = (code: string): PaymentMethod => {
 };
 
 const NFE_CACHE_STORAGE_KEY = 'silagem_nfe_parsed_cache_map';
+const DELETED_NFE_STORAGE_KEY = 'agrocontrol_deleted_nfe_ids';
+
+export function getDeletedNfeKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_NFE_STORAGE_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr.map(s => String(s).trim().toLowerCase()));
+    }
+  } catch (_) {}
+  return new Set();
+}
+
+export function recordDeletedNfeKey(key: string): void {
+  if (!key) return;
+  try {
+    const set = getDeletedNfeKeys();
+    set.add(String(key).trim().toLowerCase());
+    localStorage.setItem(DELETED_NFE_STORAGE_KEY, JSON.stringify(Array.from(set)));
+  } catch (_) {}
+}
 
 function getCachedNfeMap(): Record<string, ParsedNfeData> {
   try {
@@ -1052,6 +1075,8 @@ export function getCanonicalNfeKey(item: {
 export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
   const storedFiscal = getStoredFiscalRecords();
   const cachedMap = getCachedNfeMap();
+  const deletedNfeKeys = getDeletedNfeKeys();
+  const deletedDocIds = getDeletedDocumentoEntradaIds();
 
   // Coleta todos os registros elegíveis de ambas as fontes
   const allCandidates: Expense[] = [
@@ -1072,7 +1097,21 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
         Boolean(e.nfeItems && e.nfeItems.length > 0)
       );
     })
-  ];
+  ].filter(item => {
+    if (!item || !item.id) return false;
+    const cleanId = String(item.id).trim().toLowerCase();
+    const cleanNum = getCleanInvoiceNumber(item.invoiceNumber).toLowerCase();
+    const digits = (item.invoiceNumber || '').replace(/\D/g, '');
+    const num = (item.invoiceNumber || '').trim().toLowerCase();
+    const canonical = getCanonicalNfeKey(item).toLowerCase();
+
+    if (deletedNfeKeys.has(cleanId) || deletedDocIds.has(item.id)) return false;
+    if (cleanNum && deletedNfeKeys.has(cleanNum)) return false;
+    if (digits && deletedNfeKeys.has(digits)) return false;
+    if (num && deletedNfeKeys.has(num)) return false;
+    if (canonical && deletedNfeKeys.has(canonical)) return false;
+    return true;
+  });
 
   // Agrupa os itens pela chave canônica da NF-e
   const groups = new Map<string, Expense[]>();
@@ -3133,11 +3172,43 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const handleDeleteManualDoc = async (doc: DocumentoEntradaRecord) => {
     try {
       if (!doc || !doc.id) return;
-      // Trava de tombstone: garante que o ID nunca volte após F5
-      recordDeletedDocumentoEntradaId(doc.id);
+      const docId = doc.id;
+      const docNum = doc.numero || doc.numero_documento || '';
+      const cleanNum = getCleanInvoiceNumber(docNum).toLowerCase();
+      const digits = (docNum || '').replace(/\D/g, '');
 
-      await deleteDocumentoEntrada(doc.id);
-      setDocumentosEntrada(prev => prev.filter(d => d.id !== doc.id));
+      // Trava de tombstone: garante que o ID e número nunca voltem após F5
+      recordDeletedDocumentoEntradaId(docId);
+      recordDeletedNfeKey(docId);
+      if (cleanNum) recordDeletedNfeKey(cleanNum);
+      if (digits) recordDeletedNfeKey(digits);
+      if (docNum) recordDeletedNfeKey(docNum.toLowerCase().trim());
+
+      await deleteDocumentoEntrada(docId).catch(() => {});
+
+      // Atualiza os dois estados do React imediatamente para a linha sumir da tabela em tempo real
+      setDocumentosEntrada(prev => prev.filter(d => 
+        d.id !== docId && 
+        d.numero !== docNum && 
+        (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+      ));
+      setNotasLancadas(prev => prev.filter(n => 
+        n.id !== docId && 
+        n.invoiceNumber !== docNum && 
+        (!cleanNum || getCleanInvoiceNumber(n.invoiceNumber).toLowerCase() !== cleanNum)
+      ));
+
+      // Limpeza estrita no armazenamento permanente de registros fiscais
+      const storedFiscal = getStoredFiscalRecords();
+      const updatedFiscal = storedFiscal.filter(f => 
+        f.id !== docId && 
+        f.invoiceNumber !== docNum && 
+        (!cleanNum || getCleanInvoiceNumber(f.invoiceNumber).toLowerCase() !== cleanNum)
+      );
+      saveStoredFiscalRecords(updatedFiscal);
+
+      // Limpeza no armazenamento de documentos de entrada
+      deleteLocalDocumentoEntrada(docId);
 
       // Limpeza estrita no agrocontrol_notas_entradas
       try {
@@ -3145,7 +3216,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (rawNotas) {
           const parsed = JSON.parse(rawNotas);
           if (Array.isArray(parsed)) {
-            const filtradas = parsed.filter((d: any) => d.id !== doc.id);
+            const filtradas = parsed.filter((d: any) => 
+              d.id !== docId && 
+              d.numero !== docNum && 
+              (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+            );
             localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
           }
         }
@@ -3157,7 +3232,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (rawColaca) {
           const parsedColaca = JSON.parse(rawColaca);
           if (Array.isArray(parsedColaca)) {
-            const filtradasColaca = parsedColaca.filter((d: any) => d.id !== doc.id);
+            const filtradasColaca = parsedColaca.filter((d: any) => 
+              d.id !== docId && 
+              d.numero !== docNum && 
+              (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+            );
             localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
           }
         }
@@ -3169,41 +3248,62 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (rawItens) {
           const parsedItens = JSON.parse(rawItens);
           if (Array.isArray(parsedItens)) {
-            const filtradasItens = parsedItens.filter((i: any) => i.id !== doc.id && i.documento_entrada_id !== doc.id);
+            const filtradasItens = parsedItens.filter((i: any) => i.id !== docId && i.documento_entrada_id !== docId);
             localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(filtradasItens));
           }
         }
       } catch (_) {}
 
-      // Limpeza estrita no agrocontrol_financeiro
+      // Limpeza no cache da NF-e
       try {
-        const rawFin = localStorage.getItem('agrocontrol_financeiro');
-        if (rawFin) {
-          const parsedFin = JSON.parse(rawFin);
-          if (Array.isArray(parsedFin)) {
-            const filtradasFin = parsedFin.filter((f: any) => 
-              f.notaId !== doc.id &&
-              f.documento_entrada_id !== doc.id &&
-              !(typeof f.id === 'string' && f.id.includes(doc.id))
-            );
-            localStorage.setItem('agrocontrol_financeiro', JSON.stringify(filtradasFin));
-          }
-        }
+        const cached = getCachedNfeMap();
+        delete cached[docId];
+        if (cleanNum) delete cached[cleanNum];
+        if (digits) delete cached[digits];
+        if (docNum) delete cached[docNum.toLowerCase().trim()];
+        localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
+      } catch (_) {}
+
+      // Limpeza estrita em todas as chaves financeiras do localStorage
+      try {
+        const stored = getStoredExpenses();
+        const updatedStored = stored.filter(e => {
+          if (e.id === docId || (docId && e.id.startsWith(docId))) return false;
+          if (e.id.startsWith(`pagar_${docId}`) || e.id.startsWith(`exp_doc_${docId}`)) return false;
+          if ((e as any).notaId === docId || (e as any).documento_entrada_id === docId || (e as any).nota_fiscal_id === docId) return false;
+          const eClean = getCleanInvoiceNumber(e.invoiceNumber).toLowerCase();
+          if (cleanNum && eClean === cleanNum) return false;
+          return true;
+        });
+        saveStoredExpenses(updatedStored);
+        localStorage.setItem('agrocontrol_contas_a_pagar', JSON.stringify(updatedStored));
+        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedStored));
+        localStorage.setItem('agrocontrol_despesas', JSON.stringify(updatedStored));
       } catch (_) {}
 
       if (onDeleteExpense) {
-        onDeleteExpense(`pagar_${doc.id}`);
-        onDeleteExpense(`exp_doc_${doc.id}`);
-        // Também remove eventuais parcelas desdobradas da memória local
+        onDeleteExpense(docId);
+        onDeleteExpense(`pagar_${docId}`);
+        onDeleteExpense(`exp_doc_${docId}`);
+        if (docNum) onDeleteExpense(docNum);
+        if (cleanNum) onDeleteExpense(cleanNum);
         expenses
           .filter(e => 
-            (e as any).notaId === doc.id ||
-            (e as any).documento_entrada_id === doc.id ||
-            e.id.startsWith(`pagar_${doc.id}`) ||
-            e.id.startsWith(`exp_doc_${doc.id}`)
+            (e as any).notaId === docId ||
+            (e as any).documento_entrada_id === docId ||
+            e.id.startsWith(`pagar_${docId}`) ||
+            e.id.startsWith(`exp_doc_${docId}`)
           )
           .forEach(e => onDeleteExpense(e.id));
       }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_expenses_updated'));
+        window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated'));
+        window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated'));
+        window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated'));
+      }
+
       setManualDocToDelete(null);
       setViewingManualDoc(null);
       setSuccessMessage(`Documento de entrada (${doc.tipo_documento}) excluído com sucesso!`);
@@ -3665,6 +3765,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (direct) return direct;
     const stored = getStoredFiscalRecords().find(n => n.id === notaParaExcluir || n.invoiceNumber === notaParaExcluir);
     if (stored) return stored;
+
+    const unified = unifiedEntries.find(u => u.id === notaParaExcluir || u.documentNumber === notaParaExcluir);
+    if (unified) {
+      return (unified.rawExpense || {
+        id: unified.id,
+        description: unified.description,
+        invoiceNumber: unified.documentNumber,
+        supplier: unified.supplier,
+        amount: unified.amount,
+        date: unified.date,
+        dueDate: unified.date,
+        status: unified.status,
+        createdAt: new Date().toISOString()
+      }) as Expense;
+    }
+
+    const doc = documentosEntrada.find(d => d.id === notaParaExcluir || d.numero === notaParaExcluir);
+    if (doc) {
+      return {
+        id: doc.id,
+        description: doc.observacoes || doc.tipo_documento,
+        invoiceNumber: doc.numero || doc.numero_documento || doc.id,
+        supplier: doc.fornecedor || 'Fornecedor',
+        amount: Number(doc.valor_total) || 0,
+        date: doc.data || doc.data_entrada,
+        dueDate: doc.data_vencimento || doc.data,
+        status: doc.status || 'pendente',
+        createdAt: doc.created_at || new Date().toISOString()
+      } as Expense;
+    }
+
     return {
       id: notaParaExcluir,
       description: `Nota Fiscal ${notaParaExcluir}`,
@@ -3679,7 +3810,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       paymentMethod: 'boleto',
       createdAt: new Date().toISOString(),
     } as Expense;
-  }, [notaParaExcluir, notasFiscaisExibicao, notasLancadas, expenses]);
+  }, [notaParaExcluir, notasFiscaisExibicao, notasLancadas, expenses, unifiedEntries, documentosEntrada]);
 
   const analiseEstornoExclusao = useMemo(() => {
     if (!notaEmExclusao) return null;
@@ -6298,15 +6429,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (!notaParaExcluir) return;
     const notaId = notaParaExcluir;
 
-    // 1. Identifica a nota no Histórico Fiscal ou lista de despesas
+    // 1. Identifica a nota no Histórico Fiscal, lista de despesas, entradas manuais ou unifiedEntries
     const nota = notasFiscaisExibicao.find(n => n.id === notaId || n.invoiceNumber === notaId) ||
                  notasLancadas.find(n => n.id === notaId || n.invoiceNumber === notaId) ||
-                 expenses.find(n => n.id === notaId || n.invoiceNumber === notaId);
+                 expenses.find(n => n.id === notaId || n.invoiceNumber === notaId) ||
+                 getStoredFiscalRecords().find(n => n.id === notaId || n.invoiceNumber === notaId);
+
+    const docEntrada = documentosEntrada.find(d => d.id === notaId) ||
+                       getStoredDocumentosEntrada().find(d => d.id === notaId);
+
     const targetKey = nota ? getCanonicalNfeKey(nota) : '';
-    const cleanNum = nota ? getCleanInvoiceNumber(nota.invoiceNumber).toLowerCase() : '';
+    const docNum = nota?.invoiceNumber || docEntrada?.numero || '';
+    const cleanNum = nota 
+      ? getCleanInvoiceNumber(nota.invoiceNumber).toLowerCase()
+      : (docEntrada ? getCleanInvoiceNumber(docEntrada.numero).toLowerCase() : '');
+    const digits = (docNum || '').replace(/\D/g, '');
+    const accessKey = (nota as any)?.accessKey || docEntrada?.chave_acesso || '';
 
     // 2. ESTORNO AUTOMÁTICO DE QUANTIDADES NO ESTOQUE (Requisito 1)
-    // Para cada produto identificado, subtrai automaticamente a quantidade correspondente do saldo atual do Estoque
     const estornoLogs: string[] = [];
     if (nota) {
       const reversalAnalysis = getStockReversalAnalysis(
@@ -6340,31 +6480,113 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
     }
 
-    // 3. Remove do armazenamento permanente de registros fiscais
+    // 3. REGISTRA TOMBSTONES DE EXCLUSÃO DEFINITIVA
+    recordDeletedDocumentoEntradaId(notaId);
+    recordDeletedNfeKey(notaId);
+    if (cleanNum) recordDeletedNfeKey(cleanNum);
+    if (digits) recordDeletedNfeKey(digits);
+    if (docNum) recordDeletedNfeKey(docNum.toLowerCase().trim());
+    if (accessKey) recordDeletedNfeKey(accessKey);
+    if (targetKey) recordDeletedNfeKey(targetKey);
+
+    // 4. LIMPEZA NO CACHE DA NF-E
+    try {
+      const cached = getCachedNfeMap();
+      delete cached[notaId];
+      if (cleanNum) delete cached[cleanNum];
+      if (digits) delete cached[digits];
+      if (docNum) delete cached[docNum.toLowerCase().trim()];
+      if (accessKey) delete cached[accessKey];
+      if (targetKey) delete cached[targetKey];
+      localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
+    } catch (_) {}
+
+    // 5. ATUALIZA ESTADOS DO REACT IMEDIATAMENTE (Desaparece da tabela em tempo real)
+    setNotasLancadas(prev => prev.filter(n => {
+      if (n.id === notaId) return false;
+      if (targetKey && getCanonicalNfeKey(n) === targetKey) return false;
+      if (cleanNum && getCleanInvoiceNumber(n.invoiceNumber).toLowerCase() === cleanNum) return false;
+      if (digits && (n.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
+      if (docNum && n.invoiceNumber === docNum) return false;
+      return true;
+    }));
+
+    setDocumentosEntrada(prev => prev.filter(d => {
+      if (d.id === notaId) return false;
+      if (docNum && d.numero === docNum) return false;
+      if (cleanNum && getCleanInvoiceNumber(d.numero).toLowerCase() === cleanNum) return false;
+      if (digits && (d.numero || '').replace(/\D/g, '') === digits) return false;
+      return true;
+    }));
+
+    // 6. LIMPEZA NO ARMAZENAMENTO PERMANENTE DE REGISTROS FISCAIS
     const storedFiscal = getStoredFiscalRecords();
     const updatedFiscal = storedFiscal.filter(f => {
       if (f.id === notaId) return false;
       if (targetKey && getCanonicalNfeKey(f) === targetKey) return false;
       if (cleanNum && getCleanInvoiceNumber(f.invoiceNumber).toLowerCase() === cleanNum) return false;
+      if (digits && (f.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
+      if (docNum && f.invoiceNumber === docNum) return false;
       return true;
     });
     saveStoredFiscalRecords(updatedFiscal);
 
-    // 4. Remove do estado de notas lançadas da tela
-    setNotasLancadas(prev => prev.filter(n => {
-      if (n.id === notaId) return false;
-      if (targetKey && getCanonicalNfeKey(n) === targetKey) return false;
-      if (cleanNum && getCleanInvoiceNumber(n.invoiceNumber).toLowerCase() === cleanNum) return false;
-      return true;
-    }));
+    // 7. LIMPEZA NO STORAGE DE DOCUMENTOS DE ENTRADA E ITENS
+    deleteLocalDocumentoEntrada(notaId);
 
-    // 5. Remove TODAS as parcelas associadas no Contas a Pagar (Financeiro)
+    try {
+      const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
+      if (rawNotas) {
+        const parsed = JSON.parse(rawNotas);
+        if (Array.isArray(parsed)) {
+          const filtradas = parsed.filter((d: any) => 
+            d.id !== notaId && 
+            d.numero !== docNum && 
+            (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+          );
+          localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const rawColaca = localStorage.getItem('colaca_silagem_documentos_entrada');
+      if (rawColaca) {
+        const parsedColaca = JSON.parse(rawColaca);
+        if (Array.isArray(parsedColaca)) {
+          const filtradasColaca = parsedColaca.filter((d: any) => 
+            d.id !== notaId && 
+            d.numero !== docNum && 
+            (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+          );
+          localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const rawItens = localStorage.getItem('colaca_silagem_documentos_entrada_itens');
+      if (rawItens) {
+        const parsedItens = JSON.parse(rawItens);
+        if (Array.isArray(parsedItens)) {
+          const filtradasItens = parsedItens.filter((i: any) => i.id !== notaId && i.documento_entrada_id !== notaId);
+          localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(filtradasItens));
+        }
+      }
+    } catch (_) {}
+
+    // 8. REMOVE TODAS AS PARCELAS DO CONTAS A PAGAR (FINANCEIRO)
     const idsToRemove = new Set<string>();
     if (notaId) idsToRemove.add(notaId);
+    idsToRemove.add(`pagar_${notaId}`);
+    idsToRemove.add(`exp_doc_${notaId}`);
 
-    // Localiza todas as despesas em expenses com o mesmo número limpo, chave canônica ou que iniciem com notaId
     expenses.forEach(e => {
       if (e.id === notaId || (notaId && e.id.startsWith(notaId))) {
+        idsToRemove.add(e.id);
+        return;
+      }
+      if ((e as any).notaId === notaId || (e as any).documento_entrada_id === notaId || (e as any).nota_fiscal_id === notaId) {
         idsToRemove.add(e.id);
         return;
       }
@@ -6380,8 +6602,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     try {
       const stored = getStoredExpenses();
-      const updatedStored = stored.filter(e => !idsToRemove.has(e.id));
+      const updatedStored = stored.filter(e => {
+        if (idsToRemove.has(e.id)) return false;
+        if (e.id === notaId || (notaId && e.id.startsWith(notaId))) return false;
+        if ((e as any).notaId === notaId || (e as any).documento_entrada_id === notaId || (e as any).nota_fiscal_id === notaId) return false;
+        if (targetKey && getCanonicalNfeKey(e) === targetKey) return false;
+        if (cleanNum && getCleanInvoiceNumber(e.invoiceNumber).toLowerCase() === cleanNum) return false;
+        if (digits && (e.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
+        return true;
+      });
       saveStoredExpenses(updatedStored);
+      localStorage.setItem('agrocontrol_contas_a_pagar', JSON.stringify(updatedStored));
+      localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedStored));
+      localStorage.setItem('agrocontrol_despesas', JSON.stringify(updatedStored));
     } catch (err) {
       console.error('Erro ao atualizar storage após excluir nota:', err);
     }
@@ -6389,18 +6622,29 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // Notifica o componente pai para cada parcela excluída
     if (onDeleteExpense) {
       idsToRemove.forEach(id => onDeleteExpense(id));
+      if (docNum) onDeleteExpense(docNum);
+      if (cleanNum) onDeleteExpense(cleanNum);
+      if (digits) onDeleteExpense(digits);
     }
 
     // Exclusão no PostgreSQL Supabase: ON DELETE CASCADE remove automaticamente as parcelas em contas_a_pagar
     if (notaId) {
-      deleteNotaFiscal(notaId);
+      deleteNotaFiscal(notaId).catch(() => {});
+      deleteDocumentoEntrada(notaId).catch(() => {});
     }
 
-    // 6. Se a nota excluída for a que estava aberta para edição, limpa e fecha o formulário
+    // 9. Se a nota excluída for a que estava aberta para edição, limpa e fecha o formulário
     if (editingExpenseId === notaId || (parsedData && (parsedData.invoiceNumber === notaId || parsedData.accessKey === notaId))) {
       clearActiveNfeDraft();
       setParsedData(null);
       setEditingExpenseId(null);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_expenses_updated'));
+      window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated'));
+      window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated'));
+      window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated'));
     }
 
     setNotaParaExcluir(null);

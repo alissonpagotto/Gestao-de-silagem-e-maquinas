@@ -385,6 +385,7 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
 export function getStoredExpenses(): Expense[] {
   try {
     const candidateKeys = [
+      'agrocontrol_contas_a_pagar',
       'agrocontrol_despesas',
       'agrocontrol_financeiro',
       'colaca_silagem_despesas',
@@ -429,6 +430,7 @@ export function getStoredExpenses(): Expense[] {
 
     if (hasInvalid && cleaned.length !== parsed.length) {
       const cleanedJson = JSON.stringify(cleaned);
+      safeLocalStorageSetItem('agrocontrol_contas_a_pagar', cleanedJson);
       safeLocalStorageSetItem('agrocontrol_despesas', cleanedJson);
       safeLocalStorageSetItem('agrocontrol_financeiro', cleanedJson);
       safeLocalStorageSetItem('colaca_silagem_despesas', cleanedJson);
@@ -462,6 +464,7 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     const json = JSON.stringify(cleaned);
     if (json === lastSavedExpensesJson) return;
     lastSavedExpensesJson = json;
+    safeLocalStorageSetItem('agrocontrol_contas_a_pagar', json);
     safeLocalStorageSetItem('agrocontrol_despesas', json);
     safeLocalStorageSetItem('agrocontrol_financeiro', json);
     safeLocalStorageSetItem('colaca_silagem_despesas', json);
@@ -470,6 +473,7 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated', { detail: cleaned }));
     }
   } catch (e) {
     console.warn('Erro ao salvar despesas:', e);

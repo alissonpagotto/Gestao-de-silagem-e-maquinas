@@ -194,11 +194,21 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
           return updated;
         });
+      } else {
+        const stored = getStoredExpenses();
+        if (Array.isArray(stored)) {
+          setLocalExpenses((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(stored)) return prev;
+            return stored;
+          });
+        }
       }
     };
     window.addEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
+    window.addEventListener('agrocontrol_contas_a_pagar_updated', handleLocalExpensesUpdated);
     return () => {
       window.removeEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
+      window.removeEventListener('agrocontrol_contas_a_pagar_updated', handleLocalExpensesUpdated);
     };
   }, []);
 
