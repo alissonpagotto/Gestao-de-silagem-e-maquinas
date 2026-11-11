@@ -962,7 +962,7 @@ CREATE TABLE IF NOT EXISTS public.financeiro_cheques (
     status TEXT NOT NULL DEFAULT 'EM_NOSSO_PODER',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT chk_financeiro_cheques_status CHECK (status IN ('EM_NOSSO_PODER', 'COMPENSADO', 'DEVOLVIDO'))
+    CONSTRAINT chk_financeiro_cheques_status CHECK (status IN ('EM_NOSSO_PODER', 'COMPENSADO', 'DEVOLVIDO', 'REPASSADO'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_financeiro_cheques_company ON public.financeiro_cheques(company_id);

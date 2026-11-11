@@ -18,6 +18,7 @@ import {
   ExpenseStatus,
   CompanyProfile,
   BankAccount,
+  BankTransaction,
   ThirdPartySettlement,
   PayrollRecord,
   VacationRecord,
@@ -64,6 +65,8 @@ import {
   saveStoredCompanyProfile,
   getStoredBankAccounts,
   saveStoredBankAccounts,
+  getStoredBankTransactions,
+  saveStoredBankTransactions,
   getStoredSettlements,
   saveStoredSettlements,
   getStoredPayrolls,
@@ -2258,22 +2261,42 @@ export default function App() {
 
   const handleSettlePayment = (expenseId: string, settlementData: PaymentSettlementData) => {
     const targetExp = expenses.find((e) => e.id === expenseId);
-    setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === expenseId
-          ? {
-              ...e,
-              status: 'pago',
-              paymentDate: settlementData.paymentDate,
-              paidByEmployeeId: settlementData.paidByEmployeeId,
-              paidByEmployeeName: settlementData.paidByEmployeeName,
-              bankAccountId: settlementData.bankAccountId,
-              bankAccountName: settlementData.bankAccountName,
-              creditSupplier: settlementData.creditSupplier,
-            }
-          : e
-      )
-    );
+    setExpenses((prev) => {
+      const nextList = prev.map((e) => {
+        if (e.id !== expenseId) return e;
+        const updated: Expense = {
+          ...e,
+          status: 'pago',
+          paymentDate: settlementData.paymentDate,
+          paidByEmployeeId: settlementData.paidByEmployeeId,
+          paidByEmployeeName: settlementData.paidByEmployeeName,
+          bankAccountId: settlementData.bankAccountId,
+          bankAccountName: settlementData.bankAccountName,
+          creditSupplier: settlementData.creditSupplier || e.creditSupplier || e.supplier,
+          paymentMethod: settlementData.paymentMethod || e.paymentMethod,
+          paymentAuthenticationCode: settlementData.authenticationCode || e.paymentAuthenticationCode,
+          chequeOrigin: settlementData.chequeOrigin,
+          checkNumber: settlementData.checkNumber || e.checkNumber,
+          chequeGoodForDate: settlementData.chequeGoodForDate,
+          usedChequeIds: settlementData.usedChequeIds,
+          usedChequesSummary: settlementData.usedChequesSummary,
+          notes: settlementData.notes
+            ? (e.notes ? `${e.notes} | ${settlementData.notes}` : settlementData.notes)
+            : e.notes,
+        };
+        upsertContaAPagar({
+          id: updated.id,
+          valor_parcela: Number(updated.amount) || 0,
+          data_vencimento: updated.dueDate || settlementData.paymentDate,
+          status_pago: true,
+          centro_custo: updated.costCenterName || updated.description || 'Geral',
+          forma_pagamento: updated.paymentMethod || 'pix',
+        }, activeTenantId).catch((err) => console.warn('Supabase settle notice:', err));
+        return updated;
+      });
+      saveStoredExpenses(nextList);
+      return nextList;
+    });
 
     if (targetExp && settlementData.bankAccountId) {
       setBankAccounts((prev) => {
@@ -2286,8 +2309,30 @@ export default function App() {
             : acc
         );
         saveStoredBankAccounts(updated);
+        saveCloudBankAccounts(updated, activeTenantId, currentUser?.id || currentUser?.uid).catch((err) =>
+          console.warn('Supabase saveCloudBankAccounts notice:', err)
+        );
         return updated;
       });
+
+      const currentTxs = getStoredBankTransactions();
+      const newTx: BankTransaction = {
+        id: `tx_pay_${Date.now()}`,
+        bankAccountId: settlementData.bankAccountId,
+        bankAccountName: settlementData.bankAccountName,
+        date: settlementData.paymentDate,
+        description: `Pagamento Despesa: ${settlementData.creditSupplier || targetExp.supplier || targetExp.description}`,
+        type: 'saida',
+        amount: targetExp.amount,
+        category: targetExp.categoryName || 'Despesas',
+        expenseId: targetExp.id,
+        paidByEmployeeId: settlementData.paidByEmployeeId,
+        paidByEmployeeName: settlementData.paidByEmployeeName,
+        sourceType: 'baixa_pagamento',
+        notes: settlementData.notes,
+        createdAt: new Date().toISOString(),
+      };
+      saveStoredBankTransactions([newTx, ...currentTxs]);
     }
   };
 

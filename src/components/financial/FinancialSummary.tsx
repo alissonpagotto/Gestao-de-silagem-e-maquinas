@@ -41,9 +41,9 @@ import {
   BankTransaction,
   PaymentMethod
 } from '../../types';
-import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
+import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getStoredFinanceiroCheques, saveStoredFinanceiroCheques, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchContasAPagar, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { fetchContasAPagar, saveFinanceiroCheque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { BankAccountsTab } from './BankAccountsTab';
 import { PayablesTab } from './PayablesTab';
 import { ReceivablesTab } from './ReceivablesTab';
@@ -98,6 +98,11 @@ interface FinancialSummaryProps {
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    chequeOrigin?: 'proprio' | 'terceiros';
+    checkNumber?: string;
+    chequeGoodForDate?: string;
+    usedChequeIds?: string[];
+    usedChequesSummary?: string;
   }) => void;
   onReverseExpense?: (id: string) => void;
   onAddExpenseFromBankBill?: (expense: Partial<Expense>) => void;
@@ -418,6 +423,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    chequeOrigin?: 'proprio' | 'terceiros';
+    checkNumber?: string;
+    chequeGoodForDate?: string;
+    usedChequeIds?: string[];
+    usedChequesSummary?: string;
   }) => {
     if (onSettleExpense) {
       onSettleExpense(params);
@@ -440,6 +450,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           bankAccountName: params.bankAccountName,
           creditSupplier: params.creditSupplier || e.creditSupplier || e.supplier,
           paymentMethod: params.paymentMethod,
+          paymentAuthenticationCode: params.authenticationCode || e.paymentAuthenticationCode,
+          chequeOrigin: params.chequeOrigin,
+          checkNumber: params.checkNumber || e.checkNumber,
+          chequeGoodForDate: params.chequeGoodForDate,
+          usedChequeIds: params.usedChequeIds,
+          usedChequesSummary: params.usedChequesSummary,
           notes: params.notes ? (e.notes ? `${e.notes} | ${params.notes}` : params.notes) : e.notes,
         };
       }
@@ -453,40 +469,42 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       onToggleExpenseStatus(params.expenseId);
     }
 
-    // Debita o saldo da conta bancária
-    const updatedAccounts = bankAccounts.map((acc) => {
-      if (acc.id === params.bankAccountId) {
-        return {
-          ...acc,
-          balance: acc.balance - exp.amount,
-        };
-      }
-      return acc;
-    });
-    onSaveBankAccounts(updatedAccounts);
+    // Debita o saldo da conta bancária apenas quando houver conta bancária (ignora repasse de cheque de terceiros)
+    if (params.bankAccountId) {
+      const updatedAccounts = bankAccounts.map((acc) => {
+        if (acc.id === params.bankAccountId) {
+          return {
+            ...acc,
+            balance: acc.balance - exp.amount,
+          };
+        }
+        return acc;
+      });
+      onSaveBankAccounts(updatedAccounts);
 
-    // Registra a transação bancária no extrato da conta
-    const newTx: BankTransaction = {
-      id: `tx_pay_${Date.now()}`,
-      bankAccountId: params.bankAccountId,
-      bankAccountName: params.bankAccountName,
-      date: params.paymentDate,
-      description: `Pagamento Despesa: ${params.creditSupplier || exp.supplier || exp.description}`,
-      type: 'saida',
-      amount: exp.amount,
-      category: exp.categoryName || 'Despesas',
-      expenseId: exp.id,
-      paidByEmployeeId: params.paidByEmployeeId,
-      paidByEmployeeName: params.paidByEmployeeName,
-      sourceType: 'baixa_pagamento',
-      notes: params.notes,
-      createdAt: new Date().toISOString(),
-    };
+      // Registra a transação bancária no extrato da conta
+      const newTx: BankTransaction = {
+        id: `tx_pay_${Date.now()}`,
+        bankAccountId: params.bankAccountId,
+        bankAccountName: params.bankAccountName,
+        date: params.paymentDate,
+        description: `Pagamento Despesa: ${params.creditSupplier || exp.supplier || exp.description}`,
+        type: 'saida',
+        amount: exp.amount,
+        category: exp.categoryName || 'Despesas',
+        expenseId: exp.id,
+        paidByEmployeeId: params.paidByEmployeeId,
+        paidByEmployeeName: params.paidByEmployeeName,
+        sourceType: 'baixa_pagamento',
+        notes: params.notes,
+        createdAt: new Date().toISOString(),
+      };
 
-    handleSaveTransactions([newTx, ...internalBankTransactions]);
+      handleSaveTransactions([newTx, ...internalBankTransactions]);
+    }
   };
 
-  // Estorno de Despesa com estorno do saldo bancário
+  // Estorno de Despesa com estorno do saldo bancário e devolução de cheques de terceiros para custódia
   const handleReverseExpenseInternal = (expenseId: string) => {
     if (onReverseExpense) {
       onReverseExpense(expenseId);
@@ -496,11 +514,39 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     const exp = expenses.find((e) => e.id === expenseId);
     if (!exp) return;
 
+    // Se a despesa foi quitada com cheque(s) de terceiros da custódia, retorna os cheques para EM_NOSSO_PODER
+    if (Array.isArray(exp.usedChequeIds) && exp.usedChequeIds.length > 0) {
+      const usedSet = new Set(exp.usedChequeIds);
+      const currentCheques = getStoredFinanceiroCheques();
+      const revertedCheques = currentCheques.map((c) => {
+        if (!usedSet.has(c.id)) return c;
+        const reverted = {
+          ...c,
+          status: 'EM_NOSSO_PODER' as const,
+          fornecedor_destino: '',
+          fornecedorDestino: '',
+          data_repasse: '',
+          dataRepasse: '',
+          despesa_id: '',
+          despesaId: '',
+          updated_at: new Date().toISOString(),
+        };
+        saveFinanceiroCheque(reverted).catch(() => {});
+        return reverted;
+      });
+      saveStoredFinanceiroCheques(revertedCheques);
+      window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
     const updatedExpenses = expenses.map((e) => {
       if (e.id === expenseId) {
         return {
           ...e,
           status: 'pendente' as const,
+          usedChequeIds: undefined,
+          usedChequesSummary: undefined,
+          chequeOrigin: undefined,
         };
       }
       return e;

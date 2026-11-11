@@ -136,12 +136,16 @@ export interface Expense {
   items?: ExpenseItem[]; // Alias compatibilidade
   date?: string; // YYYY-MM-DD (compatibilidade)
   // Dados de Cheque e Pagamento Misto
+  chequeOrigin?: 'proprio' | 'terceiros';
   checkNumber?: string;
+  chequeGoodForDate?: string;
   checkIssuerName?: string;
   checkIssuerCpf?: string;
   checkBank?: string;
   checkAmount?: number;
   checkChangeAmount?: number;
+  usedChequeIds?: string[];
+  usedChequesSummary?: string;
   complementaryPayments?: {
     id: string;
     paymentMethod: PaymentMethod;
@@ -2109,7 +2113,7 @@ export interface CaixaFerramentaVeiculoRecord {
 // ==============================================================================
 // MÓDULO DE CHEQUES E CRÉDITOS DE CLIENTES
 // ==============================================================================
-export type ChequeStatus = 'EM_NOSSO_PODER' | 'COMPENSADO' | 'DEVOLVIDO';
+export type ChequeStatus = 'EM_NOSSO_PODER' | 'COMPENSADO' | 'DEVOLVIDO' | 'REPASSADO';
 export type CreditoStatus = 'DISPONIVEL' | 'UTILIZADO' | 'CANCELADO';
 
 export interface FinanceiroCheque {
@@ -2137,6 +2141,12 @@ export interface FinanceiroCheque {
   contaBancariaDestinoId?: string;
   data_compensacao?: string;
   dataCompensacao?: string;
+  fornecedor_destino?: string;
+  fornecedorDestino?: string;
+  data_repasse?: string;
+  dataRepasse?: string;
+  despesa_id?: string;
+  despesaId?: string;
   ordem_id?: string;
   ordemId?: string;
   ordem_tipo?: string;

@@ -149,13 +149,15 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
         const doc = (c.emitente_documento || (c as any).emitenteDocumento || '').toLowerCase();
         const banco = (c.banco || '').toLowerCase();
         const cliente = (c.cliente_nome || (c as any).clienteNome || '').toLowerCase();
+        const fornecedorDestino = (c.fornecedor_destino || c.fornecedorDestino || '').toLowerCase();
 
         return (
           num.includes(query) ||
           emitente.includes(query) ||
           doc.includes(query) ||
           banco.includes(query) ||
-          cliente.includes(query)
+          cliente.includes(query) ||
+          fornecedorDestino.includes(query)
         );
       }
 
@@ -169,6 +171,8 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
     let countCustodia = 0;
     let totalCompensado = 0;
     let countCompensado = 0;
+    let totalRepassado = 0;
+    let countRepassado = 0;
     let totalDevolvido = 0;
     let countDevolvido = 0;
 
@@ -180,6 +184,9 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       } else if (c.status === 'COMPENSADO') {
         totalCompensado += val;
         countCompensado++;
+      } else if (c.status === 'REPASSADO') {
+        totalRepassado += val;
+        countRepassado++;
       } else if (c.status === 'DEVOLVIDO') {
         totalDevolvido += val;
         countDevolvido++;
@@ -191,9 +198,11 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       countCustodia,
       totalCompensado,
       countCompensado,
+      totalRepassado,
+      countRepassado,
       totalDevolvido,
       countDevolvido,
-      totalGeral: totalCustodia + totalCompensado + totalDevolvido,
+      totalGeral: totalCustodia + totalCompensado + totalRepassado + totalDevolvido,
       countGeral: cheques.length
     };
   }, [cheques]);
@@ -511,7 +520,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       )}
 
       {/* CARDS KPI SUPERIORES: ESTATÍSTICAS DA CUSTÓDIA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Card 1: Em Carteira (Custódia Ativa) */}
         <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
@@ -550,7 +559,26 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
           </div>
         </div>
 
-        {/* Card 3: Devolvidos / Sustados */}
+        {/* Card 3: Repassados (Utilizados em Pagamentos) */}
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+              Repassados (Pagamentos)
+            </span>
+            <span className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300">
+              <ArrowUpRight className="w-4 h-4" />
+            </span>
+          </div>
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1.5">
+            {formatCurrencyBRL(stats.totalRepassado)}
+          </div>
+          <div className="text-[11px] font-bold text-violet-700 dark:text-violet-400 mt-1 flex items-center space-x-1">
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            <span>{stats.countRepassado} {stats.countRepassado === 1 ? 'cheque repassado' : 'cheques repassados'}</span>
+          </div>
+        </div>
+
+        {/* Card 4: Devolvidos / Sustados */}
         <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
@@ -569,7 +597,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
           </div>
         </div>
 
-        {/* Card 4: Volume Geral Cadastrado */}
+        {/* Card 5: Volume Geral Cadastrado */}
         <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
@@ -647,6 +675,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
               { id: 'all', label: `Todos (${cheques.length})` },
               { id: 'EM_NOSSO_PODER', label: `Em Carteira (${stats.countCustodia})` },
               { id: 'COMPENSADO', label: `Compensados (${stats.countCompensado})` },
+              { id: 'REPASSADO', label: `Repassados (${stats.countRepassado})` },
               { id: 'DEVOLVIDO', label: `Devolvidos (${stats.countDevolvido})` }
             ].map(tab => (
               <button
@@ -725,7 +754,10 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                   const dueDate = c.data_vencimento || (c as any).dataVencimento || '';
                   const isEmCarteira = c.status === 'EM_NOSSO_PODER';
                   const isCompensado = c.status === 'COMPENSADO';
+                  const isRepassado = c.status === 'REPASSADO';
                   const isDevolvido = c.status === 'DEVOLVIDO';
+                  const repasseFornecedor = c.fornecedor_destino || c.fornecedorDestino || '';
+                  const repasseData = c.data_repasse || c.dataRepasse || '';
                   const hasImage = Boolean(c.imagem_url || (c as any).imagemUrl);
                   const imageUrl = c.imagem_url || (c as any).imagemUrl || '';
 
@@ -756,6 +788,15 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                           <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-50 text-sky-800 border border-sky-300 dark:bg-sky-950/40 dark:text-sky-300">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Compensado</span>
+                          </span>
+                        )}
+                        {isRepassado && (
+                          <span
+                            className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-violet-50 text-violet-800 border border-violet-300 dark:bg-violet-950/40 dark:text-violet-300"
+                            title="Repassado / Utilizado em Pagamento"
+                          >
+                            <ArrowUpRight className="w-3 h-3" />
+                            <span>Repassado / Utilizado em Pagamento</span>
                           </span>
                         )}
                         {isDevolvido && (
@@ -795,6 +836,11 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                             Compensado em: {formatDateBR(c.data_compensacao || (c as any).dataCompensacao)}
                           </span>
                         )}
+                        {isRepassado && repasseData && (
+                          <span className="text-[10px] text-violet-700 dark:text-violet-300 font-semibold block">
+                            Repassado em: {formatDateBR(repasseData)}
+                          </span>
+                        )}
                       </td>
 
                       {/* 4. Emitente / CPF-CNPJ */}
@@ -830,19 +876,25 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
                       {/* 7. Conta de Destino da Empresa */}
                       <td className="py-3 px-3.5">
-                        <select
-                          disabled={isCompensado}
-                          value={c.conta_bancaria_destino_id || (c as any).contaBancariaDestinoId || ''}
-                          onChange={(e) => handleUpdateDestinationAccount(c, e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-semibold outline-none focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-100 dark:disabled:bg-stone-850 disabled:opacity-70 cursor-pointer"
-                        >
-                          <option value="">-- Selecione a Conta de Destino --</option>
-                          {bankAccounts.map((acc) => (
-                            <option key={acc.id} value={acc.id}>
-                              {acc.name} ({acc.bankName} - Ag: {acc.agency} / Cc: {acc.accountNumber})
-                            </option>
-                          ))}
-                        </select>
+                        {isRepassado ? (
+                          <div className="px-2.5 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-900 text-[11px] font-bold">
+                            Repassado para: <span className="font-black">{repasseFornecedor || 'Fornecedor'}</span>
+                          </div>
+                        ) : (
+                          <select
+                            disabled={isCompensado || isRepassado}
+                            value={c.conta_bancaria_destino_id || (c as any).contaBancariaDestinoId || ''}
+                            onChange={(e) => handleUpdateDestinationAccount(c, e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-semibold outline-none focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-100 dark:disabled:bg-stone-850 disabled:opacity-70 cursor-pointer"
+                          >
+                            <option value="">-- Selecione a Conta de Destino --</option>
+                            {bankAccounts.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.name} ({acc.bankName} - Ag: {acc.agency} / Cc: {acc.accountNumber})
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
 
                       {/* 8. Ações */}
@@ -881,6 +933,16 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                               <Undo2 className="w-3.5 h-3.5 text-slate-500" />
                               <span>Estornar</span>
                             </button>
+                          )}
+
+                          {isRepassado && (
+                            <span
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-stone-800 border border-slate-200 dark:border-stone-700 text-slate-500 dark:text-stone-400 font-bold text-[11px]"
+                              title="Cheque já repassado em pagamento — bloqueado para depósito ou reutilização"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Baixado por Repasse</span>
+                            </span>
                           )}
 
                           {isDevolvido && (

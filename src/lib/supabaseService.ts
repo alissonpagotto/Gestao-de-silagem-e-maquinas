@@ -13379,30 +13379,54 @@ export async function fetchFinanceiroCheques(companyId?: string): Promise<Financ
     }
 
     if (data && Array.isArray(data)) {
-      const mapped: FinanceiroCheque[] = data.map((d: any) => ({
-        id: d.id,
-        company_id: d.company_id,
-        companyId: d.company_id,
-        cliente_id: d.cliente_id,
-        clienteId: d.cliente_id,
-        cliente_nome: d.cliente_nome,
-        clienteNome: d.cliente_nome,
-        banco: d.banco,
-        numero_cheque: d.numero_cheque,
-        numeroCheque: d.numero_cheque,
-        emitente_nome: d.emitente_nome,
-        emitenteNome: d.emitente_nome,
-        emitente_documento: d.emitente_documento,
-        emitenteDocumento: d.emitente_documento,
-        data_vencimento: d.data_vencimento,
-        dataVencimento: d.data_vencimento,
-        valor: Number(d.valor) || 0,
-        imagem_url: d.imagem_url,
-        imagemUrl: d.imagem_url,
-        status: (d.status as ChequeStatus) || 'EM_NOSSO_PODER',
-        created_at: d.created_at,
-        updated_at: d.updated_at
-      }));
+      const localById = new Map<string, FinanceiroCheque>(
+        localCheques.map((lc) => [lc.id, lc])
+      );
+
+      const mapped: FinanceiroCheque[] = data.map((d: any) => {
+        const local = localById.get(d.id);
+        const remoteStatus = (d.status as ChequeStatus) || 'EM_NOSSO_PODER';
+        const effectiveStatus: ChequeStatus =
+          local?.status === 'REPASSADO' && remoteStatus === 'EM_NOSSO_PODER'
+            ? 'REPASSADO'
+            : remoteStatus;
+
+        return {
+          id: d.id,
+          company_id: d.company_id,
+          companyId: d.company_id,
+          cliente_id: d.cliente_id,
+          clienteId: d.cliente_id,
+          cliente_nome: d.cliente_nome || local?.cliente_nome,
+          clienteNome: d.cliente_nome || local?.clienteNome,
+          banco: d.banco,
+          numero_cheque: d.numero_cheque,
+          numeroCheque: d.numero_cheque,
+          emitente_nome: d.emitente_nome,
+          emitenteNome: d.emitente_nome,
+          emitente_documento: d.emitente_documento,
+          emitenteDocumento: d.emitente_documento,
+          data_vencimento: d.data_vencimento,
+          dataVencimento: d.data_vencimento,
+          valor: Number(d.valor) || 0,
+          imagem_url: d.imagem_url,
+          imagemUrl: d.imagem_url,
+          status: effectiveStatus,
+          conta_bancaria_destino_id: local?.conta_bancaria_destino_id || local?.contaBancariaDestinoId,
+          contaBancariaDestinoId: local?.conta_bancaria_destino_id || local?.contaBancariaDestinoId,
+          data_compensacao: local?.data_compensacao || local?.dataCompensacao,
+          dataCompensacao: local?.data_compensacao || local?.dataCompensacao,
+          fornecedor_destino: local?.fornecedor_destino || local?.fornecedorDestino,
+          fornecedorDestino: local?.fornecedor_destino || local?.fornecedorDestino,
+          data_repasse: local?.data_repasse || local?.dataRepasse,
+          dataRepasse: local?.data_repasse || local?.dataRepasse,
+          despesa_id: local?.despesa_id || local?.despesaId,
+          despesaId: local?.despesa_id || local?.despesaId,
+          observacoes: local?.observacoes,
+          created_at: d.created_at,
+          updated_at: local?.updated_at || d.updated_at
+        };
+      });
 
       saveStoredFinanceiroCheques(mapped);
       return mapped;
@@ -13449,6 +13473,13 @@ export async function saveFinanceiroCheque(
     contaBancariaDestinoId: chequeData.conta_bancaria_destino_id || chequeData.contaBancariaDestinoId || '',
     data_compensacao: chequeData.data_compensacao || chequeData.dataCompensacao || '',
     dataCompensacao: chequeData.data_compensacao || chequeData.dataCompensacao || '',
+    fornecedor_destino: chequeData.fornecedor_destino || chequeData.fornecedorDestino || '',
+    fornecedorDestino: chequeData.fornecedor_destino || chequeData.fornecedorDestino || '',
+    data_repasse: chequeData.data_repasse || chequeData.dataRepasse || '',
+    dataRepasse: chequeData.data_repasse || chequeData.dataRepasse || '',
+    despesa_id: chequeData.despesa_id || chequeData.despesaId || '',
+    despesaId: chequeData.despesa_id || chequeData.despesaId || '',
+    observacoes: chequeData.observacoes || '',
     ordem_id: chequeData.ordem_id || chequeData.ordemId || '',
     ordemId: chequeData.ordem_id || chequeData.ordemId || '',
     ordem_tipo: chequeData.ordem_tipo || chequeData.ordemTipo || '',
@@ -13512,7 +13543,7 @@ export async function saveFinanceiroCheque(
 }
 
 /**
- * Atualiza o status de um cheque ('EM_NOSSO_PODER', 'COMPENSADO', 'DEVOLVIDO')
+ * Atualiza o status de um cheque ('EM_NOSSO_PODER', 'COMPENSADO', 'DEVOLVIDO', 'REPASSADO')
  */
 export async function updateFinanceiroChequeStatus(
   chequeId: string,

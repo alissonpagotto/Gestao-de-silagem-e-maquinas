@@ -44,6 +44,11 @@ interface PayablesTabProps {
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    chequeOrigin?: 'proprio' | 'terceiros';
+    checkNumber?: string;
+    chequeGoodForDate?: string;
+    usedChequeIds?: string[];
+    usedChequesSummary?: string;
   }) => void;
   onReverseExpense?: (id: string) => void;
   onEditExpense?: (exp: Expense) => void;
@@ -458,13 +463,29 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                                 <span>{exp.paidByEmployeeName}</span>
                               </span>
                             )}
-                            {exp.bankAccountName && (
+                            {exp.paymentMethod === 'cheque' && exp.chequeOrigin === 'terceiros' && (
+                              <span
+                                className="truncate flex items-center space-x-1 text-violet-800 font-bold bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200"
+                                title={exp.usedChequesSummary || `Repasse Cheque(s) de Terceiros: ${exp.checkNumber || ''}`}
+                              >
+                                <span>CHQ TERCEIROS {exp.checkNumber ? `Nº ${exp.checkNumber}` : '(CUSTÓDIA)'}</span>
+                              </span>
+                            )}
+                            {exp.paymentMethod === 'cheque' && exp.chequeOrigin === 'proprio' && (
+                              <span
+                                className="truncate flex items-center space-x-1 text-sky-800 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200"
+                                title={exp.chequeGoodForDate ? `Bom para ${formatDateBR(exp.chequeGoodForDate)}` : undefined}
+                              >
+                                <span>CHQ PRÓPRIO {exp.checkNumber ? `Nº ${exp.checkNumber}` : ''}</span>
+                              </span>
+                            )}
+                            {exp.bankAccountName && !(exp.paymentMethod === 'cheque' && exp.chequeOrigin === 'terceiros') && (
                               <span className="truncate flex items-center space-x-1 text-stone-600">
                                 <Landmark className="w-3 h-3 text-[#0963cb] shrink-0" />
                                 <span>{exp.bankAccountName}</span>
                               </span>
                             )}
-                            {!exp.corporateCardName && !exp.paidByEmployeeName && !exp.bankAccountName && (
+                            {!exp.corporateCardName && !exp.paidByEmployeeName && !exp.bankAccountName && exp.paymentMethod !== 'cheque' && (
                               <span className="text-stone-400 italic">PAGO SEM REGISTRO</span>
                             )}
                           </div>
