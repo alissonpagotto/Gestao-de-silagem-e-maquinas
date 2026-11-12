@@ -2010,20 +2010,20 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Modal de Cadastro/Edição Mestre Largo (SLIM DESIGN PRO) */}
           {isItemModalOpen && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-150">
-              <div className="w-full max-w-4xl h-[95vh] bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
+              <div className="w-full max-w-4xl h-[95vh] bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
                 
-                {/* Topo com gradiente de aço cinza acetinado */}
-                <div className="px-6 py-3.5 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between shrink-0">
+                {/* Cabeçalho */}
+                <div className="px-6 py-3.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
                   <div className="flex items-center space-x-2.5">
-                    <Wrench className="w-4 h-4 text-[#059669]" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                    <Wrench className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-black dark:text-white">
                       {editingRuleId ? 'EDITAR ITEM RECOMENDADO' : '+ CADASTRAR ITEM NO PLANO'}
                     </h4>
                   </div>
                   <button 
                     type="button"
                     onClick={handleCancelEditRule} 
-                    className="p-1 hover:bg-slate-300/60 dark:hover:bg-stone-700 rounded text-slate-600 hover:text-slate-900 dark:text-stone-300 dark:hover:text-white transition cursor-pointer"
+                    className="p-1 hover:bg-black/10 dark:hover:bg-stone-700 rounded text-black dark:text-stone-300 dark:hover:text-white transition cursor-pointer"
                     title="FECHAR"
                   >
                     <X className="w-4 h-4" />
@@ -2031,201 +2031,204 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 </div>
 
                 {/* Form / Conteúdo com scroll interno isolado */}
-                <form onSubmit={handleSavePreventiveRule} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <form onSubmit={handleSavePreventiveRule} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
                   
-                  <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4 bg-[#cad4e6] dark:bg-stone-950">
                     
-                    {/* CATEGORIA ATIVA (READ-ONLY DISABLED) */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        CATEGORIA ATIVA
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          readOnly
-                          disabled
-                          value={selectedGroupCategory.toUpperCase()}
-                          className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
-                        />
-                        <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    {/* SUBGRUPO DE MANUTENÇÃO (READ-ONLY DISABLED OU SELETOR) */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        SUBGRUPO DE MANUTENÇÃO
-                      </label>
-                      {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? (
+                    {/* BLOCO 1: DADOS PRINCIPAIS DO ITEM */}
+                    <div className="bg-[#e0e6f1] dark:bg-stone-800 p-4 rounded-xl border border-black dark:border-stone-700 space-y-3">
+                      {/* CATEGORIA ATIVA (READ-ONLY DISABLED) */}
+                      <div>
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                          CATEGORIA ATIVA
+                        </label>
                         <div className="relative">
                           <input
                             type="text"
                             readOnly
                             disabled
-                            value={filterSubgroup.toUpperCase()}
-                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
+                            value={selectedGroupCategory.toUpperCase()}
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
                           />
-                          <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <Lock className="w-3.5 h-3.5 text-gray-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
-                      ) : (
-                        <select
-                          value={ruleSubgroup}
-                          onChange={(e) => setRuleSubgroup(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
-                        >
-                          {availableMaintenanceSubgroups.map((sg) => (
-                            <option key={sg} value={sg} className="uppercase">
-                              {sg}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-
-                    {/* PRODUTO DO ESTOQUE (Nome funcional / insumo do manual) */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        PRODUTO DO ESTOQUE <span className="text-rose-600">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required
-                          placeholder="EX: FILTRO DE ÓLEO DO MOTOR, FILTRO RACOR, ÓLEO 15W40..."
-                          value={inventorySearchQuery}
-                          onChange={(e) => setInventorySearchQuery(e.target.value.toUpperCase())}
-                          className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
-                        />
-                        <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       </div>
-                    </div>
 
-                    {/* LINHA 1 (CONFIGURAÇÃO DE HORAS) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Campo Esquerdo: INTERVALO DE TROCAS (HORAS) */}
+                      {/* SUBGRUPO DE MANUTENÇÃO (READ-ONLY DISABLED OU SELETOR) */}
                       <div>
-                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          INTERVALO DE TROCAS (HORAS) <span className="text-rose-600">*</span>
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                          SUBGRUPO DE MANUTENÇÃO
+                        </label>
+                        {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS' ? (
+                          <div className="relative">
+                            <input
+                              type="text"
+                              readOnly
+                              disabled
+                              value={filterSubgroup.toUpperCase()}
+                              className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-300 text-xs font-bold uppercase cursor-not-allowed select-none pl-8"
+                            />
+                            <Lock className="w-3.5 h-3.5 text-gray-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                        ) : (
+                          <select
+                            value={ruleSubgroup}
+                            onChange={(e) => setRuleSubgroup(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-200 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none cursor-pointer"
+                          >
+                            {availableMaintenanceSubgroups.map((sg) => (
+                              <option key={sg} value={sg} className="uppercase">
+                                {sg}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      {/* PRODUTO DO ESTOQUE (Nome funcional / insumo do manual) */}
+                      <div>
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                          PRODUTO DO ESTOQUE <span className="text-rose-600">*</span>
                         </label>
                         <div className="relative">
                           <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="EX: 1000"
-                            value={ruleIntervalHours}
-                            onChange={(e) => setRuleIntervalHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
+                            type="text"
+                            required
+                            placeholder="EX: FILTRO DE ÓLEO DO MOTOR, FILTRO RACOR, ÓLEO 15W40..."
+                            value={inventorySearchQuery}
+                            onChange={(e) => setInventorySearchQuery(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
                           />
-                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">H</span>
+                          <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
                         </div>
                       </div>
 
-                      {/* Campo Direito: AVISAR QUANDO FALTAR (ALERTA) */}
+                      {/* LINHA 1 (CONFIGURAÇÃO DE HORAS) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Campo Esquerdo: INTERVALO DE TROCAS (HORAS) */}
+                        <div>
+                          <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                            INTERVALO DE TROCAS (HORAS) <span className="text-rose-600">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="EX: 1000"
+                              value={ruleIntervalHours}
+                              onChange={(e) => setRuleIntervalHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                              className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-600 select-none">H</span>
+                          </div>
+                        </div>
+
+                        {/* Campo Direito: AVISAR QUANDO FALTAR (ALERTA) */}
+                        <div>
+                          <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                            AVISAR QUANDO FALTAR (ALERTA)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="EX: 50"
+                              value={ruleAlertHours}
+                              onChange={(e) => setRuleAlertHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                              className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-600 select-none">H</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* LINHA 2 (CONFIGURAÇÃO DE QUILOMETRAGEM - KM) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Campo Esquerdo: INTERVALO DE TROCAS (KM) */}
+                        <div>
+                          <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                            INTERVALO DE TROCAS (KM) <span className="text-rose-600">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="EX: 5000"
+                              value={ruleIntervalKm}
+                              onChange={(e) => setRuleIntervalKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                              className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-600 select-none">KM</span>
+                          </div>
+                        </div>
+
+                        {/* Campo Direito: AVISAR QUANDO FALTAR (ALERTA) */}
+                        <div>
+                          <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                            AVISAR QUANDO FALTAR (ALERTA)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="EX: 500"
+                              value={ruleAlertKm}
+                              onChange={(e) => setRuleAlertKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                              className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-600 select-none">KM</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* LINHA 3 (VOLUME / CAPACIDADE DO MAQUINÁRIO) */}
                       <div>
-                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          AVISAR QUANDO FALTAR (ALERTA)
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
+                          QDE QUE O VEÍCULO USA <span className="text-rose-600">*</span>
                         </label>
-                        <div className="relative">
+                        <div className="flex items-center space-x-2">
                           <input
                             type="number"
-                            min="0"
-                            step="1"
-                            placeholder="EX: 50"
-                            value={ruleAlertHours}
-                            onChange={(e) => setRuleAlertHours(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-7"
+                            required
+                            min="0.01"
+                            step="any"
+                            placeholder="EX: 60"
+                            value={ruleStandardQty}
+                            onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                           />
-                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">H</span>
+                          <select
+                            value={ruleUnit === 'L' ? 'LT' : ruleUnit}
+                            onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
+                            className="w-36 sm:w-44 px-2 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer text-center"
+                            title="UNI: UNIDADE DE MEDIDA"
+                          >
+                            <option value="LT">[LT] - LITROS</option>
+                            <option value="UN">[UN] - UNIDADES</option>
+                            <option value="KG">[KG] - QUILOGRAMAS</option>
+                            <option value="CX">[CX] - CAIXAS</option>
+                            <option value="PC">[PC] - PEÇAS</option>
+                            <option value="M">[M] - METROS</option>
+                          </select>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* LINHA 2 (CONFIGURAÇÃO DE QUILOMETRAGEM - KM) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Campo Esquerdo: INTERVALO DE TROCAS (KM) */}
-                      <div>
-                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          INTERVALO DE TROCAS (KM) <span className="text-rose-600">*</span>
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="EX: 5000"
-                            value={ruleIntervalKm}
-                            onChange={(e) => setRuleIntervalKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
-                          />
-                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">KM</span>
-                        </div>
-                      </div>
-
-                      {/* Campo Direito: AVISAR QUANDO FALTAR (ALERTA) */}
-                      <div>
-                        <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                          AVISAR QUANDO FALTAR (ALERTA)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="EX: 500"
-                            value={ruleAlertKm}
-                            onChange={(e) => setRuleAlertKm(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
-                          />
-                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 select-none">KM</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* LINHA 3 (VOLUME / CAPACIDADE DO MAQUINÁRIO) */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
-                        QDE QUE O VEÍCULO USA <span className="text-rose-600">*</span>
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          required
-                          min="0.01"
-                          step="any"
-                          placeholder="EX: 60"
-                          value={ruleStandardQty}
-                          onChange={(e) => setRuleStandardQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                          className="flex-1 px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
-                        />
-                        <select
-                          value={ruleUnit === 'L' ? 'LT' : ruleUnit}
-                          onChange={(e) => setRuleUnit(e.target.value.toUpperCase())}
-                          className="w-36 sm:w-44 px-2 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none shrink-0 cursor-pointer text-center"
-                          title="UNI: UNIDADE DE MEDIDA"
-                        >
-                          <option value="LT">[LT] - LITROS</option>
-                          <option value="UN">[UN] - UNIDADES</option>
-                          <option value="KG">[KG] - QUILOGRAMAS</option>
-                          <option value="CX">[CX] - CAIXAS</option>
-                          <option value="PC">[PC] - PEÇAS</option>
-                          <option value="M">[M] - METROS</option>
-                        </select>
                       </div>
                     </div>
 
                     {/* BLOCO DESTACADO: VINCULAÇÃO DIRETA COM PRODUTO REAL DO ESTOQUE (ALMOXARIFADO) */}
-                    <div className="bg-slate-100 dark:bg-stone-850 p-4 rounded-lg border border-slate-300 dark:border-stone-700 space-y-3">
+                    <div className="bg-[#e0e6f1] dark:bg-stone-800 p-4 rounded-xl border border-black dark:border-stone-700 space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="block text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider">
+                        <label className="block text-[11px] font-black uppercase text-black dark:text-stone-300 tracking-wider">
                           VINCULAR PRODUTO REAL DO ESTOQUE
                         </label>
                         {selectedInventoryItem && (
                           <button
                             type="button"
                             onClick={handleClearStockLink}
-                            className="text-[10px] font-bold text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300 uppercase flex items-center space-x-1 cursor-pointer transition"
+                            className="text-[10px] font-bold text-rose-700 hover:text-rose-900 dark:text-rose-400 dark:hover:text-rose-300 uppercase flex items-center space-x-1 cursor-pointer transition"
                             title="Desvincular produto do almoxarifado"
                           >
                             <X className="w-3 h-3" />
@@ -2250,15 +2253,15 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                 setIsStockLinkDropdownOpen(true);
                               }
                             }}
-                            className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-bold uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none pr-8"
                           />
-                          <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          <Package className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
                         </div>
 
                         {/* Dropdown com os produtos reais do almoxarifado */}
                         {isStockLinkDropdownOpen && stockLinkAutocompleteResults.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
-                            <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider">
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-stone-800">
+                            <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-black dark:text-stone-400 tracking-wider">
                               PRODUTOS CADASTRADOS NO ALMOXARIFADO:
                             </div>
                             {stockLinkAutocompleteResults.map((item) => {
@@ -2276,10 +2279,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                   className="w-full text-left px-3 py-2 hover:bg-sky-50 dark:hover:bg-stone-800 transition flex items-center justify-between gap-2 cursor-pointer border-b border-slate-100 dark:border-stone-800 last:border-b-0"
                                 >
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-bold text-slate-800 dark:text-stone-100 uppercase truncate">
+                                    <p className="text-xs font-bold text-black dark:text-stone-100 uppercase truncate">
                                       #{displayId} - {name} - {formatCurrencyBRL(cost)}
                                     </p>
-                                    <p className="text-[10px] text-slate-500 font-medium">
+                                    <p className="text-[10px] text-slate-600 font-medium">
                                       CAT: {anyItem.categoria || item.category || 'GERAL'} • SALDO: {stock.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {unit}
                                     </p>
                                   </div>
@@ -2312,7 +2315,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           <div className="grid grid-cols-2 gap-3 pt-1">
                             {/* Campo 1: VALOR DE CUSTO ATUAL (DRE) */}
                             <div>
-                              <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-1">
+                              <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-400 mb-1">
                                 VALOR DE CUSTO ATUAL (DRE)
                               </label>
                               <input
@@ -2320,13 +2323,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                 readOnly
                                 disabled
                                 value={selectedInventoryItem ? formatCurrencyBRL(cost) : 'R$ 0,00'}
-                                className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-black uppercase cursor-not-allowed select-none"
+                                className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-emerald-400 text-xs font-mono font-black uppercase cursor-not-allowed select-none"
                               />
                             </div>
 
                             {/* Campo 2: SALDO DISPONÍVEL NO ALMOXARIFADO */}
                             <div>
-                              <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-1">
+                              <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-400 mb-1">
                                 SALDO DISPONÍVEL NO ALMOXARIFADO
                               </label>
                               <input
@@ -2334,7 +2337,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                 readOnly
                                 disabled
                                 value={selectedInventoryItem ? `${stock.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unit}` : '0,00 UN'}
-                                className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 text-xs font-mono font-bold uppercase cursor-not-allowed select-none"
+                                className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-200 text-xs font-mono font-bold uppercase cursor-not-allowed select-none"
                               />
                             </div>
                           </div>
@@ -2343,14 +2346,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
                       {/* Badge reativo de status do vínculo */}
                       {selectedInventoryItem ? (
-                        <div className="flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-300 dark:border-emerald-800">
+                        <div className="flex items-center space-x-1.5 text-[10px] text-emerald-800 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-400 dark:border-emerald-800">
                           <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span className="truncate">
                             PRODUTO VINCULADO: #{ (selectedInventoryItem as any).codigo_produto || selectedInventoryItem.code || (selectedInventoryItem as any).codigo || selectedInventoryItem.id } - { ((selectedInventoryItem as any).nome_comercial || selectedInventoryItem.name || '').toUpperCase() }
                           </span>
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-1.5 text-[10px] text-amber-800 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded border border-amber-300 dark:border-amber-800">
+                        <div className="flex items-center space-x-1.5 text-[10px] text-amber-900 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded border border-amber-400 dark:border-amber-800">
                           <span className="shrink-0">⚠️</span>
                           <span>NENHUM PRODUTO FÍSICO DO ESTOQUE VINCULADO A ESTA REGRA (OPCIONAL)</span>
                         </div>
@@ -2358,8 +2361,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     </div>
 
                     {/* OBSERVAÇÕES DO INSUMO (OPCIONAL) */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-1">
+                    <div className="bg-[#e0e6f1] dark:bg-stone-800 p-4 rounded-xl border border-black dark:border-stone-700">
+                      <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 mb-1">
                         OBSERVAÇÕES DO INSUMO (OPCIONAL)
                       </label>
                       <input
@@ -2367,24 +2370,24 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                         placeholder="EX: UTILIZAR PREFERENCIALMENTE ÓLEO GENUÍNO HOMOLOGADO"
                         value={ruleNotes}
                         onChange={(e) => setRuleNotes(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-100 text-xs font-medium uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
+                        className="w-full px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-medium uppercase focus:ring-2 focus:ring-[#0963cb] focus:outline-none"
                       />
                     </div>
 
                   </div>
 
                   {/* Footer do Modal com Botões Fixo no Rodapé */}
-                  <div className="px-6 py-3.5 bg-white dark:bg-stone-900 border-t border-slate-300 dark:border-stone-700 flex items-center justify-end space-x-2.5 shrink-0">
+                  <div className="px-6 py-3.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-end space-x-2.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleCancelEditRule}
-                      className="px-4 py-2 rounded bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-xs font-bold uppercase transition cursor-pointer"
+                      className="px-4 py-2 rounded-lg bg-white dark:bg-stone-800 hover:bg-gray-100 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 text-xs font-bold uppercase transition cursor-pointer"
                     >
                       CANCELAR
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider shadow transition flex items-center space-x-1.5 cursor-pointer"
+                      className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider shadow transition flex items-center space-x-1.5 cursor-pointer"
                     >
                       <Save className="w-3.5 h-3.5" />
                       <span>💾 SALVAR REGRA</span>

@@ -490,7 +490,7 @@ const EditableComboboxField: React.FC<EditableComboboxFieldProps> = ({
           }}
           placeholder={placeholder}
           autoComplete="off"
-          className="w-full pl-3 pr-8 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+          className="w-full pl-3 pr-8 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
         />
         <button
           type="button"
@@ -3589,21 +3589,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       {/* Modal Cadastro/Edição de Colaborador - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden overflow-y-hidden">
-          <div className={`bg-slate-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[94vh] my-auto ${
+          <div className={`bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full shadow-2xl overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[94vh] my-auto ${
             roleSidePanelTarget ? 'max-w-6xl' : 'max-w-4xl'
           } transition-all duration-300`}>
             
-            {/* Header - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl shadow-xs">
+            {/* Header - Tema Oficial AgroControl */}
+            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-gray-400 dark:border-stone-700 shadow-2xs shrink-0">
                   <UserSquare2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
                     {editingEmployee ? 'EDITAR CADASTRO DE FUNCIONÁRIO' : 'NOVO CADASTRO DE FUNCIONÁRIO'}
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-stone-700 dark:text-stone-400 font-medium">
                     Dados pessoais, contratuais, níveis de acesso e remuneração
                   </p>
                 </div>
@@ -3611,9 +3611,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-4 h-4 text-black dark:text-stone-200" />
               </button>
             </div>
 
@@ -3684,13 +3684,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             )}
 
             <div className="flex-1 flex overflow-hidden relative">
-              <form onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#edf4ff] dark:bg-stone-900 text-xs">
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <form id="employee-modal-form" onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#cad4e6] dark:bg-stone-900 text-xs">
               
               {/* SECTION 1: DADOS BÁSICOS & FOTO */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2 pb-1 border-b border-slate-300 dark:border-stone-700">
-                  <UserSquare2 className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-stone-200">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-2.5">
+                <div className="flex items-center space-x-2 pb-1.5 border-b border-black/15 dark:border-stone-700">
+                  <UserSquare2 className="w-3.5 h-3.5 text-black dark:text-stone-300" />
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200">
                     1. Dados Básicos do Funcionário
                   </h4>
                 </div>
@@ -3699,7 +3700,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
                   
                   {/* Photo Upload Thumbnail */}
-                  <div className="sm:col-span-3 flex flex-col items-center justify-center p-3 border border-dashed border-stone-300 rounded-xl bg-white text-center">
+                  <div className="sm:col-span-3 flex flex-col items-center justify-center p-3 border border-gray-400 rounded-xl bg-white text-center">
                     {photoUrl && !isBrokenAvatarUrl(photoUrl) ? (
                       <div className="relative group">
                         <img 
@@ -3760,7 +3761,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
 
@@ -3774,7 +3775,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         value={cpf}
                         onChange={(e) => setCpf(formatCpfCnpj(e.target.value))}
                         maxLength={14}
-                        className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
@@ -3786,7 +3787,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         type="text"
                         value={rgNumero}
                         onChange={(e) => setRgNumero(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
 
@@ -3799,7 +3800,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         type="date"
                         value={dataNascimento}
                         onChange={(e) => setDataNascimento(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
@@ -3811,7 +3812,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         type="text"
                         value={pisNumero}
                         onChange={(e) => setPisNumero(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
                   </div>
@@ -3851,7 +3852,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               )}
 
               {/* SECTION 2: DADOS PROFISSIONAIS & CONTRATUAIS */}
-              <div className="space-y-3">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-3">
                 <div className="flex items-center space-x-2 pb-1.5 border-b border-black/15">
                   <Briefcase className="w-4 h-4 text-black" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-black">
@@ -3916,7 +3917,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                   {/* Card Reativo de Níveis de Acesso Herdados do Cargo Selecionado */}
                   {selectedCargoPermissions && (
-                    <div className="sm:col-span-2 p-2.5 bg-zinc-50 dark:bg-stone-800/70 border border-zinc-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                    <div className="sm:col-span-2 p-2.5 bg-white dark:bg-stone-800/70 border border-gray-400 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-1.5">
                           <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -4018,7 +4019,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                 setBrokerCommissionValue('5,00');
                               }
                             }}
-                            className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
+                            className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
                           >
                             <option value="Porcentagem (%) sobre o valor do pedido">
                               Porcentagem (%) sobre o valor do pedido
@@ -4054,7 +4055,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                     }
                                   }}
                                   placeholder="0,00"
-                                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
+                                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
                                 />
                               </div>
                             </div>
@@ -4081,7 +4082,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                     }
                                   }}
                                   placeholder="5,00"
-                                  className="w-full pl-3 pr-8 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
+                                  className="w-full pl-3 pr-8 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm font-bold text-stone-500">
                                   %
@@ -4113,7 +4114,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       value={phone}
                       onChange={(e) => setPhone(formatPhone(e.target.value))}
                       maxLength={15}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
@@ -4131,7 +4132,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           setBaseSalary(formatCurrencyInputDisplay(parsed));
                         }
                       }}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
@@ -4158,7 +4159,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       required
                       value={admissionDate}
                       onChange={(e) => setAdmissionDate(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
@@ -4170,7 +4171,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       type="date"
                       value={terminationDate}
                       onChange={(e) => setTerminationDate(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
                 </div>
@@ -4212,7 +4213,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
               {/* SECTION 3: COMISSÃO VARIÁVEL SOBRE PRODUÇÃO (OCULTADA PARA AGENCIADORES) */}
               {!isBroker && (
-                <div className="rounded-xl border border-stone-300 bg-white/70 p-3 space-y-2 transition-all duration-200">
+                <div className="rounded-xl border border-black bg-[#e0e6f1] dark:bg-stone-800 p-3 space-y-2 transition-all duration-200">
                   <div className="flex items-center space-x-2.5">
                     <button
                       type="button"
@@ -4251,8 +4252,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         }}
                         disabled={!receivesCommission}
                         placeholder="0,00"
-                        className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
-                          !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
+                        className={`w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
+                          !receivesCommission ? 'opacity-60 cursor-not-allowed' : ''
                         }`}
                       />
                     </div>
@@ -4273,8 +4274,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         }}
                         disabled={!receivesCommission}
                         placeholder="0,00"
-                        className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
-                          !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
+                        className={`w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
+                          !receivesCommission ? 'opacity-60 cursor-not-allowed' : ''
                         }`}
                       />
                     </div>
@@ -4295,8 +4296,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         }}
                         disabled={!receivesCommission}
                         placeholder="0,00"
-                        className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
-                          !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
+                        className={`w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
+                          !receivesCommission ? 'opacity-60 cursor-not-allowed' : ''
                         }`}
                       />
                     </div>
@@ -4317,8 +4318,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         }}
                         disabled={!receivesCommission}
                         placeholder="0,00"
-                        className={`w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
-                          !receivesCommission ? 'opacity-60 cursor-not-allowed bg-stone-100' : ''
+                        className={`w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
+                          !receivesCommission ? 'opacity-60 cursor-not-allowed' : ''
                         }`}
                       />
                     </div>
@@ -4327,9 +4328,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               )}
 
               {/* SECTION 4: CNH & MELHORAR CATEGORIA (DT) - FIXAMENTE EXPANDIDA */}
-              <div id="secao-cnh-funcionario" className="border border-stone-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white/70 dark:bg-stone-800/70 shadow-2xs scroll-mt-6">
+              <div id="secao-cnh-funcionario" className="border border-black dark:border-stone-700 rounded-xl overflow-hidden bg-[#e0e6f1] dark:bg-stone-800 shadow-2xs scroll-mt-6">
                 {/* Cabeçalho Fixo (Não Colapsável) */}
-                <div className="w-full px-3.5 py-2.5 bg-white/90 dark:bg-stone-800/90 flex items-center justify-between text-xs font-bold text-black dark:text-stone-100 border-b border-stone-200 dark:border-stone-700 select-none">
+                <div className="w-full px-3.5 py-2.5 bg-[#e0e6f1] dark:bg-stone-800 flex items-center justify-between text-xs font-bold text-black dark:text-stone-100 border-b border-black/15 dark:border-stone-700 select-none">
                   <div className="flex items-center space-x-2">
                     <CreditCard className="w-4 h-4 text-[#0963cb] shrink-0" />
                     <span className="uppercase tracking-wide font-black">
@@ -4339,7 +4340,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 </div>
 
                 {/* Conteúdo Permanentemente Visível */}
-                <div className="p-3 bg-white dark:bg-stone-850 space-y-3">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-850 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-black dark:text-stone-200 uppercase tracking-wider mb-1">
@@ -4350,7 +4351,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         value={cnhNumber}
                         onChange={(e) => setCnhNumber(e.target.value.toUpperCase())}
                         placeholder="EX: 00000000000"
-                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-stone-300 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-gray-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
                       />
                     </div>
 
@@ -4361,7 +4362,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       <select
                         value={cnhCategory}
                         onChange={(e) => setCnhCategory(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-stone-300 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase font-bold"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-gray-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase font-bold"
                       >
                         <option value="A">A (MOTO / VEÍCULO 2 RODAS)</option>
                         <option value="B">B (CARRO / UTILITÁRIO LEVE)</option>
@@ -4383,13 +4384,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         type="date"
                         value={cnhExpiration}
                         onChange={(e) => setCnhExpiration(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-stone-300 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-gray-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
                   </div>
 
                   {/* Sub-bloco: MELHORAR CATEGORIA (DT) */}
-                  <div className="p-2.5 bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60 rounded-xl space-y-2">
+                  <div className="p-2.5 bg-white/80 dark:bg-sky-950/30 border border-gray-400 dark:border-sky-800/60 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <input
@@ -4397,7 +4398,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           id="cnh-upgrade-checkbox"
                           checked={cnhUpgradeDT}
                           onChange={(e) => setCnhUpgradeDT(e.target.checked)}
-                          className="w-4 h-4 text-[#0963cb] rounded border-stone-300 focus:ring-[#0963cb] cursor-pointer"
+                          className="w-4 h-4 text-[#0963cb] rounded border-gray-400 focus:ring-[#0963cb] cursor-pointer"
                         />
                         <label htmlFor="cnh-upgrade-checkbox" className="text-xs font-bold text-black dark:text-stone-100 uppercase tracking-wide cursor-pointer">
                           MELHORAR CATEGORIA (DT)
@@ -4409,7 +4410,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </div>
 
                     {cnhUpgradeDT && (
-                      <div className="pt-2 border-t border-sky-200 dark:border-sky-800/50 grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in">
+                      <div className="pt-2 border-t border-gray-300 dark:border-sky-800/50 grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in">
                         <div>
                           <label className="block text-[10px] font-bold text-black dark:text-stone-200 uppercase tracking-wider mb-1">
                             CATEGORIA ALVO / ASSOCIAÇÃO (DT):
@@ -4417,7 +4418,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           <select
                             value={cnhUpgradeCategory}
                             onChange={(e) => setCnhUpgradeCategory(e.target.value)}
-                            className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-sky-300 dark:border-sky-700 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase font-bold"
+                            className="w-full px-3 py-1.5 bg-white dark:bg-stone-750 border border-gray-400 dark:border-sky-700 rounded-lg text-black dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase font-bold"
                           >
                             <option value="A">A (HABILITAÇÃO PARA MOTOCICLETAS)</option>
                             <option value="A + C">A + C (MOTO + CAMINHÃO)</option>
@@ -4439,7 +4440,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
 
               {/* SECTION 5: INFORMAÇÕES DE PAGAMENTO / RECEBIMENTO */}
-              <div className="space-y-3">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-3">
                 <div className="flex items-center space-x-2 pb-1.5 border-b border-black/15">
                   <Building2 className="w-4 h-4 text-black" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-black">
@@ -4495,7 +4496,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                               setBankAccount(phone.toUpperCase());
                             }
                           }}
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
                         >
                           <option value="CPF">CPF</option>
                           <option value="CELULAR">CELULAR</option>
@@ -4549,7 +4550,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             pixKeyType === 'E-MAIL' ? 'EX: COLABORADOR@GMAIL.COM' :
                             'EX: 12345678-ABCD-...'
                           }
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb] shadow-2xs"
                           required
                         />
                       </div>
@@ -4565,7 +4566,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           value={bankAgency}
                           onChange={(e) => setBankAgency(e.target.value.toUpperCase())}
                           placeholder="EX: 0001-9"
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                         />
                       </div>
 
@@ -4585,7 +4586,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           value={bankAccount}
                           onChange={(e) => setBankAccount(e.target.value.toUpperCase())}
                           placeholder="EX: 00000-0"
-                          className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                         />
                       </div>
                     </>
@@ -4594,7 +4595,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
 
               {/* SECTION 6: ANEXOS & ARQUIVOS DE RETORNO (PDF/IMAGEM) */}
-              <div className="space-y-3">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-3">
                 <div className="flex items-center space-x-2 pb-1.5 border-b border-black/15">
                   <Paperclip className="w-4 h-4 text-black" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-black">
@@ -4605,7 +4606,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   
                   {/* Item 1: Exame Admissional */}
-                  <div className="p-3 border border-stone-300 rounded-xl bg-white flex flex-col justify-between space-y-2">
+                  <div className="p-3 border border-gray-400 rounded-xl bg-white flex flex-col justify-between space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <FileText className="w-4 h-4 text-stone-600" />
@@ -4660,7 +4661,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </div>
 
                   {/* Item 2: Contrato de Experiência */}
-                  <div className="p-3 border border-stone-300 rounded-xl bg-white flex flex-col justify-between space-y-2">
+                  <div className="p-3 border border-gray-400 rounded-xl bg-white flex flex-col justify-between space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <FileText className="w-4 h-4 text-stone-600" />
@@ -4715,7 +4716,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </div>
 
                   {/* Item 3: Documentos Gerais (RE + CNH) */}
-                  <div className="p-3 border border-stone-300 rounded-xl bg-white flex flex-col justify-between space-y-2">
+                  <div className="p-3 border border-gray-400 rounded-xl bg-white flex flex-col justify-between space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <FileText className="w-4 h-4 text-stone-600" />
@@ -4770,7 +4771,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </div>
 
                   {/* Item 4: Upload do Cadastro Assinado (Retorno) */}
-                  <div className="p-3 border border-stone-300 rounded-xl bg-white flex flex-col justify-between space-y-2">
+                  <div className="p-3 border border-gray-400 rounded-xl bg-white flex flex-col justify-between space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <FileCheck className="w-4 h-4 text-[#0963cb]" />
@@ -4827,13 +4828,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 </div>
               </div>
 
+              </form>
+
               {/* Modal Footer */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-slate-300 dark:border-stone-700">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2 px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 shrink-0">
                 <button
                   type="button"
                   id="btn-imprimir-cadastro-funcionario-rodape"
                   onClick={handlePrintCurrentModalEmployee}
-                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-lg border border-amber-400 text-amber-900 bg-amber-50 hover:bg-amber-100 text-xs font-bold transition cursor-pointer shadow-2xs uppercase tracking-wide"
+                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-lg border border-amber-500 text-amber-950 bg-amber-50 hover:bg-amber-100 text-xs font-bold transition cursor-pointer shadow-2xs uppercase tracking-wide"
                 >
                   <Printer className="w-3.5 h-3.5 text-amber-700" />
                   <span>IMPRIMIR CADASTRO DO FUNCIONÁRIO PARA ASSINATURA</span>
@@ -4843,22 +4846,22 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-stone-600 text-slate-700 dark:text-stone-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold transition cursor-pointer shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)] uppercase"
+                    className="px-3.5 py-1.5 rounded-lg border border-gray-400 dark:border-stone-600 text-black dark:text-stone-200 bg-white hover:bg-gray-100 text-xs font-bold transition cursor-pointer uppercase"
                   >
                     CANCELAR
                   </button>
                   <button
                     type="submit"
+                    form="employee-modal-form"
                     disabled={isSubmitting || !name.trim()}
-                    className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] border border-blue-700 transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 min-w-[130px] uppercase"
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border border-emerald-700 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 min-w-[130px] uppercase"
                   >
                     {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />}
                     <span>{isSubmitting ? 'SALVANDO...' : (editingEmployee ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR COLABORADOR')}</span>
                   </button>
                 </div>
               </div>
-
-            </form>
+              </div>
 
             {/* Painel Lateral Expansível à Direita para Seleção de Cargos */}
             {roleSidePanelTarget && (

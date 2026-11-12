@@ -597,13 +597,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             )}
           </button>
 
-          {/* Botão + NOVO PRODUTO (Padrão Verde Oficial AgroControl: bg-[#059669]) */}
+          {/* Botão + NOVO PRODUTO (Padrão Verde Oficial AgroControl: #059669 / bg-emerald-600) */}
           <button
             type="button"
             id="btn-novo-produto"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg !bg-[#059669] hover:!bg-[#047857] !text-white border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap uppercase tracking-wider"
-            style={{ backgroundColor: '#059669', color: '#ffffff' }}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer whitespace-nowrap uppercase tracking-wider"
             title="CADASTRAR NOVO PRODUTO NO ESTOQUE"
           >
             <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />

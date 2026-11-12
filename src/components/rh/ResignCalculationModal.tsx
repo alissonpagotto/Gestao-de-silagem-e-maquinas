@@ -806,17 +806,17 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-      <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
         
-      {/* Top Header do Modal - Moldura Metálica 3D Acetinada */}
-      <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 shrink-0 rounded-t-2xl shadow-xs">
+      {/* Top Header do Modal */}
+      <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 flex items-center justify-between border-b border-black dark:border-stone-700 shrink-0 rounded-t-2xl">
         <div className="flex items-center space-x-2.5">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/90 dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0">
             <Calculator className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 flex items-center gap-2">
                 <span>{initialTermination ? 'EDITAR CÁLCULO RESCISÓRIO' : 'NOVA RESCISÃO DE COLABORADOR'}</span>
                 {initialTermination?.status === 'rascunho' && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
@@ -825,7 +825,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                 )}
               </h2>
             </div>
-            <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+            <p className="text-[11px] text-slate-800 dark:text-stone-400 font-medium">
               {selectedEmployee 
                 ? `Colaborador: ${selectedEmployee.name} (${selectedEmployee.role || 'Geral'})` 
                 : 'Selecione o funcionário e configure os parâmetros da rescisão oficial CLT'}
@@ -836,18 +836,18 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+          className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
           title="Fechar"
         >
-          <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
         {/* Corpo com Scroll: Grid de Formulário (8 col) e Painel Resumo (4 col) */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#cad4e6] dark:bg-stone-950">
           
           {draftBannerMessage && (
-            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/70 rounded-xl text-xs text-amber-900 dark:text-amber-200">
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-400 dark:border-amber-800/70 rounded-xl text-xs text-amber-950 dark:text-amber-200">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="font-semibold">{draftBannerMessage}</span>
@@ -855,7 +855,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
               <button
                 type="button"
                 onClick={() => setDraftBannerMessage(null)}
-                className="text-amber-600 hover:text-amber-900 p-1 cursor-pointer"
+                className="text-amber-700 hover:text-amber-950 p-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -867,114 +867,116 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
             {/* Coluna da Esquerda: Formulário Completo (8 colunas) */}
             <div className="lg:col-span-8 space-y-4">
               
-              {/* Seção 1: Seleção de Funcionário e Motivo */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-black text-slate-800 dark:text-stone-200 mb-1">
-                    Selecione o Funcionário <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={selectedEmployeeId}
-                    onChange={(e) => handleSelectEmployee(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  >
-                    <option value="">-- Selecione o colaborador --</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name} ({emp.role || 'Colaborador'}) {emp.status === 'inativo' ? '— [Inativo]' : ''}
-                      </option>
-                    ))}
-                  </select>
+              {/* Seção 1 & 2: Seleção de Funcionário, Motivo, Datas, Salário Base e Aviso Prévio */}
+              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-black text-black dark:text-stone-200 mb-1">
+                      Selecione o Funcionário <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(e) => handleSelectEmployee(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    >
+                      <option value="">-- Selecione o colaborador --</option>
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.role || 'Colaborador'}) {emp.status === 'inativo' ? '— [Inativo]' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-black dark:text-stone-200 mb-1">
+                      Motivo do Desligamento <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value as TerminationReason)}
+                      className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    >
+                      <option value="sem_justa_causa">Demissão sem Justa Causa (Empregador)</option>
+                      <option value="pedido_demissao">Pedido de Demissão (Empregado)</option>
+                      <option value="com_justa_causa">Demissão com Justa Causa</option>
+                      <option value="acordo_mutuo">Acordo entre as Partes (Art. 484-A CLT)</option>
+                      <option value="termino_contrato">Término de Contrato de Experiência / Prazo</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-black text-slate-800 dark:text-stone-200 mb-1">
-                    Motivo do Desligamento <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value as TerminationReason)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  >
-                    <option value="sem_justa_causa">Demissão sem Justa Causa (Empregador)</option>
-                    <option value="pedido_demissao">Pedido de Demissão (Empregado)</option>
-                    <option value="com_justa_causa">Demissão com Justa Causa</option>
-                    <option value="acordo_mutuo">Acordo entre as Partes (Art. 484-A CLT)</option>
-                    <option value="termino_contrato">Término de Contrato de Experiência / Prazo</option>
-                  </select>
-                </div>
-              </div>
+                {/* Seção 2: Datas, Salário Base e Aviso Prévio */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Data de Admissão
+                    </label>
+                    <input
+                      type="date"
+                      value={admissionDate}
+                      onChange={(e) => setAdmissionDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-medium text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
 
-              {/* Seção 2: Datas, Salário Base e Aviso Prévio */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Data de Admissão
-                  </label>
-                  <input
-                    type="date"
-                    value={admissionDate}
-                    onChange={(e) => setAdmissionDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Data de Desligamento <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={terminationDate}
+                      onChange={(e) => setTerminationDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-medium text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Data de Desligamento <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={terminationDate}
-                    onChange={(e) => setTerminationDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Salário Base (R$) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={baseSalaryDisplay}
+                      onChange={handleBaseSalaryChange}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="0,00"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-bold text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Salário Base (R$) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={baseSalaryDisplay}
-                    onChange={handleBaseSalaryChange}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0,00"
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Aviso Prévio
-                  </label>
-                  <select
-                    value={noticeType}
-                    onChange={(e) => setNoticeType(e.target.value as NoticeType)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  >
-                    <option value="indenizado">Indenizado</option>
-                    <option value="trabalhado">Trabalhado</option>
-                    <option value="dispensado">Dispensado / N/A</option>
-                  </select>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Aviso Prévio
+                    </label>
+                    <select
+                      value={noticeType}
+                      onChange={(e) => setNoticeType(e.target.value as NoticeType)}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    >
+                      <option value="indenizado">Indenizado</option>
+                      <option value="trabalhado">Trabalhado</option>
+                      <option value="dispensado">Dispensado / N/A</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Seção 3: Férias Vencidas e FGTS */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-stone-800/40 rounded-xl border border-slate-200/80 dark:border-stone-800">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300">
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300">
                       Férias Vencidas (Períodos CLT)
                     </label>
                     {dateAnalysis.contractHasLessThanOneYear ? (
-                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      <span className="text-[10px] font-bold text-amber-800 dark:text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
                         Trava CLT (&lt; 1 ano)
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                      <span className="text-[10px] text-slate-700 dark:text-stone-400">
                         Máx: {dateAnalysis.completedAcquisitionPeriods} per.
                       </span>
                     )}
@@ -989,10 +991,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                       value={vacationExpiredInput}
                       onChange={(e) => handleVacationExpiredChange(e.target.value)}
                       placeholder="0"
-                      className={`w-full px-2.5 py-1.5 border rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      className={`w-full px-2.5 py-1.5 border border-gray-400 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-stone-800 text-black dark:text-white ${
                         dateAnalysis.contractHasLessThanOneYear
-                          ? 'bg-slate-100 dark:bg-stone-900 border-slate-200 dark:border-stone-800 text-slate-400 cursor-not-allowed'
-                          : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-900 dark:text-white'
+                          ? 'opacity-60 cursor-not-allowed'
+                          : ''
                       }`}
                     />
 
@@ -1006,8 +1008,8 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                             onClick={() => handleVacationExpiredChange(String(preset))}
                             className={`px-2 py-0.5 text-[10px] rounded-md font-bold transition border cursor-pointer ${
                               vacationExpiredPeriods === preset
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                                : 'bg-white dark:bg-stone-800 text-slate-600 dark:text-stone-300 border-slate-200 dark:border-stone-700 hover:bg-slate-100'
+                                ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                                : 'bg-white dark:bg-stone-800 text-black dark:text-stone-300 border-gray-400 dark:border-stone-700 hover:bg-gray-100'
                             }`}
                           >
                             {preset === 0 ? '0 per.' : `${preset} per.`}
@@ -1016,7 +1018,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                     </div>
 
                     {vacationAlert && (
-                      <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 flex items-start justify-between gap-1.5">
+                      <div className="mt-2 p-2 bg-amber-50 border border-amber-400 rounded-lg text-[11px] text-amber-900 dark:text-amber-300 flex items-start justify-between gap-1.5">
                         <div className="flex items-start gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                           <span className="whitespace-pre-line leading-tight font-medium">{vacationAlert}</span>
@@ -1035,13 +1037,13 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
 
                 <div className="sm:col-span-2 space-y-2">
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-stone-300">
+                    <label className="text-[11px] font-bold text-black dark:text-stone-300">
                       Saldo FGTS para Multa ({calculation.fgtsFineRate}%)
                     </label>
                     <button
                       type="button"
                       onClick={() => setIsManualFgts(!isManualFgts)}
-                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 underline cursor-pointer"
+                      className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 underline cursor-pointer"
                     >
                       {isManualFgts ? 'Calcular automaticamente' : 'Informar saldo exato'}
                     </button>
@@ -1056,37 +1058,37 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                         onChange={handleMoneyChange(setCustomFgtsBalance)}
                         onFocus={(e) => e.target.select()}
                         placeholder="0,00"
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white"
                       />
                       {parseRawOrFormattedToFloat(customFgtsBalance) > 0 && includeFgtsFine && calculation.fgtsFineAmount > 0 && (
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold block mt-1">
                           (Base informada: {formatMoneyBRL(parseRawOrFormattedToFloat(customFgtsBalance))})
                         </span>
                       )}
                     </div>
                   ) : (
-                    <div className="px-2.5 py-1.5 bg-slate-200/70 dark:bg-stone-700/60 rounded-lg text-xs text-slate-800 dark:text-stone-200 font-bold flex items-center justify-between">
+                    <div className="px-2.5 py-1.5 bg-white/80 dark:bg-stone-700/60 border border-gray-400 rounded-lg text-xs text-black dark:text-stone-200 font-bold flex items-center justify-between">
                       {includeFgtsFine && calculation.fgtsFineAmount > 0 ? (
                         <>
-                          <span className="text-slate-700 dark:text-stone-300 font-medium">Estimativa automática</span>
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                          <span className="text-black dark:text-stone-300 font-medium">Estimativa automática</span>
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">
                             (Multa {calculation.fgtsFineRate}%: {formatMoneyBRL(calculation.fgtsFineAmount)})
                           </span>
                         </>
                       ) : (
-                        <span className="text-slate-500 dark:text-stone-400 font-normal text-[11px]">
+                        <span className="text-slate-600 dark:text-stone-400 font-normal text-[11px]">
                           Multa FGTS não inclusa / Sem saldo real informado
                         </span>
                       )}
                     </div>
                   )}
 
-                  <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer pt-0.5">
+                  <label className="flex items-center space-x-2 text-xs font-bold text-black dark:text-stone-200 cursor-pointer pt-0.5">
                     <input
                       type="checkbox"
                       checked={includeFgtsFine}
                       onChange={(e) => setIncludeFgtsFine(e.target.checked)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                     />
                     <span>Calcular Multa do FGTS ({calculation.fgtsFineRate}%)</span>
                   </label>
@@ -1094,18 +1096,18 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
               </div>
 
               {/* Seção 4: Deduções e Ajustes Financeiros */}
-              <div className="p-3 bg-slate-50 dark:bg-stone-800/40 rounded-xl border border-slate-200/80 dark:border-stone-800 space-y-3">
+              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="block text-xs font-black text-slate-800 dark:text-stone-200">
+                  <span className="block text-xs font-black text-black dark:text-stone-200">
                     Ajuste de Deduções Rescisórias
                   </span>
 
-                  <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer bg-white dark:bg-stone-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-stone-700 shadow-2xs">
+                  <label className="flex items-center space-x-2 text-xs font-bold text-black dark:text-stone-200 cursor-pointer bg-white dark:bg-stone-900 px-2.5 py-1 rounded-lg border border-gray-400 dark:border-stone-700 shadow-2xs">
                     <input
                       type="checkbox"
                       checked={includeInssDiscount}
                       onChange={(e) => setIncludeInssDiscount(e.target.checked)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                     />
                     <span>Calcular Desconto de INSS</span>
                   </label>
@@ -1113,7 +1115,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-400 mb-1">
                       Vales / Adiantamentos (R$)
                     </label>
                     <input
@@ -1123,12 +1125,12 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                       onChange={handleMoneyChange(setCustomAdvancesDiscount)}
                       onFocus={(e) => e.target.select()}
                       placeholder="0,00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-rose-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-400 mb-1">
                       Faltas / Atrasos (R$)
                     </label>
                     <input
@@ -1138,12 +1140,12 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                       onChange={handleMoneyChange(setCustomAbsencesDiscount)}
                       onFocus={(e) => e.target.select()}
                       placeholder="0,00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-rose-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-400 mb-1">
                       Outras Deduções (R$)
                     </label>
                     <input
@@ -1153,15 +1155,15 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                       onChange={handleMoneyChange(setOtherDeductionsInput)}
                       onFocus={(e) => e.target.select()}
                       placeholder="0,00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-rose-400"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Seção 5: Observações e Inativação */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300">
+              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-2">
+                <label className="block text-[11px] font-bold text-black dark:text-stone-300">
                   Observações Gerais / Anotações
                 </label>
                 <textarea
@@ -1169,15 +1171,15 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Informações adicionais sobre o desligamento, entrega de EPIs, CTPS..."
                   rows={2}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                 />
 
-                <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer pt-1">
+                <label className="flex items-center space-x-2 text-xs font-bold text-black dark:text-stone-200 cursor-pointer pt-1">
                   <input
                     type="checkbox"
                     checked={markInactive}
                     onChange={(e) => setMarkInactive(e.target.checked)}
-                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                   />
                   <span>Atualizar status do colaborador para "Inativo / Desligado" no sistema ao homologar</span>
                 </label>
@@ -1188,7 +1190,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
             {/* Coluna da Direita: Painel Escuro de Valor Líquido & Discriminação (4 colunas) */}
             <div className="lg:col-span-4 space-y-4">
               
-              {/* Card Escuro Principal: Líquido a Pagar */}
+              {/* Card Escuro Principal: Líquido a Pagar (MANTIDO ESCURO CONFORME SOLICITAÇÃO) */}
               <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl border border-slate-700 shadow-md space-y-3">
                 <div className="flex items-center justify-between text-slate-300 text-xs">
                   <span className="uppercase font-bold tracking-wider">Valor Líquido da Rescisão</span>
@@ -1252,55 +1254,55 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
               </div>
 
               {/* Discriminação Rápida das Verbas */}
-              <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs space-y-2 text-xs">
-                <h3 className="font-black text-slate-900 dark:text-white border-b border-slate-200 dark:border-stone-800 pb-2 flex items-center justify-between">
+              <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-2xl p-4 space-y-2 text-xs">
+                <h3 className="font-black text-black dark:text-white border-b border-black/20 dark:border-stone-800 pb-2 flex items-center justify-between">
                   <span>Discriminação das Verbas</span>
-                  <span className="text-[10px] font-normal text-slate-500">Regras CLT</span>
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-stone-400">Regras CLT</span>
                 </h3>
 
-                <div className="space-y-1.5 text-slate-600 dark:text-stone-300">
+                <div className="space-y-1.5 text-black dark:text-stone-300">
                   <div className="flex justify-between">
                     <span>Saldo Salário ({calculation.workedDaysCurrentMonth}d):</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.salaryBalance)}</span>
+                    <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.salaryBalance)}</span>
                   </div>
 
                   {calculation.noticeAmount > 0 && (
                     <div className="flex justify-between">
                       <span>Aviso Prévio ({calculation.noticeDays}d):</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.noticeAmount)}</span>
+                      <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.noticeAmount)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between">
                     <span>13º Salário ({calculation.thirteenthProportionalMonths}/12):</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.thirteenthProportionalAmount)}</span>
+                    <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.thirteenthProportionalAmount)}</span>
                   </div>
 
                   {calculation.vacationExpiredAmount > 0 && (
                     <div className="flex justify-between">
                       <span>Férias Vencidas ({calculation.vacationExpiredCount} per.):</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationExpiredAmount)}</span>
+                      <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.vacationExpiredAmount)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between">
                     <span>Férias Prop. ({calculation.vacationProportionalMonths}/12):</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationProportionalAmount)}</span>
+                    <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.vacationProportionalAmount)}</span>
                   </div>
 
                   <div className="flex justify-between">
                     <span>1/3 Constitucional Férias:</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationOneThirdBonus)}</span>
+                    <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.vacationOneThirdBonus)}</span>
                   </div>
 
                   {includeFgtsFine && calculation.fgtsFineAmount > 0 && (
-                    <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
+                    <div className="flex justify-between text-amber-800 dark:text-amber-400 font-bold">
                       <span>Multa Rescisória FGTS ({calculation.fgtsFineRate}%):</span>
                       <span>{formatMoneyBRL(calculation.fgtsFineAmount)}</span>
                     </div>
                   )}
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-stone-800 space-y-1 text-rose-600 dark:text-rose-400">
+                  <div className="pt-2 border-t border-black/20 dark:border-stone-800 space-y-1 text-rose-700 dark:text-rose-400">
                     {includeInssDiscount && (
                       <>
                         <div className="flex justify-between">
@@ -1350,11 +1352,11 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         </div>
 
         {/* Rodapé Fixo com Ações */}
-        <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-stone-900 border-t border-slate-200 dark:border-stone-800 flex items-center justify-between gap-3 shrink-0">
+        <div className="p-3.5 sm:p-4 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-200 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+            className="px-4 py-2 text-xs font-bold bg-white hover:bg-gray-100 dark:bg-stone-800 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-xl transition cursor-pointer"
           >
             Cancelar
           </button>
@@ -1379,7 +1381,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
               type="button"
               onClick={handleSave}
               disabled={isSubmitting || isSavingDraft || !selectedEmployee}
-              className="inline-flex items-center space-x-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center space-x-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />

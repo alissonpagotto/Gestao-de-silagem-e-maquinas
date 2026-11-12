@@ -86,7 +86,7 @@ export const ManageableDropdown: React.FC<ManageableDropdownProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] transition cursor-pointer text-left"
+        className="w-full flex items-center justify-between px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] transition cursor-pointer text-left"
       >
         <span className="truncate min-h-[1.25rem] inline-block">{value === 'mecanico_especialista' ? 'Mecanico Especialista' : (value || placeholder || '\u00A0')}</span>
         <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`} />
@@ -151,7 +151,7 @@ export const ManageableDropdown: React.FC<ManageableDropdownProps> = ({
                 }
               }}
               placeholder={newItemPlaceholder}
-              className="flex-1 px-2.5 py-1 text-xs bg-white border border-stone-300 rounded-lg text-black outline-none focus:ring-1 focus:ring-[#0963cb]"
+              className="flex-1 px-2.5 py-1 text-xs bg-white border border-gray-400 rounded-lg text-black outline-none focus:ring-1 focus:ring-[#0963cb]"
             />
             <button
               type="button"

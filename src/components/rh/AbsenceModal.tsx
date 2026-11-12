@@ -158,125 +158,129 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-300 dark:border-stone-700 flex flex-col max-h-[95vh]">
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0963cb] text-white">
-          <h3 className="text-sm font-bold uppercase tracking-wider">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-black dark:border-stone-700 flex flex-col max-h-[95vh]">
+        <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 border-b border-black dark:border-stone-700 shrink-0">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-black dark:text-stone-100">
             {editingAbsence ? 'Editar Falta / Ocorrência' : 'Registrar Nova Falta / Ocorrência'}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-              Colaborador *
-            </label>
-            <select
-              value={selectedEmployeeId}
-              onChange={(e) => handleEmployeeChange(e.target.value)}
-              required
-              className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold"
-            >
-              <option value="">Selecione um funcionário...</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} {emp.role ? `(${emp.role})` : ''}
-                </option>
-              ))}
-            </select>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950 text-xs">
+          <div className="p-4 overflow-y-auto flex-1">
+            <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                  Colaborador *
+                </label>
+                <select
+                  value={selectedEmployeeId}
+                  onChange={(e) => handleEmployeeChange(e.target.value)}
+                  required
+                  className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                >
+                  <option value="">Selecione um funcionário...</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} {emp.role ? `(${emp.role})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                    Data do Ocorrido *
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                    className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                    Competência de Desconto *
+                  </label>
+                  <input
+                    type="text"
+                    value={referenceMonth}
+                    onChange={(e) => setReferenceMonth(e.target.value)}
+                    placeholder="MM/AAAA"
+                    required
+                    className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                    Tipo da Ocorrência *
+                  </label>
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  >
+                    <option value="injustificada">Falta Injustificada</option>
+                    <option value="justificada">Falta Justificada</option>
+                    <option value="suspensao">Suspensão Disciplinar</option>
+                    <option value="atraso">Atraso / Saída Antecipada</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                    Status *
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  >
+                    <option value="pendente">Pendente de Desconto</option>
+                    <option value="descontada">Já Descontada na Folha</option>
+                    <option value="abonada">Abonada / Cancelada</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                  Motivo / Justificativa
+                </label>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Ex: Ausência sem aviso prévio"
+                  className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb]"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                Data do Ocorrido *
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                Competência de Desconto *
-              </label>
-              <input
-                type="text"
-                value={referenceMonth}
-                onChange={(e) => setReferenceMonth(e.target.value)}
-                placeholder="MM/AAAA"
-                required
-                className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                Tipo da Ocorrência *
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as any)}
-                className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold"
-              >
-                <option value="injustificada">Falta Injustificada</option>
-                <option value="justificada">Falta Justificada</option>
-                <option value="suspensao">Suspensão Disciplinar</option>
-                <option value="atraso">Atraso / Saída Antecipada</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                Status *
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 font-bold"
-              >
-                <option value="pendente">Pendente de Desconto</option>
-                <option value="descontada">Já Descontada na Folha</option>
-                <option value="abonada">Abonada / Cancelada</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-              Motivo / Justificativa
-            </label>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Ex: Ausência sem aviso prévio"
-              className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100"
-            />
-          </div>
-
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-stone-700">
+          <div className="flex items-center justify-end space-x-2 px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 font-bold hover:bg-slate-50 cursor-pointer"
+              className="px-4 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-300 font-bold hover:bg-gray-100 dark:hover:bg-stone-700 cursor-pointer transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!selectedEmployeeId}
-              className="inline-flex items-center space-x-1.5 px-5 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center space-x-1.5 px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               <Check className="w-4 h-4" />
               <span>Salvar Falta / Ocorrência</span>

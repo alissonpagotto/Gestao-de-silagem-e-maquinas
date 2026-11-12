@@ -101,7 +101,7 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
   title = 'Competência Ativa',
 }) => {
   return (
-    <div className={`flex items-center space-x-1.5 shrink-0 ${className}`}>
+    <div className={`competence-selector-root flex items-center space-x-1.5 shrink-0 ${className}`}>
       <button
         type="button"
         onClick={(e) => {
@@ -109,20 +109,19 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
           e.stopPropagation();
           onPrev(e);
         }}
-        className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white select-none active:scale-95"
+        className="competence-selector-btn p-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/70 transition cursor-pointer text-emerald-800 dark:text-emerald-300 font-semibold select-none active:scale-95"
         title="Mês Anterior"
         aria-label="Mês Anterior"
       >
-        <ChevronLeft className="w-3.5 h-3.5" />
+        <ChevronLeft className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-300" />
       </button>
 
       <div
-        style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
-        className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716] shadow-2xs select-none"
+        className="competence-selector-badge flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs select-none"
         title={title}
       >
         <span>Competência:</span>
-        <span className="text-black font-black text-sm">{competence}</span>
+        <span className="text-emerald-800 dark:text-emerald-300 font-semibold text-sm">{competence}</span>
       </div>
 
       <button
@@ -132,11 +131,11 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
           e.stopPropagation();
           onNext(e);
         }}
-        className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white select-none active:scale-95"
+        className="competence-selector-btn p-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/70 transition cursor-pointer text-emerald-800 dark:text-emerald-300 font-semibold select-none active:scale-95"
         title="Próximo Mês"
         aria-label="Próximo Mês"
       >
-        <ChevronRight className="w-3.5 h-3.5" />
+        <ChevronRight className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-300" />
       </button>
     </div>
   );

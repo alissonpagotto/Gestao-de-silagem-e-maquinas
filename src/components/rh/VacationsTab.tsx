@@ -249,7 +249,7 @@ const DiscreteNumericInput: React.FC<DiscreteNumericInputProps> = ({
       onFocus={handleFocus}
       onChange={handleChange}
       onBlur={handleBlur}
-      className={`w-28 text-right font-black font-mono text-[13px] leading-tight bg-transparent border-0 border-b border-transparent hover:border-stone-400 focus:border-[#0963cb] focus:bg-blue-50/70 dark:focus:bg-blue-950/50 focus:outline-none px-1 py-0.5 rounded-t-xs transition-colors cursor-text ${colorClass}`}
+      className={`w-28 text-right font-black font-mono text-[13px] leading-tight bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 focus:border-[#0963cb] focus:ring-1 focus:ring-[#0963cb] focus:outline-none px-1.5 py-0.5 rounded transition-colors cursor-text ${colorClass.includes('line-through') ? colorClass : ''}`}
     />
   );
 };
@@ -3435,26 +3435,26 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           style={{ overflowY: 'hidden' }}
         >
           <div
-            className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-4xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col"
+            className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col"
             style={{ overflowY: 'hidden' }}
           >
-            {/* 1. CABEÇALHO COMPACTO DO MODAL - Moldura Metálica 3D Acetinada */}
-            <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-2xl shrink-0">
+            {/* 1. CABEÇALHO COMPACTO DO MODAL */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 rounded-t-2xl shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/90 dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0">
                   <Palmtree className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                       PROGRAMAÇÃO E CÁLCULO DE FÉRIAS
                     </h3>
-                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-400/40">
-                      <Wifi className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-300" />
+                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/50">
+                      <Wifi className="w-2.5 h-2.5 text-emerald-700 dark:text-emerald-300" />
                       <span>Tempo Real</span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-slate-800 dark:text-stone-400 font-medium">
                     Planejamento trabalhista oficial, apuração de proventos CLT e retenções legais
                   </p>
                 </div>
@@ -3463,12 +3463,12 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               <div className="flex items-center space-x-2.5">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-2xs ${
                   status === 'em_gozo'
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-400'
                     : status === 'concluido'
-                    ? 'bg-slate-200 text-slate-800 border-slate-300'
+                    ? 'bg-slate-200 text-black border-gray-400'
                     : status === 'cancelado'
-                    ? 'bg-rose-100 text-rose-800 border-rose-300'
-                    : 'bg-white text-slate-800 border-slate-300'
+                    ? 'bg-rose-100 text-rose-800 border-rose-400'
+                    : 'bg-white text-black border-gray-400'
                 }`}>
                   {status === 'em_gozo' ? 'Gozo' : status === 'concluido' ? 'Concluído' : status === 'cancelado' ? 'Cancelado' : 'Agendado'}
                 </span>
@@ -3476,22 +3476,22 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 <button
                   type="button"
                   onClick={handleCloseProgrammingModal}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                  className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                   title="Fechar"
                 >
-                  <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Linha Compacta com Foto, Nome, Cargo e Salário Base */}
-            <div className="px-4 py-2 bg-stone-50 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-700/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="px-4 py-2 bg-[#e0e6f1] dark:bg-stone-800/80 border-b border-black dark:border-stone-700/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <div className="flex items-center space-x-2.5 min-w-0">
                 <EmployeeAvatar
                   photoUrl={selectedEmp?.photoUrl || (selectedEmp as any)?.foto_url}
                   name={selectedEmp?.name || 'Colaborador'}
                   size="sm"
-                  className="rounded-lg border border-stone-300 dark:border-stone-700 shrink-0 shadow-xs"
+                  className="rounded-lg border border-black dark:border-stone-700 shrink-0 shadow-xs"
                 />
                 <div className="min-w-0">
                   <div className="flex items-center space-x-2">
@@ -3499,12 +3499,12 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       {selectedEmp?.name || 'Selecione um funcionário...'}
                     </h4>
                     {selectedEmp && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 uppercase">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-white dark:bg-stone-700 border border-gray-400 text-black dark:text-stone-200 uppercase">
                         {selectedEmp?.contractType || 'CLT'}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center space-x-2 text-[11px] text-stone-600 dark:text-stone-300">
+                  <div className="flex items-center space-x-2 text-[11px] text-slate-800 dark:text-stone-300">
                     <span className="font-semibold">{selectedEmp?.role || (selectedEmployeeId ? 'Função não informada' : 'Nenhum colaborador selecionado')}</span>
                     <span>•</span>
                     <span>
@@ -3518,7 +3518,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 <select
                   value={selectedEmployeeId}
                   onChange={(e) => handleSelectEmployee(e.target.value)}
-                  className="w-full sm:w-auto px-2.5 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-xs"
+                  className="w-full sm:w-auto px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-xs"
                 >
                   <option value="">Selecione um funcionário...</option>
                   {employees.map(emp => (
@@ -3532,39 +3532,39 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
             {/* 2. BLOCO INFORMATIVO DO COLABORADOR (Plotagem de Dados Cadastrais em Tempo Real) */}
             {selectedEmp && selectedEmpDetails ? (
-              <div className="px-4 py-2 bg-gradient-to-r from-blue-50/95 via-sky-50/80 to-indigo-50/90 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-sky-200/90 dark:border-stone-700/80 flex flex-wrap items-center justify-between gap-2 shrink-0 animate-in fade-in duration-150">
+              <div className="px-4 py-2 bg-[#e0e6f1] dark:bg-stone-850 border-b border-black dark:border-stone-700/80 flex flex-wrap items-center justify-between gap-2 shrink-0 animate-in fade-in duration-150">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {/* Badge 1: Cargo / Regime */}
-                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-stone-800 border border-sky-200/90 dark:border-stone-700 text-sky-950 dark:text-stone-100 shadow-2xs">
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 text-black dark:text-stone-100 shadow-2xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-sky-600 dark:bg-sky-400 shrink-0"></span>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-stone-400">Cargo / Regime:</span>
-                    <span className="font-extrabold text-slate-900 dark:text-white">
+                    <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-stone-400">Cargo / Regime:</span>
+                    <span className="font-extrabold text-black dark:text-white">
                       {selectedEmpDetails.cargoRegime}
                     </span>
                   </span>
 
                   {/* Badge 2: Data de Admissão */}
-                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-stone-800 border border-slate-200/90 dark:border-stone-700 text-slate-800 dark:text-stone-200 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500 dark:bg-stone-400 shrink-0"></span>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-stone-400">Admissão:</span>
-                    <span className="font-extrabold text-slate-900 dark:text-white font-mono">
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 text-black dark:text-stone-200 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600 dark:bg-stone-400 shrink-0"></span>
+                    <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-stone-400">Admissão:</span>
+                    <span className="font-extrabold text-black dark:text-white font-mono">
                       {selectedEmpDetails.admLabel}
                     </span>
                   </span>
 
                   {/* Badge 3: Período Aquisitivo de Direito */}
-                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 shadow-2xs">
+                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-400 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 shadow-2xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 shrink-0"></span>
-                    <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300">Período de Direito:</span>
-                    <span className="font-extrabold text-emerald-900 dark:text-emerald-200 font-mono">
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-300">Período de Direito:</span>
+                    <span className="font-extrabold text-emerald-950 dark:text-emerald-200 font-mono">
                       {selectedEmpDetails.periodoDireitoLabel}
                     </span>
                   </span>
                 </div>
 
                 {/* Badge 4: Salário Base Sincronizado */}
-                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-stone-800 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Salário Base:</span>
+                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-emerald-400 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-400">Salário Base:</span>
                   <span className="font-mono text-xs font-black text-emerald-800 dark:text-emerald-200">
                     {formatBRL(baseSalary)}
                   </span>
@@ -3572,469 +3572,471 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               </div>
             ) : null}
 
-            {/* FORMULÁRIO COMPACTADO: Padding 16px, Gap 0.75rem, overflow-y hidden */}
+            {/* FORMULÁRIO COMPACTADO */}
             <form
               onSubmit={handleSaveModal}
-              className="p-4 overflow-y-hidden flex flex-col gap-3 bg-stone-100/70 dark:bg-stone-950 flex-1"
-              style={{ padding: '16px', gap: '0.75rem', overflowY: 'hidden' }}
+              className="overflow-y-hidden flex flex-col bg-[#cad4e6] dark:bg-stone-950 flex-1"
+              style={{ overflowY: 'hidden' }}
             >
-              {/* 2. BLOCO 1: CONFIGURAÇÃO DO PERÍODO */}
-              <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col gap-2">
-                <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-1.5">
-                  <div className="flex items-center space-x-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#0963cb]" />
-                    <span className="text-[11px] font-black uppercase tracking-wider text-black dark:text-white">
-                      1. Configuração do Período & Parâmetros
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-medium text-stone-500">Período Aquisitivo:</span>
-                    {selectedEmpCycles.length > 0 ? (
-                      <select
-                        value={formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart}
-                        onChange={(e) => {
-                          const chosen = selectedEmpCycles.find((r) => r.acquisitionStart === e.target.value);
-                          if (chosen) {
-                            setAcquisitionPeriodStart(chosen.acquisitionStart);
-                            setAcquisitionPeriodEnd(chosen.acquisitionEnd);
-                            if (chosen.vacationRecord) {
-                              handleOpenModal({
-                                ...chosen.vacationRecord,
-                                acquisitionPeriodStart: chosen.acquisitionStart,
-                                acquisitionPeriodEnd: chosen.acquisitionEnd,
-                              });
-                            } else {
-                              setEditingVacation(null);
-                              setActiveDraftId(toValidUUID(`vac_${chosen.employee.id}_${chosen.acquisitionStart}`));
-                              const initDays = chosen.rightDays > 0 ? chosen.rightDays : 30;
-                              setDaysCount(initDays);
-                              if (startDate) {
-                                setEndDate(calculateEndDateFromStart(startDate, initDays));
+              <div className="p-3.5 flex flex-col gap-2.5 bg-[#cad4e6] dark:bg-stone-950 flex-1">
+                {/* 2. BLOCO 1: CONFIGURAÇÃO DO PERÍODO */}
+                <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl p-3 flex flex-col gap-2">
+                  <div className="flex items-center justify-between border-b border-black/20 dark:border-stone-800 pb-1.5">
+                    <div className="flex items-center space-x-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#0963cb]" />
+                      <span className="text-[11px] font-black uppercase tracking-wider text-black dark:text-white">
+                        1. Configuração do Período & Parâmetros
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-black dark:text-stone-400">Período Aquisitivo:</span>
+                      {selectedEmpCycles.length > 0 ? (
+                        <select
+                          value={formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart}
+                          onChange={(e) => {
+                            const chosen = selectedEmpCycles.find((r) => r.acquisitionStart === e.target.value);
+                            if (chosen) {
+                              setAcquisitionPeriodStart(chosen.acquisitionStart);
+                              setAcquisitionPeriodEnd(chosen.acquisitionEnd);
+                              if (chosen.vacationRecord) {
+                                handleOpenModal({
+                                  ...chosen.vacationRecord,
+                                  acquisitionPeriodStart: chosen.acquisitionStart,
+                                  acquisitionPeriodEnd: chosen.acquisitionEnd,
+                                });
+                              } else {
+                                setEditingVacation(null);
+                                setActiveDraftId(toValidUUID(`vac_${chosen.employee.id}_${chosen.acquisitionStart}`));
+                                const initDays = chosen.rightDays > 0 ? chosen.rightDays : 30;
+                                setDaysCount(initDays);
+                                if (startDate) {
+                                  setEndDate(calculateEndDateFromStart(startDate, initDays));
+                                }
+                                setStatus('agendado');
+                                resetCustomOverrides();
                               }
-                              setStatus('agendado');
-                              resetCustomOverrides();
                             }
-                          }
-                        }}
-                        className="px-1.5 py-0.5 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded text-[10px] font-bold font-mono text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
-                      >
-                        {!selectedEmpCycles.some(
-                          (c) => c.acquisitionStart === (formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart)
-                        ) &&
-                          acquisitionPeriodStart && (
-                            <option value={formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart}>
-                              {formatDateBR(acquisitionPeriodStart)} a {formatDateBR(acquisitionPeriodEnd)}
+                          }}
+                          className="px-1.5 py-0.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded text-[10px] font-bold font-mono text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                        >
+                          {!selectedEmpCycles.some(
+                            (c) => c.acquisitionStart === (formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart)
+                          ) &&
+                            acquisitionPeriodStart && (
+                              <option value={formatIsoDateOnly(acquisitionPeriodStart) || acquisitionPeriodStart}>
+                                {formatDateBR(acquisitionPeriodStart)} a {formatDateBR(acquisitionPeriodEnd)}
+                              </option>
+                            )}
+                          {selectedEmpCycles.map((c) => (
+                            <option key={c.rowKey} value={c.acquisitionStart}>
+                              {c.cycleNumber}º Ciclo: {formatDateBR(c.acquisitionStart)} a {formatDateBR(c.acquisitionEnd)} ({c.statusPeriodoLabel})
                             </option>
-                          )}
-                        {selectedEmpCycles.map((c) => (
-                          <option key={c.rowKey} value={c.acquisitionStart}>
-                            {c.cycleNumber}º Ciclo: {formatDateBR(c.acquisitionStart)} a {formatDateBR(c.acquisitionEnd)} ({c.statusPeriodoLabel})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-[10px] font-medium text-stone-500">
-                        {acquisitionPeriodStart ? formatDateBR(acquisitionPeriodStart) : '01/01/2025'} a {acquisitionPeriodEnd ? formatDateBR(acquisitionPeriodEnd) : '31/12/2025'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                      Início do Gozo <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      disabled={!selectedEmployeeId}
-                      onChange={(e) => handleStartDateChange(e.target.value)}
-                      className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] disabled:opacity-50 disabled:cursor-not-allowed"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                      Término do Gozo <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      disabled={!selectedEmployeeId}
-                      onChange={(e) => handleEndDateChange(e.target.value)}
-                      className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] disabled:opacity-50 disabled:cursor-not-allowed"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                      Total de Gozo
-                    </label>
-                    <div className="px-2 py-1 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-lg flex items-center justify-between">
-                      <span className="text-xs font-black text-[#0963cb] dark:text-sky-400 font-mono">
-                        {daysCount}d
-                      </span>
-                      <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded-xs bg-blue-200/70 dark:bg-blue-900 text-blue-900 dark:text-blue-200">
-                        {sellDaysCount > 0 ? `+${sellDaysCount}d Abono` : 'Integral'}
-                      </span>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[10px] font-bold text-black dark:text-stone-400">
+                          {acquisitionPeriodStart ? formatDateBR(acquisitionPeriodStart) : '01/01/2025'} a {acquisitionPeriodEnd ? formatDateBR(acquisitionPeriodEnd) : '31/12/2025'}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                      Abono Pecuniário
-                    </label>
-                    <select
-                      value={sellDaysCount}
-                      disabled={!selectedEmployeeId}
-                      onChange={(e) => handleAbonoChange(Number(e.target.value))}
-                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value={0}>Sem Abono (30d)</option>
-                      <option value={10}>Vender 10d (Gozo 20d)</option>
-                    </select>
-                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
+                        Início do Gozo <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        disabled={!selectedEmployeeId}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] disabled:opacity-50 disabled:cursor-not-allowed"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                      Adiantamento 13º
-                    </label>
-                    <select
-                      value={thirteenthAdvance ? 'sim' : 'nao'}
-                      disabled={!selectedEmployeeId}
-                      onChange={(e) => {
-                        setThirteenthAdvance(e.target.value === 'sim');
-                        setCustomDecimoAdiantamento(null);
-                      }}
-                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="nao">Não</option>
-                      <option value="sim">Sim (+50%)</option>
-                    </select>
-                  </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
+                        Término do Gozo <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        disabled={!selectedEmployeeId}
+                        onChange={(e) => handleEndDateChange(e.target.value)}
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] disabled:opacity-50 disabled:cursor-not-allowed"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                      Situação
-                    </label>
-                    <select
-                      ref={statusSelectRef}
-                      value={status}
-                      disabled={!selectedEmployeeId}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="agendado">Agendado</option>
-                      <option value="em_gozo">Em Gozo</option>
-                      <option value="concluido">Concluído</option>
-                      <option value="cancelado">Cancelado</option>
-                    </select>
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
+                        Total de Gozo
+                      </label>
+                      <div className="px-2 py-1 bg-white dark:bg-blue-950/40 border border-gray-400 dark:border-blue-900 rounded-lg flex items-center justify-between">
+                        <span className="text-xs font-black text-[#0963cb] dark:text-sky-400 font-mono">
+                          {daysCount}d
+                        </span>
+                        <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded-xs bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-200">
+                          {sellDaysCount > 0 ? `+${sellDaysCount}d Abono` : 'Integral'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
+                        Abono Pecuniário
+                      </label>
+                      <select
+                        value={sellDaysCount}
+                        disabled={!selectedEmployeeId}
+                        onChange={(e) => handleAbonoChange(Number(e.target.value))}
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value={0}>Sem Abono (30d)</option>
+                        <option value={10}>Vender 10d (Gozo 20d)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
+                        Adiantamento 13º
+                      </label>
+                      <select
+                        value={thirteenthAdvance ? 'sim' : 'nao'}
+                        disabled={!selectedEmployeeId}
+                        onChange={(e) => {
+                          setThirteenthAdvance(e.target.value === 'sim');
+                          setCustomDecimoAdiantamento(null);
+                        }}
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="nao">Não</option>
+                        <option value="sim">Sim (+50%)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
+                        Situação
+                      </label>
+                      <select
+                        ref={statusSelectRef}
+                        value={status}
+                        disabled={!selectedEmployeeId}
+                        onChange={(e) => setStatus(e.target.value as any)}
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="agendado">Agendado</option>
+                        <option value="em_gozo">Em Gozo</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* 3. BLOCO 2: DEMONSTRATIVO FINANCEIRO (FONTE 13PX, INPUTS DINÂMICOS E TOGGLE SWITCHES) */}
-              <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
-                <div className="px-3 py-1.5 bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5">
-                    <FileText className="w-3.5 h-3.5 text-[#0963cb]" />
-                    <span className="text-[11px] font-black uppercase tracking-wider text-black dark:text-white">
-                      2. Demonstrativo Financeiro de Proventos e Descontos (Valores Editáveis)
+                {/* 3. BLOCO 2: DEMONSTRATIVO FINANCEIRO */}
+                <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl overflow-hidden">
+                  <div className="px-3 py-1.5 bg-[#e0e6f1] dark:bg-stone-800/60 border-b border-black dark:border-stone-800 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#0963cb]" />
+                      <span className="text-[11px] font-black uppercase tracking-wider text-black dark:text-white">
+                        2. Demonstrativo Financeiro de Proventos e Descontos (Valores Editáveis)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-black dark:text-stone-400 uppercase">
+                      Salário Base: {formatBRL(baseSalary)} ({formatBRL(financials.dailyRate)}/dia)
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold text-stone-500 uppercase">
-                    Salário Base: {formatBRL(baseSalary)} ({formatBRL(financials.dailyRate)}/dia)
-                  </span>
-                </div>
 
-                <div className="overflow-x-auto">
-                  <table
-                    className="w-full text-[13px] leading-tight text-left"
-                    style={{ fontSize: '13px' }}
-                  >
-                    <thead className="bg-stone-100/90 dark:bg-stone-800 text-[10px] font-black uppercase text-stone-700 dark:text-stone-300 border-b border-stone-200 dark:border-stone-800">
-                      <tr>
-                        <th className="py-1.5 px-3 text-left">DISCRIMINAÇÃO</th>
-                        <th className="py-1.5 px-2 text-center w-24">Referência</th>
-                        <th className="py-1.5 px-3 text-right w-36 text-emerald-700 dark:text-emerald-400">PROVENTOS (+)</th>
-                        <th className="py-1.5 px-3 text-right w-36 text-rose-700 dark:text-rose-400">DESCONTOS (-)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 text-stone-900 dark:text-stone-100 text-[13px]">
-                      {/* Linha 1: Valor das Férias */}
-                      <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
-                        <td className="py-1 px-3 font-semibold">
-                          Valor das Férias (Gozo Regular CLT)
-                        </td>
-                        <td className="py-1 px-2 text-center font-bold text-stone-600 dark:text-stone-400">
-                          {financials.effectiveGozoDays} dias
-                        </td>
-                        <td className="py-1 px-3 text-right">
-                          <DiscreteNumericInput
-                            value={financials.valorFeriasGozo}
-                            ariaLabel="Valor das Férias"
-                            colorClass="text-emerald-700 dark:text-emerald-400"
-                            onChange={(val) => {
-                              setCustomFeriasGozo(val);
-                              setTimeout(() => broadcastActiveVacationDraft({ customVacationAmount: val }), 0);
-                            }}
-                          />
-                        </td>
-                        <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
-                      </tr>
-
-                      {/* Linha 2: 1/3 Constitucional de Férias */}
-                      <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
-                        <td className="py-1 px-3 font-semibold">
-                          1/3 Constitucional de Férias (Art. 7º, XVII CF/88)
-                        </td>
-                        <td className="py-1 px-2 text-center font-bold text-stone-600 dark:text-stone-400">
-                          33,33%
-                        </td>
-                        <td className="py-1 px-3 text-right">
-                          <DiscreteNumericInput
-                            value={financials.valorUmTercoGozo}
-                            ariaLabel="1/3 Constitucional de Férias"
-                            colorClass="text-emerald-700 dark:text-emerald-400"
-                            onChange={(val) => {
-                              setCustomUmTercoGozo(val);
-                              setTimeout(() => broadcastActiveVacationDraft({ oneThirdBonus: val }), 0);
-                            }}
-                          />
-                        </td>
-                        <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
-                      </tr>
-
-                      {/* Linhas 3 e 4: Abono Pecuniário e 1/3 Abono (se ativados) */}
-                      {sellDaysCount > 0 && (
-                        <>
-                          <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition bg-amber-50/25 dark:bg-amber-950/15">
-                            <td className="py-1 px-3 font-semibold">
-                              Abono Pecuniário (Venda de 10 Dias - Art. 143 CLT)
-                            </td>
-                            <td className="py-1 px-2 text-center font-bold text-amber-700 dark:text-amber-400">
-                              {sellDaysCount} dias
-                            </td>
-                            <td className="py-1 px-3 text-right">
-                              <DiscreteNumericInput
-                                value={financials.valorAbonoPecuniario}
-                                ariaLabel="Abono Pecuniário"
-                                colorClass="text-emerald-700 dark:text-emerald-400"
-                                onChange={(val) => {
-                                  setCustomAbonoPecuniario(val);
-                                  setTimeout(() => broadcastActiveVacationDraft(), 0);
-                                }}
-                              />
-                            </td>
-                            <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
-                          </tr>
-                          <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition bg-amber-50/25 dark:bg-amber-950/15">
-                            <td className="py-1 px-3 font-semibold">
-                              1/3 Constitucional sobre Abono Pecuniário
-                            </td>
-                            <td className="py-1 px-2 text-center font-bold text-amber-700 dark:text-amber-400">
-                              33,33%
-                            </td>
-                            <td className="py-1 px-3 text-right">
-                              <DiscreteNumericInput
-                                value={financials.valorUmTercoAbono}
-                                ariaLabel="1/3 sobre Abono Pecuniário"
-                                colorClass="text-emerald-700 dark:text-emerald-400"
-                                onChange={(val) => {
-                                  setCustomUmTercoAbono(val);
-                                  setTimeout(() => broadcastActiveVacationDraft(), 0);
-                                }}
-                              />
-                            </td>
-                            <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
-                          </tr>
-                        </>
-                      )}
-
-                      {/* Linha 5: Adiantamento do 13º Salário (se ativado) */}
-                      {thirteenthAdvance && (
-                        <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition bg-blue-50/25 dark:bg-blue-950/15">
+                  <div className="overflow-x-auto bg-white dark:bg-stone-900">
+                    <table
+                      className="w-full text-[13px] leading-tight text-left"
+                      style={{ fontSize: '13px' }}
+                    >
+                      <thead className="bg-[#cad4e6]/70 dark:bg-stone-800 text-[10px] font-black uppercase text-black dark:text-stone-300 border-b border-black/30 dark:border-stone-800">
+                        <tr>
+                          <th className="py-1.5 px-3 text-left">DISCRIMINAÇÃO</th>
+                          <th className="py-1.5 px-2 text-center w-24">Referência</th>
+                          <th className="py-1.5 px-3 text-right w-36 text-emerald-700 dark:text-emerald-400">PROVENTOS (+)</th>
+                          <th className="py-1.5 px-3 text-right w-36 text-rose-700 dark:text-rose-400">DESCONTOS (-)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200 dark:divide-stone-800/60 text-black dark:text-stone-100 text-[13px]">
+                        {/* Linha 1: Valor das Férias */}
+                        <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
                           <td className="py-1 px-3 font-semibold">
-                            Adiantamento da 1ª Parcela do 13º Salário (Lei 4.749/65)
+                            Valor das Férias (Gozo Regular CLT)
                           </td>
-                          <td className="py-1 px-2 text-center font-bold text-blue-700 dark:text-blue-400">
-                            50,00%
+                          <td className="py-1 px-2 text-center font-bold text-stone-700 dark:text-stone-400">
+                            {financials.effectiveGozoDays} dias
                           </td>
                           <td className="py-1 px-3 text-right">
                             <DiscreteNumericInput
-                              value={financials.valorDecimoAdiantamento}
-                              ariaLabel="Adiantamento do 13º Salário"
-                              colorClass="text-emerald-700 dark:text-emerald-400"
+                              value={financials.valorFeriasGozo}
+                              ariaLabel="Valor das Férias"
+                              colorClass="text-black dark:text-emerald-400"
                               onChange={(val) => {
-                                setCustomDecimoAdiantamento(val);
-                                setTimeout(() => broadcastActiveVacationDraft({ thirteenthAmount: val }), 0);
+                                setCustomFeriasGozo(val);
+                                setTimeout(() => broadcastActiveVacationDraft({ customVacationAmount: val }), 0);
                               }}
                             />
                           </td>
                           <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
                         </tr>
-                      )}
 
-                      {/* Linha 6: Desconto de INSS sobre Férias com Toggle Switch */}
-                      <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
-                        <td className="py-1 px-3 font-semibold">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={inssEnabled ? '' : 'text-stone-400 line-through'}>
-                              Desconto de INSS sobre Férias (Tabela Progressiva)
-                            </span>
-                            <DiscountSwitch
-                              checked={inssEnabled}
-                              onChange={(checked) => {
-                                setInssEnabled(checked);
-                                setCustomInssDiscount(checked ? null : 0);
+                        {/* Linha 2: 1/3 Constitucional de Férias */}
+                        <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
+                          <td className="py-1 px-3 font-semibold">
+                            1/3 Constitucional de Férias (Art. 7º, XVII CF/88)
+                          </td>
+                          <td className="py-1 px-2 text-center font-bold text-stone-700 dark:text-stone-400">
+                            33,33%
+                          </td>
+                          <td className="py-1 px-3 text-right">
+                            <DiscreteNumericInput
+                              value={financials.valorUmTercoGozo}
+                              ariaLabel="1/3 Constitucional de Férias"
+                              colorClass="text-black dark:text-emerald-400"
+                              onChange={(val) => {
+                                setCustomUmTercoGozo(val);
+                                setTimeout(() => broadcastActiveVacationDraft({ oneThirdBonus: val }), 0);
+                              }}
+                            />
+                          </td>
+                          <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
+                        </tr>
+
+                        {/* Linhas 3 e 4: Abono Pecuniário e 1/3 Abono (se ativados) */}
+                        {sellDaysCount > 0 && (
+                          <>
+                            <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition bg-amber-50/25 dark:bg-amber-950/15">
+                              <td className="py-1 px-3 font-semibold">
+                                Abono Pecuniário (Venda de 10 Dias - Art. 143 CLT)
+                              </td>
+                              <td className="py-1 px-2 text-center font-bold text-amber-700 dark:text-amber-400">
+                                {sellDaysCount} dias
+                              </td>
+                              <td className="py-1 px-3 text-right">
+                                <DiscreteNumericInput
+                                  value={financials.valorAbonoPecuniario}
+                                  ariaLabel="Abono Pecuniário"
+                                  colorClass="text-black dark:text-emerald-400"
+                                  onChange={(val) => {
+                                    setCustomAbonoPecuniario(val);
+                                    setTimeout(() => broadcastActiveVacationDraft(), 0);
+                                  }}
+                                />
+                              </td>
+                              <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
+                            </tr>
+                            <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition bg-amber-50/25 dark:bg-amber-950/15">
+                              <td className="py-1 px-3 font-semibold">
+                                1/3 Constitucional sobre Abono Pecuniário
+                              </td>
+                              <td className="py-1 px-2 text-center font-bold text-amber-700 dark:text-amber-400">
+                                33,33%
+                              </td>
+                              <td className="py-1 px-3 text-right">
+                                <DiscreteNumericInput
+                                  value={financials.valorUmTercoAbono}
+                                  ariaLabel="1/3 sobre Abono Pecuniário"
+                                  colorClass="text-black dark:text-emerald-400"
+                                  onChange={(val) => {
+                                    setCustomUmTercoAbono(val);
+                                    setTimeout(() => broadcastActiveVacationDraft(), 0);
+                                  }}
+                                />
+                              </td>
+                              <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
+                            </tr>
+                          </>
+                        )}
+
+                        {/* Linha 5: Adiantamento do 13º Salário (se ativado) */}
+                        {thirteenthAdvance && (
+                          <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition bg-blue-50/25 dark:bg-blue-950/15">
+                            <td className="py-1 px-3 font-semibold">
+                              Adiantamento da 1ª Parcela do 13º Salário (Lei 4.749/65)
+                            </td>
+                            <td className="py-1 px-2 text-center font-bold text-blue-700 dark:text-blue-400">
+                              50,00%
+                            </td>
+                            <td className="py-1 px-3 text-right">
+                              <DiscreteNumericInput
+                                value={financials.valorDecimoAdiantamento}
+                                ariaLabel="Adiantamento do 13º Salário"
+                                colorClass="text-black dark:text-emerald-400"
+                                onChange={(val) => {
+                                  setCustomDecimoAdiantamento(val);
+                                  setTimeout(() => broadcastActiveVacationDraft({ thirteenthAmount: val }), 0);
+                                }}
+                              />
+                            </td>
+                            <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
+                          </tr>
+                        )}
+
+                        {/* Linha 6: Desconto de INSS sobre Férias com Toggle Switch */}
+                        <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
+                          <td className="py-1 px-3 font-semibold">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={inssEnabled ? '' : 'text-stone-400 line-through'}>
+                                Desconto de INSS sobre Férias (Tabela Progressiva)
+                              </span>
+                              <DiscountSwitch
+                                checked={inssEnabled}
+                                onChange={(checked) => {
+                                  setInssEnabled(checked);
+                                  setCustomInssDiscount(checked ? null : 0);
+                                  setTimeout(
+                                    () =>
+                                      broadcastActiveVacationDraft({
+                                        inssEnabled: checked,
+                                        inssDiscount: checked ? undefined : 0,
+                                      }),
+                                    0
+                                  );
+                                }}
+                                label="Desconto de INSS"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-1 px-2 text-center font-bold text-stone-700 dark:text-stone-400">
+                            {inssEnabled ? `${financials.inssEffectiveRate.toFixed(2).replace('.', ',')}%` : 'Isento'}
+                          </td>
+                          <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
+                          <td className="py-1 px-3 text-right">
+                            <DiscreteNumericInput
+                              value={financials.inssDiscount}
+                              ariaLabel="Desconto de INSS"
+                              colorClass={inssEnabled ? 'text-black dark:text-rose-400' : 'text-stone-400'}
+                              onChange={(val) => {
+                                const nextEnabled = val > 0 ? true : inssEnabled;
+                                setInssEnabled(nextEnabled);
+                                setCustomInssDiscount(val);
                                 setTimeout(
                                   () =>
                                     broadcastActiveVacationDraft({
-                                      inssEnabled: checked,
-                                      inssDiscount: checked ? undefined : 0,
+                                      inssEnabled: nextEnabled,
+                                      inssDiscount: val,
                                     }),
                                   0
                                 );
                               }}
-                              label="Desconto de INSS"
                             />
-                          </div>
-                        </td>
-                        <td className="py-1 px-2 text-center font-bold text-stone-600 dark:text-stone-400">
-                          {inssEnabled ? `${financials.inssEffectiveRate.toFixed(2).replace('.', ',')}%` : 'Isento'}
-                        </td>
-                        <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
-                        <td className="py-1 px-3 text-right">
-                          <DiscreteNumericInput
-                            value={financials.inssDiscount}
-                            ariaLabel="Desconto de INSS"
-                            colorClass={inssEnabled ? 'text-rose-700 dark:text-rose-400' : 'text-stone-400'}
-                            onChange={(val) => {
-                              const nextEnabled = val > 0 ? true : inssEnabled;
-                              setInssEnabled(nextEnabled);
-                              setCustomInssDiscount(val);
-                              setTimeout(
-                                () =>
-                                  broadcastActiveVacationDraft({
-                                    inssEnabled: nextEnabled,
-                                    inssDiscount: val,
-                                  }),
-                                0
-                              );
-                            }}
-                          />
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
 
-                      {/* Linha 7: Desconto de IRRF sobre Férias com Toggle Switch */}
-                      <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
-                        <td className="py-1 px-3 font-semibold">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={irrfEnabled ? '' : 'text-stone-400 line-through'}>
-                              Desconto de IRRF sobre Férias (Retenção na Fonte)
-                            </span>
-                            <DiscountSwitch
-                              checked={irrfEnabled}
-                              onChange={(checked) => {
-                                setIrrfEnabled(checked);
-                                setCustomIrrfDiscount(checked ? null : 0);
+                        {/* Linha 7: Desconto de IRRF sobre Férias com Toggle Switch */}
+                        <tr className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition">
+                          <td className="py-1 px-3 font-semibold">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={irrfEnabled ? '' : 'text-stone-400 line-through'}>
+                                Desconto de IRRF sobre Férias (Retenção na Fonte)
+                              </span>
+                              <DiscountSwitch
+                                checked={irrfEnabled}
+                                onChange={(checked) => {
+                                  setIrrfEnabled(checked);
+                                  setCustomIrrfDiscount(checked ? null : 0);
+                                  setTimeout(
+                                    () =>
+                                      broadcastActiveVacationDraft({
+                                        irrfEnabled: checked,
+                                        irrfDiscount: checked ? undefined : 0,
+                                      }),
+                                    0
+                                  );
+                                }}
+                                label="Desconto de IRRF"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-1 px-2 text-center font-bold text-stone-700 dark:text-stone-400">
+                            {irrfEnabled && financials.irrfRate > 0 ? `${financials.irrfRate.toFixed(1).replace('.', ',')}%` : 'Isento'}
+                          </td>
+                          <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
+                          <td className="py-1 px-3 text-right">
+                            <DiscreteNumericInput
+                              value={financials.irrfDiscount}
+                              ariaLabel="Desconto de IRRF"
+                              colorClass={irrfEnabled ? 'text-black dark:text-rose-400' : 'text-stone-400'}
+                              onChange={(val) => {
+                                const nextEnabled = val > 0 ? true : irrfEnabled;
+                                setIrrfEnabled(nextEnabled);
+                                setCustomIrrfDiscount(val);
                                 setTimeout(
                                   () =>
                                     broadcastActiveVacationDraft({
-                                      irrfEnabled: checked,
-                                      irrfDiscount: checked ? undefined : 0,
+                                      irrfEnabled: nextEnabled,
+                                      irrfDiscount: val,
                                     }),
                                   0
                                 );
                               }}
-                              label="Desconto de IRRF"
                             />
-                          </div>
-                        </td>
-                        <td className="py-1 px-2 text-center font-bold text-stone-600 dark:text-stone-400">
-                          {irrfEnabled && financials.irrfRate > 0 ? `${financials.irrfRate.toFixed(1).replace('.', ',')}%` : 'Isento'}
-                        </td>
-                        <td className="py-1 px-3 text-right font-mono text-stone-400">-</td>
-                        <td className="py-1 px-3 text-right">
-                          <DiscreteNumericInput
-                            value={financials.irrfDiscount}
-                            ariaLabel="Desconto de IRRF"
-                            colorClass={irrfEnabled ? 'text-rose-700 dark:text-rose-400' : 'text-stone-400'}
-                            onChange={(val) => {
-                              const nextEnabled = val > 0 ? true : irrfEnabled;
-                              setIrrfEnabled(nextEnabled);
-                              setCustomIrrfDiscount(val);
-                              setTimeout(
-                                () =>
-                                  broadcastActiveVacationDraft({
-                                    irrfEnabled: nextEnabled,
-                                    irrfDiscount: val,
-                                  }),
-                                0
-                              );
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 4. BLOCO 3: RESUMO E TOTAIS DO RECIBO COMPACTO */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-0 rounded-xl overflow-hidden border border-stone-300 dark:border-stone-700 shadow-xs">
-                <div className="md:col-span-6 bg-white dark:bg-stone-800/90 p-2.5 px-3.5 flex flex-col justify-between space-y-1">
-                  <div className="flex items-center justify-between text-xs pb-1 border-b border-stone-200 dark:border-stone-700">
-                    <span className="font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wide">
-                      Total Bruto (Proventos):
-                    </span>
-                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 font-mono">
-                      {formatBRL(financials.totalBruto)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pb-1 border-b border-stone-200 dark:border-stone-700">
-                    <span className="font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wide">
-                      Total de Descontos (INSS + IRRF):
-                    </span>
-                    <span className="text-sm font-black text-rose-700 dark:text-rose-400 font-mono">
-                      {formatBRL(financials.totalDescontos)}
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between pt-0.5">
-                    <span>Base Previdenciária: <strong>{formatBRL(financials.baseINSS)}</strong></span>
-                    <span>Base IRRF: <strong>{formatBRL(financials.baseIRRF)}</strong></span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                <div className="md:col-span-6 bg-[#0963cb]/10 dark:bg-blue-950/40 border-t md:border-t-0 md:border-l border-blue-200 dark:border-blue-900 p-2.5 px-3.5 flex flex-col justify-between text-right">
-                  <div className="flex items-center justify-between md:justify-end md:flex-col md:items-end">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-[#0963cb] dark:text-sky-300 block">
-                      Valor Líquido a Pagar
-                    </span>
-                    <div className="text-xl sm:text-2xl font-black text-[#0963cb] dark:text-sky-400 font-['Outfit'] leading-tight">
-                      {formatBRL(financials.valorLiquido)}
+                {/* 4. BLOCO 3: RESUMO E TOTAIS DO RECIBO COMPACTO */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-0 rounded-xl overflow-hidden border border-black dark:border-stone-700 bg-[#e0e6f1] dark:bg-stone-800">
+                  <div className="md:col-span-6 bg-[#e0e6f1] dark:bg-stone-800/90 p-2.5 px-3.5 flex flex-col justify-between space-y-1">
+                    <div className="flex items-center justify-between text-xs pb-1 border-b border-black/20 dark:border-stone-700">
+                      <span className="font-bold text-black dark:text-stone-300 uppercase tracking-wide">
+                        Total Bruto (Proventos):
+                      </span>
+                      <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 font-mono">
+                        {formatBRL(financials.totalBruto)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pb-1 border-b border-black/20 dark:border-stone-700">
+                      <span className="font-bold text-black dark:text-stone-300 uppercase tracking-wide">
+                        Total de Descontos (INSS + IRRF):
+                      </span>
+                      <span className="text-sm font-black text-rose-700 dark:text-rose-400 font-mono">
+                        {formatBRL(financials.totalDescontos)}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-black dark:text-stone-400 flex items-center justify-between pt-0.5">
+                      <span>Base Previdenciária: <strong>{formatBRL(financials.baseINSS)}</strong></span>
+                      <span>Base IRRF: <strong>{formatBRL(financials.baseIRRF)}</strong></span>
                     </div>
                   </div>
 
-                  <div className="mt-1 pt-1 border-t border-blue-200/80 dark:border-blue-800/80">
-                    <p className="text-[10px] font-bold text-stone-700 dark:text-stone-300">
-                      Limite para pagamento: 2 dias antes do gozo (
-                      <span className="text-[#0963cb] dark:text-sky-300 font-black underline">
-                        {paymentDeadline}
+                  <div className="md:col-span-6 bg-[#e0e6f1] dark:bg-blue-950/40 border-t md:border-t-0 md:border-l border-black dark:border-blue-900 p-2.5 px-3.5 flex flex-col justify-between text-right">
+                    <div className="flex items-center justify-between md:justify-end md:flex-col md:items-end">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-black dark:text-sky-300 block">
+                        Valor Líquido a Pagar
                       </span>
-                      )
-                    </p>
+                      <div className="text-xl sm:text-2xl font-black text-[#0963cb] dark:text-sky-400 font-['Outfit'] leading-tight">
+                        {formatBRL(financials.valorLiquido)}
+                      </div>
+                    </div>
+
+                    <div className="mt-1 pt-1 border-t border-black/20 dark:border-blue-800/80">
+                      <p className="text-[10px] font-bold text-black dark:text-stone-300">
+                        Limite para pagamento: 2 dias antes do gozo (
+                        <span className="text-[#0963cb] dark:text-sky-300 font-black underline">
+                          {paymentDeadline}
+                        </span>
+                        )
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Observações Compactas e Ações na mesma linha/bloco final */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-0.5">
+              {/* Observações Compactas e Rodapé */}
+              <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
                 <div className="flex-1">
                   <input
                     type="text"
@@ -4042,7 +4044,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     value={notes}
                     disabled={!selectedEmployeeId}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -4051,7 +4053,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     type="button"
                     onClick={handlePreviewReceipt}
                     disabled={!selectedEmployeeId}
-                    className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold text-xs rounded-lg shadow-xs transition cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 hover:bg-gray-100 dark:hover:bg-stone-700 text-black dark:text-stone-200 font-bold text-xs rounded-lg shadow-xs transition cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Abrir Aviso e Recibo de Férias (PDF)"
                   >
                     <Printer className="w-3.5 h-3.5 text-[#0963cb]" />
@@ -4061,7 +4063,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   <button
                     type="button"
                     onClick={handleCloseProgrammingModal}
-                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-bold text-xs hover:bg-stone-50 dark:hover:bg-stone-700 cursor-pointer transition"
+                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 text-black dark:text-stone-300 font-bold text-xs hover:bg-gray-100 dark:hover:bg-stone-700 cursor-pointer transition"
                   >
                     Cancelar
                   </button>
@@ -4070,7 +4072,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                     type="submit"
                     onClick={handleSaveModal}
                     disabled={!selectedEmployeeId}
-                    className="px-4 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold text-xs transition shadow-sm cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Salvar Férias
                   </button>

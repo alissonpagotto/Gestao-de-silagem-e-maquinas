@@ -127,7 +127,7 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
         className={`relative flex items-center bg-white border rounded-lg transition-all duration-150 ${
           isSidePanelOpen
             ? 'border-[#0963cb] ring-2 ring-[#0963cb]/25 bg-sky-50/20 shadow-xs'
-            : 'border-stone-300 hover:border-stone-400 focus-within:border-[#0963cb] focus-within:ring-1 focus-within:ring-[#0963cb]'
+            : 'border-gray-400 hover:border-gray-500 focus-within:border-[#0963cb] focus-within:ring-1 focus-within:ring-[#0963cb]'
         }`}
       >
         {/* Ícone sutil de Busca */}
@@ -144,7 +144,7 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           placeholder={placeholder}
-          className="w-full py-1.5 text-xs sm:text-sm font-semibold text-stone-900 bg-transparent focus:outline-none placeholder:text-stone-400 placeholder:font-normal"
+          className="w-full py-1.5 text-xs sm:text-sm font-semibold text-black bg-transparent focus:outline-none placeholder:text-stone-400 placeholder:font-normal"
         />
 
         {/* Ações discretas na extremidade direita: Limpar (X) & Seta de abertura */}
