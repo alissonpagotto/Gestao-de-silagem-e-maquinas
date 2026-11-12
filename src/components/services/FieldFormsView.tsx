@@ -28,6 +28,7 @@ import {
   saveStoredFormSequences, 
   FormSequences 
 } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { createPortal } from 'react-dom';
 
 interface FieldFormsViewProps {
@@ -122,7 +123,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   });
 
   // Cabeçalho da Empresa Reativo
-  const companyLogo = companyProfile?.logoUrl;
+  const companyLogo = useResolvedMediaUrl(companyProfile?.logoUrl);
   const companyCnpj = companyProfile?.cnpjCpf || '';
   const companyTradeName = companyProfile?.tradeName || companyProfile?.corporateName || '';
   const companyAddress = companyProfile?.address 

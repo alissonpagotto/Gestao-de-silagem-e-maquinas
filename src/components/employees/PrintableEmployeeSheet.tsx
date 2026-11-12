@@ -1,6 +1,7 @@
 import React from 'react';
 import { Employee, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 
 interface PrintableEmployeeSheetProps {
@@ -12,6 +13,9 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
   employee,
   companyProfile,
 }) => {
+  const rawPhotoRef = employee ? (employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl) : undefined;
+  const resolvedSheetPhoto = useResolvedMediaUrl(rawPhotoRef);
+
   if (!employee) return null;
 
   const todayBR = new Date().toLocaleDateString('pt-BR');
@@ -145,7 +149,7 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
         {/* Espaço para Foto */}
         <div style={{ width: '100px', flexShrink: 0, textAlign: 'center' }}>
           {(() => {
-            const sheetPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+            const sheetPhoto = resolvedSheetPhoto;
             return sheetPhoto && !isBrokenAvatarUrl(sheetPhoto) ? (
               <div style={{ width: '95px', height: '120px', border: '1px solid #94a3b8', borderRadius: '4px', overflow: 'hidden', margin: '0 auto' }}>
                 <img 

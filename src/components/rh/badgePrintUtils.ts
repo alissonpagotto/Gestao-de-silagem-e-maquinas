@@ -1,5 +1,6 @@
 import { Employee } from '../../types';
 import { formatDateBR } from '../../lib/storage';
+import { getCachedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 import { encodeCode128B } from './badgeHelpers';
 import {
@@ -69,11 +70,12 @@ function buildLogoHtml(
   if (!theme.showLogo) return '';
   const boxPx = Math.round(28 * scaleFactor);
   const fontPx = Math.round(10 * scaleFactor);
-  const hasLogo = Boolean(companyLogoUrl && !isBrokenAvatarUrl(companyLogoUrl));
+  const resolvedLogoUrl = getCachedMediaUrl(companyLogoUrl);
+  const hasLogo = Boolean(resolvedLogoUrl && !isBrokenAvatarUrl(resolvedLogoUrl));
   if (hasLogo) {
     return `
       <div style="width:${boxPx}px;height:${boxPx}px;border-radius:4px;background:#ffffff;padding:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid rgba(0,0,0,0.12);">
-        <img src="${escapeHtml(companyLogoUrl)}" alt="${escapeHtml(companyName)}" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.style.display='none'" />
+        <img src="${escapeHtml(resolvedLogoUrl)}" alt="${escapeHtml(companyName)}" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.style.display='none'" />
       </div>
     `;
   }
@@ -92,7 +94,8 @@ function buildPhotoHtml(
   extraStyle = '',
   scaleFactor = 1
 ): string {
-  const rawPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const rawPhotoRef = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const rawPhoto = getCachedMediaUrl(rawPhotoRef);
   const hasPhoto = Boolean(rawPhoto && !isBrokenAvatarUrl(rawPhoto));
   const initials = escapeHtml(getInitials(employee.name));
   const iconSize = Math.round(20 * scaleFactor);

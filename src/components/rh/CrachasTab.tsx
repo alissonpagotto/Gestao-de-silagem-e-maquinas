@@ -21,6 +21,7 @@ import {
   saveStoredBadgeTheme,
 } from './badgeTheme';
 import { generateBadgesPrintHtml } from './badgePrintUtils';
+import { getCachedMediaUrl, isIndexedDbRef, resolveMediaUrlAsync } from '../../lib/imageStorage';
 
 interface CrachasTabProps {
   employees: Employee[];
@@ -116,23 +117,63 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
     saveStoredBadgeTheme(nextTheme);
   };
 
-  const handlePrintSelected = () => {
+  const handlePrintSelected = async () => {
     if (selectedEntries.length === 0) {
       setSelectionWarning('Selecione pelo menos um funcionário na lista à esquerda para imprimir.');
       return;
     }
     setSelectionWarning('');
 
+    // Verifica se precisa buscar alguma imagem assincronamente no IndexedDB
+    const needsAsyncResolution =
+      (isIndexedDbRef(companyProfile?.logoUrl) && !getCachedMediaUrl(companyProfile?.logoUrl)) ||
+      selectedEntries.some(({ employee }) => {
+        const ref = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+        return isIndexedDbRef(ref) && !getCachedMediaUrl(ref);
+      });
+
+    // Abre a janela antes de qualquer await para não acionar bloqueadores de pop-up
+    let printWindow: Window | null = null;
+    try {
+      printWindow = window.open('', '_blank', 'width=900,height=700');
+    } catch (err) {
+      console.warn('Falha ao abrir janela dedicada para impressão dos crachás:', err);
+    }
+
+    let resolvedLogoUrl = getCachedMediaUrl(companyProfile?.logoUrl) || companyProfile?.logoUrl;
+    let resolvedEntries = selectedEntries;
+
+    if (needsAsyncResolution) {
+      const [logoDataUrl, entriesWithResolvedPhotos] = await Promise.all([
+        resolveMediaUrlAsync(companyProfile?.logoUrl),
+        Promise.all(
+          selectedEntries.map(async ({ employee, regNumber }) => {
+            const ref = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+            const dataUrl = await resolveMediaUrlAsync(ref);
+            return {
+              regNumber,
+              employee: {
+                ...employee,
+                avatar_url: dataUrl,
+                photoUrl: dataUrl,
+              },
+            };
+          })
+        ),
+      ]);
+      resolvedLogoUrl = logoDataUrl;
+      resolvedEntries = entriesWithResolvedPhotos;
+    }
+
     const htmlDoc = generateBadgesPrintHtml(
-      selectedEntries,
+      resolvedEntries,
       companyDisplayName,
-      companyProfile?.logoUrl,
+      resolvedLogoUrl,
       badgeTheme
     );
 
     // Abordagem 1: Janela dedicada via window.open('', '_blank') (funciona em iframes e qualquer navegador)
     try {
-      const printWindow = window.open('', '_blank', 'width=900,height=700');
       if (printWindow && printWindow.document) {
         printWindow.document.open();
         printWindow.document.write(htmlDoc);
@@ -141,7 +182,7 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
         return;
       }
     } catch (err) {
-      console.warn('Falha ao abrir janela dedicada para impressão dos crachás:', err);
+      console.warn('Falha ao preencher janela dedicada para impressão dos crachás:', err);
     }
 
     // Abordagem 2 (Fallback caso bloqueador de pop-ups impeça window.open): Blob URL em nova guia ou iframe oculto

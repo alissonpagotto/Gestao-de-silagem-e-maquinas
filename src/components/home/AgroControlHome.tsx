@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
 import { getStoredCompanyProfile } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { EnsiladeiraVector } from './EnsiladeiraVector';
 
 export interface AgroControlHomeProps {
@@ -399,8 +400,13 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   const [imgError, setImgError] = useState(false);
   const [clientLogoError, setClientLogoError] = useState(false);
 
-  // Leitura reativa e síncrona do logotipo da empresa via LocalStorage
+  // Leitura reativa e síncrona do logotipo da empresa via LocalStorage / IndexedDB
   const [companyLogo, setCompanyLogo] = useState<string>(() => getReactiveCompanyLogo(companyProfile));
+  const resolvedCompanyLogo = useResolvedMediaUrl(companyLogo);
+
+  useEffect(() => {
+    setClientLogoError(false);
+  }, [resolvedCompanyLogo]);
 
   // Leitura reativa e dinâmica dos indicadores do painel comercial diretamente do LocalStorage
   const [indicators, setIndicators] = useState<IndicatorValues>(() => calculateRealIndicators());
@@ -497,10 +503,10 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
           100% REMOVIDO, exibindo silhueta neutra e elegante em Slim Design Pro.
          ========================================================================= */}
       <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-6xl mx-auto px-4 overflow-hidden">
-        {companyLogo && !clientLogoError ? (
+        {resolvedCompanyLogo && !clientLogoError ? (
           <div className="w-full h-full flex items-center justify-center py-1 px-2">
             <img 
-              src={companyLogo} 
+              src={resolvedCompanyLogo} 
               alt="LOGOTIPO DA EMPRESA"
               className="w-[580px] max-w-[95vw] h-auto max-h-[96%] object-contain mb-2 sm:mb-3 mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
               referrerPolicy="no-referrer"

@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, ServiceOrder, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf, calculateOfficialFgts } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
@@ -37,6 +38,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   allEmployees,
   commissionsInfo,
 }) => {
+  const resolvedLogoUrl = useResolvedMediaUrl(companyProfile?.logoUrl);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
@@ -564,9 +566,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             <div className="flex items-start gap-3 flex-1 min-w-0">
               {/* Ícone / Logo quadrado da empresa */}
               <div className="w-14 h-14 min-w-[56px] max-w-[56px] rounded-lg border border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 flex items-center justify-center overflow-hidden p-1 shrink-0 shadow-2xs">
-                {companyProfile?.logoUrl ? (
+                {resolvedLogoUrl ? (
                   <img
-                    src={companyProfile.logoUrl}
+                    src={resolvedLogoUrl}
                     alt={tradeName}
                     className="max-w-full max-h-full object-contain"
                   />

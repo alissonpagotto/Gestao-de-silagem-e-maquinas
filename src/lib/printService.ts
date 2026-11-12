@@ -1,5 +1,6 @@
 import { CompanyProfile } from '../types';
 import { formatDateBR } from './storage';
+import { getCachedMediaUrl } from './imageStorage';
 
 export interface PrintDocumentOptions {
   title: string;
@@ -45,7 +46,7 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
     .filter(Boolean)
     .join(' ');
 
-  const logoSrc = company.logoUrl || '';
+  const logoSrc = getCachedMediaUrl(company.logoUrl) || '';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

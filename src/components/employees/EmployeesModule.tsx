@@ -38,6 +38,14 @@ import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisp
 import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
 import { compressImageToLocalBase64, resolveEmployeePhoto } from '../../lib/localPhotoUtils';
+import {
+  deleteEmployeeAvatar,
+  isIndexedDbRef,
+  isIndexedDbSupported,
+  resolveMediaUrlAsync,
+  saveEmployeeAvatar,
+  useResolvedMediaUrl,
+} from '../../lib/imageStorage';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
 import { ManageableDropdown } from '../common/ManageableDropdown';
@@ -872,6 +880,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const contractType = regimeContratacao;
   const setContractType = setRegimeContratacao;
   const [photoUrl, setPhotoUrl] = useState<string | undefined>('');
+  const resolvedModalPhotoUrl = useResolvedMediaUrl(photoUrl);
   const [phone, setPhone] = useState<string>('');
   const [baseSalary, setBaseSalary] = useState<string>('0,00');
   const [admissionDate, setAdmissionDate] = useState<string>('');
@@ -1937,18 +1946,33 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   // Open official print preview modal for a specific employee sheet
-  const handleOpenEmployeePrint = (emp: Partial<Employee>) => {
-    setEmployeeToPrint(emp);
-    const contentHtml = generateEmployeeSheetHtml(emp, activeCompany);
-    const whatsappText = generateEmployeeWhatsAppText(emp, activeCompany);
-    const empName = emp.name?.trim() || 'Colaborador';
-    const companyTradeName = activeCompany.tradeName || 'Silagem Fácil';
+  const handleOpenEmployeePrint = async (emp: Partial<Employee>) => {
+    const rawEmpPhoto = resolveEmployeePhoto(emp);
+    const [resolvedEmpPhoto, resolvedCompLogo] = await Promise.all([
+      resolveMediaUrlAsync(rawEmpPhoto),
+      resolveMediaUrlAsync(activeCompany?.logoUrl),
+    ]);
+    const printableEmp: Partial<Employee> = {
+      ...emp,
+      avatar_url: resolvedEmpPhoto,
+      photoUrl: resolvedEmpPhoto,
+    };
+    const printableCompany: CompanyProfile = {
+      ...activeCompany,
+      logoUrl: resolvedCompLogo || activeCompany?.logoUrl,
+    };
+
+    setEmployeeToPrint(printableEmp);
+    const contentHtml = generateEmployeeSheetHtml(printableEmp, printableCompany);
+    const whatsappText = generateEmployeeWhatsAppText(printableEmp, printableCompany);
+    const empName = printableEmp.name?.trim() || 'Colaborador';
+    const companyTradeName = printableCompany.tradeName || 'Silagem Fácil';
 
     setSingleEmployeePrintOptions({
       title: `Ficha Cadastral & Termo de Admissão - ${empName}`,
-      subtitle: `Colaborador: ${empName} • Função: ${emp.role || 'Operador'} • Regime: ${emp.contractType || 'CLT'}`,
+      subtitle: `Colaborador: ${empName} • Função: ${printableEmp.role || 'Operador'} • Regime: ${printableEmp.contractType || 'CLT'}`,
       documentType: 'CADASTRO DE FUNCIONÁRIO PARA ASSINATURA',
-      company: activeCompany,
+      company: printableCompany,
       contentHtml,
       showSignatures: true,
       signatureLabels: [
@@ -2203,20 +2227,32 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
       const targetValidUuid = toValidUUID(finalId);
 
-      // 1. PROCESSAMENTO E SALVAMENTO 100% LOCAL DA FOTO (Base64 JPEG <= 300x300 px):
-      // Opera estritamente em memória / localStorage sem qualquer chamada a supabase.storage.
+      // 1. PROCESSAMENTO E SALVAMENTO LOCAL DA FOTO VIA INDEXEDDB (máx 300x300 px, JPEG 0.8):
+      // Evita QuotaExceededError gravando o Base64 no IndexedDB (`AgroControlMediaDB`) e mantendo apenas referência leve no localStorage.
       let finalFotoUrl: string | null = null;
+      let resolvedBase64ForCloud: string | null = null;
       if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim() && !isBrokenAvatarUrl(photoUrl)) {
         const rawPhoto = photoUrl.trim();
         if (rawPhoto.startsWith('data:image/')) {
+          let compressed = rawPhoto;
           try {
-            finalFotoUrl = await compressImageToLocalBase64(rawPhoto, 300, 300, 0.8);
+            compressed = await compressImageToLocalBase64(rawPhoto, 300, 300, 0.8);
           } catch {
-            finalFotoUrl = rawPhoto;
+            compressed = rawPhoto;
           }
+          resolvedBase64ForCloud = compressed;
+          if (isIndexedDbSupported()) {
+            finalFotoUrl = await saveEmployeeAvatar(finalId, compressed);
+          } else {
+            finalFotoUrl = compressed;
+          }
+        } else if (isIndexedDbRef(rawPhoto)) {
+          finalFotoUrl = rawPhoto;
         } else if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
           finalFotoUrl = rawPhoto;
         }
+      } else if (editingEmployee?.id) {
+        await deleteEmployeeAvatar(finalId);
       }
 
       // 2. ROTINA DE ANEXOS DA SEÇÃO 4 (localStorage no modo offline; Storage apenas quando ativo):
@@ -2386,10 +2422,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         data_nascimento: formattedBirthDate,
         pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : undefined,
         numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : undefined,
-        photoUrl: finalFotoUrl || undefined,
-        foto: finalFotoUrl || undefined,
-        foto_url: finalFotoUrl || undefined,
+        photoUrl: undefined,
+        foto: undefined,
+        foto_url: undefined,
         avatar_url: finalFotoUrl || undefined,
+        has_avatar: Boolean(finalFotoUrl),
         // Colunas físicas dos anexos da Seção 4 (bucket documentos):
         aso_url: finalAsoUrl || undefined,
         contrato_experiencia_url: finalContratoUrl || undefined,
@@ -2659,10 +2696,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             banco_chave_pix: cleanBancoChavePix || null,
             agencia: cleanAgencia || null,
             conta_corrente: cleanContaCorrente || null,
-            // Foto de Perfil (Base64 local ou URL)
-            foto_url: finalFotoUrl || null,
-            avatar_url: finalFotoUrl || null,
-            foto: finalFotoUrl || null,
+            // Foto de Perfil (URL remota ou Base64)
+            foto_url: resolvedBase64ForCloud || (finalFotoUrl && !isIndexedDbRef(finalFotoUrl) ? finalFotoUrl : null),
+            avatar_url: resolvedBase64ForCloud || (finalFotoUrl && !isIndexedDbRef(finalFotoUrl) ? finalFotoUrl : null),
+            foto: resolvedBase64ForCloud || (finalFotoUrl && !isIndexedDbRef(finalFotoUrl) ? finalFotoUrl : null),
             // 4 Anexos da Seção 4 (bucket documentos)
             aso_url: finalAsoUrl || null,
             contrato_experiencia_url: finalContratoUrl || null,
@@ -3755,10 +3792,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   
                   {/* Photo Upload Thumbnail */}
                   <div className="sm:col-span-3 flex flex-col items-center justify-center p-3 border border-gray-400 rounded-xl bg-white text-center">
-                    {photoUrl && !isBrokenAvatarUrl(photoUrl) ? (
+                    {resolvedModalPhotoUrl && !isBrokenAvatarUrl(resolvedModalPhotoUrl) ? (
                       <div className="relative group">
                         <img 
-                          src={photoUrl} 
+                          src={resolvedModalPhotoUrl} 
                           alt="Foto Perfil" 
                           className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-[#0963cb] shadow-sm"
                           onError={() => setPhotoUrl('')}

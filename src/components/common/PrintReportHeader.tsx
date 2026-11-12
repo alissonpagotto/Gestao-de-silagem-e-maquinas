@@ -1,6 +1,7 @@
 import React from 'react';
 import { CompanyProfile } from '../../types';
 import { getStoredCompanyProfile } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { Building2 } from 'lucide-react';
 
 export interface PrintReportHeaderProps {
@@ -34,6 +35,7 @@ export const PrintReportHeader: React.FC<PrintReportHeaderProps> = ({
   const finalTitle = reportTitle || title;
   const finalSubtitle = reportSubtitle || subtitle;
   const company = companyProfile || getStoredCompanyProfile();
+  const resolvedLogoUrl = useResolvedMediaUrl(company?.logoUrl);
 
   const tradeName =
     company?.tradeName ||
@@ -53,10 +55,10 @@ export const PrintReportHeader: React.FC<PrintReportHeaderProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center w-full">
         {/* LADO ESQUERDO: Logomarca da Empresa (Col 1-3) */}
         <div className="md:col-span-3 flex items-center gap-3">
-          {company?.logoUrl ? (
+          {resolvedLogoUrl ? (
             <div className="w-20 h-20 max-w-[90px] max-h-[90px] rounded-lg border border-stone-200 bg-white flex items-center justify-center p-1 overflow-hidden shadow-2xs shrink-0">
               <img
-                src={company.logoUrl}
+                src={resolvedLogoUrl}
                 alt={`Logomarca ${tradeName}`}
                 className="w-full h-full object-contain"
                 crossOrigin="anonymous"

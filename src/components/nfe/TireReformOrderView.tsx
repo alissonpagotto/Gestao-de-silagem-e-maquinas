@@ -46,6 +46,7 @@ import {
   saveStoredInventory,
   STORAGE_KEYS
 } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 
 export interface TireReformOrder {
   id: string;
@@ -495,6 +496,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   }, []);
 
   const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
+  const resolvedCompanyLogo = useResolvedMediaUrl(company.logoUrl);
 
   // Soma automática em lote de todos os valores unitários preenchidos nos pneus da lista
   const totalPendingValue = useMemo(() => {
@@ -2084,10 +2086,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             <div className="flex items-start justify-between gap-4">
               {/* Logotipo & Dados da Empresa Emitente */}
               <div className="flex items-center space-x-3.5">
-                {company.logoUrl ? (
+                {resolvedCompanyLogo ? (
                   <div className="w-16 h-16 max-w-[70px] max-h-[70px] border border-stone-300 rounded-lg p-1 flex items-center justify-center shrink-0 bg-white">
                     <img
-                      src={company.logoUrl}
+                      src={resolvedCompanyLogo}
                       alt={(company.tradeName || 'LOGO').toUpperCase()}
                       className="max-h-full max-w-full object-contain"
                     />

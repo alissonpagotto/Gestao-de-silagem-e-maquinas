@@ -69,6 +69,15 @@ import {
   INITIAL_SETTLEMENTS
 } from './initialData';
 import { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber } from './defaultAppointments';
+import {
+  COMPANY_LOGO_KEY,
+  COMPANY_LOGO_REF,
+  compactEmployeeMediaForStorage,
+  isIndexedDbRef,
+  isIndexedDbSupported,
+  saveMediaToIndexedDB,
+  setMediaMemoryCache,
+} from './imageStorage';
 export { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber };
 
 export const STORAGE_KEYS = {
@@ -192,7 +201,7 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
     }
 
     try {
-      // 1. Purgar chaves efêmeras, caches, backups e snapshots antigos
+      // 1. Purgar chaves efêmeras, caches, rascunhos e snapshots de backup antigos (preservando dados reais)
       const purgeSubstrings = [
         'debug_',
         '_temp_',
@@ -202,8 +211,10 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
         'colaca_silagem_cache_',
         'silagem_facil_cache_',
         'silagem_facil_clean_v1_backup_',
-        'backup',
-        'rascunho',
+        'silagem_facil_backup_',
+        'agrocontrol_cache_',
+        'backup_',
+        '_backup',
         '_temp',
         'temp_'
       ];
@@ -1129,7 +1140,7 @@ export function getStoredEmployees(): Employee[] {
 
     const isBroken = (p?: string) => {
       if (!p || typeof p !== 'string') return false;
-      if (p.startsWith('data:image/')) return false;
+      if (p.startsWith('data:image/') || isIndexedDbRef(p)) return false;
       return (
         p.includes('wix_mp.com') ||
         p.includes('wix_mp') ||
@@ -1148,19 +1159,18 @@ export function getStoredEmployees(): Employee[] {
       ];
       const validPhoto = rawCandidates.find(c => typeof c === 'string' && c.trim() !== '' && !isBroken(c));
       if (validPhoto) {
-        if (
-          updatedEmp.photoUrl !== validPhoto ||
-          updatedEmp.foto_url !== validPhoto ||
-          updatedEmp.avatar_url !== validPhoto ||
-          updatedEmp.foto !== validPhoto
-        ) {
-          updatedEmp = {
+        const hasRedundantOrBase64 =
+          (typeof validPhoto === 'string' && validPhoto.trim().startsWith('data:image/') && isIndexedDbSupported()) ||
+          updatedEmp.photoUrl !== undefined ||
+          updatedEmp.foto_url !== undefined ||
+          updatedEmp.foto !== undefined ||
+          updatedEmp.avatar_url !== validPhoto.trim();
+
+        if (hasRedundantOrBase64) {
+          updatedEmp = compactEmployeeMediaForStorage({
             ...updatedEmp,
-            photoUrl: validPhoto,
-            foto_url: validPhoto,
-            avatar_url: validPhoto,
-            foto: validPhoto,
-          };
+            avatar_url: validPhoto.trim(),
+          });
           modified = true;
         }
       } else {
@@ -1173,6 +1183,7 @@ export function getStoredEmployees(): Employee[] {
             foto_url: undefined,
             avatar_url: undefined,
             foto: undefined,
+            has_avatar: false,
           };
         }
       }
@@ -1230,19 +1241,9 @@ export function getStoredAllEmployees(): Employee[] {
 
 export function saveStoredEmployees(employees: Employee[]): void {
   try {
-    const normalized = (Array.isArray(employees) ? employees : []).map((emp: any) => {
-      const photo = emp?.avatar_url || emp?.photoUrl || emp?.foto_url || emp?.foto;
-      if (photo && typeof photo === 'string' && photo.trim()) {
-        return {
-          ...emp,
-          photoUrl: photo,
-          foto: photo,
-          foto_url: photo,
-          avatar_url: photo,
-        };
-      }
-      return emp;
-    });
+    const normalized = (Array.isArray(employees) ? employees : []).map((emp: any) =>
+      compactEmployeeMediaForStorage(emp)
+    );
     const json = JSON.stringify(normalized);
     const cId = getActiveCompanyId();
 
@@ -2392,19 +2393,33 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
 
 export function saveStoredCompanyProfile(profile: CompanyProfile): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILE, JSON.stringify(profile));
-    if (profile.logoUrl && profile.logoUrl.trim()) {
-      localStorage.setItem('agrocontrol_empresa_logo', profile.logoUrl.trim());
+    const rawLogo = typeof profile.logoUrl === 'string' ? profile.logoUrl.trim() : '';
+    let persistedLogoUrl = rawLogo;
+
+    if (rawLogo.startsWith('data:image/') && isIndexedDbSupported()) {
+      setMediaMemoryCache(COMPANY_LOGO_KEY, rawLogo);
+      void saveMediaToIndexedDB(COMPANY_LOGO_KEY, rawLogo);
+      persistedLogoUrl = COMPANY_LOGO_REF;
+    }
+
+    const profileToStore: CompanyProfile = {
+      ...profile,
+      logoUrl: persistedLogoUrl,
+    };
+
+    safeLocalStorageSetItem(STORAGE_KEYS.COMPANY_PROFILE, JSON.stringify(profileToStore));
+    if (persistedLogoUrl) {
+      safeLocalStorageSetItem('agrocontrol_empresa_logo', persistedLogoUrl);
     } else {
       localStorage.removeItem('agrocontrol_empresa_logo');
     }
     if (typeof window !== 'undefined') {
       queueMicrotask(() => {
         try {
-          window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profile }));
-          window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: profile }));
-          window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: profile.logoUrl || '' }));
-          window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: profile.logoUrl || '' }));
+          window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profileToStore }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: profileToStore }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: persistedLogoUrl }));
+          window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: persistedLogoUrl }));
         } catch (_) {}
       });
     }

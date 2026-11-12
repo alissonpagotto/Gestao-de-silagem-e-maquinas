@@ -24,6 +24,7 @@ import {
   PrintDocumentOptions 
 } from '../../lib/printService';
 import { formatDateBR } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { formatPhone, cleanDigits } from '../../lib/formatters';
 import { 
   generatePdfFromElement, 
@@ -52,6 +53,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const [pdfSuccessMessage, setPdfSuccessMessage] = useState<string | null>(null);
 
   const printDocRef = useRef<HTMLDivElement>(null);
+  const resolvedCompanyLogoUrl = useResolvedMediaUrl(options.company?.logoUrl);
 
   if (!isOpen) return null;
 
@@ -66,13 +68,21 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     whatsappText 
   } = options;
 
+  const printableOptions: PrintDocumentOptions = {
+    ...options,
+    company: {
+      ...company,
+      logoUrl: resolvedCompanyLogoUrl || company.logoUrl,
+    },
+  };
+
   const handlePrint = () => {
-    const html = generatePrintableHtml(options);
+    const html = generatePrintableHtml(printableOptions);
     executePrint(html);
   };
 
   const handleOpenInNewTab = () => {
-    const html = generatePrintableHtml(options);
+    const html = generatePrintableHtml(printableOptions);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
@@ -270,9 +280,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             {/* Header with Company Logo */}
             <div className="flex items-center justify-between border-b-2 border-[#0963cb] pb-3 gap-4">
               <div className="w-18 h-18 shrink-0 rounded-lg bg-blue-50 border border-blue-200 p-1 flex items-center justify-center overflow-hidden">
-                {company.logoUrl ? (
+                {resolvedCompanyLogoUrl ? (
                   <img 
-                    src={company.logoUrl} 
+                    src={resolvedCompanyLogoUrl} 
                     alt="Logo" 
                     className="max-w-full max-h-full object-contain"
                     referrerPolicy="no-referrer"

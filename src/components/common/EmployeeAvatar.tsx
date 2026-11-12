@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 
 /**
  * Verifica se a URL do avatar é inválida, nula ou aponta para domínios conhecidos por quebra/404 (como wix_mp.com).
@@ -51,10 +52,11 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
   showInitials = false,
 }) => {
   const [hasError, setHasError] = useState(false);
+  const resolvedPhotoUrl = useResolvedMediaUrl(photoUrl);
 
   React.useEffect(() => {
     setHasError(false);
-  }, [photoUrl]);
+  }, [photoUrl, resolvedPhotoUrl]);
 
   // Tamanhos pré-configurados
   const sizeClasses: Record<string, { container: string; icon: string; text: string }> = {
@@ -66,12 +68,12 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
   };
 
   const currentSize = typeof size === 'string' && sizeClasses[size] ? sizeClasses[size] : sizeClasses.sm;
-  const isBroken = isBrokenAvatarUrl(photoUrl) || hasError;
+  const isBroken = isBrokenAvatarUrl(resolvedPhotoUrl) || hasError;
 
   const initials = (name || '').trim().substring(0, 2).toUpperCase() || 'OP';
 
-  if (!isBroken && photoUrl && photoUrl.trim()) {
-    const cleanSrc = photoUrl.trim();
+  if (!isBroken && resolvedPhotoUrl && resolvedPhotoUrl.trim()) {
+    const cleanSrc = resolvedPhotoUrl.trim();
     return (
       <img
         src={cleanSrc}

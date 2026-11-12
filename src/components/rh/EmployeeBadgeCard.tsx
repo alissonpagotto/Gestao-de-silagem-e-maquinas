@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { IdCard, User } from 'lucide-react';
 import { Employee } from '../../types';
 import { formatDateBR } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 import { Code128Barcode } from './Code128Barcode';
 import {
@@ -32,10 +33,21 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
   const dims = getBadgeDimensions(theme.size);
   const s = dims.scaleFactor;
 
-  const rawPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const rawPhotoRef = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const rawPhoto = useResolvedMediaUrl(rawPhotoRef);
+  const resolvedLogoUrl = useResolvedMediaUrl(companyLogoUrl);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [rawPhoto]);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [resolvedLogoUrl]);
+
   const hasPhoto = Boolean(rawPhoto && !isBrokenAvatarUrl(rawPhoto) && !imgError);
   const hasLogo = Boolean(
-    theme.showLogo && companyLogoUrl && !isBrokenAvatarUrl(companyLogoUrl) && !logoError
+    theme.showLogo && resolvedLogoUrl && !isBrokenAvatarUrl(resolvedLogoUrl) && !logoError
   );
 
   const initials = useMemo(() => {
@@ -86,7 +98,7 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
           style={{ width: `${boxPx}px`, height: `${boxPx}px`, padding: '2px' }}
         >
           <img
-            src={companyLogoUrl}
+            src={resolvedLogoUrl}
             alt={companyName}
             className="w-full h-full object-contain"
             onError={() => setLogoError(true)}

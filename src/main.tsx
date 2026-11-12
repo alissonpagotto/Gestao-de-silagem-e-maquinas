@@ -6,9 +6,12 @@ import { AuthProvider } from './context/AuthContext';
 import { AppStateProvider } from './context/AppStateContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { executeGlobalStorageAudit } from './lib/globalStorageAudit';
+import { migrateAndCleanLocalStorageMedia, preloadAllMediaFromIndexedDB } from './lib/imageStorage';
 import './index.css';
 
-// Execução compulsória do Motor de Contingência Universal antes da renderização do React
+// Migração/limpeza imediata de mídias para IndexedDB + Motor de Contingência Universal
+migrateAndCleanLocalStorageMedia();
+void preloadAllMediaFromIndexedDB();
 executeGlobalStorageAudit();
 
 createRoot(document.getElementById('root')!).render(

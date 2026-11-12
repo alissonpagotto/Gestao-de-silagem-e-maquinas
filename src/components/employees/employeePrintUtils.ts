@@ -1,5 +1,6 @@
 import { Employee, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
+import { getCachedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 
 /**
@@ -29,7 +30,8 @@ export function generateEmployeeSheetHtml(
   const age = calculateAge(employee.birthDate);
   const salary = employee.baseSalary !== undefined ? employee.baseSalary : (employee.salary || 0);
 
-  const resolvedPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const rawPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const resolvedPhoto = getCachedMediaUrl(rawPhoto);
   const hasValidPhoto = Boolean(resolvedPhoto && !isBrokenAvatarUrl(resolvedPhoto));
   const photoBlock = hasValidPhoto
     ? `<div style="width: 105px; height: 130px; border: 1.5px solid #64748b; border-radius: 6px; overflow: hidden; margin: 0 auto; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">

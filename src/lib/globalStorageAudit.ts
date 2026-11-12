@@ -25,6 +25,7 @@
  */
 
 import { safeLocalStorageSetItem, isCorruptedOrGhostDocumento, purgeGhostDocumentosEntrada } from './storage';
+import { migrateAndCleanLocalStorageMedia, preloadAllMediaFromIndexedDB } from './imageStorage';
 
 export interface StorageAuditResult {
   auditedCategories: number;
@@ -626,6 +627,10 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
       timestamp: new Date().toISOString()
     };
   }
+
+  // Migra imagens Base64 de colaboradores e logotipo da empresa para o IndexedDB e remove lixo/cache obsoleto
+  migrateAndCleanLocalStorageMedia();
+  void preloadAllMediaFromIndexedDB();
 
   // Purga defensiva preliminar de registros fantasmas/corrompidos
   purgeGhostDocumentosEntrada();

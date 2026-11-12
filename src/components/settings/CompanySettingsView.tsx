@@ -42,7 +42,15 @@ import {
   fetchCompanyByCnpj 
 } from '../../lib/formatters';
 import { saveCloudCompanyProfile, fetchCloudCompanyProfile } from '../../lib/supabaseService';
-import { getStoredCompanyProfile, saveStoredCompanyProfile } from '../../lib/storage';
+import { getStoredCompanyProfile, saveStoredCompanyProfile, safeLocalStorageSetItem } from '../../lib/storage';
+import { compressLogoToLocalDataUrl } from '../../lib/localPhotoUtils';
+import {
+  COMPANY_LOGO_REF,
+  deleteCompanyLogo,
+  isIndexedDbSupported,
+  saveCompanyLogo,
+  useResolvedMediaUrl,
+} from '../../lib/imageStorage';
 
 interface CompanySettingsViewProps {
   companyProfile: CompanyProfile;
@@ -148,6 +156,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const resolvedLogoUrl = useResolvedMediaUrl(formData.logoUrl);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [resolvedLogoUrl]);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
@@ -291,7 +304,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -300,23 +313,50 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        setLogoError(false);
-        setFormData(prev => ({
-          ...prev,
-          logoUrl: base64
+    try {
+      const compressedDataUrl = await compressLogoToLocalDataUrl(file, 400, 400, 0.85);
+      const storedLogoRef = isIndexedDbSupported()
+        ? await saveCompanyLogo(compressedDataUrl)
+        : compressedDataUrl;
+
+      setLogoError(false);
+      setFormData(prev => ({
+        ...prev,
+        logoUrl: storedLogoRef
+      }));
+      try {
+        safeLocalStorageSetItem('agrocontrol_empresa_logo', storedLogoRef);
+        const existingRaw = localStorage.getItem('dadosEmpresa');
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        safeLocalStorageSetItem('dadosEmpresa', JSON.stringify({
+          ...existing,
+          logoUrl: storedLogoRef,
         }));
-        try {
-          localStorage.setItem('agrocontrol_empresa_logo', base64);
-          window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: base64 }));
-          window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: base64 }));
-        } catch (_) {}
-      }
-    };
-    reader.readAsDataURL(file);
+        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: storedLogoRef }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: storedLogoRef }));
+      } catch (_) {}
+    } catch {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          const storedLogoRef = isIndexedDbSupported()
+            ? await saveCompanyLogo(base64)
+            : base64;
+          setLogoError(false);
+          setFormData(prev => ({
+            ...prev,
+            logoUrl: storedLogoRef
+          }));
+          try {
+            safeLocalStorageSetItem('agrocontrol_empresa_logo', storedLogoRef);
+            window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: storedLogoRef }));
+            window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: storedLogoRef }));
+          } catch (_) {}
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleResetToDefaultLogo = () => {
@@ -325,13 +365,14 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       ...prev,
       logoUrl: ''
     }));
+    void deleteCompanyLogo();
     try {
       localStorage.removeItem('agrocontrol_empresa_logo');
       const existingRaw = localStorage.getItem('dadosEmpresa');
       if (existingRaw) {
         const existing = JSON.parse(existingRaw);
         existing.logoUrl = '';
-        localStorage.setItem('dadosEmpresa', JSON.stringify(existing));
+        safeLocalStorageSetItem('dadosEmpresa', JSON.stringify(existing));
       }
       window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: '' }));
       window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: '' }));
@@ -345,50 +386,59 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSavingCloud(true);
+    let persistedLogoUrl = (formData.logoUrl || '').trim();
+    if (persistedLogoUrl.startsWith('data:image/') && isIndexedDbSupported()) {
+      persistedLogoUrl = await saveCompanyLogo(persistedLogoUrl);
+    }
+    const profileToSave: CompanyProfile = {
+      ...formData,
+      logoUrl: persistedLogoUrl,
+    };
+
     try {
-      const activeSector = formData.activitySector || '';
+      const activeSector = profileToSave.activitySector || '';
       if (typeof localStorage !== 'undefined') {
         const existingRaw = localStorage.getItem('dadosEmpresa');
         const existing = existingRaw ? JSON.parse(existingRaw) : {};
-        localStorage.setItem('dadosEmpresa', JSON.stringify({
+        safeLocalStorageSetItem('dadosEmpresa', JSON.stringify({
           ...existing,
-          razaoSocial: formData.corporateName || '',
-          corporateName: formData.corporateName || '',
-          nomeFantasia: formData.tradeName || '',
-          tradeName: formData.tradeName || '',
+          razaoSocial: profileToSave.corporateName || '',
+          corporateName: profileToSave.corporateName || '',
+          nomeFantasia: profileToSave.tradeName || '',
+          tradeName: profileToSave.tradeName || '',
           ramoAtividade: activeSector,
           activitySector: activeSector,
-          logoUrl: formData.logoUrl || ''
+          logoUrl: persistedLogoUrl
         }));
-        if (formData.logoUrl && formData.logoUrl.trim()) {
-          localStorage.setItem('agrocontrol_empresa_logo', formData.logoUrl.trim());
+        if (persistedLogoUrl) {
+          safeLocalStorageSetItem('agrocontrol_empresa_logo', persistedLogoUrl);
         } else {
           localStorage.removeItem('agrocontrol_empresa_logo');
         }
-        window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: formData }));
-        window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: formData }));
-        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: formData.logoUrl || '' }));
-        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: formData.logoUrl || '' }));
+        window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profileToSave }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: profileToSave }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: persistedLogoUrl }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: persistedLogoUrl }));
       }
-      await saveCloudCompanyProfile(formData);
-      onSaveCompanyProfile(formData);
+      await saveCloudCompanyProfile(profileToSave);
+      onSaveCompanyProfile(profileToSave);
       setSavedSuccess(true);
       setTimeout(() => {
         setSavedSuccess(false);
       }, 4000);
     } catch (err) {
       console.error('Erro ao salvar configurações fiscais na nuvem:', err);
-      onSaveCompanyProfile(formData);
+      onSaveCompanyProfile(profileToSave);
       if (typeof window !== 'undefined') {
-        if (formData.logoUrl && formData.logoUrl.trim()) {
-          localStorage.setItem('agrocontrol_empresa_logo', formData.logoUrl.trim());
+        if (persistedLogoUrl) {
+          safeLocalStorageSetItem('agrocontrol_empresa_logo', persistedLogoUrl);
         } else {
           localStorage.removeItem('agrocontrol_empresa_logo');
         }
-        window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: formData }));
-        window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: formData }));
-        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: formData.logoUrl || '' }));
-        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: formData.logoUrl || '' }));
+        window.dispatchEvent(new CustomEvent('colaca_company_profile_live_change', { detail: profileToSave }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_company_profile_updated', { detail: profileToSave }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: persistedLogoUrl }));
+        window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: persistedLogoUrl }));
       }
       setSavedSuccess(true);
     } finally {
@@ -543,9 +593,9 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 title="Clique para alterar o logotipo da empresa"
                 className="relative group cursor-pointer w-full h-20 max-h-20 rounded-2xl bg-white dark:bg-stone-800/90 border border-slate-200 dark:border-stone-700 shadow-sm flex items-center justify-center overflow-hidden transition-all duration-200 hover:border-slate-300 dark:hover:border-stone-600 hover:shadow-md"
               >
-                {formData.logoUrl && !logoError ? (
+                {resolvedLogoUrl && !logoError ? (
                   <img 
-                    src={formData.logoUrl} 
+                    src={resolvedLogoUrl} 
                     alt="LOGOTIPO DA EMPRESA" 
                     className="w-full h-full object-contain p-2 drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
                     referrerPolicy="no-referrer"

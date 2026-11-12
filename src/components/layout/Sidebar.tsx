@@ -20,6 +20,7 @@ import {
   ModulePermissionKey 
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredCompanyProfile } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 
 export interface SidebarProps {
   activeTab: string;
@@ -172,7 +173,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [companyInfo, setCompanyInfo] = useState<ResolvedCompanyInfo>(() =>
     resolveCompanyInfo(companyProfile)
   );
+  const resolvedSidebarLogo = useResolvedMediaUrl(companyInfo.logoUrl);
   const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [resolvedSidebarLogo]);
 
   useEffect(() => {
     setCompanyInfo(resolveCompanyInfo(companyProfile));
@@ -443,10 +449,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleSelect('home')}
                 title={`${companyInfo.title} - TELA INICIAL`}
               >
-                {companyInfo.logoUrl && !logoError ? (
+                {resolvedSidebarLogo && !logoError ? (
                   <div className="w-8 h-8 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-0.5 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                     <img 
-                      src={companyInfo.logoUrl} 
+                      src={resolvedSidebarLogo} 
                       alt="Logo" 
                       className="max-w-full max-h-full object-contain"
                       referrerPolicy="no-referrer"
@@ -486,10 +492,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleSelect('home')}
                 title={`${companyInfo.title} (AGROCONTROL)`}
               >
-                {companyInfo.logoUrl && !logoError ? (
+                {resolvedSidebarLogo && !logoError ? (
                   <div className="w-9 h-9 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                     <img 
-                      src={companyInfo.logoUrl} 
+                      src={resolvedSidebarLogo} 
                       alt="Logo" 
                       className="max-w-full max-h-full object-contain"
                       referrerPolicy="no-referrer"

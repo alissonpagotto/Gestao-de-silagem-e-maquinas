@@ -655,7 +655,8 @@ export interface Employee {
   photoUrl?: string; // Foto de perfil
   foto?: string; // Foto de perfil (Base64 local / alias)
   foto_url?: string; // Alias banco Supabase (foto_url)
-  avatar_url?: string; // Alias banco Supabase / localStorage (avatar_url)
+  avatar_url?: string; // Alias banco Supabase / IndexedDB / localStorage (avatar_url)
+  has_avatar?: boolean; // Indica se o colaborador possui foto salva localmente no IndexedDB
   phone: string;
   city?: string; // Cidade de residência
   cidade?: string; // Alias banco Supabase

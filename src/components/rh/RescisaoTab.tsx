@@ -77,6 +77,7 @@ import {
   matchesCompetence 
 } from '../financial/CompetenceSelector';
 import { getDefaultCompetenceMonth } from './payrollHelpers';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 
 interface RescisaoTabProps {
   employees: Employee[];
@@ -101,6 +102,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const { currentUser, companyId: authCompanyId } = useAuth();
+  const resolvedLogoUrl = useResolvedMediaUrl(companyProfile?.logoUrl);
   const activeTenantId = useMemo(() => {
     return authCompanyId || currentUser?.id || getActiveCompanyId() || 'default';
   }, [authCompanyId, currentUser?.id]);
@@ -1356,9 +1358,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               {/* Cabeçalho da Empresa */}
               <div className="block-rescisao trct-avoid-break flex items-start justify-between border-b-2 border-black pb-2.5 gap-3 print:pb-1.5">
                 <div className="flex items-center gap-3">
-                  {companyProfile?.logoUrl ? (
+                  {resolvedLogoUrl ? (
                     <img 
-                      src={companyProfile.logoUrl} 
+                      src={resolvedLogoUrl} 
                       alt="Logo" 
                       className="h-12 w-auto max-w-[110px] object-contain print:h-10" 
                       referrerPolicy="no-referrer"

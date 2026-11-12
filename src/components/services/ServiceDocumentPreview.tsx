@@ -20,6 +20,7 @@ import {
   UtensilsCrossed
 } from 'lucide-react';
 import { formatCurrencyBRL, formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { parseCurrencyToFloat } from '../../lib/formatters';
 import { ServiceTruckItem, CompanyProfile, ServiceFuelEntry, ServiceMealExpense } from '../../types';
 import { TruckExpenseDetail } from './DRESummaryBlock';
@@ -183,6 +184,7 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
 
   // Perfil da empresa prestadora (via props ou armazenamento local sincronizado)
   const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
+  const resolvedCompanyLogo = useResolvedMediaUrl(company.logoUrl);
 
   // Formatação completa do endereço da empresa
   const fullCompanyAddress = useMemo(() => {
@@ -1009,10 +1011,10 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
             >
               {/* TOPO SERRILHADO BOBINA TÉRMICA */}
               <div className="border-b-2 border-dashed border-gray-800 pb-2 mb-2 text-center space-y-0.5">
-                {company.logoUrl && (
+                {resolvedCompanyLogo && (
                   <div className="w-12 h-12 mx-auto mb-1 flex items-center justify-center overflow-hidden">
                     <img
-                      src={company.logoUrl}
+                      src={resolvedCompanyLogo}
                       alt={company.tradeName || 'Logo'}
                       className="max-w-full max-h-full object-contain grayscale"
                     />
@@ -1405,9 +1407,9 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {/* 1. Logotipo da Empresa */}
                     <div className="w-12 h-12 min-w-[48px] max-w-[48px] rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden p-1 shrink-0">
-                      {company.logoUrl ? (
+                      {resolvedCompanyLogo ? (
                         <img
-                          src={company.logoUrl}
+                          src={resolvedCompanyLogo}
                           alt={company.tradeName || 'Logotipo da Empresa'}
                           className="max-w-full max-h-full object-contain"
                         />

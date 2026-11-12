@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, FileText, CheckCircle2 } from 'lucide-react';
 import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem, PayrollType } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf, calculateOfficialFgts } from './payrollHelpers';
 import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
@@ -88,6 +89,7 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
     'COLAÇA SILAGEM';
 
   const cnpj = companyProfile?.cnpjCpf || (companyProfile as any)?.cnpj || '';
+  const resolvedLogoUrl = useResolvedMediaUrl(companyProfile?.logoUrl);
   const todayStr = formatDateBR(new Date().toISOString().split('T')[0]);
 
   const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
@@ -339,8 +341,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         <div className="flex items-start justify-between border-b-2 border-stone-800 pb-1.5 gap-2">
           <div className="flex items-start gap-2.5 flex-1 min-w-0">
             <div className="w-10 h-10 rounded-lg border border-stone-200 bg-stone-50 flex items-center justify-center shrink-0 text-[#0963cb] overflow-hidden p-0.5">
-              {companyProfile?.logoUrl ? (
-                <img src={companyProfile.logoUrl} alt={tradeName} className="max-w-full max-h-full object-contain" />
+              {resolvedLogoUrl ? (
+                <img src={resolvedLogoUrl} alt={tradeName} className="max-w-full max-h-full object-contain" />
               ) : (
                 <Building2 className="w-6 h-6 stroke-[1.8]" />
               )}
