@@ -29,6 +29,7 @@ import { BrokerSettlement, Employee, SilageOrder, BankAccount, PaymentMethod } f
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
+import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 
 export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
@@ -43,6 +44,9 @@ interface BrokerSettlementsTabProps {
   employees?: Employee[];
   orders?: SilageOrder[];
   bankAccounts?: BankAccount[];
+  competenceMonth?: string;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
 }
 
 export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
@@ -51,6 +55,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
   employees = [],
   orders = [],
   bankAccounts = [],
+  competenceMonth,
+  onPrevMonth,
+  onNextMonth,
 }) => {
   const { confirm } = useConfirm();
 
@@ -62,29 +69,15 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'pago'>('all');
   const [selectedBrokerFilter, setSelectedBrokerFilter] = useState<string>('all');
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
 
-  // Month filter options: 1 previous, current, 5 next
-  const monthFilterOptions = useMemo(() => {
-    const monthNames = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
+  const [internalCompetence, setInternalCompetence] = useState<string>(() => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
 
-    const options: { key: string; label: string; year: number; month: number }[] = [];
-    for (let offset = -1; offset <= 5; offset++) {
-      const d = new Date(currentYear, currentMonth + offset, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-      const label = monthNames[m];
-      options.push({ key, label, year: y, month: m });
-    }
-    return options;
-  }, []);
+  const activeCompetence = competenceMonth || internalCompetence;
+  const handlePrev = onPrevMonth || (() => setInternalCompetence((prev) => getPrevCompetence(prev)));
+  const handleNext = onNextMonth || (() => setInternalCompetence((prev) => getNextCompetence(prev)));
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -369,9 +362,16 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
     setIsPrintModalOpen(true);
   };
 
+  // Filter settlements by competence
+  const competenceSettlements = useMemo(() => {
+    return settlements.filter(s => {
+      return (s.date && matchesCompetence(s.date, activeCompetence)) || s.referenceMonth === activeCompetence;
+    });
+  }, [settlements, activeCompetence]);
+
   // Filter settlements
   const filteredSettlements = useMemo(() => {
-    return settlements.filter(s => {
+    return competenceSettlements.filter(s => {
       // Filter by broker
       if (selectedBrokerFilter !== 'all' && s.brokerId !== selectedBrokerFilter) {
         return false;
@@ -383,13 +383,6 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       }
       if (statusFilter === 'pago' && s.status !== 'pago') {
         return false;
-      }
-
-      // Filter by Month
-      if (selectedMonthKey) {
-        if (!s.date || !s.date.startsWith(selectedMonthKey)) {
-          return false;
-        }
       }
 
       // Filter by Search Query
@@ -406,35 +399,35 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       return true;
     });
-  }, [settlements, selectedBrokerFilter, statusFilter, selectedMonthKey, searchTerm]);
+  }, [competenceSettlements, selectedBrokerFilter, statusFilter, searchTerm]);
 
-  // Overall KPIs
+  // Overall KPIs (scoped to active competence)
   const totalPendingAmount = useMemo(() => {
-    return settlements
+    return competenceSettlements
       .filter(s => s.status === 'pendente' || s.status === 'parcial')
       .reduce((sum, s) => sum + s.netAmount, 0);
-  }, [settlements]);
+  }, [competenceSettlements]);
 
   const totalPaidAmount = useMemo(() => {
-    return settlements
+    return competenceSettlements
       .filter(s => s.status === 'pago')
       .reduce((sum, s) => sum + s.netAmount, 0);
-  }, [settlements]);
+  }, [competenceSettlements]);
 
-  const totalSettlementsCount = settlements.length;
-  const pendingCount = settlements.filter(s => s.status === 'pendente' || s.status === 'parcial').length;
-  const paidCount = settlements.filter(s => s.status === 'pago').length;
+  const totalSettlementsCount = competenceSettlements.length;
+  const pendingCount = competenceSettlements.filter(s => s.status === 'pendente' || s.status === 'parcial').length;
+  const paidCount = competenceSettlements.filter(s => s.status === 'pago').length;
 
   return (
-    <div className="space-y-4">
+    <div id="financial-tab-agenciadores" className="financial-subtab-clean space-y-4">
       {/* 1. TOPO: Cabeçalho do Submódulo e Ações Rápidas */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-start space-x-3">
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-4 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-transparent">
+          <div className="flex items-start space-x-3 bg-transparent">
             <div className="p-2.5 bg-sky-600 text-white rounded-xl shadow-xs shrink-0">
               <Handshake className="w-6 h-6" />
             </div>
-            <div>
+            <div className="bg-transparent">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black text-black dark:text-white uppercase tracking-wider">
                   Acertos & Repasses de Agenciadores
@@ -450,15 +443,15 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center space-x-2 shrink-0 bg-transparent">
             <button
               type="button"
               onClick={() => handleOpenAddModal()}
               disabled={brokerEmployees.length === 0}
-              className={`inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition cursor-pointer shadow-xs ${
+              className={`inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs ${
                 brokerEmployees.length > 0
-                  ? 'bg-sky-600 hover:bg-sky-700 text-white active:scale-98'
-                  : 'bg-stone-300 text-stone-600 cursor-not-allowed'
+                  ? 'cursor-pointer active:scale-95'
+                  : 'opacity-80 cursor-not-allowed'
               }`}
               title={brokerEmployees.length === 0 ? 'Cadastre um colaborador como Agenciador no RH primeiro' : 'Lançar nova comissão para agenciador'}
             >
@@ -490,9 +483,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       {/* 2. CARDS DE MÉTRICAS (KPIS) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Total a Repassar (Pendente) */}
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Total a Repassar (Pendente)
             </span>
             <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-900 dark:text-amber-300">
@@ -503,7 +496,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-amber-950 dark:text-amber-200 font-['Outfit']">
               {formatCurrencyBRL(totalPendingAmount)}
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold">
+            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-amber-600"></span>
               <span>{pendingCount} lançamento(s) aguardando baixa</span>
             </div>
@@ -511,9 +504,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
         </div>
 
         {/* Card 2: Total Repassado (Pago / Baixado) */}
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Total Repassado (Baixado)
             </span>
             <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-900 dark:text-emerald-300">
@@ -524,7 +517,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-200 font-['Outfit']">
               {formatCurrencyBRL(totalPaidAmount)}
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold">
+            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-600"></span>
               <span>{paidCount} lançamento(s) quitados</span>
             </div>
@@ -532,9 +525,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
         </div>
 
         {/* Card 3: Total Geral Acumulado */}
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Volume de Comissões
             </span>
             <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-sky-500/20 text-zinc-800 dark:text-sky-300">
@@ -545,16 +538,16 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white font-['Outfit']">
               {formatCurrencyBRL(totalPendingAmount + totalPaidAmount)}
             </div>
-            <div className="text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold">
+            <div className="text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold">
               {totalSettlementsCount} comissão(ões) registradas
             </div>
           </div>
         </div>
 
         {/* Card 4: Agenciadores Ativos */}
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Agenciadores Ativos
             </span>
             <span className="p-1.5 rounded-lg bg-orange-500/20 text-orange-900 dark:text-orange-300">
@@ -565,7 +558,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-orange-950 dark:text-orange-200 font-['Outfit']">
               {brokerEmployees.length}
             </div>
-            <div className="text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold truncate">
+            <div className="text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold truncate">
               {brokerEmployees.length > 0 ? 'Profissionais no quadro de intermediação' : 'Cadastre em RH > Funcionários'}
             </div>
           </div>
@@ -658,7 +651,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       )}
 
       {/* 4. BARRA DE FILTROS */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {/* Busca por texto */}
           <div className="relative min-w-[220px]">
@@ -683,7 +676,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                   : 'text-black dark:text-stone-300 hover:bg-black/10'
               }`}
             >
-              Todos ({settlements.length})
+              Todos ({competenceSettlements.length})
             </button>
             <button
               type="button"
@@ -726,33 +719,13 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
           )}
         </div>
 
-        {/* Filtro por Mês */}
-        <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setSelectedMonthKey(null)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              selectedMonthKey === null
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-black hover:bg-black/10'
-            }`}
-          >
-            Todos os Meses
-          </button>
-          {monthFilterOptions.slice(0, 4).map(opt => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => setSelectedMonthKey(opt.key)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                selectedMonthKey === opt.key
-                  ? 'bg-sky-600 text-white shadow-xs'
-                  : 'text-black hover:bg-black/10'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        {/* Seletor de Competência Padronizado (< Competência: MM/AAAA >) */}
+        <div className="flex items-center shrink-0">
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
         </div>
       </div>
 

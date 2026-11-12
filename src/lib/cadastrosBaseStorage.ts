@@ -74,6 +74,7 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
     atestados: true,
     faltas: true,
     rescisao: true,
+    crachas: true,
   },
   sub_relatorios: {
     dashboard: true,

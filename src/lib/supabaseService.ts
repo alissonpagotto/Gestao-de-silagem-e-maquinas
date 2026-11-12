@@ -2615,11 +2615,13 @@ export function encodeRhFuncionarioMeta(meta: {
   cnh_upgrade_dt?: boolean;
   cnh_upgrade_category?: string | null;
   termination_date?: string | null;
+  numero_registro?: string | null;
 }): string {
   const cleanRg = meta.numero_rg ? String(meta.numero_rg).trim().toUpperCase() : null;
   const cleanBirth = formatIsoDateOnly(meta.data_nascimento) || null;
   const cleanPis = meta.numero_pis ? String(meta.numero_pis).trim().toUpperCase() : null;
   const cleanRegime = meta.regime_contratacao ? String(meta.regime_contratacao).trim() : 'Registrado (CLT)';
+  const cleanRegistro = meta.numero_registro ? String(meta.numero_registro).replace(/\D/g, '').slice(0, 6) : undefined;
 
   return JSON.stringify({
     __rh_meta: 1,
@@ -2645,6 +2647,7 @@ export function encodeRhFuncionarioMeta(meta: {
     cnh_upgrade_dt: meta.cnh_upgrade_dt || undefined,
     cnh_upgrade_category: meta.cnh_upgrade_category || undefined,
     termination_date: formatIsoDateOnly(meta.termination_date) || undefined,
+    numero_registro: cleanRegistro || undefined,
   });
 }
 
@@ -2807,6 +2810,14 @@ export function mapRowToEmployee(row: any): Employee {
         ? meta.roles
         : (roleStr ? roleStr.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
     cpf: row.cpf ? String(row.cpf).trim() : '',
+    badgeRegistrationNumber:
+      (row.numero_registro || row.badge_registration_number || row.badgeRegistrationNumber || meta.numero_registro || localEmp?.badgeRegistrationNumber || localEmp?.numero_registro)
+        ? String(row.numero_registro || row.badge_registration_number || row.badgeRegistrationNumber || meta.numero_registro || localEmp?.badgeRegistrationNumber || localEmp?.numero_registro).replace(/\D/g, '').slice(0, 6)
+        : undefined,
+    numero_registro:
+      (row.numero_registro || row.badge_registration_number || row.badgeRegistrationNumber || meta.numero_registro || localEmp?.numero_registro || localEmp?.badgeRegistrationNumber)
+        ? String(row.numero_registro || row.badge_registration_number || row.badgeRegistrationNumber || meta.numero_registro || localEmp?.numero_registro || localEmp?.badgeRegistrationNumber).replace(/\D/g, '').slice(0, 6)
+        : undefined,
     rg: resolvedRg ? String(resolvedRg).trim().toUpperCase() : undefined,
     numero_rg: resolvedRg ? String(resolvedRg).trim().toUpperCase() : undefined,
     birthDate: resolvedBirthDate,
@@ -2975,6 +2986,7 @@ export function sanitizeRhFuncionarioPayload(
     cnh_upgrade_dt: employee.cnhUpgradeDT,
     cnh_upgrade_category: employee.cnhUpgradeCategory || null,
     termination_date: formatIsoDateOnly(employee.terminationDate) || null,
+    numero_registro: (employee.badgeRegistrationNumber || employee.numero_registro) ? String(employee.badgeRegistrationNumber || employee.numero_registro).replace(/\D/g, '').slice(0, 6) : null,
   });
 
   // Tratamento numérico de salário (NUMERIC em PostgreSQL)

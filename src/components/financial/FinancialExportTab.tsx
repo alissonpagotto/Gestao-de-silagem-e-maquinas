@@ -113,19 +113,19 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div id="financial-tab-exportar" className="financial-subtab-clean space-y-6">
       {/* Export Options Banner */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 text-black print:hidden">
-        <div>
-          <h3 className="text-base font-bold text-black">
+      <div className="bg-transparent border border-slate-400/60 dark:border-stone-800 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 text-black dark:text-white print:hidden">
+        <div className="bg-transparent border-0 p-0">
+          <h3 className="text-base font-bold text-black dark:text-white">
             Exportação & Relatórios Gerenciais Financeiros
           </h3>
-          <p className="text-xs text-black/80 font-medium mt-0.5">
+          <p className="text-xs text-black/80 dark:text-stone-300 font-medium mt-0.5">
             Gere demonstrativos em Excel/CSV para contabilidade ou imprima fechamentos de safra
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2 bg-transparent border-0 p-0">
           <CompetenceSelector
             competence={activeCompetence}
             onPrev={handlePrev}
@@ -153,7 +153,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
       </div>
 
       {/* Selector Tabs */}
-      <div className="bg-white rounded-xl border border-slate-200 p-1.5 flex items-center space-x-2 overflow-x-auto shadow-xs print:hidden">
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-slate-400/70 dark:border-stone-800 p-1.5 flex items-center space-x-2 overflow-x-auto shadow-xs print:hidden">
         <button
           type="button"
           onClick={() => setSelectedFormat('dre')}
@@ -201,7 +201,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
       </div>
 
       {/* Preview Sheet */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4 text-black print:border-none print:shadow-none print:p-0">
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-6 shadow-xs space-y-4 text-black dark:text-white print:bg-white print:border-none print:shadow-none print:p-0">
         
         {/* Printable Header */}
         <div className="hidden print:block mb-4">

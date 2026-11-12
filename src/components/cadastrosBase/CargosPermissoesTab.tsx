@@ -160,6 +160,7 @@ const DEFAULT_FORM_PERMISSOES: RolePermissions = {
     atestados: true,
     faltas: true,
     rescisao: true,
+    crachas: true,
   },
   sub_relatorios: {
     dashboard: true,
@@ -455,7 +456,7 @@ export const CargosPermissoesTab: React.FC = () => {
     const keysMap: Record<string, string[]> = {
       sub_financeiro: ['dre', 'despesas', 'contas_bancarias', 'a_pagar', 'a_receber', 'acertos_terceiros', 'acertos_agenciadores', 'exportar'],
       sub_notas: ['historico', 'importar_xml', 'nova_entrada', 'acoes_avancadas'],
-      sub_rh: ['dashboard', 'funcionarios', 'folha', 'ferias', 'afastamentos', 'adiantamentos', 'atestados', 'faltas', 'rescisao'],
+      sub_rh: ['dashboard', 'funcionarios', 'folha', 'ferias', 'afastamentos', 'adiantamentos', 'atestados', 'faltas', 'rescisao', 'crachas'],
       sub_relatorios: ['dashboard', 'resumo_geral', 'ativo_imobilizado', 'exportar_excel', 'cortes', 'vendas', 'despesas', 'consumo'],
       sub_clientes: ['lista', 'kanban', 'novo_cliente', 'acoes_avancadas'],
       sub_fornecedores: ['lista', 'novo_fornecedor', 'acoes_avancadas'],

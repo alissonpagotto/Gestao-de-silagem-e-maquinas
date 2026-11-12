@@ -58,6 +58,11 @@ import {
   DEFAULT_ADMIN_PERMISSIONS
 } from '../../lib/cadastrosBaseStorage';
 import { CargoPermissao } from '../../types';
+import {
+  generateBadgeRegistrationNumber,
+  isValidBadgeRegistrationNumber,
+  sanitizeBadgeDigits,
+} from '../rh/badgeHelpers';
 
 
 const STORAGE_KEYS = {
@@ -849,6 +854,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   }, [roleOptions, cargosBase]);
 
   const [cpf, setCpf] = useState<string>('');
+  const [badgeRegistrationNumber, setBadgeRegistrationNumber] = useState<string>('');
+  const [badgeManualOverride, setBadgeManualOverride] = useState<boolean>(false);
+  const [badgeError, setBadgeError] = useState<string>('');
   const [rgNumero, setRgNumero] = useState<string>('');
   const [dataNascimento, setDataNascimento] = useState<string>('');
   const [pisNumero, setPisNumero] = useState<string>('');
@@ -1031,11 +1039,22 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const initPis = editingEmployee.numero_pis || (editingEmployee as any).pis_pasep || editingEmployee.pis || initialMeta.numero_pis || initialMeta.pis_pasep || initialMeta.pis || '';
       const rawInitRegime = editingEmployee.regime_contratacao || (editingEmployee as any).tipo_contrato || (editingEmployee as any).regime || editingEmployee.contractType || initialMeta.regime_contratacao || initialMeta.tipo_contrato || initialMeta.regime || 'Registrado (CLT)';
       const initRegime = rawInitRegime === 'Funcionário' ? 'Registrado (CLT)' : rawInitRegime;
+      const initBadge = sanitizeBadgeDigits(
+        editingEmployee.badgeRegistrationNumber ||
+          editingEmployee.numero_registro ||
+          (editingEmployee as any).badge_registration_number ||
+          initialMeta.numero_registro ||
+          ''
+      );
 
       if (initRg) setRgNumero(String(initRg).trim().toUpperCase());
       if (initBirth) setDataNascimento(initBirth);
       if (initPis) setPisNumero(String(initPis).trim().toUpperCase());
       if (initRegime) setRegimeContratacao(String(initRegime).trim());
+      if (isValidBadgeRegistrationNumber(initBadge)) {
+        setBadgeRegistrationNumber(initBadge);
+        setBadgeManualOverride(true);
+      }
     }
 
     if (!isSupabaseConfigured) return;
@@ -1089,6 +1108,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           const loadedRegime = dbRow.regime_contratacao || dbRow.tipo_contrato || dbRow.regime || dbRow.contract_type || meta.regime_contratacao || meta.tipo_contrato || meta.regime;
           if (loadedRegime && String(loadedRegime).trim() !== 'Funcionário') {
             setRegimeContratacao(String(loadedRegime).trim());
+          }
+
+          const loadedBadge = sanitizeBadgeDigits(
+            dbRow.numero_registro || dbRow.badge_registration_number || meta.numero_registro
+          );
+          if (isValidBadgeRegistrationNumber(loadedBadge)) {
+            setBadgeRegistrationNumber(loadedBadge);
+            setBadgeManualOverride(true);
           }
         }
       } catch (err) {
@@ -1624,6 +1651,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setBrokerCommissionValue('5,00');
     setActingRegion('');
     setCpf('');
+    setBadgeRegistrationNumber('');
+    setBadgeManualOverride(false);
+    setBadgeError('');
     setRgNumero('');
     setDataNascimento('');
     setPisNumero('');
@@ -1732,6 +1762,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setActingRegion((emp.actingRegion || '').toUpperCase());
     setCpf(emp.cpf || '');
     const empMeta = parseRhFuncionarioMeta((emp as any).email);
+    const loadedBadge = sanitizeBadgeDigits(
+      emp.badgeRegistrationNumber ||
+        emp.numero_registro ||
+        (emp as any).badge_registration_number ||
+        empMeta.numero_registro
+    );
+    if (isValidBadgeRegistrationNumber(loadedBadge)) {
+      setBadgeRegistrationNumber(loadedBadge);
+      setBadgeManualOverride(true);
+    } else {
+      const empIdx = Math.max(
+        1,
+        localEmployees.findIndex((item) => item.id === emp.id) + 1 || localEmployees.length + 1
+      );
+      setBadgeRegistrationNumber(emp.cpf ? generateBadgeRegistrationNumber(emp.cpf, empIdx) : '');
+      setBadgeManualOverride(false);
+    }
+    setBadgeError('');
     const loadedRg = (emp.numero_rg || emp.rg || (emp as any).documento_rg || empMeta.numero_rg || '').toUpperCase();
     const safeBirth = formatIsoDateOnly(emp.data_nascimento || emp.birthDate || (emp as any).birth_date || empMeta.data_nascimento) || '';
     const loadedPis = (emp.numero_pis || emp.pis || (emp as any).pis_pasep || empMeta.numero_pis || '').toUpperCase();
@@ -1923,6 +1971,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       brokerCommissionValue: isBroker ? parseCurrencyInput(brokerCommissionValue) : undefined,
       actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
       cpf: cpf.trim() || undefined,
+      badgeRegistrationNumber: sanitizeBadgeDigits(badgeRegistrationNumber) || undefined,
+      numero_registro: sanitizeBadgeDigits(badgeRegistrationNumber) || undefined,
       rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
       birthDate: birthDate || undefined,
       pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
@@ -2105,6 +2155,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       alert('Por favor, selecione a Função 1 (obrigatória).');
       return;
     }
+
+    const sanitizedBadgeInput = sanitizeBadgeDigits(badgeRegistrationNumber);
+    if (badgeRegistrationNumber.trim().length > 0 && !isValidBadgeRegistrationNumber(sanitizedBadgeInput)) {
+      setBadgeError('Informe entre 4 e 6 dígitos numéricos.');
+      return;
+    }
+
+    const seqIdx = editingEmployee
+      ? Math.max(1, localEmployees.findIndex((item) => item.id === editingEmployee.id) + 1 || localEmployees.length + 1)
+      : localEmployees.length + 1;
+    const finalBadgeNumber = isValidBadgeRegistrationNumber(sanitizedBadgeInput)
+      ? sanitizedBadgeInput
+      : generateBadgeRegistrationNumber(cpf, seqIdx);
+    setBadgeError('');
 
     setIsSubmitting(true);
     try {
@@ -2321,6 +2385,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
         actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
         cpf: cpf.trim() || undefined,
+        badgeRegistrationNumber: finalBadgeNumber,
+        numero_registro: finalBadgeNumber,
         rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : undefined,
         numero_rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : undefined,
         birthDate: formattedBirthDate,
@@ -2464,6 +2530,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             cnh_upgrade_dt: cnhUpgradeDT,
             cnh_upgrade_category: cnhUpgradeDT ? cnhUpgradeCategory : null,
             termination_date: formattedTerminationDate || null,
+            numero_registro: finalBadgeNumber,
           });
 
           const [rhSchemaCols, funcSchemaCols] = await Promise.all([
@@ -3773,7 +3840,22 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       <input
                         type="text"
                         value={cpf}
-                        onChange={(e) => setCpf(formatCpfCnpj(e.target.value))}
+                        onChange={(e) => {
+                          const formatted = formatCpfCnpj(e.target.value);
+                          setCpf(formatted);
+                          const cpfDigits = formatted.replace(/\D/g, '');
+                          if (!badgeManualOverride) {
+                            if (cpfDigits.length >= 3) {
+                              const seq = editingEmployee
+                                ? Math.max(1, localEmployees.findIndex((item) => item.id === editingEmployee.id) + 1 || localEmployees.length + 1)
+                                : localEmployees.length + 1;
+                              setBadgeRegistrationNumber(generateBadgeRegistrationNumber(formatted, seq));
+                              setBadgeError('');
+                            } else {
+                              setBadgeRegistrationNumber('');
+                            }
+                          }
+                        }}
                         maxLength={14}
                         className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
@@ -3814,6 +3896,63 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         onChange={(e) => setPisNumero(e.target.value)}
                         className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
+                    </div>
+
+                    {/* Número de Registro / Crachá (5 Dígitos) */}
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label htmlFor="employee-badge-registration" className="block text-xs font-bold text-black">
+                          Número de Registro / Crachá (5 Dígitos)
+                        </label>
+                        {badgeManualOverride && cpf.replace(/\D/g, '').length >= 3 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const seq = editingEmployee
+                                ? Math.max(1, localEmployees.findIndex((item) => item.id === editingEmployee.id) + 1 || localEmployees.length + 1)
+                                : localEmployees.length + 1;
+                              setBadgeRegistrationNumber(generateBadgeRegistrationNumber(cpf, seq));
+                              setBadgeManualOverride(false);
+                              setBadgeError('');
+                            }}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                          >
+                            Gerar pelo CPF
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <input
+                          id="employee-badge-registration"
+                          type="text"
+                          inputMode="numeric"
+                          value={badgeRegistrationNumber}
+                          onChange={(e) => {
+                            const digits = sanitizeBadgeDigits(e.target.value);
+                            setBadgeRegistrationNumber(digits);
+                            setBadgeManualOverride(digits.length > 0);
+                            if (digits.length > 0 && !isValidBadgeRegistrationNumber(digits)) {
+                              setBadgeError('Mínimo 4 e máximo 6 dígitos numéricos.');
+                            } else {
+                              setBadgeError('');
+                            }
+                          }}
+                          maxLength={6}
+                          placeholder="Ex: 09101 (automático ao digitar o CPF)"
+                          className={`w-full sm:max-w-[260px] px-3 py-1.5 bg-white border rounded-lg text-black text-xs sm:text-sm font-mono font-bold tracking-wider focus:outline-none focus:ring-1 ${
+                            badgeError
+                              ? 'border-rose-600 focus:ring-rose-500'
+                              : 'border-gray-400 focus:ring-[#0963cb]'
+                          }`}
+                        />
+                        <span className="text-[11px] font-medium text-stone-700">
+                          {badgeError ? (
+                            <span className="text-rose-700 font-bold">{badgeError}</span>
+                          ) : (
+                            'Padrão: [3 primeiros dígitos do CPF] + [sequencial 01, 02...]. Aceita 4 a 6 dígitos.'
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

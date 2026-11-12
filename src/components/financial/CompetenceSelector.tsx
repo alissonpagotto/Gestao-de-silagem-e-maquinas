@@ -109,19 +109,19 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
           e.stopPropagation();
           onPrev(e);
         }}
-        className="competence-selector-btn p-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/70 transition cursor-pointer text-emerald-800 dark:text-emerald-300 font-semibold select-none active:scale-95"
+        className="competence-selector-btn p-1 rounded-lg border border-emerald-800 dark:border-emerald-900 bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 transition cursor-pointer text-white font-bold select-none active:scale-95"
         title="Mês Anterior"
         aria-label="Mês Anterior"
       >
-        <ChevronLeft className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-300" />
+        <ChevronLeft className="w-3.5 h-3.5 text-white stroke-[2.5]" />
       </button>
 
       <div
-        className="competence-selector-badge flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs select-none"
+        className="competence-selector-badge flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-600 dark:bg-emerald-600 text-white border border-emerald-800 dark:border-emerald-900 shadow-2xs select-none"
         title={title}
       >
-        <span>Competência:</span>
-        <span className="text-emerald-800 dark:text-emerald-300 font-semibold text-sm">{competence}</span>
+        <span className="text-white font-bold">Competência:</span>
+        <span className="text-white font-bold text-sm">{competence}</span>
       </div>
 
       <button
@@ -131,11 +131,11 @@ export const CompetenceSelector: React.FC<CompetenceSelectorProps> = ({
           e.stopPropagation();
           onNext(e);
         }}
-        className="competence-selector-btn p-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/70 transition cursor-pointer text-emerald-800 dark:text-emerald-300 font-semibold select-none active:scale-95"
+        className="competence-selector-btn p-1 rounded-lg border border-emerald-800 dark:border-emerald-900 bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 transition cursor-pointer text-white font-bold select-none active:scale-95"
         title="Próximo Mês"
         aria-label="Próximo Mês"
       >
-        <ChevronRight className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-300" />
+        <ChevronRight className="w-3.5 h-3.5 text-white stroke-[2.5]" />
       </button>
     </div>
   );

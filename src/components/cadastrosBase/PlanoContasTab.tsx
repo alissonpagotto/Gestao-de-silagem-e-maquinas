@@ -528,22 +528,22 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Categoria - Tamanho Padrão Ouro */}
+      {/* Modal Categoria - Tema Oficial de Alto Contraste */}
       {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-4xl h-auto max-h-[92vh] flex flex-col mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden">
             
-            {/* Header 3D Metálico Acetinado */}
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between shrink-0 select-none">
+            {/* Cabeçalho */}
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <FileSpreadsheet className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black/40 dark:border-stone-700 shadow-2xs shrink-0">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
                     {editingCat ? 'EDITAR CONTA / CATEGORIA' : 'NOVA CONTA NO PLANO'}
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-slate-800 dark:text-stone-400 font-medium">
                     Estruturação de receitas, despesas e centros financeiros
                   </p>
                 </div>
@@ -551,103 +551,106 @@ export const PlanoContasTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCatModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {catError && (
-              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300">
+              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300 shrink-0">
                 {catError}
               </div>
             )}
 
-            <form onSubmit={handleSaveCat} className="p-3 sm:p-4 space-y-2.5 text-xs bg-slate-50 dark:bg-stone-900 overflow-y-auto flex-1 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div className="col-span-1">
-                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                      Código <span className="text-rose-600">*</span>
+            <form onSubmit={handleSaveCat} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950 text-xs">
+              <div className="p-4 overflow-y-auto">
+                <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className="col-span-1">
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-1">
+                        Código <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: 2.01"
+                        value={catCodigo}
+                        onChange={(e) => setCatCodigo(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-1">
+                        Nome da Conta / Categoria <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Combustíveis, Salários..."
+                        value={catNome}
+                        onChange={(e) => setCatNome(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-1">
+                      Classificação da Conta
                     </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: 2.01"
-                      value={catCodigo}
-                      onChange={(e) => setCatCodigo(e.target.value)}
-                      className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    <select
+                      value={catTipo}
+                      onChange={(e) => setCatTipo(e.target.value as any)}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+                    >
+                      <option value="despesa">Despesa Operacional / Administrativa</option>
+                      <option value="receita">Receita Operacional / Venda / Serviços</option>
+                      <option value="ativo">Ativo Imobilizado / Bancos</option>
+                      <option value="passivo">Passivo / Obrigações</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-1">
+                      Descrição (Opcional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Detalhamento do escopo desta conta..."
+                      value={catDescricao}
+                      onChange={(e) => setCatDescricao(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600 resize-none"
                     />
                   </div>
-                  <div className="col-span-2">
-                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                      Nome da Conta / Categoria <span className="text-rose-600">*</span>
-                    </label>
+
+                  <div className="flex items-center space-x-2 pt-1">
                     <input
-                      type="text"
-                      required
-                      placeholder="Ex: Combustíveis, Salários..."
-                      value={catNome}
-                      onChange={(e) => setCatNome(e.target.value)}
-                      className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                      type="checkbox"
+                      id="cat-ativo"
+                      checked={catAtivo}
+                      onChange={(e) => setCatAtivo(e.target.checked)}
+                      className="w-4 h-4 rounded bg-white dark:bg-stone-800 text-emerald-600 focus:ring-emerald-600 border border-gray-400 dark:border-stone-700 cursor-pointer accent-emerald-600"
                     />
+                    <label htmlFor="cat-ativo" className="text-xs font-bold text-black dark:text-stone-200 cursor-pointer">
+                      Conta Ativa no Sistema
+                    </label>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Classificação da Conta
-                  </label>
-                  <select
-                    value={catTipo}
-                    onChange={(e) => setCatTipo(e.target.value as any)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
-                  >
-                    <option value="despesa">Despesa Operacional / Administrativa</option>
-                    <option value="receita">Receita Operacional / Venda / Serviços</option>
-                    <option value="ativo">Ativo Imobilizado / Bancos</option>
-                    <option value="passivo">Passivo / Obrigações</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Descrição (Opcional)
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Detalhamento do escopo desta conta..."
-                    value={catDescricao}
-                    onChange={(e) => setCatDescricao(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="cat-ativo"
-                    checked={catAtivo}
-                    onChange={(e) => setCatAtivo(e.target.checked)}
-                    className="w-4 h-4 rounded text-slate-800 focus:ring-slate-400 border-slate-300 dark:border-stone-700 cursor-pointer"
-                  />
-                  <label htmlFor="cat-ativo" className="text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
-                    Conta Ativa no Sistema
-                  </label>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end space-x-2 mt-4">
+              {/* Rodapé */}
+              <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCatModalOpen(false)}
-                  className="px-3.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-xs font-semibold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer transition"
+                  className="px-4 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-bold text-black dark:text-stone-300 hover:bg-gray-100 dark:hover:bg-stone-700 cursor-pointer transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white text-xs font-bold shadow-xs cursor-pointer border border-teal-800"
+                  className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer border border-emerald-800 transition"
                 >
                   {editingCat ? 'Salvar' : 'Cadastrar'}
                 </button>

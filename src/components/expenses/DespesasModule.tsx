@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { PlusCircle, Sparkles, Fuel, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PlusCircle, Sparkles, Fuel } from 'lucide-react';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -12,6 +12,7 @@ import {
 } from '../../types';
 import { ExpenseStats } from './ExpenseStats';
 import { ExpenseList } from './ExpenseList';
+import { CompetenceSelector } from '../financial/CompetenceSelector';
 
 export interface DespesasModuleProps {
   expenses: Expense[];
@@ -150,34 +151,13 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
               CONTROLE DE DESPESAS
             </h1>
 
-            {/* Seletor Unificado de Competência (estilo RH) */}
-            <div className="flex items-center space-x-1.5 ml-1 sm:ml-4">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-                title="Mês Anterior"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              
-              <div 
-                style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
-                className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
-              >
-                <span>Competência:</span>
-                <span className="text-black font-black text-sm">{competenceMonth}</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-                title="Próximo Mês"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            {/* Seletor Unificado de Competência */}
+            <CompetenceSelector
+              competence={competenceMonth}
+              onPrev={handlePrevMonth}
+              onNext={handleNextMonth}
+              className="ml-1 sm:ml-4"
+            />
 
             <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
               MÓDULO MESTRE

@@ -8775,20 +8775,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           }}
         >
           <div 
-            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 1. Cabeçalho Principal MDI Tridimensional Acetinado */}
-            <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between text-slate-800 shrink-0 rounded-t-xl">
+            {/* 1. Cabeçalho Principal */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between text-black dark:text-stone-100 shrink-0 rounded-t-xl">
               <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 rounded bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+                <div className="w-6 h-6 rounded bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0">
                   <Package className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                     NOVA ENTRADA MANUAL
                   </h3>
-                  <p className="text-[10px] text-slate-600 dark:text-stone-400 font-semibold uppercase tracking-tight">
+                  <p className="text-[10px] text-black/80 dark:text-stone-400 font-semibold uppercase tracking-tight">
                     FLUXO EM ETAPAS COM INTEGRAÇÃO DIRETA AO ESTOQUE
                   </p>
                 </div>
@@ -8800,15 +8800,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
                 }}
                 disabled={isSavingManualEntry || isAddingItem}
-                className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
+                className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
                 title="Fechar formulário"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 2. Barra Visual de Progresso do Stepper Slim Minimalista */}
-            <div className="px-4 py-1.5 bg-slate-100/90 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 flex items-center justify-center shrink-0">
+            {/* 2. Barra Visual de Progresso do Stepper Slim */}
+            <div className="px-4 py-2 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-center shrink-0">
               <div className="flex items-center space-x-3 w-full">
                 {/* Passo 1 */}
                 <button
@@ -8818,16 +8818,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   }}
                   className={`flex items-center space-x-1.5 text-left transition select-none uppercase ${
                     manualEntryStep === 1 
-                      ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
-                      : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-100 cursor-pointer'
+                      ? 'text-emerald-800 dark:text-emerald-400 font-bold' 
+                      : 'text-black dark:text-stone-400 hover:opacity-80 cursor-pointer'
                   }`}
                 >
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition ${
                     manualEntryStep === 1
-                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      ? 'bg-emerald-600 text-white border border-emerald-800'
                       : currentManualDoc || manualDocItems.length > 0
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                      : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300'
+                      ? 'bg-emerald-600 text-white border border-emerald-800'
+                      : 'bg-white dark:bg-stone-700 text-black dark:text-stone-300 border border-black'
                   }`}>
                     {manualEntryStep === 2 ? <Check className="w-3 h-3 stroke-[3]" /> : '1'}
                   </div>
@@ -8835,8 +8835,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </button>
 
                 {/* Linha divisória fina */}
-                <div className="flex-1 h-0.5 bg-slate-200 dark:bg-stone-700 rounded-full overflow-hidden">
-                  <div className={`h-full bg-emerald-500 transition-all duration-300 ${manualEntryStep === 2 ? 'w-full' : 'w-0'}`} />
+                <div className="flex-1 h-0.5 bg-black/25 dark:bg-stone-700 rounded-full overflow-hidden">
+                  <div className={`h-full bg-emerald-600 transition-all duration-300 ${manualEntryStep === 2 ? 'w-full' : 'w-0'}`} />
                 </div>
 
                 {/* Passo 2 */}
@@ -8850,16 +8850,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   disabled={!currentManualDoc && !manualSupplier.trim()}
                   className={`flex items-center space-x-1.5 text-left transition select-none uppercase ${
                     manualEntryStep === 2 
-                      ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
+                      ? 'text-emerald-800 dark:text-emerald-400 font-bold' 
                       : (currentManualDoc || manualSupplier.trim())
-                      ? 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-100 cursor-pointer'
-                      : 'text-slate-400 cursor-not-allowed opacity-60'
+                      ? 'text-black dark:text-stone-400 hover:opacity-80 cursor-pointer'
+                      : 'text-black/40 cursor-not-allowed'
                   }`}
                 >
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition ${
                     manualEntryStep === 2
-                      ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-500/20'
-                      : 'bg-slate-200 dark:bg-stone-700 text-slate-500 dark:text-stone-400'
+                      ? 'bg-emerald-600 text-white border border-emerald-800'
+                      : 'bg-white dark:bg-stone-700 text-black dark:text-stone-400 border border-black/40'
                   }`}>
                     2
                   </div>
@@ -8869,36 +8869,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
 
             {/* 3. Corpo do Modal (Passo 1 ou Passo 2) */}
-            <div className="p-3.5 sm:p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
               
               {/* =============================================================== */}
               {/* PASSO 1: DADOS DO DOCUMENTO (FORNECEDOR E CABEÇALHO) */}
               {/* =============================================================== */}
               {manualEntryStep === 1 && (
-                <form onSubmit={handleAdvanceToStep2} className="flex-1 min-h-0 flex flex-col justify-between">
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 scrollbar-none">
-                    {manualFormError && (
-                    <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-lg flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold uppercase animate-in fade-in">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{manualFormError.toUpperCase()}</span>
-                    </div>
-                  )}
+                <form onSubmit={handleAdvanceToStep2} className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 scrollbar-none">
+                    <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-2.5">
+                      {manualFormError && (
+                      <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-400 dark:border-rose-800 rounded-lg flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold uppercase animate-in fade-in">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{manualFormError.toUpperCase()}</span>
+                      </div>
+                    )}
 
                   {/* 1. Fornecedor com Autocomplete e Botão Rápido de Cadastro */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        FORNECEDOR / PRODUTOR <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wide">
+                        FORNECEDOR / PRODUTOR <span className="text-rose-600">*</span>
                       </label>
                       {manualSupplier.trim() && (
                         <span className="text-[10px] font-bold uppercase tracking-wider">
                           {isSupplierExisting ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
+                            <span className="text-emerald-700 dark:text-emerald-400 flex items-center space-x-1">
                               <Check className="w-3 h-3 stroke-[3]" />
                               <span>CADASTRADO</span>
                             </span>
                           ) : (
-                            <span className="text-amber-600 dark:text-amber-400">
+                            <span className="text-amber-700 dark:text-amber-400">
                               NOVO FORNECEDOR
                             </span>
                           )}
@@ -8915,7 +8916,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         onChange={(e) => setManualSupplier(e.target.value)}
                         required
                         placeholder="DIGITE O NOME DO FORNECEDOR OU PRODUTOR..."
-                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs"
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-stone-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase shadow-2xs"
                       />
                       <datalist id="suppliers-datalist-step1">
                         {localSuppliers.map((s) => (
@@ -8926,7 +8927,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                     {/* Linha Compacta de Alerta de Fornecedor Não Encontrado */}
                     {!isSupplierExisting && manualSupplier.trim().length >= 2 && (
-                      <div className="mt-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-md flex items-center justify-between gap-2 animate-in fade-in text-xs uppercase">
+                      <div className="mt-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-400 dark:border-amber-800/60 rounded-md flex items-center justify-between gap-2 animate-in fade-in text-xs uppercase">
                         <div className="flex items-center space-x-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-200 truncate">
                           <UserPlus className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span className="truncate">
@@ -8951,8 +8952,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     {/* Data de Emissão */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                        DATA DO DOCUMENTO <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wide mb-1">
+                        DATA DO DOCUMENTO <span className="text-rose-600">*</span>
                       </label>
                       <input
                         id="manual-date-input"
@@ -8963,17 +8964,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           setManualDueDate(calculateDefaultDueDate(e.target.value));
                         }}
                         required
-                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs"
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase shadow-2xs"
                       />
                     </div>
 
                     {/* Vencimento (Financeiro) */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          VENCIMENTO <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wide">
+                          VENCIMENTO <span className="text-rose-600">*</span>
                         </label>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">30 DIAS</span>
+                        <span className="text-[10px] text-black/70 dark:text-stone-400 font-bold uppercase">30 DIAS</span>
                       </div>
                       <input
                         id="manual-due-date-input"
@@ -8981,7 +8982,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         value={manualDueDate}
                         onChange={(e) => setManualDueDate(e.target.value)}
                         required
-                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs"
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase shadow-2xs"
                       />
                     </div>
                   </div>
@@ -8989,14 +8990,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   {/* 3. Tipo de Documento */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        TIPO DE DOCUMENTO <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wide">
+                        TIPO DE DOCUMENTO <span className="text-rose-600">*</span>
                       </label>
                       <button
                         type="button"
                         id="btn-gerenciar-tipos-doc-topo"
                         onClick={() => setIsManageDocTypesModalOpen(true)}
-                        className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline uppercase cursor-pointer"
+                        className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline uppercase cursor-pointer"
                         title="Gerenciar tipos de documento"
                       >
                         <Settings className="w-3 h-3" />
@@ -9015,20 +9016,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             setManualDocumentType(e.target.value as TipoDocumentoEntrada);
                           }
                         }}
-                        className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs cursor-pointer"
+                        className="flex-1 px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase shadow-2xs cursor-pointer"
                       >
                         {manualDocTypes.map((tipo) => (
                           <option key={tipo} value={tipo} className="uppercase">{tipo.toUpperCase()}</option>
                         ))}
                         <option disabled value="">──────────</option>
-                        <option value="__manage__" className="text-emerald-600 font-bold uppercase">⚙️ GERENCIAR TIPOS...</option>
+                        <option value="__manage__" className="text-emerald-700 font-bold uppercase">⚙️ GERENCIAR TIPOS...</option>
                       </select>
 
                       <button
                         type="button"
                         id="btn-gerenciar-tipos-doc-engrenagem"
                         onClick={() => setIsManageDocTypesModalOpen(true)}
-                        className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-600 dark:text-stone-300 border border-slate-300 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                        className="p-1.5 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
                         title="Gerenciar tipos de documento"
                       >
                         <Settings className="w-3.5 h-3.5" />
@@ -9039,15 +9040,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   {/* 4. Valor Total do Documento (Formato BRL R$ #.##0,00) */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        VALOR TOTAL DO DOCUMENTO <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wide">
+                        VALOR TOTAL DO DOCUMENTO <span className="text-rose-600">*</span>
                       </label>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase">
+                      <span className="text-[10px] text-black/70 dark:text-stone-400 font-bold uppercase">
                         PADRÃO R$ #.##0,00
                       </span>
                     </div>
                     <div className="relative rounded-lg shadow-2xs">
-                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500 font-extrabold text-xs">
+                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-black/70 font-extrabold text-xs">
                         R$
                       </div>
                       <input
@@ -9058,14 +9059,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         onChange={handleManualAmountChange}
                         required
                         placeholder="0,00"
-                        className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase"
+                        className="w-full pl-8 pr-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
                   </div>
 
                   {/* 5. Observações */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wide mb-1">
                       OBSERVAÇÕES
                     </label>
                     <textarea
@@ -9074,19 +9075,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       onChange={(e) => setManualNotes(e.target.value)}
                       rows={2}
                       placeholder="INFORMAÇÕES ADICIONAIS, PESAGEM, PLACA, ROMANEIO..."
-                      className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-medium text-slate-900 dark:text-stone-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase shadow-2xs resize-none"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-medium text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase shadow-2xs resize-none"
                     />
+                    </div>
                     </div>
                   </div>
 
                   {/* 6. Rodapé do Passo 1 */}
-                  <div className="pt-2.5 border-t border-slate-200 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
+                  <div className="px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
                     <button
                       type="button"
                       id="btn-cancelar-entrada-manual-step1"
                       onClick={() => setIsManualEntryModalOpen(false)}
                       disabled={isSavingManualEntry}
-                      className="px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer disabled:opacity-50 uppercase"
+                      className="px-4 py-1.5 text-[11px] font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer disabled:opacity-50 uppercase"
                     >
                       CANCELAR
                     </button>
@@ -9097,10 +9099,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         id="btn-salvar-rascunho-step1"
                         onClick={handleSaveManualEntryAsDraft}
                         disabled={isSavingManualEntry}
-                        className="px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-300 dark:border-stone-700 rounded-lg transition cursor-pointer flex items-center space-x-1 shadow-2xs disabled:opacity-50 uppercase"
+                        className="px-3.5 py-1.5 text-[11px] font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer flex items-center space-x-1 disabled:opacity-50 uppercase"
                         title="Salvar cabeçalho como Rascunho"
                       >
-                        <Save className="w-3.5 h-3.5 text-slate-500" />
+                        <Save className="w-3.5 h-3.5 text-black/70" />
                         <span>RASCUNHO</span>
                       </button>
 
@@ -9108,7 +9110,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         type="submit"
                         id="btn-avancar-passo2-entrada"
                         disabled={isSavingManualEntry}
-                        className="px-3.5 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 uppercase"
+                        className="px-4 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg border border-emerald-800 transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 uppercase"
                       >
                         {isSavingManualEntry ? (
                           <>
@@ -9131,14 +9133,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               {/* PASSO 2: INSERÇÃO DOS ITENS/PRODUTOS (COM ATUALIZAÇÃO DE ESTOQUE) */}
               {/* =============================================================== */}
               {manualEntryStep === 2 && (
-                <div className="flex-1 min-h-0 flex flex-col justify-between">
+                <div className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
                   {/* Miolo do formulário (onde ficam os campos e a tabela de produtos inseridos) */}
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-3 scrollbar-none">
+                  <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 scrollbar-none">
                     {/* Alerta de Bloqueio de Validação */}
                     {manualFormError && (
                     <div 
                       id="alerta-erro-validacao-passo-2"
-                      className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2 animate-in fade-in"
+                      className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-400 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2 animate-in fade-in"
                     >
                       <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                       <span>{manualFormError}</span>
@@ -9153,7 +9155,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     const isBalanced = diff < 0.01;
 
                     return (
-                      <div className="p-3.5 bg-stone-50 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 rounded-2xl space-y-2.5">
+                      <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/70 border border-black dark:border-stone-700 rounded-xl space-y-2.5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                           <div>
                             <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
@@ -9225,19 +9227,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   })()}
 
                   {/* Formulário Cirúrgico de Adição de Produtos */}
-                  <form onSubmit={handleAddItemToManualDoc} className="p-3.5 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl shadow-xs space-y-2.5">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-stone-100 dark:border-stone-800">
-                      <div className="flex items-center space-x-1.5 text-xs font-bold text-stone-900 dark:text-stone-100">
-                        <Plus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                  <form onSubmit={handleAddItemToManualDoc} className="p-3.5 bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-black/25 dark:border-stone-800">
+                      <div className="flex items-center space-x-1.5 text-xs font-bold text-black dark:text-stone-100">
+                        <Plus className="w-3.5 h-3.5 text-emerald-700 stroke-[2.5]" />
                         <span>Adicionar Produto à Entrada</span>
                       </div>
-                      <span className="text-[10px] font-medium text-stone-500">
+                      <span className="text-[10px] font-medium text-black/75 dark:text-stone-400">
                         A quantidade será somada no saldo do Estoque
                       </span>
                     </div>
 
                     {itemFormError && (
-                      <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2">
+                      <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2">
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>{itemFormError}</span>
                       </div>
@@ -9245,8 +9247,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                     {/* Campo de Busca do Produto no Estoque */}
                     <div className="relative" ref={stockSearchDropdownRef}>
-                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                        Produto no Estoque <span className="text-rose-500">*</span>
+                      <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1">
+                        Produto no Estoque <span className="text-rose-600">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -9283,7 +9285,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           }}
                           onFocus={() => setIsItemSearchOpen(true)}
                           placeholder="Buscar produto por nome, código ou categoria no Estoque..."
-                          className="w-full pl-9 pr-9 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          className="w-full pl-9 pr-9 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0963cb] transition"
                         />
                         <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5 pointer-events-none" />
                         {isSearchingStock && (
@@ -9410,8 +9412,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     <div className="flex flex-wrap lg:flex-nowrap items-end gap-3 pt-1">
                       {/* Quantidade */}
                       <div className="w-28 sm:w-32 shrink-0">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                          Quantidade <span className="text-rose-500">*</span>
+                        <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1">
+                          Quantidade <span className="text-rose-600">*</span>
                         </label>
                         <input
                           id="manual-item-qty-input"
@@ -9422,13 +9424,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           onChange={(e) => setItemQuantity(e.target.value)}
                           required
                           placeholder="Ex: 10"
-                          className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-mono font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
                         />
                       </div>
 
                       {/* Unidade */}
                       <div className="w-24 sm:w-28 shrink-0">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1">
                           Unidade
                         </label>
                         <input
@@ -9437,17 +9439,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           value={itemUnit}
                           onChange={(e) => setItemUnit(e.target.value.toUpperCase())}
                           placeholder="UN, KG..."
-                          className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
+                          className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-mono font-bold text-black dark:text-stone-100 uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] text-center"
                         />
                       </div>
 
                       {/* Valor Unitário (R$) */}
                       <div className="w-36 sm:w-44 shrink-0">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1">
                           Valor Unitário (R$)
                         </label>
-                        <div className="relative rounded-xl shadow-2xs">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                        <div className="relative rounded-lg shadow-2xs">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-black/70 font-bold text-xs">
                             R$
                           </div>
                           <input
@@ -9457,15 +9459,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             value={itemUnitCostDisplay}
                             onChange={handleItemUnitCostChange}
                             placeholder="0,00"
-                            className="w-full pl-8 pr-2.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right"
+                            className="w-full pl-8 pr-2.5 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-mono font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#0963cb] text-right"
                           />
                         </div>
                       </div>
 
                       {/* Indicador de Subtotal */}
-                      <div className="flex-1 min-w-[130px] px-3.5 py-1.5 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl flex items-center justify-between h-[38px]">
-                        <span className="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider">Subtotal:</span>
-                        <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm font-black">
+                      <div className="flex-1 min-w-[130px] px-3.5 py-1.5 bg-white dark:bg-stone-800/80 border border-gray-400 dark:border-stone-700 rounded-lg flex items-center justify-between h-[38px]">
+                        <span className="text-[11px] text-black dark:text-stone-400 font-bold uppercase tracking-wider">Subtotal:</span>
+                        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-xs sm:text-sm font-black">
                           {formatCurrencyBRL(
                             (parseFloat(itemQuantity.replace(',', '.')) || 0) * parseCurrencyInput(itemUnitCostDisplay)
                           )}
@@ -9477,7 +9479,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         type="submit"
                         id="btn-adicionar-produto-entrada"
                         disabled={isAddingItem}
-                        className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 h-[38px]"
+                        className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg border border-emerald-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 h-[38px]"
                       >
                         {isAddingItem ? (
                           <>
@@ -9494,17 +9496,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     </div>
                   </form>
 
-                  {/* Tabela com a Lista dos Itens Adicionados nesta Entrada (Totalmente Expandida) */}
-                  <div className="border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs">
-                    <div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
+                  {/* Tabela com a Lista dos Itens Adicionados nesta Entrada */}
+                  <div className="border border-black dark:border-stone-700 rounded-xl overflow-hidden bg-[#e0e6f1] dark:bg-stone-900">
+                    <div className="px-4 py-2.5 bg-[#e0e6f1] dark:bg-stone-800/80 border-b border-black dark:border-stone-800 flex items-center justify-between shrink-0">
                       <div className="flex items-center space-x-2">
-                        <Package className="w-4 h-4 text-emerald-600" />
-                        <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                        <Package className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                        <span className="text-xs font-bold text-black dark:text-stone-100">
                           Produtos Inseridos na Entrada ({manualDocItems.length})
                         </span>
                       </div>
                       {manualDocItems.length > 0 && (
-                        <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
+                        <span className="text-xs font-mono font-black text-emerald-700 dark:text-emerald-400">
                           Soma: {formatCurrencyBRL(manualDocItems.reduce((s, i) => s + (Number(i.valor_total) || 0), 0))}
                         </span>
                       )}
@@ -9610,12 +9612,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   </div>
 
                   {/* Rodapé do Passo 2: Finalização da Entrada */}
-                  <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
+                  <div className="px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-between shrink-0">
                     <button
                       type="button"
                       id="btn-voltar-passo1-entrada"
                       onClick={() => setManualEntryStep(1)}
-                      className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5"
+                      className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer flex items-center space-x-1.5"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       <span>Voltar ao Cabeçalho</span>
@@ -9627,10 +9629,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         id="btn-salvar-rascunho-entrada-manual"
                         onClick={handleSaveManualEntryAsDraft}
                         disabled={isSavingManualEntry}
-                        className="px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
+                        className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer flex items-center space-x-1.5 disabled:opacity-50"
                         title="Salvar cabeçalho e produtos inseridos até o momento como Rascunho sem validar se valores batem"
                       >
-                        <Save className="w-3.5 h-3.5 text-stone-500" />
+                        <Save className="w-3.5 h-3.5 text-black/70" />
                         <span>Salvar como Rascunho</span>
                       </button>
 
@@ -9639,7 +9641,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         id="btn-concluir-entrada-manual"
                         onClick={handleFinalizeManualEntry}
                         disabled={isSavingManualEntry}
-                        className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                        className="px-5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg border border-emerald-800 transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
                       >
                         {isSavingManualEntry ? (
                           <>

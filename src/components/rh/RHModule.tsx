@@ -14,7 +14,8 @@ import {
   UserX,
   Printer,
   Plus,
-  Lock
+  Lock,
+  IdCard
 } from 'lucide-react';
 import { 
   Employee, 
@@ -64,6 +65,8 @@ import { AdvancesTab } from './AdvancesTab';
 import { AtestadosTab } from './AtestadosTab';
 import { FaltasTab } from './FaltasTab';
 import { RescisaoTab } from './RescisaoTab';
+import { CrachasTab } from './CrachasTab';
+import { backfillEmployeesBadgeNumbers } from './badgeHelpers';
 import { getDefaultCompetenceMonth } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 import { EmployeesModule } from '../employees/EmployeesModule';
@@ -104,7 +107,8 @@ export type RHTabType =
   | 'adiantamentos' 
   | 'atestados' 
   | 'faltas'
-  | 'rescisao';
+  | 'rescisao'
+  | 'crachas';
 
 export const RHModule: React.FC<RHModuleProps> = ({
   employees,
@@ -142,6 +146,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
     if (hasRhSubPermission('atestados')) list.push('atestados');
     if (hasRhSubPermission('faltas')) list.push('faltas');
     if (hasRhSubPermission('rescisao')) list.push('rescisao');
+    if (hasRhSubPermission('crachas')) list.push('crachas');
     return list.length > 0 ? list : ['dashboard'];
   }, []);
 
@@ -310,6 +315,20 @@ export const RHModule: React.FC<RHModuleProps> = ({
       (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
     );
   }, [tenantEmployees]);
+
+  // Migração automática na inicialização: gera Número de Registro (5 dígitos) para colaboradores sem código
+  const hasBackfilledBadgesRef = useRef(false);
+  useEffect(() => {
+    if (!Array.isArray(employees) || employees.length === 0) return;
+    const { updated, changed } = backfillEmployeesBadgeNumbers(employees);
+    if (changed && !hasBackfilledBadgesRef.current) {
+      hasBackfilledBadgesRef.current = true;
+      saveStoredEmployees(updated);
+      onSaveEmployeesRef.current?.(updated);
+    } else if (!changed) {
+      hasBackfilledBadgesRef.current = false;
+    }
+  }, [employees]);
 
   // Trava de segurança para carga inicial única dos dados do RH (evita requisições em loop ao alternar abas)
   const isRhInitialLoadedRef = React.useRef<string | null>(null);
@@ -707,7 +726,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('rescisao')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'rescisao'
                     ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -715,6 +734,22 @@ export const RHModule: React.FC<RHModuleProps> = ({
               >
                 <UserX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 <span>Rescisão</span>
+              </button>
+            ) : null}
+
+            {/* Aba 10: Crachás */}
+            {hasRhSubPermission('crachas') ? (
+              <button
+                type="button"
+                onClick={() => handleTabChange('crachas')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'crachas'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <IdCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Crachás</span>
               </button>
             ) : null}
           </nav>
@@ -845,6 +880,14 @@ export const RHModule: React.FC<RHModuleProps> = ({
           currentMonthRef={currentMonthRef}
           onChangeMonthRef={handleUpdateMonthRef}
           onSaveEmployees={onSaveEmployees}
+        />
+      )}
+
+      {activeTab === 'crachas' && (
+        <CrachasTab
+          key={`rh_tab_crachas_${tabRefreshEpoch}`}
+          employees={sortedEmployees}
+          companyProfile={companyProfile}
         />
       )}
         </div>

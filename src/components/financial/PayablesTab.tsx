@@ -223,63 +223,63 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   };
 
   return (
-    <div className="space-y-3">
+    <div id="financial-tab-pagar" className="financial-subtab-clean space-y-3">
       {/* KPI Cards (Compact) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[11px] font-black text-black uppercase tracking-wider block">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+          <div className="bg-transparent">
+            <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               A Pagar (Pendentes)
             </span>
-            <div className="text-lg sm:text-xl font-black text-amber-700 mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-amber-700 dark:text-amber-400 mt-0.5 font-['Outfit'] bg-transparent">
               {formatCurrencyBRL(totalPending)}
             </div>
-            <p className="text-[11px] text-black/70 font-medium">
+            <p className="text-[11px] text-black/70 dark:text-stone-400 font-medium">
               {pendingExpenses.length} títulos aguardando liquidação
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-amber-50 text-amber-700 shrink-0 border border-amber-200">
+          <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 shrink-0 border border-amber-200 dark:border-amber-800">
             <Clock className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[11px] font-black text-black uppercase tracking-wider block">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+          <div className="bg-transparent">
+            <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Liquidadas (Pagas)
             </span>
-            <div className="text-lg sm:text-xl font-black text-emerald-700 mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-400 mt-0.5 font-['Outfit'] bg-transparent">
               {formatCurrencyBRL(totalPaid)}
             </div>
-            <p className="text-[11px] text-black/70 font-medium">
+            <p className="text-[11px] text-black/70 dark:text-stone-400 font-medium">
               {paidExpenses.length} despesas baixadas no banco
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 shrink-0 border border-emerald-200">
+          <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-800">
             <CheckCircle2 className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[11px] font-black text-black uppercase tracking-wider block">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+          <div className="bg-transparent">
+            <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Volume Total de Contas
             </span>
-            <div className="text-lg sm:text-xl font-black text-black mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-black dark:text-white mt-0.5 font-['Outfit'] bg-transparent">
               {formatCurrencyBRL(totalGeneral)}
             </div>
-            <p className="text-[11px] text-black/70 font-medium">
+            <p className="text-[11px] text-black/70 dark:text-stone-400 font-medium">
               {competenceExpenses.length} despesas no total
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-slate-100 text-black shrink-0 border border-slate-200">
+          <div className="p-2 rounded-lg bg-slate-100 dark:bg-stone-800 text-black dark:text-stone-200 shrink-0 border border-slate-200 dark:border-stone-700">
             <ArrowDownLeft className="w-4 h-4" />
           </div>
         </div>
       </div>
 
       {/* Filters Bar (Compact) */}
-      <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 text-black">
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none">
           <CompetenceSelector
             competence={activeCompetence}

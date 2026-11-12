@@ -488,6 +488,7 @@ export interface RhSubPermissions {
   atestados?: boolean;            // [ ] Atestados
   faltas?: boolean;               // [ ] Faltas
   rescisao?: boolean;             // [ ] Rescisão
+  crachas?: boolean;              // [ ] Crachás
   historico?: boolean;            // [ ] Ex-Colaboradores / Histórico
 }
 
@@ -643,6 +644,8 @@ export interface Employee {
   permissions?: RolePermissions; // Permissões de Acesso herdadas do Cargo
   permissoes?: RolePermissions; // Alias para permissões do cargo
   cpf?: string;
+  badgeRegistrationNumber?: string; // Número de Registro / Crachá (4 a 6 dígitos)
+  numero_registro?: string; // Alias Número de Registro / Crachá
   rg?: string; // Número do RG
   numero_rg?: string; // Alias banco Supabase (numero_rg)
   birthDate?: string; // Data de Nascimento

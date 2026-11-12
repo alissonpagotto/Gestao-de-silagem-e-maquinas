@@ -1418,20 +1418,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }}
       >
         <div 
-          className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+          className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header 3D Metálico Acetinado */}
-          <div className="px-4 py-2.5 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-100 shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+          {/* Header Oficial Alto Contraste */}
+          <div className="px-4 py-2.5 border-b border-black dark:border-stone-700 flex items-center justify-between bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 shrink-0 rounded-t-xl">
             <div className="flex items-center space-x-2.5">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                <Package className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+                <Package className="w-4 h-4 text-sky-700 dark:text-sky-400 stroke-[2.2]" />
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                   {initialData?.id ? 'EDITAR PRODUTO NO ESTOQUE' : 'CADASTRAR NOVO PRODUTO NO ESTOQUE'}
                 </h3>
-                <p className="text-[11px] text-slate-600 dark:text-stone-400 font-bold uppercase tracking-wide">
+                <p className="text-[11px] text-black/75 dark:text-stone-400 font-bold uppercase tracking-wide">
                   IDENTIFICAÇÃO, PARAMETRIZAÇÃO FISCAL, FORMAÇÃO DE PREÇOS E CONTROLE DE ALMOXARIFADO
                 </p>
               </div>
@@ -1442,21 +1442,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 if (!isSaving) onClose();
               }}
               disabled={isSaving}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer disabled:opacity-50"
+              className="p-1.5 text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer disabled:opacity-50"
               title="Fechar formulário"
             >
-              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+              <X className="w-4 h-4 text-black dark:text-stone-200" />
             </button>
           </div>
 
           {/* Erro de validação */}
           {formError && (
-            <div className="mx-4 mt-2.5 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between">
+            <div className="mx-4 mt-2.5 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs font-semibold flex items-center justify-between">
               <span>{formError}</span>
               <button 
                 type="button" 
                 onClick={() => setFormError('')} 
-                className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                className="text-rose-600 hover:text-rose-800 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1464,17 +1464,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Formulário em 3 Colunas Horizontais Paralelas - Slim Design sem Rolagem */}
-          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto custom-scrollbar flex flex-col justify-between flex-1 min-h-0 bg-[#edf4ff] dark:bg-stone-900">
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch flex-1 min-h-0">
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
+            <div className="p-3 sm:p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch min-h-full">
               
               {/* ============================================================== */}
               {/* COLUNA 1: IDENTIFICAÇÃO */}
               {/* ============================================================== */}
-              <div className="p-3 sm:p-3.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
+              <div className="p-3 sm:p-3.5 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black dark:border-stone-700 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wider pb-1 mb-1.5 border-b border-slate-300 dark:border-stone-700">
-                    <Package className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black dark:text-stone-200 uppercase tracking-wider pb-1 mb-1.5 border-b border-black/30 dark:border-stone-700">
+                    <Package className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />
                     <span>1. IDENTIFICAÇÃO</span>
                   </div>
 
@@ -1482,8 +1482,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 1: Nome do Produto + Código Interno */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-8 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          NOME DO PRODUTO <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
+                          NOME DO PRODUTO <span className="text-rose-600">*</span>
                         </label>
                         <input
                           type="text"
@@ -1491,12 +1491,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={nome}
                           onChange={(e) => setNome(e.target.value.toUpperCase())}
                           placeholder="EX: ÓLEO DIESEL S10, PNEU 295/80..."
-                          className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
+                          className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
 
                       <div className="col-span-4 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           CÓDIGO INTERNO
                         </label>
                         <input
@@ -1504,7 +1504,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={codigoInterno}
                           onChange={(e) => setCodigoInterno(e.target.value.toUpperCase())}
                           placeholder="PRD-001"
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
                     </div>
@@ -1512,13 +1512,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 2: Categoria no Estoque */}
                     <div className="flex flex-col justify-end">
                       <div className="flex items-center justify-between mb-0.5">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
-                          CATEGORIA NO ESTOQUE <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300">
+                          CATEGORIA NO ESTOQUE <span className="text-rose-600">*</span>
                         </label>
                         <button
                           type="button"
                           onClick={() => setIsCategoryManagerOpen(true)}
-                          className="inline-flex items-center space-x-1 text-[10px] font-bold uppercase text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline cursor-pointer"
+                          className="inline-flex items-center space-x-1 text-[10px] font-bold uppercase text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 hover:underline cursor-pointer"
                           title="Gerenciar categorias de estoque"
                         >
                           <Settings className="w-3 h-3" />
@@ -1540,7 +1540,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               setCategoria(val);
                             }
                           }}
-                          className="flex-1 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer select-auto pointer-events-auto"
+                          className="flex-1 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer select-auto pointer-events-auto"
                         >
                           {!categories.includes(categoria) && categoria && (
                             <option value={categoria}>{categoria}</option>
@@ -1549,13 +1549,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <option key={cat} value={cat}>{cat}</option>
                           ))}
                           <option disabled value="">──────────</option>
-                          <option value="__manage__" className="text-sky-600 font-bold">⚙️ Gerenciar categorias...</option>
+                          <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar categorias...</option>
                         </select>
 
                         <button
                           type="button"
                           onClick={() => setIsCategoryManagerOpen(true)}
-                          className="h-7.5 w-7.5 flex items-center justify-center bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                          className="h-7.5 w-7.5 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
                           title="Gerenciar lista de categorias"
                         >
                           <Settings className="w-3.5 h-3.5" />
@@ -1566,8 +1566,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 3: Unidade de Medida + Marca */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-5 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
-                          UNIDADE DE MEDIDA <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
+                          UNIDADE DE MEDIDA <span className="text-rose-600">*</span>
                         </label>
                         <input
                           type="text"
@@ -1576,7 +1576,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={unidadeMedida}
                           onChange={(e) => setUnidadeMedida(e.target.value.toUpperCase())}
                           placeholder="UN, LT..."
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                         />
                         <datalist id="product-form-units-list">
                           <option value="UN" />
@@ -1597,7 +1597,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
 
                       <div className="col-span-7 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           MARCA
                         </label>
                         <input
@@ -1612,7 +1612,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             }
                           }}
                           placeholder="EX: MICHELIN, PIRELLI..."
-                          className="w-full h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
                     </div>
@@ -1621,10 +1621,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-7 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate">
+                          <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate">
                             CÓD. DE BARRAS / GTIN
                           </label>
-                          <label className="inline-flex items-center space-x-1 cursor-pointer text-[10px] font-black uppercase text-stone-600 dark:text-stone-400 select-none shrink-0">
+                          <label className="inline-flex items-center space-x-1 cursor-pointer text-[10px] font-black uppercase text-black dark:text-stone-400 select-none shrink-0">
                             <input
                               type="checkbox"
                               checked={semGtin}
@@ -1632,14 +1632,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 setSemGtin(e.target.checked);
                                 if (e.target.checked) setCodigoBarras('');
                               }}
-                              className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3 h-3 cursor-pointer"
+                              className="rounded border-gray-400 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3 h-3 cursor-pointer"
                             />
                             <span>SEM GTIN</span>
                           </label>
                         </div>
 
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-400">
+                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-black/50 dark:text-stone-400">
                             <Barcode className="w-3.5 h-3.5" />
                           </div>
                           <input
@@ -1651,15 +1651,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             placeholder={semGtin ? 'SEM GTIN' : '7891234567890'}
                             className={`w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono rounded-lg border transition uppercase ${
                               semGtin 
-                                ? 'bg-stone-100 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 text-stone-400 cursor-not-allowed italic'
-                                : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none font-semibold'
+                                ? 'bg-gray-100 dark:bg-stone-800/40 border-gray-400 dark:border-stone-800 text-gray-500 cursor-not-allowed italic'
+                                : 'bg-white dark:bg-stone-800 border-gray-400 dark:border-stone-700 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none font-semibold'
                             }`}
                           />
                         </div>
                       </div>
 
                       <div className="col-span-5 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           REF. FÁBRICA
                         </label>
                         <input
@@ -1667,7 +1667,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={refFabrica}
                           onChange={(e) => setRefFabrica(e.target.value.toUpperCase())}
                           placeholder="EX: 2AT-06"
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
                     </div>
@@ -1820,21 +1820,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {/* ============================================================== */}
               {/* COLUNA 2: FISCAL E VALORES */}
               {/* ============================================================== */}
-              <div className="p-3 sm:p-3.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
+              <div className="p-3 sm:p-3.5 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black dark:border-stone-700 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between pb-1 mb-1 border-b border-slate-300 dark:border-stone-700">
-                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wider">
-                      <Receipt className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                  <div className="flex items-center justify-between pb-1 mb-1 border-b border-black/30 dark:border-stone-700">
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black dark:text-stone-200 uppercase tracking-wider">
+                      <Receipt className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />
                       <span>2. FISCAL E VALORES</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 dark:text-stone-400 font-semibold font-mono">R$ #.##0,00</span>
+                    <span className="text-[10px] text-black/70 dark:text-stone-400 font-semibold font-mono">R$ #.##0,00</span>
                   </div>
 
                   <div className="space-y-1.5">
                     {/* Linha 1: Código NCM + Grupo Fiscal */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-5 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           CÓDIGO NCM
                         </label>
                         <input
@@ -1844,18 +1844,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           onChange={(e) => handleNcmChange(e.target.value)}
                           placeholder="0000.00.00"
                           maxLength={10}
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
 
                       <div className="col-span-7 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           GRUPO FISCAL
                         </label>
                         <select
                           value={grupoFiscal}
                           onChange={(e) => setGrupoFiscal(e.target.value as any)}
-                          className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer uppercase"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer uppercase"
                         >
                           <option value="TRIBUTADO">TRIBUTADO</option>
                           <option value="SUBSTITUICAO">SUBSTITUICAO</option>
@@ -1866,13 +1866,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                     {/* Linha 2: Grupo IPI */}
                     <div className="flex flex-col justify-end">
-                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         GRUPO IPI
                       </label>
                       <select
                         value={grupoIpi}
                         onChange={(e) => setGrupoIpi(e.target.value as any)}
-                        className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer uppercase"
+                        className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer uppercase"
                       >
                         <option value="NAO TRIBUTADO">NAO TRIBUTADO</option>
                         <option value="TRIBUTADO">TRIBUTADO</option>
@@ -1880,14 +1880,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </div>
 
                     {/* Composição de Custos do XML (Apenas Leitura) */}
-                    <div className="pt-1.5 pb-1 border-t border-stone-200/80 dark:border-stone-700/60 space-y-1">
+                    <div className="pt-1.5 pb-1 border-t border-black/20 dark:border-stone-700/60 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center space-x-1">
-                          <Receipt className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-sky-800 dark:text-sky-400 flex items-center space-x-1">
+                          <Receipt className="w-3 h-3 text-sky-700 dark:text-sky-400 shrink-0" />
                           <span>COMPOSIÇÃO DE CUSTOS DO XML</span>
                         </span>
                         {freteDiluidoItem > 0 && (
-                          <span className="text-[9.5px] font-bold uppercase text-stone-500 dark:text-stone-400">
+                          <span className="text-[9.5px] font-bold uppercase text-black/75 dark:text-stone-400">
                             FRETE: R$ {formatCurrencyPtBr(freteDiluidoItem)}/UN
                           </span>
                         )}
@@ -1897,13 +1897,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         {/* 1. Valor Total de Impostos (R$) */}
                         <div className="flex flex-col justify-end">
                           <label 
-                            className="block text-[10.5px] font-bold uppercase text-stone-700 dark:text-stone-300 truncate mb-0.5"
+                            className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5"
                             title="Soma de ICMS, IPI, PIS, COFINS, IBS e CBS"
                           >
                             IMPOSTOS (R$)
                           </label>
                           <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-400 dark:text-stone-500 font-bold text-xs">
+                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-black/60 dark:text-stone-500 font-bold text-xs">
                               R$
                             </div>
                             <input
@@ -1911,7 +1911,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               disabled
                               readOnly
                               value={formatCurrencyPtBr(valorImpostosTotal)}
-                              className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-100/90 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 cursor-not-allowed select-all"
+                              className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white/80 dark:bg-stone-900 text-black dark:text-stone-300 cursor-not-allowed select-all"
                             />
                           </div>
                         </div>
@@ -1919,13 +1919,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         {/* 2. Custo Líquido (Sem Imposto) (R$) */}
                         <div className="flex flex-col justify-end">
                           <label 
-                            className="block text-[10.5px] font-bold uppercase text-stone-700 dark:text-stone-300 truncate mb-0.5"
+                            className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5"
                             title="Valor do produto subtraindo os impostos"
                           >
                             CUSTO LÍQ. (R$)
                           </label>
                           <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-400 dark:text-stone-500 font-bold text-xs">
+                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-black/60 dark:text-stone-500 font-bold text-xs">
                               R$
                             </div>
                             <input
@@ -1933,7 +1933,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               disabled
                               readOnly
                               value={formatCurrencyPtBr(custoSemImposto)}
-                              className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-100/90 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 cursor-not-allowed select-all"
+                              className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white/80 dark:bg-stone-900 text-black dark:text-stone-300 cursor-not-allowed select-all"
                             />
                           </div>
                         </div>
@@ -1941,13 +1941,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         {/* 3. Custo Real (Com Imposto + Frete) (R$) */}
                         <div className="flex flex-col justify-end">
                           <label 
-                            className="block text-[10.5px] font-bold uppercase text-sky-800 dark:text-sky-300 truncate mb-0.5"
+                            className="block text-[10.5px] font-bold uppercase text-sky-900 dark:text-sky-300 truncate mb-0.5"
                             title="Custo Nominal real base para margem"
                           >
                             CUSTO REAL (R$)
                           </label>
                           <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-sky-600 dark:text-sky-400 font-bold text-xs">
+                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-sky-700 dark:text-sky-400 font-bold text-xs">
                               R$
                             </div>
                             <input
@@ -1955,7 +1955,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               disabled
                               readOnly
                               value={formatCurrencyPtBr(custoComImposto)}
-                              className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-sky-300/80 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 cursor-not-allowed select-all"
+                              className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-sky-800 bg-white dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 cursor-not-allowed select-all"
                             />
                           </div>
                         </div>
@@ -1965,16 +1965,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {/* Linha 3: Custo Nominal (R$) + Preço de Venda Sugerido (R$) */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           CUSTO NOMINAL (R$)
                           {custoComImposto > 0 && (
-                            <span className="ml-1 text-[9px] font-bold uppercase text-sky-600 dark:text-sky-400">
+                            <span className="ml-1 text-[9px] font-bold uppercase text-sky-700 dark:text-sky-400">
                               (BASE REAL)
                             </span>
                           )}
                         </label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-500 font-bold text-xs">
+                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-black/60 font-bold text-xs">
                             R$
                           </div>
                           <input
@@ -1983,17 +1983,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             value={custoNominalDisplay}
                             onChange={(e) => handleCustoChange(e.target.value)}
                             placeholder="0,00"
-                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                           />
                         </div>
                       </div>
 
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           PREÇO DE VENDA (R$)
                         </label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-emerald-700 dark:text-emerald-400 font-bold text-xs">
                             R$
                           </div>
                           <input
@@ -2002,7 +2002,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             value={precoVendaDisplay}
                             onChange={(e) => handlePrecoVendaChange(e.target.value)}
                             placeholder="0,00"
-                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                           />
                         </div>
                       </div>
@@ -2010,7 +2010,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                     {/* Linha 4: Margem de Lucro Sugerida (%) */}
                     <div className="flex flex-col justify-end">
-                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         MARGEM DE LUCRO SUGERIDA (%)
                       </label>
                       <div className="relative">
@@ -2020,9 +2020,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={margemLucroSugerida}
                           onChange={(e) => handleMargemChange(e.target.value)}
                           placeholder="Ex: 30"
-                          className="w-full h-7.5 pr-6 pl-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          className="w-full h-7.5 pr-6 pl-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                         />
-                        <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                        <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-black/60 font-bold text-xs">
                           %
                         </div>
                       </div>
@@ -2032,10 +2032,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="% Desconto Máximo Atacado">
+                          <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate" title="% Desconto Máximo Atacado">
                             % DESCONTO ATACADO
                           </label>
-                          <span className="text-[9px] font-black uppercase text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] font-black uppercase text-cyan-800 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/40 px-1.5 py-0.2 rounded">
                             % DESCONTO MAX ATAC.
                           </span>
                         </div>
@@ -2046,9 +2046,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             value={porcentagemAtacado}
                             onChange={(e) => handlePorcentagemAtacadoChange(e.target.value)}
                             placeholder="Ex: 15"
-                            className="w-full h-7.5 pr-6 pl-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7.5 pr-6 pl-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                           />
-                          <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-cyan-600 dark:text-cyan-400 font-bold text-xs">
+                          <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-cyan-700 dark:text-cyan-400 font-bold text-xs">
                             %
                           </div>
                         </div>
@@ -2056,15 +2056,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="Valor de Atacado">
+                          <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate" title="Valor de Atacado">
                             VALOR DE ATACADO
                           </label>
-                          <span className="text-[9px] font-black uppercase text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] font-black uppercase text-cyan-800 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/40 px-1.5 py-0.2 rounded">
                             V. ATAC.
                           </span>
                         </div>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-cyan-600 dark:text-cyan-400 font-bold text-xs">
+                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-cyan-700 dark:text-cyan-400 font-bold text-xs">
                             R$
                           </div>
                           <input
@@ -2073,7 +2073,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             value={valorAtacadoDisplay}
                             onChange={(e) => handleValorAtacadoChange(e.target.value)}
                             placeholder="0,00"
-                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                           />
                         </div>
                       </div>
@@ -2083,10 +2083,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="% Desconto Promoção">
+                          <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate" title="% Desconto Promoção">
                             % DESCONTO PROMOÇÃO
                           </label>
-                          <span className="text-[9px] font-black uppercase text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] font-black uppercase text-orange-800 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40 px-1.5 py-0.2 rounded">
                             % PROMO.
                           </span>
                         </div>
@@ -2097,9 +2097,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             value={porcentagemPromo}
                             onChange={(e) => handlePorcentagemPromoChange(e.target.value)}
                             placeholder="Ex: 10"
-                            className="w-full h-7.5 pr-6 pl-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7.5 pr-6 pl-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                           />
-                          <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-orange-600 dark:text-orange-400 font-bold text-xs">
+                          <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-orange-700 dark:text-orange-400 font-bold text-xs">
                             %
                           </div>
                         </div>
@@ -2107,15 +2107,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between mb-0.5">
-                          <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate" title="Valor Promocional">
+                          <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate" title="Valor Promocional">
                             VALOR PROMOCIONAL
                           </label>
-                          <span className="text-[9px] font-black uppercase text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] font-black uppercase text-orange-800 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40 px-1.5 py-0.2 rounded">
                             V. PROMO
                           </span>
                         </div>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-orange-600 dark:text-orange-400 font-bold text-xs">
+                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-orange-700 dark:text-orange-400 font-bold text-xs">
                             R$
                           </div>
                           <input
@@ -2124,7 +2124,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             value={valorPromoDisplay}
                             onChange={(e) => handleValorPromoChange(e.target.value)}
                             placeholder="0,00"
-                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                           />
                         </div>
                       </div>
@@ -2136,21 +2136,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {/* ============================================================== */}
               {/* COLUNA 3: CONTROLE E ALMOXARIFADO */}
               {/* ============================================================== */}
-              <div className="p-3 sm:p-3.5 bg-slate-50/70 dark:bg-stone-800/40 rounded-xl border border-slate-300 dark:border-stone-700/80 flex flex-col justify-between">
+              <div className="p-3 sm:p-3.5 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black dark:border-stone-700 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between pb-1 mb-1 border-b border-slate-300 dark:border-stone-700">
-                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wider">
-                      <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                  <div className="flex items-center justify-between pb-1 mb-1 border-b border-black/30 dark:border-stone-700">
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black dark:text-stone-200 uppercase tracking-wider">
+                      <Layers className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />
                       <span>3. CONTROLE E ALMOXARIFADO</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 dark:text-stone-400 font-bold uppercase">SALDO & LOCAL</span>
+                    <span className="text-[10px] text-black/70 dark:text-stone-400 font-bold uppercase">SALDO & LOCAL</span>
                   </div>
 
                   <div className="space-y-1.5">
                     {/* Linha 1: Quantidade Inicial + Estoque Mínimo (2 Colunas) */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           QTD. INICIAL ({unidadeMedida || 'UN'})
                         </label>
                         <input
@@ -2160,12 +2160,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={quantidadeAtual}
                           onChange={(e) => setQuantidadeAtual(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="0"
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                         />
                       </div>
 
                       <div className="col-span-6 flex flex-col justify-end">
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 truncate mb-0.5">
+                        <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           ESTOQUE MÍNIMO
                         </label>
                         <input
@@ -2175,19 +2175,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           value={minQuantity}
                           onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="0"
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                         />
                       </div>
                     </div>
 
                     {/* Linha 2: Endereçamento no Almoxarifado / Gôndola (5 Campos Menores) */}
-                    <div className="pt-0.5 border-t border-stone-200/80 dark:border-stone-700/60">
+                    <div className="pt-0.5 border-t border-black/20 dark:border-stone-700/60">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="flex items-center space-x-1 text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
-                          <MapPin className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                        <label className="flex items-center space-x-1 text-[11px] font-bold uppercase text-black dark:text-stone-300">
+                          <MapPin className="w-3 h-3 text-sky-700 dark:text-sky-400 shrink-0" />
                           <span>ENDEREÇAMENTO FÍSICO</span>
                         </label>
-                        <span className="text-[9px] font-black uppercase text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1 py-0.2 rounded">
+                        <span className="text-[9px] font-black uppercase text-sky-800 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/60 px-1 py-0.2 rounded">
                           GÔNDOLA / PRATELEIRA
                         </span>
                       </div>
@@ -2195,7 +2195,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       <div className="grid grid-cols-5 gap-1">
                         {/* 1. Setor */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Setor">
+                          <label className="block text-[9px] font-black uppercase text-black dark:text-stone-400 text-center mb-0.5 truncate" title="Setor">
                             SETOR
                           </label>
                           <input
@@ -2205,14 +2205,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             onChange={(e) => setSetor(e.target.value.toUpperCase())}
                             onBlur={(e) => setSetor(formatEnderecoPart(e.target.value))}
                             placeholder="02"
-                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                             title="Setor do Almoxarifado"
                           />
                         </div>
 
                         {/* 2. Rua */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Rua">
+                          <label className="block text-[9px] font-black uppercase text-black dark:text-stone-400 text-center mb-0.5 truncate" title="Rua">
                             RUA
                           </label>
                           <input
@@ -2222,14 +2222,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             onChange={(e) => setRua(e.target.value.toUpperCase())}
                             onBlur={(e) => setRua(formatEnderecoPart(e.target.value))}
                             placeholder="05"
-                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                             title="Rua / Corredor"
                           />
                         </div>
 
                         {/* 3. Estante */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Estante">
+                          <label className="block text-[9px] font-black uppercase text-black dark:text-stone-400 text-center mb-0.5 truncate" title="Estante">
                             ESTANTE
                           </label>
                           <input
@@ -2239,14 +2239,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             onChange={(e) => setEstante(e.target.value.toUpperCase())}
                             onBlur={(e) => setEstante(formatEnderecoPart(e.target.value))}
                             placeholder="08"
-                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                             title="Estante / Módulo"
                           />
                         </div>
 
                         {/* 4. Nível */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Nível">
+                          <label className="block text-[9px] font-black uppercase text-black dark:text-stone-400 text-center mb-0.5 truncate" title="Nível">
                             NÍVEL
                           </label>
                           <input
@@ -2256,14 +2256,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             onChange={(e) => setNivel(e.target.value.toUpperCase())}
                             onBlur={(e) => setNivel(formatEnderecoPart(e.target.value))}
                             placeholder="07"
-                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                             title="Nível / Prateleira"
                           />
                         </div>
 
                         {/* 5. Box */}
                         <div className="flex flex-col">
-                          <label className="block text-[9px] font-black uppercase text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Box">
+                          <label className="block text-[9px] font-black uppercase text-black dark:text-stone-400 text-center mb-0.5 truncate" title="Box">
                             BOX
                           </label>
                           <input
@@ -2273,24 +2273,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             onChange={(e) => setBox(e.target.value.toUpperCase())}
                             onBlur={(e) => setBox(formatEnderecoPart(e.target.value))}
                             placeholder="02"
-                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                             title="Box / Gaveta / Vão"
                           />
                         </div>
                       </div>
 
                       {/* Caixa de Endereço Formatado Calculado Automaticamente - Achatada Slim */}
-                      <div className="mt-1 py-1 px-2.5 rounded-lg bg-stone-900 dark:bg-stone-950 border border-stone-800 text-white flex items-center justify-between shadow-inner">
+                      <div className="mt-1 py-1 px-2.5 rounded-lg bg-stone-900 dark:bg-stone-950 border border-black text-white flex items-center justify-between shadow-inner">
                         <div className="flex items-center space-x-1.5">
                           <Barcode className="w-3 h-3 text-emerald-400 shrink-0" />
-                          <span className="text-[9px] font-black uppercase text-stone-400 tracking-wider">
+                          <span className="text-[9px] font-black uppercase text-stone-300 tracking-wider">
                             ENDEREÇO FORMATADO:
                           </span>
                         </div>
                         <div className="text-xs font-black font-mono tracking-widest text-emerald-400">
                           {enderecoFormatado || '00.00.00.00.00'}
                         </div>
-                        <span className="text-[8px] font-black uppercase text-stone-400 tracking-wider hidden sm:inline">
+                        <span className="text-[8px] font-black uppercase text-stone-300 tracking-wider hidden sm:inline">
                           SET.RUA.EST.NÍV.BOX
                         </span>
                       </div>
@@ -2319,13 +2319,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     )}
 
                     {/* Central de Upload e Visualização da Foto do Produto */}
-                    <div className="pt-2 border-t border-stone-200/80 dark:border-stone-700/60">
+                    <div className="pt-2 border-t border-black/20 dark:border-stone-700/60">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="flex items-center space-x-1 text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400">
-                          <Camera className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                        <label className="flex items-center space-x-1 text-[11px] font-bold uppercase text-black dark:text-stone-300">
+                          <Camera className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />
                           <span>FOTO DO PRODUTO</span>
                         </label>
-                        <span className="text-[9px] font-black uppercase text-slate-400 dark:text-stone-400">
+                        <span className="text-[9px] font-black uppercase text-black/70 dark:text-stone-400">
                           CATÁLOGO & PDV
                         </span>
                       </div>
@@ -2343,7 +2343,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             handleImageUpload(e.dataTransfer.files[0]);
                           }
                         }}
-                        className="w-full h-[220px] border-2 border-dashed border-slate-300 rounded bg-slate-50 flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-slate-100/80 transition-all select-none group relative overflow-hidden"
+                        className="w-full h-[220px] border-2 border-dashed border-gray-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-stone-800 transition-all select-none group relative overflow-hidden"
                       >
                         <input
                           ref={fileInputRef}
@@ -2377,13 +2377,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               ✕ REMOVER FOTO
                             </button>
                           </div>
-                        ) : (
+                      ) : (
                           <div className="flex flex-col items-center justify-center text-center">
-                            <Camera className="text-slate-400 size-8 group-hover:text-blue-500 transition-colors" />
-                            <span className="text-[11px] font-bold text-slate-500 mt-2">
+                            <Camera className="text-black/50 dark:text-stone-400 size-8 group-hover:text-sky-700 transition-colors" />
+                            <span className="text-[11px] font-bold text-black dark:text-stone-200 mt-2">
                               📸 CLIQUE OU ARRASTE A FOTO DO PRODUTO AQUI
                             </span>
-                            <span className="text-[9px] text-slate-400 font-semibold mt-0.5">
+                            <span className="text-[9px] text-black/65 dark:text-stone-400 font-semibold mt-0.5">
                               FORMATOS ACEITOS: JPG, PNG • MÁXIMO 1MB
                             </span>
                           </div>
@@ -2394,18 +2394,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
               </div>
 
+              </div>
             </div>
 
             {/* Footer Compacto do Modal com Botão de Imprimir Etiqueta */}
-            <div className="pt-2 border-t border-slate-300 dark:border-stone-800 flex items-center justify-between gap-2 shrink-0">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-between gap-2 shrink-0 rounded-b-xl">
               {/* Botão de Impressão de Etiquetas à esquerda */}
               <button
                 type="button"
                 onClick={() => setIsLabelPrintModalOpen(true)}
-                className="px-3.5 py-1.5 text-xs font-bold uppercase text-slate-800 dark:text-stone-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                className="px-3.5 py-1.5 text-xs font-bold uppercase text-black dark:text-stone-200 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition flex items-center space-x-1.5 cursor-pointer active:scale-95"
                 title="Imprimir Etiqueta de Gôndola / Almoxarifado com Código de Barras e Endereço"
               >
-                <Printer className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                <Printer className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                 <span>IMPRIMIR ETIQUETA</span>
               </button>
 
@@ -2415,7 +2416,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="button"
                   onClick={onClose}
                   disabled={isSaving}
-                  className="px-4 py-1.5 text-xs font-bold uppercase text-slate-700 dark:text-stone-300 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 border border-slate-300 dark:border-stone-700 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95 disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-bold uppercase text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer active:scale-95 disabled:opacity-50"
                 >
                   CANCELAR
                 </button>
@@ -2423,7 +2424,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-4 py-1.5 text-xs font-bold uppercase text-white bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-bold uppercase text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
                 >
                   {isSaving ? (
                     <>

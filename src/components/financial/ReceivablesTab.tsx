@@ -597,7 +597,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   };
 
   return (
-    <div className="space-y-3">
+    <div id="financial-tab-receber" className="financial-subtab-clean space-y-3">
       {/* Toast de Sucesso da Baixa */}
       {successMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 font-bold text-xs flex items-center justify-between shadow-xs">
@@ -616,64 +616,61 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       )}
 
       {/* KPI Cards (Compact) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div 
-          style={{ backgroundColor: '#caf4cc', borderColor: '#0ec244' }}
-          className="border rounded-xl p-3 shadow-xs flex items-center justify-between text-black"
-        >
-          <div style={{ backgroundColor: '#caf4cc', borderColor: '#0ec244' }}>
-            <span className="text-[11px] font-black text-black uppercase tracking-wider block">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+          <div className="bg-transparent">
+            <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               A Receber (Em Aberto)
             </span>
-            <div className="text-lg sm:text-xl font-black text-emerald-800 mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-emerald-800 dark:text-emerald-400 mt-0.5 font-['Outfit'] bg-transparent">
               {formatCurrencyBRL(totalPending)}
             </div>
-            <p className="text-[11px] text-black/70 font-medium">
+            <p className="text-[11px] text-black/70 dark:text-stone-400 font-medium">
               {pendingList.length} pedidos a receber
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-emerald-100 text-emerald-800 shrink-0 border border-emerald-300">
+          <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-800">
             <Clock className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[11px] font-black text-black uppercase tracking-wider block">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+          <div className="bg-transparent">
+            <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Recebido (Liquidado)
             </span>
-            <div className="text-lg sm:text-xl font-black text-emerald-700 mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-400 mt-0.5 font-['Outfit'] bg-transparent">
               {formatCurrencyBRL(totalPaid)}
             </div>
-            <p className="text-[11px] text-black/70 font-medium">
+            <p className="text-[11px] text-black/70 dark:text-stone-400 font-medium">
               {paidList.length} faturamentos confirmados
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 shrink-0 border border-emerald-200">
+          <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-800">
             <TrendingUp className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
-          <div>
-            <span className="text-[11px] font-black text-black uppercase tracking-wider block">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+          <div className="bg-transparent">
+            <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Faturamento Total
             </span>
-            <div className="text-lg sm:text-xl font-black text-black mt-0.5 font-['Outfit']">
+            <div className="text-lg sm:text-xl font-black text-black dark:text-white mt-0.5 font-['Outfit'] bg-transparent">
               {formatCurrencyBRL(totalOverall)}
             </div>
-            <p className="text-[11px] text-black/70 font-medium">
+            <p className="text-[11px] text-black/70 dark:text-stone-400 font-medium">
               Vendas + Prestação de serviços
             </p>
           </div>
-          <div className="p-2 rounded-lg bg-slate-100 text-black shrink-0 border border-slate-200">
+          <div className="p-2 rounded-lg bg-slate-100 dark:bg-stone-800 text-black dark:text-stone-200 shrink-0 border border-slate-200 dark:border-stone-700">
             <DollarSign className="w-4 h-4" />
           </div>
         </div>
       </div>
 
       {/* Filters Bar (Compact) */}
-      <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-black">
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-black dark:text-white">
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none">
           <CompetenceSelector
             competence={activeCompetence}
@@ -821,7 +818,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                           type="button"
                           id={`btn-baixar-conta-${item.id}`}
                           onClick={() => setSettlingItem(item)}
-                          className="inline-flex items-center space-x-1.5 text-xs font-black px-3 py-1.5 rounded-lg border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs active:scale-95"
+                          className="inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-700 bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs active:scale-95"
                           title="Efetivar recebimento / quitação desta conta"
                         >
                           <DollarSign className="w-3.5 h-3.5" />

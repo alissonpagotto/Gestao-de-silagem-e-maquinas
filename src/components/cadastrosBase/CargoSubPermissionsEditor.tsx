@@ -283,6 +283,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
               { key: 'atestados', label: 'Atestados' },
               { key: 'faltas', label: 'Faltas' },
               { key: 'rescisao', label: 'Rescisão' },
+              { key: 'crachas', label: 'Crachás' },
             ],
             permissoes.sub_rh
           )}

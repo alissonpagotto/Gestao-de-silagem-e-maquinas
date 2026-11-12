@@ -1051,7 +1051,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             />
 
             {/* Date range pickers */}
-            <div className="flex items-center space-x-1.5 text-xs text-black dark:text-white">
+            <div className="consolidado-date-range flex items-center space-x-1.5 text-xs text-black dark:text-white bg-transparent border-none">
               <input
                 type="date"
                 value={startDate}
@@ -1376,6 +1376,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           employees={employees}
           orders={orders}
           bankAccounts={bankAccounts}
+          competenceMonth={competenceMonth}
+          onPrevMonth={handlePrevCompetence}
+          onNextMonth={handleNextCompetence}
         />
       )}
 

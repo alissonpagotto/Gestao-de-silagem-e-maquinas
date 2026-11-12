@@ -39,6 +39,7 @@ import {
   FinanceiroCheque,
   ClienteCredito
 } from '../types';
+import { backfillEmployeesBadgeNumbers } from '../components/rh/badgeHelpers';
 import { 
   INITIAL_VEHICLE_TYPES, 
   INITIAL_TIRE_INVENTORY, 
@@ -947,10 +948,15 @@ export function getStoredEmployees(): Employee[] {
       return updatedEmp;
     });
 
-    if (modified || cleaned.length !== parsed.length) {
-      saveStoredEmployees(cleaned);
+    const { updated: cleanedWithBadges, changed: badgeChanged } = backfillEmployeesBadgeNumbers(cleaned);
+    if (badgeChanged) {
+      modified = true;
     }
-    return cleaned;
+
+    if (modified || cleanedWithBadges.length !== parsed.length) {
+      saveStoredEmployees(cleanedWithBadges);
+    }
+    return cleanedWithBadges;
   } catch (e) {
     return INITIAL_EMPLOYEES;
   }

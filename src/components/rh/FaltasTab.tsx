@@ -15,11 +15,10 @@ import {
   ArrowRight,
   ShieldAlert,
   FileSpreadsheet,
-  Check,
-  ChevronLeft,
-  ChevronRight
+  Check
 } from 'lucide-react';
 import { Employee, AbsenceRecord, PayrollRecord } from '../../types';
+import { CompetenceSelector } from '../financial/CompetenceSelector';
 import { 
   formatMoneyBRL, 
   formatEmployeeAdmissionDate,
@@ -545,33 +544,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         
         <div className="flex flex-wrap items-center gap-2 flex-1">
           {/* Seletor Unificado de Competência com Navegação por Setas */}
-          <div className="flex items-center space-x-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-              title="Mês Anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            
-            <div 
-              style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
-              className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
-            >
-              <span>Competência:</span>
-              <span className="text-black font-black text-sm">{selectedMonth}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-              title="Próximo Mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          <CompetenceSelector
+            competence={selectedMonth}
+            onPrev={handlePrevMonth}
+            onNext={handleNextMonth}
+          />
 
           {/* Campo de Busca */}
           <div className="relative flex-1 min-w-[180px]">

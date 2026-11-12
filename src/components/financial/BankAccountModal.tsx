@@ -741,21 +741,21 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-xs animate-in fade-in"
     >
       <div 
-        className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in"
+        className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in"
       >
-        {/* CABEÇALHO - Moldura Metálica 3D Acetinada */}
+        {/* CABEÇALHO */}
         <div 
-          className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]"
+          className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between shrink-0 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 rounded-t-xl"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Landmark className="w-3.5 h-3.5 text-slate-700 dark:text-stone-200" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0">
+              <Landmark className="w-3.5 h-3.5 text-black dark:text-stone-200" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-1.5 leading-tight">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 flex items-center gap-1.5 leading-tight">
                 {editingAccount ? 'EDITAR CONTA BANCÁRIA' : 'NOVA CONTA BANCÁRIA / CAIXA'}
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium leading-tight">
+              <p className="text-[11px] text-black/80 dark:text-stone-400 font-medium leading-tight">
                 Gestão de contas correntes, cooperativas de crédito, caixas e cartões corporativos
               </p>
             </div>
@@ -765,22 +765,22 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             type="button"
             id="btn-fechar-modal-conta"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors cursor-pointer"
             title="Fechar Modal"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* CORPO DO FORMULÁRIO EM DUAS COLUNAS (SPLIT SCREEN) */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden scrollbar-none text-zinc-900 dark:text-stone-100 min-h-0">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden scrollbar-none text-black dark:text-stone-100 min-h-0 bg-[#cad4e6] dark:bg-stone-950">
           
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden scrollbar-none min-h-0">
             
             {/* ======================================================== */}
             {/* COLUNA DA ESQUERDA (60% da Largura): DADOS DA CONTA */}
             {/* ======================================================== */}
-            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-stone-800 bg-[#edf4ff] dark:bg-transparent">
+            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-transparent">
               
               {/* Mensagem de Erro de Validação */}
               {validationError && (
@@ -794,7 +794,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               )}
 
               {/* BLOCO 1 (NOVO TOPO): Instituição Financeira & Dados Bancários */}
-              <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-black dark:border-stone-700 space-y-1">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5">
                   {/* Instituição Financeira */}
                   <div className="sm:col-span-7">
@@ -880,7 +880,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               </div>
 
               {/* BLOCO 2: Responsável pela Conta e Identificação */}
-              <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-black dark:border-stone-700 space-y-1">
                 {/* 1. Responsável pela Conta (Titularidade / Razão Social) */}
                 <div className="w-full">
                   <label 
@@ -956,7 +956,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               </div>
 
               {/* BLOCO 3: Valores, Saldo Inicial e Limite de Cheque Especial */}
-              <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-black dark:border-stone-700 space-y-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {/* Saldo Inicial / Atual */}
                   <div>
@@ -1052,7 +1052,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               </div>
 
               {/* BLOCO 4: Chave PIX Composta (Tipo + Input Mascarado) */}
-              <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-black dark:border-stone-700 space-y-1">
                 <label className="block text-xs font-bold text-zinc-900 dark:text-stone-100 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <QrCode className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
@@ -1105,20 +1105,20 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               {/* BLOCO 5 (AÇÃO DA COLUNA DA ESQUERDA): Cartões de Crédito Vinculados */}
               <div 
                 id="bloco-cartoes-resumo-esquerda"
-                className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs flex items-center justify-between gap-2 mt-auto"
+                className="bg-[#e0e6f1] dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-black dark:border-stone-700 flex items-center justify-between gap-2 mt-auto"
               >
                 <div className="flex items-center space-x-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-600 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
                     <CreditCard className="w-3.5 h-3.5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-900 dark:text-stone-100 flex items-center gap-1.5 leading-none">
+                    <h4 className="text-xs font-bold text-black dark:text-stone-100 flex items-center gap-1.5 leading-none">
                       <span>Cartões de Crédito Corporativos</span>
-                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-500 dark:border-emerald-700">
                         {corporateCards.length}
                       </span>
                     </h4>
-                    <p className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium mt-0.5 leading-none">
+                    <p className="text-[10px] text-black/75 dark:text-stone-400 font-medium mt-0.5 leading-none">
                       {corporateCards.length === 0
                         ? 'Nenhum cartão vinculado'
                         : `${corporateCards.length} cartão(ões) físico(s) à direita`}
@@ -1130,7 +1130,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                   type="button"
                   id="btn-adicionar-cartao-coluna-esquerda"
                   onClick={handleAddCard}
-                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 shrink-0 min-h-[28px]"
+                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold transition cursor-pointer active:scale-98 shrink-0 min-h-[28px]"
                   title="Adicionar Cartão Corporativo à lista"
                 >
                   <Plus className="w-3 h-3 stroke-[3]" />
@@ -1145,22 +1145,22 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             {/* ======================================================== */}
             <div 
               id="painel-cartoes-corporativos"
-              className="lg:col-span-5 flex flex-col bg-[#edf4ff] dark:bg-stone-900/50 overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-1.5"
+              className="lg:col-span-5 flex flex-col bg-[#cad4e6] dark:bg-stone-900/50 overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-1.5"
             >
               {/* Cabeçalho do Painel Lateral de Cartões */}
-              <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200 dark:border-stone-700 shrink-0">
+              <div className="flex items-center justify-between pb-1.5 border-b border-black/30 dark:border-stone-700 shrink-0">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-600/10 dark:bg-emerald-400/10 border border-emerald-600/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <div className="w-6 h-6 rounded-lg bg-white dark:bg-stone-800 border border-black dark:border-stone-700 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
                     <CreditCard className="w-3.5 h-3.5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                    <h4 className="text-xs font-black text-black dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5 leading-none">
                       <span>Cartões Corporativos Vinculados</span>
-                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-500 dark:border-emerald-700">
                         {corporateCards.length}
                       </span>
                     </h4>
-                    <p className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium leading-none mt-0.5">
+                    <p className="text-[10px] text-black/75 dark:text-stone-400 font-medium leading-none mt-0.5">
                       Simulação física e gestão de faturas
                     </p>
                   </div>
@@ -1170,7 +1170,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                   type="button"
                   id="btn-adicionar-cartao-coluna-direita"
                   onClick={handleAddCard}
-                  className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 shrink-0 min-h-[26px]"
+                  className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold transition cursor-pointer active:scale-98 shrink-0 min-h-[26px]"
                 >
                   <Plus className="w-3 h-3 stroke-[3]" />
                   <span>+ Adicionar</span>
@@ -1179,22 +1179,22 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
               {/* Resumo de Limites dos Cartões */}
               {corporateCards.length > 0 && (
-                <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 shadow-2xs text-center shrink-0">
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 text-center shrink-0">
                   <div>
-                    <span className="text-[8.5px] uppercase font-bold text-zinc-500 dark:text-stone-400 block leading-tight">Limite Total</span>
-                    <strong className="text-[11px] font-black text-zinc-900 dark:text-stone-100 font-mono leading-tight">
+                    <span className="text-[8.5px] uppercase font-bold text-black/75 dark:text-stone-400 block leading-tight">Limite Total</span>
+                    <strong className="text-[11px] font-black text-black dark:text-stone-100 font-mono leading-tight">
                       {formatCurrencyBRL(totalCardsLimit)}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[8.5px] uppercase font-bold text-zinc-500 dark:text-stone-400 block leading-tight">Utilizado</span>
-                    <strong className="text-[11px] font-black text-zinc-800 dark:text-stone-200 font-mono leading-tight">
+                    <span className="text-[8.5px] uppercase font-bold text-black/75 dark:text-stone-400 block leading-tight">Utilizado</span>
+                    <strong className="text-[11px] font-black text-black dark:text-stone-200 font-mono leading-tight">
                       {formatCurrencyBRL(totalCardsUsed)}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[8.5px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block leading-tight">Disponível</span>
-                    <strong className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 font-mono leading-tight">
+                    <span className="text-[8.5px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block leading-tight">Disponível</span>
+                    <strong className="text-[11px] font-black text-emerald-800 dark:text-emerald-400 font-mono leading-tight">
                       {formatCurrencyBRL(totalCardsAvailable)}
                     </strong>
                   </div>
@@ -1205,8 +1205,8 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               {cardNotification && (
                 <div className={`p-1.5 rounded-lg border text-xs font-bold flex items-center justify-between gap-1.5 shadow-2xs animate-in fade-in shrink-0 ${
                   cardNotification.type === 'success' 
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900' 
-                    : 'bg-blue-50 border-blue-300 text-blue-900'
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-900' 
+                    : 'bg-blue-50 border-blue-400 text-blue-900'
                 }`}>
                   <div className="flex items-center gap-1.5 text-xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -1224,20 +1224,20 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
               {/* Listagem de Cartões ou Estado Vazio */}
               {corporateCards.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-white/70 dark:bg-stone-800/40 rounded-xl border border-dashed border-zinc-300 dark:border-stone-700 my-auto">
-                  <div className="w-10 h-8 rounded-lg border-2 border-dashed border-zinc-300 dark:border-stone-600 flex items-center justify-center text-zinc-400 dark:text-stone-500 mb-1.5">
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-700 my-auto">
+                  <div className="w-10 h-8 rounded-lg border border-black/40 dark:border-stone-600 bg-white flex items-center justify-center text-black/60 dark:text-stone-500 mb-1.5">
                     <CreditCard className="w-5 h-5" />
                   </div>
-                  <p className="text-xs font-bold text-zinc-800 dark:text-stone-200">
+                  <p className="text-xs font-bold text-black dark:text-stone-200">
                     Nenhum cartão corporativo vinculado
                   </p>
-                  <p className="text-[10px] text-zinc-500 dark:text-stone-400 mt-0.5 max-w-xs leading-tight">
+                  <p className="text-[10px] text-black/75 dark:text-stone-400 mt-0.5 max-w-xs leading-tight">
                     Clique em <strong>+ Adicionar Cartão</strong> para visualizar o mockup físico realista e vincular o cartão ao funcionário responsável.
                   </p>
                   <button
                     type="button"
                     onClick={handleAddCard}
-                    className="mt-2.5 inline-flex items-center gap-1 px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer active:scale-98"
+                    className="mt-2.5 inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold transition cursor-pointer active:scale-98"
                   >
                     <Plus className="w-3 h-3 stroke-[3]" />
                     <span>Vincular Primeiro Cartão</span>
@@ -1256,7 +1256,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                     return (
                       <div
                         key={cardKey}
-                        className="bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl p-2 sm:p-2.5 space-y-1.5 shadow-xs hover:border-zinc-400 dark:hover:border-stone-500 transition animate-in fade-in"
+                        className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-2 sm:p-2.5 space-y-1.5 transition animate-in fade-in"
                       >
                         {/* 1. MOCKUP FÍSICO REALISTA DO CARTÃO */}
                         <CorporateCardMockup 
@@ -1379,16 +1379,16 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
                         {/* 3. FORMULÁRIO COMPLETO EXPANSÍVEL (EXIBIDO APENAS AO CLICAR EM "EDITAR INFORMAÇÕES") */}
                         {isExpanded && (
-                          <div className="p-2 sm:p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 space-y-1.5 animate-in fade-in duration-150">
-                            <div className="flex items-center justify-between pb-1 border-b border-zinc-200 dark:border-stone-700">
-                              <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider flex items-center gap-1">
-                                <Pencil className="w-3 h-3 text-zinc-500" />
+                          <div className="p-2 sm:p-2.5 rounded-lg bg-white/80 dark:bg-stone-900 border border-gray-400 dark:border-stone-700 space-y-1.5 animate-in fade-in duration-150">
+                            <div className="flex items-center justify-between pb-1 border-b border-black/20 dark:border-stone-700">
+                              <span className="text-[10px] font-bold text-black dark:text-stone-400 uppercase tracking-wider flex items-center gap-1">
+                                <Pencil className="w-3 h-3 text-black/70" />
                                 <span>Parâmetros de Gestão do Cartão</span>
                               </span>
                               <button
                                 type="button"
                                 onClick={() => toggleCardExpansion(cardKey)}
-                                className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 dark:text-stone-400 hover:underline cursor-pointer"
+                                className="text-[10px] font-bold text-black/70 hover:text-black dark:text-stone-400 hover:underline cursor-pointer"
                               >
                                 Recolher
                               </button>
@@ -1397,7 +1397,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                             {/* Linha: Identificador/Final e Bandeira */}
                             <div className="grid grid-cols-2 gap-1.5">
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
                                   Bandeira
                                 </label>
                                 <select
@@ -1411,7 +1411,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                       name: `${brandLabel} Final ${digits}`,
                                     });
                                   }}
-                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
+                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
                                 >
                                   <option value="mastercard">Mastercard</option>
                                   <option value="visa">Visa</option>
@@ -1420,7 +1420,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                               </div>
 
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
                                   Identificador / Final
                                 </label>
                                 <input
@@ -1435,15 +1435,15 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                     });
                                   }}
                                   placeholder="Ex: Mastercard Final 4520"
-                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
                                 />
                               </div>
                             </div>
 
                             {/* Funcionário Responsável: Dropdown com Módulo RH */}
                             <div>
-                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center gap-1">
-                                <UserCheck className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
+                              <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5 flex items-center gap-1">
+                                <UserCheck className="w-3 h-3 text-black/70 dark:text-stone-400" />
                                 <span>Funcionário Responsável / Módulo RH</span>
                               </label>
                               <select
@@ -1460,7 +1460,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                     responsavel_funcao: empRole,
                                   });
                                 }}
-                                className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
+                                className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
                               >
                                 <option value="">-- SELECIONE O FUNCIONÁRIO RESPONSÁVEL --</option>
                                 {activeEmployees.map((emp) => (
@@ -1474,9 +1474,9 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                             {/* Nome no Plástico do Cartão (Titularidade) e Função / Cargo */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
+                                <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5 flex items-center justify-between">
                                   <span>Nome no Plástico (Titularidade)</span>
-                                  <span className="text-[9px] text-zinc-400 font-normal">Ao vivo</span>
+                                  <span className="text-[9px] text-black/60 font-normal">Ao vivo</span>
                                 </label>
                                 <input
                                   type="text"
@@ -1489,12 +1489,12 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                     });
                                   }}
                                   placeholder="Ex: AUDIRLEI REOLAN"
-                                  className="w-full px-2 py-1 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs uppercase font-mono tracking-wide"
+                                  className="w-full px-2 py-1 text-xs font-black bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs uppercase font-mono tracking-wide"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
                                   Função / Cargo do Portador
                                 </label>
                                 <input
@@ -1506,7 +1506,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                     });
                                   }}
                                   placeholder="Ex: Motorista"
-                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
                                 />
                               </div>
                             </div>
@@ -1514,11 +1514,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                             {/* Grid: Limite Total e Limite Utilizado */}
                             <div className="grid grid-cols-2 gap-1.5">
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5">
                                   Limite Total (R$)
                                 </label>
                                 <div className="relative">
-                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-black/60 font-bold text-[10px] pointer-events-none select-none">
                                     R$
                                   </span>
                                   <input
@@ -1530,19 +1530,19 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                       handleUpdateCard(card.id, { totalLimit: val });
                                     }}
                                     placeholder="0,00"
-                                    className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                    className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
                                   />
                                 </div>
                               </div>
 
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
+                                <label className="block text-[10px] font-bold text-black dark:text-stone-300 mb-0.5 flex items-center justify-between">
                                   <span>Limite Utilizado (R$)</span>
                                   {cardExpenses > 0 && (
                                     <button
                                       type="button"
                                       onClick={() => handleUpdateCard(card.id, { usedLimit: cardExpenses })}
-                                      className="text-[9px] text-zinc-700 dark:text-stone-300 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                                      className="text-[9px] text-black dark:text-stone-300 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                                       title="Copiar soma de despesas abertas no sistema"
                                     >
                                       <RefreshCw className="w-2.5 h-2.5" />
@@ -1551,7 +1551,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                   )}
                                 </label>
                                 <div className="relative">
-                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-black/60 font-bold text-[10px] pointer-events-none select-none">
                                     R$
                                   </span>
                                   <input
@@ -1563,23 +1563,23 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                       handleUpdateCard(card.id, { usedLimit: val });
                                     }}
                                     placeholder="0,00"
-                                    className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                    className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
                                   />
                                 </div>
                               </div>
                             </div>
 
                             {/* Vencimento e Botão de Provisionamento */}
-                            <div className="pt-1 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-between gap-1.5">
+                            <div className="pt-1 border-t border-black/20 dark:border-stone-700 flex items-center justify-between gap-1.5">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 flex items-center gap-1 shrink-0">
-                                  <Calendar className="w-3 h-3 text-zinc-500" />
+                                <span className="text-[10px] font-bold text-black dark:text-stone-400 flex items-center gap-1 shrink-0">
+                                  <Calendar className="w-3 h-3 text-black/70" />
                                   <span>Venc.:</span>
                                 </span>
                                 <select
                                   value={card.dueDay || 10}
                                   onChange={(e) => handleUpdateCard(card.id, { dueDay: Number(e.target.value) })}
-                                  className="px-1.5 py-0.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-md focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer font-mono"
+                                  className="px-1.5 py-0.5 text-xs font-bold bg-white dark:bg-stone-900 text-black dark:text-stone-100 border border-gray-400 dark:border-stone-600 rounded-md focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer font-mono"
                                 >
                                   {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                                     <option key={day} value={day}>
@@ -1632,20 +1632,20 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
           </div>
 
           {/* RODAPÉ DO MODAL: Ações e Resumo Geral */}
-          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-slate-300 dark:border-stone-800 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-b-2xl shrink-0">
-            <div className="hidden sm:flex items-center space-x-3 text-xs text-slate-600 dark:text-stone-400 font-medium">
-              <span>Saldo: <strong className={numericBalance < 0 ? 'text-rose-600 font-bold' : 'text-slate-900 dark:text-stone-100 font-bold'}>{formatCurrencyBRL(numericBalance)}</strong></span>
+          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-black dark:border-stone-700 bg-[#cad4e6] dark:bg-stone-900 rounded-b-xl shrink-0">
+            <div className="hidden sm:flex items-center space-x-3 text-xs text-black dark:text-stone-400 font-medium">
+              <span>Saldo: <strong className={numericBalance < 0 ? 'text-rose-700 font-bold' : 'text-black dark:text-stone-100 font-bold'}>{formatCurrencyBRL(numericBalance)}</strong></span>
               <span>•</span>
-              <span>Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrencyBRL(totalAvailable)}</strong></span>
+              <span>Disponível: <strong className="text-emerald-800 dark:text-emerald-400 font-bold">{formatCurrencyBRL(totalAvailable)}</strong></span>
               <span>•</span>
-              <span>Cartões: <strong className="text-slate-900 dark:text-stone-100 font-bold">{corporateCards.length}</strong></span>
+              <span>Cartões: <strong className="text-black dark:text-stone-100 font-bold">{corporateCards.length}</strong></span>
             </div>
 
             <div className="flex items-center justify-end gap-2 ml-auto">
               {saveSuccessMessage && (
                 <div 
                   id="badge-sucesso-salvamento-conta"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-xs font-bold animate-in fade-in zoom-in-95 duration-150 shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-400 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-xs font-bold animate-in fade-in zoom-in-95 duration-150 shadow-2xs"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Alterações Salvas com Sucesso!</span>
@@ -1656,7 +1656,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 type="button"
                 id="btn-sair-modal-conta"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[32px]"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 text-black dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-100 dark:hover:bg-stone-700 cursor-pointer transition min-h-[32px]"
                 title="Fechar janela"
               >
                 Sair
@@ -1666,7 +1666,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 type="button"
                 id="btn-cancelar-modal-conta"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[32px]"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 text-black dark:text-stone-300 hover:bg-gray-100 dark:hover:bg-stone-700 cursor-pointer transition min-h-[32px]"
               >
                 Cancelar
               </button>
@@ -1674,7 +1674,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               <button
                 type="submit"
                 id="btn-salvar-conta-bancaria"
-                className="px-5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white shadow-sm border border-emerald-500/50 cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[32px]"
+                className="px-5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[32px]"
               >
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                 <span>Salvar Alterações</span>

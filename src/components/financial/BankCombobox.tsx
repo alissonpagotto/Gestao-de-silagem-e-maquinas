@@ -167,7 +167,7 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Buscar por código (ex: 001, 104, 133, 756, 748, 341) ou nome..."
-          className="w-full py-1.5 pl-10 pr-16 text-xs sm:text-sm border border-zinc-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs transition"
+          className="w-full py-1.5 pl-10 pr-16 text-xs sm:text-sm border border-gray-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-stone-100 font-semibold focus:ring-2 focus:ring-[#0963cb]/30 outline-hidden shadow-2xs transition"
         />
 
         {/* Ações da Direita: Limpar & Dropdown Chevron */}

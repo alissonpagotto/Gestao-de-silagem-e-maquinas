@@ -1446,20 +1446,20 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           onClick={() => setIsCreateModalOpen(false)}
         >
           <div 
-            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* CABEÇALHO MDI TRIDIMENSIONAL ACETINADO */}
-            <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between text-slate-800 shrink-0 rounded-t-xl select-none">
+            {/* CABEÇALHO */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between text-black dark:text-stone-100 shrink-0 rounded-t-xl select-none">
               <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 rounded bg-white/90 text-slate-800 flex items-center justify-center border border-slate-300 shadow-2xs shrink-0">
-                  <IconComp className="w-3.5 h-3.5 text-emerald-700 stroke-[2.5]" />
+                <div className="w-6 h-6 rounded bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0">
+                  <IconComp className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wide text-slate-800">
+                  <h3 className="text-xs font-black uppercase tracking-wide text-black dark:text-stone-100">
                     {config.buttonLabel} • COLAÇA SILAGEM
                   </h3>
-                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tight">
+                  <p className="text-[10px] text-black/80 dark:text-stone-400 font-bold uppercase tracking-tight">
                     INTEGRAÇÃO REATIVA LOCALSTORAGE: {config.movesStock ? 'ESTOQUE (+)' : 'SEM INCREMENTO FÍSICO (=)'} • FINANCEIRO • FROTAS
                   </p>
                 </div>
@@ -1468,24 +1468,24 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 transition cursor-pointer"
+                className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* CORPO DO FORMULÁRIO SCROLLÁVEL */}
-            <form onSubmit={handleSaveDocument} id="form-fiscal-doc" className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5">
+            <form onSubmit={handleSaveDocument} id="form-fiscal-doc" className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5 bg-[#cad4e6] dark:bg-stone-950">
               {/* BLOCO 1: DADOS PRINCIPAIS DO DOCUMENTO */}
-              <div className="p-3 rounded-xl border border-slate-300 dark:border-stone-700 bg-slate-50/70 dark:bg-stone-850 space-y-2.5">
-                <h4 className="text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 flex items-center space-x-1.5 border-b border-slate-300 pb-1">
-                  <FileText className="w-3.5 h-3.5 text-emerald-700" />
+              <div className="p-3 rounded-xl border border-black dark:border-stone-700 bg-[#e0e6f1] dark:bg-stone-800 space-y-2.5">
+                <h4 className="text-[11px] font-black uppercase text-black dark:text-stone-200 flex items-center space-x-1.5 border-b border-black/30 dark:border-stone-700 pb-1">
+                  <FileText className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <span>1. IDENTIFICAÇÃO DO DOCUMENTO FISCAL</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       NÚMERO DO DOCUMENTO *
                     </label>
                     <input
@@ -1493,24 +1493,24 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       required
                       value={formNumber}
                       onChange={(e) => setFormNumber(e.target.value.toUpperCase())}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white uppercase"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       SÉRIE
                     </label>
                     <input
                       type="text"
                       value={formSeries}
                       onChange={(e) => setFormSeries(e.target.value.toUpperCase())}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white uppercase"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       DATA DE EMISSÃO *
                     </label>
                     <input
@@ -1518,18 +1518,18 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       required
                       value={formDate}
                       onChange={(e) => setFormDate(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       CONDIÇÃO DE PAGAMENTO
                     </label>
                     <select
                       value={formPaymentMethod}
                       onChange={(e) => setFormPaymentMethod(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white uppercase"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                     >
                       <option value="Boleto Bancário">Boleto Bancário</option>
                       <option value="PIX / Transferência">PIX / Transferência</option>
@@ -1542,14 +1542,14 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       FORNECEDOR / TRANSPORTADORA * (SELECIONE OU DIGITE)
                     </label>
                     <div className="flex space-x-1.5">
                       <select
                         value={formSupplierId}
                         onChange={(e) => handleSelectSupplier(e.target.value)}
-                        className="w-1/2 px-2 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white uppercase truncate"
+                        className="w-1/2 px-2 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase truncate outline-none focus:ring-1 focus:ring-[#0963cb]"
                       >
                         <option value="">-- FORNECEDORES CADASTRADOS --</option>
                         {availableSuppliers.map((s) => (
@@ -1564,13 +1564,13 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         placeholder="OU DIGITE O NOME DO FORNECEDOR..."
                         value={formSupplierName}
                         onChange={(e) => setFormSupplierName(e.target.value.toUpperCase())}
-                        className="w-1/2 px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white uppercase"
+                        className="w-1/2 px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       CNPJ / CPF DO FORNECEDOR
                     </label>
                     <input
@@ -1578,7 +1578,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       placeholder="00.000.000/0000-00"
                       value={formSupplierCnpj}
                       onChange={(e) => setFormSupplierCnpj(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
                 </div>
@@ -1586,12 +1586,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 {/* VÍNCULO DE VEÍCULO DA FROTA (OBRIGATÓRIO PARA CTE, OPCIONAL PARA OUTROS) */}
                 <div className={`p-2 rounded-lg border ${
                   config.requiresVehicle 
-                    ? 'bg-sky-50/80 border-sky-300 dark:bg-sky-950/40 dark:border-sky-800' 
+                    ? 'bg-sky-50 border-sky-600 dark:bg-sky-950/40 dark:border-sky-800' 
                     : category === 'nfse'
-                      ? 'bg-sky-50/50 border-sky-300 dark:bg-sky-950/30 dark:border-sky-800'
-                      : 'bg-white border-slate-300 dark:bg-stone-900 dark:border-stone-700'
+                      ? 'bg-sky-50/70 border-sky-500 dark:bg-sky-950/30 dark:border-sky-800'
+                      : 'bg-white/60 border-gray-400 dark:bg-stone-900 dark:border-stone-700'
                 }`}>
-                  <label className="block text-[10px] font-black uppercase text-slate-800 dark:text-stone-200 mb-0.5">
+                  <label className="block text-[10px] font-black uppercase text-black dark:text-stone-200 mb-0.5">
                     VEÍCULO DA FROTA {
                       config.requiresVehicle 
                         ? '*(OBRIGATÓRIO PARA RATEIO DRE NO CT-E)' 
@@ -1604,7 +1604,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                     value={formVehicleId}
                     onChange={(e) => setFormVehicleId(e.target.value)}
                     required={config.requiresVehicle}
-                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white uppercase"
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                   >
                     <option value="">-- SELECIONE O VEÍCULO / MÁQUINA DA FROTA --</option>
                     {availableVehicles.map((v) => (
@@ -1617,28 +1617,28 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               </div>
 
               {/* BLOCO 2: DISCRIMINAÇÃO DE ITENS E PRODUTOS DO ESTOQUE */}
-              <div className="p-3 rounded-xl border border-slate-300 dark:border-stone-700 bg-slate-50/70 dark:bg-stone-850 space-y-2.5">
-                <div className="flex items-center justify-between border-b border-slate-300 pb-1">
-                  <h4 className="text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 flex items-center space-x-1.5">
-                    <Package className="w-3.5 h-3.5 text-emerald-700" />
+              <div className="p-3 rounded-xl border border-black dark:border-stone-700 bg-[#e0e6f1] dark:bg-stone-800 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-black/30 dark:border-stone-700 pb-1">
+                  <h4 className="text-[11px] font-black uppercase text-black dark:text-stone-200 flex items-center space-x-1.5">
+                    <Package className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                     <span>2. ITENS, INSUMOS E VALORES DO DOCUMENTO</span>
                   </h4>
-                  <span className="text-[10px] font-bold text-slate-600 uppercase">
+                  <span className="text-[10px] font-bold text-black/75 dark:text-stone-400 uppercase">
                     PULL REATIVO DE 'agrocontrol_produtos'
                   </span>
                 </div>
 
                 {/* Linha de Adição de Item */}
-                <div className="p-2 bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-700 space-y-2">
+                <div className="p-2 bg-white/60 dark:bg-stone-900 rounded-lg border border-gray-400 dark:border-stone-700 space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                     <div className="sm:col-span-4">
-                      <label className="block text-[9px] font-bold uppercase text-slate-600 mb-0.5">
+                      <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         SELECIONAR DO ESTOQUE
                       </label>
                       <select
                         value={selectedProductId}
                         onChange={(e) => handleSelectProduct(e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-md text-xs font-bold uppercase truncate"
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white uppercase truncate outline-none focus:ring-1 focus:ring-[#0963cb]"
                       >
                         <option value="">-- DIGITAR MANUALMENTE OU SELECIONAR --</option>
                         {availableProducts.map((p) => (
@@ -1650,7 +1650,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                     </div>
 
                     <div className="sm:col-span-4">
-                      <label className="block text-[9px] font-bold uppercase text-slate-600 mb-0.5">
+                      <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         DESCRIÇÃO DO ITEM
                       </label>
                       <input
@@ -1658,12 +1658,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         placeholder="Ex: SILAGEM DE MILHO, FRETE DIESEL..."
                         value={itemDescription}
                         onChange={(e) => setItemDescription(e.target.value.toUpperCase())}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-md text-xs font-bold uppercase"
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
                     <div className="sm:col-span-1">
-                      <label className="block text-[9px] font-bold uppercase text-slate-600 mb-0.5">
+                      <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         QTD
                       </label>
                       <input
@@ -1672,24 +1672,24 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         step="any"
                         value={itemQuantity}
                         onChange={(e) => setItemQuantity(parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-md text-xs font-bold text-center"
+                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-center outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
                     <div className="sm:col-span-1">
-                      <label className="block text-[9px] font-bold uppercase text-slate-600 mb-0.5">
+                      <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         UNIDADE
                       </label>
                       <input
                         type="text"
                         value={itemUnit}
                         onChange={(e) => setItemUnit(e.target.value.toUpperCase())}
-                        className="w-full px-1.5 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-md text-xs font-bold text-center uppercase"
+                        className="w-full px-1.5 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-center uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-[9px] font-bold uppercase text-slate-600 mb-0.5">
+                      <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         VALOR UNIT. (R$)
                       </label>
                       <div className="flex space-x-1">
@@ -1699,12 +1699,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                           step="0.01"
                           value={itemUnitPrice}
                           onChange={(e) => setItemUnitPrice(parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-md text-xs font-bold text-right"
+                          className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-right outline-none focus:ring-1 focus:ring-[#0963cb]"
                         />
                         <button
                           type="button"
                           onClick={handleAddItemToForm}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-md cursor-pointer shrink-0"
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-md cursor-pointer shrink-0 border border-emerald-800"
                           title="Inserir item na tabela"
                         >
                           +
@@ -1715,10 +1715,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 </div>
 
                 {/* Tabela de Itens Adicionados */}
-                <div className="border border-slate-300 dark:border-stone-700 rounded-lg overflow-hidden bg-white dark:bg-stone-900">
+                <div className="border border-black dark:border-stone-700 rounded-lg overflow-hidden bg-white dark:bg-stone-900">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 text-[10px] font-black uppercase text-slate-700 dark:text-stone-300">
+                      <tr className="bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-[10px] font-black uppercase text-black dark:text-stone-300">
                         <th className="py-1 px-2">#</th>
                         <th className="py-1 px-2">DESCRIÇÃO</th>
                         <th className="py-1 px-2 text-center">QTD</th>
@@ -1728,21 +1728,21 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         <th className="py-1 px-2 text-center">AÇÃO</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+                    <tbody className="divide-y divide-gray-300 dark:divide-stone-800">
                       {formItems.length === 0 ? (
                         <tr key="empty_form_items_row">
-                          <td colSpan={7} className="py-3 text-center text-slate-400 font-bold uppercase text-[11px]">
+                          <td colSpan={7} className="py-3 text-center text-gray-500 font-bold uppercase text-[11px]">
                             Nenhum item inserido ainda. Adicione acima.
                           </td>
                         </tr>
                       ) : (
                         formItems.map((item, idx) => (
-                          <tr key={`${item.id || 'form_item'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
-                            <td className="py-1 px-2 text-[10px] font-bold text-slate-500">{idx + 1}</td>
-                            <td className="py-1 px-2 font-bold">{item.description}</td>
-                            <td className="py-1 px-2 text-center font-bold">{item.quantity}</td>
-                            <td className="py-1 px-2 text-center text-[10px]">{item.unit}</td>
-                            <td className="py-1 px-2 text-right">{formatCurrencyBRL(item.unitPrice)}</td>
+                          <tr key={`${item.id || 'form_item'}_${idx}`} className="bg-white dark:bg-stone-900 hover:bg-gray-50 dark:hover:bg-stone-800 transition">
+                            <td className="py-1 px-2 text-[10px] font-bold text-gray-600">{idx + 1}</td>
+                            <td className="py-1 px-2 font-bold text-black dark:text-stone-100">{item.description}</td>
+                            <td className="py-1 px-2 text-center font-bold text-black dark:text-stone-100">{item.quantity}</td>
+                            <td className="py-1 px-2 text-center text-[10px] text-black dark:text-stone-200">{item.unit}</td>
+                            <td className="py-1 px-2 text-right text-black dark:text-stone-200">{formatCurrencyBRL(item.unitPrice)}</td>
                             <td className="py-1 px-2 text-right font-black text-emerald-700 dark:text-emerald-400">
                               {formatCurrencyBRL(item.totalPrice)}
                             </td>
@@ -1750,7 +1750,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItemFromForm(item.id)}
-                                className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
+                                className="text-rose-600 hover:text-rose-800 p-0.5 cursor-pointer"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -1760,11 +1760,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       )}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-slate-100 font-black border-t border-slate-300 text-xs">
+                      <tr className="bg-[#cad4e6] dark:bg-stone-800 font-black border-t border-black dark:border-stone-700 text-xs text-black dark:text-stone-100">
                         <td colSpan={5} className="py-1.5 px-2 text-right uppercase">
                           TOTAL DO DOCUMENTO:
                         </td>
-                        <td className="py-1.5 px-2 text-right text-emerald-800 text-sm">
+                        <td className="py-1.5 px-2 text-right text-emerald-800 dark:text-emerald-400 text-sm">
                           {formatCurrencyBRL(totalFormAmount)}
                         </td>
                         <td></td>
@@ -1775,22 +1775,22 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               </div>
 
               {/* BLOCO 3: PARCELAS E CONTAS A PAGAR */}
-              <div className="p-3 rounded-xl border border-slate-300 dark:border-stone-700 bg-slate-50/70 dark:bg-stone-850 space-y-2">
-                <h4 className="text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 flex items-center space-x-1.5 border-b border-slate-300 pb-1">
-                  <CreditCard className="w-3.5 h-3.5 text-emerald-700" />
+              <div className="p-3 rounded-xl border border-black dark:border-stone-700 bg-[#e0e6f1] dark:bg-stone-800 space-y-2">
+                <h4 className="text-[11px] font-black uppercase text-black dark:text-stone-200 flex items-center space-x-1.5 border-b border-black/30 dark:border-stone-700 pb-1">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <span>3. PARCELAMENTO & INTEGRAÇÃO FINANCEIRA ('agrocontrol_financeiro')</span>
                 </h4>
 
                 {/* RETENÇÃO DE IMPOSTOS MUNICIPAIS (ISS) - EXCLUSIVO PARA NFS-E */}
                 {category === 'nfse' && (
-                  <div className="p-2.5 rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/30 space-y-2">
+                  <div className="p-2.5 rounded-lg border border-sky-600 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={formIssRetained}
                           onChange={(e) => setFormIssRetained(e.target.checked)}
-                          className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                          className="w-4 h-4 text-sky-600 rounded border-gray-400 focus:ring-sky-500 cursor-pointer"
                         />
                         <span className="text-[11px] font-black uppercase text-sky-900 dark:text-sky-200">
                           RETER ISS MUNICIPAL NA FONTE (IMPOSTO MUNICIPAL)
@@ -1804,9 +1804,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                     </div>
 
                     {formIssRetained && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-sky-200 dark:border-sky-800">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-sky-300 dark:border-sky-800">
                         <div>
-                          <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                          <label className="block text-[10px] font-black uppercase text-black dark:text-stone-300 mb-0.5">
                             ALÍQUOTA ISS (%)
                           </label>
                           <input
@@ -1816,31 +1816,31 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                             max="100"
                             value={formIssRate}
                             onChange={(e) => setFormIssRate(parseFloat(e.target.value) || 0)}
-                            className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold"
+                            className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                          <label className="block text-[10px] font-black uppercase text-black dark:text-stone-300 mb-0.5">
                             VALOR DO ISS RETIDO (R$)
                           </label>
                           <input
                             type="text"
                             readOnly
                             value={formatCurrencyBRL(calculatedIssAmount)}
-                            className="w-full px-2.5 py-1 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-black text-rose-700 dark:text-rose-400"
+                            className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-black text-rose-700 dark:text-rose-400"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                          <label className="block text-[10px] font-black uppercase text-black dark:text-stone-300 mb-0.5">
                             TOTAL DAS PARCELAS (R$)
                           </label>
                           <input
                             type="text"
                             readOnly
                             value={formatCurrencyBRL(netPayableTotal)}
-                            className="w-full px-2.5 py-1 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-black text-emerald-800 dark:text-emerald-400"
+                            className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-black text-emerald-800 dark:text-emerald-400"
                           />
                         </div>
                       </div>
@@ -1850,13 +1850,13 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       NÚMERO DE PARCELAS
                     </label>
                     <select
                       value={formInstallmentsCount}
                       onChange={(e) => setFormInstallmentsCount(parseInt(e.target.value) || 1)}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb]"
                     >
                       <option value="1">1X (À Vista / Na Data)</option>
                       <option value="2">2X (Parcelado)</option>
@@ -1868,19 +1868,19 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       1º VENCIMENTO
                     </label>
                     <input
                       type="date"
                       value={formFirstDueDate}
                       onChange={(e) => setFormFirstDueDate(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase text-slate-700 dark:text-stone-300 mb-0.5">
+                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                       OBSERVAÇÕES / HISTÓRICO FISCAL
                     </label>
                     <input
@@ -1888,7 +1888,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       placeholder="Informações adicionais para conferência..."
                       value={formNotes}
                       onChange={(e) => setFormNotes(e.target.value.toUpperCase())}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold uppercase"
+                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
                   </div>
                 </div>
@@ -1896,20 +1896,20 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             </form>
 
             {/* RODAPÉ DO MODAL COM BOTÕES DE AÇÃO */}
-            <div className="px-4 py-2.5 bg-slate-100 dark:bg-stone-800 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between shrink-0 rounded-b-xl select-none">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-between shrink-0 rounded-b-xl select-none">
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 text-slate-800 dark:text-white rounded-lg text-xs font-bold uppercase transition cursor-pointer"
+                className="px-4 py-1.5 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-white border border-gray-400 dark:border-stone-600 rounded-lg text-xs font-bold uppercase transition cursor-pointer"
               >
                 CANCELAR
               </button>
 
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-slate-600 mr-2">
-                  VALOR: <strong className="text-emerald-700 text-sm">{formatCurrencyBRL(totalFormAmount)}</strong>
+                <span className="text-xs font-bold text-black dark:text-stone-300 mr-2">
+                  VALOR: <strong className="text-emerald-800 dark:text-emerald-400 text-sm">{formatCurrencyBRL(totalFormAmount)}</strong>
                   {formIssRetained && (
-                    <span className="text-[10px] text-sky-800 dark:text-sky-300 font-bold ml-1.5">
+                    <span className="text-[10px] text-sky-900 dark:text-sky-300 font-bold ml-1.5">
                       (LÍQUIDO A PAGAR: {formatCurrencyBRL(netPayableTotal)})
                     </span>
                   )}
@@ -1918,7 +1918,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 <button
                   type="submit"
                   form="form-fiscal-doc"
-                  className="px-4 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-xs font-black uppercase tracking-wider border border-emerald-800 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+                  className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider border border-emerald-800 transition active:scale-95 cursor-pointer"
                 >
                   GRAVAR E LANÇAR {config.defaultPrefix}
                 </button>

@@ -7,8 +7,6 @@ import {
   FileText, 
   Trash2, 
   Edit2, 
-  ChevronLeft, 
-  ChevronRight, 
   DollarSign,
   Users,
   Sparkles,
@@ -30,6 +28,7 @@ import {
   Share2
 } from 'lucide-react';
 import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord, Expense, PayrollCommissionItem, PayrollDeductionItem, PayrollType } from '../../types';
+import { CompetenceSelector } from '../financial/CompetenceSelector';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -3059,33 +3058,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         
         {/* Month Selector + Tipo de Folha */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-start shrink-0">
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-              title="Mês Anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            
-            <div 
-              style={{ backgroundColor: '#cefebd', borderColor: '#4fd716' }}
-              className="flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-black text-black dark:text-white border border-[#4fd716]"
-            >
-              <span>Competência:</span>
-              <span className="text-black font-black text-sm">{currentMonthRef}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1.5 rounded-lg border border-blue-300 dark:border-stone-700 bg-blue-100/50 dark:bg-stone-800 hover:bg-blue-200/70 dark:hover:bg-stone-700 transition cursor-pointer text-black dark:text-white"
-              title="Próximo Mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          <CompetenceSelector
+            competence={currentMonthRef}
+            onPrev={handlePrevMonth}
+            onNext={handleNextMonth}
+          />
 
           <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-white/85 dark:bg-stone-800 text-xs font-bold text-black dark:text-white shadow-2xs">
             <span className="text-[11px] font-black uppercase tracking-wide text-black/80 dark:text-stone-300 whitespace-nowrap">

@@ -1108,18 +1108,18 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE NOVO CHEQUE AVULSO */}
       {isNewChequeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 shrink-0">
               <div className="flex items-center space-x-2">
-                <div className="p-1.5 rounded-lg bg-emerald-600 text-white">
+                <div className="p-1.5 rounded-lg bg-emerald-600 text-white border border-emerald-800">
                   <Plus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-black dark:text-white">
                     Novo Cheque na Custódia
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-stone-400">
+                  <p className="text-[11px] text-black/80 dark:text-stone-400 font-medium">
                     Cadastrar folha recebida em carteira
                   </p>
                 </div>
@@ -1127,134 +1127,136 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsNewChequeModalOpen(false)}
-                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:white transition"
+                className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {novoModalError && (
-              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{novoModalError}</span>
-              </div>
-            )}
+            <div className="p-4 overflow-y-auto flex-1 bg-[#cad4e6] dark:bg-stone-950">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-3">
+                {novoModalError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-semibold flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{novoModalError}</span>
+                  </div>
+                )}
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Banco de Origem <span className="text-rose-600">*</span>
-                  </label>
-                  <BankCombobox
-                    value={novoBanco}
-                    bankCode={novoBancoCodigo}
-                    onChange={(bName, bCode) => {
-                      setNovoBanco(bName);
-                      if (bCode) setNovoBancoCodigo(bCode);
-                    }}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                      Banco de Origem <span className="text-rose-600">*</span>
+                    </label>
+                    <BankCombobox
+                      value={novoBanco}
+                      bankCode={novoBancoCodigo}
+                      onChange={(bName, bCode) => {
+                        setNovoBanco(bName);
+                        if (bCode) setNovoBancoCodigo(bCode);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                      Número do Cheque <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 000421"
+                      value={novoNumero}
+                      onChange={(e) => setNovoNumero(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Número do Cheque <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 000421"
-                    value={novoNumero}
-                    onChange={(e) => setNovoNumero(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Nome do Emitente <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Nome de quem assinou"
-                    value={novoEmitente}
-                    onChange={(e) => setNovoEmitente(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                      Nome do Emitente <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nome de quem assinou"
+                      value={novoEmitente}
+                      onChange={(e) => setNovoEmitente(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                      CPF ou CNPJ do Emitente
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="000.000.000-00"
+                      value={novoDoc}
+                      onChange={(e) => setNovoDoc(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    CPF ou CNPJ do Emitente
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="000.000.000-00"
-                    value={novoDoc}
-                    onChange={(e) => setNovoDoc(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Valor de Face (R$) <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={novoValor}
-                    onChange={(e) => setNovoValor(parseFloat(e.target.value) || '')}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-black text-sm outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                      Valor de Face (R$) <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      value={novoValor}
+                      onChange={(e) => setNovoValor(parseFloat(e.target.value) || '')}
+                      className="w-full px-3 py-2 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-black text-sm outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                      Vencimento / "Bom para" <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={novoVencimento}
+                      onChange={(e) => setNovoVencimento(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                    Vencimento / "Bom para" <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={novoVencimento}
-                    onChange={(e) => setNovoVencimento(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                  Conta de Destino Prevista
-                </label>
-                <select
-                  value={novoContaDestino}
-                  onChange={(e) => setNovoContaDestino(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                >
-                  <option value="">-- Selecione a Conta Bancária --</option>
-                  {bankAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.bankName})
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase mb-1">
+                    Conta de Destino Prevista
+                  </label>
+                  <select
+                    value={novoContaDestino}
+                    onChange={(e) => setNovoContaDestino(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                  >
+                    <option value="">-- Selecione a Conta Bancária --</option>
+                    {bankAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.bankName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+            <div className="flex items-center justify-end space-x-2 px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsNewChequeModalOpen(false)}
-                className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition"
+                className="px-4 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-gray-100 dark:hover:bg-stone-700 transition cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleSaveNovoCheque}
-                className="px-4 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs active:scale-95"
+                className="px-5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 transition cursor-pointer"
               >
                 Salvar Cheque
               </button>
