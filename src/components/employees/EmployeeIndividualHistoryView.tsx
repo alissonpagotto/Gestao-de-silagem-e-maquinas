@@ -489,7 +489,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white dark:bg-stone-850 border border-slate-300/80 dark:border-stone-700/80 rounded shadow-xs">
           <div className="flex items-center space-x-3 min-w-0">
             <div className="w-10 h-10 rounded-full border-2 border-slate-300 dark:border-stone-700 overflow-hidden shrink-0 shadow-2xs">
-              <EmployeeAvatar photoUrl={selectedEmployee.photoUrl} name={selectedEmployee.name} size="md" />
+              <EmployeeAvatar photoUrl={selectedEmployee.avatar_url || selectedEmployee.foto || selectedEmployee.foto_url || selectedEmployee.photoUrl} name={selectedEmployee.name} size="md" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">

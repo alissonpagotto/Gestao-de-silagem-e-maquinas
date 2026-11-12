@@ -29,10 +29,11 @@ export function generateEmployeeSheetHtml(
   const age = calculateAge(employee.birthDate);
   const salary = employee.baseSalary !== undefined ? employee.baseSalary : (employee.salary || 0);
 
-  const hasValidPhoto = employee.photoUrl && !isBrokenAvatarUrl(employee.photoUrl);
+  const resolvedPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+  const hasValidPhoto = Boolean(resolvedPhoto && !isBrokenAvatarUrl(resolvedPhoto));
   const photoBlock = hasValidPhoto
     ? `<div style="width: 105px; height: 130px; border: 1.5px solid #64748b; border-radius: 6px; overflow: hidden; margin: 0 auto; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <img src="${employee.photoUrl}" alt="Foto" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: cover;" />
+        <img src="${resolvedPhoto}" alt="Foto" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: cover;" />
       </div>`
     : `<div style="width: 105px; height: 130px; border: 1.5px dashed #94a3b8; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; margin: 0 auto; color: #94a3b8; font-size: 8pt; font-weight: bold;">
         <span style="font-size: 14pt; margin-bottom: 2px;">👤</span>

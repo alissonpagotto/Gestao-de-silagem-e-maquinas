@@ -319,7 +319,7 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
 
                     <EmployeeAvatar
                       name={employee.name}
-                      photoUrl={employee.photoUrl || employee.foto_url}
+                      photoUrl={employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl}
                       size="sm"
                     />
 

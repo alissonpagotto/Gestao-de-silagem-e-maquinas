@@ -653,8 +653,9 @@ export interface Employee {
   pis?: string; // Número do PIS
   numero_pis?: string; // Alias banco Supabase (numero_pis)
   photoUrl?: string; // Foto de perfil
+  foto?: string; // Foto de perfil (Base64 local / alias)
   foto_url?: string; // Alias banco Supabase (foto_url)
-  avatar_url?: string; // Alias banco Supabase (avatar_url)
+  avatar_url?: string; // Alias banco Supabase / localStorage (avatar_url)
   phone: string;
   city?: string; // Cidade de residência
   cidade?: string; // Alias banco Supabase

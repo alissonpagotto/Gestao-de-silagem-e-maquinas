@@ -365,7 +365,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
           <div className="flex items-center gap-3">
             <div className="relative">
               <EmployeeAvatar
-                photoUrl={currentEmployee.photoUrl || currentEmployee.avatar_url || currentEmployee.foto_url}
+                photoUrl={currentEmployee.avatar_url || currentEmployee.foto || currentEmployee.foto_url || currentEmployee.photoUrl}
                 name={currentEmployee.name}
                 size="lg"
                 className="w-14 h-14 rounded-full border-2 border-slate-300 shadow-xs object-cover"

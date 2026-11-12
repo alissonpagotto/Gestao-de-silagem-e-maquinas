@@ -32,7 +32,7 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
   const dims = getBadgeDimensions(theme.size);
   const s = dims.scaleFactor;
 
-  const rawPhoto = employee.photoUrl || employee.foto_url || employee.avatar_url;
+  const rawPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
   const hasPhoto = Boolean(rawPhoto && !isBrokenAvatarUrl(rawPhoto) && !imgError);
   const hasLogo = Boolean(
     theme.showLogo && companyLogoUrl && !isBrokenAvatarUrl(companyLogoUrl) && !logoError

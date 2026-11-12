@@ -144,23 +144,26 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
       <div style={{ display: 'flex', gap: '14px', marginBottom: '10px' }}>
         {/* Espaço para Foto */}
         <div style={{ width: '100px', flexShrink: 0, textAlign: 'center' }}>
-          {employee.photoUrl && !isBrokenAvatarUrl(employee.photoUrl) ? (
-            <div style={{ width: '95px', height: '120px', border: '1px solid #94a3b8', borderRadius: '4px', overflow: 'hidden', margin: '0 auto' }}>
-              <img 
-                src={employee.photoUrl} 
-                alt={employee.name || 'Foto'} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-            </div>
-          ) : (
+          {(() => {
+            const sheetPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
+            return sheetPhoto && !isBrokenAvatarUrl(sheetPhoto) ? (
+              <div style={{ width: '95px', height: '120px', border: '1px solid #94a3b8', borderRadius: '4px', overflow: 'hidden', margin: '0 auto' }}>
+                <img 
+                  src={sheetPhoto} 
+                  alt={employee.name || 'Foto'} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            ) : (
             <div style={{ width: '95px', height: '120px', border: '1px dashed #94a3b8', borderRadius: '4px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', margin: '0 auto', fontSize: '8pt', color: '#94a3b8' }}>
               <span>FOTO</span>
               <span>3x4</span>
             </div>
-          )}
+          );
+          })()}
           <div style={{ fontSize: '7pt', color: '#64748b', marginTop: '4px' }}>Identificação</div>
         </div>
 

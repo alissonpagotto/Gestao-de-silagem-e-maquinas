@@ -92,7 +92,7 @@ function buildPhotoHtml(
   extraStyle = '',
   scaleFactor = 1
 ): string {
-  const rawPhoto = employee.photoUrl || employee.foto_url || employee.avatar_url;
+  const rawPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
   const hasPhoto = Boolean(rawPhoto && !isBrokenAvatarUrl(rawPhoto));
   const initials = escapeHtml(getInitials(employee.name));
   const iconSize = Math.round(20 * scaleFactor);

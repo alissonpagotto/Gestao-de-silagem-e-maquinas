@@ -35,8 +35,9 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
-import { supabase } from '../../lib/supabaseClient';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
+import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
+import { compressImageToLocalBase64, resolveEmployeePhoto } from '../../lib/localPhotoUtils';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
 import { ManageableDropdown } from '../common/ManageableDropdown';
@@ -1304,8 +1305,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
               agencia: payload.new.agencia || baseMapped.bankAgency,
               conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
-              photoUrl: payload.new.foto_url || baseMapped.photoUrl,
-              foto_url: payload.new.foto_url || baseMapped.foto_url,
+              photoUrl: payload.new.avatar_url || payload.new.foto || payload.new.foto_url || baseMapped.photoUrl,
+              foto: payload.new.foto || payload.new.avatar_url || payload.new.foto_url || baseMapped.foto,
+              foto_url: payload.new.foto_url || payload.new.avatar_url || payload.new.foto || baseMapped.foto_url,
+              avatar_url: payload.new.avatar_url || payload.new.foto || payload.new.foto_url || baseMapped.avatar_url,
               aso_url: payload.new.aso_url || baseMapped.aso_url,
               contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
               cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
@@ -1338,8 +1341,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
               agencia: payload.new.agencia || baseMapped.bankAgency,
               conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
-              photoUrl: payload.new.foto_url || baseMapped.photoUrl,
-              foto_url: payload.new.foto_url || baseMapped.foto_url,
+              photoUrl: payload.new.avatar_url || payload.new.foto || payload.new.foto_url || baseMapped.photoUrl,
+              foto: payload.new.foto || payload.new.avatar_url || payload.new.foto_url || baseMapped.foto,
+              foto_url: payload.new.foto_url || payload.new.avatar_url || payload.new.foto || baseMapped.foto_url,
+              avatar_url: payload.new.avatar_url || payload.new.foto || payload.new.foto_url || baseMapped.avatar_url,
               aso_url: payload.new.aso_url || baseMapped.aso_url,
               contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
               cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
@@ -1789,7 +1794,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setRgNumero(loadedRg);
     setDataNascimento(safeBirth);
     setPisNumero(loadedPis);
-    setPhotoUrl(emp.photoUrl && !isBrokenAvatarUrl(emp.photoUrl) ? emp.photoUrl : '');
+    setPhotoUrl(resolveEmployeePhoto(emp) || '');
     setPhone(emp.phone || '');
     setBaseSalary(emp.baseSalary !== undefined ? formatCurrencyInputDisplay(emp.baseSalary) : (emp.salary !== undefined ? formatCurrencyInputDisplay(emp.salary) : '0,00'));
     setRegimeContratacao(loadedRegime);
@@ -2030,25 +2035,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   const handleConfirmCrop = async (result: { file: File; previewUrl: string; publicUrl?: string }) => {
-    if (result.publicUrl) {
-      setPhotoUrl(result.publicUrl);
-    } else {
-      try {
-        const fileExt = result.file.name.split('.').pop() || 'jpg';
-        const fileName = `emp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-        const { data, error } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, result.file, { contentType: result.file.type || 'image/jpeg', upsert: true });
-        if (!error && data?.path) {
-          const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(data.path);
-          if (pubData?.publicUrl) {
-            setPhotoUrl(pubData.publicUrl);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Aviso no fallback do avatar:', err);
-      }
+    try {
+      const compressedBase64 = await compressImageToLocalBase64(result.previewUrl, 300, 300, 0.8);
+      setPhotoUrl(compressedBase64);
+    } catch {
       setPhotoUrl(result.previewUrl);
     }
   };
@@ -2196,51 +2186,44 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
       const targetValidUuid = toValidUUID(finalId);
 
-      // 1. UPLOAD RESILIENTE DA FOTO (bucket 'avatars'):
-      // Captura o link de retorno textual do Storage e descarta qualquer payload binário pesado.
-      // Se falhar por qualquer motivo de RLS ou rede, exibe aviso e NÃO interrompe a gravação das informações cadastrais e bancárias.
+      // 1. PROCESSAMENTO E SALVAMENTO 100% LOCAL DA FOTO (Base64 JPEG <= 300x300 px):
+      // Opera estritamente em memória / localStorage sem qualquer chamada a supabase.storage.
       let finalFotoUrl: string | null = null;
-      if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim()) {
+      if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim() && !isBrokenAvatarUrl(photoUrl)) {
         const rawPhoto = photoUrl.trim();
-        if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
-          finalFotoUrl = rawPhoto;
-        } else if (rawPhoto.startsWith('data:') || rawPhoto.startsWith('blob:')) {
+        if (rawPhoto.startsWith('data:image/')) {
           try {
-            const uploadedUrl = await uploadEmployeePhotoToStorage(rawPhoto, finalId, activeCompany?.id || activeUid);
-            if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
-              finalFotoUrl = uploadedUrl;
-              setPhotoUrl(uploadedUrl);
-            } else {
-              console.warn('[RH Foto] Aviso: O upload da foto para o bucket "avatars" não retornou uma URL válida. O salvamento prosseguirá sem a foto.');
-            }
-          } catch (photoErr: any) {
-            console.warn('[RH Foto] Aviso no upload da foto (Storage/RLS). Prosseguindo com o salvamento das informações cadastrais e bancárias:', photoErr?.message || photoErr);
+            finalFotoUrl = await compressImageToLocalBase64(rawPhoto, 300, 300, 0.8);
+          } catch {
+            finalFotoUrl = rawPhoto;
           }
+        } else if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
+          finalFotoUrl = rawPhoto;
         }
       }
 
-      // Preserva foto existente se for uma URL válida prévia e nenhum novo upload tiver sido concluído
-      if (!finalFotoUrl && editingEmployee?.foto_url && (editingEmployee.foto_url.startsWith('http://') || editingEmployee.foto_url.startsWith('https://'))) {
-        finalFotoUrl = editingEmployee.foto_url;
-      } else if (!finalFotoUrl && editingEmployee?.photoUrl && (editingEmployee.photoUrl.startsWith('http://') || editingEmployee.photoUrl.startsWith('https://'))) {
-        finalFotoUrl = editingEmployee.photoUrl;
-      }
-
-      // 2. ROTINA DE UPLOAD SEQUENCIAL/EM LOTE PARA O BUCKET 'documentos':
-      // Envia ao bucket 'documentos' todos os arquivos novos selecionados pelo usuário,
-      // capturando a URL pública com o método .getPublicUrl().data.publicUrl
+      // 2. ROTINA DE ANEXOS DA SEÇÃO 4 (localStorage no modo offline; Storage apenas quando ativo):
       const uploadDocToStorage = async (
         file: File | null,
         docState: EmployeeAttachment | null,
         docType: 'aso' | 'contrato_experiencia' | 'cnh' | 'ficha_registro',
         existingDbUrl?: string | null
       ): Promise<string | null> => {
-        // Se usuário removeu o anexo da interface
         if (!file && !docState) {
           return null;
         }
 
-        // Caso 1: Novo arquivo File selecionado pelo usuário no formulário
+        if (IS_OFFLINE_LOCAL_STORAGE_MODE || !(supabase as any)?.storage) {
+          if (docState?.fileData && typeof docState.fileData === 'string') {
+            return docState.fileData.trim();
+          }
+          if (existingDbUrl && typeof existingDbUrl === 'string') {
+            return existingDbUrl.trim();
+          }
+          return null;
+        }
+
+        // Caso 1: Novo arquivo File selecionado pelo usuário no formulário (modo remoto)
         if (file && isSupabaseConfigured) {
           try {
             const validUuid = toValidUUID(finalId) || finalId;
@@ -2266,15 +2249,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 .getPublicUrl(data.path);
               const returnedUrl = publicData?.publicUrl?.trim();
               if (returnedUrl && (returnedUrl.startsWith('http://') || returnedUrl.startsWith('https://'))) {
-                console.info(`✅ [Supabase Storage] Documento (${docType}) enviado com sucesso no bucket 'documentos':`, returnedUrl);
                 return returnedUrl;
               }
-            } else if (error) {
-              console.warn(`[Supabase Storage] Erro ao enviar anexo (${docType}) para 'documentos':`, error.message);
             }
-          } catch (uploadErr) {
-            console.warn(`[Supabase Storage] Exceção ao gravar anexo em 'documentos' (${docType}):`, uploadErr);
-          }
+          } catch (_) {}
         }
 
         // Caso 2: base64 (data: ou blob:) que necessite upload
@@ -2290,9 +2268,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             if (uploaded && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
               return uploaded;
             }
-          } catch (err: any) {
-            console.warn(`[Supabase Storage] Falha ao enviar base64 (${docType}):`, err?.message || err);
-          }
+          } catch (_) {}
         }
 
         // Caso 3: Preserva link HTTP público prévio do docState
@@ -2394,6 +2370,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : undefined,
         numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : undefined,
         photoUrl: finalFotoUrl || undefined,
+        foto: finalFotoUrl || undefined,
         foto_url: finalFotoUrl || undefined,
         avatar_url: finalFotoUrl || undefined,
         // Colunas físicas dos anexos da Seção 4 (bucket documentos):
@@ -2660,8 +2637,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             banco_chave_pix: cleanBancoChavePix || null,
             agencia: cleanAgencia || null,
             conta_corrente: cleanContaCorrente || null,
-            // Foto de Perfil (link de texto do bucket avatars)
+            // Foto de Perfil (Base64 local ou URL)
             foto_url: finalFotoUrl || null,
+            avatar_url: finalFotoUrl || null,
+            foto: finalFotoUrl || null,
             // 4 Anexos da Seção 4 (bucket documentos)
             aso_url: finalAsoUrl || null,
             contrato_experiencia_url: finalContratoUrl || null,
@@ -3160,7 +3139,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           <td className="py-1 px-3 align-middle whitespace-nowrap">
                             <div className="flex items-center space-x-2.5 whitespace-nowrap">
                               <EmployeeAvatar
-                                photoUrl={emp.photoUrl}
+                                photoUrl={resolveEmployeePhoto(emp)}
                                 name={emp.name}
                                 size="sm"
                                 className="shrink-0 rounded-lg w-7 h-7 opacity-85"
@@ -3485,7 +3464,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   <td className="py-1 px-3 align-middle whitespace-nowrap">
                     <div className="flex items-center space-x-2.5 whitespace-nowrap">
                       <EmployeeAvatar
-                        photoUrl={emp.photoUrl}
+                        photoUrl={resolveEmployeePhoto(emp)}
                         name={emp.name}
                         size="sm"
                         className="shrink-0 rounded-lg w-7 h-7"

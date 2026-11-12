@@ -2867,15 +2867,19 @@ export function mapRowToEmployee(row: any): Employee {
     bankAccount: row.conta_corrente || row.bank_account || row.conta || undefined,
     conta_corrente: row.conta_corrente || row.bank_account || row.conta || undefined,
     photoUrl: (() => {
-      const raw = row.photo_url || row.photoUrl || row.foto_url || row.fotoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
+      const raw = row.avatar_url || row.avatarUrl || row.foto || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
+      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
+    })(),
+    foto: (() => {
+      const raw = row.foto || row.avatar_url || row.avatarUrl || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
     foto_url: (() => {
-      const raw = row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
+      const raw = row.foto_url || row.fotoUrl || row.foto || row.photo_url || row.photoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
     avatar_url: (() => {
-      const raw = row.avatar_url || row.avatarUrl || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
+      const raw = row.avatar_url || row.avatarUrl || row.foto || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
     aso_url: row.aso_url || undefined,
@@ -3003,23 +3007,35 @@ export function sanitizeRhFuncionarioPayload(
   const agencia = String(employee.agencia || employee.bankAgency || employee.bank_agency || '').trim();
   const contaCorrente = String(employee.conta_corrente || employee.bankAccount || employee.bank_account || '').trim();
 
-  // Documentos e anexos da Seção 4 (URLs em texto livre de objetos binários)
-  const extractCleanUrl = (raw: any): string | null => {
+  // Documentos e anexos da Seção 4 (preserva URLs HTTP e, em modo local, também data:image Base64)
+  const extractCleanUrl = (raw: any, allowDataUrl = false): string | null => {
     if (!raw) return null;
-    if (typeof raw === 'string' && (raw.startsWith('http://') || raw.startsWith('https://'))) {
-      return raw.trim();
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return trimmed;
+      }
+      if (allowDataUrl && trimmed.startsWith('data:image/')) {
+        return trimmed;
+      }
     }
-    if (typeof raw === 'object' && raw.fileData && typeof raw.fileData === 'string' && (raw.fileData.startsWith('http://') || raw.fileData.startsWith('https://'))) {
-      return raw.fileData.trim();
+    if (typeof raw === 'object' && raw.fileData && typeof raw.fileData === 'string') {
+      const trimmed = raw.fileData.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return trimmed;
+      }
+      if (allowDataUrl && trimmed.startsWith('data:')) {
+        return trimmed;
+      }
     }
     return null;
   };
 
-  const asoUrl = extractCleanUrl(employee.aso_url || employee.admissionExamDoc);
-  const contratoUrl = extractCleanUrl(employee.contrato_experiencia_url || employee.contrato_url || employee.experienceContractDoc);
-  const cnhUrl = extractCleanUrl(employee.cnh_url || employee.generalDocs);
-  const fichaUrl = extractCleanUrl(employee.ficha_registro_url || employee.signedRegistrationDoc);
-  const photoUrl = extractCleanUrl(employee.foto_url || employee.photoUrl || (employee as any).avatar_url);
+  const asoUrl = extractCleanUrl(employee.aso_url || employee.admissionExamDoc, IS_OFFLINE_LOCAL_STORAGE_MODE);
+  const contratoUrl = extractCleanUrl(employee.contrato_experiencia_url || employee.contrato_url || employee.experienceContractDoc, IS_OFFLINE_LOCAL_STORAGE_MODE);
+  const cnhUrl = extractCleanUrl(employee.cnh_url || employee.generalDocs, IS_OFFLINE_LOCAL_STORAGE_MODE);
+  const fichaUrl = extractCleanUrl(employee.ficha_registro_url || employee.signedRegistrationDoc, IS_OFFLINE_LOCAL_STORAGE_MODE);
+  const photoUrl = extractCleanUrl((employee as any).avatar_url || (employee as any).foto || employee.foto_url || employee.photoUrl, IS_OFFLINE_LOCAL_STORAGE_MODE);
 
   // Validação segura de company_id como UUID válido (evita erro 22P02 caso venha 'company_default' ou string inválida)
   const validCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
@@ -3122,6 +3138,14 @@ export async function uploadEmployeePhotoToStorage(
   employeeId: string,
   companyId?: string
 ): Promise<string | null> {
+  // Em modo 100% local ou sem Storage disponível, jamais aciona supabase.storage
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !(supabase as any)?.storage) {
+    if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('data:image/') || fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://'))) {
+      return fileOrDataUrl.trim();
+    }
+    return null;
+  }
+
   if (!isSupabaseConfigured) return null;
 
   try {
@@ -3237,7 +3261,14 @@ export async function uploadEmployeeDocumentToStorage(
   companyId?: string,
   originalFileName?: string
 ): Promise<string | null> {
-  if (!isSupabaseConfigured || !fileOrDataUrl) return null;
+  if (!fileOrDataUrl) return null;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !(supabase as any)?.storage) {
+    if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('data:') || fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://'))) {
+      return fileOrDataUrl.trim();
+    }
+    return null;
+  }
+  if (!isSupabaseConfigured) return null;
 
   try {
     const validUuid = toValidUUID(employeeId) || employeeId;
@@ -3701,14 +3732,15 @@ async function _unusedLegacyUpsertRhFuncionario(
     const schemaCols = await ensureRhFuncionariosSchemaColumns();
 
     // Identifica foto do colaborador
-    let photoUrl = employee.photoUrl || employee.foto_url || (employee as any).avatar_url;
-    // Se for imagem local base64/blob e ainda não tiver sido enviada para o Storage, faz upload prévio
-    if (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:'))) {
+    let photoUrl = (employee as any).avatar_url || (employee as any).foto || employee.foto_url || employee.photoUrl;
+    // Em modo remoto (não-offline), faz upload prévio para o Storage se for base64
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE && (supabase as any)?.storage && photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:'))) {
       try {
         const uploadedUrl = await uploadEmployeePhotoToStorage(photoUrl, validId, activeCompanyId);
         if (uploadedUrl) {
           photoUrl = uploadedUrl;
           employee.photoUrl = uploadedUrl;
+          employee.foto = uploadedUrl;
           employee.foto_url = uploadedUrl;
           (employee as any).avatar_url = uploadedUrl;
         }
@@ -3726,8 +3758,14 @@ async function _unusedLegacyUpsertRhFuncionario(
     if (effectiveUserId) {
       payloadToSend.user_id = String(effectiveUserId).trim();
     }
-    if (hasRhFotoUrlColumn !== false && cleanPhoto && (cleanPhoto.startsWith('http://') || cleanPhoto.startsWith('https://'))) {
-      payloadToSend.foto_url = cleanPhoto;
+    if (cleanPhoto && (cleanPhoto.startsWith('http://') || cleanPhoto.startsWith('https://') || (IS_OFFLINE_LOCAL_STORAGE_MODE && cleanPhoto.startsWith('data:image/')))) {
+      if (hasRhFotoUrlColumn !== false) {
+        payloadToSend.foto_url = cleanPhoto;
+      }
+      if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+        payloadToSend.avatar_url = cleanPhoto;
+        payloadToSend.foto = cleanPhoto;
+      }
     }
 
     // Aplica compatibilidade de colunas tradicionais (data_nascimento/nascimento, numero_rg/rg_numero/rg, numero_pis/pis_pasep/pis, regime_contratacao/tipo_contrato/regime)
@@ -3751,8 +3789,8 @@ async function _unusedLegacyUpsertRhFuncionario(
         if (v instanceof File || v instanceof Blob || v instanceof Uint8Array) {
           continue; // Remove qualquer objeto binário para evitar o erro 400
         }
-        if (typeof v === 'string' && (v.startsWith('data:') || v.startsWith('blob:') || v.length > 50000)) {
-          // Descarta payload binário pesado em string (como base64 cru) para evitar violação de dados
+        if (typeof v === 'string' && !IS_OFFLINE_LOCAL_STORAGE_MODE && (v.startsWith('data:') || v.startsWith('blob:') || v.length > 50000)) {
+          // Descarta payload binário pesado em string (como base64 cru) em modo remoto
           result[k] = null;
           continue;
         }

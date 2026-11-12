@@ -1,8 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCcw, Check, Move, Camera, Loader2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { isSupabaseConfigured, uploadEmployeePhotoToStorage } from '../../lib/supabaseService';
-import { getActiveCompanyId } from '../../lib/storage';
 
 interface EmployeePhotoCropModalProps {
   isOpen: boolean;
@@ -150,14 +147,14 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
     setPosition({ x: 0, y: 0 });
   };
 
-  // Gerar imagem final do recorte circular através de Canvas, enviar para Storage do Supabase e salvar
+  // Gerar imagem final do recorte através de Canvas HTML5 (máx. 300x300 px, JPEG qualidade 0.8) em Base64 100% local
   const handleConfirmCrop = async () => {
     if (!imageSrc || isProcessing) return;
 
     setIsProcessing(true);
 
     try {
-      const OUTPUT_SIZE = 400; // Resolução de alta definição para avatares
+      const OUTPUT_SIZE = 300;
       const canvas = document.createElement('canvas');
       canvas.width = OUTPUT_SIZE;
       canvas.height = OUTPUT_SIZE;
@@ -175,7 +172,9 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
       if (!sourceImg || !sourceImg.complete || sourceImg.naturalWidth === 0) {
         sourceImg = await new Promise<HTMLImageElement>((resolve, reject) => {
           const img = new Image();
-          img.crossOrigin = 'anonymous';
+          if (!imageSrc.startsWith('data:')) {
+            img.crossOrigin = 'anonymous';
+          }
           img.onload = () => resolve(img);
           img.onerror = () => reject(new Error('Falha ao carregar a imagem selecionada.'));
           img.src = imageSrc;
@@ -185,7 +184,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
       const imgWidth = sourceImg.naturalWidth || sourceImg.width || 400;
       const imgHeight = sourceImg.naturalHeight || sourceImg.height || 400;
 
-      // Cálculo da proporção e escala exata
+      // Cálculo da proporção e escala exata dentro de 300x300 px
       const factor = OUTPUT_SIZE / CROP_DIAMETER;
       const effectiveBaseScale = Math.max(CROP_DIAMETER / imgWidth, CROP_DIAMETER / imgHeight);
       const currentScale = effectiveBaseScale * zoom * factor;
@@ -199,15 +198,15 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
       const drawX = centerX - drawWidth / 2;
       const drawY = centerY - drawHeight / 2;
 
-      // Fundo branco limpo para o avatar
+      // Fundo branco limpo para o avatar JPEG
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
 
       // Desenha a imagem com as coordenadas e zoom definidos pelo usuário
       ctx.drawImage(sourceImg, drawX, drawY, drawWidth, drawHeight);
 
-      // 2. Converte o canvas diretamente em base64 e transfere para um File nativo em memória (sem URLs temporárias 'blob:' que violam CSP)
-      const base64DataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      // 2. Converte o canvas diretamente para string Base64 leve (data:image/jpeg;base64,...) com qualidade 0.8
+      const base64DataUrl = canvas.toDataURL('image/jpeg', 0.8);
       const base64Content = base64DataUrl.split(',')[1];
       const byteCharacters = atob(base64Content);
       const byteNumbers = new Uint8Array(byteCharacters.length);
@@ -221,36 +220,12 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
         lastModified: Date.now(),
       });
 
-      // 3. Upload imediato do arquivo nativo para o Supabase Storage (bucket de avatares/funcionários)
-      let publicStorageUrl: string | null = null;
-      if (isSupabaseConfigured) {
-        try {
-          const effectiveCid = companyId || getActiveCompanyId();
-          const targetEmpId = employeeId || `emp_${Date.now()}`;
-          publicStorageUrl = await uploadEmployeePhotoToStorage(rawFile, targetEmpId, effectiveCid);
-          console.info('Retorno do Supabase Storage:', publicStorageUrl);
-        } catch (uploadError) {
-          console.warn('Aviso: Falha no upload para o Supabase Storage:', uploadError);
-        }
-      }
-
-      // Validação estrita: verifica se o Storage retornou uma URL pública HTTP completa
-      const isValidStorageHttpUrl = Boolean(
-        publicStorageUrl &&
-        typeof publicStorageUrl === 'string' &&
-        (publicStorageUrl.startsWith('http://') || publicStorageUrl.startsWith('https://')) &&
-        !publicStorageUrl.startsWith('blob:') &&
-        !publicStorageUrl.startsWith('data:')
-      );
-
-      // 4. Comunica o resultado para o formulário pai usando o link de texto do bucket avatars
+      // 3. Retorna a imagem Base64 comprimida 100% localmente sem chamar supabase.storage
       await onConfirm({
         file: rawFile,
         previewUrl: base64DataUrl,
-        publicUrl: isValidStorageHttpUrl ? publicStorageUrl! : undefined,
       });
 
-      // 5. Fecha o modal de ajuste automaticamente
       onClose();
     } catch (err: any) {
       console.error('Erro ao processar o recorte da foto:', err);
@@ -447,7 +422,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>Enviando Foto...</span>
+                <span>Processando Foto...</span>
               </>
             ) : (
               <>

@@ -71,11 +71,12 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
   const initials = (name || '').trim().substring(0, 2).toUpperCase() || 'OP';
 
   if (!isBroken && photoUrl && photoUrl.trim()) {
+    const cleanSrc = photoUrl.trim();
     return (
       <img
-        src={photoUrl.trim()}
+        src={cleanSrc}
         alt={name || 'Colaborador'}
-        crossOrigin="anonymous"
+        crossOrigin={cleanSrc.startsWith('data:') ? undefined : 'anonymous'}
         decoding="async"
         onError={(e) => {
           e.currentTarget.style.display = 'none';
