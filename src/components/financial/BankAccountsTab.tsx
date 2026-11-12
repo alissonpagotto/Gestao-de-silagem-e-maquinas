@@ -22,7 +22,7 @@ import {
   X 
 } from 'lucide-react';
 import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard, PaymentMethod, SilageOrder, ServiceOrder } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts, getStoredOrders, saveStoredOrders, getStoredServices, saveStoredServices } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts, saveCompanyFinanceiroContas, getStoredOrders, saveStoredOrders, getStoredServices, saveStoredServices } from '../../lib/storage';
 import { upsertContaBancaria, deleteContaBancaria } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BankAccountModal } from './BankAccountModal';
@@ -176,7 +176,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   useEffect(() => {
     try {
       const fresh = loadInitialLocalAccounts(accounts);
-      if (Array.isArray(fresh) && fresh.length > 0) {
+      if (Array.isArray(fresh)) {
         setLocalAccounts(fresh);
       }
     } catch (err) {
@@ -186,10 +186,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
   // Listener reativo de LocalStorage e eventos para atualizar as contas instantaneamente em tempo real
   useEffect(() => {
-    const handleStorageUpdate = (e?: StorageEvent | Event) => {
+    const handleStorageUpdate = (_e?: StorageEvent | Event) => {
       try {
         const fresh = loadInitialLocalAccounts();
-        if (Array.isArray(fresh) && fresh.length > 0) {
+        if (Array.isArray(fresh)) {
           setLocalAccounts(fresh);
         }
       } catch (_) {}
@@ -591,9 +591,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const handleSaveAccount = (accountData: Omit<BankAccount, 'id'> & { id?: string }) => {
     try {
       const activeCompanyId = getActiveCompanyId();
+      const nowIso = new Date().toISOString();
       let updated: BankAccount[] = [];
       if (accountData.id) {
-        const updatedAccount: BankAccount = { ...accountData, id: accountData.id } as BankAccount;
+        const updatedAccount: BankAccount = { ...accountData, id: accountData.id, updatedAt: nowIso } as BankAccount;
         const exists = effectiveAccounts.some((a) => a.id === accountData.id);
         if (exists) {
           updated = effectiveAccounts.map((a) =>
@@ -606,17 +607,15 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         const newAcc: BankAccount = {
           ...accountData,
           id: `bank_${Date.now()}`,
+          updatedAt: nowIso,
         } as BankAccount;
         updated = [...effectiveAccounts, newAcc];
       }
 
       // 2. GRAVAÇÃO EM ESPELHO COMPULSÓRIA
       const novasContas = updated;
-      localStorage.setItem('agrocontrol_bancos', JSON.stringify(novasContas));
-      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(novasContas));
-      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(novasContas));
-
       saveStoredBankAccounts(novasContas);
+      saveCompanyFinanceiroContas(novasContas, activeCompanyId);
       setLocalAccounts(novasContas);
       lastPropsJsonRef.current = JSON.stringify(novasContas);
 
@@ -624,7 +623,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         onSaveAccounts(novasContas);
       }
 
-      const target = accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : updated[0];
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('bank_accounts_updated'));
+
+      const target = accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : updated[updated.length - 1];
       upsertContaBancaria(target, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria notice:', err));
     } catch (err) {
       console.warn('Erro ao salvar conta bancária:', err);
@@ -634,21 +636,22 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const handleUpdateBalance = (accountId: string, newBalance: number) => {
     try {
       const activeCompanyId = getActiveCompanyId();
+      const nowIso = new Date().toISOString();
       const novasContas = effectiveAccounts.map((a) =>
-        a.id === accountId ? { ...a, balance: newBalance } : a
+        a.id === accountId ? { ...a, balance: newBalance, updatedAt: nowIso } : a
       );
       // 2. GRAVAÇÃO EM ESPELHO COMPULSÓRIA
-      localStorage.setItem('agrocontrol_bancos', JSON.stringify(novasContas));
-      localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(novasContas));
-      localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(novasContas));
-
       saveStoredBankAccounts(novasContas);
+      saveCompanyFinanceiroContas(novasContas, activeCompanyId);
       setLocalAccounts(novasContas);
       lastPropsJsonRef.current = JSON.stringify(novasContas);
 
       if (onSaveAccounts) {
         onSaveAccounts(novasContas);
       }
+
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('bank_accounts_updated'));
 
       const target = novasContas.find((a) => a.id === accountId);
       if (target) {
@@ -682,29 +685,21 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       if (baseList.length === 0) return;
 
       // 2. Definir isPriority: false para todas e isPriority: true unicamente na selecionada
+      const nowIso = new Date().toISOString();
       const updatedAccounts: BankAccount[] = baseList.map((a) => {
         const isSelected = a.id === accountId;
         return {
           ...a,
           isPriority: isSelected,
           prioritaria: isSelected,
+          updatedAt: nowIso,
         };
       });
 
-      // 3. Salvar array atualizado no LocalStorage nas chaves oficiais e espelhos
+      // 3. Salvar array atualizado no LocalStorage em TODAS as chaves oficiais e espelhos
       const json = JSON.stringify(updatedAccounts);
-      localStorage.setItem('agrocontrol_bancos', json);
-      localStorage.setItem('agrocontrol_contas_bancarias', json);
-      localStorage.setItem('agrocontrol_financeiro_contas', json);
-      localStorage.setItem('agrocontrol_bancos_contas', json);
-      localStorage.setItem('colaca_silagem_financeiro_contas', json);
-
-      if (activeCompanyId) {
-        localStorage.setItem(`agrocontrol_bancos_${activeCompanyId}`, json);
-        localStorage.setItem(`colaca_silagem_financeiro_contas_${activeCompanyId}`, json);
-      }
-
       saveStoredBankAccounts(updatedAccounts);
+      saveCompanyFinanceiroContas(updatedAccounts, activeCompanyId);
       setLocalAccounts(updatedAccounts);
       lastPropsJsonRef.current = json;
 
@@ -829,17 +824,17 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         const activeCompanyId = getActiveCompanyId();
         const updated = effectiveAccounts.filter((a) => a.id !== id);
         // GRAVAÇÃO EM ESPELHO COMPULSÓRIA
-        localStorage.setItem('agrocontrol_bancos', JSON.stringify(updated));
-        localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updated));
-        localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updated));
-
         saveStoredBankAccounts(updated);
+        saveCompanyFinanceiroContas(updated, activeCompanyId);
         setLocalAccounts(updated);
         lastPropsJsonRef.current = JSON.stringify(updated);
 
         if (onSaveAccounts) {
           onSaveAccounts(updated);
         }
+
+        window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+        window.dispatchEvent(new Event('bank_accounts_updated'));
 
         deleteContaBancaria(id, activeCompanyId).catch(err => console.warn('Supabase deleteContaBancaria notice:', err));
       } catch (err) {
@@ -864,12 +859,14 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
       if (newTx.bankAccountId) {
         const activeCompanyId = getActiveCompanyId();
+        const nowIso = new Date().toISOString();
         const updatedAccounts = effectiveAccounts.map((acc) => {
           if (acc.id === newTx.bankAccountId) {
             const delta = newTx.type === 'entrada' ? newTx.amount : -newTx.amount;
             const updatedAcc = {
               ...acc,
               balance: (acc.balance || 0) + delta,
+              updatedAt: nowIso,
             };
             upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
             return updatedAcc;
@@ -878,17 +875,17 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         });
 
         // GRAVAÇÃO EM ESPELHO COMPULSÓRIA
-        localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
-        localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
-        localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
-
         saveStoredBankAccounts(updatedAccounts);
+        saveCompanyFinanceiroContas(updatedAccounts, activeCompanyId);
         setLocalAccounts(updatedAccounts);
         lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
 
         if (onSaveAccounts) {
           onSaveAccounts(updatedAccounts);
         }
+
+        window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+        window.dispatchEvent(new Event('bank_accounts_updated'));
       }
     } catch (err) {
       console.warn('Erro ao adicionar transação:', err);
@@ -911,6 +908,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
       if (newTxs.length > 0) {
         const activeCompanyId = getActiveCompanyId();
+        const nowIso = new Date().toISOString();
         const updatedAccounts = effectiveAccounts.map((acc) => {
           const matchingTxs = newTxs.filter((tx) => tx.bankAccountId === acc.id);
           if (matchingTxs.length > 0) {
@@ -920,6 +918,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
             const updatedAcc = {
               ...acc,
               balance: (acc.balance || 0) + netDelta,
+              updatedAt: nowIso,
             };
             upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
             return updatedAcc;
@@ -928,17 +927,17 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         });
 
         // GRAVAÇÃO EM ESPELHO COMPULSÓRIA
-        localStorage.setItem('agrocontrol_bancos', JSON.stringify(updatedAccounts));
-        localStorage.setItem('agrocontrol_contas_bancarias', JSON.stringify(updatedAccounts));
-        localStorage.setItem('agrocontrol_financeiro_contas', JSON.stringify(updatedAccounts));
-
         saveStoredBankAccounts(updatedAccounts);
+        saveCompanyFinanceiroContas(updatedAccounts, activeCompanyId);
         setLocalAccounts(updatedAccounts);
         lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
 
         if (onSaveAccounts) {
           onSaveAccounts(updatedAccounts);
         }
+
+        window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+        window.dispatchEvent(new Event('bank_accounts_updated'));
       }
     } catch (err) {
       console.warn('Erro ao importar transações:', err);

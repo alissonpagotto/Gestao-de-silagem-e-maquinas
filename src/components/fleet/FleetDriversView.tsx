@@ -29,7 +29,8 @@ import {
   fetchFleetDriversFromSupabase, 
   upsertGestaoFrota, 
   isSupabaseConfigured, 
-  toValidUUID 
+  toValidUUID,
+  IS_OFFLINE_LOCAL_STORAGE_MODE
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -74,7 +75,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   // 2. LISTAGEM FILTRADA E TEMPO REAL:
   // Busca direta em public.rh_funcionarios filtrando por cargo 'Motorista'
   const loadDriversFromSupabase = React.useCallback(async () => {
-    if (!isSupabaseConfigured) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return;
     try {
       const activeCid = companyProfile?.id || getActiveCompanyId();
       const fresh = await fetchFleetDriversFromSupabase(activeCid);
@@ -90,9 +91,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
   // Realtime multi-dispositivos para a tabela rh_funcionarios com canal estável e desmonte obrigatório
   React.useEffect(() => {
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return;
     loadDriversFromSupabase();
-
-    if (!isSupabaseConfigured) return;
     const companyId = companyProfile?.id || getActiveCompanyId();
     const channelId = `fleet_drivers_rt_${companyId || 'default'}`;
 

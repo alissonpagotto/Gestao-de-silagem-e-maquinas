@@ -110,8 +110,15 @@ function buildPhotoHtml(
 
   if (hasPhoto) {
     return `
-      <div style="${sizeStyle}border-radius:${radiusCss};border:${borderCss};background:#f1f5f9;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;${extraStyle}">
-        <img src="${escapeHtml(rawPhoto)}" alt="${escapeHtml(employee.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.outerHTML='${fallbackHtml.replace(/\n/g, '').replace(/'/g, "\\'")}'" />
+      <div style="${sizeStyle}border-radius:${radiusCss};border:${borderCss};background:#f1f5f9;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;${extraStyle}">
+        <img src="${escapeHtml(rawPhoto)}" alt="${escapeHtml(employee.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
+        <div style="display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;background:#e2e8f0;color:#475569;">
+          <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:2px;">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span style="font-size:${initialsFont}px;font-weight:900;letter-spacing:0.06em;">${initials}</span>
+        </div>
       </div>
     `;
   }
@@ -161,12 +168,21 @@ function buildSingleBadgeHtml(
   const barcodeHtml = buildCode128SvgHtml(regNumber, barcodeHeight, barcodeWidthMm, s);
 
   const showFooter = theme.showCpf || theme.showAdmissionDate;
+  const headerSubtitle = (theme.headerSubtitle || '').trim();
+  const companyFontBase = theme.companyNameFontSize ?? DEFAULT_BADGE_THEME.companyNameFontSize;
+  const employeeFontBase = theme.employeeNameFontSize ?? DEFAULT_BADGE_THEME.employeeNameFontSize;
+  const headerSubtitleHtmlMinimal = headerSubtitle
+    ? `<div style="font-size:${px(6.5)};font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1.2;margin-top:1px;color:${theme.accentColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(headerSubtitle)}</div>`
+    : '';
+  const headerSubtitleHtmlBanner = headerSubtitle
+    ? `<div style="font-size:${px(6.5)};font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1.2;margin-top:1px;color:${headerSubColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(headerSubtitle)}</div>`
+    : '';
   const footerHtml = showFooter
     ? `
-      <div style="background:${footerBg};border-top:1px solid ${footerBorder};padding:${px(4)} ${px(10)};display:flex;align-items:center;justify-content:space-between;font-size:${px(7)};font-weight:700;color:${theme.textColor};flex-shrink:0;">
-        ${theme.showCpf ? `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">CPF: ${escapeHtml(employee.cpf || '—')}</span>` : '<span></span>'}
-        ${theme.showAdmissionDate ? `<span style="flex-shrink:0;margin-left:4px;">Adm: ${escapeHtml(formattedAdmission)}</span>` : ''}
-      </div>
+      <footer class="badge-footer" style="width:100%;box-sizing:border-box;background:${footerBg};border-top:1px solid ${footerBorder};padding:1.2mm 4mm 2.5mm 4mm;display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:${px(7)};font-weight:700;color:${theme.textColor};flex-shrink:0;">
+        ${theme.showCpf ? `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">CPF: ${escapeHtml(employee.cpf || '—')}</span>` : '<span></span>'}
+        ${theme.showAdmissionDate ? `<span style="flex-shrink:0;white-space:nowrap;">Adm: ${escapeHtml(formattedAdmission)}</span>` : ''}
+      </footer>
     `
     : '';
 
@@ -181,7 +197,7 @@ function buildSingleBadgeHtml(
     );
 
     return `
-      <div class="badge-cut-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
+      <div class="badge-card badge-cut-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
         <div style="flex-shrink:0;">
           <div style="height:${mm(2.4)};width:100%;background:${theme.headerColor};"></div>
           <div style="padding:${px(6)} ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;">
@@ -189,21 +205,19 @@ function buildSingleBadgeHtml(
             <div style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;">
               ${logoHtml}
               <div style="min-width:0;text-align:center;">
-                <div style="font-size:${px(8.5)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${theme.textColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <div style="font-size:${px(companyFontBase)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${theme.textColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                   ${escapeHtml(companyName)}
                 </div>
-                <div style="font-size:${px(6)};font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1.2;color:${theme.accentColor};">
-                  CRACHÁ DE IDENTIFICAÇÃO
-                </div>
+                ${headerSubtitleHtmlMinimal}
               </div>
             </div>
           </div>
         </div>
 
-        <div style="flex:1;padding:${px(4)} ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:0;">
+        <div style="flex:1;padding:${px(4)} ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:0;overflow:hidden;">
           ${photoHtml}
           <div style="width:100%;text-align:center;padding:0 2px;">
-            <div style="font-size:${px(10)};font-weight:900;text-transform:uppercase;line-height:1.15;color:${theme.textColor};word-break:break-word;">
+            <div style="font-size:${px(employeeFontBase)};font-weight:900;text-transform:uppercase;line-height:1.15;color:${theme.textColor};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;">
               ${escapeHtml(employee.name)}
             </div>
             <div style="display:inline-block;max-width:100%;margin-top:${px(3)};padding:${px(2)} ${px(8)};border-radius:9999px;border:1px solid ${theme.accentColor};background:${bodyIsLight ? '#ffffff' : 'rgba(255,255,255,0.92)'};color:${theme.accentColor};font-size:${px(7.5)};font-weight:800;text-transform:uppercase;letter-spacing:0.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -234,26 +248,24 @@ function buildSingleBadgeHtml(
     );
 
     return `
-      <div class="badge-cut-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
+      <div class="badge-card badge-cut-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
         <div style="background:${theme.headerColor};border-bottom:3px solid ${theme.accentColor};padding:${px(6)} ${px(10)} ${px(20)} ${px(10)};flex-shrink:0;">
           <div style="width:${px(30)};height:${px(4)};border-radius:9999px;background:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.2);margin:0 auto ${px(5)} auto;"></div>
-          <div style="display:flex;align-items:center;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;${headerSubtitle ? '' : 'justify-content:center;'}">
             ${logoHtml}
-            <div style="min-width:0;flex:1;">
-              <div style="font-size:${px(8.5)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${headerTextColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            <div style="min-width:0;${headerSubtitle ? 'flex:1;' : 'text-align:center;'}">
+              <div style="font-size:${px(companyFontBase)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${headerTextColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 ${escapeHtml(companyName)}
               </div>
-              <div style="font-size:${px(6)};font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1.2;margin-top:1px;color:${headerSubColor};">
-                OPERACIONAL &amp; CAMPO
-              </div>
+              ${headerSubtitleHtmlBanner}
             </div>
           </div>
         </div>
 
-        <div style="flex:1;padding:0 ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:0;margin-top:-${px(15)};position:relative;z-index:2;">
+        <div style="flex:1;padding:0 ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:0;overflow:hidden;margin-top:-${px(15)};position:relative;z-index:2;">
           ${photoHtml}
           <div style="width:100%;text-align:center;padding:0 2px;margin-top:${px(3)};">
-            <div style="font-size:${px(10)};font-weight:900;text-transform:uppercase;line-height:1.15;color:${theme.textColor};word-break:break-word;">
+            <div style="font-size:${px(employeeFontBase)};font-weight:900;text-transform:uppercase;line-height:1.15;color:${theme.textColor};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;">
               ${escapeHtml(employee.name)}
             </div>
           </div>
@@ -286,27 +298,25 @@ function buildSingleBadgeHtml(
   );
 
   return `
-    <div class="badge-cut-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
+    <div class="badge-card badge-cut-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
       <div style="background:${theme.headerColor};border-bottom:2.5px solid ${theme.accentColor};padding:${px(6)} ${px(10)} ${px(8)} ${px(10)};flex-shrink:0;">
         <div style="width:${px(30)};height:${px(4)};border-radius:9999px;background:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.2);margin:0 auto ${px(5)} auto;"></div>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;${headerSubtitle ? '' : 'justify-content:center;'}">
           ${logoHtml}
-          <div style="min-width:0;flex:1;">
-            <div style="font-size:${px(8.5)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${headerTextColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <div style="min-width:0;${headerSubtitle ? 'flex:1;' : 'text-align:center;'}">
+            <div style="font-size:${px(companyFontBase)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${headerTextColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               ${escapeHtml(companyName)}
             </div>
-            <div style="font-size:${px(6.5)};font-weight:700;text-transform:uppercase;letter-spacing:0.13em;line-height:1.2;margin-top:1px;color:${headerSubColor};">
-              IDENTIFICAÇÃO FUNCIONAL
-            </div>
+            ${headerSubtitleHtmlBanner}
           </div>
         </div>
       </div>
 
-      <div style="flex:1;padding:${px(7)} ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:0;">
+      <div style="flex:1;padding:${px(7)} ${px(10)} ${px(4)} ${px(10)};display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:0;overflow:hidden;">
         ${photoHtml}
 
         <div style="width:100%;text-align:center;padding:0 2px;margin-top:${px(3)};">
-          <div style="font-size:${px(10)};font-weight:900;text-transform:uppercase;line-height:1.15;color:${theme.textColor};word-break:break-word;">
+          <div style="font-size:${px(employeeFontBase)};font-weight:900;text-transform:uppercase;line-height:1.15;color:${theme.textColor};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;">
             ${escapeHtml(employee.name)}
           </div>
           <div style="display:inline-block;max-width:100%;margin-top:${px(3)};padding:${px(2)} ${px(8)};border-radius:4px;background:${theme.accentColor};color:${accentTextColor};font-size:${px(7.5)};font-weight:800;text-transform:uppercase;letter-spacing:0.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -342,7 +352,9 @@ export function generateBadgesPrintHtml(
   theme: BadgeThemeConfig = DEFAULT_BADGE_THEME
 ): string {
   const dims = getBadgeDimensions(theme.size);
-  const cardsHtml = entries
+  const validEntries = entries.filter((entry) => Boolean(entry && entry.employee));
+  const effectiveCols = Math.max(1, Math.min(validEntries.length || 1, dims.columnsPerA4Row));
+  const cardsHtml = validEntries
     .map((entry) => buildSingleBadgeHtml(entry, companyName, companyLogoUrl, theme))
     .join('\n');
 
@@ -402,7 +414,7 @@ export function generateBadgesPrintHtml(
 
     .badges-print-grid {
       display: grid;
-      grid-template-columns: repeat(${dims.columnsPerA4Row}, ${dims.widthMm}mm);
+      grid-template-columns: repeat(${effectiveCols}, ${dims.widthMm}mm);
       gap: ${dims.gapMm}mm;
       justify-content: center;
       align-content: start;
@@ -410,6 +422,7 @@ export function generateBadgesPrintHtml(
       padding: 2mm 0;
     }
 
+    .badge-card,
     .badge-cut-card {
       width: ${dims.widthMm}mm;
       height: ${dims.heightMm}mm;
@@ -417,6 +430,8 @@ export function generateBadgesPrintHtml(
       min-height: ${dims.heightMm}mm;
       max-width: ${dims.widthMm}mm;
       max-height: ${dims.heightMm}mm;
+      box-sizing: border-box;
+      position: relative;
       border: 1px dashed #999999;
       border-radius: 3.5mm;
       overflow: hidden;
@@ -444,7 +459,7 @@ export function generateBadgesPrintHtml(
 </head>
 <body>
   <div class="print-toolbar">
-    <span class="print-toolbar-title">Crachás Selecionados (${entries.length}) • ${escapeHtml(dims.label)} (A4)</span>
+    <span class="print-toolbar-title">Crachás Selecionados (${validEntries.length}) • ${escapeHtml(dims.label)} (A4)</span>
     <button type="button" class="print-toolbar-btn" onclick="window.focus(); window.print();">Imprimir Agora</button>
   </div>
 

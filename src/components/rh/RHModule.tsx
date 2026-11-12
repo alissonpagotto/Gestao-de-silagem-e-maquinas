@@ -54,6 +54,7 @@ import {
   fetchContractualSalariesFromDb,
   fetchCloudAbsences,
   saveCloudAbsences,
+  IS_OFFLINE_LOCAL_STORAGE_MODE,
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -335,7 +336,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
   // Sincronização inicial estritamente vinculada ao carregamento inicial da empresa/usuário
   React.useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return;
     const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
     if (isRhInitialLoadedRef.current === activeTenant) return;
     isRhInitialLoadedRef.current = activeTenant;
@@ -397,7 +398,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
   React.useEffect(() => {
     let isMounted = true;
     const activeUid = currentUserId;
-    if (!activeUid || !isSupabaseConfigured) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !activeUid || !isSupabaseConfigured) return;
     const activeTenant = authCompanyId || activeUid || getActiveCompanyId() || 'default';
 
     // Canal de escuta Realtime (.on) para tabelas do RH (rh_funcionarios, rh_ferias, rh_rescisoes)

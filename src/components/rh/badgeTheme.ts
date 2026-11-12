@@ -59,9 +59,17 @@ export interface BadgeThemeConfig {
   showLogo: boolean;
   showCpf: boolean;
   showAdmissionDate: boolean;
+  headerSubtitle: string;
+  companyNameFontSize: number;
+  employeeNameFontSize: number;
 }
 
 export const BADGE_THEME_STORAGE_KEY = 'agrocontrol_cracha_theme';
+
+export const COMPANY_FONT_MIN = 8;
+export const COMPANY_FONT_MAX = 18;
+export const EMPLOYEE_FONT_MIN = 9;
+export const EMPLOYEE_FONT_MAX = 20;
 
 export const DEFAULT_BADGE_THEME: BadgeThemeConfig = {
   style: 'classic',
@@ -73,7 +81,16 @@ export const DEFAULT_BADGE_THEME: BadgeThemeConfig = {
   showLogo: true,
   showCpf: true,
   showAdmissionDate: true,
+  headerSubtitle: '',
+  companyNameFontSize: 11,
+  employeeNameFontSize: 12,
 };
+
+export function clampFontSize(val: unknown, min: number, max: number, fallback: number): number {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(num)));
+}
 
 export function getBadgeDimensions(size?: BadgeSizePreset): BadgeDimensions {
   if (size && BADGE_SIZE_PRESETS[size]) {
@@ -121,6 +138,22 @@ export function getStoredBadgeTheme(): BadgeThemeConfig {
         typeof parsed.showAdmissionDate === 'boolean'
           ? parsed.showAdmissionDate
           : DEFAULT_BADGE_THEME.showAdmissionDate,
+      headerSubtitle:
+        typeof parsed.headerSubtitle === 'string'
+          ? parsed.headerSubtitle
+          : DEFAULT_BADGE_THEME.headerSubtitle,
+      companyNameFontSize: clampFontSize(
+        parsed.companyNameFontSize,
+        COMPANY_FONT_MIN,
+        COMPANY_FONT_MAX,
+        DEFAULT_BADGE_THEME.companyNameFontSize
+      ),
+      employeeNameFontSize: clampFontSize(
+        parsed.employeeNameFontSize,
+        EMPLOYEE_FONT_MIN,
+        EMPLOYEE_FONT_MAX,
+        DEFAULT_BADGE_THEME.employeeNameFontSize
+      ),
     };
   } catch {
     return { ...DEFAULT_BADGE_THEME };

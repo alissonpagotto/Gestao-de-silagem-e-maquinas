@@ -63,94 +63,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
     initials: string;
   }
 
-  const resolveCompanyInfo = (propProfile?: CompanyProfile): ResolvedCompanyInfo => {
-    let rawTitle = '';
-    let rawSubtitle = '';
-    let rawLogo = '';
+  const resolveCompanyInfo = (
+    propProfile?: CompanyProfile,
+    explicitLogoOverride?: string
+  ): ResolvedCompanyInfo => {
+    let propTrade = '';
+    let propCorp = '';
+    let propLogo = '';
 
-    // 1. Verificar em 'dadosEmpresa' no LocalStorage
+    if (propProfile) {
+      propTrade = String(
+        propProfile.tradeName || (propProfile as any).nomeFantasia || ''
+      ).trim();
+      propCorp = String(
+        propProfile.corporateName ||
+          (propProfile as any).razaoSocial ||
+          propProfile.companyName ||
+          ''
+      ).trim();
+      propLogo = String(propProfile.logoUrl || '').trim();
+    }
+
+    let storedTrade = '';
+    let storedCorp = '';
+    let storedLogo = '';
+    try {
+      const stored = getStoredCompanyProfile();
+      if (stored) {
+        storedTrade = String(stored.tradeName || '').trim();
+        storedCorp = String(stored.corporateName || stored.companyName || '').trim();
+        storedLogo = String(stored.logoUrl || '').trim();
+      }
+    } catch (_) {}
+
+    let dadosTrade = '';
+    let dadosCorp = '';
+    let dadosLogo = '';
+    let lsLogo = '';
     try {
       if (typeof localStorage !== 'undefined') {
         const rawDados = localStorage.getItem('dadosEmpresa');
         if (rawDados) {
           const parsed = JSON.parse(rawDados);
-          const titleCandidate = parsed?.nomeFantasia || parsed?.tradeName || parsed?.razaoSocial || parsed?.corporateName;
-          if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim()) {
-            rawTitle = titleCandidate.trim();
-          }
-          const sectorCandidate = parsed?.ramoAtividade || parsed?.activitySector || parsed?.setor;
-          if (sectorCandidate && typeof sectorCandidate === 'string' && sectorCandidate.trim()) {
-            rawSubtitle = sectorCandidate.trim();
-          }
-          if (parsed?.logoUrl && typeof parsed.logoUrl === 'string') {
-            rawLogo = parsed.logoUrl.trim();
-          }
+          dadosTrade = String(parsed?.nomeFantasia || parsed?.tradeName || '').trim();
+          dadosCorp = String(parsed?.razaoSocial || parsed?.corporateName || '').trim();
+          dadosLogo = String(parsed?.logoUrl || '').trim();
         }
+        lsLogo = String(localStorage.getItem('agrocontrol_empresa_logo') || '').trim();
       }
     } catch (_) {}
 
-    // 2. Verificar em getStoredCompanyProfile()
-    try {
-      const stored = getStoredCompanyProfile();
-      if (stored) {
-        if (!rawTitle) {
-          const titleCandidate = stored.tradeName || stored.corporateName;
-          if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim()) {
-            rawTitle = titleCandidate.trim();
-          }
-        }
-        if (!rawSubtitle) {
-          const sectorCandidate = (stored as any)?.ramoAtividade || stored.activitySector;
-          if (sectorCandidate && typeof sectorCandidate === 'string' && sectorCandidate.trim()) {
-            rawSubtitle = sectorCandidate.trim();
-          }
-        }
-        if (!rawLogo && stored.logoUrl) {
-          rawLogo = stored.logoUrl.trim();
-        }
-      }
-    } catch (_) {}
+    const rawTrade = propTrade || storedTrade || dadosTrade;
+    const rawCorp = propCorp || storedCorp || dadosCorp;
 
-    // 3. Verificar na prop companyProfile
-    if (propProfile) {
-      if (!rawTitle) {
-        const titleCandidate = propProfile.tradeName || propProfile.corporateName;
-        if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim()) {
-          rawTitle = titleCandidate.trim();
-        }
-      }
-      if (!rawSubtitle) {
-        const sectorCandidate = (propProfile as any)?.ramoAtividade || propProfile.activitySector;
-        if (sectorCandidate && typeof sectorCandidate === 'string' && sectorCandidate.trim()) {
-          rawSubtitle = sectorCandidate.trim();
-        }
-      }
-      if (!rawLogo && propProfile.logoUrl) {
-        rawLogo = propProfile.logoUrl.trim();
-      }
-    }
+    const sanitizePlaceholder = (val: string, placeholders: string[]) => {
+      const clean = val.trim();
+      if (!clean) return '';
+      if (placeholders.includes(clean.toUpperCase())) return '';
+      return clean;
+    };
 
-    // Filtragem rigorosa contra resíduos legados de testes
-    const isMockTitle = !rawTitle || 
-      rawTitle.toUpperCase() === 'COLAÇA SILAGEM LTDA' || 
-      rawTitle.toUpperCase() === 'COLAÇA SILAGEM' || 
-      rawTitle.toUpperCase() === 'COLACA SILAGEM LTDA' || 
-      rawTitle.toUpperCase() === 'COLACA SILAGEM';
+    const cleanTrade = sanitizePlaceholder(rawTrade, ['SUA EMPRESA AQUI', 'SISTEMA ERP OPERACIONAL']);
+    const cleanCorp = sanitizePlaceholder(rawCorp, ['SUA EMPRESA AQUI', 'SISTEMA ERP OPERACIONAL']);
 
-    const isMockSubtitle = !rawSubtitle ||
-      rawSubtitle.toUpperCase() === 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' ||
-      rawSubtitle.toUpperCase() === 'PRESTACAO DE SERVICO DE SILAGEM' ||
-      rawSubtitle.toUpperCase() === 'SERVIÇOS DE SILAGEM' ||
-      rawSubtitle.toUpperCase() === 'SERVICOS DE SILAGEM' ||
-      rawSubtitle.toUpperCase() === 'GESTÃO AGRÍCOLA' ||
-      rawSubtitle.toUpperCase() === 'GESTAO AGRICOLA';
+    // Título: Nome Fantasia cadastrado; fallback para Razão Social; fallback genérico apenas se ambos vazios
+    const finalTitle = (cleanTrade || cleanCorp || 'SUA EMPRESA AQUI').toUpperCase();
+    // Subtítulo: Razão Social cadastrada; fallback padrão apenas se vazia
+    const finalSubtitle = (cleanCorp || 'SISTEMA ERP OPERACIONAL').toUpperCase();
 
-    const finalTitle = isMockTitle ? 'SUA EMPRESA AQUI' : rawTitle.toUpperCase();
-    const finalSubtitle = isMockSubtitle ? 'SISTEMA ERP OPERACIONAL' : rawSubtitle.toUpperCase();
-
-    // Iniciais dinâmicas
+    // Iniciais dinâmicas baseadas no título exibido
     let initials = 'SE';
-    if (!isMockTitle && finalTitle) {
+    if (cleanTrade || cleanCorp) {
       const parts = finalTitle.split(/\s+/).filter(Boolean);
       if (parts.length >= 2) {
         initials = (parts[0][0] + parts[1][0]).toUpperCase();
@@ -159,18 +142,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
     }
 
-    // Limpeza de logotipo mockado antigo
-    let finalLogo = rawLogo;
+    // Logo: respeita override explícito (ex: remoção da logo) ou busca em prop -> storage -> dadosEmpresa -> chave direta
+    let finalLogo =
+      explicitLogoOverride !== undefined
+        ? explicitLogoOverride.trim()
+        : propLogo || storedLogo || dadosLogo || lsLogo;
+
     if (
-      finalLogo && (
-        finalLogo.includes('a7f3d0') ||
+      finalLogo &&
+      (finalLogo.includes('a7f3d0') ||
         finalLogo.includes('15803d') ||
         finalLogo.includes('viewBox="0 0 200 160"') ||
         finalLogo.startsWith('/upload/') ||
         finalLogo.startsWith('/_upload/') ||
         finalLogo.includes('/_upload/') ||
-        finalLogo.includes('/upload/')
-      )
+        finalLogo.includes('/upload/'))
     ) {
       finalLogo = '';
     }
@@ -179,12 +165,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: finalTitle,
       subtitle: finalSubtitle,
       logoUrl: finalLogo,
-      initials
+      initials,
     };
   };
 
-  const [companyInfo, setCompanyInfo] = useState<ResolvedCompanyInfo>(() => resolveCompanyInfo(companyProfile));
+  const [companyInfo, setCompanyInfo] = useState<ResolvedCompanyInfo>(() =>
+    resolveCompanyInfo(companyProfile)
+  );
   const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setCompanyInfo(resolveCompanyInfo(companyProfile));
+    setLogoError(false);
+  }, [companyProfile]);
 
   useEffect(() => {
     let isMounted = true;
@@ -197,15 +190,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const handleLiveCompanySync = (e: any) => {
       if (!isMounted) return;
-      if (e?.detail) {
-        const detail = e.detail;
+      const detail = e?.detail;
+      if (detail && typeof detail === 'object') {
         const simulatedProfile = {
-          corporateName: detail.corporateName || detail.razaoSocial,
-          tradeName: detail.tradeName || detail.nomeFantasia,
-          activitySector: detail.activitySector || detail.ramoAtividade || detail.setor,
-          logoUrl: detail.logoUrl !== undefined ? detail.logoUrl : companyInfo.logoUrl,
+          corporateName: detail.corporateName ?? detail.razaoSocial ?? companyProfile?.corporateName ?? '',
+          tradeName: detail.tradeName ?? detail.nomeFantasia ?? companyProfile?.tradeName ?? '',
+          activitySector: detail.activitySector ?? detail.ramoAtividade ?? detail.setor ?? companyProfile?.activitySector ?? '',
+          logoUrl: detail.logoUrl !== undefined ? detail.logoUrl : companyProfile?.logoUrl,
         } as CompanyProfile;
-        setCompanyInfo(resolveCompanyInfo(simulatedProfile));
+        const explicitLogo = detail.logoUrl !== undefined ? String(detail.logoUrl || '') : undefined;
+        setCompanyInfo(resolveCompanyInfo(simulatedProfile, explicitLogo));
+        setLogoError(false);
+      } else {
+        syncCompany();
+      }
+    };
+
+    const handleLogoSync = (e: any) => {
+      if (!isMounted) return;
+      const detail = e?.detail;
+      if (typeof detail === 'string') {
+        setCompanyInfo(resolveCompanyInfo(companyProfile, detail));
         setLogoError(false);
       } else {
         syncCompany();
@@ -214,11 +219,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
     window.addEventListener('agrocontrol_company_profile_updated', handleLiveCompanySync);
+    window.addEventListener('agrocontrol_empresa_logo_updated', handleLogoSync);
+    window.addEventListener('agrocontrol_logo_updated', handleLogoSync);
     window.addEventListener('storage', syncCompany);
     return () => {
       isMounted = false;
       window.removeEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
       window.removeEventListener('agrocontrol_company_profile_updated', handleLiveCompanySync);
+      window.removeEventListener('agrocontrol_empresa_logo_updated', handleLogoSync);
+      window.removeEventListener('agrocontrol_logo_updated', handleLogoSync);
       window.removeEventListener('storage', syncCompany);
     };
   }, [companyProfile]);

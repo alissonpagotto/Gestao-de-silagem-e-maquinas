@@ -33,7 +33,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, saveCompanyFuncionarios, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
@@ -952,8 +952,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const lastFetchedEmployeeVacIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Se o modal estiver fechado ou não houver funcionário selecionado, reseta o ref de controle e encerra
-    if (!isModalOpen || !activeEmployeeId || !isSupabaseConfigured) {
+    // Se o modal estiver fechado, em modo offline local, ou sem funcionário selecionado, encerra
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isModalOpen || !activeEmployeeId || !isSupabaseConfigured) {
       if (!isModalOpen) {
         lastFetchedEmployeeVacIdRef.current = null;
       }
@@ -1058,7 +1058,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       }
     }
 
-    if (!isSupabaseConfigured) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return;
 
     const loadRealEmployeeData = async () => {
       try {
@@ -1136,8 +1136,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   useEffect(() => {
     const companyId = activeCompany?.id || getActiveCompanyId() || currentUser?.id;
-    if (!isSupabaseConfigured || !companyId) return;
     let isMounted = true;
+
+    const handleLocalVacationMutation = (e: any) => {
+      const incoming = e?.detail?.vacation as VacationRecord | undefined;
+      if (!incoming || !isMounted) return;
+      const targetId = toValidUUID(incoming.id);
+      setLocalVacations(prev => {
+        const exists = prev.some(v => v.id === incoming.id || toValidUUID(v.id) === targetId);
+        return exists
+          ? prev.map(v => (v.id === incoming.id || toValidUUID(v.id) === targetId ? { ...v, ...incoming } : v))
+          : [incoming, ...prev];
+      });
+    };
+
+    window.addEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
+
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured || !companyId) {
+      return () => {
+        isMounted = false;
+        window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
+      };
+    }
 
     if (isVacSyncLoadedRef.current !== companyId) {
       isVacSyncLoadedRef.current = companyId;
@@ -1180,20 +1200,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       )
       .subscribe();
 
-    const handleLocalVacationMutation = (e: any) => {
-      const incoming = e?.detail?.vacation as VacationRecord | undefined;
-      if (!incoming || !isMounted) return;
-      const targetId = toValidUUID(incoming.id);
-      setLocalVacations(prev => {
-        const exists = prev.some(v => v.id === incoming.id || toValidUUID(v.id) === targetId);
-        return exists
-          ? prev.map(v => (v.id === incoming.id || toValidUUID(v.id) === targetId ? { ...v, ...incoming } : v))
-          : [incoming, ...prev];
-      });
-    };
-
-    window.addEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
-
     return () => {
       isMounted = false;
       window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
@@ -1215,7 +1221,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   useEffect(() => {
     const activeUid = currentUser?.id;
-    if (!isSupabaseConfigured || !activeUid) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured || !activeUid) return;
     if (isEmployeesLoadedRef.current === activeUid) return;
     isEmployeesLoadedRef.current = activeUid;
 
@@ -1238,7 +1244,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com fechamento severo
   useEffect(() => {
     const activeUid = currentUser?.id;
-    if (!isSupabaseConfigured || !activeUid) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured || !activeUid) return;
     let isMounted = true;
 
     const debouncedReconcile = (uid: string) => {
@@ -2120,15 +2126,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const updatedList = localEmployees.filter(e => e.id !== id);
       setLocalEmployees(updatedList);
       saveStoredEmployees(updatedList);
+      saveCompanyFuncionarios(updatedList, activeCompany?.id);
 
-      // 2. Chama explicitamente a exclusão no Supabase (.delete().eq('id', id)) SEM disparar operação de insert/upsert
+      // 2. Chama explicitamente a exclusão no Supabase (.delete().eq('id', id)) apenas se online
       if (onDeleteEmployee) {
         try {
           await onDeleteEmployee(id);
         } catch (err) {
           console.error('[RH Excluir Funcionário Error]', err);
         }
-      } else {
+      } else if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
         deleteRhFuncionario(id).catch(err => {
           console.error('[RH deleteRhFuncionario Fallback Error]', err);
         });
@@ -2448,43 +2455,48 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         } : (signedRegistrationDoc && typeof signedRegistrationDoc.fileData === 'string' && signedRegistrationDoc.fileData.startsWith('http') ? signedRegistrationDoc : undefined),
       };
 
-      // Atualiza estado local e storage imediatamente antes da chamada de rede para que qualquer evento Realtime veja os dados novos
+      const employeeDataWithTimestamp: Employee = {
+        ...employeeData,
+        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any;
+
+      // Atualiza estado local e storage imediatamente em todas as chaves
       let prelimUpdatedList: Employee[] = [];
       if (editingEmployee) {
         let found = false;
         prelimUpdatedList = localEmployees.map(emp => {
           if (emp.id === editingEmployee.id || (editingEmployee.id && toValidUUID(emp.id) === toValidUUID(editingEmployee.id))) {
             found = true;
-            return employeeData;
+            return employeeDataWithTimestamp;
           }
           return emp;
         });
         if (!found) {
-          prelimUpdatedList = [...prelimUpdatedList, employeeData];
+          prelimUpdatedList = [...prelimUpdatedList, employeeDataWithTimestamp];
         }
       } else {
-        prelimUpdatedList = [...localEmployees, employeeData];
+        prelimUpdatedList = [...localEmployees, employeeDataWithTimestamp];
       }
       setLocalEmployees(prelimUpdatedList);
       saveStoredEmployees(prelimUpdatedList);
-      // Persistência explícita na chave colaca_silagem_funcionarios
+      saveCompanyFuncionarios(prelimUpdatedList, activeCompany?.id);
+      // Sincroniza sessão ativa caso este colaborador seja o selecionado atualmente
       try {
-        localStorage.setItem('colaca_silagem_funcionarios', JSON.stringify(prelimUpdatedList));
-        // Sincroniza sessão ativa caso este colaborador seja o selecionado atualmente
         const currentActive = getActiveUserSession();
-        if (currentActive.employeeId === employeeData.id) {
+        if (currentActive.employeeId === employeeDataWithTimestamp.id) {
           setActiveUserSession({
             ...currentActive,
-            name: employeeData.name,
-            cargoNome: employeeData.role,
-            photoUrl: employeeData.photoUrl,
+            name: employeeDataWithTimestamp.name,
+            cargoNome: employeeDataWithTimestamp.role,
+            photoUrl: employeeDataWithTimestamp.photoUrl,
             permissions: { ...cargoInfo.permissions },
           });
         }
       } catch (err) {}
 
-      // Dispara persistência com carimbo obrigatório do assinante no Supabase
-      if (isSupabaseConfigured && activeUid) {
+      // Dispara persistência em nuvem somente se NÃO estiver no modo 100% Local-First
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE && isSupabaseConfigured && activeUid) {
         try {
           const activeCompanyId = activeCompany?.id || activeUid;
           const safeCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
@@ -2758,26 +2770,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         }
       }
 
-      let updatedList: Employee[] = [];
-      if (editingEmployee) {
-        let found = false;
-        updatedList = localEmployees.map(emp => {
-          if (emp.id === editingEmployee.id || (editingEmployee.id && toValidUUID(emp.id) === toValidUUID(editingEmployee.id))) {
-            found = true;
-            return employeeData;
-          }
-          return emp;
-        });
-        if (!found) {
-          updatedList = [...updatedList, employeeData];
-        }
-      } else {
-        updatedList = [...localEmployees, employeeData];
-      }
+      const updatedList: Employee[] = prelimUpdatedList;
 
       // Atualização imediata no estado local da tabela e no storage
       setLocalEmployees(updatedList);
       saveStoredEmployees(updatedList);
+      saveCompanyFuncionarios(updatedList, activeCompany?.id);
       window.dispatchEvent(new CustomEvent('silagem_employees_updated', { detail: updatedList }));
       window.dispatchEvent(new CustomEvent('agrocontrol_funcionarios_updated', { detail: updatedList }));
       window.dispatchEvent(new CustomEvent('silagem_vacation_realtime_mutation', { detail: updatedList }));

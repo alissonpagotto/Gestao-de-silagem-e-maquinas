@@ -39,8 +39,10 @@ import {
   getStoredFinanceiroCheques,
   saveStoredFinanceiroCheques,
   getStoredClients,
-  getStoredBankAccounts
+  getStoredBankAccounts,
+  getStoredEmployees
 } from '../../lib/storage';
+import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { 
   saveFinanceiroCheque, 
   uploadChequeImagem, 
@@ -108,6 +110,7 @@ export interface ReceivePaymentSuccessDetails {
   interestAmount?: number;
   interestPercentage?: number;
   splitLines?: BillingPaymentLine[];
+  unlockedChequeSubstitution?: boolean;
 }
 
 export const getPaymentMethodLabel = (method?: PaymentMethod | string | ''): string => {
@@ -750,9 +753,29 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     const cleanPass = enteredPass.trim();
     if (!cleanPass) return false;
 
+    try {
+      const adminSettings = getStoredAdminSettings();
+      if (adminSettings?.masterPassword && adminSettings.masterPassword.trim() === cleanPass) {
+        return true;
+      }
+    } catch {}
+
     if (companyProfile?.adminPassword && companyProfile.adminPassword.trim() === cleanPass) {
       return true;
     }
+
+    // Verifica colaboradores com perfil Administrador / Gerente caso possuam senha cadastrada
+    try {
+      const employees = getStoredEmployees();
+      for (const emp of employees as any[]) {
+        const role = String(emp?.role || emp?.cargo || '').toLowerCase();
+        if (role.includes('admin') || role.includes('gerente') || role.includes('diretor')) {
+          if (emp?.senha && String(emp.senha).trim() === cleanPass) return true;
+          if (emp?.password && String(emp.password).trim() === cleanPass) return true;
+          if (emp?.adminPassword && String(emp.adminPassword).trim() === cleanPass) return true;
+        }
+      }
+    } catch {}
 
     const storageKeys = [
       'agrocontrol_cargos_permissoes',
@@ -815,20 +838,24 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
     try {
       const storedChqs = getStoredFinanceiroCheques();
-      let updatedChqs = [...storedChqs];
+      const updatedChqs = [...storedChqs];
       const targetIdx = updatedChqs.findIndex(sc => 
         (preloadedCheque && sc.id === preloadedCheque.id) ||
         ((activeRecord as any)?.chequeId && sc.id === (activeRecord as any).chequeId) ||
         ((activeRecord as any)?.chequeNumero && (sc.numero_cheque === (activeRecord as any).chequeNumero || sc.numeroCheque === (activeRecord as any).chequeNumero)) ||
-        (sc.ordem_id && sc.ordem_id === targetId)
+        (sc.ordem_id && sc.ordem_id === targetId) ||
+        (sc.ordemId && sc.ordemId === targetId)
       );
 
       if (targetIdx >= 0) {
+        const prevObs = updatedChqs[targetIdx].observacoes || '';
+        const substNote = `Cheque retirado/substituído pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`;
         updatedChqs[targetIdx] = {
           ...updatedChqs[targetIdx],
-          status: 'DEVOLVIDO',
+          status: 'SUBSTITUIDO',
           ordem_id: undefined,
-          observacoes: (updatedChqs[targetIdx].observacoes ? updatedChqs[targetIdx].observacoes + ' | ' : '') + `Cheque retirado/substituído pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`,
+          ordemId: undefined,
+          observacoes: prevObs.includes('retirado/substituído') ? prevObs : (prevObs ? `${prevObs} | ${substNote}` : substNote),
           updated_at: new Date().toISOString()
         };
         saveStoredFinanceiroCheques(updatedChqs);
@@ -841,12 +868,33 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       console.warn('Erro ao atualizar custódia de cheques ao destravar:', err);
     }
 
+    // Limpa a linha de cheque travada para que o operador escolha a nova forma (PIX, Dinheiro, TED, etc.)
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === 0
+          ? {
+              ...l,
+              paymentMethod: '',
+              cheques: [],
+            }
+          : l
+      )
+    );
+
+    if (!selectedBankAccountId) {
+      if (priorityBankAccount) {
+        setSelectedBankAccountId(priorityBankAccount.id);
+      } else if (effectiveBankAccounts.length > 0) {
+        setSelectedBankAccountId(effectiveBankAccounts[0].id);
+      }
+    }
+
     setIsUnlockedByAdmin(true);
     setShowUnlockPasswordModal(false);
     setUnlockPasswordInput('');
     setUnlockPasswordError('');
     setSuccessToast('Forma de pagamento destravada com sucesso! Selecione a nova forma de recebimento.');
-    setTimeout(() => setSuccessToast(''), 3500);
+    setTimeout(() => setSuccessToast(''), 4000);
   };
 
   // Submissão da confirmação unificada
@@ -861,80 +909,104 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       return;
     }
 
+    // Validação de Conta Bancária obrigatória para recebimentos imediatos (PIX, Dinheiro, TED/DOC, Cartões)
+    const IMMEDIATE_METHODS = ['pix', 'dinheiro', 'transferencia', 'cartao_credito', 'cartao_debito'];
+    const requiresBankAccount =
+      !isServiceMode &&
+      effectiveBankAccounts.length > 0 &&
+      lines.some((l) => IMMEDIATE_METHODS.includes(String(l.paymentMethod)));
+
+    if (requiresBankAccount && !selectedBankAccountId) {
+      setFormValidationError('Selecione a Conta Bancária de Depósito / Caixa para creditar o valor do recebimento.');
+      setTimeout(() => setFormValidationError(''), 4500);
+      return;
+    }
+
     const nowIso = new Date().toISOString();
     const activeCid = toValidUUID(companyProfile?.id || getActiveCompanyId());
 
-    // 1. Grava cheques novos na custódia de cheques para qualquer linha com cheque
+    // 1. Grava cheques novos na custódia (ou reutiliza o cheque já vinculado se estiver em modo travado)
     const allSavedCheques: FinanceiroCheque[] = [];
     const storedChqs = getStoredFinanceiroCheques();
-    let chqsListToPersist = [...storedChqs];
+    const chqsListToPersist = [...storedChqs];
 
-    for (const line of lines) {
-      if (line.paymentMethod === 'cheque' && line.cheques && line.cheques.length > 0) {
-        for (const chq of line.cheques) {
-          const chqId = toValidUUID();
-          let finalImgUrl = chq.uploadedImageUrl || chq.previewUrl || '';
+    if (isChequeRestricted && preloadedCheque) {
+      // Cheque já cadastrado no faturamento: atualiza apenas metadados de destino sem duplicar a folha na custódia
+      const updatedExisting: FinanceiroCheque = {
+        ...preloadedCheque,
+        conta_bancaria_destino_id: selectedBankAccountId || preloadedCheque.conta_bancaria_destino_id,
+        contaBancariaDestinoId: selectedBankAccountId || preloadedCheque.contaBancariaDestinoId,
+        updated_at: nowIso,
+      };
+      allSavedCheques.push(updatedExisting);
+    } else {
+      for (const line of lines) {
+        if (line.paymentMethod === 'cheque' && line.cheques && line.cheques.length > 0) {
+          for (const chq of line.cheques) {
+            const chqId = toValidUUID();
+            let finalImgUrl = chq.uploadedImageUrl || chq.previewUrl || '';
 
-          if (chq.selectedFile) {
-            try {
-              const uploadRes = await uploadChequeImagem(chq.selectedFile, activeCid, chq.selectedFile.name);
-              if (uploadRes?.publicUrl) {
-                finalImgUrl = uploadRes.publicUrl;
+            if (chq.selectedFile) {
+              try {
+                const uploadRes = await uploadChequeImagem(chq.selectedFile, activeCid, chq.selectedFile.name);
+                if (uploadRes?.publicUrl) {
+                  finalImgUrl = uploadRes.publicUrl;
+                }
+              } catch (err) {
+                console.warn('Erro ao subir imagem do cheque:', err);
               }
-            } catch (err) {
-              console.warn('Erro ao subir imagem do cheque:', err);
             }
-          }
 
-          const chequeRecord: FinanceiroCheque = {
-            id: chqId,
-            company_id: activeCid,
-            companyId: activeCid,
-            cliente_id: targetClientId,
-            clienteId: targetClientId,
-            cliente_nome: clientName,
-            clienteNome: clientName,
-            banco: chq.banco,
-            numero_cheque: chq.numero.trim() || '---',
-            numeroCheque: chq.numero.trim() || '---',
-            emitente_nome: chq.emitenteNome.trim() || clientName,
-            emitenteNome: chq.emitenteNome.trim() || clientName,
-            emitente_documento: chq.emitenteDoc.trim() || resolvedClient?.cpfCnpj || '',
-            emitenteDocumento: chq.emitenteDoc.trim() || resolvedClient?.cpfCnpj || '',
-            data_vencimento: chq.dataVencimento,
-            dataVencimento: chq.dataVencimento,
-            valor: Number(chq.valor) || 0,
-            imagem_url: finalImgUrl,
-            imagemUrl: finalImgUrl,
-            status: 'EM_NOSSO_PODER',
-            ordem_id: targetId,
-            ordemId: targetId,
-            ordem_tipo: isServiceMode ? 'servico' : 'venda',
-            parcela_numero: chq.installmentNumber,
-            total_parcelas: line.installmentsCount || 1,
-            conta_bancaria_destino_id: selectedBankAccountId,
-            contaBancariaDestinoId: selectedBankAccountId,
-            created_at: nowIso,
-            updated_at: nowIso,
-          };
+            const chequeRecord: FinanceiroCheque = {
+              id: chqId,
+              company_id: activeCid,
+              companyId: activeCid,
+              cliente_id: targetClientId,
+              clienteId: targetClientId,
+              cliente_nome: clientName,
+              clienteNome: clientName,
+              banco: chq.banco,
+              numero_cheque: chq.numero.trim() || '---',
+              numeroCheque: chq.numero.trim() || '---',
+              emitente_nome: chq.emitenteNome.trim() || clientName,
+              emitenteNome: chq.emitenteNome.trim() || clientName,
+              emitente_documento: chq.emitenteDoc.trim() || resolvedClient?.cpfCnpj || '',
+              emitenteDocumento: chq.emitenteDoc.trim() || resolvedClient?.cpfCnpj || '',
+              data_vencimento: chq.dataVencimento,
+              dataVencimento: chq.dataVencimento,
+              valor: Number(chq.valor) || 0,
+              imagem_url: finalImgUrl,
+              imagemUrl: finalImgUrl,
+              status: 'EM_NOSSO_PODER',
+              ordem_id: targetId,
+              ordemId: targetId,
+              ordem_tipo: isServiceMode ? 'servico' : 'venda',
+              parcela_numero: chq.installmentNumber,
+              total_parcelas: line.installmentsCount || 1,
+              conta_bancaria_destino_id: selectedBankAccountId,
+              contaBancariaDestinoId: selectedBankAccountId,
+              created_at: nowIso,
+              updated_at: nowIso,
+            };
 
-          chqsListToPersist.push(chequeRecord);
-          allSavedCheques.push(chequeRecord);
-          try {
-            await saveFinanceiroCheque(chequeRecord);
-          } catch (e) {
-            console.warn('Erro ao sincronizar cheque no Supabase:', e);
+            chqsListToPersist.push(chequeRecord);
+            allSavedCheques.push(chequeRecord);
+            try {
+              await saveFinanceiroCheque(chequeRecord);
+            } catch (e) {
+              console.warn('Erro ao sincronizar cheque no Supabase:', e);
+            }
           }
         }
       }
-    }
 
-    if (allSavedCheques.length > 0) {
-      saveStoredFinanceiroCheques(chqsListToPersist);
-      try {
-        localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(chqsListToPersist));
-      } catch {}
-      window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+      if (allSavedCheques.length > 0) {
+        saveStoredFinanceiroCheques(chqsListToPersist);
+        try {
+          localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(chqsListToPersist));
+        } catch {}
+        window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+      }
     }
 
     // 2. Se for chamado a partir do Módulo de Serviços (onConfirm / ServiceOrder)
@@ -1095,6 +1167,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
         firstPaidImmediately: true,
         interestAmount: totalInterestAdded > 0 ? totalInterestAdded : undefined,
         splitLines: lines,
+        unlockedChequeSubstitution: isUnlockedByAdmin,
       });
 
       onClose();
@@ -1118,7 +1191,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight truncate">
-                  DEFINIÇÃO DE RECEBIMENTO E CONDIÇÕES COMERCIAIS
+                  {isServiceMode ? 'DEFINIÇÃO DE RECEBIMENTO E CONDIÇÕES COMERCIAIS' : 'BAIXAR / QUITAR CONTA A RECEBER'}
                 </h3>
                 {targetOrderNumber && (
                   <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-200 dark:bg-stone-700 text-slate-800 dark:text-stone-200 shrink-0">
@@ -1327,7 +1400,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1">
-                Conta Bancária de Depósito / Caixa
+                Conta Bancária de Depósito / Caixa{' '}
+                {!isServiceMode && lines.some((l) => ['pix', 'dinheiro', 'transferencia', 'cartao_credito', 'cartao_debito'].includes(String(l.paymentMethod))) && (
+                  <span className="text-rose-600">*</span>
+                )}
               </label>
               <select
                 id="billing-bank-account-select"
@@ -1372,14 +1448,16 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddLine}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 rounded-lg shadow-2xs transition cursor-pointer uppercase active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>+ Adicionar Forma</span>
-              </button>
+              {!isChequeRestricted && (
+                <button
+                  type="button"
+                  onClick={handleAddLine}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 rounded-lg shadow-2xs transition cursor-pointer uppercase active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>+ Adicionar Forma</span>
+                </button>
+              )}
             </div>
 
             {/* CARDS DAS LINHAS DE PAGAMENTO */}
@@ -1447,11 +1525,12 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           <input
                             type="text"
                             inputMode="numeric"
+                            disabled={isChequeRestricted}
                             value={formatCurrencyInputBRL(line.amount)}
                             onChange={(e) => handleAmountMaskChange(line.id, e.target.value)}
                             onFocus={(e) => e.target.select()}
                             placeholder="0,00"
-                            className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
                           />
                         </div>
                       </div>
@@ -1463,9 +1542,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                         </label>
                         <input
                           type="date"
+                          disabled={isChequeRestricted}
                           value={line.firstDueDate}
                           onChange={(e) => handleUpdateLine(line.id, 'firstDueDate', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
 
@@ -1474,13 +1554,13 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveLine(line.id)}
-                          disabled={lines.length <= 1}
+                          disabled={lines.length <= 1 || isChequeRestricted}
                           className={`p-1.5 rounded-lg border transition ${
-                            lines.length <= 1
+                            lines.length <= 1 || isChequeRestricted
                               ? 'text-zinc-300 dark:text-stone-600 border-slate-200 dark:border-stone-800 cursor-not-allowed'
                               : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900 cursor-pointer'
                           }`}
-                          title={lines.length <= 1 ? 'Mínimo de 1 forma obrigatória' : 'Remover forma'}
+                          title={lines.length <= 1 || isChequeRestricted ? 'Mínimo de 1 forma obrigatória' : 'Remover forma'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1509,8 +1589,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                       </div>
                     )}
 
-                    {/* BLOCO DE JUROS / ACRÉSCIMOS E PARCELAMENTO (QUANDO PARCELÁVEL E NÃO ASSINADO NOTA) */}
-                    {isInstallment && !isAssinadoNota && (
+                    {/* BLOCO DE JUROS / ACRÉSCIMOS E PARCELAMENTO (QUANDO PARCELÁVEL E NÃO ASSINADO NOTA E NÃO TRAVADO) */}
+                    {isInstallment && !isAssinadoNota && !isChequeRestricted && (
                       <div className="mt-2 pt-3 border-t border-dashed border-slate-200 dark:border-stone-750 bg-slate-50/70 dark:bg-stone-800/50 p-3.5 rounded-xl space-y-3">
                         {/* 1. SEÇÃO DE JUROS / ACRÉSCIMOS (REATIVIDADE BIDIRECIONAL R$ <-> %) */}
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/90 dark:border-amber-800/60 rounded-lg">
@@ -1675,8 +1755,84 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                       </div>
                     )}
 
-                    {/* GRADE DINÂMICA DE MÚLTIPLAS FOLHAS DE CHEQUE BASEADA NA QUANTIDADE DE PARCELAS */}
+                    {/* GRADE DINÂMICA DE MÚLTIPLAS FOLHAS DE CHEQUE BASEADA NA QUANTIDADE DE PARCELAS (OU SOMENTE LEITURA SE TRAVADO) */}
                     {isChequeLine && (
+                      isChequeRestricted && preloadedCheque ? (
+                        <div className="mt-3 p-3.5 bg-slate-50 dark:bg-stone-850/90 border border-slate-300 dark:border-stone-700 rounded-xl space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-700 pb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="p-1.5 rounded-lg bg-slate-800 text-white shadow-2xs">
+                                <Lock className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-stone-100 block">
+                                  Dados do Cheque em Custódia (Somente Leitura)
+                                </span>
+                                <span className="text-[10px] text-slate-600 dark:text-stone-400">
+                                  Folha vinculada no faturamento — clique em &ldquo;Destravar Forma de Pagamento&rdquo; acima para substituir
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-black text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 rounded-full">
+                              🔒 Registro Travado da Custódia
+                            </span>
+                          </div>
+
+                          <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Banco Emissor</span>
+                              <span className="font-bold text-slate-900 dark:text-white">{preloadedCheque.banco || '---'}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Nº do Cheque</span>
+                              <span className="font-mono font-black text-slate-900 dark:text-white">
+                                {preloadedCheque.numero_cheque || preloadedCheque.numeroCheque || '---'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Bom Para (Vencimento)</span>
+                              <span className="font-bold text-slate-900 dark:text-white">
+                                {formatDateBR(preloadedCheque.data_vencimento || (preloadedCheque as any).dataVencimento || '')}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Emitente</span>
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {preloadedCheque.emitente_nome || preloadedCheque.emitenteNome || clientName}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">CPF / CNPJ do Emitente</span>
+                              <span className="font-mono text-slate-800 dark:text-stone-200">
+                                {preloadedCheque.emitente_documento || preloadedCheque.emitenteDocumento || 'Não informado'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Valor de Face</span>
+                              <span className="font-black text-emerald-700 dark:text-emerald-400">
+                                {formatCurrencyBRL(Number(preloadedCheque.valor) || totalAmount)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {(preloadedCheque.imagem_url || (preloadedCheque as any).imagemUrl) && (
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Imagem física da folha anexada na custódia
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setZoomImageUrl(preloadedCheque.imagem_url || (preloadedCheque as any).imagemUrl || '')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-xs font-bold transition cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Visualizar Folha do Cheque</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
                       <div className="mt-3 p-3.5 bg-sky-50/70 dark:bg-stone-850/80 border border-sky-300 dark:border-stone-700 rounded-xl space-y-3">
                         <div className="flex items-center justify-between border-b border-sky-200 dark:border-stone-700 pb-2">
                           <div className="flex items-center space-x-2">
@@ -1833,6 +1989,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           ))}
                         </div>
                       </div>
+                      )
                     )}
                   </div>
                 );

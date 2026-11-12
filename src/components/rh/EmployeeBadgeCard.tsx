@@ -68,6 +68,9 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
   const footerBorder = bodyIsLight ? 'rgba(15, 23, 42, 0.16)' : 'rgba(255, 255, 255, 0.2)';
 
   const showFooter = theme.showCpf || theme.showAdmissionDate;
+  const headerSubtitle = (theme.headerSubtitle || '').trim();
+  const companyFontBase = theme.companyNameFontSize ?? DEFAULT_BADGE_THEME.companyNameFontSize;
+  const employeeFontBase = theme.employeeNameFontSize ?? DEFAULT_BADGE_THEME.employeeNameFontSize;
 
   const px = (base: number) => `${(base * s).toFixed(1)}px`;
   const mm = (base: number) => `${(base * s).toFixed(2)}mm`;
@@ -165,16 +168,18 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
               <div className="min-w-0 text-center">
                 <div
                   className="font-black uppercase tracking-wide leading-tight truncate"
-                  style={{ color: theme.textColor, fontSize: px(8.5) }}
+                  style={{ color: theme.textColor, fontSize: px(companyFontBase) }}
                 >
                   {companyName}
                 </div>
-                <div
-                  className="font-bold uppercase tracking-[0.14em] leading-tight"
-                  style={{ color: theme.accentColor, fontSize: px(6) }}
-                >
-                  CRACHÁ DE IDENTIFICAÇÃO
-                </div>
+                {headerSubtitle && (
+                  <div
+                    className="font-bold uppercase tracking-[0.14em] leading-tight mt-0.5 truncate"
+                    style={{ color: theme.accentColor, fontSize: px(6.5) }}
+                  >
+                    {headerSubtitle}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -212,7 +217,7 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
           <div className="w-full text-center space-y-1 px-0.5">
             <div
               className="font-black uppercase leading-[1.15] line-clamp-2 break-words"
-              style={{ color: theme.textColor, fontSize: px(10) }}
+              style={{ color: theme.textColor, fontSize: px(employeeFontBase) }}
               title={employee.name}
             >
               {employee.name}
@@ -282,21 +287,23 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
             className="rounded-full bg-white/35 mx-auto border border-white/20"
             style={{ width: px(30), height: px(4), marginBottom: px(5) }}
           />
-          <div className="flex items-center gap-1.5">
+          <div className={`flex items-center gap-1.5 ${headerSubtitle ? '' : 'justify-center'}`}>
             {renderLogoBadge()}
-            <div className="min-w-0 flex-1">
+            <div className={`min-w-0 ${headerSubtitle ? 'flex-1' : 'text-center'}`}>
               <div
                 className="font-black uppercase tracking-wide leading-tight truncate"
-                style={{ color: headerTextColor, fontSize: px(8.5) }}
+                style={{ color: headerTextColor, fontSize: px(companyFontBase) }}
               >
                 {companyName}
               </div>
-              <div
-                className="font-bold uppercase tracking-[0.14em] leading-tight mt-0.5"
-                style={{ color: headerSubColor, fontSize: px(6) }}
-              >
-                OPERACIONAL &amp; CAMPO
-              </div>
+              {headerSubtitle && (
+                <div
+                  className="font-bold uppercase tracking-[0.14em] leading-tight mt-0.5 truncate"
+                  style={{ color: headerSubColor, fontSize: px(6.5) }}
+                >
+                  {headerSubtitle}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -336,7 +343,7 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
           <div className="w-full text-center px-0.5 mt-1">
             <div
               className="font-black uppercase leading-[1.15] line-clamp-2 break-words"
-              style={{ color: theme.textColor, fontSize: px(10) }}
+              style={{ color: theme.textColor, fontSize: px(employeeFontBase) }}
               title={employee.name}
             >
               {employee.name}
@@ -405,21 +412,23 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
           className="rounded-full bg-white/30 mx-auto border border-white/20"
           style={{ width: px(30), height: px(4), marginBottom: px(5) }}
         />
-        <div className="flex items-center gap-1.5">
+        <div className={`flex items-center gap-1.5 ${headerSubtitle ? '' : 'justify-center'}`}>
           {renderLogoBadge()}
-          <div className="min-w-0 flex-1">
+          <div className={`min-w-0 ${headerSubtitle ? 'flex-1' : 'text-center'}`}>
             <div
               className="font-black uppercase tracking-wide leading-tight truncate"
-              style={{ color: headerTextColor, fontSize: px(8.5) }}
+              style={{ color: headerTextColor, fontSize: px(companyFontBase) }}
             >
               {companyName}
             </div>
-            <div
-              className="font-bold uppercase tracking-[0.14em] leading-tight mt-0.5"
-              style={{ color: headerSubColor, fontSize: px(6.5) }}
-            >
-              IDENTIFICAÇÃO FUNCIONAL
-            </div>
+            {headerSubtitle && (
+              <div
+                className="font-bold uppercase tracking-[0.14em] leading-tight mt-0.5 truncate"
+                style={{ color: headerSubColor, fontSize: px(6.5) }}
+              >
+                {headerSubtitle}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -456,7 +465,7 @@ export const EmployeeBadgeCard: React.FC<EmployeeBadgeCardProps> = ({
         <div className="w-full text-center space-y-1 px-0.5 mt-1">
           <div
             className="font-black uppercase leading-[1.15] line-clamp-2 break-words"
-            style={{ color: theme.textColor, fontSize: px(10) }}
+            style={{ color: theme.textColor, fontSize: px(employeeFontBase) }}
             title={employee.name}
           >
             {employee.name}

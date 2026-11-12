@@ -92,6 +92,7 @@ export const isRealtimeEnabledInEnv = false;
 
 function getOfflineStorageKeyForTable(table: string): string {
   const norm = String(table || '').toLowerCase().trim();
+  if (norm.includes('financeiro_conta') || norm.includes('conta_bancaria') || norm.includes('contas_bancarias') || norm.includes('banco') || norm.includes('bank')) return 'financeiro_contas';
   if (norm.includes('veiculo') || norm.includes('frota')) return 'frotas';
   if (norm.includes('funcionario') || norm.includes('motorista') || norm.includes('driver')) return 'funcionarios';
   if (norm.includes('folha') || norm.includes('payroll')) return 'rh_folhas';
@@ -151,6 +152,7 @@ function getOfflineTableData(entity: string): any[] {
     abastecimentos: 'silagem_facil_clean_v1_fuel_logs',
     manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
     estoque: 'silagem_facil_clean_v1_inventory',
+    financeiro_contas: 'silagem_facil_clean_v1_bank_accounts',
   };
   const legKey = legacyKeyMap[entity];
   if (legKey) {
@@ -185,6 +187,7 @@ function saveOfflineTableData(entity: string, data: any[]): void {
       abastecimentos: 'silagem_facil_clean_v1_fuel_logs',
       manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
       estoque: 'silagem_facil_clean_v1_inventory',
+      financeiro_contas: 'silagem_facil_clean_v1_bank_accounts',
     };
     const legKey = legacyKeyMap[entity];
     if (legKey) {

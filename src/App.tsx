@@ -93,6 +93,8 @@ import {
   saveCompanyFornecedores,
   getCompanyFornecedores,
   saveCompanyClientes,
+  saveCompanyFinanceiroContas,
+  getCompanyFinanceiroContas,
   getCompanyClientes,
   saveCompanyDespesas,
   getCompanyDespesas,
@@ -105,7 +107,6 @@ import {
   getStoredDocumentosEntrada,
   getStoredFiscalRecords
 } from './lib/storage';
-import { IS_OFFLINE_LOCAL_STORAGE_MODE } from './lib/supabase';
 import { useConfirm } from './context/ConfirmContext';
 
 
@@ -218,7 +219,8 @@ import {
   getAbastecimentosTableName,
   fetchFrentesTrabalho,
   fetchFrentesTrabalhoMembros,
-  notifyDocumentosEntradaSync
+  notifyDocumentosEntradaSync,
+  IS_OFFLINE_LOCAL_STORAGE_MODE
 } from './lib/supabaseService';
 import { supabase } from './lib/supabaseClient';
 
@@ -405,6 +407,31 @@ export default function App() {
     ensureStockServicesInitialized();
     // Carga inicial mandatória das categorias de estoque e serviços de mão de obra (LocalStorage: 'colaca_silagem_categorias_estoque')
     ensureStockCategoriesInitialized();
+
+    // TRAVA DE CONTINGÊNCIA 100% LOCAL-FIRST:
+    // Impede qualquer rotina de fetch/SELECT/Realtime do Supabase de sobrescrever os dados locais no F5.
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      isInitialLoadDone.current = true;
+      const handleLocalInventorySync = (e: any) => {
+        if (e?.detail && Array.isArray(e.detail) && isMounted) {
+          setInventory(e.detail);
+        }
+      };
+      const handleLocalBanksSync = () => {
+        if (!isMounted) return;
+        const freshBanks = getStoredBankAccounts();
+        setBankAccounts(prev => (JSON.stringify(prev) === JSON.stringify(freshBanks) ? prev : freshBanks));
+      };
+      window.addEventListener('silagem_inventory_changed', handleLocalInventorySync);
+      window.addEventListener('agrocontrol_bancos_updated', handleLocalBanksSync);
+      window.addEventListener('bank_accounts_updated', handleLocalBanksSync);
+      return () => {
+        isMounted = false;
+        window.removeEventListener('silagem_inventory_changed', handleLocalInventorySync);
+        window.removeEventListener('agrocontrol_bancos_updated', handleLocalBanksSync);
+        window.removeEventListener('bank_accounts_updated', handleLocalBanksSync);
+      };
+    }
 
     const loadCloudData = async () => {
       try {
@@ -1539,12 +1566,17 @@ export default function App() {
   }, []);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
-    const ser = JSON.stringify(newAccounts);
-    if (ser !== lastSyncedState.current.bankAccounts) {
-      lastSyncedState.current.bankAccounts = ser;
-      setBankAccounts(newAccounts);
-      saveStoredBankAccounts(newAccounts);
-      saveCloudBankAccounts(newAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+    const stamped = (Array.isArray(newAccounts) ? newAccounts : []).map(acc => ({
+      ...acc,
+      updatedAt: acc.updatedAt || new Date().toISOString(),
+    }));
+    const ser = JSON.stringify(stamped);
+    lastSyncedState.current.bankAccounts = ser;
+    setBankAccounts(stamped);
+    saveStoredBankAccounts(stamped);
+    saveCompanyFinanceiroContas(stamped, activeTenantId);
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      saveCloudBankAccounts(stamped, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
         console.warn('Supabase saveCloudBankAccounts notice:', err)
       );
     }
@@ -1815,7 +1847,7 @@ export default function App() {
   // Protegido por hash defensivo para evitar loops de salvamento e consumo desnecessário de API
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(services);
     if (currentSerialized === lastSyncedState.current.services) return;
 
@@ -1827,7 +1859,7 @@ export default function App() {
   }, [services, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(inventory);
     if (currentSerialized === lastSyncedState.current.inventory) return;
 
@@ -1839,7 +1871,7 @@ export default function App() {
   }, [inventory, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(orders);
     if (currentSerialized === lastSyncedState.current.orders) return;
 
@@ -1851,7 +1883,7 @@ export default function App() {
   }, [orders, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(companyProfile);
     if (currentSerialized === lastSyncedState.current.companyProfile) return;
 
@@ -1863,7 +1895,7 @@ export default function App() {
   }, [companyProfile, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(clients);
     if (currentSerialized === lastSyncedState.current.clients) return;
 
@@ -1875,7 +1907,7 @@ export default function App() {
   }, [clients, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(machineries);
     if (currentSerialized === lastSyncedState.current.machineries) return;
 
@@ -1887,7 +1919,7 @@ export default function App() {
   }, [machineries, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(expenses);
     if (currentSerialized === lastSyncedState.current.expenses) return;
 
@@ -1899,7 +1931,7 @@ export default function App() {
   }, [expenses, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(fuelLogs);
     if (currentSerialized === lastSyncedState.current.fuelLogs) return;
 
@@ -1911,7 +1943,7 @@ export default function App() {
   }, [fuelLogs, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(maintenanceLogs);
     if (currentSerialized === lastSyncedState.current.maintenanceLogs) return;
 
@@ -1923,7 +1955,7 @@ export default function App() {
   }, [maintenanceLogs, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId || vacations.length === 0) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isInitialLoadDone.current || !activeTenantId || vacations.length === 0) return;
     const currentSerialized = JSON.stringify(vacations);
     if (currentSerialized === lastSyncedState.current.vacations) return;
 
@@ -2121,9 +2153,12 @@ export default function App() {
 
     if (latestAccounts !== bankAccounts) {
       setBankAccounts(latestAccounts);
-      saveCloudBankAccounts(latestAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
-        console.warn('Supabase saveCloudBankAccounts notice:', err)
-      );
+      saveStoredBankAccounts(latestAccounts);
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+        saveCloudBankAccounts(latestAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+          console.warn('Supabase saveCloudBankAccounts notice:', err)
+        );
+      }
     }
 
     if (Array.isArray(newOrUpdated)) {
@@ -2219,9 +2254,12 @@ export default function App() {
         const revertRes = revertExpenseCardsAndBank(expToDelete, bankAccounts);
         if (revertRes.updatedAccounts) {
           setBankAccounts(revertRes.updatedAccounts);
-          saveCloudBankAccounts(revertRes.updatedAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
-            console.warn('Supabase revert notice:', err)
-          );
+          saveStoredBankAccounts(revertRes.updatedAccounts);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            saveCloudBankAccounts(revertRes.updatedAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+              console.warn('Supabase revert notice:', err)
+            );
+          }
         }
       }
       deleteContaAPagar(id, activeTenantId).catch(err => console.warn('Supabase deleteContaAPagar notice:', err));
@@ -2309,9 +2347,11 @@ export default function App() {
             : acc
         );
         saveStoredBankAccounts(updated);
-        saveCloudBankAccounts(updated, activeTenantId, currentUser?.id || currentUser?.uid).catch((err) =>
-          console.warn('Supabase saveCloudBankAccounts notice:', err)
-        );
+        if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+          saveCloudBankAccounts(updated, activeTenantId, currentUser?.id || currentUser?.uid).catch((err) =>
+            console.warn('Supabase saveCloudBankAccounts notice:', err)
+          );
+        }
         return updated;
       });
 
@@ -2543,10 +2583,12 @@ export default function App() {
     lastSyncedState.current.rel_employees = JSON.stringify(currentStored);
 
     // 2. Chama explicitamente o método .delete().eq('id', id) do Supabase SEM qualquer insert ou upsert
-    try {
-      await deleteRhFuncionario(id, activeTenantId, currentUser?.id);
-    } catch (err) {
-      console.warn('Supabase handleDeleteEmployee notice:', err);
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      try {
+        await deleteRhFuncionario(id, activeTenantId, currentUser?.id);
+      } catch (err) {
+        console.warn('Supabase handleDeleteEmployee notice:', err);
+      }
     }
   };
 
@@ -2587,12 +2629,13 @@ export default function App() {
       return !prevSer || prevSer !== serializeComparableEmployee(emp);
     });
 
-    // 2. Atualização otimista imediata na UI e armazenamento local
+    // 2. Atualização otimista imediata na UI e armazenamento local (100% soberano em modo offline)
     setEmployees(deduplicatedEmployees);
     saveStoredEmployees(deduplicatedEmployees);
     saveCompanyFuncionarios(deduplicatedEmployees, activeTenantId);
+    lastSyncedState.current.rel_employees = JSON.stringify(deduplicatedEmployees);
 
-    if (changedEmployees.length === 0) {
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || changedEmployees.length === 0) {
       return;
     }
 

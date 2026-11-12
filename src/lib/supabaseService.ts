@@ -10124,8 +10124,9 @@ export async function deleteCloudMaintenanceLog(
 
 export function mapRowToBankAccount(row: any): BankAccount {
   const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  const isPriorityVal = Boolean(row.is_priority ?? row.isPriority ?? row.prioritaria ?? payload.isPriority ?? payload.prioritaria ?? false);
   return {
-    id: row.id || payload.id,
+    id: payload.id || row.id,
     name: row.name || row.account_name || payload.name || payload.accountName || 'Conta Bancária',
     accountName: row.account_name || row.name || payload.accountName || payload.name || 'Conta Bancária',
     bankName: row.bank_name || payload.bankName || 'Banco',
@@ -10140,6 +10141,8 @@ export function mapRowToBankAccount(row: any): BankAccount {
     pixKey: row.pix_key || payload.pixKey,
     pixKeyType: row.pix_key_type || payload.pixKeyType,
     color: row.color || payload.color || '#0963cb',
+    isPriority: isPriorityVal,
+    prioritaria: isPriorityVal,
     corporateCards: (row.corporate_cards || payload.corporateCards || []).map((c: any) => ({
       ...c,
       responsavel_cartao_id: c.responsavel_cartao_id || c.responsibleEmployeeId || '',
@@ -10153,7 +10156,7 @@ export function mapRowToBankAccount(row: any): BankAccount {
 }
 
 export async function fetchCloudBankAccounts(companyId?: string, userId?: string): Promise<BankAccount[] | null> {
-  if (!isSupabaseConfigured) return null;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return null;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const map = new Map<string, BankAccount>();
@@ -10198,7 +10201,7 @@ export async function fetchCloudBankAccounts(companyId?: string, userId?: string
 }
 
 export async function saveCloudBankAccounts(accounts: BankAccount[], companyId?: string, userId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return true;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     let currentUserId = userId;
@@ -10251,7 +10254,7 @@ export async function saveCloudBankAccounts(accounts: BankAccount[], companyId?:
 }
 
 export async function upsertContaBancaria(account: BankAccount, companyId?: string, userId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured || !account) return false;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured || !account) return true;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     let currentUserId = userId;
@@ -10291,7 +10294,7 @@ export async function upsertContaBancaria(account: BankAccount, companyId?: stri
 }
 
 export async function deleteContaBancaria(id: string, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured || !id) return false;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured || !id) return true;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);

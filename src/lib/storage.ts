@@ -891,7 +891,9 @@ export function saveStoredSeasons(seasons: CropSeason[]): void {
 
 export function getStoredEmployees(): Employee[] {
   try {
+    const cId = getActiveCompanyId();
     let raw = localStorage.getItem('agrocontrol_funcionarios') ||
+              (cId ? localStorage.getItem(`colaca_silagem_funcionarios_${cId}`) : null) ||
               localStorage.getItem('colaca_silagem_funcionarios') ||
               localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     if (!raw) return INITIAL_EMPLOYEES;
@@ -938,14 +940,56 @@ export function getStoredEmployees(): Employee[] {
       return true;
     });
 
+    const isBroken = (p?: string) => {
+      if (!p || typeof p !== 'string') return false;
+      if (p.startsWith('data:image/')) return false;
+      return (
+        p.includes('wix_mp.com') ||
+        p.includes('wix_mp') ||
+        p.includes('static.wixstatic.com') ||
+        (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p))
+      );
+    };
+
     const cleaned = filtered.map(emp => {
-      let updatedEmp = { ...emp };
-      const p = emp.photoUrl || (emp as any).foto_url;
-      if (p && (p.includes('wix_mp.com') || p.includes('wix_mp') || p.includes('static.wixstatic.com') || (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p)))) {
-        modified = true;
-        updatedEmp = { ...updatedEmp, photoUrl: undefined, foto_url: undefined };
+      let updatedEmp = { ...emp } as any;
+      const rawCandidates = [
+        updatedEmp.avatar_url,
+        updatedEmp.photoUrl,
+        updatedEmp.foto_url,
+        updatedEmp.foto,
+      ];
+      const validPhoto = rawCandidates.find(c => typeof c === 'string' && c.trim() !== '' && !isBroken(c));
+      if (validPhoto) {
+        if (
+          updatedEmp.photoUrl !== validPhoto ||
+          updatedEmp.foto_url !== validPhoto ||
+          updatedEmp.avatar_url !== validPhoto ||
+          updatedEmp.foto !== validPhoto
+        ) {
+          updatedEmp = {
+            ...updatedEmp,
+            photoUrl: validPhoto,
+            foto_url: validPhoto,
+            avatar_url: validPhoto,
+            foto: validPhoto,
+          };
+          modified = true;
+        }
+      } else {
+        const hadBroken = rawCandidates.some(c => isBroken(c));
+        if (hadBroken) {
+          modified = true;
+          updatedEmp = {
+            ...updatedEmp,
+            photoUrl: undefined,
+            foto_url: undefined,
+            avatar_url: undefined,
+            foto: undefined,
+          };
+        }
       }
-      return updatedEmp;
+      return updatedEmp as Employee;
     });
 
     const { updated: cleanedWithBadges, changed: badgeChanged } = backfillEmployeesBadgeNumbers(cleaned);
@@ -1005,17 +1049,31 @@ export function getStoredAllEmployees(): Employee[] {
   }
 }
 
-let lastSavedEmployeesJson = '';
-
 export function saveStoredEmployees(employees: Employee[]): void {
   try {
-    const json = JSON.stringify(employees);
-    if (json === lastSavedEmployeesJson) return;
-    lastSavedEmployeesJson = json;
+    const normalized = (Array.isArray(employees) ? employees : []).map((emp: any) => {
+      const photo = emp?.avatar_url || emp?.photoUrl || emp?.foto_url || emp?.foto;
+      if (photo && typeof photo === 'string' && photo.trim()) {
+        return {
+          ...emp,
+          photoUrl: photo,
+          foto: photo,
+          foto_url: photo,
+          avatar_url: photo,
+        };
+      }
+      return emp;
+    });
+    const json = JSON.stringify(normalized);
+    const cId = getActiveCompanyId();
 
     safeLocalStorageSetItem('agrocontrol_funcionarios', json);
     safeLocalStorageSetItem(STORAGE_KEYS.EMPLOYEES, json);
     safeLocalStorageSetItem('colaca_silagem_funcionarios', json);
+    if (cId) {
+      safeLocalStorageSetItem(`colaca_silagem_funcionarios_${cId}`, json);
+      safeLocalStorageSetItem(`agrocontrol_funcionarios_${cId}`, json);
+    }
   } catch (e) {
     console.warn('Aviso não-bloqueante ao salvar funcionários:', e);
   }
@@ -1993,21 +2051,6 @@ export function getStoredCompanyProfile(): CompanyProfile {
     ) {
       profile.logoUrl = '';
     }
-    // Remove dados pré-fixados de teste legados para permitir que o usuário cadastre sua própria empresa
-    if (profile.corporateName && profile.corporateName.toUpperCase().trim() === 'COLAÇA SILAGEM LTDA') {
-      profile.corporateName = '';
-    }
-    if (profile.tradeName && profile.tradeName.toUpperCase().trim() === 'COLAÇA SILAGEM') {
-      profile.tradeName = '';
-    }
-    if (profile.activitySector && (
-      profile.activitySector.toUpperCase().trim() === 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' ||
-      profile.activitySector.toUpperCase().trim() === 'PRESTACAO DE SERVICO DE SILAGEM' ||
-      profile.activitySector.toUpperCase().trim() === 'GESTÃO AGRÍCOLA' ||
-      profile.activitySector.toUpperCase().trim() === 'GESTAO AGRICOLA'
-    )) {
-      profile.activitySector = '';
-    }
     return profile;
   } catch (e) {
     return INITIAL_COMPANY_PROFILE;
@@ -2681,10 +2724,6 @@ export function importFullBackup(jsonString: string): { success: boolean; messag
 
 export function getStoredBankAccounts(): BankAccount[] {
   try {
-    // 1. Chave prioritária oficial AgroControl e espelhos
-    const rawUnified = localStorage.getItem('agrocontrol_bancos') || 
-                       localStorage.getItem('agrocontrol_contas_bancarias') || 
-                       localStorage.getItem('agrocontrol_financeiro_contas');
     const normalizeAccounts = (accList: BankAccount[]): BankAccount[] => {
       if (!Array.isArray(accList)) return [];
       return accList.map(acc => {
@@ -2712,9 +2751,13 @@ export function getStoredBankAccounts(): BankAccount[] {
       });
     };
 
+    // 1. Chave prioritária oficial AgroControl e espelhos (respeita array vazio explícito se salvo)
+    const rawUnified = localStorage.getItem('agrocontrol_bancos') || 
+                       localStorage.getItem('agrocontrol_contas_bancarias') || 
+                       localStorage.getItem('agrocontrol_financeiro_contas');
     if (rawUnified) {
       const parsed = JSON.parse(rawUnified);
-      if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
+      if (Array.isArray(parsed)) return normalizeAccounts(parsed);
     }
 
     const cId = getActiveCompanyId();
@@ -2733,7 +2776,8 @@ export function getStoredBankAccounts(): BankAccount[] {
       if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
     }
 
-    const rawColacaGlobal = localStorage.getItem('colaca_silagem_financeiro_contas');
+    const rawColacaGlobal = localStorage.getItem('colaca_silagem_financeiro_contas') ||
+                            localStorage.getItem('agrocontrol_bancos_colaca_silagem');
     if (rawColacaGlobal) {
       const parsed = JSON.parse(rawColacaGlobal);
       if (Array.isArray(parsed) && parsed.length > 0) return normalizeAccounts(parsed);
@@ -2744,18 +2788,17 @@ export function getStoredBankAccounts(): BankAccount[] {
   }
 }
 
-let lastSavedBankAccountsJson = '';
-
 export function saveStoredBankAccounts(accounts: BankAccount[]): void {
   try {
-    const json = JSON.stringify(accounts);
-    if (json === lastSavedBankAccountsJson) return;
-    lastSavedBankAccountsJson = json;
+    const safeList = Array.isArray(accounts) ? accounts : [];
+    const json = JSON.stringify(safeList);
 
-    // Gravação em espelho compulsória oficial AgroControl
+    // Gravação em espelho compulsória oficial AgroControl em TODAS as chaves
     safeLocalStorageSetItem('agrocontrol_bancos', json);
     safeLocalStorageSetItem('agrocontrol_contas_bancarias', json);
     safeLocalStorageSetItem('agrocontrol_financeiro_contas', json);
+    safeLocalStorageSetItem('agrocontrol_bancos_colaca_silagem', json);
+    safeLocalStorageSetItem('agrocontrol_bancos_contas', json);
 
     // Chaves de compatibilidade legada e escopo por empresa
     safeLocalStorageSetItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
@@ -2763,9 +2806,12 @@ export function saveStoredBankAccounts(accounts: BankAccount[]): void {
     if (cId) {
       safeLocalStorageSetItem(`colaca_silagem_financeiro_contas_${cId}`, json);
       safeLocalStorageSetItem(`agrocontrol_bancos_${cId}`, json);
+      safeLocalStorageSetItem(`agrocontrol_contas_bancarias_${cId}`, json);
+      safeLocalStorageSetItem(`agrocontrol_financeiro_contas_${cId}`, json);
+      safeLocalStorageSetItem(`agrocontrol_bancos_colaca_silagem_${cId}`, json);
+      safeLocalStorageSetItem(`${STORAGE_KEYS.BANK_ACCOUNTS}_${cId}`, json);
     }
     safeLocalStorageSetItem('colaca_silagem_financeiro_contas', json);
-    saveCompanyData('financeiro_contas', accounts, cId);
   } catch (e) {
     console.warn('Aviso não-bloqueante ao salvar contas bancárias:', e);
   }
@@ -4150,10 +4196,10 @@ export const saveCompanyFrotas = (frotas: Machinery[], companyId?: string): void
 export const getCompanyFrotas = (companyId?: string): Machinery[] => getCompanyData<Machinery>('frotas', getStoredMachineries, companyId);
 
 export const saveCompanyFuncionarios = (funcionarios: Employee[], companyId?: string): void => {
+  saveStoredEmployees(funcionarios);
   saveCompanyData('funcionarios', funcionarios, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(funcionarios)); } catch {}
 };
-export const getCompanyFuncionarios = (companyId?: string): Employee[] => getCompanyData<Employee>('funcionarios', getStoredEmployees, companyId);
+export const getCompanyFuncionarios = (companyId?: string): Employee[] => getStoredEmployees();
 
 export const saveCompanyRhFolhas = (folhas: PayrollRecord[], companyId?: string): void => {
   saveCompanyData('rh_folhas', folhas, companyId);
@@ -4219,16 +4265,10 @@ export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?
 export const getCompanyManutencoes = (companyId?: string): MaintenanceLog[] => getCompanyData<MaintenanceLog>('manutencoes', getStoredMaintenanceLogs, companyId);
 
 export const saveCompanyFinanceiroContas = (contas: BankAccount[], companyId?: string): void => {
+  saveStoredBankAccounts(contas);
   saveCompanyData('financeiro_contas', contas, companyId);
-  try {
-    const json = JSON.stringify(contas);
-    localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
-    const cId = (companyId || getActiveCompanyId() || 'default').trim();
-    localStorage.setItem(`colaca_silagem_financeiro_contas_${cId}`, json);
-    localStorage.setItem('colaca_silagem_financeiro_contas', json);
-  } catch {}
 };
-export const getCompanyFinanceiroContas = (companyId?: string): BankAccount[] => getCompanyData<BankAccount>('financeiro_contas', getStoredBankAccounts, companyId);
+export const getCompanyFinanceiroContas = (companyId?: string): BankAccount[] => getStoredBankAccounts();
 
 // ==============================================================================
 // MOTOR MESTRE DE MANUTENÇÃO PREVENTIVA (REGRAS DE FÁBRICA / REVISÕES PERIÓDICAS)

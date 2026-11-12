@@ -76,20 +76,12 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   };
 
   const sanitizeProfile = (prof?: CompanyProfile): CompanyProfile => {
-    const base = prof || {} as CompanyProfile;
-    const isMockCorporate = !!base.corporateName && base.corporateName.toUpperCase().trim() === 'COLAÇA SILAGEM LTDA';
-    const isMockTrade = !!base.tradeName && base.tradeName.toUpperCase().trim() === 'COLAÇA SILAGEM';
-    const isMockSector = !!base.activitySector && (
-      base.activitySector.toUpperCase().trim() === 'PRESTAÇÃO DE SERVIÇO DE SILAGEM' ||
-      base.activitySector.toUpperCase().trim() === 'PRESTACAO DE SERVICO DE SILAGEM' ||
-      base.activitySector.toUpperCase().trim() === 'GESTÃO AGRÍCOLA' ||
-      base.activitySector.toUpperCase().trim() === 'GESTAO AGRICOLA'
-    );
+    const base = prof || ({} as CompanyProfile);
     return {
       ...base,
-      corporateName: isMockCorporate ? '' : (base.corporateName || ''),
-      tradeName: isMockTrade ? '' : (base.tradeName || ''),
-      activitySector: isMockSector ? '' : (base.activitySector || ''),
+      corporateName: base.corporateName || '',
+      tradeName: base.tradeName || '',
+      activitySector: base.activitySector || '',
     };
   };
 

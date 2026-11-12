@@ -31,6 +31,7 @@ import {
   saveStoredServices,
   getStoredBankAccounts,
   saveStoredBankAccounts,
+  saveCompanyFinanceiroContas,
   getStoredBankTransactions,
   saveStoredBankTransactions,
   getStoredFinanceiroCheques,
@@ -340,8 +341,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
               updatedAt: new Date().toISOString(),
-              chequeId: chqSingle?.id || s.chequeId,
-              chequeNumero: chqSingle?.numero_cheque || chqSingle?.numeroCheque || s.chequeNumero,
+              chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || s.chequeId) : undefined,
+              chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || s.chequeNumero) : undefined,
             };
           }
           return s;
@@ -358,18 +359,27 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             (chqSingle && sc.id === chqSingle.id) ||
             (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
             (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
-            (sc.ordem_id === details.itemId)
+            (sc.ordem_id === details.itemId || sc.ordemId === details.itemId)
           );
           if (chqToUpdate) {
             if (details.paymentMethod === 'cheque') {
               chqToUpdate.status = 'COMPENSADO';
               chqToUpdate.data_compensacao = details.receiptDate;
-              if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+              chqToUpdate.dataCompensacao = details.receiptDate;
+              if (details.bankAccountId) {
+                chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+                chqToUpdate.contaBancariaDestinoId = details.bankAccountId;
+              }
             } else {
-              chqToUpdate.status = 'DEVOLVIDO';
+              chqToUpdate.status = 'SUBSTITUIDO';
               chqToUpdate.ordem_id = undefined;
-              chqToUpdate.observacoes = (chqToUpdate.observacoes ? chqToUpdate.observacoes + ' | ' : '') + `Substituído por ${String(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+              chqToUpdate.ordemId = undefined;
+              const substMsg = `Substituído por ${getPaymentMethodLabel(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+              if (!chqToUpdate.observacoes?.includes('Substituído por')) {
+                chqToUpdate.observacoes = chqToUpdate.observacoes ? `${chqToUpdate.observacoes} | ${substMsg}` : substMsg;
+              }
             }
+            chqToUpdate.updated_at = new Date().toISOString();
             saveStoredFinanceiroCheques(storedChqs);
             try {
               localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
@@ -499,8 +509,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${o.notes || ''}${chqSingleNote}`.trim(),
               updatedAt: new Date().toISOString(),
-              chequeId: chqSingle?.id || o.chequeId,
-              chequeNumero: chqSingle?.numero_cheque || chqSingle?.numeroCheque || o.chequeNumero,
+              chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || o.chequeId) : undefined,
+              chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || o.chequeNumero) : undefined,
             };
           }
           return o;
@@ -518,18 +528,27 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             (chqSingle && sc.id === chqSingle.id) ||
             (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
             (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
-            (sc.ordem_id === details.itemId)
+            (sc.ordem_id === details.itemId || sc.ordemId === details.itemId)
           );
           if (chqToUpdate) {
             if (details.paymentMethod === 'cheque') {
               chqToUpdate.status = 'COMPENSADO';
               chqToUpdate.data_compensacao = details.receiptDate;
-              if (details.bankAccountId) chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+              chqToUpdate.dataCompensacao = details.receiptDate;
+              if (details.bankAccountId) {
+                chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+                chqToUpdate.contaBancariaDestinoId = details.bankAccountId;
+              }
             } else {
-              chqToUpdate.status = 'DEVOLVIDO';
+              chqToUpdate.status = 'SUBSTITUIDO';
               chqToUpdate.ordem_id = undefined;
-              chqToUpdate.observacoes = (chqToUpdate.observacoes ? chqToUpdate.observacoes + ' | ' : '') + `Substituído por ${String(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+              chqToUpdate.ordemId = undefined;
+              const substMsg = `Substituído por ${getPaymentMethodLabel(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+              if (!chqToUpdate.observacoes?.includes('Substituído por')) {
+                chqToUpdate.observacoes = chqToUpdate.observacoes ? `${chqToUpdate.observacoes} | ${substMsg}` : substMsg;
+              }
             }
+            chqToUpdate.updated_at = new Date().toISOString();
             saveStoredFinanceiroCheques(storedChqs);
             try {
               localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
@@ -555,7 +574,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         const targetAcc = allAccs.find(a => a.id === details.bankAccountId);
         if (targetAcc) {
           targetAcc.balance = Number(((Number(targetAcc.balance) || 0) + amountReceivedNow).toFixed(2));
+          targetAcc.updatedAt = new Date().toISOString();
           saveStoredBankAccounts(allAccs);
+          saveCompanyFinanceiroContas(allAccs, activeCompanyId);
+          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+          window.dispatchEvent(new Event('bank_accounts_updated'));
         }
 
         const currentTx = getStoredBankTransactions();

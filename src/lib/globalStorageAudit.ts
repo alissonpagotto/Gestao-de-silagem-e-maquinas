@@ -150,6 +150,13 @@ function mergeAndDeduplicate(arrays: any[][]): any[] {
   const map = new Map<string, any>();
   let fallbackIdCounter = 0;
 
+  const parseTimestamp = (obj: any): number => {
+    const raw = obj?.updatedAt || obj?.updated_at;
+    if (!raw) return 0;
+    const ms = Date.parse(String(raw));
+    return isNaN(ms) ? 0 : ms;
+  };
+
   for (const arr of arrays) {
     if (!Array.isArray(arr)) continue;
     for (const item of arr) {
@@ -175,15 +182,28 @@ function mergeAndDeduplicate(arrays: any[][]): any[] {
       if (!map.has(String(key))) {
         map.set(String(key), item);
       } else {
-        // Mescla propriedades sem sobrescrever campos preenchidos com nulos/vazios
         const existing = map.get(String(key));
-        const merged = { ...existing };
-        for (const [k, v] of Object.entries(item)) {
-          if (v !== null && v !== undefined && v !== '' && (merged[k] === null || merged[k] === undefined || merged[k] === '')) {
-            merged[k] = v;
+        const tExisting = parseTimestamp(existing);
+        const tItem = parseTimestamp(item);
+        if (tItem > tExisting) {
+          // Registro mais recente sobrescreve propriedades atualizadas, preservando apenas campos ausentes
+          const merged = { ...existing, ...item };
+          for (const [k, v] of Object.entries(existing)) {
+            if ((merged[k] === null || merged[k] === undefined || merged[k] === '') && v !== null && v !== undefined && v !== '') {
+              merged[k] = v;
+            }
           }
+          map.set(String(key), merged);
+        } else {
+          // Mescla propriedades faltantes sem sobrescrever campos já definidos no registro mais recente/prioritário
+          const merged = { ...existing };
+          for (const [k, v] of Object.entries(item)) {
+            if (v !== null && v !== undefined && v !== '' && (merged[k] === null || merged[k] === undefined || merged[k] === '')) {
+              merged[k] = v;
+            }
+          }
+          map.set(String(key), merged);
         }
-        map.set(String(key), merged);
       }
     }
   }

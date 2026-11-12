@@ -1390,6 +1390,8 @@ export interface BankAccount {
   isPriority?: boolean; // Conta prioritária para emissão de boletos e PDV
   prioritaria?: boolean; // Alias para compatibilidade
   status?: string;
+  updatedAt?: string;
+  updated_at?: string;
 }
 
 export interface BankTransaction {
@@ -2117,7 +2119,7 @@ export interface CaixaFerramentaVeiculoRecord {
 // ==============================================================================
 // MÓDULO DE CHEQUES E CRÉDITOS DE CLIENTES
 // ==============================================================================
-export type ChequeStatus = 'EM_NOSSO_PODER' | 'COMPENSADO' | 'DEVOLVIDO' | 'REPASSADO';
+export type ChequeStatus = 'EM_NOSSO_PODER' | 'COMPENSADO' | 'DEVOLVIDO' | 'REPASSADO' | 'SUBSTITUIDO';
 export type CreditoStatus = 'DISPONIVEL' | 'UTILIZADO' | 'CANCELADO';
 
 export interface FinanceiroCheque {
