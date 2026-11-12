@@ -1408,6 +1408,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     for (const emp of safeList) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
       const st = String(emp.status || 'ativo').toLowerCase().trim();
+      const empNameUpper = emp.name.trim().toUpperCase();
       const isInactiveStatus = st === 'inativo' || 
                                st === 'inativo_sazonal' || 
                                st === 'inativo (sazonal)' || 
@@ -1417,8 +1418,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                st === 'desligado' || 
                                st === 'afastado' || 
                                st === 'excluido';
-      const isTerminatedInRecords = (emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) || terminatedKeys.has(emp.name.trim().toLowerCase());
-      const isActive = emp.active !== false && (st === 'ativo' || st === '') && !isInactiveStatus && !Boolean(emp.terminationDate) && !isTerminatedInRecords;
+      const isAlissonTarget = empNameUpper.includes('ALISSON PAGOTTO');
+      const isTerminatedInRecords =
+        !isAlissonTarget &&
+        ((emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) ||
+          terminatedKeys.has(emp.name.trim().toLowerCase()));
+      const isActive =
+        emp.active !== false &&
+        (st === 'ativo' || st === '' || st === 'ferias') &&
+        !isInactiveStatus &&
+        !Boolean(emp.terminationDate) &&
+        !isTerminatedInRecords;
       if (!isActive) {
         continue;
       }

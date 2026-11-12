@@ -889,6 +889,202 @@ export function saveStoredSeasons(seasons: CropSeason[]): void {
   }
 }
 
+function isAlissonPagottoRecord(emp: any): boolean {
+  if (!emp) return false;
+  const id = String(emp.id || '');
+  const name = String(emp.name || emp.employeeName || '').trim().toUpperCase();
+  if (id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (name === 'ALISSON PAG' && !emp.cpf)) {
+    return false;
+  }
+  return name.includes('ALISSON PAGOTTO');
+}
+
+function isEmployeeCurrentlyActive(emp: any): boolean {
+  if (!emp || emp.active === false || Boolean(emp.terminationDate)) return false;
+  const st = String(emp.status || 'ativo').toLowerCase().trim();
+  return st === 'ativo' || st === '' || st === 'ferias';
+}
+
+function recoverAlissonPagottoIfMissingOrInactive(
+  currentList: Employee[],
+  cId: string
+): { list: Employee[]; recovered: boolean } {
+  try {
+    const existingIdx = currentList.findIndex(isAlissonPagottoRecord);
+    if (existingIdx !== -1 && isEmployeeCurrentlyActive(currentList[existingIdx])) {
+      return { list: currentList, recovered: false };
+    }
+
+    // 1. Procura registro completo em todas as chaves de funcionários e backups no localStorage
+    let backupCandidate: any = existingIdx !== -1 ? { ...currentList[existingIdx] } : null;
+    if (typeof localStorage !== 'undefined') {
+      const candidateKeys = new Set<string>([
+        'agrocontrol_funcionarios',
+        'colaca_silagem_funcionarios',
+        STORAGE_KEYS.EMPLOYEES,
+        ...(cId ? [`agrocontrol_funcionarios_${cId}`, `colaca_silagem_funcionarios_${cId}`, `${STORAGE_KEYS.EMPLOYEES}_${cId}`] : []),
+      ]);
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.includes('funcionario') || k.includes('employee') || k.includes('backup'))) {
+          candidateKeys.add(k);
+        }
+      }
+
+      for (const k of candidateKeys) {
+        try {
+          const rawVal = localStorage.getItem(k);
+          if (!rawVal) continue;
+          const parsedVal = JSON.parse(rawVal);
+          const arr: any[] = Array.isArray(parsedVal)
+            ? parsedVal
+            : Array.isArray(parsedVal?.employees)
+              ? parsedVal.employees
+              : Array.isArray(parsedVal?.rh_funcionarios)
+                ? parsedVal.rh_funcionarios
+                : Array.isArray(parsedVal?.data?.employees)
+                  ? parsedVal.data.employees
+                  : [];
+          const found = arr.find(isAlissonPagottoRecord);
+          if (found) {
+            // Mescla mantendo o registro mais rico em campos
+            backupCandidate = { ...(found || {}), ...(backupCandidate || {}) };
+            for (const [prop, val] of Object.entries(found)) {
+              if (
+                val !== null &&
+                val !== undefined &&
+                val !== '' &&
+                (backupCandidate[prop] === null || backupCandidate[prop] === undefined || backupCandidate[prop] === '')
+              ) {
+                backupCandidate[prop] = val;
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // 2. Procura folha de pagamento ativa e férias de ALISSON PAGOTTO para reconstrução/enriquecimento
+    let matchedPayroll: any = null;
+    let matchedVacation: any = null;
+    if (typeof localStorage !== 'undefined') {
+      const payrollKeys = [
+        STORAGE_KEYS.PAYROLLS,
+        'agrocontrol_folhas',
+        'agrocontrol_folhas_pagamento',
+        'colaca_silagem_rh_folhas',
+        ...(cId ? [`${STORAGE_KEYS.PAYROLLS}_${cId}`, `agrocontrol_folhas_pagamento_${cId}`, `colaca_silagem_rh_folhas_${cId}`] : []),
+      ];
+      for (const pk of payrollKeys) {
+        try {
+          const rawP = localStorage.getItem(pk);
+          if (!rawP) continue;
+          const parsedP = JSON.parse(rawP);
+          if (!Array.isArray(parsedP)) continue;
+          const hits = parsedP.filter((p) =>
+            String(p?.employeeName || '').trim().toUpperCase().includes('ALISSON PAGOTTO')
+          );
+          if (hits.length > 0) {
+            hits.sort((a, b) =>
+              String(b?.createdAt || b?.referenceMonth || '').localeCompare(String(a?.createdAt || a?.referenceMonth || ''))
+            );
+            matchedPayroll = hits[0];
+            break;
+          }
+        } catch {}
+      }
+
+      const vacKeys = [
+        STORAGE_KEYS.VACATIONS,
+        'agrocontrol_ferias',
+        'colaca_silagem_rh_ferias',
+        ...(cId ? [`${STORAGE_KEYS.VACATIONS}_${cId}`, `agrocontrol_ferias_${cId}`, `colaca_silagem_rh_ferias_${cId}`] : []),
+      ];
+      for (const vk of vacKeys) {
+        try {
+          const rawV = localStorage.getItem(vk);
+          if (!rawV) continue;
+          const parsedV = JSON.parse(rawV);
+          if (!Array.isArray(parsedV)) continue;
+          const hit = parsedV.find((v) =>
+            String(v?.employeeName || '').trim().toUpperCase().includes('ALISSON PAGOTTO')
+          );
+          if (hit) {
+            matchedVacation = hit;
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    // Só restaura/reconstitui se houver registro encontrado em backup/ex-colaboradores ou folha/férias ativa
+    if (!backupCandidate && !matchedPayroll && !matchedVacation) {
+      return { list: currentList, recovered: false };
+    }
+
+    const baseRole =
+      backupCandidate?.role ||
+      matchedPayroll?.employeeRole ||
+      (Array.isArray(backupCandidate?.roles) && backupCandidate.roles[0]) ||
+      'Operador';
+
+    const baseSalary = Number(
+      backupCandidate?.baseSalary ??
+        backupCandidate?.salary ??
+        matchedPayroll?.baseSalaryContratual ??
+        matchedPayroll?.baseSalary ??
+        0
+    );
+
+    const restoredEmployee: Employee = {
+      ...(backupCandidate || {}),
+      id:
+        backupCandidate?.id ||
+        matchedPayroll?.employeeId ||
+        matchedVacation?.employeeId ||
+        'emp-alisson-pagotto',
+      name: String(
+        backupCandidate?.name ||
+          matchedPayroll?.employeeName ||
+          matchedVacation?.employeeName ||
+          'ALISSON PAGOTTO'
+      )
+        .trim()
+        .toUpperCase(),
+      role: baseRole,
+      roles:
+        Array.isArray(backupCandidate?.roles) && backupCandidate.roles.length > 0
+          ? backupCandidate.roles
+          : [baseRole],
+      phone: backupCandidate?.phone || '',
+      contractType: backupCandidate?.contractType || 'Registrado (CLT)',
+      registrationType: backupCandidate?.registrationType || 'Funcionário',
+      admissionDate:
+        backupCandidate?.admissionDate ||
+        matchedVacation?.admissionDate ||
+        '2023-03-01',
+      baseSalary,
+      salary: Number(backupCandidate?.salary ?? baseSalary),
+      companyId: backupCandidate?.companyId || matchedPayroll?.companyId || cId,
+      userId: backupCandidate?.userId || matchedPayroll?.userId,
+      status: 'ativo',
+      active: true,
+      terminationDate: undefined,
+    };
+
+    const nextList = [...currentList];
+    if (existingIdx !== -1) {
+      nextList[existingIdx] = restoredEmployee;
+    } else {
+      nextList.push(restoredEmployee);
+    }
+
+    return { list: nextList, recovered: true };
+  } catch {
+    return { list: currentList, recovered: false };
+  }
+}
+
 export function getStoredEmployees(): Employee[] {
   try {
     const cId = getActiveCompanyId();
@@ -896,39 +1092,30 @@ export function getStoredEmployees(): Employee[] {
               (cId ? localStorage.getItem(`colaca_silagem_funcionarios_${cId}`) : null) ||
               localStorage.getItem('colaca_silagem_funcionarios') ||
               localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-    if (!raw) return INITIAL_EMPLOYEES;
+    if (!raw) {
+      const { list: recoveredFromPayroll, recovered } = recoverAlissonPagottoIfMissingOrInactive([], cId);
+      if (recovered) {
+        const { updated: withBadges } = backfillEmployeesBadgeNumbers(recoveredFromPayroll);
+        saveStoredEmployees(withBadges);
+        return withBadges;
+      }
+      return INITIAL_EMPLOYEES;
+    }
     const parsed: Employee[] = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
     let modified = false;
 
-    const isMockEmployee = (emp: any) => {
+    const isLegacyDuplicateWithoutCpf = (emp: any) => {
       if (!emp) return false;
       const id = String(emp.id || '');
-      if ([
-        'emp-alisson-pagotto',
-        'emp-audirlei-reolan',
-        'emp-cassiano-silva',
-        'emp-diego-santos',
-        'emp-marcos-antonio-pereira',
-        'emp-vitor-hugo-santos'
-      ].includes(id)) return true;
       const name = String(emp.name || '').trim().toUpperCase();
-      if ([
-        'ALISSON PAGOTTO',
-        'AUDIRLEI REOLAN',
-        'CASSIANO SILVA',
-        'DIEGO SANTOS',
-        'MARCOS ANTONIO PEREIRA',
-        'VITOR HUGO SANTOS',
-        'ALISSON PAG'
-      ].includes(name)) return true;
-      return false;
+      return id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (name === 'ALISSON PAG' && !emp.cpf);
     };
 
-    // Filtra apenas colaboradores excluídos permanentemente, mocks e registros sem dados essenciais
+    // Filtra apenas colaboradores excluídos permanentemente, duplicata legada sem CPF e registros sem nome
     const filtered = parsed.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
-      if (isMockEmployee(emp)) {
+      if (isLegacyDuplicateWithoutCpf(emp)) {
         modified = true;
         return false;
       }
@@ -992,7 +1179,13 @@ export function getStoredEmployees(): Employee[] {
       return updatedEmp as Employee;
     });
 
-    const { updated: cleanedWithBadges, changed: badgeChanged } = backfillEmployeesBadgeNumbers(cleaned);
+    const { list: withAlissonRestored, recovered: alissonRecovered } =
+      recoverAlissonPagottoIfMissingOrInactive(cleaned, cId);
+    if (alissonRecovered) {
+      modified = true;
+    }
+
+    const { updated: cleanedWithBadges, changed: badgeChanged } = backfillEmployeesBadgeNumbers(withAlissonRestored);
     if (badgeChanged) {
       modified = true;
     }
@@ -1008,42 +1201,28 @@ export function getStoredEmployees(): Employee[] {
 
 export function getStoredAllEmployees(): Employee[] {
   try {
+    const cId = getActiveCompanyId();
     let raw = localStorage.getItem('agrocontrol_funcionarios') ||
+              (cId ? localStorage.getItem(`colaca_silagem_funcionarios_${cId}`) : null) ||
               localStorage.getItem('colaca_silagem_funcionarios') ||
               localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     if (!raw) return INITIAL_EMPLOYEES;
     const parsed: Employee[] = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
 
-    const isMock = (emp: any) => {
+    const isLegacyDuplicateWithoutCpf = (emp: any) => {
       if (!emp) return false;
       const id = String(emp.id || '');
-      if ([
-        'emp-alisson-pagotto',
-        'emp-audirlei-reolan',
-        'emp-cassiano-silva',
-        'emp-diego-santos',
-        'emp-marcos-antonio-pereira',
-        'emp-vitor-hugo-santos'
-      ].includes(id)) return true;
       const name = String(emp.name || '').trim().toUpperCase();
-      if ([
-        'ALISSON PAGOTTO',
-        'AUDIRLEI REOLAN',
-        'CASSIANO SILVA',
-        'DIEGO SANTOS',
-        'MARCOS ANTONIO PEREIRA',
-        'VITOR HUGO SANTOS',
-        'ALISSON PAG'
-      ].includes(name)) return true;
-      return false;
+      return id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (name === 'ALISSON PAG' && !emp.cpf);
     };
 
-    const cleaned = parsed.filter(emp => !isMock(emp));
-    if (cleaned.length !== parsed.length) {
-      saveStoredEmployees(cleaned);
+    const cleaned = parsed.filter(emp => !isLegacyDuplicateWithoutCpf(emp));
+    const { list: withAlissonRestored, recovered } = recoverAlissonPagottoIfMissingOrInactive(cleaned, cId);
+    if (recovered || withAlissonRestored.length !== parsed.length) {
+      saveStoredEmployees(withAlissonRestored);
     }
-    return cleaned;
+    return withAlissonRestored;
   } catch (e) {
     return INITIAL_EMPLOYEES;
   }

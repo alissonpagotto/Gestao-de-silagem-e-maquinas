@@ -82,12 +82,7 @@ export function isMockStorageRecord(item: any): boolean {
   if (!item || typeof item !== 'object') return false;
   const id = String(item.id || item.uuid || '');
   if ([
-    'emp-alisson-pagotto',
-    'emp-audirlei-reolan',
-    'emp-cassiano-silva',
-    'emp-diego-santos',
-    'emp-marcos-antonio-pereira',
-    'emp-vitor-hugo-santos',
+    'ab80e2fa-5094-43b3-83bf-c34047bf1b42',
     'manif_001',
     'manif_002',
     'manif_003',
@@ -108,13 +103,10 @@ export function isMockStorageRecord(item: any): boolean {
     return true;
   }
   const name = String(item.name || item.nome || item.razaoSocial || item.emitente || item.emitenteNome || item.fornecedor_nome || item.fornecedor || item.condutor || item.motoristaNome || '').trim().toUpperCase();
+  if (name === 'ALISSON PAG' && !item.cpf) {
+    return true;
+  }
   if ([
-    'ALISSON PAGOTTO',
-    'AUDIRLEI REOLAN',
-    'CASSIANO SILVA',
-    'DIEGO SANTOS',
-    'MARCOS ANTONIO PEREIRA',
-    'VITOR HUGO SANTOS',
     'DISTRIBUIDORA DE PECAS E FILTROS VALE VERDE LTDA',
     'DISTRIBUIDORA DE PEÇAS E FILTROS VALE VERDE LTDA',
     'IPIRANGA COMBUSTIVEIS & DERIVADOS S/A',
