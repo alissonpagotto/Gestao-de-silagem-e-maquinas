@@ -2669,15 +2669,15 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+              <div className="flex-1 min-h-0 max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
                 <table className="w-full text-left border-collapse">
-                  <thead className="sticky top-0 bg-white dark:bg-stone-900 z-10">
-                    <tr className="border-b border-zinc-200 dark:border-stone-800 text-[10px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                      <th className="py-2 px-2">Data / Pedido</th>
-                      <th className="py-2 px-2">Veículo Destino (Modelo / Placa)</th>
-                      <th className="py-2 px-2">Status / Lote</th>
-                      <th className="py-2 px-2">Quem Retirou / Almox.</th>
-                      <th className="py-2 px-2 text-right">Ações do Pedido</th>
+                  <thead className="sticky top-0 bg-slate-100 dark:bg-stone-800 z-20 shadow-sm">
+                    <tr className="border-b border-slate-300 dark:border-stone-700 text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
+                      <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2">Data / Pedido</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2">Veículo Destino (Modelo / Placa)</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2">Status / Lote</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2">Quem Retirou / Almox.</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 text-right">Ações do Pedido</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">
@@ -3589,16 +3589,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+                <div className="flex-1 min-h-0 max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
                   <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 bg-white dark:bg-stone-900 z-10">
-                      <tr className="border-b border-zinc-200 dark:border-stone-800 text-[10px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                        <th className="py-2 px-2.5">Código do Item</th>
-                        <th className="py-2 px-2.5">Nome da Ferramenta</th>
-                        <th className="py-2 px-2.5 text-center">Qtd. Esperada</th>
-                        <th className="py-2 px-2.5 text-center">Qtd. Atual</th>
-                        <th className="py-2 px-2.5">Status / Conferência</th>
-                        <th className="py-2 px-2 text-right">Ação</th>
+                    <thead className="sticky top-0 bg-slate-100 dark:bg-stone-800 z-20 shadow-sm">
+                      <tr className="border-b border-slate-300 dark:border-stone-700 text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2.5">Código do Item</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2.5">Nome da Ferramenta</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2.5 text-center">Qtd. Esperada</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2.5 text-center">Qtd. Atual</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2.5">Status / Conferência</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 text-right">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">

@@ -1120,24 +1120,24 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
       </div>
 
       {/* 3. TABELA COMPARATIVA MULTIFORNECEDOR COM ROLAGEM INDEPENDENTE */}
-      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 bg-white dark:bg-stone-850 px-2">
-        <table className="w-full text-left border-collapse text-[11px] border border-slate-200 dark:border-stone-750 rounded">
-          <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-10 shadow-xs">
+      <div className="flex-1 max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto min-h-0 bg-white dark:bg-stone-850 border border-slate-300 dark:border-stone-700 rounded-lg">
+        <table className="w-full text-left border-collapse text-[11px]">
+          <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-20 shadow-sm">
             <tr>
-              <th className="py-1 px-3 w-64">CÓDIGO & DESCRIÇÃO DO PRODUTO (UPPERCASE)</th>
-              <th className="py-1 px-2 w-20 text-center">QTDE</th>
-              <th className="py-1 px-2 w-28 text-right">ÚLTIMO VALOR (BASE)</th>
-              <th className="py-1 px-2 w-36 text-center bg-blue-100/60 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300">
+              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 w-64">CÓDIGO & DESCRIÇÃO DO PRODUTO (UPPERCASE)</th>
+              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-20 text-center">QTDE</th>
+              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-28 text-right">ÚLTIMO VALOR (BASE)</th>
+              <th className="sticky top-0 z-20 bg-blue-100 dark:bg-blue-950 py-1.5 px-2 w-36 text-center text-blue-900 dark:text-blue-300">
                 {fornecedorA || 'FORNECEDOR A'}
               </th>
-              <th className="py-1 px-2 w-36 text-center bg-amber-100/60 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300">
+              <th className="sticky top-0 z-20 bg-amber-100 dark:bg-amber-950 py-1.5 px-2 w-36 text-center text-amber-900 dark:text-amber-300">
                 {fornecedorB || 'FORNECEDOR B'}
               </th>
-              <th className="py-1 px-2 w-36 text-center bg-purple-100/60 dark:bg-purple-950/40 text-purple-900 dark:text-purple-300">
+              <th className="sticky top-0 z-20 bg-purple-100 dark:bg-purple-950 py-1.5 px-2 w-36 text-center text-purple-900 dark:text-purple-300">
                 {fornecedorC || 'FORNECEDOR C'}
               </th>
-              <th className="py-1 px-2 w-28 text-center">MELHOR OFERTA</th>
-              <th className="py-1 px-1 w-10 text-center">✕</th>
+              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-28 text-center">MELHOR OFERTA</th>
+              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1 w-10 text-center">✕</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-stone-750">

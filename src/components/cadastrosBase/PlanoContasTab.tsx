@@ -355,17 +355,17 @@ export const PlanoContasTab: React.FC = () => {
 
       {/* SEÇÃO 1: PLANO DE CONTAS */}
       {activeSubSection === 'contas' && (
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
+          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 select-none">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300 select-none shadow-sm">
                 <tr>
-                  <th className="py-1.5 px-3">Código</th>
-                  <th className="py-1.5 px-3">Nome da Conta</th>
-                  <th className="py-1.5 px-3">Classificação</th>
-                  <th className="py-1.5 px-3">Descrição</th>
-                  <th className="py-1.5 px-3 text-center">Status</th>
-                  <th className="py-1.5 px-3 text-right">Ações</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Código</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Nome da Conta</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Classificação</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Descrição</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Status</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">
@@ -439,18 +439,18 @@ export const PlanoContasTab: React.FC = () => {
 
       {/* SEÇÃO 2: FORMAS DE PAGAMENTO */}
       {activeSubSection === 'formas' && (
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
+          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 select-none">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300 select-none shadow-sm">
                 <tr>
-                  <th className="py-1.5 px-3">Sigla / Cód.</th>
-                  <th className="py-1.5 px-3">Forma de Pagamento</th>
-                  <th className="py-1.5 px-3">Modalidade</th>
-                  <th className="py-1.5 px-3">Prazo Padrão</th>
-                  <th className="py-1.5 px-3">Taxa Estimada</th>
-                  <th className="py-1.5 px-3 text-center">Status</th>
-                  <th className="py-1.5 px-3 text-right">Ações</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Sigla / Cód.</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Forma de Pagamento</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Modalidade</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Prazo Padrão</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Taxa Estimada</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Status</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">

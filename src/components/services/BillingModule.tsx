@@ -624,30 +624,30 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       {/* ========================================================
           3. TABELA DE AUDITORIA E FATURAMENTO
           ======================================================== */}
-      <section className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xs overflow-hidden">
-        <div className="w-full overflow-x-auto">
+      <section className="bg-white dark:bg-stone-900 rounded-lg shadow-2xs">
+        <div className="w-full max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800/80">
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+              <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
                   Nº
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                   CLIENTE
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                   DATA
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                   TIPO DE SERVIÇO
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
                   VALOR ATUAL
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
                   STATUS FATURAMENTO
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
                   AÇÕES
                 </th>
               </tr>

@@ -635,18 +635,18 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         `}</style>
 
         {/* Drivers Table / List View */}
-        <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' || driversList.length === 0 ? 'block' : 'hidden print:block'}`}>
-          <div className="overflow-x-auto">
+        <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' || driversList.length === 0 ? 'block' : 'hidden print:block'}`}>
+          <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto print:max-h-none print:overflow-visible">
             <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50/75 dark:bg-stone-800/40 text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-2 px-3">Motorista / Cargo</th>
-                  <th className="py-2 px-3">CNH & Categoria</th>
-                  <th className="py-2 px-3">Validade CNH</th>
-                  <th className="py-2 px-3">Veículo Habitual</th>
-                  <th className="py-2 px-3">Contato / WhatsApp</th>
-                  <th className="py-2 px-3 text-center">Status</th>
-                  <th className="py-2 px-3 text-right no-print print:hidden">Ações</th>
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+                <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Motorista / Cargo</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">CNH & Categoria</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Validade CNH</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Veículo Habitual</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Contato / WhatsApp</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Status</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right no-print print:hidden">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">

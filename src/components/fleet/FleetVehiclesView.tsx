@@ -1665,13 +1665,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             {/* Tabela de Regras Ativas da Categoria (ROLAGEM EXCLUSIVA DO GRID INTERNO) */}
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
-                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-stone-800 shadow-2xs">
-                  <tr className="bg-slate-100/95 dark:bg-stone-800/95 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-stone-200 dark:border-stone-700">
-                    <th className="py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
-                    <th className="py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
-                    <th className="py-2.5 px-3 text-center">QUANTIDADE QUE O VEÍCULO USA</th>
-                    <th className="py-2.5 px-3 text-center">VÍNCULO COM ALMOXARIFADO</th>
-                    <th className="py-2.5 px-3 text-right">AÇÕES</th>
+                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+                  <tr className="bg-slate-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-slate-300 dark:border-stone-700">
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">QUANTIDADE QUE O VEÍCULO USA</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">VÍNCULO COM ALMOXARIFADO</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">AÇÕES</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -2603,8 +2603,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
       {/* Vehicles Table View */}
       {viewMode === 'table' ? (
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-blue-200/80 dark:border-stone-800 overflow-hidden shadow-xs text-black dark:text-white">
-          <div className="w-full overflow-x-auto lg:overflow-x-hidden">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-xs text-black dark:text-white">
+          <div className="w-full max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm table-fixed">
               <colgroup>
                 <col className="w-[11%]" />
@@ -2617,17 +2617,17 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 <col className="w-[9%]" />
                 <col className="w-[9%]" />
               </colgroup>
-              <thead className="bg-[#87AFE3] dark:bg-stone-900 text-xs font-black text-black dark:text-white uppercase tracking-wider border-b-2 border-blue-200/80 dark:border-stone-800">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-xs font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CÓDIGO / FROTA</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">TIPO & MODELO</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PROPRIEDADE</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PESOS & CARGA</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">HORÍMETRO / KM</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">MOTORISTA</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CUSTO TOTAL</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">STATUS</th>
-                  <th className="py-1.5 px-2 xl:px-2.5 text-right text-black dark:text-white font-black truncate">AÇÕES</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CÓDIGO / FROTA</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">TIPO & MODELO</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PROPRIEDADE</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PESOS & CARGA</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">HORÍMETRO / KM</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">MOTORISTA</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CUSTO TOTAL</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">STATUS</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-right text-black dark:text-white font-black truncate">AÇÕES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800/60 font-medium bg-[#87AFE3] dark:bg-stone-900 text-black dark:text-white">

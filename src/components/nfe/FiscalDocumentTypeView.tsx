@@ -1336,17 +1336,17 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       {/* 3. TABELA HISTÓRICA COMPACTA SLIM PRO (PY-1) */}
       <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border-b border-slate-400 dark:border-stone-700 text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 select-none">
-                <th className="py-1 px-2 border-r border-slate-300 dark:border-stone-700">DOCUMENTO</th>
-                <th className="py-1 px-2 border-r border-slate-300 dark:border-stone-700">FORNECEDOR / TRANSPORTADORA</th>
-                <th className="py-1 px-2 border-r border-slate-300 dark:border-stone-700">VEÍCULO VINCULADO</th>
-                <th className="py-1 px-2 border-r border-slate-300 dark:border-stone-700 text-center">DATA</th>
-                <th className="py-1 px-2 border-r border-slate-300 dark:border-stone-700 text-right">VALOR TOTAL</th>
-                <th className="py-1 px-2 border-r border-slate-300 dark:border-stone-700 text-center">STATUS</th>
-                <th className="py-1 px-2 text-center">AÇÕES</th>
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 select-none">
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700">DOCUMENTO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700">FORNECEDOR / TRANSPORTADORA</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700">VEÍCULO VINCULADO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700 text-center">DATA</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700 text-right">VALOR TOTAL</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700 text-center">STATUS</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-center">AÇÕES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-slate-800 dark:text-stone-200">

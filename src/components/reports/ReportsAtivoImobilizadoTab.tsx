@@ -389,20 +389,20 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
       </div>
 
       {/* 4. Tabela Densa de Ativo Imobilizado com Totalizadores */}
-      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-800 shadow-xs overflow-hidden">
+        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-stone-100 dark:bg-stone-800/70 border-b border-stone-200 dark:border-stone-700 text-[11px] font-black uppercase text-stone-700 dark:text-stone-300 tracking-wider">
-                <th className="py-2.5 px-3 text-center w-16">Nº Frota</th>
-                <th className="py-2.5 px-3 w-28">Placa</th>
-                <th className="py-2.5 px-3 min-w-[200px]">Veículo / Modelo</th>
-                <th className="py-2.5 px-3 text-right">Valor Comercial (FIPE)</th>
-                <th className="py-2.5 px-3 text-right">Valor Venal (IPVA)</th>
-                <th className="py-2.5 px-3 text-center w-20">Alíquota</th>
-                <th className="py-2.5 px-3 text-right">Total IPVA</th>
-                <th className="py-2.5 px-3 text-right">Licenc.</th>
-                <th className="py-2.5 px-3 text-center w-28">Status Financeiro</th>
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[11px] font-black uppercase text-stone-700 dark:text-stone-300 tracking-wider">
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center w-16">Nº Frota</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 w-28">Placa</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 min-w-[200px]">Veículo / Modelo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Comercial (FIPE)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Venal (IPVA)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center w-20">Alíquota</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Total IPVA</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Licenc.</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center w-28">Status Financeiro</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800 text-xs">

@@ -450,18 +450,19 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
         </div>
       ) : (
         /* List View - Formato Linha Única Slim Estrita */
-        <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-2xs">
-          <table className="w-full text-left text-xs text-zinc-800 dark:text-stone-200">
-            <thead className="bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 font-bold border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
-              <tr>
-                <th className="py-1 px-2.5">Produtor & Fazenda</th>
-                <th className="py-1 px-2.5">Cidade / UF</th>
-                <th className="py-1 px-2.5">Atividade / Rebanho</th>
-                <th className="py-1 px-2.5">Demanda Estimada</th>
-                <th className="py-1 px-2.5">Status</th>
-                <th className="py-1 px-2.5 text-right">Ações</th>
-              </tr>
-            </thead>
+        <div className="bg-white dark:bg-stone-900 rounded-lg shadow-2xs">
+          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
+            <table className="w-full text-left text-xs text-zinc-800 dark:text-stone-200 border-collapse">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm text-slate-600 dark:text-stone-400 font-bold border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Produtor & Fazenda</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Cidade / UF</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Atividade / Rebanho</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Demanda Estimada</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Status</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 text-right">Ações</th>
+                </tr>
+              </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
               {filteredClients.length === 0 ? (
                 <tr>
@@ -543,6 +544,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

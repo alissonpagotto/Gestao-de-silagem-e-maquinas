@@ -7374,48 +7374,48 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="overflow-x-auto max-h-[380px] overflow-y-auto w-full">
+                      <div className="overflow-x-auto max-h-[380px] overflow-y-auto w-full border-t border-zinc-200 dark:border-stone-700">
                         <table className="w-full text-left text-xs border-collapse table-fixed">
-                          <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[9px] font-black border-b border-zinc-200 dark:border-stone-700 sticky top-0 z-10 whitespace-nowrap">
+                          <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[9px] font-black border-b border-zinc-200 dark:border-stone-700 sticky top-0 z-20 whitespace-nowrap shadow-sm">
                             <tr>
                               {/* 1. Área Verde: Identificação & De-Para (Ultracompactas e Enxutas) */}
-                              <th className="py-1 px-1 w-9 text-center bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 shrink-0 uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-9 text-center bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200 dark:border-emerald-800 shrink-0 uppercase">
                                 CÓD
                               </th>
-                              <th className="py-1 px-1.5 w-[20%] min-w-[110px] max-w-[150px] bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 truncate uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1.5 w-[20%] min-w-[110px] max-w-[150px] bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200 dark:border-emerald-800 truncate uppercase">
                                 DESCRIÇÃO DO PRODUTO
                               </th>
-                              <th className="py-1 px-1.5 w-[18%] min-w-[120px] max-w-[160px] bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-300 dark:border-emerald-700 truncate uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1.5 w-[18%] min-w-[120px] max-w-[160px] bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-r border-emerald-300 dark:border-emerald-700 truncate uppercase">
                                 PRODUTO NO SISTEMA (DE-PARA)
                               </th>
 
                               {/* 2. Área Amarela: 1º. QTD (Quantidade + Unidade) */}
-                              <th className="py-1 px-1 w-[8%] min-w-[65px] text-right bg-amber-100/90 dark:bg-amber-950/50 text-amber-950 dark:text-amber-200 border-r border-amber-200 dark:border-amber-800 whitespace-nowrap uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-[8%] min-w-[65px] text-right bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border-r border-amber-200 dark:border-amber-800 whitespace-nowrap uppercase">
                                 QTD
                               </th>
 
                               {/* 3. Coluna Discriminada: VALOR TRIBUTADO */}
-                              <th className="py-1 px-1 w-[11%] min-w-[76px] text-right bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 border-r border-amber-200/80 dark:border-amber-800/80 whitespace-nowrap uppercase font-black" title="Soma dos Impostos do Item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-[11%] min-w-[76px] text-right bg-amber-50 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border-r border-amber-200 dark:border-amber-800 whitespace-nowrap uppercase font-black" title="Soma dos Impostos do Item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS">
                                 VALOR TRIBUTADO
                               </th>
 
                               {/* 4. 2º. CUSTO COM IMPOSTO (R$) */}
-                              <th className="py-1 px-1 w-[11%] min-w-[80px] text-right bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase font-black" title="Custo Real Unitário com IPI: CUSTO_REAL = (vProd + vIPI) / qCom">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-[11%] min-w-[80px] text-right bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase font-black" title="Custo Real Unitário com IPI: CUSTO_REAL = (vProd + vIPI) / qCom">
                                 CUSTO COM IMPOSTO
                               </th>
 
                               {/* 5. 3º. V. TOTAL (R$) */}
-                              <th className="py-1 px-1 w-[10%] min-w-[72px] text-right bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-[10%] min-w-[72px] text-right bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-r border-stone-200 dark:border-stone-700 whitespace-nowrap uppercase">
                                 V. TOTAL (R$)
                               </th>
 
                               {/* 6. Nova Coluna: % CÁLC. (Margem / Markup de Lucro) - Entre V. Total e V. Final */}
-                              <th className="py-1 px-1 w-[9%] min-w-[60px] text-right bg-purple-100/90 dark:bg-purple-950/50 text-purple-950 dark:text-purple-200 border-r border-purple-200 dark:border-purple-800 whitespace-nowrap uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-[9%] min-w-[60px] text-right bg-purple-100 dark:bg-purple-950 text-purple-950 dark:text-purple-200 border-r border-purple-200 dark:border-purple-800 whitespace-nowrap uppercase">
                                 % CÁLC.
                               </th>
 
                               {/* 7. Área Rosa: 4º. V. FINAL (R$) */}
-                              <th className="py-1 px-1 w-[11%] min-w-[76px] text-right bg-rose-100/90 dark:bg-rose-950/50 text-rose-950 dark:text-rose-200 whitespace-nowrap uppercase">
+                              <th className="sticky top-0 z-20 py-1.5 px-1 w-[11%] min-w-[76px] text-right bg-rose-100 dark:bg-rose-950 text-rose-950 dark:text-rose-200 whitespace-nowrap uppercase">
                                 V. FINAL (R$)
                               </th>
 
@@ -8028,17 +8028,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           )}
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs w-full max-w-full">
-          <div className="w-full max-w-full overflow-x-auto">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs w-full max-w-full">
+          <div className="w-full max-w-full max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 uppercase text-[10px] font-bold tracking-wider">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider shadow-sm">
                 <tr>
-                  <th className="py-1 px-2.5 w-[110px] shrink-0 whitespace-nowrap">DOCUMENTO</th>
-                  <th className="py-1 px-2.5 w-[160px] lg:w-[200px] whitespace-nowrap">FORNECEDOR</th>
-                  <th className="py-1 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
-                  <th className="py-1 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
-                  <th className="py-1 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
-                  <th className="py-1 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[110px] shrink-0 whitespace-nowrap">DOCUMENTO</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[160px] lg:w-[200px] whitespace-nowrap">FORNECEDOR</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -9529,15 +9529,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
+                        <div className="max-h-[320px] overflow-y-auto overflow-x-auto">
                           <table className="w-full text-left text-xs">
-                            <thead className="bg-stone-100/60 dark:bg-stone-800/60 text-[11px] font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10 backdrop-blur-xs">
+                            <thead className="bg-slate-100 dark:bg-stone-800 text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 sticky top-0 z-20 shadow-sm">
                               <tr>
-                                <th className="px-4 py-2 whitespace-nowrap">Produto</th>
-                                <th className="px-4 py-2 text-center w-36 whitespace-nowrap">Quantidade</th>
-                                <th className="px-4 py-2 text-right w-36 whitespace-nowrap">Valor Unitário</th>
-                                <th className="px-4 py-2 text-right w-36 whitespace-nowrap">Subtotal</th>
-                                <th className="px-4 py-2 text-center w-24 whitespace-nowrap">Ações</th>
+                                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-4 py-2 whitespace-nowrap">Produto</th>
+                                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-4 py-2 text-center w-36 whitespace-nowrap">Quantidade</th>
+                                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-4 py-2 text-right w-36 whitespace-nowrap">Valor Unitário</th>
+                                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-4 py-2 text-right w-36 whitespace-nowrap">Subtotal</th>
+                                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-4 py-2 text-center w-24 whitespace-nowrap">Ações</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">

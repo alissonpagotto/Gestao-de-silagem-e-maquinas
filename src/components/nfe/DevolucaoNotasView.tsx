@@ -415,19 +415,19 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         </div>
 
         {/* Tabela de Devoluções */}
-        <div className="border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
-          <div className="max-h-[420px] overflow-y-auto">
+        <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
+          <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-10 border-b border-stone-200 dark:border-stone-700">
+              <thead className="bg-slate-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-20 border-b border-slate-300 dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="py-2.5 px-3">Nº Devolução</th>
-                  <th className="py-2.5 px-3">NF Origem</th>
-                  <th className="py-2.5 px-3">Data</th>
-                  <th className="py-2.5 px-3">Fornecedor / Destinatário</th>
-                  <th className="py-2.5 px-3">Motivo da Devolução</th>
-                  <th className="py-2.5 px-3 text-right">Valor Total</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-right">Ações</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Nº Devolução</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">NF Origem</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Data</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Fornecedor / Destinatário</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Motivo da Devolução</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Total</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Status</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">

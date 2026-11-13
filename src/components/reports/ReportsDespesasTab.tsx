@@ -209,19 +209,19 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
+        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-stone-50 dark:bg-stone-800/70 text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="py-3 px-3.5">Vencimento</th>
-                <th className="py-3 px-3.5">Descrição</th>
-                <th className="py-3 px-3.5">Categoria</th>
-                <th className="py-3 px-3.5">Fornecedor</th>
-                <th className="py-3 px-3.5">Centro Custo / Safra</th>
-                <th className="py-3 px-3.5">Máquina / Veículo</th>
-                <th className="py-3 px-3.5 text-right">Valor (R$)</th>
-                <th className="py-3 px-3.5 text-center">Status</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Vencimento</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Descrição</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Categoria</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Fornecedor</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Centro Custo / Safra</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Máquina / Veículo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-right">Valor (R$)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">

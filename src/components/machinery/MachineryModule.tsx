@@ -332,19 +332,19 @@ export const MachineryModule: React.FC<MachineryModuleProps> = ({
       {/* Main Content: Table or Grid */}
       {viewMode === 'table' ? (
         /* TABLE VIEW (Exact layout matching the user's uploaded spreadsheet) */
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 shadow-xs overflow-hidden">
+          <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/60 font-bold text-stone-700 dark:text-stone-200 tracking-wider text-[11px] uppercase">
-                  <th className="py-3 px-4 w-32">STATUS</th>
-                  <th className="py-3 px-4 font-extrabold text-stone-900 dark:text-stone-100">IDENTIFICAÇÃO/PLACA</th>
-                  <th className="py-3 px-4 font-extrabold text-stone-900 dark:text-stone-100">MODELO/MARCA</th>
-                  <th className="py-3 px-4 font-bold text-stone-800 dark:text-stone-200">REAL (RESPONSÁVEL)</th>
-                  <th className="py-3 px-4 text-center font-bold text-stone-500">REAIS</th>
-                  <th className="py-3 px-4 text-center font-bold text-stone-500">REVISÃO</th>
-                  <th className="py-3 px-4 text-right font-extrabold text-stone-900 dark:text-stone-100">ACUMULADO</th>
-                  <th className="py-3 px-4 text-right">AÇÕES</th>
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+                <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 font-bold text-stone-700 dark:text-stone-200 tracking-wider text-[11px] uppercase">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 w-32">STATUS</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 font-extrabold text-stone-900 dark:text-stone-100">IDENTIFICAÇÃO/PLACA</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 font-extrabold text-stone-900 dark:text-stone-100">MODELO/MARCA</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 font-bold text-stone-800 dark:text-stone-200">REAL (RESPONSÁVEL)</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 text-center font-bold text-stone-600 dark:text-stone-300">REAIS</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 text-center font-bold text-stone-600 dark:text-stone-300">REVISÃO</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 text-right font-extrabold text-stone-900 dark:text-stone-100">ACUMULADO</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 text-right">AÇÕES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">

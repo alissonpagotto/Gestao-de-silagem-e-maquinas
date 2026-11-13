@@ -601,19 +601,19 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       </div>
 
       {/* Tabela de Faltas */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
+        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="py-2.5 px-3">Situação</th>
-                <th className="py-2.5 px-3">Colaborador</th>
-                <th className="py-2.5 px-3">Tipo de Falta</th>
-                <th className="py-2.5 px-3 text-center">Data / Período</th>
-                <th className="py-2.5 px-3 text-center">Qtd. Dias</th>
-                <th className="py-2.5 px-3">Motivo / Justificativa</th>
-                <th className="py-2.5 px-3 text-right">Desconto Estimado</th>
-                <th className="py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Situação</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Tipo de Falta</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Data / Período</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Qtd. Dias</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Motivo / Justificativa</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Desconto Estimado</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800">

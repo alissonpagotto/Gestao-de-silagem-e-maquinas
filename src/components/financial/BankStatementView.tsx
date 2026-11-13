@@ -416,18 +416,18 @@ export const BankStatementView: React.FC<BankStatementViewProps> = ({
       </div>
 
       {/* Tabela de Lançamentos do Extrato */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+      <div className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs">
+        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-200">
+            <thead className="sticky top-0 z-20 bg-slate-100 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-300 shadow-sm">
               <tr>
-                <th className="py-2.5 px-3">Data</th>
-                <th className="py-2.5 px-3">Tipo</th>
-                <th className="py-2.5 px-3">Histórico / Descrição</th>
-                <th className="py-2.5 px-3">Categoria</th>
-                <th className="py-2.5 px-3">Doc / NF</th>
-                <th className="py-2.5 px-3">Responsável pela Baixa</th>
-                <th className="py-2.5 px-3 text-right">Valor (R$)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Data</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Tipo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Histórico / Descrição</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Categoria</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Doc / NF</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Responsável pela Baixa</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3 text-right">Valor (R$)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">

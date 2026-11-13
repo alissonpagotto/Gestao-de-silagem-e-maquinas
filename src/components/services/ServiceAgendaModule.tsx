@@ -1475,19 +1475,19 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       {/* VISÃO 2: ESCALA POR PLACAS/FROTAS - TABELA ESTRUTURADA EM LINHAS HORIZONTAIS */}
       {viewMode === 'frotas' && (
-        <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-stone-900 rounded-lg shadow-xs">
+          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-stone-100/90 dark:bg-stone-800/90 text-stone-700 dark:text-stone-300 font-extrabold border-b border-stone-200 dark:border-stone-700 uppercase text-[10px] sm:text-[11px] tracking-wider">
-                  <th className="py-3 px-3.5 whitespace-nowrap">Nº Agendamento</th>
-                  <th className="py-3 px-3.5 whitespace-nowrap">Veículo Principal</th>
-                  <th className="py-3 px-3.5">Cliente & Local</th>
-                  <th className="py-3 px-3.5 whitespace-nowrap">Período</th>
-                  <th className="py-3 px-3.5 whitespace-nowrap">Volume / Área</th>
-                  <th className="py-3 px-3.5">Trator</th>
-                  <th className="py-3 px-3.5">Demais Veículos</th>
-                  <th className="py-3 px-3.5 text-right whitespace-nowrap">Ações</th>
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+                <tr className="bg-slate-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-extrabold border-b border-slate-300 dark:border-stone-700 uppercase text-[10px] sm:text-[11px] tracking-wider">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Nº Agendamento</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Veículo Principal</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Cliente & Local</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Período</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Volume / Área</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Trator</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Demais Veículos</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-right whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">

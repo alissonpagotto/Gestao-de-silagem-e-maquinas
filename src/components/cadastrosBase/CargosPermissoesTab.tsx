@@ -835,16 +835,16 @@ export const CargosPermissoesTab: React.FC = () => {
       {/* 2. TELA INICIAL: TABELA GERAL LIMPA E AMPLA (PRINT 2)    */}
       {/* ======================================================== */}
       {viewMode === 'list' ? (
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
+        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto max-h-[calc(100vh-290px)] overflow-y-auto scrollbar-none">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-stone-800 shadow-2xs">
-                <tr className="border-b border-zinc-200 dark:border-stone-700 text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
-                  <th className="py-2 px-4 whitespace-nowrap">Cargo / Função</th>
-                  <th className="py-2 px-4 whitespace-nowrap">Setor / Área</th>
-                  <th className="py-2 px-4 w-full">Módulos Liberados</th>
-                  <th className="py-2 px-4 whitespace-nowrap">Status de Uso</th>
-                  <th className="py-2 px-4 text-right whitespace-nowrap">Ações</th>
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+                <tr className="border-b border-slate-300 dark:border-stone-700 text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 whitespace-nowrap">Cargo / Função</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 whitespace-nowrap">Setor / Área</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 w-full">Módulos Liberados</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 whitespace-nowrap">Status de Uso</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 text-right whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 text-xs">

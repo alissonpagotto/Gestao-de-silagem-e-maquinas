@@ -1068,18 +1068,18 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
                   <table className="w-full text-left text-[11px]">
-                    <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 font-bold border-b border-zinc-200 dark:border-stone-800">
+                    <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
                       <tr>
-                        <th className="py-1.5 px-2">Safra</th>
-                        <th className="py-1.5 px-2">Cultura</th>
-                        <th className="py-1.5 px-2">Área & Prod.</th>
-                        <th className="py-1.5 px-2">Diesel</th>
-                        <th className="py-1.5 px-2">Outros Custos</th>
-                        <th className="py-1.5 px-2">Faturamento</th>
-                        <th className="py-1.5 px-2">Margem Líquida</th>
-                        <th className="py-1.5 px-2 text-center">Status</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Safra</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Cultura</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Área & Prod.</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Diesel</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Outros Custos</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Faturamento</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Margem Líquida</th>
+                        <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-stone-800">

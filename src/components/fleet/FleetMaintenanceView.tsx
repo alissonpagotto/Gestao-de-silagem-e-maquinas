@@ -747,22 +747,22 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
       </div>
 
       {/* Maintenance Logs Table (Clean, Compact, Slim Rows and Full-Width without Horizontal Scroll) */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs w-full">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-xs w-full">
         <div className="w-full overflow-x-auto xl:overflow-x-visible max-h-[calc(100vh-270px)] overflow-y-auto scrollbar-none">
           <table className="w-full text-left text-xs table-auto">
-            <thead className="bg-stone-50 dark:bg-stone-800/80 text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10 shadow-2xs">
+            <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 sticky top-0 z-20 shadow-sm">
               <tr>
-                <th className="py-1.5 px-2 whitespace-nowrap">Data & OS</th>
-                <th className="py-1.5 px-2">Veículo</th>
-                <th className="py-1.5 px-2 whitespace-nowrap">Local</th>
-                <th className="py-1.5 px-2">Executante</th>
-                <th className="py-1.5 px-2 whitespace-nowrap">Origem Peças</th>
-                <th className="py-1.5 px-2">Descrição do Serviço</th>
-                <th className="py-1.5 px-2 text-right whitespace-nowrap">Peças</th>
-                <th className="py-1.5 px-2 text-right whitespace-nowrap">M. Obra</th>
-                <th className="py-1.5 px-2 text-right whitespace-nowrap">Total</th>
-                <th className="py-1.5 px-2 text-center whitespace-nowrap">Status</th>
-                <th className="py-1.5 px-2 text-right whitespace-nowrap">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Data & OS</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Veículo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Local</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Executante</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Origem Peças</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Descrição do Serviço</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Peças</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">M. Obra</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Total</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-center whitespace-nowrap">Status</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">

@@ -639,29 +639,29 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 </div>
 
                 {/* TABELA DE VENDAS */}
-                <div className="w-full overflow-x-auto">
+                <div className="w-full max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
                   <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-stone-700 bg-slate-100/80 dark:bg-stone-800">
-                        <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
+                    <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+                      <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
                           Nº
                         </th>
-                        <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                           CLIENTE
                         </th>
-                        <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                           DATA DA VENDA
                         </th>
-                        <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
                           TONELADAS / QTD
                         </th>
-                        <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
                           STATUS
                         </th>
-                        <th scope="col" className="px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
                           TOTAL
                         </th>
-                        <th scope="col" className="px-2.5 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right w-20 whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right w-20 whitespace-nowrap">
                           <span className="sr-only">Ações</span>
                         </th>
                       </tr>

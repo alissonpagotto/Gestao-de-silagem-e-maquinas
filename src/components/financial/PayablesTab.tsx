@@ -391,17 +391,17 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       </div>
 
       {/* Payables List Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs text-black">
-        <div className="overflow-x-auto">
+      <div className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs text-black">
+        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-[10px] font-bold text-black uppercase tracking-wider border-b border-slate-200">
+            <thead className="sticky top-0 z-20 bg-slate-100 text-[10px] font-bold text-black uppercase tracking-wider border-b border-slate-300 shadow-sm">
               <tr>
-                <th className="py-1 px-2.5 whitespace-nowrap">VENCIMENTO</th>
-                <th className="py-1 px-2.5 whitespace-nowrap">FORNECEDOR / DESCRIÇÃO</th>
-                <th className="py-1 px-2.5 whitespace-nowrap">CATEGORIA</th>
-                <th className="py-1 px-2.5 whitespace-nowrap">RESPONSÁVEL / BANCO</th>
-                <th className="py-1 px-2.5 text-right whitespace-nowrap">VALOR (R$)</th>
-                <th className="py-1 px-2.5 text-right whitespace-nowrap pr-3">AÇÕES</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">VENCIMENTO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">FORNECEDOR / DESCRIÇÃO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">CATEGORIA</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">RESPONSÁVEL / BANCO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 text-right whitespace-nowrap">VALOR (R$)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 text-right whitespace-nowrap pr-3">AÇÕES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">

@@ -230,22 +230,22 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
       </div>
 
       {/* Fuel Logs Table */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-xs">
+        <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-stone-50 dark:bg-stone-800/80 text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="py-3 px-4">Data</th>
-                <th className="py-3 px-4">Veículo / Placa</th>
-                <th className="py-3 px-4">Combustível</th>
-                <th className="py-3 px-4">Litros</th>
-                <th className="py-3 px-4">Preço / Litro</th>
-                <th className="py-3 px-4">Valor Total</th>
-                <th className="py-3 px-4">Leitura Atual</th>
-                <th className="py-3 px-4">Média Consumo</th>
-                <th className="py-3 px-4">Motorista / Responsável</th>
-                <th className="py-3 px-4">Local / Posto</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Data</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Veículo / Placa</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Combustível</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Litros</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Preço / Litro</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Valor Total</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Leitura Atual</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Média Consumo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Motorista / Responsável</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Local / Posto</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">

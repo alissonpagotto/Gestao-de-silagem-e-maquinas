@@ -64,13 +64,28 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
   const teamMembers = employees.filter(e => !drivers.some(d => d.id === e.id));
   const cnhReport = checkCnhStatus(employees);
 
-  // Fuel stats
-  const totalFuelLiters = fuelLogs.reduce((acc, curr) => acc + curr.liters, 0);
-  const totalFuelAmount = fuelLogs.reduce((acc, curr) => acc + curr.totalAmount, 0);
-  const avgDieselPrice = totalFuelLiters > 0 ? totalFuelAmount / totalFuelLiters : 5.85;
+  // Fuel stats (NaN-safe)
+  const rawFuelLiters = fuelLogs.reduce((acc, curr) => {
+    const litersVal = Number(curr?.liters ?? 0);
+    return acc + (Number.isFinite(litersVal) ? litersVal : 0);
+  }, 0);
+  const totalFuelLiters = Number.isFinite(rawFuelLiters) ? rawFuelLiters : 0;
 
-  // Maintenance stats
-  const totalMaintenanceAmount = maintenanceLogs.reduce((acc, curr) => acc + curr.totalCost, 0);
+  const rawFuelAmount = fuelLogs.reduce((acc, curr) => {
+    const amountVal = Number(curr?.totalAmount ?? 0);
+    return acc + (Number.isFinite(amountVal) ? amountVal : 0);
+  }, 0);
+  const totalFuelAmount = Number.isFinite(rawFuelAmount) ? rawFuelAmount : 0;
+
+  const rawAvgDieselPrice = totalFuelLiters > 0 ? totalFuelAmount / totalFuelLiters : 0;
+  const avgDieselPrice = Number.isFinite(rawAvgDieselPrice) ? rawAvgDieselPrice : 0;
+
+  // Maintenance stats (NaN-safe)
+  const rawMaintAmount = maintenanceLogs.reduce((acc, curr) => {
+    const costVal = Number(curr?.totalCost ?? 0);
+    return acc + (Number.isFinite(costVal) ? costVal : 0);
+  }, 0);
+  const totalMaintenanceAmount = Number.isFinite(rawMaintAmount) ? rawMaintAmount : 0;
   const activeMaintenances = maintenanceLogs.filter(m => m.status === 'em_andamento').length;
 
   // Calculate costs per vehicle
@@ -105,28 +120,28 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
     .slice(0, 5);
 
   return (
-    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-3 sm:space-y-3.5 animate-in fade-in duration-200">
       {/* Top 4 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         
         {/* Card 1: TOTAL DE VEÍCULOS */}
         <div 
           onClick={() => onNavigateSubtab('veiculos')}
-          className="crm-card bg-[#434141] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-3.5 shadow-xs hover:border-blue-300 transition cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-[#434141] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs hover:border-blue-300 transition cursor-pointer group text-black dark:text-white"
           style={{ backgroundColor: '#434141' }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase leading-none">
               FROTA TOTAL
             </span>
-            <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-stone-800 text-blue-900 dark:text-blue-300 flex items-center justify-center group-hover:scale-110 transition">
+            <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-stone-800 text-blue-900 dark:text-blue-300 flex items-center justify-center group-hover:scale-110 transition shrink-0">
               <Car className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-0.5 font-['Outfit']">
+          <div className="text-lg sm:text-xl font-black text-black dark:text-white mt-0.5 leading-tight font-['Outfit']">
             {totalVehicles} <span className="text-[11px] font-black text-black/70 dark:text-stone-400">veículos</span>
           </div>
-          <div className="flex items-center space-x-1.5 text-[11px] text-black dark:text-stone-300 font-medium mt-1">
+          <div className="flex items-center space-x-1.5 text-[10.5px] text-black dark:text-stone-300 font-medium mt-0.5 leading-tight">
             <span className="inline-flex items-center text-emerald-950 dark:text-emerald-300 font-black">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1"></span>
               {operationalCount + availableCount} ativos
@@ -139,20 +154,20 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
         {/* Card 2: MOTORISTAS & EQUIPE */}
         <div 
           onClick={() => onNavigateSubtab('motoristas')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-3.5 shadow-xs hover:border-blue-300 transition cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs hover:border-blue-300 transition cursor-pointer group text-black dark:text-white"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase leading-none">
               MOTORISTAS & EQUIPE
             </span>
-            <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-stone-800 text-blue-900 dark:text-blue-300 flex items-center justify-center group-hover:scale-110 transition">
+            <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-stone-800 text-blue-900 dark:text-blue-300 flex items-center justify-center group-hover:scale-110 transition shrink-0">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-0.5 font-['Outfit']">
+          <div className="text-lg sm:text-xl font-black text-black dark:text-white mt-0.5 leading-tight font-['Outfit']">
             {employees.length} <span className="text-[11px] font-black text-black/70 dark:text-stone-400">colaboradores</span>
           </div>
-          <div className="flex items-center space-x-1.5 text-[11px] text-black dark:text-stone-300 font-medium mt-1">
+          <div className="flex items-center space-x-1.5 text-[10.5px] text-black dark:text-stone-300 font-medium mt-0.5 leading-tight">
             <span className="font-black text-blue-950 dark:text-blue-300">{drivers.length} motoristas</span>
             <span>•</span>
             <span className="font-black text-black dark:text-white">{teamMembers.length} operadores</span>
@@ -162,43 +177,47 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
         {/* Card 3: COMBUSTÍVEL DIESEL */}
         <div 
           onClick={() => onNavigateSubtab('combustivel')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-3.5 shadow-xs hover:border-amber-300 transition cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs hover:border-amber-300 transition cursor-pointer group text-black dark:text-white"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase leading-none">
               COMBUSTÍVEL ACUMULADO
             </span>
-            <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-stone-800 text-amber-900 dark:text-amber-300 flex items-center justify-center group-hover:scale-110 transition">
+            <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-stone-800 text-amber-900 dark:text-amber-300 flex items-center justify-center group-hover:scale-110 transition shrink-0">
               <Fuel className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-0.5 font-['Outfit']">
+          <div className="text-lg sm:text-xl font-black text-black dark:text-white mt-0.5 leading-tight font-['Outfit']">
             {formatCurrencyBRL(totalFuelAmount)}
           </div>
-          <div className="flex items-center space-x-1.5 text-[11px] text-black dark:text-stone-300 font-medium mt-1">
-            <span className="font-black text-amber-950 dark:text-amber-300">{totalFuelLiters.toLocaleString('pt-BR')} L</span>
+          <div className="flex items-center space-x-1.5 text-[10.5px] text-black dark:text-stone-300 font-medium mt-0.5 leading-tight">
+            <span className="font-black text-amber-950 dark:text-amber-300">
+              {(Number.isFinite(totalFuelLiters) ? totalFuelLiters : 0).toLocaleString('pt-BR')} L
+            </span>
             <span>•</span>
-            <span className="text-black/90 dark:text-stone-300">Média {formatCurrencyBRL(avgDieselPrice)}/L</span>
+            <span className="text-black/90 dark:text-stone-300">
+              Média {formatCurrencyBRL(Number.isFinite(avgDieselPrice) ? avgDieselPrice : 0)}/L
+            </span>
           </div>
         </div>
 
         {/* Card 4: MANUTENÇÕES */}
         <div 
           onClick={() => onNavigateSubtab('manutencoes')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-3.5 shadow-xs hover:border-indigo-300 transition cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs hover:border-indigo-300 transition cursor-pointer group text-black dark:text-white"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase leading-none">
               MANUTENÇÕES & OFICINA
             </span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-stone-800 text-indigo-900 dark:text-indigo-300 flex items-center justify-center group-hover:scale-110 transition">
+            <div className="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-stone-800 text-indigo-900 dark:text-indigo-300 flex items-center justify-center group-hover:scale-110 transition shrink-0">
               <Wrench className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-black dark:text-white mt-0.5 font-['Outfit']">
+          <div className="text-lg sm:text-xl font-black text-black dark:text-white mt-0.5 leading-tight font-['Outfit']">
             {formatCurrencyBRL(totalMaintenanceAmount)}
           </div>
-          <div className="flex items-center space-x-1.5 text-[11px] text-black dark:text-stone-300 font-medium mt-1">
+          <div className="flex items-center space-x-1.5 text-[10.5px] text-black dark:text-stone-300 font-medium mt-0.5 leading-tight">
             <span className="font-black text-indigo-950 dark:text-indigo-300">{maintenanceLogs.length} ordens</span>
             {activeMaintenances > 0 && (
               <span className="text-rose-900 dark:text-rose-400 font-black">• {activeMaintenances} abertas</span>

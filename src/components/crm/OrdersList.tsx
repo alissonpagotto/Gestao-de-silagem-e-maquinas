@@ -86,19 +86,19 @@ export const OrdersList: React.FC<OrdersListProps> = ({
           </select>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-stone-700">
-            <thead className="bg-stone-50 text-stone-500 font-bold border-b border-stone-200 uppercase tracking-wider text-[10px]">
+        <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto border border-slate-300 rounded-lg">
+          <table className="w-full text-left text-xs text-stone-700 border-collapse">
+            <thead className="sticky top-0 z-20 bg-slate-100 shadow-sm text-stone-600 font-bold border-b border-slate-300 uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="py-1.5 px-3">Produtor / Fazenda</th>
-                <th className="py-1.5 px-3">Produto</th>
-                <th className="py-1.5 px-3">Volume (Ton)</th>
-                <th className="py-1.5 px-3">Preço / Ton</th>
-                <th className="py-1.5 px-3">Total</th>
-                <th className="py-1.5 px-3">Entrega</th>
-                <th className="py-1.5 px-3">Status</th>
-                <th className="py-1.5 px-3">Pagamento</th>
-                <th className="py-1.5 px-3 text-right">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Produtor / Fazenda</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Produto</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Volume (Ton)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Preço / Ton</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Total</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Entrega</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3">Pagamento</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 font-medium">

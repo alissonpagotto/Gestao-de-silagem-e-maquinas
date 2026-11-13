@@ -435,18 +435,18 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
               />
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="max-h-[calc(100vh-340px)] overflow-y-auto overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-stone-850 text-slate-600 dark:text-stone-400 uppercase text-[10px] font-bold border-b border-slate-200 dark:border-stone-700">
+                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
                   <tr>
-                    <th className="py-1.5 px-3">ID Caixa</th>
-                    <th className="py-1.5 px-3">Abertura</th>
-                    <th className="py-1.5 px-3">Fechamento</th>
-                    <th className="py-1.5 px-3 text-right">Saldo Inicial</th>
-                    <th className="py-1.5 px-3 text-right">Vendas PDV</th>
-                    <th className="py-1.5 px-3 text-right">Saldo Apurado</th>
-                    <th className="py-1.5 px-3 text-center">Diferença</th>
-                    <th className="py-1.5 px-3 text-right">Reimpressão</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">ID Caixa</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Abertura</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Fechamento</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Inicial</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Vendas PDV</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Apurado</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-center">Diferença</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Reimpressão</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-stone-800">
@@ -708,15 +708,15 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
             </div>
 
             {/* Tabela Zebrada py-1 */}
-            <div className="overflow-x-auto">
+            <div className="max-h-[380px] overflow-y-auto overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-stone-850 text-slate-600 dark:text-stone-400 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700">
+                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
                   <tr>
-                    <th className="py-1 px-3">Horário</th>
-                    <th className="py-1 px-3">Tipo</th>
-                    <th className="py-1 px-3">Descrição / Detalhes</th>
-                    <th className="py-1 px-3">Forma Pgto</th>
-                    <th className="py-1 px-3 text-right">Valor Líquido</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Horário</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Tipo</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Descrição / Detalhes</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Forma Pgto</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Valor Líquido</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium">
@@ -794,18 +794,18 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="max-h-[340px] overflow-y-auto overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-stone-850 text-slate-600 dark:text-stone-400 uppercase text-[10px] font-bold border-b border-slate-200 dark:border-stone-700">
+                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
                   <tr>
-                    <th className="py-1.5 px-3">ID Caixa</th>
-                    <th className="py-1.5 px-3">Abertura</th>
-                    <th className="py-1.5 px-3">Fechamento</th>
-                    <th className="py-1.5 px-3 text-right">Saldo Inicial</th>
-                    <th className="py-1.5 px-3 text-right">Vendas PDV</th>
-                    <th className="py-1.5 px-3 text-right">Saldo Apurado</th>
-                    <th className="py-1.5 px-3 text-center">Diferença</th>
-                    <th className="py-1.5 px-3 text-right">Reimpressão</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">ID Caixa</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Abertura</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Fechamento</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Inicial</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Vendas PDV</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Apurado</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-center">Diferença</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Reimpressão</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium">

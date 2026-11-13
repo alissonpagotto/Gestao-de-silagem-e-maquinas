@@ -3263,17 +3263,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </div>
 
           {/* Tabela Slim (py-1) de Ex-Colaboradores */}
-          <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto w-full">
+          <div className="border border-slate-300 dark:border-stone-700/80 rounded-lg bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
+            <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto w-full">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
+                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
                   <tr>
-                    <th className="py-1.5 px-3 whitespace-nowrap">Ex-Colaborador / Contato</th>
-                    <th className="py-1.5 px-3 whitespace-nowrap">Último Cargo / Regime</th>
-                    <th className="py-1.5 px-3 whitespace-nowrap">Último Salário Base</th>
-                    <th className="py-1.5 px-3 whitespace-nowrap">Status Trabalhista</th>
-                    <th className="py-1.5 px-3 whitespace-nowrap">Data Desligamento</th>
-                    <th className="py-1.5 px-3 text-right whitespace-nowrap">Ações / Auditoria</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Ex-Colaborador / Contato</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Último Cargo / Regime</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Último Salário Base</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Status Trabalhista</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Data Desligamento</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right whitespace-nowrap">Ações / Auditoria</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
@@ -3591,16 +3591,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
 
         {/* Employees Table */}
-        <div className="overflow-x-auto w-full">
+        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto w-full border border-slate-300 dark:border-stone-700 rounded-lg">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 dark:bg-stone-800 border-b border-slate-200 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
               <tr>
-                <th className="py-1.5 px-3 whitespace-nowrap">Nome & Contato</th>
-                <th className="py-1.5 px-3 whitespace-nowrap">Cargo / Regime</th>
-                <th className="py-1.5 px-3 whitespace-nowrap">Salário Base</th>
-                <th className="py-1.5 px-3 whitespace-nowrap">Comissão</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Nome & Contato</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Cargo / Regime</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Salário Base</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Comissão</th>
                 {showCnhColumn && (
-                  <th className="py-1.5 px-3 whitespace-nowrap">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">
                     <div className="flex items-center space-x-1.5 whitespace-nowrap">
                       <span>CNH / STATUS</span>
                       <button
@@ -3614,7 +3614,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </div>
                   </th>
                 )}
-                <th className="py-1.5 px-3 text-right whitespace-nowrap">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">

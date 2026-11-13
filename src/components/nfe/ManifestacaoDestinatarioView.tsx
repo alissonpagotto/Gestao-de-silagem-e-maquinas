@@ -627,18 +627,18 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
       </div>
 
       {/* 3. TABELA SLIM PADRÃO OURO (PY-1, WHITESPACE-NOWRAP, TEXTOS EM UPPERCASE) */}
-      <div className="border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-900 overflow-hidden shadow-xs">
-        <div className="overflow-x-auto scrollbar-none">
+      <div className="border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 overflow-hidden shadow-xs">
+        <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-bold text-slate-600 dark:text-stone-300 uppercase tracking-wider select-none">
-                <th className="py-1 px-2.5 whitespace-nowrap">Nº NF-E</th>
-                <th className="py-1 px-2.5 whitespace-nowrap">EMISSÃO</th>
-                <th className="py-1 px-2.5 whitespace-nowrap">FORNECEDOR / EMITENTE</th>
-                <th className="py-1 px-2.5 whitespace-nowrap text-right">VALOR TOTAL</th>
-                <th className="py-1 px-2.5 whitespace-nowrap">STATUS MANIFESTAÇÃO</th>
-                <th className="py-1 px-2.5 whitespace-nowrap text-center">AÇÕES DE MANIFESTAÇÃO (SEFAZ)</th>
-                <th className="py-1 px-2.5 whitespace-nowrap text-center">XML</th>
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider select-none">
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap">Nº NF-E</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap">EMISSÃO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap">FORNECEDOR / EMITENTE</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap text-right">VALOR TOTAL</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap">STATUS MANIFESTAÇÃO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap text-center">AÇÕES DE MANIFESTAÇÃO (SEFAZ)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 whitespace-nowrap text-center">XML</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-[11px] font-medium text-slate-800 dark:text-stone-200">

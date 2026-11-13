@@ -730,21 +730,21 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       </div>
 
       {/* 5. TABELA PRINCIPAL DE ACERTOS & REPASSES */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
+        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-stone-100 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 font-bold uppercase text-[10px] tracking-wider">
-                <th className="py-2.5 px-3">Data / Mês</th>
-                <th className="py-2.5 px-3">Agenciador / Região</th>
-                <th className="py-2.5 px-3">Contrato / Pedido Agenciado</th>
-                <th className="py-2.5 px-3">Regra de Comissão</th>
-                <th className="py-2.5 px-3 text-right">Base Cálculo</th>
-                <th className="py-2.5 px-3 text-right">Bruto</th>
-                <th className="py-2.5 px-3 text-right">Dedução</th>
-                <th className="py-2.5 px-3 text-right">Valor Líquido</th>
-                <th className="py-2.5 px-3 text-center">Status / Baixa</th>
-                <th className="py-2.5 px-3 text-center">Ações</th>
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-bold uppercase text-[10px] tracking-wider">
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Data / Mês</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Agenciador / Região</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Contrato / Pedido Agenciado</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Regra de Comissão</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Base Cálculo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Bruto</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Dedução</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Líquido</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Status / Baixa</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200 dark:divide-stone-800">

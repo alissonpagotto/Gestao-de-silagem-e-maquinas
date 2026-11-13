@@ -3240,20 +3240,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Payroll Table */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="overflow-x-auto">
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="py-2 px-3">Status</th>
-                <th className="py-2 px-3">Colaborador</th>
-                <th className="py-2 px-3">Cargo / Função</th>
-                <th className="py-2 px-3 text-right">Salário Base</th>
-                <th className="py-2 px-3 text-right">Proventos (+)</th>
-                <th className="py-2 px-3 text-right">INSS (-)</th>
-                <th className="py-2 px-3 text-right">Vales/Desc. (-)</th>
-                <th className="py-2 px-3 text-right">Líquido a Pagar</th>
-                <th className="py-2 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Cargo / Função</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Salário Base</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Proventos (+)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">INSS (-)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Vales/Desc. (-)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Líquido a Pagar</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800">

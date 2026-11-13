@@ -780,81 +780,81 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 </div>
 
                 {/* Inventory Table */}
-                <div className="overflow-x-auto w-full">
+                <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto w-full border border-slate-300 dark:border-stone-700 rounded-lg">
                   <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm border-b border-slate-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
               <tr>
                 {/* 0. MINIATURA DE FOTO */}
-                <th className="py-1.5 px-1.5 text-center text-zinc-800 dark:text-white font-black w-7 min-w-[28px] max-w-[32px]">
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1.5 text-center text-zinc-800 dark:text-white font-black w-7 min-w-[28px] max-w-[32px]">
                   <span className="sr-only">Foto</span>
                   <Camera className="w-3.5 h-3.5 mx-auto text-slate-500 dark:text-stone-400" />
                 </th>
 
                 {/* 1. ITEM & LOCAL */}
-                <th className={`py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[22%] min-w-[180px]' : 'w-[28%] min-w-[200px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[22%] min-w-[180px]' : 'w-[28%] min-w-[200px]'}`}>
                   ITEM & LOCAL
                 </th>
 
                 {/* 2. CATEGORIA */}
-                <th className={`py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[18%] min-w-[150px]' : 'w-[24%] min-w-[180px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[18%] min-w-[150px]' : 'w-[24%] min-w-[180px]'}`}>
                   CATEGORIA
                 </th>
 
                 {/* 3. QUANTIDADE */}
-                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[6%] min-w-[60px]' : 'w-[8%] min-w-[65px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[6%] min-w-[60px]' : 'w-[8%] min-w-[65px]'}`}>
                   QUANTIDADE
                 </th>
 
                 {/* 4. CUSTO UNITÁRIO (R$) */}
-                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[8%] min-w-[75px]' : 'w-[10%] min-w-[80px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[8%] min-w-[75px]' : 'w-[10%] min-w-[80px]'}`}>
                   CUSTO UNIT. (R$)
                 </th>
 
                 {/* 5. VALOR TOTAL (R$) */}
-                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[8%] min-w-[80px]' : 'w-[10%] min-w-[85px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[8%] min-w-[80px]' : 'w-[10%] min-w-[85px]'}`}>
                   VALOR TOTAL (R$)
                 </th>
 
                 {/* 6. % CÁLC. */}
-                <th className={`py-1.5 px-1 text-right bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800 ${showSpecialPrices ? 'w-[5%] min-w-[50px]' : 'w-[6%] min-w-[55px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1 text-right text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800 ${showSpecialPrices ? 'w-[5%] min-w-[50px]' : 'w-[6%] min-w-[55px]'}`}>
                   % CÁLC.
                 </th>
 
                 {/* 7. V. FINAL (R$) */}
-                <th className={`py-1.5 px-1.5 text-right bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 ${showSpecialPrices ? 'w-[6%] min-w-[65px]' : 'w-[7%] min-w-[70px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1.5 text-right text-zinc-700 dark:text-stone-300 ${showSpecialPrices ? 'w-[6%] min-w-[65px]' : 'w-[7%] min-w-[70px]'}`}>
                   V. FINAL (R$)
                 </th>
 
                 {/* 8. % ATAC. */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1 text-right w-[5%] min-w-[50px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1 text-right w-[5%] min-w-[50px] text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                     % ATAC.
                   </th>
                 )}
 
                 {/* 9. V. ATACADO (R$) */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1.5 text-right w-[6%] min-w-[65px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1.5 text-right w-[6%] min-w-[65px] text-zinc-700 dark:text-stone-300">
                     V. ATACADO (R$)
                   </th>
                 )}
 
                 {/* 10. % PROMO. */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1 text-right w-[5%] min-w-[50px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1 text-right w-[5%] min-w-[50px] text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                     % PROMO.
                   </th>
                 )}
 
                 {/* 11. V. PROMO (R$) */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1.5 text-right w-[6%] min-w-[65px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-1.5 text-right w-[6%] min-w-[65px] text-zinc-700 dark:text-stone-300">
                     V. PROMO (R$)
                   </th>
                 )}
 
                 {/* 12. AÇÕES */}
-                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[5%] min-w-[65px]' : 'w-[7%] min-w-[70px]'}`}>
+                <th className={`sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[5%] min-w-[65px]' : 'w-[7%] min-w-[70px]'}`}>
                   AÇÕES
                 </th>
               </tr>
@@ -1144,16 +1144,16 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           </span>
         </div>
 
-        <div className="overflow-x-auto w-full">
+        <div className="max-h-[340px] overflow-y-auto overflow-x-auto w-full border-t border-slate-300 dark:border-stone-700">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-zinc-100 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm border-b border-slate-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
               <tr>
-                <th className="py-2 px-3">Categoria</th>
-                <th className="py-2 px-3 text-center">Itens Cadastrados</th>
-                <th className="py-2 px-3 text-right">Volume Físico Total</th>
-                <th className="py-2 px-3 text-right">Valor Imobilizado (R$)</th>
-                <th className="py-2 px-3 text-right">% do Estoque Total</th>
-                <th className="py-2 px-3 text-center w-36">Proporção Visual</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Categoria</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Itens Cadastrados</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Volume Físico Total</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Valor Imobilizado (R$)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">% do Estoque Total</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center w-36">Proporção Visual</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
@@ -1212,17 +1212,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             Nenhum insumo está abaixo do estoque mínimo. Todos os produtos possuem volume seguro.
           </div>
         ) : (
-          <div className="overflow-x-auto w-full">
+          <div className="max-h-[380px] overflow-y-auto overflow-x-auto w-full border-t border-slate-300 dark:border-stone-700">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-zinc-100 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm border-b border-slate-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider">
                 <tr>
-                  <th className="py-2 px-3">Insumo / Produto</th>
-                  <th className="py-2 px-3">Categoria</th>
-                  <th className="py-2 px-3 text-right">Qtd Atual</th>
-                  <th className="py-2 px-3 text-right">Estoque Mínimo</th>
-                  <th className="py-2 px-3 text-right">Déficit</th>
-                  <th className="py-2 px-3 text-right">Custo Unitário</th>
-                  <th className="py-2 px-3 text-right">Custo Estimado Reposição</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Insumo / Produto</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Categoria</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Qtd Atual</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Estoque Mínimo</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Déficit</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Custo Unitário</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Custo Estimado Reposição</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-white dark:bg-stone-900">

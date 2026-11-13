@@ -730,18 +730,18 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* TABELA DE CONTROLE E CUSTÓDIA DE CHEQUES */}
       <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-100/80 dark:bg-stone-850/90 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 font-black uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-3.5">Status</th>
-                <th className="py-3 px-3.5">N° Cheque</th>
-                <th className="py-3 px-3.5">Vencimento / Bom Para</th>
-                <th className="py-3 px-3.5">Emitente / CPF-CNPJ</th>
-                <th className="py-3 px-3.5">Banco de Origem</th>
-                <th className="py-3 px-3.5">Valor (R$)</th>
-                <th className="py-3 px-3.5 min-w-[220px]">Conta de Destino da Empresa</th>
-                <th className="py-3 px-3.5 text-right">Ações</th>
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
+              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 font-black uppercase tracking-wider text-[10px]">
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Status</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">N° Cheque</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Vencimento / Bom Para</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Emitente / CPF-CNPJ</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Banco de Origem</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Valor (R$)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 min-w-[220px]">Conta de Destino da Empresa</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800">

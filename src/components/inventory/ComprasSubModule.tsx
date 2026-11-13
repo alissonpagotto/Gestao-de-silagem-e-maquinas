@@ -935,15 +935,15 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
       {/* 2. TABELA DE COMPRAS MANTIDA EM RASCUNHO (100% ISOLADA COM ROLAGEM INDEPENDENTE) */}
       <div className="flex-1 min-h-0 border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-850 overflow-hidden flex flex-col shadow-xs">
-        <div className="overflow-x-auto overflow-y-auto flex-1">
+        <div className="max-h-[calc(100vh-320px)] overflow-x-auto overflow-y-auto flex-1 border border-slate-300 dark:border-stone-700 rounded-lg">
           <table className="w-full text-left border-collapse text-[11px]">
-            <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-10 shadow-xs">
+            <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-20 shadow-sm">
               <tr>
-                <th className="py-1 px-3 w-28">CÓDIGO</th>
-                <th className="py-1 px-3">DESCRIÇÃO</th>
-                <th className="py-1 px-3 w-48">CATEGORIA</th>
-                <th className="py-1 px-3 w-36 text-right">QUANTIDADE SOLICITADA</th>
-                <th className="py-1 px-2 w-16 text-center">REMOVER</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 w-28">CÓDIGO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">DESCRIÇÃO</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 w-48">CATEGORIA</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 w-36 text-right">QUANTIDADE SOLICITADA</th>
+                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-16 text-center">REMOVER</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-750">

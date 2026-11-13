@@ -752,18 +752,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       </div>
 
       {/* Receivables Table (Dense & Compact) */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs text-black">
-        <div className="overflow-x-auto">
+      <div className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs text-black">
+        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-200">
+            <thead className="sticky top-0 z-20 bg-slate-100 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-300 shadow-sm">
               <tr>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Data</th>
-                <th className="py-2.5 px-3">Cliente / Produtor</th>
-                <th className="py-2.5 px-3">Origem / Tipo</th>
-                <th className="py-2.5 px-3">Volume</th>
-                <th className="py-2.5 px-3 text-right">Valor Total (R$)</th>
-                <th className="py-2.5 px-3 text-right pr-4">Ações</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Data</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Cliente / Produtor</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Origem / Tipo</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Volume</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3 text-right">Valor Total (R$)</th>
+                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3 text-right pr-4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
