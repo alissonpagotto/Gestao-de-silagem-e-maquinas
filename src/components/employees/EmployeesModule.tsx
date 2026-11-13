@@ -80,6 +80,7 @@ import {
   generateAsoGuideHtml,
   generateAsoGuideWhatsAppText,
 } from './asoGuideUtils';
+import { EmployeeListPrintModal } from './EmployeeListPrintModal';
 
 
 const STORAGE_KEYS = {
@@ -629,6 +630,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isListPrintConfigOpen, setIsListPrintConfigOpen] = useState(false);
   const [singleEmployeePrintOptions, setSingleEmployeePrintOptions] = useState<PrintDocumentOptions | null>(null);
   const [isSingleEmployeePrintOpen, setIsSingleEmployeePrintOpen] = useState(false);
 
@@ -1768,7 +1770,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     if (externalPrintEmployeesTrigger !== undefined && externalPrintEmployeesTrigger !== lastPrintTriggerRef.current) {
       lastPrintTriggerRef.current = externalPrintEmployeesTrigger;
       if (externalPrintEmployeesTrigger > 0) {
-        setIsPrintModalOpen(true);
+        setIsListPrintConfigOpen(true);
       }
     }
   }, [externalPrintEmployeesTrigger]);
@@ -5135,6 +5137,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           signatureLabels: ['Gestor de Recursos Humanos / Operações', 'Diretoria / Responsável Legal'],
           whatsappText: employeesWhatsAppText,
         }}
+      />
+
+      {/* Modal Configurador de Colunas e Impressão da Lista de Colaboradores (A4 Dedicado) */}
+      <EmployeeListPrintModal
+        isOpen={isListPrintConfigOpen}
+        onClose={() => setIsListPrintConfigOpen(false)}
+        company={activeCompany}
+        activeEmployees={listaOrdenada}
+        allEmployees={allEmployeesForHistory}
+        getVacationAlert={(emp) =>
+          vacationAlertsByEmployeeId[emp.id] ||
+          evaluateEmployeeVacationAlert(emp, localVacations)
+        }
       />
 
       {/* Print Preview Modal for Single Employee Registration Sheet & ASO Guide (with Direct Print, PDF Download, WhatsApp) */}

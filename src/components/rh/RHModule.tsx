@@ -566,7 +566,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
             <button
               type="button"
               onClick={() => setExternalPrintEmployeesTrigger(prev => prev + 1)}
-              title="Imprimir relatório completo de funcionários e operadores com logotipo e dados cadastrais"
+              title="Configurar colunas e imprimir relação de colaboradores em A4"
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-slate-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] transition active:scale-95 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
