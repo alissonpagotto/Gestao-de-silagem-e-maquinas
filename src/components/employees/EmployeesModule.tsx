@@ -30,7 +30,8 @@ import {
   Loader2,
   ShieldCheck,
   Check,
-  Lock
+  Lock,
+  Stethoscope
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, saveCompanyFuncionarios, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
@@ -69,9 +70,16 @@ import {
 import { CargoPermissao } from '../../types';
 import {
   generateBadgeRegistrationNumber,
+  getEmployeeBadgeNumber,
   isValidBadgeRegistrationNumber,
   sanitizeBadgeDigits,
 } from '../rh/badgeHelpers';
+import { AsoAuthorizationModal } from './AsoAuthorizationModal';
+import {
+  AsoGuidePayload,
+  generateAsoGuideHtml,
+  generateAsoGuideWhatsAppText,
+} from './asoGuideUtils';
 
 
 const STORAGE_KEYS = {
@@ -935,6 +943,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const { currentUser } = useAuth();
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [asoTarget, setAsoTarget] = useState<{ employee: Employee; seqIndex: number } | null>(null);
 
   // Identificador do funcionário ativo selecionado para edição (primitivo estável para controle de loops)
   const activeEmployeeId = editingEmployee?.id ? String(editingEmployee.id) : null;
@@ -1989,6 +1998,48 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     handleOpenEmployeePrint(emp);
   };
 
+  // Abre pré-visualização A4 oficial da Guia de Encaminhamento e Autorização de Exames (ASO)
+  const handleGenerateAsoGuide = async (payload: AsoGuidePayload) => {
+    if (!asoTarget?.employee) return;
+    const targetEmp = asoTarget.employee;
+    const rawEmpPhoto = resolveEmployeePhoto(targetEmp);
+    const [resolvedEmpPhoto, resolvedCompLogo] = await Promise.all([
+      resolveMediaUrlAsync(rawEmpPhoto),
+      resolveMediaUrlAsync(activeCompany?.logoUrl),
+    ]);
+
+    const printableEmp: Partial<Employee> = {
+      ...targetEmp,
+      avatar_url: resolvedEmpPhoto,
+      photoUrl: resolvedEmpPhoto,
+    };
+    const printableCompany: CompanyProfile = {
+      ...activeCompany,
+      logoUrl: resolvedCompLogo || activeCompany?.logoUrl,
+    };
+
+    const contentHtml = generateAsoGuideHtml(printableEmp, printableCompany, payload);
+    const whatsappText = generateAsoGuideWhatsAppText(printableEmp, printableCompany, payload);
+    const empName = printableEmp.name?.trim() || 'Colaborador';
+    const companyTradeName = printableCompany.tradeName || printableCompany.corporateName || 'AgroControl';
+
+    setSingleEmployeePrintOptions({
+      title: 'GUIA DE ENCAMINHAMENTO E AUTORIZAÇÃO DE EXAMES (ASO)',
+      subtitle: `Colaborador: ${empName} • Reg. Crachá: ${payload.badgeNumber} • Modalidade: ${payload.purpose}`,
+      documentType: 'AUTORIZAÇÃO DE EXAMES (ASO)',
+      company: printableCompany,
+      contentHtml,
+      showSignatures: true,
+      signatureLabels: [
+        `Responsável pela Empresa (RH) - ${companyTradeName}`,
+        `Colaborador: ${empName}`,
+      ],
+      whatsappText,
+    });
+    setAsoTarget(null);
+    setIsSingleEmployeePrintOpen(true);
+  };
+
   // Helper to trigger print from current modal form state
   const handlePrintCurrentModalEmployee = () => {
     const parsedSalary = parseCurrencyInput(baseSalary);
@@ -2206,14 +2257,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       // 1. CARIMBO DE DONO OBRIGATÓRIO (FIM DO VAZAMENTO):
       // Capture o ID do usuário logado antes de disparar o comando para o Supabase
       let activeUid: string | undefined = undefined;
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        activeUid = authData?.user?.id;
-        if (!activeUid) {
-          const { data: sessData } = await supabase.auth.getSession();
-          activeUid = sessData?.session?.user?.id;
-        }
-      } catch (_) {}
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          activeUid = authData?.user?.id;
+          if (!activeUid) {
+            const { data: sessData } = await supabase.auth.getSession();
+            activeUid = sessData?.session?.user?.id;
+          }
+        } catch (_) {}
+      }
 
       if (!activeUid && currentUser?.id) {
         activeUid = currentUser.id;
@@ -3631,6 +3684,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                   <td className="py-1 px-3 text-right align-middle whitespace-nowrap">
                     <div className="flex items-center justify-end space-x-1 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const seqIndex = Math.max(
+                            1,
+                            localEmployees.findIndex((item) => item.id === emp.id) + 1 || 1
+                          );
+                          setAsoTarget({ employee: emp, seqIndex });
+                        }}
+                        className="p-1 text-black dark:text-stone-300 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded transition cursor-pointer"
+                        title="Gerar Autorização de Exames (ASO)"
+                      >
+                        <Stethoscope className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handlePrintEmployeeSheet(emp)}
@@ -5070,7 +5137,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         }}
       />
 
-      {/* Print Preview Modal for Single Employee Registration Sheet (with Direct Print, PDF Download, WhatsApp) */}
+      {/* Print Preview Modal for Single Employee Registration Sheet & ASO Guide (with Direct Print, PDF Download, WhatsApp) */}
       {singleEmployeePrintOptions && (
         <PrintPreviewModal
           isOpen={isSingleEmployeePrintOpen}
@@ -5078,6 +5145,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           options={singleEmployeePrintOptions}
         />
       )}
+
+      {/* Modal Gerador de Guia de Encaminhamento e Autorização de Exames Médicos (ASO) */}
+      <AsoAuthorizationModal
+        isOpen={Boolean(asoTarget)}
+        employee={asoTarget?.employee || null}
+        employeeSeqIndex={asoTarget?.seqIndex || 1}
+        companyId={activeCompany?.id}
+        onClose={() => setAsoTarget(null)}
+        onGenerate={handleGenerateAsoGuide}
+      />
 
       {/* Single Employee Printable Sheet (renders in DOM, styled by @media print) */}
       <PrintableEmployeeSheet 

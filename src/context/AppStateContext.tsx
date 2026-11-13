@@ -17,6 +17,7 @@ import {
   subscribeToCloudTable, 
   isSupabaseConfigured 
 } from '../lib/supabaseService';
+import { IS_OFFLINE_LOCAL_STORAGE_MODE } from '../lib/supabase';
 
 export { AGROCONTROL_SITE_SETTINGS_KEY, AGROCONTROL_PLANS_DATA_KEY };
 
@@ -150,31 +151,35 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     // 1. Carga inicial garantida local
     reloadFromStorage();
 
-    // 2. Consulta assíncrona ao banco de dados Supabase na nuvem
     let isMounted = true;
-    syncMasterAdminFromCloud().then(cloudData => {
-      if (!isMounted) return;
-      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
-      if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
-    });
+    let unsubRealtimePlans = () => {};
+    let unsubRealtimeSite = () => {};
 
-    // 3. Assinatura Realtime em tempo real do Supabase
-    // Toda alteração de preço salva no Painel Master reflete em qualquer dispositivo
-    const unsubRealtimePlans = subscribeToCloudTable('plans', () => {
-      fetchCloudPlans().then(freshPlans => {
-        if (freshPlans && freshPlans.length > 0 && isMounted) {
-          setPlans(freshPlans);
-        }
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      // 2. Consulta assíncrona ao banco de dados Supabase na nuvem
+      syncMasterAdminFromCloud().then(cloudData => {
+        if (!isMounted) return;
+        if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+        if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
       });
-    });
 
-    const unsubRealtimeSite = subscribeToCloudTable('site_settings', () => {
-      fetchCloudSiteConfig().then(freshSite => {
-        if (freshSite && isMounted) {
-          setSiteConfig(freshSite);
-        }
+      // 3. Assinatura Realtime em tempo real do Supabase
+      unsubRealtimePlans = subscribeToCloudTable('plans', () => {
+        fetchCloudPlans().then(freshPlans => {
+          if (freshPlans && freshPlans.length > 0 && isMounted) {
+            setPlans(freshPlans);
+          }
+        });
       });
-    });
+
+      unsubRealtimeSite = subscribeToCloudTable('site_settings', () => {
+        fetchCloudSiteConfig().then(freshSite => {
+          if (freshSite && isMounted) {
+            setSiteConfig(freshSite);
+          }
+        });
+      });
+    }
 
     // 4. Listener do evento nativo 'storage' da window para sincronia entre abas
     const handleStorageEvent = (e: StorageEvent) => {

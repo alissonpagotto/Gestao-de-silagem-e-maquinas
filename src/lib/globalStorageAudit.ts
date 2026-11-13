@@ -34,13 +34,52 @@ export interface StorageAuditResult {
   timestamp: string;
 }
 
-// Helper seguro para obter companyId ativo
+// Helper seguro para obter companyId ativo (espelhando storage.ts sem risco de import circular)
 function getActiveCompanyId(): string {
   try {
-    const raw = localStorage.getItem('agrocontrol_auth_session') || localStorage.getItem('colaca_silagem_auth_session');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.companyId) return String(parsed.companyId).trim();
+    if (typeof localStorage !== 'undefined') {
+      const adminImpersonatedId = (localStorage.getItem('admin_impersonated_company_id') || '').trim();
+      if (adminImpersonatedId) return adminImpersonatedId;
+
+      const isAdminImpersonating = localStorage.getItem('is_admin_impersonating') === 'true';
+      const impersonatedId = (localStorage.getItem('impersonated_subscriber_id') || '').trim();
+      if (isAdminImpersonating && impersonatedId) return impersonatedId;
+
+      const dbAuthCompany = (
+        localStorage.getItem('supabase_auth_company_id') ||
+        localStorage.getItem('authenticated_user_company_id') ||
+        ''
+      ).trim();
+      if (dbAuthCompany && dbAuthCompany !== 'default' && dbAuthCompany !== 'company_default_fazenda') {
+        return dbAuthCompany;
+      }
+
+      const isClientSessionActive = localStorage.getItem('silagem_client_session') === 'active';
+      const activeSubId = (localStorage.getItem('silagem_active_subscriber_id') || '').trim();
+      if (isClientSessionActive && activeSubId && activeSubId !== 'default' && activeSubId !== 'usr_local' && activeSubId !== 'company_default_fazenda') {
+        return activeSubId;
+      }
+
+      const curComp = (localStorage.getItem('current_company_id') || '').trim();
+      if (curComp && curComp !== 'default' && curComp !== 'company_default_fazenda' && curComp !== 'usr_local') {
+        return curComp;
+      }
+
+      const activeUserEmail = (
+        localStorage.getItem('silagem_active_user_email') ||
+        localStorage.getItem('silagem_active_subscriber_email') ||
+        ''
+      ).trim().toLowerCase();
+      if (activeUserEmail && activeUserEmail.includes('@') && activeUserEmail !== 'usuario@silagem.com') {
+        if (activeUserEmail === 'csilagem@gmail.com') return 'e5b34cd7-aab4-4ce2-b5f0-45040c9ee7a4';
+        return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;
+      }
+
+      const raw = localStorage.getItem('agrocontrol_auth_session') || localStorage.getItem('colaca_silagem_auth_session');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.companyId) return String(parsed.companyId).trim();
+      }
     }
   } catch {}
   return 'default';
@@ -756,6 +795,42 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
       }
 
       // TRATAMENTO 3: ARRAYS DE ENTIDADES OPERACIONAIS
+      // Verifica primeiro se a chave primária canônica (group.keys[0]) já existe como array válido no localStorage.
+      // Isso garante que edições, fotos, prioridade bancária e exclusões recentes NUNCA sejam revertidas ou ressuscitadas por espelhos antigos no F5.
+      const primaryKey = group.keys[0];
+      const rawPrimary = primaryKey ? localStorage.getItem(primaryKey) : null;
+      let hasAuthoritativePrimary = false;
+      let authoritativePrimaryArray: any[] = [];
+
+      if (rawPrimary !== null) {
+        try {
+          const parsedPrimary = JSON.parse(rawPrimary);
+          if (Array.isArray(parsedPrimary)) {
+            hasAuthoritativePrimary = true;
+            authoritativePrimaryArray = parsedPrimary.filter(item => !isMockStorageRecord(item));
+            if (group.transform) {
+              authoritativePrimaryArray = group.transform(authoritativePrimaryArray);
+            }
+          }
+        } catch {
+          hasAuthoritativePrimary = false;
+        }
+      }
+
+      if (hasAuthoritativePrimary) {
+        totalRecoveredRecords += authoritativePrimaryArray.length;
+        const serialized = JSON.stringify(authoritativePrimaryArray);
+        for (const k of expandedKeys) {
+          const currentRaw = localStorage.getItem(k);
+          if (currentRaw !== serialized) {
+            if (safeLocalStorageSetItem(k, serialized)) {
+              synchronizedKeysCount++;
+            }
+          }
+        }
+        continue;
+      }
+
       const collectedArrays: any[][] = [];
 
       for (const k of expandedKeys) {
@@ -774,9 +849,8 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
         }
       }
 
-      // Se há dados em pelo menos uma chave deste grupo
+      // Se há dados em pelo menos uma chave deste grupo (recuperação legada quando a chave primária ainda não existia)
       if (collectedArrays.length > 0) {
-        // Unifica e deduplica itens mantendo o maior volume com completude de campos
         let merged = mergeAndDeduplicate(collectedArrays);
 
         if (group.transform) {
@@ -791,9 +865,6 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
             const currentRaw = localStorage.getItem(k);
             const currentArr = parseArraySafe(currentRaw);
 
-            // DIRETRIZ DE SEGURANÇA SLIM DESIGN PRO:
-            // 1. Nunca sobrescrever array com dados por '[]'
-            // 2. Se a chave estiver vazia ou com menos dados que o array unificado consolidado, atualiza
             if (currentArr.length < merged.length || !currentRaw || currentRaw === '[]' || currentRaw === 'null') {
               if (safeLocalStorageSetItem(k, serialized)) {
                 synchronizedKeysCount++;

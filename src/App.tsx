@@ -349,6 +349,11 @@ export default function App() {
   const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt, startImpersonation, stopImpersonation, activeCompanyId } = useAuth();
 
   const handleSyncSupabase = async () => {
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      setLastSyncedAt(new Date());
+      setIsSyncing(false);
+      return;
+    }
     setIsSyncing(true);
     try {
       await syncAllDataToSupabase({
@@ -3154,79 +3159,89 @@ export default function App() {
     };
     setCompanyProfile(impersonatedProfile);
 
-    // Carrega estritamente os tratores, frotas, RH, clientes e dados reais da fazenda personificada
-    try {
-      const [cloudData, cloudModules] = await Promise.all([
-        fetchAllDataFromSupabase(targetCompanyId),
-        fetchAllClientModulesFromSupabase(targetCompanyId)
-      ]);
+    // Carrega estritamente os dados locais no modo Offline-First ou busca na nuvem se online
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      setClients(getStoredClients());
+      setSuppliers(getStoredSuppliers());
+      setInventory(ensureServicesInInventory(getStoredInventory()));
+      setEmployees(getStoredEmployees());
+      setMachineries(getStoredMachineries());
+      setExpenses(getStoredExpenses());
+      setBankAccounts(getStoredBankAccounts());
+    } else {
+      try {
+        const [cloudData, cloudModules] = await Promise.all([
+          fetchAllDataFromSupabase(targetCompanyId),
+          fetchAllClientModulesFromSupabase(targetCompanyId)
+        ]);
 
-      if (cloudData) {
-        if (cloudData.clientes && cloudData.clientes.length > 0) {
-          setClients(cloudData.clientes);
-        } else if (cloudModules?.clients && cloudModules.clients.length > 0) {
-          setClients(cloudModules.clients);
-        } else {
-          setClients([]);
-        }
+        if (cloudData) {
+          if (cloudData.clientes && cloudData.clientes.length > 0) {
+            setClients(cloudData.clientes);
+          } else if (cloudModules?.clients && cloudModules.clients.length > 0) {
+            setClients(cloudModules.clients);
+          } else {
+            setClients([]);
+          }
 
-        if (cloudData.fornecedores && cloudData.fornecedores.length > 0) {
-          setSuppliers(cloudData.fornecedores);
-        } else {
-          setSuppliers([]);
-        }
+          if (cloudData.fornecedores && cloudData.fornecedores.length > 0) {
+            setSuppliers(cloudData.fornecedores);
+          } else {
+            setSuppliers([]);
+          }
 
-        if (cloudData.estoque && cloudData.estoque.length > 0) {
-          setInventory(cloudData.estoque);
-        } else if (cloudModules?.inventory && cloudModules.inventory.length > 0) {
-          setInventory(cloudModules.inventory);
-        } else {
-          setInventory([]);
-        }
+          if (cloudData.estoque && cloudData.estoque.length > 0) {
+            setInventory(cloudData.estoque);
+          } else if (cloudModules?.inventory && cloudModules.inventory.length > 0) {
+            setInventory(cloudModules.inventory);
+          } else {
+            setInventory([]);
+          }
 
-        if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
-          const currentAuthUid = currentUser?.id;
-          const tenantOnly = cloudData.rh_funcionarios.filter(e => {
-            const uid = String(e.userId || (e as any).user_id || '').trim();
-            if (currentAuthUid && uid) return uid === currentAuthUid;
-            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
-            return currentAuthUid && cid === currentAuthUid;
-          });
-          setEmployees(tenantOnly);
-        } else {
-          setEmployees([]);
-        }
+          if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
+            const currentAuthUid = currentUser?.id;
+            const tenantOnly = cloudData.rh_funcionarios.filter(e => {
+              const uid = String(e.userId || (e as any).user_id || '').trim();
+              if (currentAuthUid && uid) return uid === currentAuthUid;
+              const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
+              return currentAuthUid && cid === currentAuthUid;
+            });
+            setEmployees(tenantOnly);
+          } else {
+            setEmployees([]);
+          }
 
-        if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
-          setMachineries(cloudData.gestao_frotas);
-        } else if (cloudModules?.machineries && cloudModules.machineries.length > 0) {
-          setMachineries(cloudModules.machineries);
-        } else {
-          setMachineries([]);
-        }
+          if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
+            setMachineries(cloudData.gestao_frotas);
+          } else if (cloudModules?.machineries && cloudModules.machineries.length > 0) {
+            setMachineries(cloudModules.machineries);
+          } else {
+            setMachineries([]);
+          }
 
-        if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
-          const nextExps = cloudData.contas_a_pagar as Expense[];
-          setExpenses(nextExps);
-          saveStoredExpenses(nextExps);
-        } else if (cloudModules?.expenses && cloudModules.expenses.length > 0) {
-          setExpenses(cloudModules.expenses);
-          saveStoredExpenses(cloudModules.expenses);
-        } else {
-          setExpenses([]);
-          saveStoredExpenses([]);
+          if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
+            const nextExps = cloudData.contas_a_pagar as Expense[];
+            setExpenses(nextExps);
+            saveStoredExpenses(nextExps);
+          } else if (cloudModules?.expenses && cloudModules.expenses.length > 0) {
+            setExpenses(cloudModules.expenses);
+            saveStoredExpenses(cloudModules.expenses);
+          } else {
+            setExpenses([]);
+            saveStoredExpenses([]);
+          }
+        } else if (cloudModules) {
+          if (cloudModules.clients) setClients(cloudModules.clients);
+          if (cloudModules.inventory) setInventory(cloudModules.inventory);
+          if (cloudModules.machineries) setMachineries(cloudModules.machineries);
+          if (cloudModules.expenses) {
+            setExpenses(cloudModules.expenses);
+            saveStoredExpenses(cloudModules.expenses);
+          }
         }
-      } else if (cloudModules) {
-        if (cloudModules.clients) setClients(cloudModules.clients);
-        if (cloudModules.inventory) setInventory(cloudModules.inventory);
-        if (cloudModules.machineries) setMachineries(cloudModules.machineries);
-        if (cloudModules.expenses) {
-          setExpenses(cloudModules.expenses);
-          saveStoredExpenses(cloudModules.expenses);
-        }
+      } catch (e) {
+        console.warn('Erro ao carregar dados da empresa personificada:', e);
       }
-    } catch (e) {
-      console.warn('Erro ao carregar dados da empresa personificada:', e);
     }
 
     try {
@@ -3368,13 +3383,17 @@ export default function App() {
     window.addEventListener('company_profile_updated', handleImmediateSync);
     window.addEventListener('storage', handleImmediateSync);
 
-    // Escuta em tempo real nas tabelas de assinantes do Supabase
-    const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
-      performSubCheckRef.current(true);
-    });
-    const unsubSubs = subscribeToCloudTable('subscribers', () => {
-      performSubCheckRef.current(true);
-    });
+    // Escuta em tempo real nas tabelas de assinantes do Supabase apenas se online
+    const unsubAssinantes = !IS_OFFLINE_LOCAL_STORAGE_MODE
+      ? subscribeToCloudTable('assinantes', () => {
+          performSubCheckRef.current(true);
+        })
+      : () => {};
+    const unsubSubs = !IS_OFFLINE_LOCAL_STORAGE_MODE
+      ? subscribeToCloudTable('subscribers', () => {
+          performSubCheckRef.current(true);
+        })
+      : () => {};
 
     return () => {
       window.removeEventListener('focus', handleFocus);

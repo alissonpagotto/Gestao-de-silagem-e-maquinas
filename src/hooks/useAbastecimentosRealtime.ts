@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FuelLog, Employee } from '../types';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../lib/supabase';
 import { fetchAbastecimentos, isRealtimeWebSocketActive, getAbastecimentosTableName, fetchRhFuncionarios, toValidUUID } from '../lib/supabaseService';
 import { getStoredFuelLogs, saveStoredFuelLogs, getStoredEmployees, saveStoredEmployees } from '../lib/storage';
 
@@ -70,6 +70,11 @@ export function useAbastecimentosRealtime(
   }, [initialLogs]);
 
   const refetch = useCallback(async (): Promise<FuelLog[]> => {
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      const localLogs = getStoredFuelLogs();
+      setFuelLogs(localLogs);
+      return localLogs;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -97,7 +102,7 @@ export function useAbastecimentosRealtime(
   }, [companyId]);
 
   useEffect(() => {
-    if (!autoFetch) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !autoFetch) return;
 
     let isMounted = true;
 
@@ -277,6 +282,11 @@ export function useEmployeesRealtime(
   }, [initialEmployees]);
 
   const refetch = useCallback(async (): Promise<Employee[]> => {
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      const localEmps = getStoredEmployees();
+      setEmployees(localEmps);
+      return localEmps;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -336,7 +346,7 @@ export function useEmployeesRealtime(
   }, [companyId]);
 
   useEffect(() => {
-    if (!autoFetch) return;
+    if (IS_OFFLINE_LOCAL_STORAGE_MODE || !autoFetch) return;
     let isMounted = true;
 
     let debounceTimer: any = null;

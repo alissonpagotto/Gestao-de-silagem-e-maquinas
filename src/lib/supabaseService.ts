@@ -6676,8 +6676,7 @@ export async function syncAllDataToSupabase(payload: {
     despesas: 0,
   };
 
-  if (!isSupabaseConfigured) {
-    console.info('Supabase aguardando URL e Anon Key ativas.');
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) {
     return stats;
   }
 
@@ -6745,7 +6744,7 @@ export async function syncAllDataToSupabase(payload: {
 }
 
 export async function fetchAllDataFromSupabase(companyId?: string) {
-  if (!isSupabaseConfigured) return null;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) {
     return {
@@ -8361,7 +8360,7 @@ let consecutiveTransportFailures = 0;
 // Em ambientes de sandbox, iFrames e proxies reversos (Google Cloud Run / IDX / AI Studio),
 // os cabeçalhos de upgrade de WebSocket ('Sec-WebSocket-Accept') são bloqueados por padrão.
 // O realtime via WebSocket é ativado por padrão no navegador, com fallback resiliente caso o proxy ou rede apresente instabilidades
-export const isRealtimeWebSocketActive = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ !== false;
+export const isRealtimeWebSocketActive = !IS_OFFLINE_LOCAL_STORAGE_MODE && typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ !== false;
 
 // Desativação explícita de telemetria desnecessária e redução de Log Ingestion durante os testes/desenvolvimento
 export const isSupabaseTelemetryDisabled = true;
@@ -8375,7 +8374,7 @@ export function subscribeToCloudTable(
   tableName: string,
   onChange: (payload: any) => void
 ): () => void {
-  if (!isRealtimeWebSocketActive || !tableName || tableName === 'null' || tableName === 'undefined' || !isSupabaseConfigured || isTableUnmigrated(tableName)) {
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isRealtimeWebSocketActive || !tableName || tableName === 'null' || tableName === 'undefined' || !isSupabaseConfigured || isTableUnmigrated(tableName)) {
     return () => {};
   }
 
@@ -10316,7 +10315,7 @@ export async function deleteContaBancaria(id: string, companyId?: string): Promi
  * Carrega todos os módulos operacionais do cliente a partir do Supabase em uma única operação
  */
 export async function fetchAllClientModulesFromSupabase(companyId?: string) {
-  if (!isSupabaseConfigured) return null;
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE || !isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
     const keys = [

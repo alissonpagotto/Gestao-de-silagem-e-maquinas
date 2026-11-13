@@ -24,6 +24,7 @@ import {
 import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard, PaymentMethod, SilageOrder, ServiceOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts, saveCompanyFinanceiroContas, getStoredOrders, saveStoredOrders, getStoredServices, saveStoredServices } from '../../lib/storage';
 import { upsertContaBancaria, deleteContaBancaria } from '../../lib/supabaseService';
+import { IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BankAccountModal } from './BankAccountModal';
 import { BankLogoIcon } from './BankLogoIcon';
@@ -58,14 +59,16 @@ interface BankAccountsTabProps {
 function loadInitialLocalAccounts(fallbackAccounts: BankAccount[] = []): BankAccount[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // 1. Unificação oficial e resiliente: busca de forma reativa nas 3 chaves oficiais
-      const contasSalvas = JSON.parse(
-        localStorage.getItem('agrocontrol_bancos') || 
-        localStorage.getItem('agrocontrol_contas_bancarias') || 
-        localStorage.getItem('agrocontrol_financeiro_contas') || '[]'
-      );
-      if (Array.isArray(contasSalvas) && contasSalvas.length > 0) {
-        return contasSalvas;
+      // 1. Unificação oficial e resiliente: busca nas chaves oficiais e respeita array vazio explícito
+      const rawUnified =
+        localStorage.getItem('agrocontrol_bancos') ||
+        localStorage.getItem('agrocontrol_contas_bancarias') ||
+        localStorage.getItem('agrocontrol_financeiro_contas');
+      if (rawUnified !== null) {
+        const contasSalvas = JSON.parse(rawUnified);
+        if (Array.isArray(contasSalvas)) {
+          return contasSalvas;
+        }
       }
 
       // 2. Chave escopada por empresa ativa
@@ -251,7 +254,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
             ...acc,
             balance: (acc.balance || 0) - params.amount,
           };
-          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          }
           return upd;
         }
         return acc;
@@ -381,7 +386,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
             ...acc,
             balance: (acc.balance || 0) + params.amount,
           };
-          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          }
           return upd;
         }
         return acc;
@@ -479,12 +486,16 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       const updatedAccounts = effectiveAccounts.map((acc) => {
         if (acc.id === params.sourceAccountId) {
           const upd = { ...acc, balance: (acc.balance || 0) - params.amount };
-          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          }
           return upd;
         }
         if (acc.id === params.destAccountId) {
           const upd = { ...acc, balance: (acc.balance || 0) + params.amount };
-          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          }
           return upd;
         }
         return acc;
@@ -551,7 +562,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       const updatedAccounts = effectiveAccounts.map((acc) => {
         if (acc.id === params.accountId) {
           const upd = { ...acc, balance: params.newBalance };
-          upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            upsertContaBancaria(upd, activeCompanyId).catch(console.warn);
+          }
           return upd;
         }
         return acc;
@@ -626,8 +639,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
       window.dispatchEvent(new Event('bank_accounts_updated'));
 
-      const target = accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : updated[updated.length - 1];
-      upsertContaBancaria(target, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria notice:', err));
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+        const target = accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : updated[updated.length - 1];
+        upsertContaBancaria(target, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria notice:', err));
+      }
     } catch (err) {
       console.warn('Erro ao salvar conta bancária:', err);
     }
@@ -653,9 +668,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
       window.dispatchEvent(new Event('bank_accounts_updated'));
 
-      const target = novasContas.find((a) => a.id === accountId);
-      if (target) {
-        upsertContaBancaria(target, activeCompanyId).catch(console.warn);
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+        const target = novasContas.find((a) => a.id === accountId);
+        if (target) {
+          upsertContaBancaria(target, activeCompanyId).catch(console.warn);
+        }
       }
     } catch (err) {
       console.warn('Erro ao atualizar saldo da conta bancária:', err);
@@ -713,19 +730,21 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       window.dispatchEvent(new Event('bank_accounts_updated'));
       window.dispatchEvent(new Event('storage'));
 
-      const target = updatedAccounts.find((a) => a.id === accountId);
-      if (target) {
-        upsertContaBancaria(target, activeCompanyId).catch(console.warn);
-      }
-
-      // Atualiza também no Supabase qualquer conta que tenha perdido a prioridade
-      const previousPriorities = baseList.filter((a) => (a.isPriority || a.prioritaria) && a.id !== accountId);
-      previousPriorities.forEach((prev) => {
-        const updatedPrev = updatedAccounts.find((a) => a.id === prev.id);
-        if (updatedPrev) {
-          upsertContaBancaria(updatedPrev, activeCompanyId).catch(console.warn);
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+        const target = updatedAccounts.find((a) => a.id === accountId);
+        if (target) {
+          upsertContaBancaria(target, activeCompanyId).catch(console.warn);
         }
-      });
+
+        // Atualiza também no Supabase qualquer conta que tenha perdido a prioridade
+        const previousPriorities = baseList.filter((a) => (a.isPriority || a.prioritaria) && a.id !== accountId);
+        previousPriorities.forEach((prev) => {
+          const updatedPrev = updatedAccounts.find((a) => a.id === prev.id);
+          if (updatedPrev) {
+            upsertContaBancaria(updatedPrev, activeCompanyId).catch(console.warn);
+          }
+        });
+      }
     } catch (err) {
       console.warn('Erro ao alternar conta prioritária:', err);
     }
@@ -836,7 +855,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
         window.dispatchEvent(new Event('bank_accounts_updated'));
 
-        deleteContaBancaria(id, activeCompanyId).catch(err => console.warn('Supabase deleteContaBancaria notice:', err));
+        if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+          deleteContaBancaria(id, activeCompanyId).catch(err => console.warn('Supabase deleteContaBancaria notice:', err));
+        }
       } catch (err) {
         console.warn('Erro ao excluir conta bancária:', err);
       }
@@ -868,7 +889,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
               balance: (acc.balance || 0) + delta,
               updatedAt: nowIso,
             };
-            upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+            if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+              upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+            }
             return updatedAcc;
           }
           return acc;
@@ -920,7 +943,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
               balance: (acc.balance || 0) + netDelta,
               updatedAt: nowIso,
             };
-            upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+            if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+              upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+            }
             return updatedAcc;
           }
           return acc;

@@ -17,6 +17,7 @@ import {
   fetchCloudSubscribers,
   deleteCloudSubscriber
 } from './supabaseService';
+import { IS_OFFLINE_LOCAL_STORAGE_MODE } from './supabase';
 
 // Chaves de armazenamento localStorage principais e padronizadas
 export const AGROCONTROL_SITE_SETTINGS_KEY = 'agrocontrol_site_settings';
@@ -343,10 +344,12 @@ export function saveStoredSiteConfig(config: SiteConfig): void {
         // Fallback silencioso
       }
     }
-    // Persistência em Nuvem (Supabase)
-    upsertCloudSiteConfig(config).catch(err => {
-      console.warn('Notice saving site config to cloud:', err);
-    });
+    // Persistência em Nuvem (Supabase) apenas quando online
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      upsertCloudSiteConfig(config).catch(err => {
+        console.warn('Notice saving site config to cloud:', err);
+      });
+    }
   } catch (e) {
     console.error('Failed to save site config:', e);
   }
@@ -417,16 +420,18 @@ export function saveStoredPlans(plans: PlanDefinition[]): void {
         // Fallback silencioso
       }
     }
-    // Persistência em Nuvem resiliente (Supabase)
-    (async () => {
-      for (const p of plans) {
-        try {
-          await upsertCloudPlan(p);
-        } catch (planErr) {
-          console.warn(`Aviso ao persistir plano ${p.id} no Supabase:`, planErr);
+    // Persistência em Nuvem resiliente (Supabase) apenas quando online
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+      (async () => {
+        for (const p of plans) {
+          try {
+            await upsertCloudPlan(p);
+          } catch (planErr) {
+            console.warn(`Aviso ao persistir plano ${p.id} no Supabase:`, planErr);
+          }
         }
-      }
-    })();
+      })();
+    }
   } catch (e) {
     console.error('Failed to save plans:', e);
   }
@@ -445,6 +450,12 @@ export async function fetchPublicLandingData(): Promise<{
   siteConfig: SiteConfig;
   plans: PlanDefinition[];
 }> {
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+    return {
+      siteConfig: getStoredSiteConfig(),
+      plans: getStoredPlans(),
+    };
+  }
   const now = Date.now();
   if (lastPublicLandingResult && now - lastPublicLandingFetch < 5000) {
     return lastPublicLandingResult;
@@ -517,6 +528,13 @@ export async function syncMasterAdminFromCloud(): Promise<{
   plans: PlanDefinition[];
   subscribers: Subscriber[];
 }> {
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+    return {
+      siteConfig: getStoredSiteConfig(),
+      plans: getStoredPlans(),
+      subscribers: getStoredSubscribers(),
+    };
+  }
   const now = Date.now();
   if (lastSyncMasterResult && now - lastSyncMasterFetch < 5000) {
     return lastSyncMasterResult;
