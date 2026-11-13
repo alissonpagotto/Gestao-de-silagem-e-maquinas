@@ -28,6 +28,30 @@ import {
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 import { cadastrarProduto, parseNumericFloat } from '../../lib/supabaseService';
 import { ProductLabelPrintModal } from './ProductLabelPrintModal';
+import { ClassificationListManagerModal } from './ClassificationListManagerModal';
+import {
+  DEFAULT_TIPO_PRODUTO_OPTIONS,
+  getStoredTipoProdutoOptions,
+  saveTipoProdutoOptionsList,
+  saveCustomTipoProdutoOption,
+  DEFAULT_PRODUCT_GROUPS,
+  getStoredProductGroups,
+  saveProductGroupsList,
+  saveCustomProductGroup,
+  getDefaultSubgroupsForGroup,
+  getSuggestedSubgroupsForGroup,
+  saveProductSubgroupsList,
+  saveCustomProductSubgroup,
+  DEFAULT_PRODUCT_VARIATIONS,
+  getStoredProductVariations,
+  saveProductVariationsList,
+  saveCustomProductVariation,
+  DEFAULT_PRODUCT_BRANDS,
+  getStoredProductBrands,
+  saveProductBrandsList,
+  saveCustomProductBrand,
+  findMatchingOption,
+} from './productClassificationStorage';
 
 export const DEFAULT_TIRE_BRANDS = [
   'MICHELIN',
@@ -211,11 +235,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [nome, setNome] = useState('');
   const [codigoInterno, setCodigoInterno] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [tipoProduto, setTipoProduto] = useState('');
+  const [grupo, setGrupo] = useState('');
+  const [subgrupo, setSubgrupo] = useState('');
+  const [variacao, setVariacao] = useState('');
+  const [tipoProdutoOptions, setTipoProdutoOptions] = useState<string[]>(() => getStoredTipoProdutoOptions());
+  const [groupOptions, setGroupOptions] = useState<string[]>(() => getStoredProductGroups());
+  const [subgroupOptions, setSubgroupOptions] = useState<string[]>(() => getSuggestedSubgroupsForGroup(''));
+  const [variationOptions, setVariationOptions] = useState<string[]>(() => getStoredProductVariations());
+  const [brandOptions, setBrandOptions] = useState<string[]>(() => getStoredProductBrands());
+  const [activeManagerModal, setActiveManagerModal] = useState<
+    'tipo_produto' | 'grupo' | 'subgrupo' | 'variacao' | 'marca' | null
+  >(null);
   const [unidadeMedida, setUnidadeMedida] = useState('UN');
   const [marca, setMarca] = useState('');
   const [codigoBarras, setCodigoBarras] = useState('');
   const [semGtin, setSemGtin] = useState(false);
   const [refFabrica, setRefFabrica] = useState('');
+
+  useEffect(() => {
+    setSubgroupOptions(getSuggestedSubgroupsForGroup(grupo));
+  }, [grupo]);
 
   // BLOCO TÉCNICO: PARÂMETROS DO PNEU (GESTÃO DE FROTAS)
   const [tireFireNumber, setTireFireNumber] = useState('');
@@ -654,8 +694,45 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       }
 
+      // Restauração dos 4 campos de classificação hierárquica do produto + Marca
+      const loadedTipos = getStoredTipoProdutoOptions();
+      const loadedGroups = getStoredProductGroups();
+      const loadedVariations = getStoredProductVariations();
+      const loadedBrands = getStoredProductBrands();
+
+      setTipoProdutoOptions(loadedTipos);
+      setGroupOptions(loadedGroups);
+      setVariationOptions(loadedVariations);
+      setBrandOptions(loadedBrands);
+      setActiveManagerModal(null);
+
+      const rawTipoProduto = String(
+        (itemFresh as any)?.tipo_produto ?? (initialData as any)?.tipo_produto ?? ''
+      ).trim();
+      const rawGrupo = String(
+        (itemFresh as any)?.grupo ?? (initialData as any)?.grupo ?? ''
+      ).trim();
+      const rawSubgrupo = String(
+        (itemFresh as any)?.subgrupo ?? (initialData as any)?.subgrupo ?? ''
+      ).trim();
+      const rawVariacao = String(
+        (itemFresh as any)?.variacao ?? (initialData as any)?.variacao ?? ''
+      ).trim();
+
+      const matchedTipo = findMatchingOption(loadedTipos, rawTipoProduto);
+      const matchedGrupo = findMatchingOption(loadedGroups, rawGrupo);
+      const loadedSubgroups = getSuggestedSubgroupsForGroup(matchedGrupo);
+      const matchedSubgrupo = findMatchingOption(loadedSubgroups, rawSubgrupo);
+      const matchedVariacao = findMatchingOption(loadedVariations, rawVariacao);
+
+      setTipoProduto(matchedTipo);
+      setGrupo(matchedGrupo);
+      setSubgrupo(matchedSubgrupo);
+      setVariacao(matchedVariacao);
+      setSubgroupOptions(loadedSubgroups);
+
       // Restauração da Marca: herança unificada pelo campo MARCA de 1. IDENTIFICAÇÃO
-      const initialMarca = (
+      const rawMarca = String(
         itemFresh?.marca || 
         itemFresh?.brand || 
         initialData?.marca || 
@@ -663,7 +740,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         (itemFresh as any)?.pneuParams?.marcaPneu || 
         (initialData as any)?.pneuParams?.marcaPneu || 
         ''
-      ).toUpperCase();
+      ).trim();
+      const initialMarca = findMatchingOption(loadedBrands, rawMarca);
       setMarca(initialMarca);
 
       const pneuParamsObj = (itemFresh as any)?.pneuParams || (initialData as any)?.pneuParams;
@@ -980,6 +1058,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         ? Number(capacidadeGalao)
         : undefined;
 
+      const cleanTipoProduto = tipoProduto.trim();
+      const cleanGrupo = grupo.trim();
+      const cleanSubgrupo = subgrupo.trim();
+      const cleanVariacao = variacao.trim();
+
+      if (cleanTipoProduto) saveCustomTipoProdutoOption(cleanTipoProduto);
+      if (cleanGrupo) saveCustomProductGroup(cleanGrupo);
+      if (cleanSubgrupo) saveCustomProductSubgroup(cleanGrupo, cleanSubgrupo);
+      if (cleanVariacao) saveCustomProductVariation(cleanVariacao);
+      if (marca.trim()) saveCustomProductBrand(marca.trim());
+
       const newProduct: InventoryItem = {
         id: prodId,
         companyId: companyId || initialData?.companyId,
@@ -989,7 +1078,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         nome_comercial: cleanNome,
         category: categoria || 'outro',
         categoria: categoria || 'outro',
-        tipo_item: (categoria === 'SERVIÇO' || (categoria || '').toUpperCase().startsWith('SERVIÇO') || (categoria || '').toUpperCase().includes('MÃO DE OBRA')) ? 'SERVIÇO' : (initialData?.tipo_item || 'PRODUTO'),
+        tipo_produto: cleanTipoProduto || undefined,
+        grupo: cleanGrupo || undefined,
+        subgrupo: cleanSubgrupo || undefined,
+        variacao: cleanVariacao || undefined,
+        tipo_item: (categoria === 'SERVIÇO' || (categoria || '').toUpperCase().startsWith('SERVIÇO') || (categoria || '').toUpperCase().includes('MÃO DE OBRA') || cleanTipoProduto.toUpperCase().includes('SERVIÇO')) ? 'SERVIÇO' : (initialData?.tipo_item || 'PRODUTO'),
         unit: unidadeMedida.trim() || 'UN',
         unidade_medida: unidadeMedida.trim() || 'UN',
         brand: marcaTratada || undefined,
@@ -1563,6 +1656,165 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </div>
                     </div>
 
+                    {/* Classificação Hierárquica do Produto (Grid 2x2 Compacto) */}
+                    <div className="grid grid-cols-2 gap-1.5 items-stretch">
+                      {/* 1. TIPO DE PRODUTO (Linha 1, Esquerda) */}
+                      <div className="flex flex-col justify-end min-w-0">
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
+                          TIPO DE PRODUTO
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={tipoProduto}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__manage__') {
+                                setActiveManagerModal('tipo_produto');
+                              } else {
+                                setTipoProduto(val);
+                              }
+                            }}
+                            className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          >
+                            <option value="">Selecione...</option>
+                            {tipoProduto && !tipoProdutoOptions.some((opt) => opt.toLowerCase() === tipoProduto.toLowerCase()) && (
+                              <option value={tipoProduto}>{tipoProduto}</option>
+                            )}
+                            {tipoProdutoOptions.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                            <option disabled value="">──────────</option>
+                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar tipos...</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setActiveManagerModal('tipo_produto')}
+                            className="h-7.5 w-7.5 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                            title="Gerenciar lista de Tipos de Produto"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 2. GRUPO (Linha 1, Direita) */}
+                      <div className="flex flex-col justify-end min-w-0">
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
+                          GRUPO
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={grupo}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__manage__') {
+                                setActiveManagerModal('grupo');
+                              } else {
+                                setGrupo(val);
+                              }
+                            }}
+                            className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          >
+                            <option value="">Selecione...</option>
+                            {grupo && !groupOptions.some((g) => g.toLowerCase() === grupo.toLowerCase()) && (
+                              <option value={grupo}>{grupo}</option>
+                            )}
+                            {groupOptions.map((g) => (
+                              <option key={g} value={g}>{g}</option>
+                            ))}
+                            <option disabled value="">──────────</option>
+                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar grupos...</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setActiveManagerModal('grupo')}
+                            className="h-7.5 w-7.5 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                            title="Gerenciar lista de Grupos"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 3. SUBGRUPO (Linha 2, Esquerda) */}
+                      <div className="flex flex-col justify-end min-w-0">
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
+                          SUBGRUPO
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={subgrupo}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__manage__') {
+                                setActiveManagerModal('subgrupo');
+                              } else {
+                                setSubgrupo(val);
+                              }
+                            }}
+                            className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          >
+                            <option value="">Selecione...</option>
+                            {subgrupo && !subgroupOptions.some((sg) => sg.toLowerCase() === subgrupo.toLowerCase()) && (
+                              <option value={subgrupo}>{subgrupo}</option>
+                            )}
+                            {subgroupOptions.map((sg) => (
+                              <option key={sg} value={sg}>{sg}</option>
+                            ))}
+                            <option disabled value="">──────────</option>
+                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar subgrupos...</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setActiveManagerModal('subgrupo')}
+                            className="h-7.5 w-7.5 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                            title="Gerenciar lista de Subgrupos"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 4. VARIAÇÃO / ESPECIFICAÇÃO (Linha 2, Direita) */}
+                      <div className="flex flex-col justify-end min-w-0">
+                        <label className="block text-[10.5px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
+                          VARIAÇÃO / ESPECIFICAÇÃO
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={variacao}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__manage__') {
+                                setActiveManagerModal('variacao');
+                              } else {
+                                setVariacao(val);
+                              }
+                            }}
+                            className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          >
+                            <option value="">Selecione...</option>
+                            {variacao && !variationOptions.some((v) => v.toLowerCase() === variacao.toLowerCase()) && (
+                              <option value={variacao}>{variacao}</option>
+                            )}
+                            {variationOptions.map((v) => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                            <option disabled value="">──────────</option>
+                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar variações...</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setActiveManagerModal('variacao')}
+                            className="h-7.5 w-7.5 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                            title="Gerenciar lista de Variações / Especificações"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Linha 3: Unidade de Medida + Marca */}
                     <div className="grid grid-cols-12 gap-1.5 items-stretch">
                       <div className="col-span-5 flex flex-col justify-end">
@@ -1600,20 +1852,42 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         <label className="block text-[11px] font-bold uppercase text-black dark:text-stone-300 truncate mb-0.5">
                           MARCA
                         </label>
-                        <input
-                          type="text"
-                          value={marca}
-                          onChange={(e) => {
-                            const val = e.target.value.toUpperCase();
-                            setMarca(val);
-                            // Redundância inteligente: caso o select de parâmetros técnicos do pneu fique vazio ou "SELECIONE...", assume a marca geral
-                            if (!tireBrand || tireBrand.trim() === '' || tireBrand.toUpperCase() === 'SELECIONE...') {
-                              setTireBrand(val);
-                            }
-                          }}
-                          placeholder="EX: MICHELIN, PIRELLI..."
-                          className="w-full h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
-                        />
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={marca}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__manage__') {
+                                setActiveManagerModal('marca');
+                              } else {
+                                setMarca(val);
+                                // Redundância inteligente: caso o select de parâmetros técnicos do pneu fique vazio ou "SELECIONE...", assume a marca geral
+                                if (!tireBrand || tireBrand.trim() === '' || tireBrand.toUpperCase() === 'SELECIONE...') {
+                                  setTireBrand(val.toUpperCase());
+                                }
+                              }
+                            }}
+                            className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          >
+                            <option value="">Selecione...</option>
+                            {marca && !brandOptions.some((b) => b.toLowerCase() === marca.toLowerCase()) && (
+                              <option value={marca}>{marca}</option>
+                            )}
+                            {brandOptions.map((b) => (
+                              <option key={b} value={b}>{b}</option>
+                            ))}
+                            <option disabled value="">──────────</option>
+                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar marcas...</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setActiveManagerModal('marca')}
+                            className="h-7.5 w-7.5 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                            title="Gerenciar lista de Marcas"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -2464,6 +2738,123 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           zIndexClass="z-[9999]"
         />
       )}
+
+      {/* Sub-modal Unificado: Gerenciar Tipo de Produto, Grupo, Subgrupo, Variação ou Marca */}
+      {activeManagerModal && (() => {
+        const managerConfigs = {
+          tipo_produto: {
+            title: 'GERENCIAR TIPOS DE PRODUTO',
+            subtitle: 'Adicione, edite ou exclua opções de Tipo de Produto',
+            items: tipoProdutoOptions,
+            defaultItems: DEFAULT_TIPO_PRODUTO_OPTIONS,
+            placeholder: 'Ex: Matéria-Prima, Embalagem...',
+            selectedValue: tipoProduto,
+            onSaveItems: (next: string[]) => setTipoProdutoOptions(saveTipoProdutoOptionsList(next)),
+            onSelectItem: (val: string) => setTipoProduto(val),
+            onRenameItem: (oldV: string, newV: string) => {
+              if (tipoProduto.toLowerCase() === oldV.toLowerCase()) setTipoProduto(newV);
+            },
+            onDeleteItem: (delV: string) => {
+              if (tipoProduto.toLowerCase() === delV.toLowerCase()) setTipoProduto('');
+            },
+          },
+          grupo: {
+            title: 'GERENCIAR GRUPOS DE PRODUTO',
+            subtitle: 'Adicione, edite ou exclua grupos de estoque',
+            items: groupOptions,
+            defaultItems: DEFAULT_PRODUCT_GROUPS,
+            placeholder: 'Ex: Filtros, Correias, Freios...',
+            selectedValue: grupo,
+            onSaveItems: (next: string[]) => setGroupOptions(saveProductGroupsList(next)),
+            onSelectItem: (val: string) => setGrupo(val),
+            onRenameItem: (oldV: string, newV: string) => {
+              if (grupo.toLowerCase() === oldV.toLowerCase()) setGrupo(newV);
+            },
+            onDeleteItem: (delV: string) => {
+              if (grupo.toLowerCase() === delV.toLowerCase()) setGrupo('');
+            },
+          },
+          subgrupo: {
+            title: grupo ? `GERENCIAR SUBGRUPOS (${grupo.toUpperCase()})` : 'GERENCIAR SUBGRUPOS',
+            subtitle: grupo
+              ? `Opções de subgrupo vinculadas ao grupo "${grupo}"`
+              : 'Adicione, edite ou exclua subgrupos de produto',
+            items: subgroupOptions,
+            defaultItems: getDefaultSubgroupsForGroup(grupo),
+            placeholder: 'Ex: Filtro de Óleo, Correia Dentada...',
+            selectedValue: subgrupo,
+            onSaveItems: (next: string[]) => setSubgroupOptions(saveProductSubgroupsList(grupo, next)),
+            onSelectItem: (val: string) => setSubgrupo(val),
+            onRenameItem: (oldV: string, newV: string) => {
+              if (subgrupo.toLowerCase() === oldV.toLowerCase()) setSubgrupo(newV);
+            },
+            onDeleteItem: (delV: string) => {
+              if (subgrupo.toLowerCase() === delV.toLowerCase()) setSubgrupo('');
+            },
+          },
+          variacao: {
+            title: 'GERENCIAR VARIAÇÕES / ESPECIFICAÇÕES',
+            subtitle: 'Adicione, edite ou exclua variações e especificações',
+            items: variationOptions,
+            defaultItems: DEFAULT_PRODUCT_VARIATIONS,
+            placeholder: 'Ex: Voltagem 12V, Rosca Fina, Lado Direito...',
+            selectedValue: variacao,
+            onSaveItems: (next: string[]) => setVariationOptions(saveProductVariationsList(next)),
+            onSelectItem: (val: string) => setVariacao(val),
+            onRenameItem: (oldV: string, newV: string) => {
+              if (variacao.toLowerCase() === oldV.toLowerCase()) setVariacao(newV);
+            },
+            onDeleteItem: (delV: string) => {
+              if (variacao.toLowerCase() === delV.toLowerCase()) setVariacao('');
+            },
+          },
+          marca: {
+            title: 'GERENCIAR MARCAS DE PRODUTOS',
+            subtitle: 'Adicione, edite ou exclua marcas cadastradas no estoque',
+            items: brandOptions,
+            defaultItems: DEFAULT_PRODUCT_BRANDS,
+            placeholder: 'Ex: John Deere, Michelin, Bosch...',
+            selectedValue: marca,
+            onSaveItems: (next: string[]) => setBrandOptions(saveProductBrandsList(next)),
+            onSelectItem: (val: string) => {
+              setMarca(val);
+              if (!tireBrand || tireBrand.trim() === '' || tireBrand.toUpperCase() === 'SELECIONE...') {
+                setTireBrand(val.toUpperCase());
+              }
+            },
+            onRenameItem: (oldV: string, newV: string) => {
+              if (marca.toLowerCase() === oldV.toLowerCase()) {
+                setMarca(newV);
+                if (tireBrand.toLowerCase() === oldV.toLowerCase()) {
+                  setTireBrand(newV.toUpperCase());
+                }
+              }
+            },
+            onDeleteItem: (delV: string) => {
+              if (marca.toLowerCase() === delV.toLowerCase()) setMarca('');
+            },
+          },
+        } as const;
+
+        const cfg = managerConfigs[activeManagerModal];
+        return (
+          <ClassificationListManagerModal
+            isOpen={true}
+            onClose={() => setActiveManagerModal(null)}
+            title={cfg.title}
+            subtitle={cfg.subtitle}
+            items={cfg.items}
+            defaultItems={cfg.defaultItems}
+            placeholder={cfg.placeholder}
+            selectedValue={cfg.selectedValue}
+            onSaveItems={cfg.onSaveItems}
+            onSelectItem={cfg.onSelectItem}
+            onRenameItem={cfg.onRenameItem}
+            onDeleteItem={cfg.onDeleteItem}
+            zIndexClass="z-[9999]"
+          />
+        );
+      })()}
 
       {/* Sub-modal: Impressão de Etiquetas de Gôndola */}
       {isLabelPrintModalOpen && (

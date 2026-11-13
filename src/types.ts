@@ -823,6 +823,10 @@ export interface InventoryItem {
   capacidade_total?: number; // Coluna real da tabela estoque_produtos: capacidade máxima em litros
   nome?: string;
   categoria?: string;
+  tipo_produto?: string;
+  grupo?: string;
+  subgrupo?: string;
+  variacao?: string;
   unidade_medida?: string;
   marca?: string;
   codigo_barras?: string;
