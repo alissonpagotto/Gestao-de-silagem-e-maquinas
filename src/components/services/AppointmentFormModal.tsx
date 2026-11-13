@@ -805,22 +805,22 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Cabeçalho do Modal - Moldura Metálica 3D Acetinada */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-200 rounded-t-lg shrink-0 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        {/* Cabeçalho do Modal */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-black bg-[#cad4e6] text-black rounded-t-lg shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Calendar className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#e0e6f1] text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+              <Calendar className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2 text-slate-800 dark:text-stone-100">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2 text-black">
                 <span>{editAppointment?.id ? 'EDITAR AGENDAMENTO DE SERVIÇO' : 'NOVO AGENDAMENTO NA AGENDA'}</span>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white text-black font-bold border border-black shadow-2xs">
                   {appointmentNumber || nextAppointmentNumber}
                 </span>
               </h2>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
+              <p className="text-[11px] text-slate-800 font-medium mt-0.5">
                 Cálculo de tempos logísticos, escala de veículos com placas/prefixos e controle de frotas sem sobreposição.
               </p>
             </div>
@@ -829,21 +829,21 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4 text-black" />
           </button>
         </div>
 
         {/* Corpo do Formulário */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 text-stone-900 dark:text-stone-100">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[#cad4e6] text-black">
           
           {/* ALERTA CRÍTICO: Conflito de Horário para o Mesmo Veículo */}
           {vehicleScheduleConflicts.length > 0 && (
-            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border-2 border-red-500/80 text-red-900 dark:text-red-200 shadow-sm space-y-3">
+            <div className="p-4 rounded-xl bg-red-50 border-2 border-red-600 text-red-900 shadow-sm space-y-3">
               <div className="flex items-center gap-2.5">
-                <ShieldAlert className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0" />
-                <h4 className="text-sm font-black uppercase tracking-tight text-red-800 dark:text-red-300">
+                <ShieldAlert className="w-6 h-6 text-red-600 shrink-0" />
+                <h4 className="text-sm font-black uppercase tracking-tight text-red-800">
                   ⚠️ Conflito de Horário Detectado para o Mesmo Veículo!
                 </h4>
               </div>
@@ -854,7 +854,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                 {vehicleScheduleConflicts.map((conf, i) => (
                   <li key={i}>
                     <span className="underline">{conf.vehicleName}</span> já está escalado para{' '}
-                    <strong className="text-red-700 dark:text-red-300">{conf.conflictingAppointment.clientName}</strong> ({conf.conflictingAppointment.appointmentNumber}){' '}
+                    <strong className="text-red-700">{conf.conflictingAppointment.clientName}</strong> ({conf.conflictingAppointment.appointmentNumber}){' '}
                     em {formatDateBR(conf.conflictingAppointment.startDate)} das {conf.conflictingAppointment.startTime}h às {conf.conflictingAppointment.endTime || '—'}h.
                   </li>
                 ))}
@@ -862,15 +862,15 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
               {/* 1. Sugestão Inteligente de Próximo Horário Disponível */}
               {nextAvailableSlot && (
-                <div className="pt-2 border-t border-red-200 dark:border-red-900/60 flex flex-wrap items-center gap-2">
+                <div className="pt-2 border-t border-red-200 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleApplyNextAvailableSlot}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-red-950 text-red-900 dark:text-red-100 border-2 border-red-400 dark:border-red-700 hover:bg-red-100/70 dark:hover:bg-red-900/80 rounded-lg text-xs font-black shadow-xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-white text-red-900 border-2 border-red-500 hover:bg-red-100/70 rounded-lg text-xs font-black shadow-xs transition-colors cursor-pointer"
                     title="Ajustar automaticamente data e horário de início"
                   >
                     <span>💡 Agendar para o próximo horário disponível:</span>
-                    <span className="underline font-mono bg-red-100 dark:bg-red-900/60 px-1.5 py-0.5 rounded">
+                    <span className="underline font-mono bg-red-100 px-1.5 py-0.5 rounded">
                       {formatDateBR(nextAvailableSlot.date)} às {nextAvailableSlot.time}h
                     </span>
                   </button>
@@ -879,7 +879,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
               {/* 2. Lógica de Encaixe com Remanejamento Automático para Frente */}
               {cascadedDisplacements.length > 0 && (
-                <div className="p-3 rounded-lg bg-white/90 dark:bg-red-950/70 border border-red-300 dark:border-red-800 space-y-2">
+                <div className="p-3 rounded-lg bg-white border border-red-400 space-y-2">
                   <div className="flex items-start gap-2">
                     <input 
                       type="checkbox"
@@ -892,18 +892,18 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                       className="mt-0.5 rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer shrink-0"
                     />
                     <div className="space-y-1 text-xs">
-                      <label htmlFor="apply-auto-shift" className="font-black text-red-950 dark:text-red-100 cursor-pointer block leading-tight">
+                      <label htmlFor="apply-auto-shift" className="font-black text-red-950 cursor-pointer block leading-tight">
                         ⚠️ Esta ação irá deslocar os agendamentos seguintes desta máquina para frente. Deseja aplicar o remanejamento automático?
                       </label>
-                      <p className="text-[11px] font-medium text-red-800 dark:text-red-300 leading-normal">
+                      <p className="text-[11px] font-medium text-red-800 leading-normal">
                         O sistema abrirá espaço para este serviço e empurrará o horário de início dos serviços seguintes na agenda daquela máquina para frente, recalculando o cronograma em cascata de forma atômica no banco de dados.
                       </p>
                     </div>
                   </div>
 
                   {applyAutoShift && (
-                    <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800/60 space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-red-900 dark:text-red-200 uppercase tracking-wide">
+                    <div className="mt-2 pt-2 border-t border-red-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-red-900 uppercase tracking-wide">
                         <span>Serviços que serão empurrados ({cascadedDisplacements.length}):</span>
                         <span>Novo Horário Previsto</span>
                       </div>
@@ -911,16 +911,16 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                         {cascadedDisplacements.map((disp, idx) => (
                           <div 
                             key={idx} 
-                            className="flex items-center justify-between gap-2 p-1.5 rounded bg-white dark:bg-stone-900 border border-red-200 dark:border-red-900 text-[11px]"
+                            className="flex items-center justify-between gap-2 p-1.5 rounded bg-white border border-red-200 text-[11px]"
                           >
-                            <div className="truncate font-semibold text-stone-800 dark:text-stone-200">
-                              <strong className="text-red-700 dark:text-red-400 font-mono">{disp.original.appointmentNumber}</strong>{' '}
+                            <div className="truncate font-semibold text-black">
+                              <strong className="text-red-700 font-mono">{disp.original.appointmentNumber}</strong>{' '}
                               <span>({disp.original.clientName || 'Cliente'})</span>
                             </div>
                             <div className="shrink-0 flex items-center gap-1.5 font-mono text-[11px]">
-                              <span className="line-through text-stone-400 text-[10px]">{disp.original.startTime}h</span>
-                              <span className="text-stone-400">➔</span>
-                              <span className="font-bold text-red-700 dark:text-red-300">
+                              <span className="line-through text-slate-400 text-[10px]">{disp.original.startTime}h</span>
+                              <span className="text-slate-400">➔</span>
+                              <span className="font-bold text-red-700">
                                 {formatDateBR(disp.newStartDate)} às {disp.newStartTime}h
                               </span>
                             </div>
@@ -941,7 +941,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   onChange={(e) => setConflictWarningAck(e.target.checked)}
                   className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
                 />
-                <label htmlFor="ack-conflict" className="text-xs font-semibold cursor-pointer text-stone-800 dark:text-stone-300">
+                <label htmlFor="ack-conflict" className="text-xs font-semibold cursor-pointer text-black">
                   Estou ciente da sobreposição e confirmo o remanejamento manual desta frota.
                 </label>
               </div>
@@ -949,23 +949,23 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           )}
 
           {/* 1. SEÇÃO: DADOS DO CLIENTE & LOCALIZAÇÃO */}
-          <div className="bg-zinc-50 dark:bg-stone-900/60 p-3 sm:p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-              <User className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
+          <div className="bg-[#e0e6f1] p-3 sm:p-3.5 rounded-xl border border-black space-y-3 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2 border-b border-black/20 pb-2">
+              <User className="w-3.5 h-3.5 text-black" />
               <span>1. CLIENTE E LOCAL DA OPERAÇÃO</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* Seleção de Cliente Existente ou Digitação */}
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Cliente / Produtor Rural <span className="text-red-500">*</span>
+                <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">
+                  Cliente / Produtor Rural <span className="text-red-600">*</span>
                 </label>
                 <div className="flex gap-1.5">
                   <select
                     value={clientId}
                     onChange={(e) => handleClientChange(e.target.value)}
-                    className="w-1/2 px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-zinc-900 dark:text-stone-100"
+                    className="w-1/2 px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                   >
                     <option value="">-- Puxar da Base de Clientes --</option>
                     {clients.map(c => (
@@ -979,14 +979,14 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
                     placeholder="Nome do produtor / cliente..."
-                    className="w-1/2 px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white"
+                    className="w-1/2 px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">
                   Fazenda / Propriedade
                 </label>
                 <input
@@ -994,52 +994,52 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   value={farmName}
                   onChange={(e) => setFarmName(e.target.value)}
                   placeholder="Ex: Nome da Fazenda / Propriedade"
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-zinc-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">
                   Município / UF
                 </label>
                 <div className="relative">
-                  <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-zinc-400" />
+                  <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-600" />
                   <input
                     type="text"
                     value={locationCityState}
                     onChange={(e) => setLocationCityState(e.target.value)}
                     placeholder="Ex: Cascavel - PR"
-                    className="w-full pl-8 px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-zinc-900 dark:text-stone-100"
+                    className="w-full pl-8 px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">
                   Telefone / WhatsApp de Contato
                 </label>
                 <div className="relative">
-                  <Phone className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-zinc-400" />
+                  <Phone className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-600" />
                   <input
                     type="text"
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
                     placeholder="(45) 99999-9999"
-                    className="w-full pl-8 px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-zinc-900 dark:text-stone-100"
+                    className="w-full pl-8 px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">
                   Tipo de Serviço Solicitado
                 </label>
                 <select
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value as any)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-zinc-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 >
                   <option value="Corte / Ensilagem">Corte / Ensilagem</option>
                   <option value="Colheita">Colheita Agrícola</option>
@@ -1052,44 +1052,44 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           </div>
 
           {/* 2. SEÇÃO: CÁLCULO DE TEMPO TOTAL (DESLOCAMENTO + PRANCHA + EXECUÇÃO) */}
-          <div className="bg-emerald-50/70 dark:bg-emerald-950/30 p-3 sm:p-3.5 rounded-xl border border-emerald-300 dark:border-emerald-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-emerald-200 dark:border-emerald-800 pb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-emerald-300 flex items-center gap-2">
-                <Calculator className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+          <div className="bg-[#e0e6f1] p-3 sm:p-3.5 rounded-xl border border-black space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-black/20 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                <Calculator className="w-3.5 h-3.5 text-emerald-700" />
                 <span>2. CRONOGRAMA LOGÍSTICO E CÁLCULO DE TEMPO TOTAL</span>
               </h3>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-emerald-400">
+              <span className="text-[11px] font-semibold text-slate-800">
                 Fórmula: Deslocamento + Prancha + (Área ÷ Rendimento)
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Data de Início
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Horário de Saída / Início
                 </label>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Deslocamento (Minutos)
                 </label>
                 <input
@@ -1099,12 +1099,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   placeholder="0"
                   value={travelTimeMinutes}
                   onChange={(e) => setTravelTimeMinutes(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Tempo Prancha / Embarque (Min)
                 </label>
                 <input
@@ -1114,20 +1114,20 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   placeholder="0"
                   value={trailerLoadingTimeMinutes}
                   onChange={(e) => setTrailerLoadingTimeMinutes(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Unidade de Medida
                 </label>
                 <select
                   value={areaUnit}
                   onChange={(e) => setAreaUnit(e.target.value as any)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 >
                   <option value="hectares">Hectares (ha)</option>
                   <option value="alqueires">Alqueires (alq)</option>
@@ -1136,7 +1136,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Quantidade Prevista ({areaUnit === 'hectares' ? 'ha' : areaUnit === 'alqueires' ? 'alq' : 'h'})
                 </label>
                 <input
@@ -1146,12 +1146,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   placeholder="0.0"
                   value={estimatedQuantity}
                   onChange={(e) => setEstimatedQuantity(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
                   Rendimento Operacional ({areaUnit === 'hectares' ? 'ha/h' : areaUnit === 'alqueires' ? 'alq/h' : 'h/h'})
                 </label>
                 <input
@@ -1161,51 +1161,51 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   placeholder="0.0"
                   value={productivityRatePerHour}
                   onChange={(e) => setProductivityRatePerHour(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
             </div>
 
             {/* Painel do Resultado do Tempo Calculado */}
             {hasValidCalculation ? (
-              <div className="p-2.5 bg-white dark:bg-stone-900 rounded-xl border border-emerald-300 dark:border-emerald-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center shadow-xs">
+              <div className="p-2.5 bg-white rounded-xl border border-black grid grid-cols-2 sm:grid-cols-4 gap-2 text-center shadow-xs">
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-stone-500">Tempo de Execução</span>
-                  <span className="text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100">
+                  <span className="block text-[10px] uppercase font-bold text-slate-700">Tempo de Execução</span>
+                  <span className="text-xs sm:text-sm font-black text-black">
                     {Math.floor(executionMinutes / 60)}h {executionMinutes % 60}min
                   </span>
-                  <span className="text-[10px] text-stone-400 block font-medium">({executionMinutes} min totais)</span>
+                  <span className="text-[10px] text-slate-600 block font-medium">({executionMinutes} min totais)</span>
                 </div>
 
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-stone-500">Tempo Total Operacional</span>
-                  <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-400">
+                  <span className="block text-[10px] uppercase font-bold text-slate-700">Tempo Total Operacional</span>
+                  <span className="text-xs sm:text-sm font-black text-emerald-700">
                     {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}min
                   </span>
-                  <span className="text-[10px] text-stone-400 block font-medium">Desloc + Prancha + Corte</span>
+                  <span className="text-[10px] text-slate-600 block font-medium">Desloc + Prancha + Corte</span>
                 </div>
 
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-stone-500">Data Término Previsto</span>
-                  <span className="text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100">
+                  <span className="block text-[10px] uppercase font-bold text-slate-700">Data Término Previsto</span>
+                  <span className="text-xs sm:text-sm font-black text-black">
                     {calculatedEndDate ? calculatedEndDate.split('-').reverse().join('/') : '—'}
                   </span>
                 </div>
 
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-stone-500">Horário Término Previsto</span>
-                  <span className="text-xs sm:text-sm font-black text-[#2e65aa] dark:text-blue-400">
+                  <span className="block text-[10px] uppercase font-bold text-slate-700">Horário Término Previsto</span>
+                  <span className="text-xs sm:text-sm font-black text-[#2e65aa]">
                     {calculatedEndTime ? `${calculatedEndTime}h` : '—'}
                   </span>
                 </div>
               </div>
             ) : (
-              <div className="p-2.5 bg-stone-50/80 dark:bg-stone-900/60 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-1.5 text-stone-600 dark:text-stone-400 font-bold text-xs">
-                  <Clock className="w-3.5 h-3.5 text-stone-400" />
+              <div className="p-2.5 bg-white rounded-xl border border-dashed border-gray-400 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
+                  <Clock className="w-3.5 h-3.5 text-slate-600" />
                   <span>Aguardando preenchimento de Quantidade Prevista e Rendimento Operacional</span>
                 </div>
-                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                <p className="text-[11px] text-slate-600 mt-0.5">
                   Informe a quantidade e o rendimento para calcular automaticamente o tempo de execução e término previsto.
                 </p>
               </div>
@@ -1213,17 +1213,17 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           </div>
 
           {/* 3. SEÇÃO: ESCALA DE FROTAS & VEÍCULOS RASTREADOS POR PLACA / PREFIXO */}
-          <div className="bg-zinc-50 dark:bg-stone-900/60 p-3 sm:p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700 space-y-3">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700 pb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                <Truck className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
+          <div className="bg-[#e0e6f1] p-3 sm:p-3.5 rounded-xl border border-black space-y-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-black/20 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                <Truck className="w-3.5 h-3.5 text-black" />
                 <span>3. ESCALA DE FROTAS & VEÍCULOS (RASTREAMENTO)</span>
               </h3>
               <div className="flex gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleAddVehicle('caminhao')}
-                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] cursor-pointer flex items-center gap-1"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white hover:bg-gray-100 text-black border border-gray-400 shadow-2xs cursor-pointer flex items-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>+ Caminhão</span>
@@ -1231,7 +1231,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAddVehicle('trator')}
-                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] cursor-pointer flex items-center gap-1"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white hover:bg-gray-100 text-black border border-gray-400 shadow-2xs cursor-pointer flex items-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>+ Trator</span>
@@ -1240,28 +1240,28 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
             </div>
 
             {/* Máquina Principal (Forrageira / Ensiladeira) */}
-            <div className="p-2.5 bg-white dark:bg-stone-900 rounded-lg border-2 border-emerald-500/60 shadow-xs space-y-2">
+            <div className="p-2.5 bg-white rounded-lg border border-black border-l-4 border-l-emerald-600 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                <span className="text-xs font-extrabold uppercase text-emerald-900 flex items-center gap-1.5">
                   <Scissors className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Máquina Principal (Ensiladeira / Forrageira) *</span>
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-400 uppercase">
                   Veículo Primário
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-900 mb-1">
                     Veículo / Prefixo e Placa
                   </label>
                   <select
                     value={primaryMachineryId}
                     onChange={(e) => handlePrimaryMachineryChange(e.target.value)}
-                    className={`w-full px-2.5 py-1 sm:py-1.5 bg-stone-50 dark:bg-stone-800 border ${
-                      isPrimaryMachineryDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-stone-300 dark:border-stone-700'
-                    } rounded-lg text-xs font-extrabold text-stone-900 dark:text-stone-100`}
+                    className={`w-full px-2.5 py-1 sm:py-1.5 bg-white border ${
+                      isPrimaryMachineryDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-400'
+                    } rounded-lg text-xs font-extrabold text-black focus:outline-none focus:ring-1 focus:ring-black`}
                     required
                   >
                     <option value="">-- Selecione a Máquina Principal --</option>
@@ -1274,20 +1274,20 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                       ))}
                   </select>
                   {isPrimaryMachineryDuplicate && (
-                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-1 block leading-tight">
+                    <span className="text-[10px] font-bold text-red-600 mt-1 block leading-tight">
                       Este veículo já está escalado para este agendamento!
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-900 mb-1">
                     Operador Principal Responsável
                   </label>
                   <select
                     value={primaryOperatorId}
                     onChange={(e) => setPrimaryOperatorId(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                   >
                     <option value="">-- Selecione o Operador --</option>
                     {employees.map(emp => (
@@ -1302,12 +1302,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
             {/* Lista de Veículos de Apoio Escalados */}
             <div className="space-y-1.5">
-              <span className="text-[11px] font-bold uppercase text-slate-600 dark:text-stone-400 block">
+              <span className="text-[11px] font-bold uppercase text-black block">
                 Frotas de Apoio Escaladas (Caminhões de Silagem & Tratores Compactadores):
               </span>
 
               {assignedVehicles.length === 0 ? (
-                <div className="p-3 bg-white dark:bg-stone-900 rounded-lg border border-dashed border-stone-300 dark:border-stone-700 text-center text-xs text-stone-500">
+                <div className="p-3 bg-white rounded-lg border border-dashed border-gray-400 text-center text-xs text-slate-700 font-medium">
                   Nenhum veículo de apoio adicionado. Clique nos botões acima para escalar caminhões e tratores por prefixo/placa.
                 </div>
               ) : (
@@ -1324,27 +1324,27 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   return (
                     <div 
                       key={idx} 
-                      className={`p-2 bg-white dark:bg-stone-900 rounded-lg border ${
-                        isDuplicate ? 'border-red-400 dark:border-red-700 bg-red-50/20' : 'border-stone-300 dark:border-stone-700'
+                      className={`p-2 bg-white rounded-lg border ${
+                        isDuplicate ? 'border-red-500 bg-red-50/20' : 'border-black'
                       } grid grid-cols-1 sm:grid-cols-12 gap-2 items-center text-xs`}
                     >
                       <div className="sm:col-span-2">
-                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Tipo</span>
+                        <span className="font-bold text-[10px] uppercase text-slate-700 block">Tipo</span>
                         <span className={`inline-block font-extrabold px-1.5 py-0.5 rounded text-[10px] uppercase ${
-                          veh.category === 'caminhao' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                          veh.category === 'caminhao' ? 'bg-blue-100 text-blue-900 border border-blue-300' : 'bg-amber-100 text-amber-900 border border-amber-300'
                         }`}>
                           {veh.category === 'caminhao' ? 'Caminhão' : 'Trator'}
                         </span>
                       </div>
 
                       <div className="sm:col-span-4">
-                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Frota / Prefixo & Placa</span>
+                        <span className="font-bold text-[10px] uppercase text-slate-700 block">Frota / Prefixo & Placa</span>
                         <select
                           value={veh.machineryId}
                           onChange={(e) => handleUpdateVehicle(idx, 'machineryId', e.target.value)}
-                          className={`w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border ${
-                            isDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-stone-200 dark:border-stone-700'
-                          } rounded text-xs font-bold`}
+                          className={`w-full px-2 py-1 bg-white border ${
+                            isDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-400'
+                          } rounded text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black`}
                         >
                           {availableMachineries
                             .filter(m => !otherSelectedVehicleIds.has(m.id) || m.id === veh.machineryId)
@@ -1355,32 +1355,32 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                             ))}
                         </select>
                         {isDuplicate && (
-                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-1 block leading-tight">
+                          <span className="text-[10px] font-bold text-red-600 mt-1 block leading-tight">
                             Este veículo já está escalado para este agendamento!
                           </span>
                         )}
                       </div>
 
                       <div className="sm:col-span-3">
-                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Placa / Prefixo Gravado</span>
+                        <span className="font-bold text-[10px] uppercase text-slate-700 block">Placa / Prefixo Gravado</span>
                         <input
                           type="text"
                           value={veh.plateOrSerial}
                           onChange={(e) => handleUpdateVehicle(idx, 'plateOrSerial', e.target.value)}
-                          className={`w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border ${
-                            isDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-stone-200 dark:border-stone-700'
-                          } rounded text-xs font-mono font-bold`}
+                          className={`w-full px-2 py-1 bg-white border ${
+                            isDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-400'
+                          } rounded text-xs font-mono font-bold text-black focus:outline-none focus:ring-1 focus:ring-black`}
                         />
                       </div>
 
                       <div className="sm:col-span-2">
-                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Motorista / Condutor</span>
+                        <span className="font-bold text-[10px] uppercase text-slate-700 block">Motorista / Condutor</span>
                         <input
                           type="text"
                           value={veh.driverOrOperatorName || ''}
                           onChange={(e) => handleUpdateVehicle(idx, 'driverOrOperatorName', e.target.value)}
                           placeholder="Nome do motorista..."
-                          className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded text-xs font-semibold"
+                          className="w-full px-2 py-1 bg-white border border-gray-400 rounded text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                         />
                       </div>
 
@@ -1388,7 +1388,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveVehicle(idx)}
-                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors cursor-pointer"
                           title="Remover veículo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1402,46 +1402,51 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           </div>
 
           {/* 4. SEÇÃO: STATUS & OBSERVAÇÕES DE CAMPO */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                Status do Agendamento
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold"
-              >
-                <option value="agendado">Agendado</option>
-                <option value="em_deslocamento">Em Deslocamento</option>
-                <option value="em_execucao">Em Execução</option>
-                <option value="concluido">Concluído</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-            </div>
+          <div className="bg-[#e0e6f1] p-3 sm:p-3.5 rounded-xl border border-black space-y-2.5 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-black border-b border-black/20 pb-2">
+              4. STATUS & OBSERVAÇÕES DE CAMPO
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
+                  Status do Agendamento
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
+                >
+                  <option value="agendado">Agendado</option>
+                  <option value="em_deslocamento">Em Deslocamento</option>
+                  <option value="em_execucao">Em Execução</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                Instruções de Campo & Observações Técnicas
-              </label>
-              <input
-                type="text"
-                value={fieldNotes}
-                onChange={(e) => setFieldNotes(e.target.value)}
-                placeholder="Ex: Regular picado em 10mm, solo úmido na baixada, entrada pela porteira principal."
-                className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
-              />
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-900 mb-1">
+                  Instruções de Campo & Observações Técnicas
+                </label>
+                <input
+                  type="text"
+                  value={fieldNotes}
+                  onChange={(e) => setFieldNotes(e.target.value)}
+                  placeholder="Ex: Regular picado em 10mm, solo úmido na baixada, entrada pela porteira principal."
+                  className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
+                />
+              </div>
             </div>
           </div>
 
         </div>
 
         {/* Rodapé com Ações */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-t border-slate-300 dark:border-stone-800 bg-white dark:bg-stone-900 rounded-b-2xl shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-t border-black bg-[#cad4e6] rounded-b-lg shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 bg-white hover:bg-gray-100 text-black shadow-2xs transition-colors cursor-pointer"
           >
             Cancelar
           </button>
@@ -1450,7 +1455,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs border border-emerald-800 transition-colors cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Salvar Agendamento</span>

@@ -2666,7 +2666,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       >
         <div 
           id="printable-service-order-modal"
-          className="relative w-full max-w-[80vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl"
+          className="relative w-full max-w-[80vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-lg overflow-hidden shadow-2xl text-black"
         >
           {/* Badge para Cupom Térmico (Visível apenas em impressão 80mm) */}
           <div className="hidden print:block thermal-receipt-badge text-center">
@@ -2683,26 +2683,26 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             />
           </div>
           
-          {/* CABEÇALHO DO MODAL (MOLDURA METÁLICA 3D ACETINADA) */}
+          {/* CABEÇALHO DO MODAL */}
           <div 
-            className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-200 shrink-0 w-full rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] print:hidden"
+            className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-black bg-[#cad4e6] text-black shrink-0 w-full rounded-t-lg print:hidden"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                <HeaderIcon className={`w-4 h-4 text-slate-700 dark:text-stone-200`} />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#e0e6f1] text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+                <HeaderIcon className="w-4 h-4 text-black" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black flex items-center gap-2">
                     <span>{modalTitle.toUpperCase()}</span>
                     {numero && (
-                      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
+                      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white text-black font-bold border border-black shadow-2xs">
                         OS #{numero}
                       </span>
                     )}
                   </h3>
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
+                <p className="text-[11px] text-slate-800 font-medium mt-0.5">
                   Preencha os dados operacionais, frotas e fechamento DRE
                 </p>
               </div>
@@ -2711,15 +2711,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-pointer print:hidden"
+              className="p-1.5 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg transition-colors cursor-pointer print:hidden"
             >
-              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+              <X className="w-4 h-4 text-black" />
             </button>
           </div>
 
           {/* CORPO DO FORMULÁRIO COM ROLAGEM (COMPACTO) */}
           <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 space-y-3 modal-body-scroll w-full bg-[#edf4ff] dark:bg-stone-900"
+            className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 space-y-3 modal-body-scroll w-full bg-[#cad4e6] text-black"
           >
             
             {/* ALERTA DE CONFIRMAÇÃO / PERSISTÊNCIA AO SALVAR */}
@@ -2741,9 +2741,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* 1. DADOS DE IDENTIFICAÇÃO E CLIENTE */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
-              <div className="border-b border-slate-200 dark:border-slate-800 pb-1.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide">
+            <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5 text-black">
+              <div className="border-b border-black/20 pb-1.5">
+                <span className="text-xs font-bold text-black uppercase tracking-wide">
                   1. DADOS DE IDENTIFICAÇÃO E CLIENTE
                 </span>
               </div>
@@ -2751,25 +2751,25 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 
                 {/* Número do Serviço */}
                 <div className="sm:col-span-3">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Número
                   </label>
                   <input
                     type="text"
                     value={numero}
                     onChange={(e) => setNumero(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-slate-100 font-mono font-bold cursor-default select-all focus:outline-none"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black font-mono font-bold cursor-default select-all focus:outline-none"
                   />
                 </div>
 
                 {/* Cliente / Produtor com Botão + Novo */}
                 <div className="sm:col-span-5">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between">
                     <span>Cliente / Produtor *</span>
                     <button
                       type="button"
                       onClick={() => setIsQuickClientOpen(true)}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:text-emerald-700 hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-700 hover:underline cursor-pointer"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>+ Novo Cliente</span>
@@ -2782,7 +2782,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
                         placeholder="Selecione ou digite o Produtor..."
-                        className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
+                        className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                       />
                       {clients.length > 0 && (
                         <select
@@ -2809,7 +2809,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsQuickClientOpen(true)}
-                      className="p-1 sm:p-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 transition cursor-pointer shrink-0"
+                      className="p-1 sm:p-1.5 bg-white border border-gray-400 text-emerald-800 rounded-lg hover:bg-emerald-50 transition cursor-pointer shrink-0"
                       title="Cadastrar Novo Produtor Rural / Pecuarista (Completo)"
                     >
                       <UserPlus className="w-4 h-4" />
@@ -2819,7 +2819,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                 {/* Fazenda / Local */}
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Fazenda / Propriedade
                   </label>
                   <input
@@ -2827,47 +2827,47 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     value={farmName}
                     onChange={(e) => setFarmName(e.target.value)}
                     placeholder="Ex: Fazenda Boa Esperança"
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                   />
                 </div>
               </div>
 
               {/* Datas da Operação e Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 pt-1.5 border-t border-black/20">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Data da Abertura / Manutenção *
                   </label>
                   <input
                     type="date"
                     value={serviceDate}
                     onChange={(e) => setServiceDate(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Previsão de Término / Conclusão
                   </label>
                   <input
                     type="date"
                     value={completionDate}
                     onChange={(e) => setCompletionDate(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between">
                     <span>Status da Ordem</span>
                     {status === 'em_faturamento' && (
-                      <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400">Escritório</span>
+                      <span className="text-[9px] font-bold text-amber-800">Escritório</span>
                     )}
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:outline-none uppercase cursor-pointer"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none uppercase cursor-pointer"
                   >
                     <option value="agendado">AGENDADO</option>
                     <option value="em_andamento">EM ANDAMENTO</option>
@@ -2929,18 +2929,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* AUDITORIA DE FATURAMENTO & OBSERVAÇÕES DO ESCRITÓRIO */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
-              <div className="border-b border-slate-200 dark:border-slate-800 pb-1.5 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5 text-black">
+              <div className="border-b border-black/20 pb-1.5 flex items-center justify-between">
+                <span className="text-xs font-bold text-black uppercase tracking-wide flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5 text-blue-700" />
                   <span>AUDITORIA DE FATURAMENTO & OBSERVAÇÕES DO ESCRITÓRIO</span>
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
                   status === 'faturado'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                    ? 'bg-emerald-100 text-emerald-900 border-black'
                     : status === 'em_faturamento'
-                    ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
-                    : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
+                    ? 'bg-amber-100 text-amber-900 border-black'
+                    : 'bg-white text-black border-black'
                 }`}>
                   {status === 'faturado' ? 'Faturado (Financeiro)' : status === 'em_faturamento' ? 'Aguardando Auditoria' : 'Prévia Operacional'}
                 </span>
@@ -2949,7 +2949,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-2.5">
                 {/* Desconto Comercial de Faturamento */}
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Desconto / Ajuste Comercial (R$)
                   </label>
                   <input
@@ -2959,13 +2959,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     placeholder="0,00"
                     value={billingDiscount}
                     onChange={(e) => setBillingDiscount(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
                   />
                 </div>
 
                 {/* Acréscimo / Taxa Extra */}
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Acréscimo Extra (R$)
                   </label>
                   <input
@@ -2975,16 +2975,16 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     placeholder="0,00"
                     value={billingExtra}
                     onChange={(e) => setBillingExtra(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
                   />
                 </div>
 
                 {/* Valor Total Final a Faturar */}
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1">
+                  <label className="block text-[11px] font-bold text-black mb-1">
                     Total Faturado Final (R$)
                   </label>
-                  <div className="w-full px-2.5 py-1 sm:py-1.5 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-zinc-900 dark:text-white">
+                  <div className="w-full px-2.5 py-1 sm:py-1.5 bg-slate-100 border border-gray-400 rounded-lg text-xs font-bold text-black">
                     {formatCurrencyBRL(
                       Math.max(
                         0,
@@ -2998,16 +2998,16 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                 {/* Anotações Exclusivas do Faturamento (billingNotes) */}
                 <div className="sm:col-span-12">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between">
                     <span>Anotações Exclusivas do Faturamento (billingNotes)</span>
-                    <span className="text-[10px] text-zinc-400 font-normal">Visível internamente no escritório e no Contas a Receber</span>
+                    <span className="text-[10px] text-slate-700 font-normal">Visível internamente no escritório e no Contas a Receber</span>
                   </label>
                   <textarea
                     rows={2}
                     value={billingNotes}
                     onChange={(e) => setBillingNotes(e.target.value.toUpperCase())}
                     placeholder="INFORMAÇÕES DE FATURAMENTO, ACORDO DE VENCIMENTO, DETALHAMENTO DE TRIBUTOS OU CONDIÇÕES DE PAGAMENTO..."
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs uppercase"
+                    className="w-full px-2.5 py-1 sm:py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-medium text-black placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs uppercase"
                   />
                 </div>
               </div>
@@ -3015,31 +3015,31 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* BLOCO CENTRAL: ABA 1. SELEÇÃO DE EQUIPAMENTOS & REGRAS DE COBRANÇA */}
             {effectiveTab === 'maquina' && (
-              <div className="bg-white border border-zinc-300 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4 text-black">
                 {/* Cabeçalho do Bloco */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/20 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-zinc-800 text-white flex items-center justify-center shadow-2xs shrink-0">
-                      <Tractor className="w-4 h-4 text-white" />
+                    <div className="w-7 h-7 rounded-lg bg-white border border-black text-black flex items-center justify-center shadow-2xs shrink-0">
+                      <Tractor className="w-4 h-4 text-black" />
                     </div>
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-zinc-900 uppercase tracking-wider">
+                      <h4 className="text-xs sm:text-sm font-bold text-black uppercase tracking-wider">
                         ABA 1. SELEÇÃO DE EQUIPAMENTOS & REGRAS DE COBRANÇA
                       </h4>
-                      <p className="text-[11px] text-zinc-600">
+                      <p className="text-[11px] text-slate-800">
                         Prestação de serviços e aluguel de maquinário pesado e fretes para clientes externos
                       </p>
                     </div>
                   </div>
 
-                  <span className="self-start sm:self-auto px-2.5 py-1 text-[11px] font-bold rounded-lg border bg-zinc-50 border-zinc-300 text-zinc-800 shadow-2xs">
+                  <span className="self-start sm:self-auto px-2.5 py-1 text-[11px] font-bold rounded-lg border bg-white border-black text-black shadow-2xs">
                     {equipmentCategory === 'pesadas' ? 'Máquinas Pesadas • Cobrança por Hora' : 'Caminhões / Transporte'}
                   </span>
                 </div>
 
                 {/* Seletor de Categoria de Equipamento */}
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1.5">
                     Tipo de Equipamento / Serviço *
                   </label>
                   <select
@@ -3056,7 +3056,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         }
                       }
                     }}
-                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-xl text-xs sm:text-sm font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer shadow-2xs transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-xl text-xs sm:text-sm font-bold text-black focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer shadow-2xs transition-colors"
                   >
                     <option value="pesadas">🚜 Serviços Máquinas Pesadas</option>
                     <option value="caminhoes">🚚 Caminhões / Transporte</option>
@@ -3065,17 +3065,17 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                 {/* CASO A: Serviços Máquinas Pesadas */}
                 {equipmentCategory === 'pesadas' && (
-                  <div className="bg-zinc-50/70 border border-zinc-300 rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
+                  <div className="bg-white/80 border border-black rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                       {/* Select da Máquina Específica */}
                       <div className="sm:col-span-6">
-                        <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                        <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
                           Máquina Específica da Frota *
                         </label>
                         <select
                           value={heavyMachineType}
                           onChange={(e) => setHeavyMachineType(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
                         >
                           <optgroup label="Máquinas Operacionais Padrão">
                             <option value="Retroescavadeira">Retroescavadeira</option>
@@ -3099,18 +3099,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                       {/* Regra de Cobrança: Trava Fixa em "Cobrança por Hora" */}
                       <div className="sm:col-span-6">
-                        <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1 flex items-center justify-between">
                           <span>Regra de Cobrança / Faturamento</span>
-                          <span className="text-[10px] text-zinc-700 font-bold flex items-center gap-1">
+                          <span className="text-[10px] text-slate-800 font-bold flex items-center gap-1">
                             <Lock className="w-3 h-3" /> Regra Fixa
                           </span>
                         </label>
-                        <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-800 flex items-center justify-between cursor-not-allowed shadow-2xs">
+                        <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between cursor-not-allowed shadow-2xs">
                           <span className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-zinc-700" />
+                            <Clock className="w-4 h-4 text-black" />
                             Cobrança por Hora
                           </span>
-                          <span className="text-[10px] bg-zinc-200 text-zinc-800 px-2 py-0.5 rounded font-extrabold uppercase">
+                          <span className="text-[10px] bg-white border border-gray-400 text-black px-2 py-0.5 rounded font-extrabold uppercase">
                             Travado
                           </span>
                         </div>
@@ -3118,9 +3118,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     </div>
 
                     {/* Inputs de Horas, Valor da Hora e Subtotal Calculado */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-zinc-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-black/15">
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Quantidade de Horas (h) *
                         </label>
                         <input
@@ -3131,13 +3131,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           onChange={(e) => setHeavyMachineHours(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="Ex: 8.5"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Valor da Hora (R$/h) *
                         </label>
                         <input
@@ -3146,18 +3146,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onChange={(e) => setHeavyMachineHourlyRate(maskCurrencyBRLInput(e.target.value))}
                           onBlur={() => setHeavyMachineHourlyRate(formatCurrencyBRLOnBlur(heavyMachineHourlyRate))}
                           placeholder="R$ 0,00"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Subtotal da Máquina
                         </label>
-                        <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
+                        <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs">
                           <span>{formatCurrencyBRL(subtotalServicoMaquina)}</span>
-                          <span className="text-[10px] text-zinc-600 font-normal">
+                          <span className="text-[10px] text-slate-700 font-normal">
                             {heavyMachineHours || 0} h × {formatCurrencyBRL(parseCurrencyToFloat(heavyMachineHourlyRate))}
                           </span>
                         </div>
@@ -3168,11 +3168,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                 {/* CASO B: Caminhões / Transporte */}
                 {equipmentCategory === 'caminhoes' && (
-                  <div className="bg-zinc-50/70 border border-zinc-300 rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
+                  <div className="bg-white/80 border border-black rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                       {/* Seletor do Caminhão da Frota */}
                       <div className="sm:col-span-6">
-                        <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                        <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
                           Caminhão da Frota *
                         </label>
                         <select
@@ -3185,7 +3185,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               setTruckServiceName(found.name || found.model);
                             }
                           }}
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
                         >
                           <option value="">Selecione o caminhão da frota...</option>
                           {frotasCaminhoesDisponiveis.map((m) => (
@@ -3199,13 +3199,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                       {/* Seletor de Forma de Cobrança com 3 Opções Flexíveis */}
                       <div className="sm:col-span-6">
-                        <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                        <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
                           Forma de Cobrança do Transporte *
                         </label>
                         <select
                           value={truckBillingMode}
                           onChange={(e) => setTruckBillingMode(e.target.value as any)}
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
                         >
                           <option value="horas">⏱️ Por Horas</option>
                           <option value="cargas_km">📦 Por Cargas com KM Adicional</option>
@@ -3217,9 +3217,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     {/* Inputs de acordo com a opção escolhida */}
                     {/* 1. Modalidade: Por Horas */}
                     {truckBillingMode === 'horas' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-black/15">
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Horas Trabalhadas (h) *
                           </label>
                           <input
@@ -3230,13 +3230,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => setTruckServiceHours(e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Ex: 10.0"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Valor da Hora (R$/h) *
                           </label>
                           <input
@@ -3245,18 +3245,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onChange={(e) => setTruckServiceHourlyRate(maskCurrencyBRLInput(e.target.value))}
                             onBlur={() => setTruckServiceHourlyRate(formatCurrencyBRLOnBlur(truckServiceHourlyRate))}
                             placeholder="R$ 0,00"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Subtotal do Transporte
                           </label>
-                          <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
+                          <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs">
                             <span>{formatCurrencyBRL(subtotalServicoMaquina)}</span>
-                            <span className="text-[10px] text-zinc-600 font-normal">
+                            <span className="text-[10px] text-slate-700 font-normal">
                               {truckServiceHours || 0} h × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceHourlyRate))}
                             </span>
                           </div>
@@ -3266,10 +3266,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                     {/* 2. Modalidade: Por Cargas com KM Adicional */}
                     {truckBillingMode === 'cargas_km' && (
-                      <div className="space-y-3 pt-2 border-t border-zinc-200">
+                      <div className="space-y-3 pt-2 border-t border-black/15">
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           <div>
-                            <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                            <label className="block text-[11px] font-bold text-black mb-1">
                               Quantidade de Cargas *
                             </label>
                             <input
@@ -3279,13 +3279,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onWheel={(e) => (e.target as HTMLInputElement).blur()}
                               onChange={(e) => setTruckServiceLoads(e.target.value === '' ? '' : Number(e.target.value))}
                               placeholder="Ex: 5"
-                              className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                              className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                               required
                             />
                           </div>
 
                           <div>
-                            <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                            <label className="block text-[11px] font-bold text-black mb-1">
                               Valor por Carga (R$/carga) *
                             </label>
                             <input
@@ -3294,13 +3294,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onChange={(e) => setTruckServiceRatePerLoad(maskCurrencyBRLInput(e.target.value))}
                               onBlur={() => setTruckServiceRatePerLoad(formatCurrencyBRLOnBlur(truckServiceRatePerLoad))}
                               placeholder="R$ 0,00"
-                              className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                              className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                               required
                             />
                           </div>
 
                           <div>
-                            <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                            <label className="block text-[11px] font-bold text-black mb-1">
                               KM Adicional Rodado
                             </label>
                             <input
@@ -3310,12 +3310,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onWheel={(e) => (e.target as HTMLInputElement).blur()}
                               onChange={(e) => setTruckServiceAdditionalKm(e.target.value === '' ? '' : Number(e.target.value))}
                               placeholder="Ex: 25"
-                              className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                              className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                            <label className="block text-[11px] font-bold text-black mb-1">
                               Valor por KM Adicional (R$/km)
                             </label>
                             <input
@@ -3324,17 +3324,17 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onChange={(e) => setTruckServiceRatePerKm(maskCurrencyBRLInput(e.target.value))}
                               onBlur={() => setTruckServiceRatePerKm(formatCurrencyBRLOnBlur(truckServiceRatePerKm))}
                               placeholder="R$ 0,00"
-                              className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                              className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             />
                           </div>
                         </div>
 
                         {/* Card Subtotal da Combinação */}
-                        <div className="flex items-center justify-between px-3.5 py-2 bg-zinc-100 border border-zinc-300 rounded-lg">
-                          <span className="text-xs text-zinc-800 font-semibold">
+                        <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100 border border-gray-400 rounded-lg">
+                          <span className="text-xs text-black font-semibold">
                             Cargas ({truckServiceLoads || 0} × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRatePerLoad))}) + KM ({truckServiceAdditionalKm || 0} km × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRatePerKm))})
                           </span>
-                          <span className="text-sm font-bold text-zinc-900">
+                          <span className="text-sm font-bold text-black">
                             Subtotal: {formatCurrencyBRL(subtotalServicoMaquina)}
                           </span>
                         </div>
@@ -3343,9 +3343,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                     {/* 3. Modalidade: Somente em KM */}
                     {truckBillingMode === 'somente_km' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-black/15">
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Quilometragem Total (km) *
                           </label>
                           <input
@@ -3355,13 +3355,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => setTruckServiceTotalKm(e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Ex: 120"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Valor por KM (R$/km) *
                           </label>
                           <input
@@ -3370,18 +3370,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onChange={(e) => setTruckServiceRateOnlyKm(maskCurrencyBRLInput(e.target.value))}
                             onBlur={() => setTruckServiceRateOnlyKm(formatCurrencyBRLOnBlur(truckServiceRateOnlyKm))}
                             placeholder="R$ 0,00"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Subtotal do Transporte
                           </label>
-                          <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
+                          <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs">
                             <span>{formatCurrencyBRL(subtotalServicoMaquina)}</span>
-                            <span className="text-[10px] text-zinc-600 font-normal">
+                            <span className="text-[10px] text-slate-700 font-normal">
                               {truckServiceTotalKm || 0} km × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRateOnlyKm))}
                             </span>
                           </div>
@@ -3395,24 +3395,24 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* BLOCO CENTRAL: ABA 1. SERVIÇO DE FRETE & REGRAS DE COBRANÇA */}
             {effectiveTab === 'frete' && (
-              <div className="bg-white border border-zinc-300 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4 text-black">
                 {/* Cabeçalho do Bloco */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/20 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-zinc-800 text-white flex items-center justify-center shadow-2xs shrink-0">
-                      <Truck className="w-4 h-4 text-white" />
+                    <div className="w-7 h-7 rounded-lg bg-white border border-black text-black flex items-center justify-center shadow-2xs shrink-0">
+                      <Truck className="w-4 h-4 text-black" />
                     </div>
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-zinc-900 uppercase tracking-wider">
+                      <h4 className="text-xs sm:text-sm font-bold text-black uppercase tracking-wider">
                         ABA 1. SERVIÇO DE FRETE & REGRAS DE COBRANÇA
                       </h4>
-                      <p className="text-[11px] text-zinc-600">
+                      <p className="text-[11px] text-slate-800">
                         Gestão operacional e faturamento de transporte e frete rodoviário para clientes externos
                       </p>
                     </div>
                   </div>
 
-                  <span className="self-start sm:self-auto px-2.5 py-1 text-[11px] font-bold rounded-lg border bg-zinc-50 border-zinc-300 text-zinc-800 shadow-2xs">
+                  <span className="self-start sm:self-auto px-2.5 py-1 text-[11px] font-bold rounded-lg border bg-white border-black text-black shadow-2xs">
                     {truckBillingMode === 'km' || truckBillingMode === 'somente_km'
                       ? 'Modalidade: Por KM'
                       : truckBillingMode === 'horas'
@@ -3424,11 +3424,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 </div>
 
                 {/* Bloco 1: Veículo, Condutor e Dados da Carga / Rota */}
-                <div className="bg-zinc-50/70 border border-zinc-300 rounded-xl p-3 sm:p-4 space-y-3 shadow-2xs">
+                <div className="bg-white/80 border border-black rounded-xl p-3 sm:p-4 space-y-3 shadow-2xs">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                     {/* Caminhão da Frota */}
                     <div className="sm:col-span-5">
-                      <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
                         Caminhão da Frota *
                       </label>
                       <select
@@ -3441,7 +3441,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             setTruckServiceName(found.name || found.model);
                           }
                         }}
-                        className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
                       >
                         <option value="">Selecione o caminhão...</option>
                         {frotasCaminhoesDisponiveis.map((m) => (
@@ -3455,7 +3455,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                     {/* Motorista / Responsável */}
                     <div className="sm:col-span-4">
-                      <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
                         Motorista / Condutor
                       </label>
                       <select
@@ -3470,7 +3470,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             setFreightDriverName('');
                           }
                         }}
-                        className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 cursor-pointer"
                       >
                         <option value="">Selecione o motorista...</option>
                         {employees.map((emp) => (
@@ -3483,7 +3483,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                     {/* Tipo de Carga / Material */}
                     <div className="sm:col-span-3">
-                      <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
                         Tipo de Carga / Material
                       </label>
                       <input
@@ -3491,15 +3491,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         value={freightMaterialType}
                         onChange={(e) => setFreightMaterialType(e.target.value)}
                         placeholder="Ex: Silagem, Grãos, Adubo..."
-                        className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                       />
                     </div>
                   </div>
 
                   {/* Origem e Destino */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-zinc-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-black/15">
                     <div>
-                      <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                      <label className="block text-[11px] font-bold text-black mb-1">
                         Origem / Ponto de Partida
                       </label>
                       <input
@@ -3507,11 +3507,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         value={freightOrigin}
                         onChange={(e) => setFreightOrigin(e.target.value)}
                         placeholder="Ex: Fazenda Boa Esperança, Galpão 1..."
-                        className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                      <label className="block text-[11px] font-bold text-black mb-1">
                         Destino / Ponto de Entrega
                       </label>
                       <input
@@ -3519,16 +3519,16 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         value={freightDestination}
                         onChange={(e) => setFreightDestination(e.target.value)}
                         placeholder="Ex: Silo da Cooperativa, Fazenda Santa Fé..."
-                        className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Seletor das 4 Regras de Cobrança do Frete */}
-                <div className="bg-zinc-50/70 border border-zinc-300 rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
+                <div className="bg-white/80 border border-black rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-2">
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-2">
                       Regra de Cobrança do Frete *
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -3537,8 +3537,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onClick={() => setTruckBillingMode('km')}
                         className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer ${
                           truckBillingMode === 'km' || truckBillingMode === 'somente_km'
-                            ? 'bg-zinc-800 text-white border-zinc-900 shadow-sm'
-                            : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow-sm'
+                            : 'bg-white text-black border-gray-400 hover:bg-gray-100'
                         }`}
                       >
                         <Gauge className="w-4 h-4" />
@@ -3550,8 +3550,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onClick={() => setTruckBillingMode('horas')}
                         className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer ${
                           truckBillingMode === 'horas'
-                            ? 'bg-zinc-800 text-white border-zinc-900 shadow-sm'
-                            : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow-sm'
+                            : 'bg-white text-black border-gray-400 hover:bg-gray-100'
                         }`}
                       >
                         <Clock className="w-4 h-4" />
@@ -3563,8 +3563,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onClick={() => setTruckBillingMode('cargas')}
                         className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer ${
                           truckBillingMode === 'cargas' || truckBillingMode === 'cargas_km'
-                            ? 'bg-zinc-800 text-white border-zinc-900 shadow-sm'
-                            : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow-sm'
+                            : 'bg-white text-black border-gray-400 hover:bg-gray-100'
                         }`}
                       >
                         <Layers className="w-4 h-4" />
@@ -3576,8 +3576,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onClick={() => setTruckBillingMode('viagem')}
                         className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer ${
                           truckBillingMode === 'viagem'
-                            ? 'bg-zinc-800 text-white border-zinc-900 shadow-sm'
-                            : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100'
+                            ? 'bg-emerald-600 text-white border-emerald-800 shadow-sm'
+                            : 'bg-white text-black border-gray-400 hover:bg-gray-100'
                         }`}
                       >
                         <ArrowRight className="w-4 h-4" />
@@ -3588,9 +3588,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                   {/* 1. Modalidade: Por KM */}
                   {(truckBillingMode === 'km' || truckBillingMode === 'somente_km') && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-black/15">
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Quilometragem Total (km) *
                         </label>
                         <input
@@ -3601,13 +3601,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           onChange={(e) => setTruckServiceTotalKm(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="Ex: 120"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Valor por KM (R$/km) *
                         </label>
                         <input
@@ -3616,18 +3616,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onChange={(e) => setTruckServiceRateOnlyKm(maskCurrencyBRLInput(e.target.value))}
                           onBlur={() => setTruckServiceRateOnlyKm(formatCurrencyBRLOnBlur(truckServiceRateOnlyKm))}
                           placeholder="R$ 0,00"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Subtotal do Frete
                         </label>
-                        <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
+                        <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs">
                           <span>{formatCurrencyBRL(subtotalServicoMaquina)}</span>
-                          <span className="text-[10px] text-zinc-600 font-normal">
+                          <span className="text-[10px] text-slate-700 font-normal">
                             {truckServiceTotalKm || 0} km × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRateOnlyKm))}
                           </span>
                         </div>
@@ -3637,9 +3637,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                   {/* 2. Modalidade: Por Hora */}
                   {truckBillingMode === 'horas' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-black/15">
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Horas Trabalhadas (h) *
                         </label>
                         <input
@@ -3650,13 +3650,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           onChange={(e) => setTruckServiceHours(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="Ex: 8.0"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Valor da Hora (R$/h) *
                         </label>
                         <input
@@ -3665,18 +3665,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onChange={(e) => setTruckServiceHourlyRate(maskCurrencyBRLInput(e.target.value))}
                           onBlur={() => setTruckServiceHourlyRate(formatCurrencyBRLOnBlur(truckServiceHourlyRate))}
                           placeholder="R$ 0,00"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Subtotal do Frete
                         </label>
-                        <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
+                        <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs">
                           <span>{formatCurrencyBRL(subtotalServicoMaquina)}</span>
-                          <span className="text-[10px] text-zinc-600 font-normal">
+                          <span className="text-[10px] text-slate-700 font-normal">
                             {truckServiceHours || 0} h × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceHourlyRate))}
                           </span>
                         </div>
@@ -3686,10 +3686,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                   {/* 3. Modalidade: Por Carga (com KM adicional opcional) */}
                   {(truckBillingMode === 'cargas' || truckBillingMode === 'cargas_km') && (
-                    <div className="space-y-3 pt-2 border-t border-zinc-200">
+                    <div className="space-y-3 pt-2 border-t border-black/15">
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Quantidade de Cargas *
                           </label>
                           <input
@@ -3699,13 +3699,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => setTruckServiceLoads(e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Ex: 4"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Valor por Carga (R$/carga) *
                           </label>
                           <input
@@ -3714,13 +3714,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onChange={(e) => setTruckServiceRatePerLoad(maskCurrencyBRLInput(e.target.value))}
                             onBlur={() => setTruckServiceRatePerLoad(formatCurrencyBRLOnBlur(truckServiceRatePerLoad))}
                             placeholder="R$ 0,00"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             KM Adicional Rodado
                           </label>
                           <input
@@ -3730,12 +3730,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => setTruckServiceAdditionalKm(e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Ex: 30"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Valor por KM Adicional (R$/km)
                           </label>
                           <input
@@ -3744,17 +3744,17 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onChange={(e) => setTruckServiceRatePerKm(maskCurrencyBRLInput(e.target.value))}
                             onBlur={() => setTruckServiceRatePerKm(formatCurrencyBRLOnBlur(truckServiceRatePerKm))}
                             placeholder="R$ 0,00"
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                            className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           />
                         </div>
                       </div>
 
                       {/* Card Subtotal da Combinação */}
-                      <div className="flex items-center justify-between px-3.5 py-2 bg-zinc-100 border border-zinc-300 rounded-lg">
-                        <span className="text-xs text-zinc-800 font-semibold">
+                      <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100 border border-gray-400 rounded-lg">
+                        <span className="text-xs text-black font-semibold">
                           Cargas ({truckServiceLoads || 0} × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRatePerLoad))}) + KM ({truckServiceAdditionalKm || 0} km × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRatePerKm))})
                         </span>
-                        <span className="text-sm font-bold text-zinc-900">
+                        <span className="text-sm font-bold text-black">
                           Subtotal: {formatCurrencyBRL(subtotalServicoMaquina)}
                         </span>
                       </div>
@@ -3763,9 +3763,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                   {/* 4. Modalidade: Por Viagem */}
                   {truckBillingMode === 'viagem' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-black/15">
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Quantidade de Viagens *
                         </label>
                         <input
@@ -3775,13 +3775,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           onChange={(e) => setTruckServiceTrips(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="Ex: 2"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Valor por Viagem (R$/viagem) *
                         </label>
                         <input
@@ -3790,18 +3790,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onChange={(e) => setTruckServiceRatePerTrip(maskCurrencyBRLInput(e.target.value))}
                           onBlur={() => setTruckServiceRatePerTrip(formatCurrencyBRLOnBlur(truckServiceRatePerTrip))}
                           placeholder="R$ 0,00"
-                          className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
+                          className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:ring-2 focus:ring-zinc-600 focus:border-zinc-700 shadow-2xs"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Subtotal do Frete
                         </label>
-                        <div className="w-full px-3 py-2 bg-zinc-100 border border-zinc-300 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
+                        <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs">
                           <span>{formatCurrencyBRL(subtotalServicoMaquina)}</span>
-                          <span className="text-[10px] text-zinc-600 font-normal">
+                          <span className="text-[10px] text-slate-700 font-normal">
                             {truckServiceTrips || 0} viagem(ns) × {formatCurrencyBRL(parseCurrencyToFloat(truckServiceRatePerTrip))}
                           </span>
                         </div>
@@ -3814,14 +3814,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* 2. ÁREA E UNIDADES (CORTE E COLHEITA) */}
             {(effectiveTab === 'corte' || effectiveTab === 'colheita') && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-300 dark:border-slate-700 pb-2">
-                  <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider shrink-0">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3 text-black">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/20 pb-2">
+                  <span className="text-xs font-bold text-black uppercase tracking-wider shrink-0">
                     ÁREA & PRODUÇÃO (VALOR BASE)
                   </span>
 
-                  {/* Toggle Sacas / Hectares / Alqueires / Hora - 3D Metálico Acetinado */}
-                  <div className="inline-flex rounded-lg p-0.5 sm:p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] self-start sm:self-auto text-xs gap-1 shrink-0">
+                  {/* Toggle Sacas / Hectares / Alqueires / Hora */}
+                  <div className="inline-flex rounded-lg p-0.5 sm:p-1 bg-white border border-black shadow-2xs self-start sm:self-auto text-xs gap-1 shrink-0">
                     {/* 1º [ POR SACAS ] - Exclusiva Colheita */}
                     {effectiveTab === 'colheita' && (
                       <button
@@ -3841,8 +3841,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         }}
                         className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap font-bold ${
                           unidadeArea === 'sacas'
-                            ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
-                            : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                            ? 'bg-emerald-600 text-white border border-emerald-800 shadow-xs font-bold'
+                            : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                         }`}
                       >
                         POR SACAS
@@ -3873,8 +3873,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       }}
                       className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap ${
                         unidadeArea === 'hectares'
-                          ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
-                          : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                          ? 'bg-emerald-600 text-white border border-emerald-800 shadow-xs font-bold'
+                          : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                       }`}
                     >
                       POR HECTARE (HA)
@@ -3886,8 +3886,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       onClick={() => setUnidadeArea('alqueires')}
                       className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap ${
                         unidadeArea === 'alqueires'
-                          ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
-                          : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                          ? 'bg-emerald-600 text-white border border-emerald-800 shadow-xs font-bold'
+                          : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                       }`}
                     >
                       POR ALQUEIRE (ALQ)
@@ -3905,8 +3905,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       }}
                       className={`px-2.5 py-1 text-xs rounded-md transition cursor-pointer uppercase whitespace-nowrap ${
                         unidadeArea === 'hora'
-                          ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
-                          : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                          ? 'bg-emerald-600 text-white border border-emerald-800 shadow-xs font-bold'
+                          : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                       }`}
                     >
                       POR HORA (H)
@@ -3919,7 +3919,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
                     {/* 1. QUANTIDADE DE ALQUEIRES OU HECTARES (EXTREMA ESQUERDA) COM SELETOR MICRO HA / ALQ */}
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-black mb-1 uppercase min-h-[26px] flex items-end leading-tight">
                         QUANTIDADE DE ALQUEIRES OU HECTARES
                       </label>
                       <div className="flex items-center gap-1">
@@ -3931,9 +3931,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           onChange={(e) => setAreaAlqueiresHectares(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="EX: 10.5"
-                          className="w-full min-w-0 flex-1 px-2.5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                          className="w-full min-w-0 flex-1 px-2.5 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
                         />
-                        <div className="inline-flex rounded-lg p-0.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.8)] shrink-0 gap-0.5">
+                        <div className="inline-flex rounded-lg p-0.5 bg-white border border-gray-400 shrink-0 gap-0.5">
                           <button
                             type="button"
                             onClick={() => setSubUnidadeSacasArea('HA')}
@@ -3964,7 +3964,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                     {/* 2. QUANTIDADE TOTAL DE SACAS */}
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-black mb-1 uppercase min-h-[26px] flex items-end leading-tight">
                         QUANTIDADE TOTAL DE SACAS
                       </label>
                       <input
@@ -3975,13 +3975,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onWheel={(e) => (e.target as HTMLInputElement).blur()}
                         onChange={(e) => setQuantidadeArea(e.target.value === '' ? '' : Number(e.target.value))}
                         placeholder="EX: 1500"
-                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
                       />
                     </div>
 
                     {/* 3. R$ / SACA */}
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-black mb-1 uppercase min-h-[26px] flex items-end leading-tight">
                         R$ / SACA
                       </label>
                       <input
@@ -3990,28 +3990,28 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onChange={(e) => setValorPorHectare(maskCurrencyBRLInput(e.target.value))}
                         onBlur={() => setValorPorHectare(formatCurrencyBRLOnBlur(valorPorHectare))}
                         placeholder="R$ 0,00"
-                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
                       />
                     </div>
 
                     {/* 4. SUBTOTAL ÁREA (BASE) */}
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight">
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-black mb-1 uppercase min-h-[26px] flex items-end leading-tight">
                         SUBTOTAL ÁREA (BASE)
                       </label>
-                      <div className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed">
+                      <div className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs cursor-not-allowed">
                         <span>{formatCurrencyBRL(valorBaseArea)}</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal uppercase">BASE FROTA</span>
+                        <span className="text-[10px] text-slate-700 font-normal uppercase">BASE FROTA</span>
                       </div>
                     </div>
 
                     {/* 5. QUANTIDADE DE SACAS POR ALQUEIRE OU HECTARE (EXTREMA DIREITA) */}
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase min-h-[26px] flex items-end leading-tight truncate">
+                      <label className="block text-[10px] sm:text-[11px] font-bold text-black mb-1 uppercase min-h-[26px] flex items-end leading-tight truncate">
                         QUANTIDADE DE SACAS POR {subUnidadeSacasArea === 'HA' ? 'HECTARE' : 'ALQUEIRE'}
                       </label>
                       <div 
-                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed"
+                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs cursor-not-allowed" 
                         title={typeof areaAlqueiresHectares === 'number' && areaAlqueiresHectares > 0 ? `Cálculo: ${quantidadeArea || 0} sacas ÷ ${areaAlqueiresHectares} ${subUnidadeSacasArea} = ${sacasPorAlqueireOuHectare.toFixed(2)} SC/${subUnidadeSacasArea}` : `Informe a área e a quantidade total de sacas`}
                       >
                         <span className="truncate">
@@ -4019,7 +4019,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             ? `${sacasPorAlqueireOuHectare.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} SC/${subUnidadeSacasArea}`
                             : `0,0 SC/${subUnidadeSacasArea}`}
                         </span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold uppercase shrink-0 ml-1">
+                        <span className="text-[10px] text-slate-700 font-mono font-bold uppercase shrink-0 ml-1">
                           SC/{subUnidadeSacasArea}
                         </span>
                       </div>
@@ -4028,7 +4028,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                      <label className="block text-[11px] font-bold text-black mb-1 uppercase">
                         {unidadeArea === 'hectares'
                           ? 'QUANTIDADE (HA)'
                           : unidadeArea === 'alqueires'
@@ -4042,12 +4042,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onWheel={(e) => (e.target as HTMLInputElement).blur()}
                         onChange={(e) => setQuantidadeArea(e.target.value === '' ? '' : Number(e.target.value))}
                         placeholder="EX: 15.5"
-                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                      <label className="block text-[11px] font-bold text-black mb-1 uppercase">
                         {unidadeArea === 'hectares'
                           ? 'R$ / HECTARE'
                           : unidadeArea === 'alqueires'
@@ -4060,31 +4060,31 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         onChange={(e) => setValorPorHectare(maskCurrencyBRLInput(e.target.value))}
                         onBlur={() => setValorPorHectare(formatCurrencyBRLOnBlur(valorPorHectare))}
                         placeholder="R$ 0,00"
-                        className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
+                        className="w-full px-3 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 uppercase">
+                      <label className="block text-[11px] font-bold text-black mb-1 uppercase">
                         SUBTOTAL ÁREA (BASE)
                       </label>
-                      <div className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed">
+                      <div className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs cursor-not-allowed">
                         <span>{formatCurrencyBRL(valorBaseArea)}</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal uppercase">BASE FROTA</span>
+                        <span className="text-[10px] text-slate-700 font-normal uppercase">BASE FROTA</span>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Linha 2: Frete Prancha (R$) com Máscara BRL, Peso por Saca/m³ (Kg) e Estimativa de Produção Automatizada */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-2 border-t border-slate-300 dark:border-slate-700">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-2 border-t border-black/20">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between uppercase">
+                    <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between uppercase">
                       <span className="flex items-center gap-1.5">
-                        <Truck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <Truck className="w-3.5 h-3.5 text-indigo-700" />
                         FRETE PRANCHA (R$)
                       </span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold uppercase">(SOMA AO TOTAL)</span>
+                      <span className="text-[10px] text-emerald-800 font-semibold uppercase">(SOMA AO TOTAL)</span>
                     </label>
                     <input
                       type="text"
@@ -4092,14 +4092,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       onChange={(e) => setFretePrancha(maskCurrencyBRLInput(e.target.value))}
                       onBlur={() => setFretePrancha(formatCurrencyBRLOnBlur(fretePrancha))}
                       placeholder="R$ 0,00"
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
+                      className="w-full px-3 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between uppercase">
+                    <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between uppercase">
                       <span>{unidadeArea === 'sacas' ? 'PESO POR SACA (KG)' : 'PESO POR M³ (KG)'}</span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold uppercase">
+                      <span className="text-[10px] text-emerald-800 font-semibold uppercase">
                         {unidadeArea === 'sacas' ? 'PADRÃO 60 KG' : 'DENSIDADE'}
                       </span>
                     </label>
@@ -4111,21 +4111,21 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       onChange={(e) => setPesoPorM3(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder={unidadeArea === 'sacas' ? 'EX: 60' : 'EX: 400'}
-                      className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
+                      className="w-full px-3 py-1.5 sm:py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between uppercase">
+                    <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between uppercase">
                       <span>ESTIMATIVA DE PRODUÇÃO</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase">BLOQUEADO (AUTO)</span>
+                      <span className="text-[10px] text-slate-700 font-medium uppercase">BLOQUEADO (AUTO)</span>
                     </label>
                     <div 
-                      className="w-full px-3 py-1.5 sm:py-2 bg-[#edf4ff] dark:bg-slate-800 border border-[#b8d4fe] dark:border-slate-600 rounded-lg text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between shadow-2xs cursor-not-allowed" 
+                      className="w-full px-3 py-1.5 sm:py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs sm:text-sm font-bold text-black flex items-center justify-between shadow-2xs cursor-not-allowed" 
                       title={unidadeArea === 'sacas' ? `Fórmula: (${quantidadeArea || 0} sacas × ${pesoPorM3 || 60} kg) / 1000 = ${estimativaToneladas.toFixed(2)} ton` : `Fórmula: (${totalVolumeGeralM3.toFixed(1)} m³ × ${pesoPorM3 || 0} kg) / 1000 = ${estimativaToneladas.toFixed(2)} ton`}
                     >
                       <span>{estimativaToneladas > 0 ? `${estimativaToneladas.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ton` : '0,0 ton'}</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-normal uppercase">
+                      <span className="text-[10px] text-slate-700 font-mono font-normal uppercase">
                         {unidadeArea === 'sacas' 
                           ? `${quantidadeArea || 0} SC`
                           : (totalVolumeGeralM3 > 0 ? `${totalVolumeGeralM3.toFixed(1)} m³` : '0 m³')}
@@ -4138,19 +4138,19 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* NOVO BLOCO: AGENCIADOR / INTERMEDIAÇÃO */}
             {((activeTab as string) === 'corte' || (activeTab as string) === 'colheita' || (activeTab as string) === 'plantio' || (activeTab as string) === 'pulverizacao') && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3 text-black">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/20 pb-2">
                   <div className="flex items-center gap-2">
-                    <Handshake className="w-4 h-4 text-amber-600" />
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                    <Handshake className="w-4 h-4 text-amber-700" />
+                    <span className="text-xs font-bold text-black uppercase tracking-wider">
                       AGENCIADOR / INTERMEDIAÇÃO
                     </span>
                     {brokerId ? (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded shadow-2xs">
+                      <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100 border border-black px-2 py-0.5 rounded shadow-2xs">
                         Vinculado ao Pedido
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded shadow-2xs">
+                      <span className="text-[10px] font-bold text-black bg-white border border-black px-2 py-0.5 rounded shadow-2xs">
                         Opcional
                       </span>
                     )}
@@ -4159,7 +4159,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleSelectBroker('')}
-                      className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline cursor-pointer self-start sm:self-auto"
+                      className="text-[11px] font-semibold text-rose-700 hover:text-rose-800 hover:underline cursor-pointer self-start sm:self-auto"
                     >
                       Limpar Agenciador
                     </button>
@@ -4169,13 +4169,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                   {/* Campo 1: Select / Dropdown do Agenciador */}
                   <div className="sm:col-span-5">
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">
+                    <label className="block text-[11px] font-bold text-black mb-1 uppercase tracking-wide">
                       SELECIONE O AGENCIADOR
                     </label>
                     <select
                       value={brokerId}
                       onChange={(e) => handleSelectBroker(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-600 rounded-lg text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600 shadow-2xs transition-colors cursor-pointer"
+                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs sm:text-sm font-semibold text-black focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600 shadow-2xs transition-colors cursor-pointer"
                     >
                       <option value="">-- Nenhum Agenciador --</option>
                       {agenciadoresDisponiveis.map((ag) => (
@@ -4190,13 +4190,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   {brokerId ? (
                     <>
                       <div className="sm:col-span-3">
-                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">
+                        <label className="block text-[11px] font-bold text-black mb-1 uppercase tracking-wide">
                           Tipo de Comissão
                         </label>
                         <select
                           value={brokerCommissionType}
                           onChange={(e) => setBrokerCommissionType(e.target.value)}
-                          className="w-full px-2.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600 shadow-2xs cursor-pointer"
+                          className="w-full px-2.5 py-2 bg-white border border-gray-400 rounded-lg text-xs font-medium text-black focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600 shadow-2xs cursor-pointer"
                         >
                           <option value="Porcentagem (%) sobre o valor do pedido">% sobre o valor do pedido (Área)</option>
                           <option value="Porcentagem (%) sobre a produção">% sobre a produção (Estimativa ton)</option>
@@ -4205,7 +4205,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">
+                        <label className="block text-[11px] font-bold text-black mb-1 uppercase tracking-wide">
                           {brokerCommissionType === 'Valor Fixo por contrato/pedido' ? 'Valor Fixo (R$)' : 'Alíquota (%)'}
                         </label>
                         <input
@@ -4216,17 +4216,17 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           onChange={(e) => setBrokerCommissionRate(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="Ex: 5"
-                          className="w-full px-2.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full px-2.5 py-2 bg-white border border-gray-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
 
                       {/* Label Destacada com o Resultado do Cálculo Dinâmico */}
                       <div className="sm:col-span-2 flex flex-col justify-end">
-                        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-lg px-2.5 py-1.5 shadow-2xs">
-                          <span className="block text-[9.5px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-tight truncate" title={`Comissão Agenciador ${brokerName || ''}`}>
+                        <div className="bg-amber-50 border border-black rounded-lg px-2.5 py-1.5 shadow-2xs">
+                          <span className="block text-[9.5px] font-bold text-amber-900 uppercase tracking-tight truncate" title={`Comissão Agenciador ${brokerName || ''}`}>
                             Comissão Agenciador {brokerName ? `[${brokerName}]` : ''}:
                           </span>
-                          <span className="block text-sm font-black font-mono text-amber-900 dark:text-amber-200">
+                          <span className="block text-sm font-black font-mono text-black">
                             {formatCurrencyBRL(brokerCommissionAmount)}
                           </span>
                         </div>
@@ -4234,7 +4234,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     </>
                   ) : (
                     <div className="sm:col-span-7">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 italic py-2">
+                      <p className="text-xs text-slate-800 italic py-2">
                         Caso este pedido tenha intermediação ou agenciamento externo, selecione o agenciador para calcular sua comissão e lançar automaticamente no Contas a Pagar.
                       </p>
                     </div>
@@ -4245,30 +4245,26 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* 3. BLOCO FORRAGEIRA / ENSILADEIRA COM OPÇÃO NEUTRA E TOGGLES DE COMISSÃO */}
             {(activeTab === 'corte' || activeTab === 'colheita') && (
-              <div className={`border rounded-xl p-4 space-y-4 border-l-4 transition-colors bg-white border-zinc-300 shadow-sm ${
-                forrageiraId || forrageiraNome.trim()
-                  ? 'border-l-zinc-800'
-                  : 'border-l-zinc-400'
-              }`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2.5">
+              <div className="border border-black rounded-xl p-4 space-y-4 transition-colors bg-[#e0e6f1] text-black shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/20 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-zinc-800 text-white flex items-center justify-center shadow-2xs shrink-0">
-                      <Scissors className="w-4 h-4 text-white" />
+                    <div className="w-7 h-7 rounded-lg bg-white border border-black text-black flex items-center justify-center shadow-2xs shrink-0">
+                      <Scissors className="w-4 h-4 text-black" />
                     </div>
-                    <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-black uppercase tracking-wider">
                       {(activeTab as string) === 'colheita' ? 'COLHEITADEIRA' : 'Ensiladeira / Forrageira'}
                     </span>
                     {!(forrageiraId || forrageiraNome.trim()) && (
-                      <span className="text-[10px] uppercase font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-black bg-white border border-black px-2 py-0.5 rounded shadow-2xs">
                         Desativada / Nenhuma
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-zinc-700 bg-zinc-100 px-2.5 py-0.5 rounded-full border border-zinc-300 flex items-center gap-1.5 shadow-2xs">
+                    <span className="text-[11px] font-semibold text-black bg-white px-2.5 py-0.5 rounded-full border border-black flex items-center gap-1.5 shadow-2xs">
                       <span>Horímetro, Tambor & Comissões</span>
                       {comissaoForrageiraP1 > 0 && (
-                        <span className="font-bold bg-zinc-200 text-zinc-900 px-1.5 py-0.2 rounded-full text-[10px]">
+                        <span className="font-bold bg-emerald-100 border border-emerald-500 text-emerald-900 px-1.5 py-0.2 rounded-full text-[10px]">
                           {formatCurrencyBRL(comissaoForrageiraP1)}
                         </span>
                       )}
@@ -4291,10 +4287,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 <div className="space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider">
+                      <label className="block text-xs font-bold text-black uppercase tracking-wider">
                         {(effectiveTab as string) === 'colheita' ? 'SELECIONE UMA COLHEITADEIRA' : 'Selecione uma Forrageira / Ensiladeira'}
                       </label>
-                      <span className="text-[10px] text-zinc-500 font-semibold uppercase">
+                      <span className="text-[10px] text-slate-800 font-semibold uppercase">
                         {(effectiveTab as string) === 'colheita'
                           ? `${colheitadeirasDisponiveis.length} COLHEITADEIRA(S) DISPONÍVEL(IS)`
                           : `${forrageirasDisponiveis.length} forrageira(s) disponível(is)`}
@@ -4306,7 +4302,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         value={forrageiraNome ? forrageiraNome.toUpperCase() : ''}
                         onChange={(e) => setForrageiraNome(e.target.value.toUpperCase())}
                         placeholder={(effectiveTab as string) === 'colheita' ? "-- SELECIONE UMA COLHEITADEIRA --" : "-- Não Utilizar Forrageira / Nenhuma (Clique para escolher) --"}
-                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm text-zinc-900 placeholder-zinc-400 font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors uppercase"
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm text-black placeholder-slate-500 font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors uppercase"
                       />
                       <select
                         value={forrageiraId}
@@ -4327,13 +4323,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   </div>
 
                   {!(forrageiraId || forrageiraNome.trim()) ? (
-                    <div className="p-3.5 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-700 shadow-2xs">
-                      <p className="font-bold text-zinc-800 uppercase">
+                    <div className="p-3.5 rounded-lg border border-dashed border-gray-400 bg-white text-center text-xs text-black shadow-2xs">
+                      <p className="font-bold text-black uppercase">
                         {(effectiveTab as string) === 'colheita'
                           ? 'NENHUMA COLHEITADEIRA SELECIONADA PARA ESTE SERVIÇO.'
                           : 'Nenhuma forrageira selecionada para este serviço.'}
                       </p>
-                      <p className="text-[11px] mt-0.5 text-zinc-600 uppercase">
+                      <p className="text-[11px] mt-0.5 text-slate-700 uppercase">
                         {(effectiveTab as string) === 'colheita'
                           ? 'OS CUSTOS DE COBRANÇA E COMISSÃO DA COLHEITADEIRA ESTÃO ZERADOS E NÃO AFETARÃO O DRE FINAL. PARA SELECIONAR UMA MÁQUINA, CLIQUE NO SELETOR ACIMA.'
                           : 'Os custos de cobrança e comissão da forrageira estão zerados e não afetarão o DRE final. Para selecionar uma máquina, clique no seletor acima.'}
@@ -4344,9 +4340,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       {/* Operador Principal (Autocompletado) e Segundo Operador (Opcional - inicia vazio) */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                          <label className="block text-xs font-bold text-black uppercase tracking-wider mb-1.5 flex items-center justify-between">
                             <span>{(effectiveTab as string) === 'colheita' ? 'OPERADOR DA COLHEITADEIRA (PRINCIPAL)' : 'OPERADOR DA FORRAGEIRA (PRINCIPAL)'}</span>
-                            <span className="text-[10px] text-zinc-700 bg-zinc-100 border border-zinc-200 font-bold px-1.5 py-0.2 rounded shadow-2xs uppercase">AUTOCOMPLETADO</span>
+                            <span className="text-[10px] text-emerald-900 bg-emerald-100 border border-emerald-400 font-bold px-1.5 py-0.2 rounded shadow-2xs uppercase">AUTOCOMPLETADO</span>
                           </label>
                           <div className="relative">
                             <input
@@ -4363,7 +4359,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                 }
                               }}
                               placeholder="EX: OPERADOR ROBERTO"
-                              className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
+                              className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm font-semibold text-black placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
                             />
                             {employees.length > 0 && (
                               <select
@@ -4391,9 +4387,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                          <label className="block text-xs font-bold text-black uppercase tracking-wider mb-1.5 flex items-center justify-between">
                             <span>{(effectiveTab as string) === 'colheita' ? 'SEGUNDO OPERADOR (OPCIONAL)' : 'SEGUNDO OPERADOR (OPCIONAL)'}</span>
-                            <span className="text-[10px] text-zinc-500 font-semibold uppercase">INICIA VAZIO</span>
+                            <span className="text-[10px] text-slate-700 font-semibold uppercase">INICIA VAZIO</span>
                           </label>
                           <div className="relative">
                             <input
@@ -4404,7 +4400,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                 setSegundoOperadorForrageiraId('');
                               }}
                               placeholder="EX: AUXILIAR / SUPLENTE"
-                              className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
+                              className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm font-semibold text-black placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
                             />
                             {employees.length > 0 && (
                               <select
@@ -4432,7 +4428,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       {/* Horímetros: Hora do Tambor e Hora do Motor */}
                       <div className="grid grid-cols-2 gap-4 pt-1">
                         <div>
-                          <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                          <label className="block text-xs font-bold text-black uppercase tracking-wider mb-1">
                             HORA DO TAMBOR (H)
                           </label>
                           <input
@@ -4442,12 +4438,12 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => setHorasTambor(e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="EX: 8.5"
-                            className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm font-bold text-black focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1">
+                          <label className="block text-xs font-bold text-black uppercase tracking-wider mb-1">
                             HORA DO MOTOR (H)
                           </label>
                           <input
@@ -4457,21 +4453,21 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             onChange={(e) => setHorasMotor(e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="EX: 10.2"
-                            className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm font-bold text-black focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
 
                       {/* SUB-BLOCO COMISSÃO DO OPERADOR DA COLHEITADEIRA / FORRAGEIRA (COM TOGGLES DE ALTERNÂNCIA) */}
-                      <div className="bg-zinc-50 border border-zinc-300 rounded-lg p-3.5 sm:p-4 space-y-3.5 print-client-hide shadow-xs">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-zinc-200 pb-2.5">
-                          <span className="text-xs font-bold text-zinc-900 uppercase tracking-wide flex items-center gap-1.5 shrink-0">
-                            <Calculator className="w-3.5 h-3.5 text-zinc-700" />
+                      <div className="bg-[#cad4e6]/50 border border-black rounded-lg p-3.5 sm:p-4 space-y-3.5 print-client-hide shadow-xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-black/20 pb-2.5">
+                          <span className="text-xs font-bold text-black uppercase tracking-wide flex items-center gap-1.5 shrink-0">
+                            <Calculator className="w-3.5 h-3.5 text-black" />
                             {(effectiveTab as string) === 'colheita' ? 'COMISSÃO DO OPERADOR DA COLHEITADEIRA (INDEPENDENTE)' : 'COMISSÃO DO OPERADOR DA FORRAGEIRA (INDEPENDENTE)'}
                           </span>
 
                           {/* Botões de Alternância (Toggles): 4 Opções de Comissão - Alinhados em Linha Única sem Quebras */}
-                          <div className="inline-flex items-center rounded-lg p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] text-xs gap-1 flex-nowrap shrink-0 overflow-x-auto">
+                          <div className="inline-flex items-center rounded-lg p-1 bg-white border border-black shadow-2xs text-xs gap-1 flex-nowrap shrink-0 overflow-x-auto">
                             <button
                               type="button"
                               onClick={() => {
@@ -4489,8 +4485,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               }}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'livre'
-                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                                  ? 'bg-emerald-600 text-white font-bold border border-emerald-800 shadow-xs'
+                                  : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                               }`}
                             >
                               DIGITAR (LIVRE)
@@ -4500,8 +4496,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onClick={() => setModoComissaoForrageira('tambor')}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'tambor'
-                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                                  ? 'bg-emerald-600 text-white font-bold border border-emerald-800 shadow-xs'
+                                  : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                               }`}
                             >
                               POR HORA (TAMBOR)
@@ -4511,8 +4507,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onClick={() => setModoComissaoForrageira('motor')}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'motor'
-                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                                  ? 'bg-emerald-600 text-white font-bold border border-emerald-800 shadow-xs'
+                                  : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                               }`}
                             >
                               POR HORA (MOTOR)
@@ -4522,8 +4518,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               onClick={() => setModoComissaoForrageira('area')}
                               className={`px-3 py-1 text-xs rounded-md transition cursor-pointer whitespace-nowrap uppercase tracking-wider ${
                                 modoComissaoForrageira === 'area'
-                                  ? 'bg-emerald-100/90 text-emerald-950 font-black border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                                  : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                                  ? 'bg-emerald-600 text-white font-bold border border-emerald-800 shadow-xs'
+                                  : 'text-slate-700 hover:text-black hover:bg-gray-100 font-semibold'
                               }`}
                             >
                               {unidadeArea === 'sacas'
@@ -4537,16 +4533,16 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
-                              <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider">
+                              <label className="block text-xs font-bold text-black uppercase tracking-wider">
                                 BASE DA COMISSÃO ({modoComissaoForrageira === 'livre' ? 'LIVRE' : modoComissaoForrageira === 'tambor' ? 'HORA TAMBOR' : modoComissaoForrageira === 'motor' ? 'HORA MOTOR' : unidadeArea === 'sacas' ? 'SACAS' : 'ÁREA'})
                               </label>
                               {modoComissaoForrageira !== 'livre' ? (
-                                <span className="text-[10px] text-zinc-700 font-bold bg-zinc-200 border border-zinc-300 px-2 py-0.5 rounded shadow-2xs flex items-center gap-1 uppercase tracking-wider">
-                                  <Lock className="w-3 h-3 text-zinc-600" />
+                                <span className="text-[10px] text-black font-bold bg-white border border-gray-400 px-2 py-0.5 rounded shadow-2xs flex items-center gap-1 uppercase tracking-wider">
+                                  <Lock className="w-3 h-3 text-black" />
                                   TRAVADO ({modoComissaoForrageira === 'tambor' ? 'HORA TAMBOR' : modoComissaoForrageira === 'motor' ? 'HORA MOTOR' : unidadeArea === 'sacas' ? 'SACAS' : 'ÁREA'})
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded shadow-2xs uppercase tracking-wider">
+                                <span className="text-[10px] text-emerald-900 font-bold bg-emerald-100 border border-emerald-400 px-2 py-0.5 rounded shadow-2xs uppercase tracking-wider">
                                   DIGITAÇÃO LIVRE
                                 </span>
                               )}
@@ -4587,18 +4583,18 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                               }
                               className={`w-full px-3.5 py-2.5 rounded-lg text-sm font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                                 modoComissaoForrageira === 'livre'
-                                  ? 'bg-white border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors'
-                                  : 'bg-zinc-100 border border-zinc-300 text-zinc-800 cursor-not-allowed shadow-2xs'
+                                  ? 'bg-white border border-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors'
+                                  : 'bg-slate-100 border border-gray-400 text-black cursor-not-allowed shadow-2xs'
                               }`}
                             />
                           </div>
 
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
-                              <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider">
+                              <label className="block text-xs font-bold text-black uppercase tracking-wider">
                                 R$ / {modoComissaoForrageira === 'livre' ? 'UNIDADE (R$)' : modoComissaoForrageira === 'tambor' ? 'HORA TAMBOR (R$/H)' : modoComissaoForrageira === 'motor' ? 'HORA MOTOR (R$/H)' : unidadeArea === 'sacas' ? 'SACA (R$/SC)' : (unidadeArea === 'alqueires' ? 'ÁREA (R$/ALQ)' : 'ÁREA (R$/HA)')}
                               </label>
-                              <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">
+                              <span className="text-[10px] text-slate-700 font-semibold uppercase tracking-wider">
                                 VALOR UNITÁRIO
                               </span>
                             </div>
@@ -4614,29 +4610,29 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                                 }
                               }}
                               placeholder="EX: 25.00"
-                              className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm font-bold text-black focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </div>
                         </div>
 
                         {/* Card Informativo de Comissão Forrageira / Colheitadeira */}
-                        <div className="bg-white border border-zinc-300 rounded-lg p-2.5 sm:p-3 space-y-1.5 text-xs text-zinc-900 shadow-2xs">
+                        <div className="bg-white border border-black rounded-lg p-2.5 sm:p-3 space-y-1.5 text-xs text-black shadow-2xs">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold uppercase tracking-wider flex items-center gap-1.5 text-zinc-800">
-                              <Calculator className="w-3.5 h-3.5 text-zinc-700" />
+                            <span className="font-bold uppercase tracking-wider flex items-center gap-1.5 text-black">
+                              <Calculator className="w-3.5 h-3.5 text-black" />
                               COMISSÃO OPERADOR ({operadorForrageiraNome ? operadorForrageiraNome.toUpperCase() : 'NÃO SELECIONADO'}):
                             </span>
-                            <span className="font-mono font-bold uppercase text-zinc-900">
+                            <span className="font-mono font-bold uppercase text-black">
                               {formulaForrageiraP1 ? `${formulaForrageiraP1.toUpperCase()} (INFORMATIVO)` : `${formatCurrencyBRL(comissaoForrageiraP1)} (INFORMATIVO)`}
                             </span>
                           </div>
 
                           {segundoOperadorForrageiraNome && comissaoForrageiraP2 > 0 && (
-                            <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200">
-                              <span className="font-bold uppercase tracking-wider text-zinc-800">
+                            <div className="flex items-center justify-between pt-1.5 border-t border-black/15">
+                              <span className="font-bold uppercase tracking-wider text-black">
                                 COMISSÃO 2º OPERADOR ({segundoOperadorForrageiraNome.toUpperCase()}):
                               </span>
-                              <span className="font-mono font-bold uppercase text-zinc-900">
+                              <span className="font-mono font-bold uppercase text-black">
                                 {formulaForrageiraP2 ? `${formulaForrageiraP2.toUpperCase()} (INFORMATIVO)` : `${formatCurrencyBRL(comissaoForrageiraP2)} (INFORMATIVO)`}
                               </span>
                             </div>
@@ -4719,8 +4715,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* 6. OBSERVAÇÕES GERAIS */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-1.5">
-              <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-wider">
+            <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 sm:p-3.5 shadow-sm space-y-1.5 text-black">
+              <label className="block text-xs font-bold text-black uppercase tracking-wider">
                 Observações do Pedido / Serviço
               </label>
               <textarea
@@ -4728,7 +4724,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
                 placeholder="Detalhes adicionais, condições do terreno, tipo de silagem ou observações financeiras..."
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-sm text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 resize-none shadow-2xs transition-colors"
+                className="w-full px-3.5 py-2.5 bg-white border border-gray-400 rounded-lg text-sm text-black font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 resize-none shadow-2xs transition-colors"
               />
             </div>
 
@@ -4812,9 +4808,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
           </div>
 
-          {/* RODAPÉ DO MODAL (AÇÕES COMPACTAS 3D METÁLICAS) */}
+          {/* RODAPÉ DO MODAL */}
           <div 
-            className="w-full max-w-full flex flex-wrap items-center justify-end gap-2 sm:gap-2.5 px-4 sm:px-5 py-2.5 sm:py-3 border-t border-slate-300 dark:border-stone-800 bg-white dark:bg-stone-900 rounded-b-2xl shrink-0 print:hidden overflow-hidden"
+            className="w-full max-w-full flex flex-wrap items-center justify-end gap-2 sm:gap-2.5 px-4 sm:px-5 py-2.5 sm:py-3 border-t border-black bg-[#cad4e6] rounded-b-lg shrink-0 print:hidden overflow-hidden text-black"
           >
             {/* BOTÃO 1: Imprimir Via Cliente */}
             <button
@@ -4824,10 +4820,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 setPrintPreviewPaperFormat('thermal_80mm');
                 setShowPrintPreview(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-400 dark:border-stone-600 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-400 bg-white hover:bg-gray-100 text-black text-xs font-bold rounded-lg shadow-2xs transition cursor-pointer"
               title="Abrir prévia e impressão da Via Cliente (Cupom 80mm pré-ativado, comissões ocultas)"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
+              <Printer className="w-3.5 h-3.5 text-black" />
               <span>Imprimir Via Cliente</span>
             </button>
 
@@ -4839,10 +4835,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 setPrintPreviewPaperFormat('a4');
                 setShowPrintPreview(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-400 dark:border-stone-600 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-400 bg-white hover:bg-gray-100 text-black text-xs font-bold rounded-lg shadow-2xs transition cursor-pointer"
               title="Abrir prévia e impressão da Via Completa (Folha A4 pré-ativada, com DRE e comissões)"
             >
-              <PrinterCheck className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
+              <PrinterCheck className="w-3.5 h-3.5 text-black" />
               <span>Imprimir Via Completa</span>
             </button>
 
@@ -4850,16 +4846,16 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 border border-slate-400 dark:border-stone-600 rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-gray-400 rounded-lg shadow-2xs transition cursor-pointer"
               title="Fechar o formulário e voltar à tela anterior"
             >
-              <LogOut className="w-4 h-4 text-slate-500 dark:text-stone-400" />
+              <LogOut className="w-4 h-4 text-black" />
               <span>Sair</span>
             </button>
 
             {isSaveSuccessToast && (
-              <span className="text-xs text-emerald-800 font-bold flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-300 animate-fade-in shadow-2xs">
-                <Check className="w-4 h-4 stroke-[3] text-emerald-600" />
+              <span className="text-xs text-emerald-900 font-bold flex items-center gap-1.5 bg-emerald-100 px-2.5 py-1.5 rounded-lg border border-black animate-fade-in shadow-2xs">
+                <Check className="w-4 h-4 stroke-[3] text-emerald-700" />
                 Alterações salvas!
               </span>
             )}
@@ -4869,7 +4865,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSave('em_faturamento')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold uppercase rounded-lg shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold uppercase rounded-lg border border-blue-800 shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
                 title="Concluir campo e enviar para a aba Faturamento do escritório"
               >
                 <Send className="w-3.5 h-3.5" />
@@ -4882,7 +4878,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSave('faturado')}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition cursor-pointer active:scale-95 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase rounded-lg border border-emerald-800 shadow-sm transition cursor-pointer active:scale-95 whitespace-nowrap"
                 title="Finalizar conferência e disparar lançamento físico no Contas a Receber"
               >
                 <DollarSign className="w-4 h-4 stroke-[2.5]" />
@@ -4892,7 +4888,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* BADGE: FATURADO NO FINANCEIRO */}
             {status === 'faturado' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 dark:border-emerald-700">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-900 text-xs font-bold rounded-lg border border-black">
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                 <span>Faturado no Financeiro</span>
               </span>
@@ -4902,7 +4898,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white text-xs font-bold uppercase rounded-lg shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase rounded-lg border border-emerald-800 shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
               title="Salvar alterações no pedido sem fechar a janela"
             >
               <Check className="w-4 h-4 stroke-[2.5]" />

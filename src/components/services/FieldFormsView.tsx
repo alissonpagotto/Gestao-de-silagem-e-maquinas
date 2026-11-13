@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   FileSpreadsheet, 
   Printer, 
@@ -25,10 +25,17 @@ import {
   addStoredFieldSubmission, 
   updateAppointmentFieldReturn, 
   getStoredFormSequences, 
-  saveStoredFormSequences, 
+  saveStoredFormSequences,
+  getStoredCompanyProfile,
   FormSequences 
 } from '../../lib/storage';
-import { useResolvedMediaUrl } from '../../lib/imageStorage';
+import { 
+  COMPANY_LOGO_REF,
+  getCachedMediaUrl,
+  isIndexedDbRef,
+  resolveMediaUrlAsync,
+  useResolvedMediaUrl 
+} from '../../lib/imageStorage';
 import { createPortal } from 'react-dom';
 
 interface FieldFormsViewProps {
@@ -123,26 +130,28 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   });
 
   // Cabeçalho da Empresa Reativo
-  const companyLogo = useResolvedMediaUrl(companyProfile?.logoUrl);
-  const companyCnpj = companyProfile?.cnpjCpf || '';
-  const companyTradeName = companyProfile?.tradeName || companyProfile?.corporateName || '';
-  const companyAddress = companyProfile?.address 
-    ? `${companyProfile.address}${companyProfile.city ? ` - ${companyProfile.city}` : ''}${companyProfile.state ? ` - ${companyProfile.state}` : ''}`
-    : (companyProfile?.city ? `${companyProfile.city}${companyProfile.state ? ` - ${companyProfile.state}` : ''}` : '');
-  const companyPhone = companyProfile?.phone || '';
+  const activeCompany = companyProfile || getStoredCompanyProfile();
+  const companyLogo = useResolvedMediaUrl(activeCompany?.logoUrl || COMPANY_LOGO_REF);
+  const companyCnpj = activeCompany?.cnpjCpf || activeCompany?.cnpj || '';
+  const companyCorporateName = activeCompany?.corporateName || '';
+  const companyTradeName = activeCompany?.tradeName || activeCompany?.corporateName || '';
+  const companyAddress = activeCompany?.address 
+    ? `${activeCompany.address}${activeCompany.city ? ` - ${activeCompany.city}` : ''}${activeCompany.state ? ` - ${activeCompany.state}` : ''}`
+    : (activeCompany?.city ? `${activeCompany.city}${activeCompany.state ? ` - ${activeCompany.state}` : ''}` : '');
+  const companyPhone = activeCompany?.phone || '';
 
   // -------------------------------------------------------------
   // ESTADO FORMULÁRIO 1: PEDIDO DE CORTE (Operador da Forrageira)
   // -------------------------------------------------------------
   const [f1Data, setF1Data] = useState({
-    data: new Date().toLocaleDateString('pt-BR'),
+    data: '',
     cliente: '',
     endereco: '',
     cidade: '',
-    uf: 'PR',
+    uf: '',
     cnpjCpf: '',
     inscrEst: '',
-    condPagto: 'À Vista / Safra',
+    condPagto: '',
     fone: '',
     numMaquina: '',
     operador: '',
@@ -179,7 +188,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   // ESTADO FORMULÁRIO 2: CONTROLE COMPACTAÇÃO (Operador do Trator)
   // -------------------------------------------------------------
   const [f2Data, setF2Data] = useState({
-    dataInicial: new Date().toLocaleDateString('pt-BR'),
+    dataInicial: '',
     dataFinal: '',
     cliente: '',
     numTrator: '',
@@ -192,7 +201,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     valorHr: '',
     valorTotal: '',
     // Seção Acoplada de Abastecimento
-    abastData: new Date().toLocaleDateString('pt-BR'),
+    abastData: '',
     abastPosto: '',
     abastLitros: '',
     abastValorLitro: '',
@@ -205,7 +214,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   // ESTADO FORMULÁRIO 3: CONTROLE DE CARGAS (Demais Veículos / Caminhões)
   // -------------------------------------------------------------
   const [f3Data, setF3Data] = useState({
-    data: new Date().toLocaleDateString('pt-BR'),
+    data: '',
     cliente: '',
     endereco: '',
     placa: '',
@@ -438,8 +447,10 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     setLoadToUncheck(null);
   };
 
+  const activeFormRef = useRef<HTMLDivElement | null>(null);
+
   // -------------------------------------------------------------
-  // CONTROLE SEQUENCIAL E IMPRESSÃO EM LOTE (TALÕES DE CAMPO)
+  // CONTROLE SEQUENCIAL E IMPRESSÃO DIRETA EM JANELA DEDICADA (A4)
   // -------------------------------------------------------------
   const [sequences, setSequences] = useState<FormSequences>(() => getStoredFormSequences());
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
@@ -452,11 +463,243 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     setSequences(getStoredFormSequences());
   }, []);
 
-  const openBatchPrintModal = () => {
-    const lastNum = sequences[activeFormTab] ?? 0;
-    setBatchQty(50);
-    setBatchStartNum(lastNum + 1);
-    setIsBatchModalOpen(true);
+  const buildFieldFormPrintHtml = (formHtml: string, formTitle: string): string => {
+    const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map((el) => el.outerHTML)
+      .join('\n');
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="${window.location.origin}/" />
+  <title>${formTitle} - Impressão de Campo</title>
+  ${headStyles}
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #1c1917;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    @media screen {
+      body {
+        background: #e2e8f0;
+        padding: 16px;
+      }
+      .print-toolbar {
+        max-width: 190mm;
+        margin: 0 auto 12px auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        background: #1e293b;
+        color: #ffffff;
+        padding: 8px 14px;
+        border-radius: 8px;
+      }
+      .print-toolbar-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .print-sheet-wrapper {
+        max-width: 190mm;
+        margin: 0 auto;
+        background: #ffffff;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+      }
+    }
+    @media print {
+      html, body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .no-print,
+      .print-toolbar {
+        display: none !important;
+      }
+      .print\\:hidden {
+        display: none !important;
+      }
+      .print-sheet-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+      .print-sheet-wrapper > div {
+        max-width: 100% !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+      }
+      /* Preserva grids responsivos sm: na folha A4 */
+      .sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      .sm\\:grid-cols-8 { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+      .sm\\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+      .sm\\:col-span-2 { grid-column: span 2 / span 2 !important; }
+      .sm\\:col-span-3 { grid-column: span 3 / span 3 !important; }
+      .sm\\:col-span-4 { grid-column: span 4 / span 4 !important; }
+      .sm\\:col-span-5 { grid-column: span 5 / span 5 !important; }
+      .sm\\:col-span-6 { grid-column: span 6 / span 6 !important; }
+      .sm\\:col-span-7 { grid-column: span 7 / span 7 !important; }
+      .sm\\:col-span-8 { grid-column: span 8 / span 8 !important; }
+      .sm\\:col-span-9 { grid-column: span 9 / span 9 !important; }
+      .sm\\:col-span-12 { grid-column: span 12 / span 12 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-toolbar no-print">
+    <span style="font-size: 12px; font-weight: 700;">${formTitle}</span>
+    <div style="display: flex; gap: 8px;">
+      <button type="button" class="print-toolbar-btn" style="background: #188038; color: #ffffff;" onclick="window.focus(); window.print();">
+        🖨️ Imprimir A4
+      </button>
+      <button type="button" class="print-toolbar-btn" style="background: #475569; color: #ffffff;" onclick="window.close();">
+        Fechar
+      </button>
+    </div>
+  </div>
+
+  <div class="print-sheet-wrapper">
+    ${formHtml}
+  </div>
+
+  <script>
+    (function () {
+      function firePrint() {
+        setTimeout(function () {
+          window.focus();
+          window.print();
+        }, 250);
+      }
+
+      var imgs = Array.prototype.slice.call(document.images || []);
+      var pending = imgs.filter(function (img) { return !img.complete; });
+
+      if (pending.length === 0) {
+        if (document.readyState === 'complete') {
+          firePrint();
+        } else {
+          window.addEventListener('load', firePrint, { once: true });
+        }
+      } else {
+        var remaining = pending.length;
+        var triggered = false;
+        function doneOne() {
+          remaining -= 1;
+          if (remaining <= 0 && !triggered) {
+            triggered = true;
+            firePrint();
+          }
+        }
+        pending.forEach(function (img) {
+          img.addEventListener('load', doneOne, { once: true });
+          img.addEventListener('error', doneOne, { once: true });
+        });
+        setTimeout(function () {
+          if (!triggered) {
+            triggered = true;
+            firePrint();
+          }
+        }, 2500);
+      }
+    })();
+  </script>
+</body>
+</html>`;
+  };
+
+  const handlePrintActiveBlock = async () => {
+    const printWindow = window.open('', '_blank', 'width=900,height=750');
+    if (!printWindow) return;
+
+    const sourceRoot = activeFormRef.current?.firstElementChild as HTMLElement | null;
+    if (!sourceRoot) {
+      printWindow.close();
+      return;
+    }
+
+    // Resolve o logotipo da empresa no IndexedDB antes de montar o HTML final
+    let resolvedLogo = companyLogo || getCachedMediaUrl(activeCompany?.logoUrl) || '';
+    if (!resolvedLogo || isIndexedDbRef(resolvedLogo)) {
+      resolvedLogo =
+        (await resolveMediaUrlAsync(activeCompany?.logoUrl)) ||
+        (await resolveMediaUrlAsync(COMPANY_LOGO_REF)) ||
+        '';
+    }
+
+    const clone = sourceRoot.cloneNode(true) as HTMLElement;
+
+    // Remove controles não imprimíveis e datalists
+    clone.querySelectorAll('.no-print, datalist').forEach((el) => el.remove());
+
+    // Sincroniza valores dos inputs e garante ausência de placeholders
+    const origInputs = Array.from(sourceRoot.querySelectorAll('input'));
+    const clonedInputs = Array.from(clone.querySelectorAll('input'));
+    clonedInputs.forEach((inputEl, idx) => {
+      const origInput = origInputs[idx];
+      inputEl.removeAttribute('placeholder');
+      const currentVal = origInput ? origInput.value : inputEl.value;
+      inputEl.setAttribute('value', currentVal || '');
+      inputEl.value = currentVal || '';
+    });
+
+    // Garante que a logo resolvida do IndexedDB apareça no cabeçalho impresso
+    if (resolvedLogo) {
+      const logoImg = clone.querySelector('img[data-company-logo="true"]') as HTMLImageElement | null;
+      if (logoImg) {
+        logoImg.setAttribute('src', resolvedLogo);
+      } else {
+        const fallbackBox = clone.querySelector('[data-company-logo-fallback="true"]');
+        if (fallbackBox && fallbackBox.parentElement) {
+          const img = document.createElement('img');
+          img.setAttribute('src', resolvedLogo);
+          img.setAttribute('alt', companyTradeName || 'Logomarca');
+          img.className = activeFormTab === 'corte'
+            ? 'h-16 w-auto max-w-[150px] object-contain'
+            : 'h-14 w-auto max-w-[130px] object-contain';
+          fallbackBox.parentElement.replaceChild(img, fallbackBox);
+        }
+      }
+    }
+
+    const tabTitles: Record<'corte' | 'compactacao' | 'cargas', string> = {
+      corte: '1. Pedido de Corte (Forrageira)',
+      compactacao: '2. Controle de Compactação (Trator)',
+      cargas: '3. Controle de Cargas (01 a 64)',
+    };
+
+    const htmlDoc = buildFieldFormPrintHtml(clone.outerHTML, tabTitles[activeFormTab]);
+
+    printWindow.document.open();
+    printWindow.document.write(htmlDoc);
+    printWindow.document.close();
   };
 
   const handleConfirmBatchPrint = () => {
@@ -464,38 +707,15 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     const start = Math.max(1, Math.floor(Number(batchStartNum) || 1));
     const end = start + qty - 1;
 
-    // Atualizar e persistir no LocalStorage
     const newSeqs: FormSequences = {
       ...sequences,
       [activeFormTab]: Math.max(sequences[activeFormTab] || 0, end),
     };
     setSequences(newSeqs);
     saveStoredFormSequences(newSeqs);
-
-    // Fechar modal
     setIsBatchModalOpen(false);
-
-    // Preparar páginas do lote para renderização de impressão
-    const pages: number[] = [];
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    setBatchPrintPages(pages);
-
-    if (typeof document !== 'undefined') {
-      document.body.classList.add('printing-field-forms-batch');
-    }
-
-    // Aguardar React montar as páginas no portal
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        if (typeof document !== 'undefined') {
-          document.body.classList.remove('printing-field-forms-batch');
-        }
-        setBatchPrintPages(null);
-      }, 1000);
-    }, 300);
+    setBatchPrintPages(null);
+    void handlePrintActiveBlock();
   };
 
   // Estados de confirmação e sucesso do envio de volta
@@ -541,7 +761,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
 📋 *Escala:* ${appointmentNum}
 👤 *Cliente:* ${clientName}
 📍 *Endereço / Fazenda:* ${f1Data.endereco || 'Conforme agendamento'} - ${f1Data.cidade || ''}/${f1Data.uf || ''}
-📅 *Data:* ${f1Data.data}
+📅 *Data:* ${f1Data.data || new Date().toLocaleDateString('pt-BR')}
 
 🚜 *Máquina:* *${f1Data.numMaquina || 'Forrageira'}*
 👷 *Operador:* *${f1Data.operador || 'Operador de Campo'}*
@@ -570,7 +790,7 @@ ${f1Data.obs ? `\n📝 *Observações:* ${f1Data.obs}` : ''}
 `🚜 *RETORNO DE CAMPO - COMPACTAÇÃO (TRATOR)* 🌾
 📋 *Escala:* ${appointmentNum}
 👤 *Cliente:* ${clientName}
-📅 *Data:* ${f2Data.dataInicial}${f2Data.dataFinal ? ` a ${f2Data.dataFinal}` : ''}
+📅 *Data:* ${f2Data.dataInicial || new Date().toLocaleDateString('pt-BR')}${f2Data.dataFinal ? ` a ${f2Data.dataFinal}` : ''}
 
 🚜 *Trator:* *${f2Data.numTrator || 'Trator de Compactação'}*
 👷 *Operador:* *${f2Data.operadorTrator || 'Operador do Trator'}*
@@ -601,7 +821,7 @@ ${f2Data.abastObs ? `📝 *Observações:* ${f2Data.abastObs}\n` : ''}
 📋 *Escala:* ${appointmentNum}
 👤 *Cliente:* ${clientName}
 📍 *Endereço:* ${f3Data.endereco || 'Conforme agendamento'}
-📅 *Data:* ${f3Data.data}
+📅 *Data:* ${f3Data.data || new Date().toLocaleDateString('pt-BR')}
 
 🚛 *Placa do Veículo:* *${f3Data.placa || 'N/A'}*
 👷 *Motorista:* *${f3Data.motorista || 'Motorista'}*
@@ -681,18 +901,22 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               <div className="flex items-center gap-3">
                 {companyLogo ? (
                   <img 
+                    data-company-logo="true"
                     src={companyLogo} 
                     alt={companyTradeName || 'Logomarca'} 
                     className="h-16 w-auto max-w-[150px] object-contain"
                     referrerPolicy="no-referrer"
                   />
                 ) : companyTradeName ? (
-                  <div className="border-2 border-stone-900 rounded-md px-3 py-1 font-black text-xl tracking-tighter bg-stone-100 text-stone-900">
+                  <div data-company-logo-fallback="true" className="border-2 border-stone-900 rounded-md px-3 py-1 font-black text-xl tracking-tighter bg-stone-100 text-stone-900">
                     {companyTradeName}
                   </div>
                 ) : null}
                 <div>
                   {companyTradeName && <h2 className="text-base font-black tracking-tight uppercase">{companyTradeName}</h2>}
+                  {companyCorporateName && companyCorporateName !== companyTradeName && (
+                    <p className="text-[10px] font-bold text-stone-700 uppercase">{companyCorporateName}</p>
+                  )}
                   {companyCnpj && <p className="text-[11px] font-semibold text-stone-600">CNPJ: {companyCnpj}</p>}
                   {companyAddress && <p className="text-[10px] text-stone-500">{companyAddress}</p>}
                   {companyPhone && (
@@ -724,7 +948,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.data} 
                   onChange={e => setF1Data({...f1Data, data: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="DD/MM/AAAA"
                 />
               </div>
               <div className="sm:col-span-9 flex items-center gap-1 border-b border-stone-300 pb-1">
@@ -735,7 +958,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   onChange={e => setF1Data({...f1Data, cliente: e.target.value})}
                   list="clients-f1-list"
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Nome do produtor / fazenda"
                 />
                 <datalist id="clients-f1-list">
                   {clients.map(c => <option key={c.id} value={c.name} />)}
@@ -749,7 +971,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.endereco} 
                   onChange={e => setF1Data({...f1Data, endereco: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Linha, estrada ou ponto de referência"
                 />
               </div>
 
@@ -820,7 +1041,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.numMaquina} 
                   onChange={e => setF1Data({...f1Data, numMaquina: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-full text-stone-900" 
-                  placeholder="Ex: Forrageira 01"
                 />
               </div>
               <div className="flex items-center gap-1.5">
@@ -830,7 +1050,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.operador} 
                   onChange={e => setF1Data({...f1Data, operador: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-full text-stone-900" 
-                  placeholder="Nome do operador"
                 />
               </div>
             </div>
@@ -844,7 +1063,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.hectares} 
                   onChange={e => setF1Data({...f1Data, hectares: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-full text-stone-900" 
-                  placeholder="0,00 ha"
                 />
               </div>
               <div className="flex items-center gap-1.5">
@@ -854,7 +1072,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.valorHaHr} 
                   onChange={e => setF1Data({...f1Data, valorHaHr: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-full text-stone-900" 
-                  placeholder="R$ 0,00"
                 />
               </div>
             </div>
@@ -886,7 +1103,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.valorTotalCorte} 
                   onChange={e => setF1Data({...f1Data, valorTotalCorte: e.target.value})}
                   className="bg-white border border-stone-300 px-1 py-0.5 rounded text-xs w-28 text-center text-stone-900 font-black" 
-                  placeholder="R$ 0,00"
                 />
               </div>
             </div>
@@ -905,7 +1121,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={c.placa} 
                       onChange={e => handleTruckChange(idx, 'placa', e.target.value)}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-stone-900" 
-                      placeholder="Placa"
                     />
                   </div>
                   <div className="sm:col-span-5 flex items-center gap-1">
@@ -915,7 +1130,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={c.motorista} 
                       onChange={e => handleTruckChange(idx, 'motorista', e.target.value)}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-stone-900" 
-                      placeholder="Nome"
                     />
                   </div>
                   <div className="sm:col-span-2 flex items-center gap-1">
@@ -925,7 +1139,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={c.cargas} 
                       onChange={e => handleTruckChange(idx, 'cargas', e.target.value)}
                       className="bg-white border border-stone-300 px-1 py-0.5 rounded text-xs w-full text-center text-stone-900" 
-                      placeholder="0"
                     />
                   </div>
                   <div className="sm:col-span-2 flex items-center gap-1">
@@ -935,7 +1148,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={c.km} 
                       onChange={e => handleTruckChange(idx, 'km', e.target.value)}
                       className="bg-white border border-stone-300 px-1 py-0.5 rounded text-xs w-full text-center text-stone-900" 
-                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -950,7 +1162,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 value={f1Data.valorTotalCaminhoes} 
                 onChange={e => setF1Data({...f1Data, valorTotalCaminhoes: e.target.value})}
                 className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-36 text-right font-black text-stone-900" 
-                placeholder="R$ 0,00"
               />
             </div>
 
@@ -977,7 +1188,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.tratorValorHr} 
                   onChange={e => setF1Data({...f1Data, tratorValorHr: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-full text-stone-900" 
-                  placeholder="R$ 0,00"
                 />
               </div>
               <div className="flex items-center gap-1.5">
@@ -1008,7 +1218,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 value={f1Data.obs} 
                 onChange={e => setF1Data({...f1Data, obs: e.target.value})}
                 className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0 mt-1" 
-                placeholder="Observações complementares do pedido de corte"
               />
             </div>
 
@@ -1029,7 +1238,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f1Data.totalGeral} 
                   onChange={e => setF1Data({...f1Data, totalGeral: e.target.value})}
                   className="w-full bg-white text-stone-950 px-3 py-2 text-sm sm:text-base font-black text-right border-none focus:ring-0" 
-                  placeholder="R$ 0,00"
                 />
               </div>
             </div>
@@ -1055,18 +1263,22 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               <div className="flex items-center gap-2.5">
                 {companyLogo ? (
                   <img 
+                    data-company-logo="true"
                     src={companyLogo} 
                     alt={companyTradeName || 'Logomarca'} 
                     className="h-14 w-auto max-w-[130px] object-contain"
                     referrerPolicy="no-referrer"
                   />
                 ) : companyTradeName ? (
-                  <div className="border-2 border-stone-900 rounded-md px-2.5 py-1 font-black text-base bg-stone-100">
+                  <div data-company-logo-fallback="true" className="border-2 border-stone-900 rounded-md px-2.5 py-1 font-black text-base bg-stone-100">
                     {companyTradeName}
                   </div>
                 ) : null}
                 <div>
                   {companyTradeName && <h2 className="text-sm font-black uppercase">{companyTradeName}</h2>}
+                  {companyCorporateName && companyCorporateName !== companyTradeName && (
+                    <p className="text-[10px] font-bold text-stone-700 uppercase">{companyCorporateName}</p>
+                  )}
                   {companyCnpj && <p className="text-[10px] font-bold text-stone-600">CNPJ: {companyCnpj}</p>}
                   {companyAddress && <p className="text-[10px] text-stone-500">{companyAddress}</p>}
                   {companyPhone && (
@@ -1104,7 +1316,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.dataInicial} 
                   onChange={e => setF2Data({...f2Data, dataInicial: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="DD/MM/AAAA"
                 />
               </div>
               <div className="flex items-center gap-1">
@@ -1114,7 +1325,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.dataFinal} 
                   onChange={e => setF2Data({...f2Data, dataFinal: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="DD/MM/AAAA"
                 />
               </div>
             </div>
@@ -1126,7 +1336,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 value={f2Data.cliente} 
                 onChange={e => setF2Data({...f2Data, cliente: e.target.value})}
                 className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                placeholder="Nome do cliente produtor"
               />
             </div>
 
@@ -1138,7 +1347,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.numTrator} 
                   onChange={e => setF2Data({...f2Data, numTrator: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Ex: Trator 04"
                 />
               </div>
               <div className="flex items-center gap-1">
@@ -1148,7 +1356,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.operadorTrator} 
                   onChange={e => setF2Data({...f2Data, operadorTrator: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Operador do trator"
                 />
               </div>
             </div>
@@ -1161,7 +1368,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.numMaquina} 
                   onChange={e => setF2Data({...f2Data, numMaquina: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Ex: Forrageira 01"
                 />
               </div>
               <div className="flex items-center gap-1">
@@ -1171,7 +1377,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.operadorMaquina} 
                   onChange={e => setF2Data({...f2Data, operadorMaquina: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Operador da forrageira"
                 />
               </div>
             </div>
@@ -1216,7 +1421,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.valorHr} 
                   onChange={e => setF2Data({...f2Data, valorHr: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-28 text-center" 
-                  placeholder="R$ 0,00"
                 />
               </div>
               <div className="flex items-center justify-center gap-1">
@@ -1226,7 +1430,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f2Data.valorTotal} 
                   onChange={e => setF2Data({...f2Data, valorTotal: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-32 text-center font-black" 
-                  placeholder="R$ 0,00"
                 />
               </div>
             </div>
@@ -1255,7 +1458,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f2Data.abastPosto} 
                       onChange={e => setF2Data({...f2Data, abastPosto: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full" 
-                      placeholder="Nome do posto"
                     />
                   </div>
                 </div>
@@ -1277,7 +1479,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f2Data.abastValorLitro} 
                       onChange={e => setF2Data({...f2Data, abastValorLitro: e.target.value})}
                       className="bg-white border border-stone-300 px-1 py-0.5 rounded text-xs w-full text-center mt-0.5" 
-                      placeholder="R$ 0,00"
                     />
                   </div>
                   <div>
@@ -1298,7 +1499,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                     value={f2Data.abastValorTotal} 
                     onChange={e => setF2Data({...f2Data, abastValorTotal: e.target.value})}
                     className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-36 text-right font-black" 
-                    placeholder="R$ 0,00"
                   />
                 </div>
 
@@ -1328,18 +1528,22 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               <div className="flex items-center gap-2.5">
                 {companyLogo ? (
                   <img 
+                    data-company-logo="true"
                     src={companyLogo} 
                     alt={companyTradeName || 'Logomarca'} 
                     className="h-14 w-auto max-w-[130px] object-contain"
                     referrerPolicy="no-referrer"
                   />
                 ) : companyTradeName ? (
-                  <div className="border-2 border-stone-900 rounded-md px-2.5 py-1 font-black text-base bg-stone-100">
+                  <div data-company-logo-fallback="true" className="border-2 border-stone-900 rounded-md px-2.5 py-1 font-black text-base bg-stone-100">
                     {companyTradeName}
                   </div>
                 ) : null}
                 <div>
                   {companyTradeName && <h2 className="text-sm font-black uppercase">{companyTradeName}</h2>}
+                  {companyCorporateName && companyCorporateName !== companyTradeName && (
+                    <p className="text-[10px] font-bold text-stone-700 uppercase">{companyCorporateName}</p>
+                  )}
                   {companyCnpj && <p className="text-[10px] font-bold text-stone-600">CNPJ: {companyCnpj}</p>}
                   {companyAddress && <p className="text-[10px] text-stone-500">{companyAddress}</p>}
                   {companyPhone && (
@@ -1377,7 +1581,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.data} 
                   onChange={e => setF3Data({...f3Data, data: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="DD/MM/AAAA"
                 />
               </div>
               <div className="sm:col-span-8 flex items-center gap-1">
@@ -1387,7 +1590,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.cliente} 
                   onChange={e => setF3Data({...f3Data, cliente: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Nome do cliente"
                 />
               </div>
             </div>
@@ -1400,7 +1602,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 value={f3Data.endereco} 
                 onChange={e => setF3Data({...f3Data, endereco: e.target.value})}
                 className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                placeholder="Local de corte / entrega"
               />
             </div>
 
@@ -1449,7 +1650,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.placa} 
                   onChange={e => setF3Data({...f3Data, placa: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0 uppercase" 
-                  placeholder="Placa"
                 />
               </div>
               <div className="sm:col-span-7 flex items-center gap-1">
@@ -1459,7 +1659,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.motorista} 
                   onChange={e => setF3Data({...f3Data, motorista: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                  placeholder="Nome do condutor"
                 />
               </div>
             </div>
@@ -1472,7 +1671,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 value={f3Data.maquina} 
                 onChange={e => setF3Data({...f3Data, maquina: e.target.value})}
                 className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                placeholder="Forrageira responsável pelo corte"
               />
             </div>
 
@@ -1480,10 +1678,10 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
             <div className="pt-1">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-stone-800">
-                  Cargas: <span className="text-[#188038] font-black">({Object.keys(orderNumOverride ? {} : f3Data.loadsRecord).length} marcadas)</span>
+                  Cargas: <span className="text-[#188038] font-black print:hidden">({Object.keys(orderNumOverride ? {} : f3Data.loadsRecord).length} marcadas)</span>
                 </span>
                 {!orderNumOverride && Object.keys(f3Data.loadsRecord).length > 0 && (
-                  <span className="text-[11px] text-stone-500 font-medium">
+                  <span className="text-[11px] text-stone-500 font-medium print:hidden">
                     Toque no número para marcar com horário automático. Toque novamente para desmarcar.
                   </span>
                 )}
@@ -1519,7 +1717,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                           {recordTime}h
                         </span>
                       ) : (
-                        <span className="text-[9px] text-transparent mt-0.5 select-none">--:--</span>
+                        <span className="h-[10px] block" aria-hidden="true"></span>
                       )}
                     </button>
                   );
@@ -1536,7 +1734,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.qtdeCargasLonge} 
                   onChange={e => setF3Data({...f3Data, qtdeCargasLonge: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-20 text-center font-black" 
-                  placeholder="0"
                 />
               </div>
               <div className="flex items-center gap-1.5">
@@ -1546,7 +1743,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.km} 
                   onChange={e => setF3Data({...f3Data, km: e.target.value})}
                   className="bg-white border border-stone-300 px-2 py-0.5 rounded text-xs w-full text-center font-black" 
-                  placeholder="0"
                 />
               </div>
             </div>
@@ -1566,7 +1762,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f3Data.abastPosto} 
                       onChange={e => setF3Data({...f3Data, abastPosto: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full" 
-                      placeholder="Nome do posto"
                     />
                   </div>
                   <div className="flex items-center gap-1">
@@ -1576,7 +1771,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f3Data.abastLitros} 
                       onChange={e => setF3Data({...f3Data, abastLitros: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-center" 
-                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -1589,7 +1783,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f3Data.abastValorPorLitro} 
                       onChange={e => setF3Data({...f3Data, abastValorPorLitro: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-center" 
-                      placeholder="R$ 0,00"
                     />
                   </div>
                   <div className="flex items-center gap-1">
@@ -1599,7 +1792,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f3Data.abastKm} 
                       onChange={e => setF3Data({...f3Data, abastKm: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-center" 
-                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -1612,7 +1804,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f3Data.abastValorTotal} 
                       onChange={e => setF3Data({...f3Data, abastValorTotal: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-right font-black" 
-                      placeholder="R$ 0,00"
                     />
                   </div>
                   <div className="flex items-center gap-1">
@@ -1622,7 +1813,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={f3Data.abastHr} 
                       onChange={e => setF3Data({...f3Data, abastHr: e.target.value})}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-center" 
-                      placeholder="Horímetro"
                     />
                   </div>
                 </div>
@@ -1634,7 +1824,6 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                     value={f3Data.abastObs} 
                     onChange={e => setF3Data({...f3Data, abastObs: e.target.value})}
                     className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0" 
-                    placeholder="Observações do abastecimento"
                   />
                 </div>
               </div>
@@ -1729,9 +1918,9 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={openBatchPrintModal}
+              onClick={handlePrintActiveBlock}
               className="px-3 py-1.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border border-slate-400 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] cursor-pointer"
-              title="Configurar e Imprimir Bloco de Formulários (Lote)"
+              title="Imprimir formulário de campo ativo em A4"
             >
               <Printer className="w-3.5 h-3.5 text-slate-600" />
               <span>Imprimir Bloco</span>
@@ -1741,11 +1930,8 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
       )}
 
       {/* ÁREA DE EXIBIÇÃO DO FORMULÁRIO SELECIONADO */}
-      <div className="w-full flex justify-center py-2">
-        
-                {renderFormTemplate()}
-
-
+      <div ref={activeFormRef} className="w-full flex justify-center py-2">
+        {renderFormTemplate()}
       </div>
 
       {/* Botão de Enviar de volta no final da folha para facilidade de uso em dispositivos móveis */}

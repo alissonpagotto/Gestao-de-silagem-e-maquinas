@@ -303,21 +303,20 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
   return (
     <div 
-      className="border border-slate-300 dark:border-slate-700 rounded-xl p-4 space-y-4 w-full max-w-full overflow-hidden bg-[#4e98dd]"
-      style={{ backgroundColor: '#4e98dd' }}
+      className="border border-black rounded-xl p-4 space-y-4 w-full max-w-full overflow-hidden bg-[#e0e6f1] text-black"
     >
       
       {/* Cabeçalho da Seção de Frotas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 dark:border-slate-700 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/20 pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-white border border-black text-emerald-700 flex items-center justify-center">
             <Truck className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+            <h4 className="text-xs font-bold text-black uppercase tracking-wider">
               Frotas / Caminhões para Transporte
             </h4>
-            <p className="text-[11px] text-gray-500 dark:text-slate-400">
+            <p className="text-[11px] text-slate-800">
               Distribuição proporcional por m³ transportado (Capacidade × Cargas)
             </p>
           </div>
@@ -326,9 +325,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
         {/* % de Distribuição (exclusivo sobre o valor base da área quando Alqueires - 100% congelado) */}
         {unidadeArea === 'alqueires' ? (
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 px-2.5 py-1 rounded-lg">
-              <Percent className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-xs text-gray-700 dark:text-slate-300 font-medium">% Distribuição:</span>
+            <div className="flex items-center gap-1.5 bg-white border border-gray-400 px-2.5 py-1 rounded-lg">
+              <Percent className="w-3.5 h-3.5 text-slate-700" />
+              <span className="text-xs text-black font-bold">% Distribuição:</span>
               <input
                 type="number"
                 min="0"
@@ -337,15 +336,15 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                 value={truckFleetPercentage}
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 onChange={(e) => onPercentageChange(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-12 text-xs font-bold text-emerald-800 dark:text-emerald-400 bg-transparent focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-12 text-xs font-bold text-black bg-white focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 placeholder="10"
               />
-              <span className="text-xs text-gray-500 font-bold">%</span>
+              <span className="text-xs text-black font-bold">%</span>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-800 dark:text-blue-300">
-            <Clock className="w-3.5 h-3.5 text-blue-600" />
+          <div className="flex items-center gap-1.5 bg-white border border-black px-2.5 py-1 rounded-lg text-xs font-bold text-black">
+            <Clock className="w-3.5 h-3.5 text-blue-700" />
             <span>Cobrança por Horas Trabalhadas</span>
           </div>
         )}
@@ -353,18 +352,18 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
       {/* Banner Informativo da Distribuição Proporcional ou Soma Total do Transporte */}
       {(unidadeArea === 'hectares' || unidadeArea === 'hora') ? (
-        <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-lg p-3 space-y-1.5 text-xs text-blue-950 dark:text-blue-200">
+        <div className="bg-blue-50 border border-black rounded-lg p-3 space-y-1.5 text-xs text-black">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <span className="font-bold flex items-center gap-1.5 uppercase tracking-wide">
-              <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="font-bold flex items-center gap-1.5 uppercase tracking-wide text-black">
+              <Clock className="w-3.5 h-3.5 text-blue-700" />
               SOMA TOTAL DO TRANSPORTE (POR HORAS):
             </span>
-            <span className="font-black font-mono text-sm text-blue-900 dark:text-blue-100">
+            <span className="font-black font-mono text-sm text-black">
               {formatCurrencyBRL(totalTransporteFrotasHoras)}
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-blue-800 dark:text-blue-300/80 pt-1 border-t border-blue-200 dark:border-blue-800/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-800 pt-1 border-t border-black/15">
             <span>
               Custo total das frotas cobrado do cliente por horas trabalhadas em {trucks.length} caminhão(ões).
             </span>
@@ -374,18 +373,18 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
           </div>
         </div>
       ) : (
-        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-lg p-3 space-y-1.5 text-xs text-emerald-950 dark:text-emerald-200">
+        <div className="bg-emerald-50 border border-black rounded-lg p-3 space-y-1.5 text-xs text-black">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <span className="font-semibold flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="font-semibold flex items-center gap-1.5 text-black">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
               Distribuição Global para Frotas ({truckFleetPercentage || 0}% sobre {formatCurrencyBRL(valorBaseArea)} da Área):
             </span>
-            <span className="font-bold font-mono text-sm text-emerald-900 dark:text-emerald-100">
+            <span className="font-bold font-mono text-sm text-black">
               {formatCurrencyBRL(valorDistribuicaoFrotas)}
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-emerald-800 dark:text-emerald-300/80 pt-1 border-t border-emerald-200 dark:border-emerald-800/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-800 pt-1 border-t border-black/15">
             <span>
               Volume Total da Frota: <strong>{totalVolumeGeralM3.toFixed(1)} m³</strong> em {trucks.length} caminhão(ões)
             </span>
@@ -398,20 +397,20 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
       {/* Lista de Caminhões Dinâmicos */}
       {trucks.length === 0 ? (
-        <div className="py-8 px-4 text-center border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900/50 space-y-3">
-          <Truck className="w-10 h-10 text-gray-300 dark:text-slate-600 mx-auto" />
+        <div className="py-8 px-4 text-center border-2 border-dashed border-gray-400 rounded-xl bg-white space-y-3">
+          <Truck className="w-10 h-10 text-slate-400 mx-auto" />
           <div>
-            <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">
+            <p className="text-sm font-semibold text-black">
               Nenhum caminhão adicionado a este serviço
             </p>
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-700 mt-0.5">
               Adicione veículos para calcular automaticamente a distribuição de m³ e comissões dos motoristas
             </p>
           </div>
           <button
             type="button"
             onClick={onAddTruck}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg border border-emerald-800 transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Adicionar frota/caminhão</span>
@@ -442,29 +441,29 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
             return (
               <div
                 key={truck.id}
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5 w-full max-w-full overflow-hidden"
+                className="bg-white border border-black rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5 w-full max-w-full overflow-hidden text-black"
               >
                 {/* Cabeçalho do Card: Exibe primordialmente a PLACA do veículo no título + Botão Excluir */}
-                <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-2.5">
+                <div className="flex items-center justify-between border-b border-black/20 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-xs font-bold font-mono">
+                    <span className="w-6 h-6 rounded-md bg-emerald-100 border border-black text-emerald-900 flex items-center justify-center text-xs font-bold font-mono">
                       #{idx + 1}
                     </span>
                     <div className="flex items-center gap-2">
                       {displayPlate ? (
-                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white rounded border border-gray-300 dark:border-slate-700 font-mono text-xs font-extrabold tracking-wider">
+                        <span className="px-2 py-0.5 bg-slate-100 text-black rounded border border-gray-400 font-mono text-xs font-extrabold tracking-wider">
                           {displayPlate}
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded border border-amber-200 dark:border-amber-800/60 font-mono text-[10px] font-bold">
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-900 rounded border border-amber-400 font-mono text-[10px] font-bold">
                           [Sem Veículo Escolhido]
                         </span>
                       )}
-                      <span className="text-xs font-bold text-gray-900 dark:text-white">
+                      <span className="text-xs font-bold text-black">
                         {truck.truckName || 'Selecione o veículo abaixo'}
                       </span>
                       {isThirdPartyTruck(truck, machineries, employees) && (
-                        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded border border-amber-300 dark:border-amber-700 font-extrabold text-[10px] tracking-wider uppercase shadow-2xs">
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded border border-amber-400 font-extrabold text-[10px] tracking-wider uppercase shadow-2xs">
                           DE TERCEIRO
                         </span>
                       )}
@@ -474,11 +473,11 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                   <div className="flex items-center gap-2">
                     {/* Badge do Ratio Proporcional ou Total de Horas */}
                     {(unidadeArea === 'hectares' || unidadeArea === 'hora') ? (
-                      <span className="text-[11px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800 font-mono">
+                      <span className="text-[11px] font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-400 font-mono">
                         Transporte: {truck.truckHours || 0}h ➔ {formatCurrencyBRL((truck.truckHours || 0) * (truck.truckHourlyRate || 0))}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 font-mono">
+                      <span className="text-[11px] font-bold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-500 font-mono">
                         Ratio: {ratioPercent.toFixed(1)}% ({truckTotalM3} m³) ➔ {formatCurrencyBRL(valorProporcionalCaminhao)}
                       </span>
                     )}
@@ -486,7 +485,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                     <button
                       type="button"
                       onClick={() => onRemoveTruck(truck.id)}
-                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                      className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                       title="Remover Caminhão"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -499,7 +498,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                   
                   {/* Seletor do Veículo (exibe primordialmente Placa - Modelo) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                    <label className="block text-[11px] font-bold text-black mb-1">
                       Veículo (Caminhão)
                     </label>
                     <div className="relative">
@@ -508,7 +507,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         value={truck.truckName ? (truck.plate ? `${truck.plate} — ${truck.truckName}` : truck.truckName) : ''}
                         onChange={(e) => onUpdateTruck(truck.id, { truckName: e.target.value })}
                         placeholder="-- Escolher Caminhão Cadastrado --"
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs text-slate-900 dark:text-white font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs text-black font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                       />
                       {caminhoesParaEsteCard.length > 0 && (
                         <select
@@ -530,9 +529,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                   {/* Motorista Principal (Autocompletado obrigatoriamente, inclusive Terceirizado) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between">
                       <span>Operador / Motorista Principal</span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">Autocompletado</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold">Autocompletado</span>
                     </label>
                     <div className="relative">
                       <input
@@ -540,7 +539,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         value={truck.primaryDriverName || ''}
                         onChange={(e) => onUpdateTruck(truck.id, { primaryDriverName: e.target.value, primaryDriverId: '' })}
                         placeholder="Ex: Motorista Carlos"
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs text-slate-900 dark:text-white font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs text-black font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                       />
                       {employees.length > 0 && (
                         <select
@@ -599,9 +598,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                   {/* Segundo Operador (Opcional - inicia vazio) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between">
                       <span>Segundo Operador (Opcional)</span>
-                      <span className="text-[10px] text-gray-400 font-medium">Inicia Vazio</span>
+                      <span className="text-[10px] text-slate-600 font-medium">Inicia Vazio</span>
                     </label>
                     <div className="relative">
                       <input
@@ -609,7 +608,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         value={truck.secondaryDriverName || ''}
                         onChange={(e) => onUpdateTruck(truck.id, { secondaryDriverName: e.target.value, secondaryDriverId: '' })}
                         placeholder="Ex: Ajudante / Carona"
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs text-slate-900 dark:text-white font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                        className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs text-black font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                       />
                       {employees.length > 0 && (
                         <select
@@ -640,7 +639,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                 {/* 2. DADOS OPERACIONAIS: Capacidade, Cargas e Total m³ */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                    <label className="block text-[11px] font-bold text-black mb-1">
                       Cap. m³
                     </label>
                     <input
@@ -674,12 +673,12 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         });
                       }}
                       placeholder="20"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                    <label className="block text-[11px] font-bold text-black mb-1">
                       Nº de Cargas
                     </label>
                     <input
@@ -711,17 +710,17 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                         });
                       }}
                       placeholder="0"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                    <label className="block text-[11px] font-bold text-black mb-1">
                       Total m³ (Calculado)
                     </label>
-                    <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between shadow-2xs">
+                    <div className="w-full px-3 py-2 bg-slate-100 border border-gray-400 rounded-lg text-xs font-bold text-black flex items-center justify-between shadow-2xs">
                       <span className="font-mono">{truckTotalM3.toFixed(1)} m³</span>
-                      <span className="text-[10px] text-slate-500 font-semibold">Cap × Cargas</span>
+                      <span className="text-[10px] text-slate-600 font-semibold">Cap × Cargas</span>
                     </div>
                   </div>
                 </div>
@@ -737,33 +736,33 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                     : 0;
 
                   return (
-                    <div className="w-full max-w-full bg-white/95 dark:bg-slate-900/95 border border-emerald-300 dark:border-emerald-700/60 rounded-xl p-3 sm:p-3.5 space-y-3 mt-2 shadow-xs print-client-hide overflow-hidden">
-                      <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 dark:border-slate-800 pb-2.5">
+                    <div className="w-full max-w-full bg-[#cad4e6]/50 border border-black rounded-xl p-3 sm:p-3.5 space-y-3 mt-2 shadow-xs print-client-hide overflow-hidden text-black">
+                      <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/20 pb-2.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 flex items-center justify-center">
-                            <Truck className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300" />
+                          <div className="w-6 h-6 rounded-md bg-white border border-black text-emerald-700 flex items-center justify-center">
+                            <Truck className="w-3.5 h-3.5 text-emerald-700" />
                           </div>
                           <div>
-                            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-black flex items-center gap-1.5">
                               Regra de Frete: Comissão do Motorista ({truck.primaryDriverName || 'Motorista'})
                             </span>
-                            <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                            <p className="text-[10px] text-slate-800 font-medium">
                               Apenas Veículos e Fretes — isolado das regras de operadores de corte
                             </p>
                           </div>
                         </div>
 
-                        <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/80 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider self-start sm:self-auto">
+                        <span className="text-[10px] bg-white text-black border border-black px-2 py-0.5 rounded-full font-bold uppercase tracking-wider self-start sm:self-auto">
                           Frete / Caminhão
                         </span>
                       </div>
 
                       {/* Seletor das 4 Formas de Frete + Livre */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 px-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-white/80 p-2 rounded-lg border border-black">
+                        <span className="text-[11px] font-bold text-black px-1">
                           Modalidade de Frete:
                         </span>
-                        <div className="inline-flex flex-wrap rounded-lg p-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs shrink-0 max-w-full gap-1">
+                        <div className="inline-flex flex-wrap rounded-lg p-0.5 bg-white border border-gray-400 text-xs shrink-0 max-w-full gap-1">
                           {/* 1. Por KM */}
                           <button
                             type="button"
@@ -789,8 +788,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             }}
                             className={`px-2.5 py-1 font-bold rounded-md transition cursor-pointer text-xs ${
                               activeMode === 'km'
-                                ? 'bg-emerald-700 text-white shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-700 hover:text-black'
                             }`}
                             title="Comissão do motorista calculada por KM rodado no frete"
                           >
@@ -810,8 +809,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             }}
                             className={`px-2.5 py-1 font-bold rounded-md transition cursor-pointer text-xs ${
                               activeMode === 'horas'
-                                ? 'bg-emerald-700 text-white shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-700 hover:text-black'
                             }`}
                             title="Comissão do motorista calculada por horas trabalhadas"
                           >
@@ -836,8 +835,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             }}
                             className={`px-2.5 py-1 font-bold rounded-md transition cursor-pointer text-xs ${
                               activeMode === 'tonelada_carga' || (activeMode as string) === 'cargas' || (activeMode as string) === 'toneladas'
-                                ? 'bg-emerald-700 text-white shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-700 hover:text-black'
                             }`}
                             title="Comissão do motorista calculada por Tonelada ou Carga [Tonco] transportada"
                           >
@@ -862,8 +861,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             }}
                             className={`px-2.5 py-1 font-bold rounded-md transition cursor-pointer text-xs ${
                               activeMode === 'viagem'
-                                ? 'bg-emerald-700 text-white shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-700 hover:text-black'
                             }`}
                             title="Comissão do motorista calculada por viagem realizada no frete"
                           >
@@ -902,8 +901,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             }}
                             className={`px-2.5 py-1 font-bold rounded-md transition cursor-pointer text-xs ${
                               activeMode === 'porcentagem'
-                                ? 'bg-emerald-700 text-white shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-700 hover:text-black'
                             }`}
                             title="Comissão do motorista calculada por percentual sobre o Ratio do veículo"
                           >
@@ -932,8 +931,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             }}
                             className={`px-2.5 py-1 font-bold rounded-md transition cursor-pointer text-xs ${
                               activeMode === 'livre'
-                                ? 'bg-emerald-700 text-white shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-700 hover:text-black'
                             }`}
                             title="Digitar base e taxa livremente"
                           >
@@ -944,8 +943,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                       {/* Configuração específica do modo de Horas (Tambor / Motor / Manual) */}
                       {activeMode === 'horas' && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg p-2">
-                          <span className="text-[11px] font-bold text-gray-700 dark:text-slate-300">
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-white/80 border border-black rounded-lg p-2">
+                          <span className="text-[11px] font-bold text-black">
                             Fonte das Horas do Motorista:
                           </span>
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -954,8 +953,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               onClick={() => handleToggleHourSource(truck.id, 'tambor')}
                               className={`text-[11px] px-2 py-1 rounded font-bold transition cursor-pointer border ${
                                 truck.driverHourSource === 'tambor'
-                                  ? 'bg-pink-600 text-white border-pink-700 shadow-xs'
-                                  : 'bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-900/50 hover:bg-pink-100'
+                                  ? 'bg-pink-600 text-white border-pink-800 shadow-xs'
+                                  : 'bg-pink-50 text-pink-900 border-pink-400 hover:bg-pink-100'
                               }`}
                               title="Puxar e travar horas da Forrageira (Hora do Tambor)"
                             >
@@ -966,8 +965,8 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               onClick={() => handleToggleHourSource(truck.id, 'motor')}
                               className={`text-[11px] px-2 py-1 rounded font-bold transition cursor-pointer border ${
                                 truck.driverHourSource === 'motor'
-                                  ? 'bg-pink-600 text-white border-pink-700 shadow-xs'
-                                  : 'bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-900/50 hover:bg-pink-100'
+                                  ? 'bg-pink-600 text-white border-pink-800 shadow-xs'
+                                  : 'bg-pink-50 text-pink-900 border-pink-400 hover:bg-pink-100'
                               }`}
                               title="Puxar e travar horas da Forrageira (Hora do Motor)"
                             >
@@ -979,9 +978,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                       {/* Configuração específica do modo Por Porcentagem (%) */}
                       {activeMode === 'porcentagem' && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2 text-xs text-emerald-900 dark:text-emerald-200">
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border border-black rounded-lg p-2 text-xs text-black">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <Percent className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />
+                            <Percent className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                             <span>
                               {commResult.fuelDeduction && commResult.fuelDeduction > 0 ? (
                                 <>
@@ -996,7 +995,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               )}
                             </span>
                             {commResult.fuelDeduction && commResult.fuelDeduction > 0 && (
-                              <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700">
+                              <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-400">
                                 Combustível abatido: {formatCurrencyBRL(commResult.fuelDeduction)}
                               </span>
                             )}
@@ -1015,7 +1014,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                   driverCommission: total,
                                 });
                               }}
-                              className="text-[10.5px] px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded shadow-2xs cursor-pointer"
+                              className="text-[10.5px] px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow-2xs cursor-pointer"
                               title="Puxar valor atual do Ratio"
                             >
                               Puxar Ratio ({formatCurrencyBRL(valorProporcionalCaminhao)})
@@ -1026,7 +1025,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                       {/* Dicas e atalhos rápidos para outros modos */}
                       {activeMode === 'km' && (
-                        <div className="flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2 text-xs text-emerald-900 dark:text-emerald-200">
+                        <div className="flex items-center justify-between bg-emerald-50 border border-black rounded-lg p-2 text-xs text-black">
                           <span>Base calculada pelos quilômetros rodados no frete.</span>
                           {truck.additionalKm !== undefined && Number(truck.additionalKm) > 0 && (
                             <button
@@ -1042,7 +1041,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                   driverCommission: Number((km * rate).toFixed(2)),
                                 });
                               }}
-                              className="text-[10.5px] px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded shadow-2xs"
+                              className="text-[10.5px] px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow-2xs"
                             >
                               Puxar KM Adicional ({truck.additionalKm} km)
                             </button>
@@ -1051,7 +1050,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                       )}
 
                       {(activeMode === 'tonelada_carga' || (activeMode as string) === 'cargas' || (activeMode as string) === 'toneladas') && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2 text-xs text-emerald-900 dark:text-emerald-200">
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border border-black rounded-lg p-2 text-xs text-black">
                           <span>Base por Toneladas ou Cargas [Tonco] realizadas.</span>
                           <div className="flex items-center gap-1.5">
                             {calcTons > 0 && (
@@ -1064,7 +1063,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                     driverCommission: Number((calcTons * rate).toFixed(2)),
                                   });
                                 }}
-                                className="text-[10.5px] px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded shadow-2xs"
+                                className="text-[10.5px] px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow-2xs"
                               >
                                 Usar Toneladas ({calcTons} t)
                               </button>
@@ -1079,7 +1078,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                   driverCommission: Number((loads * rate).toFixed(2)),
                                 });
                               }}
-                              className="text-[10.5px] px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold rounded border border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                              className="text-[10.5px] px-2 py-0.5 bg-white hover:bg-gray-100 text-black font-bold rounded border border-gray-400 shadow-2xs"
                             >
                               Usar Cargas [Tonco] ({truck.tripLoads || 0})
                             </button>
@@ -1088,7 +1087,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                       )}
 
                       {activeMode === 'viagem' && (
-                        <div className="flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2 text-xs text-emerald-900 dark:text-emerald-200">
+                        <div className="flex items-center justify-between bg-emerald-50 border border-black rounded-lg p-2 text-xs text-black">
                           <span>Base calculada por viagem concluída no transporte ({truck.tripLoads || 0} viagens).</span>
                           <button
                             type="button"
@@ -1100,7 +1099,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                 driverCommission: Number((trips * rate).toFixed(2)),
                               });
                             }}
-                            className="text-[10.5px] px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded shadow-2xs"
+                            className="text-[10.5px] px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow-2xs"
                           >
                             Puxar Viagens ({truck.tripLoads || 0})
                           </button>
@@ -1111,7 +1110,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         {/* 1. Base da Comissão de Frete */}
                         <div>
-                          <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-black mb-1 flex items-center justify-between">
                             <span className="flex items-center gap-1">
                               Base ({
                                 activeMode === 'porcentagem' ? 'Ratio R$' :
@@ -1122,7 +1121,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               })
                             </span>
                             {activeMode !== 'livre' && (
-                              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.2 rounded flex items-center gap-1">
+                              <span className="text-[10px] text-emerald-900 font-semibold bg-emerald-100 border border-emerald-400 px-1.5 py-0.2 rounded flex items-center gap-1">
                                 <Lock className="w-2.5 h-2.5" />
                                 Vinculado
                               </span>
@@ -1187,13 +1186,13 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                               activeMode === 'tonelada_carga' ? 'Ex: 350' :
                               activeMode === 'viagem' ? 'Ex: 12' : 'Digite a base'
                             }
-                            className="w-full px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
 
                         {/* 2. Taxa R$ ou % da Modalidade de Frete */}
                         <div>
-                          <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             {activeMode === 'porcentagem' ? (
                               'Porcentagem (%)'
                             ) : (
@@ -1238,20 +1237,20 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                 });
                               }
                             }}
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs text-slate-900 dark:text-white font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                            className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs text-black font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                           />
                         </div>
 
                         {/* 3. Subtotal da Comissão de Frete */}
                         <div>
-                          <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                          <label className="block text-[11px] font-bold text-black mb-1">
                             Subtotal Frete Motorista
                           </label>
-                          <div className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between shadow-2xs">
-                            <span className="font-mono text-emerald-700 dark:text-emerald-400 font-extrabold">
+                          <div className="w-full px-3 py-1.5 bg-slate-100 border border-gray-400 rounded-lg text-xs font-bold text-black flex items-center justify-between shadow-2xs">
+                            <span className="font-mono text-emerald-800 font-extrabold">
                               {formatCurrencyBRL(commResult.total)}
                             </span>
-                            <span className="text-[10px] font-semibold text-slate-500">
+                            <span className="text-[10px] font-semibold text-slate-700">
                               {activeMode === 'porcentagem'
                                 ? (commResult.fuelDeduction && commResult.fuelDeduction > 0
                                     ? `(${formatCurrencyBRL(commResult.base)} - ${formatCurrencyBRL(commResult.fuelDeduction)}) = ${formatCurrencyBRL(commResult.netBase || 0)} x ${commResult.rate.toFixed(2).replace('.', ',')}%`
@@ -1267,13 +1266,13 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                 {/* Bloco de Cobrança do Caminhão por Horas (Exclusivo quando Hectares ou Por Hora) */}
                 {(unidadeArea === 'hectares' || unidadeArea === 'hora') && (
-                  <div className="w-full max-w-full bg-blue-50/70 dark:bg-blue-950/20 border border-blue-300 dark:border-blue-800/60 rounded-lg p-3 space-y-2 mt-2 shadow-xs overflow-hidden">
+                  <div className="w-full max-w-full bg-[#cad4e6]/50 border border-black rounded-lg p-3 space-y-2 mt-2 shadow-xs overflow-hidden text-black">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="text-xs font-bold text-black flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-blue-700" />
                         Cobrança de Transporte por Horas (Cobrado do Cliente)
                       </span>
-                      <span className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-bold">
+                      <span className="text-[10px] bg-white border border-black text-black px-2 py-0.5 rounded font-bold">
                         {unidadeArea === 'hora' ? 'Modalidade por Hora (h)' : 'Especial Hectares (ha)'}
                       </span>
                     </div>
@@ -1281,7 +1280,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300">
+                          <label className="block text-[11px] font-bold text-black">
                             Horas Trabalhadas
                           </label>
                           {(horasTambor !== '' || horasMotor !== '') && (
@@ -1297,7 +1296,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                       truckTotalCost: h * rate,
                                     });
                                   }}
-                                  className="text-[9.5px] px-1.5 py-0.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/60 dark:hover:bg-blue-800/60 text-blue-800 dark:text-blue-200 rounded font-semibold transition cursor-pointer"
+                                  className="text-[9.5px] px-1.5 py-0.5 bg-white hover:bg-gray-100 border border-gray-400 text-black rounded font-semibold transition cursor-pointer"
                                   title="Puxar Horas Tambor da Forrageira"
                                 >
                                   Tambor ({horasTambor}h)
@@ -1314,7 +1313,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                       truckTotalCost: h * rate,
                                     });
                                   }}
-                                  className="text-[9.5px] px-1.5 py-0.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/60 dark:hover:bg-blue-800/60 text-blue-800 dark:text-blue-200 rounded font-semibold transition cursor-pointer"
+                                  className="text-[9.5px] px-1.5 py-0.5 bg-white hover:bg-gray-100 border border-gray-400 text-black rounded font-semibold transition cursor-pointer"
                                   title="Puxar Horas Motor da Forrageira"
                                 >
                                   Motor ({horasMotor}h)
@@ -1339,12 +1338,12 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             });
                           }}
                           placeholder="Ex: 8.5"
-                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/30 shadow-2xs transition-colors"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/30 shadow-2xs transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Valor por Hora (R$)
                         </label>
                         <input
@@ -1363,19 +1362,19 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             });
                           }}
                           placeholder="Ex: 150.00"
-                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/30 shadow-2xs transition-colors"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/30 shadow-2xs transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Total Caminhão (R$)
                         </label>
-                        <div className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between shadow-2xs">
-                          <span className="font-mono text-blue-900 dark:text-blue-300 font-extrabold">
+                        <div className="w-full px-3 py-1.5 bg-slate-100 border border-gray-400 rounded-lg text-xs font-bold text-black flex items-center justify-between shadow-2xs">
+                          <span className="font-mono text-blue-900 font-extrabold">
                             {formatCurrencyBRL((truck.truckHours || 0) * (truck.truckHourlyRate || 0))}
                           </span>
-                          <span className="text-[10px] font-semibold text-slate-500">
+                          <span className="text-[10px] font-semibold text-slate-700">
                             {truck.truckHours || 0}h × R$ {truck.truckHourlyRate || 0}
                           </span>
                         </div>
@@ -1386,20 +1385,20 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
 
                 {/* Bloco de Adicional KM (Exclusivo quando Alqueires) */}
                 {unidadeArea === 'alqueires' && (
-                  <div className="w-full max-w-full bg-amber-50/70 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 rounded-lg p-3 space-y-2 mt-2 shadow-xs overflow-hidden">
+                  <div className="w-full max-w-full bg-[#cad4e6]/50 border border-black rounded-lg p-3 space-y-2 mt-2 shadow-xs overflow-hidden text-black">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                      <span className="text-xs font-bold text-black flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-amber-700" />
                         Adicional KM (Cobrado do Cliente)
                       </span>
-                      <span className="text-[10px] bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded font-medium">
+                      <span className="text-[10px] bg-white border border-black text-black px-2 py-0.5 rounded font-bold">
                         Especial Alqueires
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           KM Adicional
                         </label>
                         <input
@@ -1425,12 +1424,12 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             onUpdateTruck(truck.id, updates);
                           }}
                           placeholder="Ex: 40"
-                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           R$ / KM
                         </label>
                         <input
@@ -1446,17 +1445,17 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             });
                           }}
                           placeholder="Ex: 5.50"
-                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/30 shadow-2xs transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 dark:text-slate-300 mb-1">
+                        <label className="block text-[11px] font-bold text-black mb-1">
                           Total Adicional KM
                         </label>
-                        <div className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between shadow-2xs">
+                        <div className="w-full px-3 py-1.5 bg-slate-100 border border-gray-400 rounded-lg text-xs font-bold text-black flex items-center justify-between shadow-2xs">
                           <span className="font-mono">{formatCurrencyBRL(truck.totalAdditionalKm || 0)}</span>
-                          <span className="text-[10px] font-semibold text-slate-500">
+                          <span className="text-[10px] font-semibold text-slate-700">
                             {truck.additionalKm || 0} km
                           </span>
                         </div>
@@ -1473,9 +1472,9 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
             <button
               type="button"
               onClick={onAddTruck}
-              className="w-full py-2.5 px-4 border-2 border-dashed border-emerald-600/70 hover:border-emerald-600 bg-emerald-50/80 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer group"
+              className="w-full py-2.5 px-4 border-2 border-dashed border-emerald-700 hover:border-emerald-800 bg-white hover:bg-emerald-50 text-emerald-900 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer group"
             >
-              <div className="w-5 h-5 rounded-full bg-emerald-800 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
+              <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
               </div>
               <span>+ Adicionar frota/caminhão</span>

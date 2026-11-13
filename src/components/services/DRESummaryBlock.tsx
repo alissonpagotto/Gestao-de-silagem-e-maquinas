@@ -124,15 +124,15 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
   return (
     <div className="space-y-3">
       
-      {/* 1. BLOCO RESUMO DO PEDIDO (BORDA VERDE) COM INDICADOR DE M³ NO CABEÇALHO */}
-      <div className="border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-3.5 space-y-2.5 border-l-4 border-l-emerald-600 shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/80 dark:border-emerald-800/40 pb-2">
+      {/* 1. BLOCO RESUMO DO PEDIDO (DESTAQUE VERDE SUAVE COM CONTORNO PRETO) */}
+      <div className="border border-black bg-emerald-50 rounded-xl p-3.5 space-y-2.5 border-l-4 border-l-emerald-600 shadow-2xs text-black">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/20 pb-2">
           <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex flex-wrap items-center gap-1.5">
+            <DollarSign className="w-4 h-4 text-emerald-700 shrink-0" />
+            <h4 className="text-xs font-bold text-black uppercase tracking-wider flex flex-wrap items-center gap-1.5">
               <span>Resumo do Pedido (Cobrado do Cliente)</span>
               {volumeTotalFrotaM3 > 0 && (
-                <span className="text-emerald-700 dark:text-emerald-300 font-extrabold normal-case bg-emerald-100/90 dark:bg-emerald-900/60 px-2 py-0.5 rounded text-[11px] border border-emerald-200 dark:border-emerald-700/80">
+                <span className="text-emerald-900 font-extrabold normal-case bg-emerald-100 px-2 py-0.5 rounded text-[11px] border border-emerald-700/50">
                   — [Volume Total: {volumeTotalFrotaM3.toFixed(1)} m³]
                 </span>
               )}
@@ -145,71 +145,71 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
 
         <div className="space-y-1.5 text-xs">
           {valorBaseArea > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span>
                 Valor Base do Serviço ({quantidadeArea || 0} {unidadeAreaLabel}):
               </span>
-              <span className="font-semibold text-gray-900 dark:text-white font-mono">
+              <span className="font-semibold text-black font-mono">
                 {formatCurrencyBRL(valorBaseArea)}
               </span>
             </div>
           )}
 
           {subtotalServicoMaquina !== undefined && subtotalServicoMaquina > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Tractor className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <Tractor className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                 {descricaoServicoMaquina || 'Serviço de Máquinas / Transporte'}:
               </span>
-              <span className="font-semibold text-gray-900 dark:text-white font-mono">
+              <span className="font-semibold text-black font-mono">
                 {formatCurrencyBRL(subtotalServicoMaquina)}
               </span>
             </div>
           )}
 
           {subtotalTrator > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Tractor className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <Tractor className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                 Serviço de Trator / Compactação ({qtdCobrancaTrator || 0} {modoCobrancaTratorLabel}):
               </span>
-              <span className="font-semibold text-gray-900 dark:text-white font-mono">
+              <span className="font-semibold text-black font-mono">
                 {formatCurrencyBRL(subtotalTrator)}
               </span>
             </div>
           )}
 
           {numFretePrancha > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <Truck className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
                 Frete Prancha:
               </span>
-              <span className="font-semibold text-gray-900 dark:text-white font-mono">
+              <span className="font-semibold text-black font-mono">
                 {formatCurrencyBRL(numFretePrancha)}
               </span>
             </div>
           )}
 
           {subtotalForrageira > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Scissors className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <Scissors className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                 Cobrança de Forrageira:
               </span>
-              <span className="font-semibold text-gray-900 dark:text-white font-mono">
+              <span className="font-semibold text-black font-mono">
                 {formatCurrencyBRL(subtotalForrageira)}
               </span>
             </div>
           )}
 
           {totalAdicionalKm > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <Truck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                 Adicional KM (Frotas de Alqueires):
               </span>
-              <span className="font-semibold text-gray-900 dark:text-white font-mono">
+              <span className="font-semibold text-black font-mono">
                 {formatCurrencyBRL(totalAdicionalKm)}
               </span>
             </div>
@@ -217,12 +217,12 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
 
           {(unidadeArea === 'hectares' || unidadeArea === 'hora' || unidadeArea === 'horas') && totalFrotasPorHora > 0 && (
             <div className="space-y-1 py-0.5">
-              <div className="flex items-center justify-between text-gray-700 dark:text-slate-300">
+              <div className="flex items-center justify-between text-slate-900">
                 <span className="flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <Truck className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                   Transporte Frotas (Cobrança por Horas):
                 </span>
-                <span className="font-semibold text-gray-900 dark:text-white font-mono">
+                <span className="font-semibold text-black font-mono">
                   {formatCurrencyBRL(totalFrotasPorHora)}
                 </span>
               </div>
@@ -233,9 +233,9 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                   {trucksExpenseDetails.map((truckItem) => (
                     <div 
                       key={`resumo-pedido-truck-${truckItem.truckId}`}
-                      className="text-xs text-gray-500 dark:text-slate-400 font-medium leading-relaxed"
+                      className="text-xs text-slate-800 font-medium leading-relaxed"
                     >
-                      • Transp. <strong className="font-mono font-bold text-gray-800 dark:text-slate-200">{truckItem.plate || 'S/ Placa'}</strong> ({truckItem.driverName || 'Motorista'}) – {truckItem.loads} Cargas ({truckItem.totalM3.toFixed(1)} m³) – Cobrança por Horas: {truckItem.truckHours || 0}h × {formatCurrencyBRL(truckItem.truckHourlyRate || 0)}/h = Total: <strong className="font-mono font-bold text-gray-900 dark:text-white">{formatCurrencyBRL(truckItem.rateioCost)}</strong>
+                      • Transp. <strong className="font-mono font-bold text-black">{truckItem.plate || 'S/ Placa'}</strong> ({truckItem.driverName || 'Motorista'}) – {truckItem.loads} Cargas ({truckItem.totalM3.toFixed(1)} m³) – Cobrança por Horas: {truckItem.truckHours || 0}h × {formatCurrencyBRL(truckItem.truckHourlyRate || 0)}/h = Total: <strong className="font-mono font-bold text-black">{formatCurrencyBRL(truckItem.rateioCost)}</strong>
                     </div>
                   ))}
                 </div>
@@ -244,9 +244,9 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
             </div>
           )}
 
-          <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800 flex items-center justify-between font-bold text-sm text-emerald-950 dark:text-emerald-200">
+          <div className="pt-2 border-t border-black/20 flex items-center justify-between font-bold text-sm text-emerald-950">
             <span>Total do Pedido:</span>
-            <span className="text-base font-extrabold font-mono text-emerald-800 dark:text-emerald-300">
+            <span className="text-base font-extrabold font-mono text-emerald-900">
               {formatCurrencyBRL(totalPedido)}
             </span>
           </div>
@@ -254,43 +254,43 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
       </div>
 
       {/* NOVO CARD DEDICADO: CONSUMO DE COMBUSTÍVEL E ALIMENTAÇÃO (ENTRE RESUMO DO PEDIDO E COMISSÕES) */}
-      <div className="border border-sky-300 dark:border-sky-800/80 bg-sky-50/50 dark:bg-sky-950/20 rounded-xl p-3.5 space-y-3 border-l-4 border-l-sky-600 shadow-2xs print-client-hide print-hide-on-client">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/80 dark:border-sky-800/40 pb-2">
+      <div className="border border-black bg-[#e0e6f1] rounded-xl p-3.5 space-y-3 shadow-2xs print-client-hide print-hide-on-client text-black">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/20 pb-2">
           <div className="flex items-center gap-2">
-            <Fuel className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-            <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+            <Fuel className="w-4 h-4 text-sky-700 shrink-0" />
+            <h4 className="text-xs font-bold text-black uppercase tracking-wider">
               Consumo de Combustível & Alimentação (Despesas da Operação)
             </h4>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-sky-800 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/60 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-bold text-sky-900 bg-white border border-gray-400 px-2 py-0.5 rounded">
               Dedutível no DRE
             </span>
-            <span className="text-xs font-extrabold text-sky-950 dark:text-sky-200 font-mono">
+            <span className="text-xs font-extrabold text-black font-mono">
               Total do Card: {formatCurrencyBRL(totalCombustivelGeral + totalAlimentacaoGeral)}
             </span>
           </div>
         </div>
 
-        {/* A) SUBSÉÇÃO: CONSUMO DE COMBUSTÍVEL (Estrutura fixa por veículo envolvido) */}
-        <div className="space-y-2 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-lg border border-sky-100 dark:border-sky-900/40">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-1">
-            <span className="text-[11px] font-bold text-gray-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
-              <Fuel className="w-3.5 h-3.5 text-sky-600" />
+        {/* A) SUBSEÇÃO: CONSUMO DE COMBUSTÍVEL (Estrutura fixa por veículo envolvido) */}
+        <div className="space-y-2 bg-white/80 p-2.5 rounded-lg border border-black">
+          <div className="flex items-center justify-between border-b border-black/20 pb-1">
+            <span className="text-[11px] font-bold text-black uppercase flex items-center gap-1.5">
+              <Fuel className="w-3.5 h-3.5 text-sky-700" />
               A. Consumo de Combustível por Veículo
             </span>
-            <span className="text-[11px] font-mono font-bold text-sky-800 dark:text-sky-300">
+            <span className="text-[11px] font-mono font-bold text-sky-900">
               Total Geral de Combustível: {formatCurrencyBRL(totalCombustivelGeral)}
             </span>
           </div>
 
           {fuelEntries.length === 0 ? (
-            <p className="text-[11px] text-gray-500 dark:text-slate-400 italic py-1">
+            <p className="text-[11px] text-slate-700 italic py-1">
               Nenhum veículo ativo selecionado na operação (Ensiladeira, Trator ou Caminhões).
             </p>
           ) : (
             <div className="space-y-1.5">
-              <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase px-1">
+              <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-[10px] font-bold text-slate-800 uppercase px-1">
                 <span className="sm:col-span-5">Veículo / Máquina Ativa</span>
                 <span className="sm:col-span-2 text-right">Qtd. Litros</span>
                 <span className="sm:col-span-2 text-right">Valor / Litro (R$)</span>
@@ -300,15 +300,15 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
               {fuelEntries.map((entry) => (
                 <div
                   key={entry.vehicleId}
-                  className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-gray-50/80 dark:bg-slate-800/60 p-2 rounded-md border border-gray-200/70 dark:border-slate-700/60 text-xs"
+                  className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-[#cad4e6]/40 p-2 rounded-md border border-gray-400 text-xs"
                 >
-                  <div className="sm:col-span-5 font-semibold text-gray-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                  <div className="sm:col-span-5 font-semibold text-black truncate flex items-center gap-1.5">
                     {entry.vehicleType === 'forrageira' ? (
-                      <Scissors className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <Scissors className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                     ) : entry.vehicleType === 'trator' ? (
-                      <Tractor className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <Tractor className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                     ) : (
-                      <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <Truck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     )}
                     <span className="truncate" title={entry.vehicleName}>
                       {entry.vehicleName}
@@ -316,7 +316,7 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[10px] text-gray-700 dark:text-slate-300 font-bold sm:hidden">
+                    <label className="block text-[10px] text-black font-bold sm:hidden">
                       Quantidade de Litros:
                     </label>
                     <div className="relative">
@@ -333,14 +333,14 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                             e.target.value === '' ? '' : Number(e.target.value)
                           )
                         }
-                        className="w-full px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-600/30 focus:border-sky-600 text-right pr-6 shadow-2xs"
+                        className="w-full px-2.5 py-1 text-xs bg-white border border-gray-400 rounded-lg font-mono font-bold text-black focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black text-right pr-6 shadow-2xs"
                       />
-                      <span className="absolute right-2 top-1 text-[10px] text-gray-500 font-bold">L</span>
+                      <span className="absolute right-2 top-1 text-[10px] text-slate-700 font-bold">L</span>
                     </div>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[10px] text-gray-700 dark:text-slate-300 font-bold sm:hidden">
+                    <label className="block text-[10px] text-black font-bold sm:hidden">
                       Valor por Litro (R$):
                     </label>
                     <div className="relative">
@@ -357,17 +357,17 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                             e.target.value === '' ? '' : Number(e.target.value)
                           )
                         }
-                        className="w-full px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-600/30 focus:border-sky-600 text-right pr-6 shadow-2xs"
+                        className="w-full px-2.5 py-1 text-xs bg-white border border-gray-400 rounded-lg font-mono font-bold text-black focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black text-right pr-6 shadow-2xs"
                       />
-                      <span className="absolute right-1.5 top-1 text-[10px] text-gray-500 font-bold">R$</span>
+                      <span className="absolute right-1.5 top-1 text-[10px] text-slate-700 font-bold">R$</span>
                     </div>
                   </div>
 
                   <div className="sm:col-span-3 flex sm:justify-end items-center justify-between">
-                    <span className="text-[10px] text-gray-500 dark:text-slate-400 sm:hidden">
+                    <span className="text-[10px] text-slate-700 sm:hidden">
                       Subtotal:
                     </span>
-                    <span className="font-bold font-mono text-gray-900 dark:text-white text-xs">
+                    <span className="font-bold font-mono text-black text-xs">
                       {formatCurrencyBRL(entry.subtotal)}
                     </span>
                   </div>
@@ -378,14 +378,14 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
         </div>
 
         {/* B) SUBSEÇÃO: ALIMENTAÇÃO E DIÁRIAS (Estrutura Dinâmica) */}
-        <div className="space-y-2 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-lg border border-sky-100 dark:border-sky-900/40">
-          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-gray-100 dark:border-slate-800 pb-1">
-            <span className="text-[11px] font-bold text-gray-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
-              <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600" />
+        <div className="space-y-2 bg-white/80 p-2.5 rounded-lg border border-black">
+          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-black/20 pb-1">
+            <span className="text-[11px] font-bold text-black uppercase flex items-center gap-1.5">
+              <UtensilsCrossed className="w-3.5 h-3.5 text-amber-700" />
               B. Alimentação e Diárias da Operação
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold text-amber-800 dark:text-amber-300">
+              <span className="text-[11px] font-mono font-bold text-amber-900">
                 Total Geral de Alimentação: {formatCurrencyBRL(totalAlimentacaoGeral)}
               </span>
               {onAddMealExpense && (
@@ -402,13 +402,13 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
           </div>
 
           {mealExpenses.length === 0 ? (
-            <div className="text-[11px] text-gray-500 dark:text-slate-400 italic py-1 flex items-center justify-between">
+            <div className="text-[11px] text-slate-700 italic py-1 flex items-center justify-between">
               <span>Nenhuma refeição ou diária lançada.</span>
               {onAddMealExpense && (
                 <button
                   type="button"
                   onClick={onAddMealExpense}
-                  className="text-amber-700 dark:text-amber-400 font-semibold hover:underline text-[11px] cursor-pointer"
+                  className="text-amber-800 font-semibold hover:underline text-[11px] cursor-pointer"
                 >
                   + Adicionar Refeição/Despesa
                 </button>
@@ -416,7 +416,7 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
             </div>
           ) : (
             <div className="space-y-1.5">
-              <div className="hidden sm:grid sm:grid-cols-12 gap-1.5 text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase px-1">
+              <div className="hidden sm:grid sm:grid-cols-12 gap-1.5 text-[10px] font-bold text-slate-800 uppercase px-1">
                 <span className="sm:col-span-5">Descrição / Tipo</span>
                 <span className="sm:col-span-3">Data / Dia do Gasto</span>
                 <span className="sm:col-span-3 text-right">Valor (R$)</span>
@@ -426,13 +426,13 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
               {mealExpenses.map((meal) => (
                 <div
                   key={meal.id}
-                  className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-center bg-gray-50/80 dark:bg-slate-800/60 p-1.5 rounded-md border border-gray-200/70 dark:border-slate-700/60 text-xs"
+                  className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-center bg-[#cad4e6]/40 p-1.5 rounded-md border border-gray-400 text-xs"
                 >
                   <div className="sm:col-span-5">
                     <select
                       value={meal.description}
                       onChange={(e) => onMealExpenseChange?.(meal.id, 'description', e.target.value)}
-                      className="w-full px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-2xs"
+                      className="w-full px-2.5 py-1 text-xs bg-white border border-gray-400 rounded-lg font-bold text-black focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black shadow-2xs"
                     >
                       <option value="Café da manhã">Café da manhã</option>
                       <option value="Almoço">Almoço</option>
@@ -449,7 +449,7 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                       type="date"
                       value={meal.date}
                       onChange={(e) => onMealExpenseChange?.(meal.id, 'date', e.target.value)}
-                      className="w-full px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-2xs"
+                      className="w-full px-2.5 py-1 text-xs bg-white border border-gray-400 rounded-lg font-mono font-bold text-black focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black shadow-2xs"
                     />
                   </div>
 
@@ -468,9 +468,9 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                             e.target.value === '' ? '' : Number(e.target.value)
                           )
                         }
-                        className="w-full px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-right pr-6 shadow-2xs"
+                        className="w-full px-2.5 py-1 text-xs bg-white border border-gray-400 rounded-lg font-mono font-bold text-black focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black text-right pr-6 shadow-2xs"
                       />
-                      <span className="absolute right-1.5 top-1 text-[10px] text-gray-500 font-bold">R$</span>
+                      <span className="absolute right-1.5 top-1 text-[10px] text-slate-700 font-bold">R$</span>
                     </div>
                   </div>
 
@@ -478,7 +478,7 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
                     <button
                       type="button"
                       onClick={() => onRemoveMealExpense?.(meal.id)}
-                      className="p-1 text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                      className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded transition cursor-pointer"
                       title="Excluir refeição"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -491,16 +491,16 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
         </div>
       </div>
 
-      {/* 2. BLOCO CUSTOS E PROVENTOS ADICIONAIS (BORDA LARANJA) - DETALHAMENTO CIRÚRGICO */}
-      <div className="border border-orange-300 dark:border-orange-700/80 bg-orange-50/50 dark:bg-orange-950/20 rounded-xl p-3.5 space-y-2.5 border-l-4 border-l-orange-600 print-client-hide print-hide-on-client shadow-2xs">
-        <div className="flex items-center justify-between border-b border-orange-200/80 dark:border-orange-800/40 pb-2">
+      {/* 2. BLOCO CUSTOS E PROVENTOS ADICIONAIS - DETALHAMENTO CIRÚRGICO */}
+      <div className="border border-black bg-[#e0e6f1] rounded-xl p-3.5 space-y-2.5 print-client-hide print-hide-on-client shadow-2xs text-black">
+        <div className="flex items-center justify-between border-b border-black/20 pb-2">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
-            <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+            <AlertCircle className="w-4 h-4 text-orange-700 shrink-0" />
+            <h4 className="text-xs font-bold text-black uppercase tracking-wider">
               Custos e Proventos Adicionais (Comissões & Motoristas)
             </h4>
           </div>
-          <span className="text-[10px] font-bold text-orange-800 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/60 px-2 py-0.5 rounded">
+          <span className="text-[10px] font-bold text-orange-900 bg-white border border-gray-400 px-2 py-0.5 rounded">
             Discriminação Nominal
           </span>
         </div>
@@ -509,23 +509,23 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
           
           {/* Comissão Trator (Nome) */}
           {comissaoTratorP1 > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Tractor className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <Tractor className="w-3.5 h-3.5 text-blue-700 shrink-0" />
                 Comissão Trator ({operadorTratorNome || 'Operador Principal'}):
               </span>
-              <span className="font-semibold font-mono text-gray-900 dark:text-white">
+              <span className="font-semibold font-mono text-black">
                 {formatCurrencyBRL(comissaoTratorP1)}
               </span>
             </div>
           )}
 
           {comissaoTratorP2 > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5 pl-4">
                 ↳ 2º Operador Trator ({segundoOperadorTratorNome}):
               </span>
-              <span className="font-semibold font-mono text-gray-900 dark:text-white">
+              <span className="font-semibold font-mono text-black">
                 {formatCurrencyBRL(comissaoTratorP2)}
               </span>
             </div>
@@ -533,23 +533,23 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
 
           {/* Comissão Forrageira (Nome) */}
           {comissaoForrageiraP1 > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <Scissors className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <Scissors className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                 Comissão Forrageira ({operadorForrageiraNome || 'Operador Principal'}):
               </span>
-              <span className="font-semibold font-mono text-gray-900 dark:text-white">
+              <span className="font-semibold font-mono text-black">
                 {formatCurrencyBRL(comissaoForrageiraP1)}
               </span>
             </div>
           )}
 
           {comissaoForrageiraP2 > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5 pl-4">
                 ↳ 2º Operador Forrageira ({segundoOperadorForrageiraNome}):
               </span>
-              <span className="font-semibold font-mono text-gray-900 dark:text-white">
+              <span className="font-semibold font-mono text-black">
                 {formatCurrencyBRL(comissaoForrageiraP2)}
               </span>
             </div>
@@ -557,56 +557,56 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
 
           {/* Comissão Agenciador / Intermediação */}
           {brokerCommissionAmount > 0 && (
-            <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+            <div className="flex items-center justify-between text-slate-900 py-0.5">
               <span className="flex items-center gap-1.5">
-                <span className="text-amber-700 dark:text-amber-400 font-bold">🤝</span>
+                <span className="text-amber-700 font-bold">🤝</span>
                 Comissão Agenciador ({brokerName || 'Agenciador'}):
               </span>
-              <span className="font-semibold font-mono text-gray-900 dark:text-white">
+              <span className="font-semibold font-mono text-black">
                 {formatCurrencyBRL(brokerCommissionAmount)}
               </span>
             </div>
           )}
 
-          {/* Comissões Individuais dos Motoristas (No Topo do Bloco Laranja) */}
+          {/* Comissões Individuais dos Motoristas */}
           {trucksExpenseDetails
             .filter((t) => (t.driverCommissionCost || 0) > 0)
             .map((truckItem) => (
               <div key={`comm-driver-${truckItem.truckId}`} className="py-0.5">
-                <div className="flex items-center justify-between text-gray-700 dark:text-slate-300 py-0.5">
+                <div className="flex items-center justify-between text-slate-900 py-0.5">
                   <span className="flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <Truck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     🚚 Comissão Motorista ({truckItem.driverName || 'Motorista'}):
                   </span>
-                  <span className="font-semibold font-mono text-gray-900 dark:text-white">
+                  <span className="font-semibold font-mono text-black">
                     {formatCurrencyBRL(truckItem.driverCommissionCost || 0)}
                   </span>
                 </div>
                 {truckItem.driverCommissionFormula && (
-                  <div className="pl-5 text-[11px] text-gray-500 dark:text-slate-400 font-medium leading-relaxed">
+                  <div className="pl-5 text-[11px] text-slate-700 font-medium leading-relaxed">
                     {truckItem.driverCommissionFormula}
                   </div>
                 )}
               </div>
             ))}
 
-          {/* PLOTAGEM NOMINAL E CIRÚRGICA DE CADA CAMINHÃO ATIVO (APENAS TRANSPORTE/LOGÍSTICA) */}
+          {/* PLOTAGEM NOMINAL E CIRÚRGICA DE CADA CAMINHÃO ATIVO */}
           {trucksExpenseDetails.length > 0 && (
-            <div className="pt-1.5 space-y-1.5 border-t border-orange-200/80 dark:border-orange-800/50">
+            <div className="pt-1.5 space-y-1.5 border-t border-black/20">
               {trucksExpenseDetails.map((truckItem) => (
                 <div 
                   key={truckItem.truckId} 
-                  className="flex items-start gap-1.5 text-gray-800 dark:text-slate-200 font-medium py-1 border-b border-orange-100 dark:border-orange-900/40 last:border-0 text-xs"
+                  className="flex items-start gap-1.5 text-black font-medium py-1 border-b border-black/10 last:border-0 text-xs"
                 >
-                  <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <Truck className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
                   <span className="leading-relaxed">
                     {(unidadeArea === 'hectares' || unidadeArea === 'hora' || unidadeArea === 'horas') ? (
                       <>
-                        Transp. <strong className="font-mono font-bold text-gray-900 dark:text-white">{truckItem.plate || 'S/ Placa'}</strong> ({truckItem.driverName || 'Motorista'}) — {truckItem.loads} Cargas ({truckItem.totalM3.toFixed(1)} m³) — Cobrança por Horas: {truckItem.truckHours || 0}h × {formatCurrencyBRL(truckItem.truckHourlyRate || 0)}/h = Total: <strong className="font-mono font-bold text-orange-950 dark:text-orange-200">{formatCurrencyBRL(truckItem.rateioCost)}</strong>
+                        Transp. <strong className="font-mono font-bold text-black">{truckItem.plate || 'S/ Placa'}</strong> ({truckItem.driverName || 'Motorista'}) — {truckItem.loads} Cargas ({truckItem.totalM3.toFixed(1)} m³) — Cobrança por Horas: {truckItem.truckHours || 0}h × {formatCurrencyBRL(truckItem.truckHourlyRate || 0)}/h = Total: <strong className="font-mono font-bold text-orange-950">{formatCurrencyBRL(truckItem.rateioCost)}</strong>
                       </>
                     ) : (
                       <>
-                        Transp. <strong className="font-mono font-bold text-gray-900 dark:text-white">{truckItem.plate || 'S/ Placa'}</strong> ({truckItem.driverName || 'Motorista'}) — {truckItem.loads} Cargas (Capacidade: {truckItem.capacityM3 || 0} m³ | Total Transportado: {truckItem.totalM3.toFixed(1)} m³) — {truckItem.distributionPercent.toFixed(1)}% de Distribuição Global ({formatCurrencyBRL(truckItem.rateioCost)}){truckItem.additionalKmCost > 0 ? ` + Adicional KM (${formatCurrencyBRL(truckItem.additionalKmCost)})` : ''} = Total: <strong className="font-mono font-bold text-orange-950 dark:text-orange-200">{formatCurrencyBRL(truckItem.rateioCost + truckItem.additionalKmCost)}</strong>
+                        Transp. <strong className="font-mono font-bold text-black">{truckItem.plate || 'S/ Placa'}</strong> ({truckItem.driverName || 'Motorista'}) — {truckItem.loads} Cargas (Capacidade: {truckItem.capacityM3 || 0} m³ | Total Transportado: {truckItem.totalM3.toFixed(1)} m³) — {truckItem.distributionPercent.toFixed(1)}% de Distribuição Global ({formatCurrencyBRL(truckItem.rateioCost)}){truckItem.additionalKmCost > 0 ? ` + Adicional KM (${formatCurrencyBRL(truckItem.additionalKmCost)})` : ''} = Total: <strong className="font-mono font-bold text-orange-950">{formatCurrencyBRL(truckItem.rateioCost + truckItem.additionalKmCost)}</strong>
                       </>
                     )}
                   </span>
@@ -616,20 +616,20 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
           )}
 
           {totalGeralDespesas === 0 && (
-            <div className="text-gray-400 dark:text-slate-500 italic py-1">
+            <div className="text-slate-700 italic py-1">
               Nenhuma comissão ou custo adicional configurado para este serviço.
             </div>
           )}
 
           {/* Linha de Total Geral Despesas */}
-          <div className="pt-2 border-t border-orange-200 dark:border-orange-800 flex items-center justify-between font-bold text-sm text-orange-950 dark:text-orange-200">
+          <div className="pt-2 border-t border-black/20 flex items-center justify-between font-bold text-sm text-black">
             <span>Total Geral Despesas:</span>
-            <span className="text-base font-extrabold font-mono text-orange-700 dark:text-orange-400">
+            <span className="text-base font-extrabold font-mono text-orange-800">
               {formatCurrencyBRL(totalGeralDespesas)}
             </span>
           </div>
 
-          <p className="text-[10px] text-gray-500 dark:text-slate-400 italic pt-0.5">
+          <p className="text-[10px] text-slate-700 italic pt-0.5">
             * Comissões não são somadas no valor total do pedido — usadas para pagamento dos operadores e motoristas.
           </p>
         </div>
@@ -637,7 +637,7 @@ export const DRESummaryBlock: React.FC<DRESummaryBlockProps> = ({
 
       {/* 3. CARD DE DESTAQUE VERDE: RESULTADO FINAL (LUCRO ESTIMADO) */}
       <div 
-        className="bg-gradient-to-br from-emerald-800 to-emerald-900 text-white rounded-xl p-3.5 shadow-sm space-y-2 print-client-hide print-hide-on-client break-inside-avoid"
+        className="bg-gradient-to-br from-emerald-800 to-emerald-900 border border-black text-white rounded-xl p-3.5 shadow-sm space-y-2 print-client-hide print-hide-on-client break-inside-avoid"
         style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
       >
         <div className="flex items-center justify-between border-b border-emerald-700/60 pb-1.5">
