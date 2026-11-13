@@ -2272,6 +2272,12 @@ export interface TrocaDevolucaoRecord {
   valeCreditoId?: string;
   valeCreditoValor?: number;
   boletoAbatido?: BoletoAbatidoInfo;
+  fiscalStatus?: PendenciaDevolucaoStatus;
+  notaDevolucaoNumber?: string;
+  notaDevolucaoChave?: string;
+  notaDevolucaoEmitidaEm?: string;
+  justificativaDescarte?: string;
+  fiscalDecidedAt?: string;
   operador?: string;
   createdAt: string;
 }

@@ -65,6 +65,7 @@ interface NovaTrocaDevolucaoModalProps {
   onClose: () => void;
   clients: Client[];
   companyProfile?: CompanyProfile;
+  defaultTipoOperacao?: TrocaOperacaoTipo;
   onSaveClients?: (clients: Client[]) => void;
   onSuccess: (record: TrocaDevolucaoRecord, shouldAutoPrint: boolean) => void;
 }
@@ -164,6 +165,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   onClose,
   clients,
   companyProfile,
+  defaultTipoOperacao,
   onSaveClients,
   onSuccess,
 }) => {
@@ -227,13 +229,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     setClientsList(clients && clients.length > 0 ? clients : getStoredClients());
     setExpensesList(getStoredExpenses());
 
-    setTipoOperacao('devolucao_cliente');
+    const initialTipo: TrocaOperacaoTipo = defaultTipoOperacao || 'devolucao_cliente';
+    setTipoOperacao(initialTipo);
     setSelectedClientId('consumidor_avulso');
     setAvulsoNome('Consumidor Avulso');
     setSelectedSupplierId(sups[0]?.id || '');
     setDataOperacao(todayIso);
     setNumeroOrigem('');
-    setMotivo('Defeito');
+    setMotivo(initialTipo === 'devolucao_fornecedor' ? 'Garantia' : 'Defeito');
     setObservacoes('');
     setSearchDevolvido('');
     setSelectedProdDevolvidoId('');
@@ -262,7 +265,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       window.removeEventListener('agrocontrol_contas_a_pagar_updated', refreshExpenses);
       window.removeEventListener('silagem_expenses_updated', refreshExpenses);
     };
-  }, [isOpen, clients, todayIso]);
+  }, [isOpen, clients, todayIso, defaultTipoOperacao]);
 
   const supplierPendingBills = useMemo(() => {
     if (tipoOperacao !== 'devolucao_fornecedor' || !selectedSupplierId) return [];
@@ -896,7 +899,11 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         }
       }
 
-      // 3. SALVAR PROTOCOLO NO HISTÓRICO DE TROCAS E DEVOLUÇÕES
+      const itensParaFilaFiscal = itensDevolvidos.filter(
+        (item) => isFornecedor || item.returnToStock === false
+      );
+
+      // 3. SALVAR PROTOCOLO NO HISTÓRICO UNIFICADO DE TROCAS E DEVOLUÇÕES
       const newRecord: TrocaDevolucaoRecord = {
         id: `troca_${Date.now()}`,
         companyId,
@@ -923,18 +930,15 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         valeCreditoId,
         valeCreditoValor,
         boletoAbatido: boletoAbatidoInfo,
+        fiscalStatus:
+          itensParaFilaFiscal.length > 0 ? 'Aguardando Decisão Fiscal' : undefined,
         operador: getOperadorLogadoNome(),
         createdAt: now.toISOString(),
       };
 
       saveStoredTrocasDevolucoes([newRecord, ...existingTrocas]);
 
-      // 4. ENCAMINHAMENTO PARA FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA (QUARENTENA FISCAL)
-      // Regra: Devolução para Fornecedor OU item devolvido por cliente sem retorno ao estoque disponível
-      // NÃO emite nota fiscal automaticamente; envia para agrocontrol_pendencias_devolucao
-      const itensParaFilaFiscal = itensDevolvidos.filter(
-        (item) => isFornecedor || item.returnToStock === false
-      );
+      // 4. SINCRONIZAÇÃO LEGADA COM FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA
       if (itensParaFilaFiscal.length > 0) {
         const pendenciasToQueue: PendenciaDevolucaoRecord[] = itensParaFilaFiscal.map(
           (item, idx) => ({
@@ -1991,6 +1995,53 @@ export const TrocaDevolucaoDetailsModal: React.FC<TrocaDevolucaoDetailsModalProp
                   <span className="block text-[10px] font-bold uppercase text-teal-800">Saldo Restante</span>
                   <span className="font-black">{formatCurrencyBRL(record.boletoAbatido.saldoRestante)}</span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {(record.fiscalStatus || record.notaDevolucaoNumber || record.justificativaDescarte) && (
+            <div className="bg-[#e0e6f1] border border-black rounded-md p-3 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-black uppercase tracking-wider text-[11px]">
+                  Situação Fiscal (Devoluções & Garantias)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-white border border-gray-400 text-[10px] font-black">
+                  {record.fiscalStatus || 'Aguardando Decisão Fiscal'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {record.notaDevolucaoNumber && (
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase text-slate-600">
+                      NF-e de Devolução
+                    </span>
+                    <span className="font-mono font-black">{record.notaDevolucaoNumber}</span>
+                  </div>
+                )}
+                {record.numeroVendaOuNotaOrigem && (
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase text-slate-600">
+                      NF-e / Venda de Origem
+                    </span>
+                    <span className="font-mono font-bold">{record.numeroVendaOuNotaOrigem}</span>
+                  </div>
+                )}
+                {record.notaDevolucaoChave && (
+                  <div className="sm:col-span-2">
+                    <span className="block text-[10px] font-bold uppercase text-slate-600">
+                      Chave de Acesso
+                    </span>
+                    <span className="font-mono text-[11px] break-all">{record.notaDevolucaoChave}</span>
+                  </div>
+                )}
+                {record.justificativaDescarte && (
+                  <div className="sm:col-span-2">
+                    <span className="block text-[10px] font-bold uppercase text-slate-600">
+                      Justificativa de Descarte / Perda
+                    </span>
+                    <span className="font-semibold">{record.justificativaDescarte}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

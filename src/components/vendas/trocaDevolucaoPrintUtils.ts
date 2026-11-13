@@ -59,11 +59,13 @@ async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | nul
 
 export async function printTrocaDevolucaoA4(
   record: TrocaDevolucaoRecord,
-  companyProfile?: CompanyProfile | null
+  companyProfile?: CompanyProfile | null,
+  options?: { isEspelhoFiscal?: boolean }
 ): Promise<boolean> {
   const printWindow = window.open('', '_blank', 'width=960,height=800');
   if (!printWindow) return false;
 
+  const isEspelhoFiscal = Boolean(options?.isEspelhoFiscal);
   const { companyName, tradeName, cnpj, phone, email, fullAddress, logoDataUrl } =
     await resolveActiveCompanyAndLogo(companyProfile);
 
@@ -192,14 +194,73 @@ export async function printTrocaDevolucaoA4(
       </div>`
     : '';
 
+  const fiscalBoxHtml =
+    record.fiscalStatus || record.notaDevolucaoNumber || record.justificativaDescarte
+      ? `
+      <div style="margin-top: 14px; border: 1.5px solid ${
+        record.fiscalStatus === 'Nota de Devolução Emitida'
+          ? '#059669'
+          : record.fiscalStatus === 'Descartado pela Empresa'
+            ? '#475569'
+            : '#d97706'
+      }; background: ${
+        record.fiscalStatus === 'Nota de Devolução Emitida'
+          ? '#ecfdf5'
+          : record.fiscalStatus === 'Descartado pela Empresa'
+            ? '#f8fafc'
+            : '#fffbeb'
+      }; border-radius: 6px; padding: 10px 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(15,23,42,0.12); padding-bottom: 5px; margin-bottom: 6px;">
+          <div style="font-size: 8.5pt; font-weight: 900; color: #0f172a; text-transform: uppercase;">
+            Controle Fiscal / Nota de Devolução
+          </div>
+          <div style="background: ${
+            record.fiscalStatus === 'Nota de Devolução Emitida'
+              ? '#059669'
+              : record.fiscalStatus === 'Descartado pela Empresa'
+                ? '#475569'
+                : '#d97706'
+          }; color: #ffffff; font-size: 7.5pt; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">
+            ${escapeHtml(record.fiscalStatus || 'Aguardando Decisão Fiscal')}
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 8.5pt;">
+          <div>
+            <span style="font-size: 7.5pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Nº NF-e de Devolução Emitida</span>
+            <strong style="font-family: monospace; font-size: 9.5pt;">${escapeHtml(record.notaDevolucaoNumber || '—')}</strong>
+          </div>
+          <div>
+            <span style="font-size: 7.5pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">NF-e / Venda de Origem</span>
+            <strong style="font-family: monospace;">${escapeHtml(record.numeroVendaOuNotaOrigem || '—')}</strong>
+          </div>
+          ${
+            record.notaDevolucaoChave
+              ? `<div style="grid-column: span 2;">
+                  <span style="font-size: 7.5pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Chave de Acesso da NF-e de Devolução</span>
+                  <strong style="font-family: monospace; font-size: 8pt; word-break: break-all;">${escapeHtml(record.notaDevolucaoChave)}</strong>
+                </div>`
+              : ''
+          }
+          ${
+            record.justificativaDescarte
+              ? `<div style="grid-column: span 2;">
+                  <span style="font-size: 7.5pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Justificativa do Descarte / Perda</span>
+                  <strong>${escapeHtml(record.justificativaDescarte)}</strong>
+                </div>`
+              : ''
+          }
+        </div>
+      </div>`
+      : '';
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Comprovante ${escapeHtml(record.protocolo)} — Troca e Devolução</title>
+  <title>${isEspelhoFiscal ? 'Espelho Fiscal de Devolução' : 'Comprovante'} ${escapeHtml(record.protocolo)} — Troca e Devolução</title>
   <style>
     @page { size: A4 portrait; margin: 12mm; }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body {
       font-family: Arial, Helvetica, sans-serif;
       color: #0f172a;
@@ -266,7 +327,9 @@ export async function printTrocaDevolucaoA4(
     <!-- TÍTULO E CLASSIFICAÇÃO -->
     <div style="background: #e0e6f1; border: 1.5px solid #0f172a; border-radius: 5px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <div style="font-size: 7.5pt; font-weight: 800; color: #334155; text-transform: uppercase;">COMPROVANTE OFICIAL DE OPERAÇÃO</div>
+        <div style="font-size: 7.5pt; font-weight: 800; color: #334155; text-transform: uppercase;">
+          ${isEspelhoFiscal ? 'ESPELHO FISCAL DE DEVOLUÇÃO DE MERCADORIAS / GARANTIA' : 'COMPROVANTE OFICIAL DE OPERAÇÃO'}
+        </div>
         <div style="font-size: 11pt; font-weight: 900; color: #0f172a;">${escapeHtml(tipoLabel)}</div>
       </div>
       <div style="text-align: right; font-size: 8pt;">
@@ -360,6 +423,7 @@ export async function printTrocaDevolucaoA4(
 
     ${valeCreditoBoxHtml}
     ${boletoAbatidoBoxHtml}
+    ${fiscalBoxHtml}
 
     <!-- DECLARAÇÃO E ASSINATURAS -->
     <div style="margin-top: 18px; font-size: 8pt; color: #475569; text-align: justify;">
@@ -402,6 +466,13 @@ export async function printTrocaDevolucaoA4(
   printWindow.document.write(html);
   printWindow.document.close();
   return true;
+}
+
+export async function printEspelhoFiscalDevolucaoA4(
+  record: TrocaDevolucaoRecord,
+  companyProfile?: CompanyProfile | null
+): Promise<boolean> {
+  return printTrocaDevolucaoA4(record, companyProfile, { isEspelhoFiscal: true });
 }
 
 export async function printTrocaDevolucaoCupom80mm(

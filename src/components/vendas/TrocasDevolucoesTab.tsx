@@ -147,7 +147,7 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
       newRecord.itensDevolvidos.some((i) => i.returnToStock === false);
     setSuccessNotice(
       sentToFiscalQueue
-        ? `Operação ${newRecord.protocolo} registrada! Estoque atualizado e item(ns) enviado(s) para Fiscal & Notas → Pendências de Devolução / Garantia.`
+        ? `Operação ${newRecord.protocolo} registrada! Estoque atualizado e item(ns) enviado(s) para Fiscal & Notas → Devoluções & Garantias.`
         : `Operação ${newRecord.protocolo} registrada com sucesso! Estoque e financeiro atualizados.`
     );
     if (shouldAutoPrint) {
@@ -403,7 +403,24 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
                         {rec.protocolo}
                       </td>
                       <td className="px-3 py-1.5 whitespace-nowrap">
-                        {getTipoBadge(rec.tipoOperacao)}
+                        <div className="flex flex-col items-start gap-0.5">
+                          {getTipoBadge(rec.tipoOperacao)}
+                          {rec.fiscalStatus && (
+                            <span
+                              className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${
+                                rec.fiscalStatus === 'Nota de Devolução Emitida'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : rec.fiscalStatus === 'Descartado pela Empresa'
+                                    ? 'bg-stone-100 text-stone-700 border-stone-300'
+                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                              }`}
+                            >
+                              {rec.notaDevolucaoNumber
+                                ? `NF-e ${rec.notaDevolucaoNumber}`
+                                : rec.fiscalStatus}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-1.5 whitespace-nowrap">
                         <div className="text-xs font-bold text-slate-900 dark:text-white uppercase">
