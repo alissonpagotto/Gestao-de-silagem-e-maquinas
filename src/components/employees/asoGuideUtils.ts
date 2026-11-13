@@ -3,6 +3,7 @@ import { formatDateBR } from '../../lib/storage';
 import { getCachedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 import { getEmployeeBadgeNumber } from '../rh/badgeHelpers';
+import { formatEmployeeFullAddress } from './employeePrintUtils';
 
 export type AsoExamPurpose =
   | 'Admissional (Contratação)'
@@ -250,6 +251,12 @@ export function generateAsoGuideHtml(
                 </td>
               </tr>
               <tr>
+                <td style="background: #f8fafc; font-weight: bold; color: #334155; padding: 5px 8px; border: 1px solid #cbd5e1;">Endereço Residencial:</td>
+                <td colspan="3" style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
+                  ${escapeHtml(formatEmployeeFullAddress(employee))}
+                </td>
+              </tr>
+              <tr>
                 <td style="background: #f8fafc; font-weight: bold; color: #334155; padding: 5px 8px; border: 1px solid #cbd5e1;">Finalidade do Exame:</td>
                 <td colspan="3" style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 800; color: #1e40af; text-transform: uppercase;">
                   ${escapeHtml(payload.purpose)}
@@ -313,6 +320,7 @@ export function generateAsoGuideWhatsAppText(
     payload.selectedExamIds.includes(opt.id)
   ).map((o) => `• ${o.label}`);
 
+  const employeeAddress = formatEmployeeFullAddress(employee);
   const lines: string[] = [
     `🏥 *${companyName}*`,
     `📋 *GUIA DE ENCAMINHAMENTO E AUTORIZAÇÃO DE EXAMES (ASO)*`,
@@ -323,6 +331,7 @@ export function generateAsoGuideWhatsAppText(
     `🪪 *Reg. Crachá:* ${badgeNumber}`,
     employee.cpf ? `📄 *CPF:* ${employee.cpf}` : '',
     `💼 *Cargo / Função:* ${employee.role || 'Não informado'}`,
+    employeeAddress !== 'Não informado' ? `🏠 *Endereço:* ${employeeAddress}` : '',
     ``,
     `🏨 *Clínica / Laboratório:* ${payload.clinic.name}`,
     payload.clinic.cnpj ? `• CNPJ: ${payload.clinic.cnpj}` : '',

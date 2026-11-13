@@ -3,6 +3,7 @@ import { Employee, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
+import { formatEmployeeFullAddress } from './employeePrintUtils';
 
 interface PrintableEmployeeSheetProps {
   employee: Partial<Employee> | null;
@@ -232,6 +233,12 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
             <td className="label-cell">Situação Cadastral:</td>
             <td className="value-cell">
               {employee.active !== false && employee.status !== 'inativo' ? 'ATIVO NO QUADRO' : 'INATIVO / DESLIGADO'}
+            </td>
+          </tr>
+          <tr>
+            <td className="label-cell">Endereço Residencial:</td>
+            <td className="value-cell" colSpan={3}>
+              {formatEmployeeFullAddress(employee)}
             </td>
           </tr>
         </tbody>

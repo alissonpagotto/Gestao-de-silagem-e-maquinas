@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, saveCompanyFuncionarios, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
-import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
+import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay, formatCep, fetchAddressByCep } from '../../lib/formatters';
 import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
 import { compressImageToLocalBase64, resolveEmployeePhoto } from '../../lib/localPhotoUtils';
@@ -892,6 +892,38 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [photoUrl, setPhotoUrl] = useState<string | undefined>('');
   const resolvedModalPhotoUrl = useResolvedMediaUrl(photoUrl);
   const [phone, setPhone] = useState<string>('');
+  const [cep, setCep] = useState<string>('');
+  const [logradouro, setLogradouro] = useState<string>('');
+  const [numero, setNumero] = useState<string>('');
+  const [complemento, setComplemento] = useState<string>('');
+  const [bairro, setBairro] = useState<string>('');
+  const [cidade, setCidade] = useState<string>('');
+  const [uf, setUf] = useState<string>('');
+  const [isFetchingCep, setIsFetchingCep] = useState<boolean>(false);
+  const lastLookedUpCepRef = useRef<string>('');
+
+  const handleEmployeeCepLookup = async (rawCep: string, forceLookup = false) => {
+    const digits = (rawCep || '').replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    if (!forceLookup && lastLookedUpCepRef.current === digits) return;
+    lastLookedUpCepRef.current = digits;
+    setIsFetchingCep(true);
+    try {
+      const result = await fetchAddressByCep(digits);
+      if (result.success) {
+        if (result.cep) setCep(result.cep);
+        if (result.street) setLogradouro(result.street);
+        if (result.neighborhood) setBairro(result.neighborhood);
+        if (result.city) setCidade(result.city);
+        if (result.state) setUf(result.state.toUpperCase());
+      }
+    } catch {
+      // Falha silenciosa em modo offline ou CEP não localizado; campos permanecem editáveis
+    } finally {
+      setIsFetchingCep(false);
+    }
+  };
+
   const [baseSalary, setBaseSalary] = useState<string>('0,00');
   const [admissionDate, setAdmissionDate] = useState<string>('');
   const [terminationDate, setTerminationDate] = useState<string>('');
@@ -1700,6 +1732,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setPisNumero('');
     setPhotoUrl('');
     setPhone('');
+    setCep('');
+    setLogradouro('');
+    setNumero('');
+    setComplemento('');
+    setBairro('');
+    setCidade('');
+    setUf('');
+    setIsFetchingCep(false);
+    lastLookedUpCepRef.current = '';
     setBaseSalary('0,00');
     setRegimeContratacao('Registrado (CLT)');
     setAdmissionDate(new Date().toISOString().split('T')[0]);
@@ -1832,6 +1873,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setPisNumero(loadedPis);
     setPhotoUrl(resolveEmployeePhoto(emp) || '');
     setPhone(emp.phone || '');
+    const loadedCep = formatCep(emp.cep || (emp as any).zipCode || '');
+    setCep(loadedCep);
+    setLogradouro(emp.logradouro || (emp as any).endereco || '');
+    setNumero(emp.numero || '');
+    setComplemento(emp.complemento || '');
+    setBairro(emp.bairro || '');
+    setCidade(emp.cidade || emp.city || '');
+    setUf((emp.uf || (emp as any).estado || '').toUpperCase());
+    setIsFetchingCep(false);
+    lastLookedUpCepRef.current = loadedCep.replace(/\D/g, '');
     setBaseSalary(emp.baseSalary !== undefined ? formatCurrencyInputDisplay(emp.baseSalary) : (emp.salary !== undefined ? formatCurrencyInputDisplay(emp.salary) : '0,00'));
     setRegimeContratacao(loadedRegime);
     
@@ -2076,6 +2127,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
       photoUrl: photoUrl || undefined,
       phone: phone.trim() || 'Não informado',
+      cep: cep.trim() || undefined,
+      logradouro: logradouro.trim() || undefined,
+      numero: numero.trim() || undefined,
+      complemento: complemento.trim() || undefined,
+      bairro: bairro.trim() || undefined,
+      cidade: cidade.trim() || undefined,
+      city: cidade.trim() || undefined,
+      uf: uf.trim() ? uf.trim().toUpperCase() : undefined,
       baseSalary: parsedSalary,
       salary: parsedSalary,
       contractType: contractType.trim() || 'Registrado (CLT)',
@@ -2488,6 +2547,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         cnh_url: finalCnhUrl || undefined,
         ficha_registro_url: finalFichaUrl || undefined,
         phone: phone.trim(),
+        cep: cep.trim() || undefined,
+        logradouro: logradouro.trim() || undefined,
+        numero: numero.trim() || undefined,
+        complemento: complemento.trim() || undefined,
+        bairro: bairro.trim() || undefined,
+        cidade: cidade.trim() || undefined,
+        city: cidade.trim() || undefined,
+        uf: uf.trim() ? uf.trim().toUpperCase() : undefined,
         baseSalary: parsedSalary,
         salary: parsedSalary,
         contractType: regimeContratacao.trim() || 'Registrado (CLT)',
@@ -4082,6 +4149,138 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* ENDEREÇO RESIDENCIAL DO COLABORADOR */}
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-black/15 dark:border-stone-700">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="w-3.5 h-3.5 text-black dark:text-stone-300" />
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200">
+                      Endereço Residencial
+                    </h4>
+                  </div>
+                  {isFetchingCep && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0963cb]">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Buscando CEP...
+                    </span>
+                  )}
+                </div>
+
+                {/* Linha 1: CEP + Logradouro / Rua / Linha / Comunidade */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label htmlFor="employee-cep" className="block text-xs font-bold text-black mb-1">
+                      CEP
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="employee-cep"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={9}
+                        value={cep}
+                        onChange={(e) => {
+                          const formatted = formatCep(e.target.value);
+                          setCep(formatted);
+                          const digits = formatted.replace(/\D/g, '');
+                          if (digits.length === 8) {
+                            void handleEmployeeCepLookup(formatted);
+                          }
+                        }}
+                        onBlur={(e) => void handleEmployeeCepLookup(e.target.value, true)}
+                        placeholder="00000-000"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label htmlFor="employee-logradouro" className="block text-xs font-bold text-black mb-1">
+                      Logradouro / Rua / Linha / Comunidade
+                    </label>
+                    <input
+                      id="employee-logradouro"
+                      type="text"
+                      value={logradouro}
+                      onChange={(e) => setLogradouro(e.target.value)}
+                      placeholder="Ex: Rua Paraná ou Linha Boa Vista..."
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
+                </div>
+
+                {/* Linha 2: Número / S/N, Complemento, Bairro / Distrito, Cidade / Município + UF */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <div>
+                    <label htmlFor="employee-numero" className="block text-xs font-bold text-black mb-1">
+                      Número / S/N
+                    </label>
+                    <input
+                      id="employee-numero"
+                      type="text"
+                      value={numero}
+                      onChange={(e) => setNumero(e.target.value)}
+                      placeholder="123 ou S/N"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="employee-complemento" className="block text-xs font-bold text-black mb-1">
+                      Complemento / Ponto de Referência
+                    </label>
+                    <input
+                      id="employee-complemento"
+                      type="text"
+                      value={complemento}
+                      onChange={(e) => setComplemento(e.target.value)}
+                      placeholder="Casa, Próximo à Igreja..."
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="employee-bairro" className="block text-xs font-bold text-black mb-1">
+                      Bairro / Distrito
+                    </label>
+                    <input
+                      id="employee-bairro"
+                      type="text"
+                      value={bairro}
+                      onChange={(e) => setBairro(e.target.value)}
+                      placeholder="Ex: Centro ou Zona Rural"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="employee-cidade" className="block text-xs font-bold text-black mb-1">
+                      Cidade / Município e UF
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        id="employee-cidade"
+                        type="text"
+                        value={cidade}
+                        onChange={(e) => setCidade(e.target.value)}
+                        placeholder="Cidade / Município"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      />
+                      <input
+                        id="employee-uf"
+                        type="text"
+                        maxLength={2}
+                        value={uf}
+                        onChange={(e) => setUf(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase())}
+                        placeholder="UF"
+                        aria-label="UF (Estado)"
+                        className="w-12 shrink-0 px-1.5 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-bold text-center uppercase focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* SECTION 2: DADOS PROFISSIONAIS & CONTRATUAIS */}
               <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-3">

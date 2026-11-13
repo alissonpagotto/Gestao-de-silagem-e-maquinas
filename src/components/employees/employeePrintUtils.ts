@@ -20,6 +20,34 @@ export function calculateAge(birthDateStr?: string): number | null {
 }
 
 /**
+ * Formats the employee's full residential address into a single clean string.
+ */
+export function formatEmployeeFullAddress(employee: Partial<Employee>): string {
+  const logradouro = employee.logradouro?.trim() || '';
+  const numero = employee.numero?.trim() || '';
+  const complemento = employee.complemento?.trim() || '';
+  const bairro = employee.bairro?.trim() || '';
+  const cidade = (employee.cidade || employee.city || '').trim();
+  const uf = (employee.uf || '').trim().toUpperCase();
+  const cep = employee.cep?.trim() || '';
+
+  let streetPart = logradouro;
+  if (numero) {
+    const formattedNum = /^s\/?n$/i.test(numero) ? 'S/N' : `nº ${numero}`;
+    streetPart = streetPart ? `${streetPart}, ${formattedNum}` : formattedNum;
+  }
+  if (complemento) {
+    streetPart = streetPart ? `${streetPart} (${complemento})` : complemento;
+  }
+
+  const cityStatePart = cidade && uf ? `${cidade}/${uf}` : (cidade || uf);
+  const cepPart = cep ? `CEP: ${cep}` : '';
+
+  const parts = [streetPart, bairro, cityStatePart, cepPart].filter(Boolean);
+  return parts.length > 0 ? parts.join(' - ') : 'Não informado';
+}
+
+/**
  * Generates structured HTML content for the individual employee registration sheet.
  * Ready for both PrintPreviewModal and generatePrintableHtml.
  */
@@ -119,6 +147,12 @@ export function generateEmployeeSheetHtml(
                 <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 6px 8px; border: 1px solid #cbd5e1;">Contato / Telefone:</td>
                 <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
                   ${employee.phone || 'Não informado'}
+                </td>
+              </tr>
+              <tr>
+                <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 6px 8px; border: 1px solid #cbd5e1;">Endereço Residencial:</td>
+                <td colspan="3" style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
+                  ${formatEmployeeFullAddress(employee)}
                 </td>
               </tr>
               ${employee.actingRegion ? `
@@ -316,6 +350,8 @@ export function generateEmployeeWhatsAppText(
   text += `📝 *Regime:* ${employee.contractType || 'CLT'}\n`;
   if (employee.admissionDate) text += `📅 *Admissão:* ${formatDateBR(employee.admissionDate)}\n`;
   if (employee.phone) text += `📞 *Telefone:* ${employee.phone}\n`;
+  const fullAddress = formatEmployeeFullAddress(employee);
+  if (fullAddress !== 'Não informado') text += `🏠 *Endereço:* ${fullAddress}\n`;
 
   text += `\n*DOCUMENTOS:*\n`;
   if (employee.cpf) text += `• CPF: ${employee.cpf}\n`;

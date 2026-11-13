@@ -660,6 +660,12 @@ export interface Employee {
   phone: string;
   city?: string; // Cidade de residência
   cidade?: string; // Alias banco Supabase
+  cep?: string; // CEP residencial (00000-000)
+  logradouro?: string; // Rua / Avenida / Linha / Comunidade
+  numero?: string; // Número residencial ou S/N
+  complemento?: string; // Complemento / Ponto de referência
+  bairro?: string; // Bairro / Distrito
+  uf?: string; // UF (Estado)
   baseSalary?: number; // Salário Base (R$)
   contractType?: 'Registrado (CLT)' | 'Diarista / Safrista' | 'PJ / Prestador de Serviço' | 'Autônomo' | 'Comissionado' | string;
   regime_contratacao?: string; // Alias banco Supabase (regime_contratacao)
