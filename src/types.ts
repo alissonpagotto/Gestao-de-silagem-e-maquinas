@@ -2192,5 +2192,71 @@ export interface ClienteCredito {
   updated_at?: string;
 }
 
+// ==============================================================================
+// MÓDULO DE TROCAS E DEVOLUÇÕES DE PRODUTOS
+// ==============================================================================
+export type TrocaOperacaoTipo =
+  | 'devolucao_cliente'
+  | 'troca_direta'
+  | 'devolucao_fornecedor';
+
+export type TrocaMotivo =
+  | 'Defeito'
+  | 'Tamanho/Modelo Incorreto'
+  | 'Desistência'
+  | 'Garantia'
+  | string;
+
+export type TrocaDestinoFinanceiro =
+  | 'vale_credito'
+  | 'estorno_dinheiro'
+  | 'estorno_pix'
+  | 'diferenca_recebida'
+  | 'diferenca_receber'
+  | 'credito_fornecedor'
+  | 'sem_impacto';
+
+export interface TrocaDevolucaoItem {
+  id: string;
+  productId: string;
+  productCode?: string;
+  productName: string;
+  unit?: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  returnToStock?: boolean;
+}
+
+export interface TrocaDevolucaoRecord {
+  id: string;
+  companyId?: string;
+  protocolo: string;
+  data: string; // YYYY-MM-DD
+  tipoOperacao: TrocaOperacaoTipo;
+  envolvidoTipo: 'cliente' | 'fornecedor';
+  envolvidoId?: string;
+  envolvidoNome: string;
+  envolvidoDocumento?: string;
+  envolvidoTelefone?: string;
+  numeroVendaOuNotaOrigem?: string;
+  motivo: TrocaMotivo;
+  observacoes?: string;
+  itensDevolvidos: TrocaDevolucaoItem[];
+  itensLevados: TrocaDevolucaoItem[];
+  totalDevolvido: number;
+  totalLevado: number;
+  saldoFinal: number; // totalLevado - totalDevolvido
+  destinoFinanceiro: TrocaDestinoFinanceiro;
+  destinoFinanceiroLabel: string;
+  formaPagamentoDiferenca?: string;
+  formaEstorno?: string;
+  valeCreditoId?: string;
+  valeCreditoValor?: number;
+  operador?: string;
+  createdAt: string;
+}
+
+
 
 

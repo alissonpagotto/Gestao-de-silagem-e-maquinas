@@ -27,7 +27,8 @@ import {
   ShoppingCart,
   FileSpreadsheet,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowLeftRight
 } from 'lucide-react';
 import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
 import { 
@@ -51,12 +52,14 @@ interface InventoryModuleProps {
   inventory: InventoryItem[];
   onSaveInventory: (inventory: InventoryItem[]) => void;
   onOpenAlmoxarifado?: () => void;
+  onOpenTrocasDevolucoes?: () => void;
 }
 
 export const InventoryModule: React.FC<InventoryModuleProps> = ({
   inventory,
   onSaveInventory,
   onOpenAlmoxarifado,
+  onOpenTrocasDevolucoes,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
@@ -596,6 +599,19 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               </span>
             )}
           </button>
+
+          {onOpenTrocasDevolucoes && (
+            <button
+              type="button"
+              id="btn-atalho-trocas-devolucoes"
+              onClick={onOpenTrocasDevolucoes}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 hover:from-slate-100 hover:to-slate-200 text-slate-800 dark:text-stone-200 border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] transition active:scale-95 cursor-pointer"
+              title="Abrir módulo de Trocas e Devoluções"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>🔄 Trocas / Devoluções</span>
+            </button>
+          )}
 
           {/* Botão + NOVO PRODUTO (Padrão Verde Oficial AgroControl: #059669 / bg-emerald-600) */}
           <button

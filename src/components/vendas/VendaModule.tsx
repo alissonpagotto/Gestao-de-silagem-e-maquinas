@@ -11,7 +11,8 @@ import {
   Scale,
   DollarSign,
   FileCheck2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeftRight
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
@@ -19,6 +20,7 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { SaleDetailsEditModal } from './SaleDetailsEditModal';
 import { PdvView } from './PdvView';
 import { FluxoCaixaTab } from '../financial/FluxoCaixaTab';
+import { TrocasDevolucoesTab } from './TrocasDevolucoesTab';
 import { isCaixaAbertoHojeParaOperador } from '../../lib/caixaStorage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
@@ -121,9 +123,29 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
-  // Tab State: Dashboard, PDV ou Fluxo de Caixa
-  type VendaTabType = 'dashboard' | 'pdv' | 'fluxo_caixa';
-  const [activeTab, setActiveTab] = useState<VendaTabType>('dashboard');
+  // Tab State: Dashboard, PDV, Fluxo de Caixa ou Trocas & Devoluções
+  type VendaTabType = 'dashboard' | 'pdv' | 'fluxo_caixa' | 'trocas_devolucoes';
+  const [activeTab, setActiveTab] = useState<VendaTabType>(() => {
+    try {
+      const pending = sessionStorage.getItem('agrocontrol_pending_venda_tab');
+      if (pending === 'trocas_devolucoes') {
+        sessionStorage.removeItem('agrocontrol_pending_venda_tab');
+        return 'trocas_devolucoes';
+      }
+    } catch {}
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    const handleOpenTrocasTab = () => {
+      try {
+        sessionStorage.removeItem('agrocontrol_pending_venda_tab');
+      } catch {}
+      setActiveTab('trocas_devolucoes');
+    };
+    window.addEventListener('agrocontrol_open_venda_trocas_tab', handleOpenTrocasTab);
+    return () => window.removeEventListener('agrocontrol_open_venda_trocas_tab', handleOpenTrocasTab);
+  }, []);
 
   // Alerta / Toast de Bloqueio do PDV caso o caixa não esteja aberto
   const [caixaAlertToast, setCaixaAlertToast] = useState<string | null>(null);
@@ -503,7 +525,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 type="button"
                 id="tab-fluxo-caixa-vendas"
                 onClick={() => handleSelectTab('fluxo_caixa')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'fluxo_caixa'
                     ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                     : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -511,6 +533,20 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               >
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>FLUXO DE CAIXA</span>
+              </button>
+
+              <button
+                type="button"
+                id="tab-trocas-devolucoes-vendas"
+                onClick={() => handleSelectTab('trocas_devolucoes')}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                  activeTab === 'trocas_devolucoes'
+                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>🔄 TROCAS & DEVOLUÇÕES</span>
               </button>
             </nav>
           </div>
@@ -532,6 +568,15 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
               onPrevCompetence={handlePrevCompetence}
               onNextCompetence={handleNextCompetence}
               onCompetenceChange={setCompetenceMonth}
+            />
+          ) : activeTab === 'trocas_devolucoes' ? (
+            <TrocasDevolucoesTab
+              clients={clients}
+              companyProfile={companyProfile}
+              competenceMonth={competenceMonth}
+              onPrevCompetence={handlePrevCompetence}
+              onNextCompetence={handleNextCompetence}
+              onSaveClients={onSaveClients}
             />
           ) : (
             <>

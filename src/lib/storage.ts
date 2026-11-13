@@ -37,7 +37,8 @@ import {
   DocumentoEntradaItem,
   TanqueCombustivel,
   FinanceiroCheque,
-  ClienteCredito
+  ClienteCredito,
+  TrocaDevolucaoRecord
 } from '../types';
 import { backfillEmployeesBadgeNumbers } from '../components/rh/badgeHelpers';
 import { 
@@ -134,6 +135,7 @@ export const STORAGE_KEYS = {
   STOCK_SERVICES: 'colaca_silagem_servicos_estoque',
   STOCK_PRODUCTS: 'colaca_silagem_estoque_produtos',
   FORM_SEQUENCES: 'agrocontrol_form_sequences',
+  TROCAS_DEVOLUCOES: 'agrocontrol_trocas_devolucoes',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -4656,4 +4658,51 @@ export function saveStoredFormSequences(sequences: FormSequences): void {
     console.error('Erro ao salvar sequências de formulários:', e);
   }
 }
+
+// ==============================================================================
+// MÓDULO DE TROCAS E DEVOLUÇÕES DE PRODUTOS (100% LOCAL)
+// ==============================================================================
+export function getStoredTrocasDevolucoes(): TrocaDevolucaoRecord[] {
+  try {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.TROCAS_DEVOLUCOES) ||
+      localStorage.getItem('colaca_silagem_trocas_devolucoes');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('Erro ao ler trocas e devoluções:', e);
+    return [];
+  }
+}
+
+export function saveStoredTrocasDevolucoes(records: TrocaDevolucaoRecord[]): void {
+  try {
+    const safeList = Array.isArray(records) ? records : [];
+    const json = JSON.stringify(safeList);
+    safeLocalStorageSetItem(STORAGE_KEYS.TROCAS_DEVOLUCOES, json);
+    safeLocalStorageSetItem('colaca_silagem_trocas_devolucoes', json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_trocas_updated', { detail: safeList }));
+    }
+  } catch (e) {
+    console.warn('Erro ao salvar trocas e devoluções:', e);
+  }
+}
+
+export function getNextTrocaProtocolo(existing?: TrocaDevolucaoRecord[]): string {
+  const list = Array.isArray(existing) ? existing : getStoredTrocasDevolucoes();
+  const year = new Date().getFullYear();
+  let maxSeq = 0;
+  list.forEach((rec) => {
+    const prot = String(rec?.protocolo || '').trim();
+    const match = prot.match(/DEV-\d{4}-(\d+)/i);
+    if (match && match[1]) {
+      const n = parseInt(match[1], 10);
+      if (!isNaN(n) && n > maxSeq) maxSeq = n;
+    }
+  });
+  return `DEV-${year}-${String(maxSeq + 1).padStart(3, '0')}`;
+}
+
 

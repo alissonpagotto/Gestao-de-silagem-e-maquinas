@@ -3916,6 +3916,13 @@ export default function App() {
               inventory={inventory}
               onSaveInventory={handleSaveInventory}
               onOpenAlmoxarifado={() => setActiveTab('almoxarifado')}
+              onOpenTrocasDevolucoes={() => {
+                try {
+                  sessionStorage.setItem('agrocontrol_pending_venda_tab', 'trocas_devolucoes');
+                } catch {}
+                setActiveTab('venda');
+                window.dispatchEvent(new CustomEvent('agrocontrol_open_venda_trocas_tab'));
+              }}
             />
           )}
 
