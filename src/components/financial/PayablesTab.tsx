@@ -107,7 +107,8 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
             ? (exp as any).valor
             : parseFloat(String(exp.amount ?? (exp as any).valor ?? (exp as any).valor_parcela ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
 
-      if (isNaN(val) || val <= 0) {
+      const isAbatido = exp.status === 'Liquidado / Abatido por Devolução';
+      if (isNaN(val) || (val <= 0 && !isAbatido)) {
         continue;
       }
 
@@ -137,8 +138,12 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     });
   }, [safeExpenses, activeCompetence]);
 
-  const pendingExpenses = competenceExpenses.filter((e) => (e.status || 'pendente') === 'pendente');
-  const paidExpenses = competenceExpenses.filter((e) => e.status === 'pago');
+  const pendingExpenses = competenceExpenses.filter(
+    (e) => (e.status || 'pendente') === 'pendente' || e.status === 'atrasado' || e.status === 'agendado'
+  );
+  const paidExpenses = competenceExpenses.filter(
+    (e) => e.status === 'pago' || e.status === 'Liquidado / Abatido por Devolução'
+  );
 
   const totalPending = pendingExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   const totalPaid = paidExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
@@ -148,7 +153,11 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
   const filteredExpenses = competenceExpenses.filter((e) => {
     if (!e) return false;
-    const matchesStatus = statusFilter === 'all' || e.status === statusFilter;
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'pago'
+        ? e.status === 'pago' || e.status === 'Liquidado / Abatido por Devolução'
+        : e.status === statusFilter);
 
     // Intervalo de datas personalizado (se informado)
     let matchesDateRange = true;
@@ -407,7 +416,8 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
             <tbody className="divide-y divide-slate-200">
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map((exp) => {
-                  const isPaid = exp.status === 'pago';
+                  const isAbatido = exp.status === 'Liquidado / Abatido por Devolução';
+                  const isPaid = exp.status === 'pago' || isAbatido;
                   const dueDateVal = exp.dueDate || exp.date || '';
                   const isOverdue = !isPaid && dueDateVal && dueDateVal < todayStr;
 
@@ -422,7 +432,12 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                               VENCIDA
                             </span>
                           )}
-                          {isPaid && exp.paymentDate && (
+                          {isAbatido && (
+                            <span className="text-[9px] text-teal-800 font-bold bg-teal-50 border border-teal-300 px-1 py-0.2 rounded uppercase">
+                              ABATIDO DEVOLUÇÃO
+                            </span>
+                          )}
+                          {exp.status === 'pago' && exp.paymentDate && (
                             <span className="text-[9px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded uppercase">
                               PAGO {formatDateBR(exp.paymentDate)}
                             </span>
@@ -435,9 +450,14 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                         <div className="font-bold text-black text-xs truncate uppercase" title={exp.supplier || ''}>
                           {exp.supplier || 'SEM FORNECEDOR INFORMADO'}
                         </div>
-                        <div className="text-[10px] text-stone-600 font-medium truncate uppercase" title={exp.description || ''}>
+                        <div className="text-[10px] text-stone-600 font-medium truncate uppercase" title={exp.notes ? `${exp.description} — ${exp.notes}` : (exp.description || '')}>
                           {exp.description}
                         </div>
+                        {exp.notes && exp.notes.includes('Abatimento referente') && (
+                          <div className="text-[9.5px] font-bold text-teal-800 truncate" title={exp.notes}>
+                            {exp.notes}
+                          </div>
+                        )}
                       </td>
 
                       {/* Categoria */}
@@ -518,7 +538,16 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                         <div className="flex items-center justify-end space-x-1.5">
                           
                           {/* Indicador de STATUS */}
-                          {isPaid ? (
+                          {isAbatido ? (
+                            <span
+                              id={`status-badge-${exp.id}`}
+                              className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 border border-teal-300 text-teal-800 uppercase shadow-2xs"
+                              title={exp.notes || 'Liquidado / Abatido por Devolução'}
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-teal-600 shrink-0" />
+                              <span>ABATIDO DEVOLUÇÃO</span>
+                            </span>
+                          ) : isPaid ? (
                             <span 
                               id={`status-badge-${exp.id}`}
                               className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 uppercase shadow-2xs"
@@ -548,29 +577,31 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                           )}
 
                           {/* Botão Liquidar / Estornar */}
-                          <button
-                            type="button"
-                            id={`btn-acao-baixa-${exp.id}`}
-                            onClick={() => handleActionClick(exp)}
-                            className={`h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2 py-0.5 rounded-md border transition cursor-pointer shadow-2xs uppercase ${
-                              isPaid
-                                ? 'border-slate-300 bg-white hover:bg-slate-100 text-stone-700'
-                                : 'border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
-                            }`}
-                            title={isPaid ? 'Estornar baixa deste pagamento' : 'Liquidar conta a pagar'}
-                          >
-                            {isPaid ? (
-                              <>
-                                <RotateCcw className="w-3 h-3" />
-                                <span>ESTORNAR</span>
-                              </>
-                            ) : (
-                              <>
-                                <Check className="w-3 h-3 stroke-[3]" />
-                                <span>LIQUIDAR</span>
-                              </>
-                            )}
-                          </button>
+                          {!isAbatido && (
+                            <button
+                              type="button"
+                              id={`btn-acao-baixa-${exp.id}`}
+                              onClick={() => handleActionClick(exp)}
+                              className={`h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2 py-0.5 rounded-md border transition cursor-pointer shadow-2xs uppercase ${
+                                isPaid
+                                  ? 'border-slate-300 bg-white hover:bg-slate-100 text-stone-700'
+                                  : 'border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                              }`}
+                              title={isPaid ? 'Estornar baixa deste pagamento' : 'Liquidar conta a pagar'}
+                            >
+                              {isPaid ? (
+                                <>
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>ESTORNAR</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                  <span>LIQUIDAR</span>
+                                </>
+                              )}
+                            </button>
+                          )}
 
                           {/* Comprovante / NF */}
                           {onViewReceipt && (exp.receiptUrl || exp.invoiceNumber) && (

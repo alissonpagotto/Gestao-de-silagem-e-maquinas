@@ -88,7 +88,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         : (typeof (exp as any).valor === 'number' 
             ? (exp as any).valor 
             : parseFloat(String(exp.amount ?? (exp as any).valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
-      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || val === 0 || isNaN(val)) {
+      const isSettledByReturn = exp.status === 'Liquidado / Abatido por Devolução';
+      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || (val === 0 && !isSettledByReturn) || isNaN(val)) {
         return false;
       }
 
@@ -221,6 +222,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200" title="Compensado pelo Estoque (Sem Dívida Pendente)">
             <CheckCircle2 className="w-3 h-3 text-purple-600" />
             <span>Compensado Estoque</span>
+          </span>
+        );
+      case 'Liquidado / Abatido por Devolução':
+        return (
+          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 border border-teal-200" title="Liquidado / Abatido por Devolução">
+            <CheckCircle2 className="w-3 h-3 text-teal-600" />
+            <span>Abatido Devolução</span>
           </span>
         );
       default:

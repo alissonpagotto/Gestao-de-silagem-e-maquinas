@@ -15,7 +15,7 @@ import {
   Layers
 } from 'lucide-react';
 import { Supplier, CompanyProfile } from '../../types';
-import { formatDateBR, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
+import { formatDateBR, formatCurrencyBRL, getStoredCompanyProfile, getStoredSuppliers } from '../../lib/storage';
 import { getStoredReformSuppliers } from './TireReformOrderView';
 import { 
   CompetenceSelector, 
@@ -50,6 +50,16 @@ export interface NotaDevolucao {
   createdAt: string;
 }
 
+export interface NotaDevolucaoPrefill {
+  supplierId?: string;
+  supplierName?: string;
+  originInvoiceNumber?: string;
+  issueDate?: string;
+  reason?: NotaDevolucao['reason'];
+  notes?: string;
+  items?: DevolucaoItem[];
+}
+
 export const NOTAS_DEVOLUCAO_KEY = 'colaca_silagem_notas_devolucao';
 
 export function getStoredNotasDevolucao(): NotaDevolucao[] {
@@ -74,43 +84,38 @@ export function getStoredNotasDevolucao(): NotaDevolucao[] {
 export function saveStoredNotasDevolucao(notas: NotaDevolucao[]): void {
   try {
     localStorage.setItem(NOTAS_DEVOLUCAO_KEY, JSON.stringify(notas));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('colaca_silagem_notas_devolucao_updated', { detail: notas }));
+    }
   } catch (e) {
     console.warn('Erro ao salvar notas de devolução:', e);
   }
 }
 
-interface DevolucaoNotasViewProps {
-  companyProfile?: CompanyProfile;
-  competence?: string;
-  onCompetenceChange?: (comp: string) => void;
+function getAllAvailableSuppliers(): Supplier[] {
+  const map = new Map<string, Supplier>();
+  [...getStoredSuppliers(), ...getStoredReformSuppliers()].forEach((s) => {
+    if (s && s.id && !map.has(s.id)) {
+      map.set(s.id, s);
+    }
+  });
+  return Array.from(map.values());
 }
 
-export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ 
-  companyProfile,
-  competence,
-  onCompetenceChange 
+interface NovaNotaDevolucaoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  prefill?: NotaDevolucaoPrefill | null;
+  onSaved?: (nota: NotaDevolucao) => void;
+}
+
+export const NovaNotaDevolucaoModal: React.FC<NovaNotaDevolucaoModalProps> = ({
+  isOpen,
+  onClose,
+  prefill,
+  onSaved,
 }) => {
-  const [notas, setNotas] = useState<NotaDevolucao[]>(() => getStoredNotasDevolucao());
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [suppliers] = useState<Supplier[]>(() => getStoredReformSuppliers());
-
-  // Competência ativa
-  const activeCompetence = useMemo(() => {
-    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
-    const now = new Date();
-    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-  }, [competence]);
-
-  const handlePrevCompetence = () => {
-    const prev = getPrevCompetence(activeCompetence);
-    onCompetenceChange?.(prev);
-  };
-
-  const handleNextCompetence = () => {
-    const next = getNextCompetence(activeCompetence);
-    onCompetenceChange?.(next);
-  };
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => getAllAvailableSuppliers());
 
   // Form states
   const [originInvoice, setOriginInvoice] = useState('');
@@ -120,16 +125,74 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [reason, setReason] = useState<NotaDevolucao['reason']>('Mercadoria com Defeito / Avaria');
   const [notes, setNotes] = useState('');
-  
+
   // Itens da devolução
   const [items, setItems] = useState<DevolucaoItem[]>([
     { id: '1', description: '', quantity: 1, unit: 'UN', unitPrice: 0, totalPrice: 0 }
   ]);
-
   const [formError, setFormError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
-  const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const allSups = getAllAvailableSuppliers();
+    setSuppliers(allSups);
+    setFormError('');
+
+    if (prefill) {
+      setOriginInvoice(prefill.originInvoiceNumber || '');
+      setOriginKey('');
+      setIssueDate(prefill.issueDate || new Date().toISOString().split('T')[0]);
+      setReason(prefill.reason || 'Mercadoria com Defeito / Avaria');
+      setNotes(prefill.notes || '');
+
+      // Match fornecedor por ID ou nome
+      const matchedSup =
+        (prefill.supplierId && allSups.find(s => String(s.id) === String(prefill.supplierId))) ||
+        (prefill.supplierName &&
+          allSups.find(s => {
+            const target = prefill.supplierName!.trim().toLowerCase();
+            return (
+              String(s.name || '').trim().toLowerCase() === target ||
+              String(s.tradeName || '').trim().toLowerCase() === target
+            );
+          }));
+
+      if (matchedSup) {
+        setSelectedSupplierId(matchedSup.id);
+        setCustomSupplier('');
+      } else if (
+        prefill.supplierName &&
+        !prefill.supplierName.toLowerCase().includes('a definir') &&
+        !prefill.supplierName.toLowerCase().includes('não informado')
+      ) {
+        setSelectedSupplierId('outro');
+        setCustomSupplier(prefill.supplierName);
+      } else {
+        setSelectedSupplierId('');
+        setCustomSupplier('');
+      }
+
+      if (prefill.items && prefill.items.length > 0) {
+        setItems(
+          prefill.items.map((it, idx) => ({
+            ...it,
+            id: it.id || String(idx + 1),
+          }))
+        );
+      } else {
+        setItems([{ id: '1', description: '', quantity: 1, unit: 'UN', unitPrice: 0, totalPrice: 0 }]);
+      }
+    } else {
+      setOriginInvoice('');
+      setOriginKey('');
+      setSelectedSupplierId('');
+      setCustomSupplier('');
+      setIssueDate(new Date().toISOString().split('T')[0]);
+      setReason('Mercadoria com Defeito / Avaria');
+      setNotes('');
+      setItems([{ id: '1', description: '', quantity: 1, unit: 'UN', unitPrice: 0, totalPrice: 0 }]);
+    }
+  }, [isOpen, prefill]);
 
   const totalCalculated = useMemo(() => {
     return items.reduce((acc, it) => acc + (it.totalPrice || 0), 0);
@@ -183,7 +246,17 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       return;
     }
 
-    const nextDevNumber = `DEV-${new Date().getFullYear()}-${String(notas.length + 1).padStart(3, '0')}`;
+    const currentNotas = getStoredNotasDevolucao();
+    const currentYear = new Date().getFullYear();
+    let maxSeq = currentNotas.length;
+    currentNotas.forEach((n) => {
+      const m = String(n?.devolucaoNumber || '').match(/DEV-\d{4}-(\d+)/i);
+      if (m && m[1]) {
+        const parsed = parseInt(m[1], 10);
+        if (!isNaN(parsed) && parsed > maxSeq) maxSeq = parsed;
+      }
+    });
+    const nextDevNumber = `DEV-${currentYear}-${String(maxSeq + 1).padStart(3, '0')}`;
 
     const newNota: NotaDevolucao = {
       id: `dev_${Date.now()}`,
@@ -191,7 +264,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       originInvoiceNumber: originInvoice.trim(),
       originInvoiceKey: originKey.trim() || undefined,
       issueDate,
-      supplierId: selectedSupplierId || undefined,
+      supplierId: selectedSupplierId && selectedSupplierId !== 'outro' ? selectedSupplierId : undefined,
       supplierName: finalSupplierName,
       supplierCnpj: selSup?.cnpjOrCpf,
       reason,
@@ -202,22 +275,308 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    const updated = [newNota, ...notas];
-    setNotas(updated);
+    const updated = [newNota, ...currentNotas];
     saveStoredNotasDevolucao(updated);
-
-    setIsModalOpen(false);
-    setSuccessMsg(`Nota de Devolução ${nextDevNumber} gravada com sucesso!`);
-    
-    // Reseta form
-    setOriginInvoice('');
-    setOriginKey('');
-    setCustomSupplier('');
-    setNotes('');
-    setItems([{ id: '1', description: '', quantity: 1, unit: 'UN', unitPrice: 0, totalPrice: 0 }]);
-
-    setTimeout(() => setSuccessMsg(''), 4000);
+    onSaved?.(newNota);
+    onClose();
   };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-2xl max-w-3xl w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] my-auto">
+        
+        {/* Header */}
+        <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0 font-bold">
+              <ArrowDownLeft className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
+                NOVA NOTA DE DEVOLUÇÃO DE MERCADORIAS / PEÇAS
+              </h3>
+              <p className="text-[11px] text-black/80 dark:text-stone-400 font-medium">
+                Preencha os dados da NF de origem e itens devolvidos
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSaveNotaDevolucao} className="bg-[#cad4e6] dark:bg-stone-950 text-xs flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+          <div className="p-3 sm:p-4 overflow-y-auto flex-1">
+            <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-2.5">
+              {formError && (
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-400 text-rose-800 text-xs font-bold flex items-center space-x-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Linha 1: Fornecedor & Data */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-8">
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                    Fornecedor / Destinatário <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    value={selectedSupplierId}
+                    onChange={(e) => setSelectedSupplierId(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                  >
+                    <option value="">Selecione o Fornecedor...</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.tradeName || s.name}</option>
+                    ))}
+                    <option value="outro">+ Outro (Digitar Nome)</option>
+                  </select>
+                  {selectedSupplierId === 'outro' && (
+                    <input
+                      type="text"
+                      placeholder="Nome do Fornecedor..."
+                      value={customSupplier}
+                      onChange={(e) => setCustomSupplier(e.target.value)}
+                      className="mt-1 w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
+                    />
+                  )}
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                    Data da Devolução
+                  </label>
+                  <input
+                    type="date"
+                    value={issueDate}
+                    onChange={(e) => setIssueDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  />
+                </div>
+              </div>
+
+              {/* Linha 2: NF de Origem & Motivo */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-6">
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                    NF-e de Origem (Entrada) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: NF-e 048291"
+                    value={originInvoice}
+                    onChange={(e) => setOriginInvoice(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    required
+                  />
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                    Motivo da Devolução <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
+                  >
+                    <option value="Mercadoria com Defeito / Avaria">Mercadoria com Defeito / Avaria</option>
+                    <option value="Peça Incompatível com a Frota">Peça Incompatível com a Frota</option>
+                    <option value="Desacordo com Pedido de Compra">Desacordo com Pedido de Compra</option>
+                    <option value="Devolução em Garantia">Devolução em Garantia</option>
+                    <option value="Devolução de Vasilhame / Comodato">Devolução de Vasilhame / Comodato</option>
+                    <option value="Outro">Outro Motivo</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tabela de Itens Devolvidos */}
+              <div className="space-y-1.5 pt-2 border-t border-black/20 dark:border-stone-700">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider">
+                    Itens a Devolver
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddItem}
+                    className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                    <span>+ Adicionar Linha</span>
+                  </button>
+                </div>
+
+                <div className="border border-black dark:border-stone-700 rounded-lg overflow-hidden max-h-36 overflow-y-auto bg-white dark:bg-stone-900">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 text-[10px] font-black uppercase sticky top-0 border-b border-black dark:border-stone-700">
+                      <tr>
+                        <th className="py-1.5 px-2">Descrição do Produto / Peça</th>
+                        <th className="py-1.5 px-2 w-20">Qtd</th>
+                        <th className="py-1.5 px-2 w-16">Un</th>
+                        <th className="py-1.5 px-2 w-28">Unitário (R$)</th>
+                        <th className="py-1.5 px-2 w-28 text-right">Total (R$)</th>
+                        <th className="py-1.5 px-1 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-300 dark:divide-stone-800">
+                      {items.map((it, idx) => (
+                        <tr key={`${it.id || 'dev_item'}_${idx}`} className="bg-white dark:bg-stone-900 hover:bg-gray-50 dark:hover:bg-stone-800 transition">
+                          <td className="p-1">
+                            <input
+                              type="text"
+                              placeholder="Ex: Filtro de Combustível..."
+                              value={it.description}
+                              onChange={(e) => handleItemChange(it.id, 'description', e.target.value)}
+                              className="w-full px-2 py-1 text-xs rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
+                              required
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.01"
+                              value={it.quantity}
+                              onChange={(e) => handleItemChange(it.id, 'quantity', e.target.value)}
+                              className="w-full px-1.5 py-1 text-xs rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="text"
+                              value={it.unit}
+                              onChange={(e) => handleItemChange(it.id, 'unit', e.target.value)}
+                              className="w-full px-1 py-1 text-xs text-center rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none uppercase"
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={it.unitPrice}
+                              onChange={(e) => handleItemChange(it.id, 'unitPrice', e.target.value)}
+                              className="w-full px-1.5 py-1 text-xs text-right rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
+                            />
+                          </td>
+                          <td className="p-1 text-right font-bold text-black dark:text-stone-100 pr-2">
+                            {formatCurrencyBRL(it.totalPrice)}
+                          </td>
+                          <td className="p-1 text-center">
+                            {items.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(it.id)}
+                                className="text-stone-500 hover:text-rose-600 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex justify-end pt-0.5">
+                  <span className="text-xs font-black text-rose-700 dark:text-rose-400">
+                    Total da Devolução: {formatCurrencyBRL(totalCalculated)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Justificativa / Observações */}
+              <div>
+                <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                  Justificativa / Dados Adicionais da Devolução
+                </label>
+                <textarea
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Informações fiscais complementares..."
+                  className="w-full px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-end space-x-2 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 text-xs font-bold rounded-lg bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-200 border border-gray-400 dark:border-stone-600 transition cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center space-x-1.5 px-5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 transition cursor-pointer"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Gravar Nota de Devolução</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface DevolucaoNotasViewProps {
+  companyProfile?: CompanyProfile;
+  competence?: string;
+  onCompetenceChange?: (comp: string) => void;
+}
+
+export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({ 
+  companyProfile,
+  competence,
+  onCompetenceChange 
+}) => {
+  const [notas, setNotas] = useState<NotaDevolucao[]>(() => getStoredNotasDevolucao());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const syncNotas = () => setNotas(getStoredNotasDevolucao());
+    window.addEventListener('colaca_silagem_notas_devolucao_updated', syncNotas);
+    window.addEventListener('storage', syncNotas);
+    return () => {
+      window.removeEventListener('colaca_silagem_notas_devolucao_updated', syncNotas);
+      window.removeEventListener('storage', syncNotas);
+    };
+  }, []);
+
+  // Competência ativa
+  const activeCompetence = useMemo(() => {
+    if (competence && /^\d{2}\/\d{4}$/.test(competence)) return competence;
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  }, [competence]);
+
+  const handlePrevCompetence = () => {
+    const prev = getPrevCompetence(activeCompetence);
+    onCompetenceChange?.(prev);
+  };
+
+  const handleNextCompetence = () => {
+    const next = getNextCompetence(activeCompetence);
+    onCompetenceChange?.(next);
+  };
+
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
 
   const handlePrintEspelho = (dev: NotaDevolucao) => {
     const printHtml = `
@@ -500,254 +859,15 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       </div>
 
       {/* Modal para Emissão de Nova Nota de Devolução - Tema Oficial Alto Contraste */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
-          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-2xl max-w-3xl w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden overflow-y-hidden flex flex-col max-h-[92vh] my-auto">
-            
-            {/* Header */}
-            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0 font-bold">
-                  <ArrowDownLeft className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
-                    NOVA NOTA DE DEVOLUÇÃO DE MERCADORIAS / PEÇAS
-                  </h3>
-                  <p className="text-[11px] text-black/80 dark:text-stone-400 font-medium">
-                    Preencha os dados da NF de origem e itens devolvidos
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveNotaDevolucao} className="bg-[#cad4e6] dark:bg-stone-950 text-xs flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
-              <div className="p-3 sm:p-4 overflow-y-auto flex-1">
-                <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-2.5">
-                  {formError && (
-                    <div className="p-2 rounded-lg bg-rose-50 border border-rose-400 text-rose-800 text-xs font-bold flex items-center space-x-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{formError}</span>
-                    </div>
-                  )}
-
-                  {/* Linha 1: Fornecedor & Data */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    <div className="sm:col-span-8">
-                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                        Fornecedor / Destinatário <span className="text-rose-600">*</span>
-                      </label>
-                      <select
-                        value={selectedSupplierId}
-                        onChange={(e) => setSelectedSupplierId(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
-                      >
-                        <option value="">Selecione o Fornecedor...</option>
-                        {suppliers.map(s => (
-                          <option key={s.id} value={s.id}>{s.tradeName || s.name}</option>
-                        ))}
-                        <option value="outro">+ Outro (Digitar Nome)</option>
-                      </select>
-                      {selectedSupplierId === 'outro' && (
-                        <input
-                          type="text"
-                          placeholder="Nome do Fornecedor..."
-                          value={customSupplier}
-                          onChange={(e) => setCustomSupplier(e.target.value)}
-                          className="mt-1 w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
-                        />
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-4">
-                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                        Data da Devolução
-                      </label>
-                      <input
-                        type="date"
-                        value={issueDate}
-                        onChange={(e) => setIssueDate(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Linha 2: NF de Origem & Motivo */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    <div className="sm:col-span-6">
-                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                        NF-e de Origem (Entrada) <span className="text-rose-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ex: NF-e 048291"
-                        value={originInvoice}
-                        onChange={(e) => setOriginInvoice(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb]"
-                        required
-                      />
-                    </div>
-
-                    <div className="sm:col-span-6">
-                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                        Motivo da Devolução <span className="text-rose-600">*</span>
-                      </label>
-                      <select
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
-                      >
-                        <option value="Mercadoria com Defeito / Avaria">Mercadoria com Defeito / Avaria</option>
-                        <option value="Peça Incompatível com a Frota">Peça Incompatível com a Frota</option>
-                        <option value="Desacordo com Pedido de Compra">Desacordo com Pedido de Compra</option>
-                        <option value="Devolução em Garantia">Devolução em Garantia</option>
-                        <option value="Devolução de Vasilhame / Comodato">Devolução de Vasilhame / Comodato</option>
-                        <option value="Outro">Outro Motivo</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Tabela de Itens Devolvidos */}
-                  <div className="space-y-1.5 pt-2 border-t border-black/20 dark:border-stone-700">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider">
-                        Itens a Devolver
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddItem}
-                        className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center space-x-1 cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3 stroke-[2.5]" />
-                        <span>+ Adicionar Linha</span>
-                      </button>
-                    </div>
-
-                    <div className="border border-black dark:border-stone-700 rounded-lg overflow-hidden max-h-36 overflow-y-auto bg-white dark:bg-stone-900">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 text-[10px] font-black uppercase sticky top-0 border-b border-black dark:border-stone-700">
-                          <tr>
-                            <th className="py-1.5 px-2">Descrição do Produto / Peça</th>
-                            <th className="py-1.5 px-2 w-20">Qtd</th>
-                            <th className="py-1.5 px-2 w-16">Un</th>
-                            <th className="py-1.5 px-2 w-28">Unitário (R$)</th>
-                            <th className="py-1.5 px-2 w-28 text-right">Total (R$)</th>
-                            <th className="py-1.5 px-1 w-8"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-300 dark:divide-stone-800">
-                          {items.map((it, idx) => (
-                            <tr key={`${it.id || 'dev_item'}_${idx}`} className="bg-white dark:bg-stone-900 hover:bg-gray-50 dark:hover:bg-stone-800 transition">
-                              <td className="p-1">
-                                <input
-                                  type="text"
-                                  placeholder="Ex: Filtro de Combustível..."
-                                  value={it.description}
-                                  onChange={(e) => handleItemChange(it.id, 'description', e.target.value)}
-                                  className="w-full px-2 py-1 text-xs rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
-                                  required
-                                />
-                              </td>
-                              <td className="p-1">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={it.quantity}
-                                  onChange={(e) => handleItemChange(it.id, 'quantity', e.target.value)}
-                                  className="w-full px-1.5 py-1 text-xs rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
-                                />
-                              </td>
-                              <td className="p-1">
-                                <input
-                                  type="text"
-                                  value={it.unit}
-                                  onChange={(e) => handleItemChange(it.id, 'unit', e.target.value)}
-                                  className="w-full px-1 py-1 text-xs text-center rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none uppercase"
-                                />
-                              </td>
-                              <td className="p-1">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={it.unitPrice}
-                                  onChange={(e) => handleItemChange(it.id, 'unitPrice', e.target.value)}
-                                  className="w-full px-1.5 py-1 text-xs text-right rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none"
-                                />
-                              </td>
-                              <td className="p-1 text-right font-bold text-black dark:text-stone-100 pr-2">
-                                {formatCurrencyBRL(it.totalPrice)}
-                              </td>
-                              <td className="p-1 text-center">
-                                {items.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveItem(it.id)}
-                                    className="text-stone-500 hover:text-rose-600 cursor-pointer"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="flex justify-end pt-0.5">
-                      <span className="text-xs font-black text-rose-700 dark:text-rose-400">
-                        Total da Devolução: {formatCurrencyBRL(totalCalculated)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Justificativa / Observações */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">
-                      Justificativa / Dados Adicionais da Devolução
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Informações fiscais complementares..."
-                      className="w-full px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] resize-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-end space-x-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-200 border border-gray-400 dark:border-stone-600 transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center space-x-1.5 px-5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 transition cursor-pointer"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Gravar Nota de Devolução</span>
-                </button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>
-      )}
+      <NovaNotaDevolucaoModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSaved={(newNota) => {
+          setNotas(getStoredNotasDevolucao());
+          setSuccessMsg(`Nota de Devolução ${newNota.devolucaoNumber} gravada com sucesso!`);
+          setTimeout(() => setSuccessMsg(''), 4000);
+        }}
+      />
 
     </div>
   );

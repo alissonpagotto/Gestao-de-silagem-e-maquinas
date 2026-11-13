@@ -160,6 +160,38 @@ export async function printTrocaDevolucaoA4(
       </div>`
       : '';
 
+  const boletoAbatidoBoxHtml = record.boletoAbatido
+    ? `
+      <div style="margin-top: 14px; border: 1.5px solid #0f766e; background: #f0fdfa; border-radius: 6px; padding: 10px 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #99f6e4; padding-bottom: 6px; margin-bottom: 8px;">
+          <div style="font-size: 8.5pt; font-weight: 900; color: #115e59; text-transform: uppercase;">
+            Abatimento em Boleto / Parcela do Fornecedor (Contas a Pagar)
+          </div>
+          <div style="background: #0f766e; color: #ffffff; font-size: 7.5pt; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">
+            ${escapeHtml(record.boletoAbatido.statusResultante)}
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 8.5pt;">
+          <div>
+            <div style="font-size: 7.5pt; font-weight: 700; color: #0f766e; text-transform: uppercase;">Documento / NF</div>
+            <div style="font-weight: 800; color: #0f172a;">${escapeHtml(record.boletoAbatido.documento || '—')}</div>
+          </div>
+          <div>
+            <div style="font-size: 7.5pt; font-weight: 700; color: #0f766e; text-transform: uppercase;">Vencimento</div>
+            <div style="font-weight: 800; color: #0f172a;">${escapeHtml(record.boletoAbatido.vencimento ? formatDateBR(record.boletoAbatido.vencimento) : '—')}</div>
+          </div>
+          <div>
+            <div style="font-size: 7.5pt; font-weight: 700; color: #0f766e; text-transform: uppercase;">Valor Abatido</div>
+            <div style="font-weight: 900; color: #0f172a;">${escapeHtml(formatCurrencyBRL(record.boletoAbatido.valorAbatido))}</div>
+          </div>
+          <div>
+            <div style="font-size: 7.5pt; font-weight: 700; color: #0f766e; text-transform: uppercase;">Saldo Restante</div>
+            <div style="font-weight: 900; color: #0f172a;">${escapeHtml(formatCurrencyBRL(record.boletoAbatido.saldoRestante))}</div>
+          </div>
+        </div>
+      </div>`
+    : '';
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -327,6 +359,7 @@ export async function printTrocaDevolucaoA4(
     </div>
 
     ${valeCreditoBoxHtml}
+    ${boletoAbatidoBoxHtml}
 
     <!-- DECLARAÇÃO E ASSINATURAS -->
     <div style="margin-top: 18px; font-size: 8pt; color: #475569; text-align: justify;">
@@ -500,6 +533,21 @@ export async function printTrocaDevolucaoCupom80mm(
       <div class="font-bold">*** VALE-CRÉDITO GERADO ***</div>
       <div class="font-bold" style="font-size: 14px; margin: 2px 0;">${escapeHtml(formatCurrencyBRL(record.valeCreditoValor || 0))}</div>
       <div style="font-size: 9px;">TITULAR: ${escapeHtml(record.envolvidoNome)}</div>
+    </div>`
+      : ''
+  }
+
+  ${
+    record.boletoAbatido
+      ? `
+    <div class="divider"></div>
+    <div style="border: 1px solid #000; padding: 5px;">
+      <div class="text-center font-bold">*** ABATIMENTO EM BOLETO ***</div>
+      <div class="flex-between"><span>DOC/NF:</span><span class="font-bold">${escapeHtml(record.boletoAbatido.documento || '—')}</span></div>
+      <div class="flex-between"><span>VENC.:</span><span>${escapeHtml(record.boletoAbatido.vencimento ? formatDateBR(record.boletoAbatido.vencimento) : '—')}</span></div>
+      <div class="flex-between"><span>ABATIDO:</span><span class="font-bold">${escapeHtml(formatCurrencyBRL(record.boletoAbatido.valorAbatido))}</span></div>
+      <div class="flex-between"><span>RESTANTE:</span><span class="font-bold">${escapeHtml(formatCurrencyBRL(record.boletoAbatido.saldoRestante))}</span></div>
+      <div class="text-center font-bold" style="font-size: 9px; margin-top: 2px;">${escapeHtml(record.boletoAbatido.statusResultante)}</div>
     </div>`
       : ''
   }

@@ -1730,7 +1730,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   }
                 }}
                 className="inline-flex items-center space-x-1 px-2.5 py-1 text-[10px] font-extrabold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-2xs transition cursor-pointer"
-                title="Entrada obrigatória de pneus via documento (XML / Nota Fiscal em Notas e Entradas)"
+                title="Entrada obrigatória de pneus via documento (XML / Nota Fiscal em Fiscal & Notas)"
               >
                 <Plus className="w-3 h-3" />
                 <span>+ Novo</span>
@@ -1743,7 +1743,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                 <div className="h-full flex flex-col items-center justify-center text-center p-3 border border-dashed border-stone-300 dark:border-stone-700 rounded-xl">
                   <Archive className="w-5 h-5 text-stone-300 dark:text-stone-600 mb-1" />
                   <span className="text-[11px] font-bold text-stone-500">Estoque vazio</span>
-                  <span className="text-[10px] text-stone-400">Arraste pneus do caminhão para cá ou cadastre novos pneus via Notas e Entradas</span>
+                  <span className="text-[10px] text-stone-400">Arraste pneus do caminhão para cá ou cadastre novos pneus via Fiscal & Notas</span>
                 </div>
               ) : (
                 tireInventory.map((item, idx) => {
@@ -1876,7 +1876,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   id="btn-gerar-pedido-reforma-topo"
                   onClick={handleGerarPedidoReforma}
                   className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-black rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-xs transition cursor-pointer shrink-0"
-                  title="Gerar Pedido de Reforma no módulo Notas e Entradas"
+                  title="Gerar Pedido de Reforma no módulo Fiscal & Notas"
                 >
                   <span>📝 Gerar Pedido</span>
                 </button>

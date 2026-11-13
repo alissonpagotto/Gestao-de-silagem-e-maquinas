@@ -1672,7 +1672,7 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
-                              <span className="truncate">Acesso ao Módulo Notas e Entradas</span>
+                              <span className="truncate">Acesso ao Módulo Fiscal & Notas</span>
                               <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
                                 permissoes.notas || permissoes.estoque ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>

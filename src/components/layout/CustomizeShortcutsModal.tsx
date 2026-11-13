@@ -44,7 +44,7 @@ export const ALL_SHORTCUTS: ShortcutDefinition[] = [
   { id: 'estoque', label: 'Estoque', icon: Package, color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },
   { id: 'almoxarifado', label: 'Almoxarifado', icon: Wrench, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-500' },
   { id: 'financeiro', label: 'Financeiro', icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-500' },
-  { id: 'fiscal', label: 'Notas e Entradas', icon: ReceiptText, color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },
+  { id: 'fiscal', label: 'Fiscal & Notas', icon: ReceiptText, color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },
   { id: 'rh', label: 'RH', icon: HardHat, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-500' },
   { id: 'clientes', label: 'Clientes', icon: Users, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40', iconColor: 'text-indigo-500' },
   { id: 'frotas', label: 'Painel Frota', icon: ShieldCheck, color: 'text-stone-700 bg-stone-100 dark:bg-stone-800', iconColor: 'text-slate-600 dark:text-slate-400' },

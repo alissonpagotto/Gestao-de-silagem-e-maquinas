@@ -39,7 +39,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'almoxarifado', label: 'Almoxarifado', icon: Wrench },
   { id: 'financeiro', label: 'Financeiro', icon: TrendingUp },
   { id: 'despesas', label: 'Despesas', icon: DollarSign },
-  { id: 'fiscal', label: 'Notas e Entradas', icon: ReceiptText },
+  { id: 'fiscal', label: 'Fiscal & Notas', icon: ReceiptText },
   { id: 'rh', label: 'RH', icon: HeartHandshake },
   { id: 'relatorios', label: 'Relatórios', icon: FileSpreadsheet },
   { id: 'clientes', label: 'Clientes', icon: Users },

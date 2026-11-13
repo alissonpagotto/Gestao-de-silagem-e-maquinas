@@ -31,7 +31,13 @@ export interface CompanyProfile {
   adminPassword?: string; // Senha Mestre do Administrador
 }
 
-export type ExpenseStatus = 'pago' | 'pendente' | 'atrasado' | 'agendado' | 'compensado_estoque';
+export type ExpenseStatus =
+  | 'pago'
+  | 'pendente'
+  | 'atrasado'
+  | 'agendado'
+  | 'compensado_estoque'
+  | 'Liquidado / Abatido por Devolução';
 
 export type PaymentMethod = 
   | 'pix' 
@@ -2214,7 +2220,19 @@ export type TrocaDestinoFinanceiro =
   | 'diferenca_recebida'
   | 'diferenca_receber'
   | 'credito_fornecedor'
+  | 'abatimento_boleto'
   | 'sem_impacto';
+
+export interface BoletoAbatidoInfo {
+  expenseId: string;
+  documento?: string;
+  descricao?: string;
+  vencimento?: string;
+  valorAnterior: number;
+  valorAbatido: number;
+  saldoRestante: number;
+  statusResultante: string;
+}
 
 export interface TrocaDevolucaoItem {
   id: string;
@@ -2253,10 +2271,42 @@ export interface TrocaDevolucaoRecord {
   formaEstorno?: string;
   valeCreditoId?: string;
   valeCreditoValor?: number;
+  boletoAbatido?: BoletoAbatidoInfo;
   operador?: string;
   createdAt: string;
 }
 
+export type PendenciaDevolucaoStatus =
+  | 'Aguardando Decisão Fiscal'
+  | 'Nota de Devolução Emitida'
+  | 'Descartado pela Empresa';
 
-
-
+export interface PendenciaDevolucaoRecord {
+  id: string;
+  companyId?: string;
+  trocaRecordId?: string;
+  protocolo: string;
+  data: string; // YYYY-MM-DD
+  origemTipo: 'devolucao_fornecedor' | 'devolucao_cliente_defeito';
+  fornecedorId?: string;
+  fornecedorNome: string;
+  fornecedorCnpj?: string;
+  clienteNome?: string;
+  numeroNotaOuVendaOrigem?: string;
+  productId?: string;
+  productCode?: string;
+  productName: string;
+  unit: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+  motivo: string;
+  observacoes?: string;
+  boletoAbatido?: BoletoAbatidoInfo;
+  status: PendenciaDevolucaoStatus;
+  notaDevolucaoId?: string;
+  notaDevolucaoNumber?: string;
+  justificativaDescarte?: string;
+  decidedAt?: string;
+  createdAt: string;
+}

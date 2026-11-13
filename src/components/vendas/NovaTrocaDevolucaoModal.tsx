@@ -16,11 +16,13 @@ import {
   Receipt,
 } from 'lucide-react';
 import {
+  BoletoAbatidoInfo,
   Client,
   ClienteCredito,
   CompanyProfile,
   Expense,
   InventoryItem,
+  PendenciaDevolucaoRecord,
   Supplier,
   TrocaDestinoFinanceiro,
   TrocaDevolucaoItem,
@@ -29,6 +31,7 @@ import {
   TrocaOperacaoTipo,
 } from '../../types';
 import {
+  addPendenciasDevolucao,
   formatCurrencyBRL,
   formatDateBR,
   getActiveCompanyId,
@@ -107,6 +110,55 @@ function getItemCostPrice(item: InventoryItem): number {
   );
 }
 
+function normalizeText(value?: string | null): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function getExpenseOpenAmount(exp: Expense): number {
+  const raw = exp.amount ?? (exp as any).valor_parcela ?? (exp as any).valor ?? 0;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+  const parsed = parseFloat(String(raw).replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isExpensePendingForAbatement(exp: Expense): boolean {
+  if (!exp || !exp.id) return false;
+  const amt = getExpenseOpenAmount(exp);
+  if (amt <= 0) return false;
+  const st = normalizeText(exp.status);
+  if (
+    st === 'pago' ||
+    st === 'compensado_estoque' ||
+    st === 'liquidado / abatido por devolucao'
+  ) {
+    return false;
+  }
+  return (
+    st === '' ||
+    st === 'pendente' ||
+    st === 'a pagar' ||
+    st === 'atrasado' ||
+    st === 'agendado' ||
+    st === 'aberto'
+  );
+}
+
+function getExpenseDocLabel(exp: Expense): string {
+  const nf = String(exp.invoiceNumber || '').trim();
+  const parc = String((exp as any).numero_parcela || '').trim();
+  const parcSuffix = parc && parc !== '01/01' ? ` (Parc. ${parc})` : '';
+  if (nf) {
+    const prefix = nf.toUpperCase().startsWith('NF') ? nf : `NF ${nf}`;
+    return `${prefix}${parcSuffix}`;
+  }
+  const desc = String(exp.description || '').trim();
+  return desc ? `${desc}${parcSuffix}` : `Boleto #${String(exp.id).slice(-6)}`;
+}
+
 export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = ({
   isOpen,
   onClose,
@@ -125,6 +177,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [clientsList, setClientsList] = useState<Client[]>(clients);
+  const [expensesList, setExpensesList] = useState<Expense[]>([]);
 
   // Card 1: Operação e Envolvido
   const [tipoOperacao, setTipoOperacao] = useState<TrocaOperacaoTipo>('devolucao_cliente');
@@ -158,8 +211,9 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [formaEstorno, setFormaEstorno] = useState<'DINHEIRO' | 'PIX'>('DINHEIRO');
   const [formaPagamentoDiferenca, setFormaPagamentoDiferenca] = useState<string>('DINHEIRO');
   const [destinoFornecedor, setDestinoFornecedor] = useState<
-    'credito_fornecedor' | 'diferenca_recebida' | 'sem_impacto'
+    'credito_fornecedor' | 'abatimento_boleto' | 'diferenca_recebida' | 'sem_impacto'
   >('credito_fornecedor');
+  const [selectedBoletoId, setSelectedBoletoId] = useState<string>('');
   const [autoPrintA4, setAutoPrintA4] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -171,6 +225,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     const sups = getStoredSuppliers();
     setSuppliersList(sups);
     setClientsList(clients && clients.length > 0 ? clients : getStoredClients());
+    setExpensesList(getStoredExpenses());
 
     setTipoOperacao('devolucao_cliente');
     setSelectedClientId('consumidor_avulso');
@@ -195,10 +250,60 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     setFormaEstorno('DINHEIRO');
     setFormaPagamentoDiferenca('DINHEIRO');
     setDestinoFornecedor('credito_fornecedor');
+    setSelectedBoletoId('');
     setAutoPrintA4(true);
     setErrorMsg(null);
     setIsSaving(false);
+
+    const refreshExpenses = () => setExpensesList(getStoredExpenses());
+    window.addEventListener('agrocontrol_contas_a_pagar_updated', refreshExpenses);
+    window.addEventListener('silagem_expenses_updated', refreshExpenses);
+    return () => {
+      window.removeEventListener('agrocontrol_contas_a_pagar_updated', refreshExpenses);
+      window.removeEventListener('silagem_expenses_updated', refreshExpenses);
+    };
   }, [isOpen, clients, todayIso]);
+
+  const supplierPendingBills = useMemo(() => {
+    if (tipoOperacao !== 'devolucao_fornecedor' || !selectedSupplierId) return [];
+    const sup = suppliersList.find((s) => String(s.id) === String(selectedSupplierId));
+    if (!sup) return [];
+    const supId = String(sup.id);
+    const supName = normalizeText(sup.name);
+    const supTrade = normalizeText(sup.tradeName);
+
+    return expensesList
+      .filter((exp) => {
+        if (!isExpensePendingForAbatement(exp)) return false;
+        const expSupId = String(exp.supplierId || exp.fornecedorId || '');
+        if (expSupId && expSupId === supId) return true;
+        const expSupName = normalizeText(exp.supplier || (exp as any).fornecedor || '');
+        if (!expSupName) return false;
+        if (supName && expSupName === supName) return true;
+        if (supTrade && expSupName === supTrade) return true;
+        return false;
+      })
+      .sort((a, b) =>
+        String(a.dueDate || (a as any).data_vencimento || '').localeCompare(
+          String(b.dueDate || (b as any).data_vencimento || '')
+        )
+      );
+  }, [tipoOperacao, selectedSupplierId, suppliersList, expensesList]);
+
+  useEffect(() => {
+    if (supplierPendingBills.length === 0) {
+      if (selectedBoletoId) setSelectedBoletoId('');
+      return;
+    }
+    if (!supplierPendingBills.some((b) => String(b.id) === String(selectedBoletoId))) {
+      setSelectedBoletoId(String(supplierPendingBills[0].id));
+    }
+  }, [supplierPendingBills, selectedBoletoId]);
+
+  const selectedBoleto = useMemo(
+    () => supplierPendingBills.find((b) => String(b.id) === String(selectedBoletoId)) || null,
+    [supplierPendingBills, selectedBoletoId]
+  );
 
   const filteredDevolvidoOptions = useMemo(() => {
     const q = searchDevolvido.trim().toLowerCase();
@@ -357,6 +462,18 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       setErrorMsg('Na Troca Direta, adicione pelo menos 1 produto levado pelo cliente.');
       return;
     }
+    if (tipoOperacao === 'devolucao_fornecedor' && destinoFornecedor === 'abatimento_boleto') {
+      if (!selectedBoleto) {
+        setErrorMsg(
+          'Nenhum boleto pendente selecionado para abatimento. Escolha um boleto em aberto ou selecione "Não abater agora / Aguardar Nota ou Crédito Futuro".'
+        );
+        return;
+      }
+      if (totalDevolvido <= 0) {
+        setErrorMsg('O valor total devolvido deve ser maior que zero para abater um boleto.');
+        return;
+      }
+    }
 
     setIsSaving(true);
     try {
@@ -447,14 +564,71 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       let valeCreditoValor: number | undefined;
       let formaPagDif: string | undefined;
       let formaEstornoFinal: string | undefined;
+      let boletoAbatidoInfo: BoletoAbatidoInfo | undefined;
 
       const dataBR = formatDateBR(dataOperacao);
       const horaStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
       if (isFornecedor) {
-        if (destinoFornecedor === 'credito_fornecedor') {
+        if (destinoFornecedor === 'abatimento_boleto' && selectedBoleto) {
+          const allExpenses = getStoredExpenses();
+          const targetIdx = allExpenses.findIndex(
+            (exp) => String(exp.id) === String(selectedBoleto.id)
+          );
+          const targetExp = targetIdx >= 0 ? allExpenses[targetIdx] : selectedBoleto;
+          const valorAnterior = getExpenseOpenAmount(targetExp);
+          const valorAbatido = Number(Math.min(valorAnterior, totalDevolvido).toFixed(2));
+          const saldoBruto = Number((valorAnterior - totalDevolvido).toFixed(2));
+          const isQuitado = saldoBruto <= 0.005;
+          const saldoRestante = isQuitado ? 0 : saldoBruto;
+          const statusResultante = isQuitado
+            ? 'Liquidado / Abatido por Devolução'
+            : 'Pendente (Abatido Parcialmente)';
+          const docLabel = getExpenseDocLabel(targetExp);
+          const vencRaw = targetExp.dueDate || (targetExp as any).data_vencimento || '';
+          const abatimentoNote = `Abatimento referente à Devolução Protocolo ${protocolo}`;
+          const nextNotes = targetExp.notes
+            ? `${targetExp.notes} | ${abatimentoNote}`
+            : abatimentoNote;
+
+          const updatedExp: Expense = {
+            ...targetExp,
+            amount: saldoRestante,
+            valor_parcela: saldoRestante,
+            status: isQuitado ? 'Liquidado / Abatido por Devolução' : targetExp.status,
+            paymentDate: isQuitado ? dataOperacao : targetExp.paymentDate,
+            notes: nextNotes,
+          };
+          if ((targetExp as any).valor !== undefined) {
+            (updatedExp as any).valor = saldoRestante;
+          }
+
+          const nextExpenses =
+            targetIdx >= 0
+              ? allExpenses.map((exp, idx) => (idx === targetIdx ? updatedExp : exp))
+              : [updatedExp, ...allExpenses];
+          saveStoredExpenses(nextExpenses);
+
+          boletoAbatidoInfo = {
+            expenseId: targetExp.id,
+            documento: docLabel,
+            descricao: targetExp.description,
+            vencimento: vencRaw,
+            valorAnterior,
+            valorAbatido,
+            saldoRestante,
+            statusResultante,
+          };
+
+          destinoFinanceiro = 'abatimento_boleto';
+          destinoFinanceiroLabel = `Abatido no Boleto ${docLabel} (${formatCurrencyBRL(
+            valorAbatido
+          )}${isQuitado ? ' — Liquidado' : ` • Restante: ${formatCurrencyBRL(saldoRestante)}`})`;
+        } else if (destinoFornecedor === 'credito_fornecedor') {
           destinoFinanceiro = 'credito_fornecedor';
-          destinoFinanceiroLabel = `Crédito / Reposição Fornecedor (${formatCurrencyBRL(totalDevolvido)})`;
+          destinoFinanceiroLabel = `Aguardar Nota / Crédito Futuro Fornecedor (${formatCurrencyBRL(
+            totalDevolvido
+          )})`;
         } else if (destinoFornecedor === 'diferenca_recebida' && totalDevolvido > 0) {
           destinoFinanceiro = 'diferenca_recebida';
           destinoFinanceiroLabel = `Estorno Recebido Fornecedor (${formatCurrencyBRL(totalDevolvido)})`;
@@ -748,11 +922,54 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         formaEstorno: formaEstornoFinal,
         valeCreditoId,
         valeCreditoValor,
+        boletoAbatido: boletoAbatidoInfo,
         operador: getOperadorLogadoNome(),
         createdAt: now.toISOString(),
       };
 
       saveStoredTrocasDevolucoes([newRecord, ...existingTrocas]);
+
+      // 4. ENCAMINHAMENTO PARA FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA (QUARENTENA FISCAL)
+      // Regra: Devolução para Fornecedor OU item devolvido por cliente sem retorno ao estoque disponível
+      // NÃO emite nota fiscal automaticamente; envia para agrocontrol_pendencias_devolucao
+      const itensParaFilaFiscal = itensDevolvidos.filter(
+        (item) => isFornecedor || item.returnToStock === false
+      );
+      if (itensParaFilaFiscal.length > 0) {
+        const pendenciasToQueue: PendenciaDevolucaoRecord[] = itensParaFilaFiscal.map(
+          (item, idx) => ({
+            id: `pend_dev_${now.getTime()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+            companyId,
+            trocaRecordId: newRecord.id,
+            protocolo,
+            data: dataOperacao,
+            origemTipo: isFornecedor
+              ? 'devolucao_fornecedor'
+              : 'devolucao_cliente_defeito',
+            fornecedorId: isFornecedor ? envolvidoId : undefined,
+            fornecedorNome: isFornecedor
+              ? envolvidoNome
+              : 'A Definir (Devolução Balcão - Defeito)',
+            fornecedorCnpj: isFornecedor ? envolvidoDocumento || undefined : undefined,
+            clienteNome: !isFornecedor ? envolvidoNome : undefined,
+            numeroNotaOuVendaOrigem: numeroOrigem.trim() || undefined,
+            productId: item.productId,
+            productCode: item.productCode,
+            productName: item.productName,
+            unit: item.unit || 'UN',
+            quantidade: Number(item.quantity || 0),
+            valorUnitario: Number(item.unitPrice || 0),
+            valorTotal: Number(item.totalPrice || 0),
+            motivo: String(motivo || 'Defeito'),
+            observacoes: observacoes.trim() || undefined,
+            boletoAbatido: boletoAbatidoInfo,
+            status: 'Aguardando Decisão Fiscal',
+            createdAt: now.toISOString(),
+          })
+        );
+        addPendenciasDevolucao(pendenciasToQueue);
+      }
+
       onSuccess(newRecord, autoPrintA4);
       onClose();
     } catch (err) {
@@ -824,7 +1041,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 </label>
                 <select
                   value={tipoOperacao}
-                  onChange={(e) => setTipoOperacao(e.target.value as TrocaOperacaoTipo)}
+                  onChange={(e) => {
+                    const nextTipo = e.target.value as TrocaOperacaoTipo;
+                    setTipoOperacao(nextTipo);
+                    if (nextTipo === 'devolucao_fornecedor') {
+                      setRetornarAoEstoque(true);
+                    }
+                  }}
                   className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
                 >
                   <option value="devolucao_cliente">
@@ -974,6 +1197,18 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 </span>
               </label>
             </div>
+
+            {(tipoOperacao === 'devolucao_fornecedor' ||
+              !retornarAoEstoque ||
+              itensDevolvidos.some((i) => i.returnToStock === false)) && (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-500 text-amber-950 px-2.5 py-1.5 rounded text-[11px] font-bold">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>
+                  Quarentena Fiscal: Nenhuma NF-e será emitida agora. O item será enviado para{' '}
+                  <strong>Fiscal &amp; Notas → Pendências de Devolução / Garantia</strong> (status: Aguardando Decisão Fiscal).
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
               <div className="sm:col-span-3">
@@ -1315,40 +1550,157 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
               </div>
 
               {/* OPÇÕES FINANCEIRAS CONFORME CENÁRIO */}
-              {tipoOperacao === 'devolucao_fornecedor' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {[
-                    {
-                      id: 'credito_fornecedor',
-                      label: 'Crédito / Reposição com Fornecedor',
-                    },
-                    {
-                      id: 'diferenca_recebida',
-                      label: 'Estorno Recebido em Dinheiro / PIX',
-                    },
-                    {
-                      id: 'sem_impacto',
-                      label: 'Apenas Baixa de Garantia (Sem Financeiro)',
-                    },
-                  ].map((opt) => (
-                    <label
-                      key={opt.id}
-                      className={`flex items-center gap-2 p-2 rounded border text-xs font-bold cursor-pointer ${
-                        destinoFornecedor === opt.id
-                          ? 'bg-emerald-50 border-emerald-700 text-emerald-950'
-                          : 'bg-slate-50 border-gray-300 text-slate-800'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="destinoFornecedor"
-                        checked={destinoFornecedor === opt.id}
-                        onChange={() => setDestinoFornecedor(opt.id as any)}
-                        className="accent-emerald-600"
-                      />
-                      <span>{opt.label}</span>
+              {tipoOperacao === 'devolucao_fornecedor' && selectedSupplierId ? (
+                <div className="space-y-2.5 bg-slate-50 border border-slate-300 rounded p-2.5">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-900 mb-1.5">
+                      DESTINO DO CRÉDITO COM FORNECEDOR
                     </label>
-                  ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label
+                        className={`flex items-center gap-2 p-2 rounded border text-xs font-bold cursor-pointer transition ${
+                          destinoFornecedor === 'credito_fornecedor'
+                            ? 'bg-emerald-50 border-emerald-700 text-emerald-950'
+                            : 'bg-white border-gray-300 text-slate-800 hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="destinoFornecedor"
+                          checked={destinoFornecedor === 'credito_fornecedor'}
+                          onChange={() => setDestinoFornecedor('credito_fornecedor')}
+                          className="accent-emerald-600 shrink-0"
+                        />
+                        <span>Não abater agora / Aguardar Nota ou Crédito Futuro</span>
+                      </label>
+
+                      <label
+                        className={`flex items-center gap-2 p-2 rounded border text-xs font-bold cursor-pointer transition ${
+                          destinoFornecedor === 'abatimento_boleto'
+                            ? 'bg-sky-50 border-sky-700 text-sky-950'
+                            : 'bg-white border-gray-300 text-slate-800 hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="destinoFornecedor"
+                          checked={destinoFornecedor === 'abatimento_boleto'}
+                          onChange={() => setDestinoFornecedor('abatimento_boleto')}
+                          className="accent-sky-600 shrink-0"
+                        />
+                        <span>Abater valor devolvido em Boleto / Parcela Pendente deste Fornecedor</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {destinoFornecedor === 'abatimento_boleto' && (
+                    <div className="bg-white border border-sky-400 rounded p-2.5 space-y-2">
+                      {supplierPendingBills.length === 0 ? (
+                        <p className="text-xs font-semibold text-slate-600 italic">
+                          Nenhum boleto pendente encontrado para este fornecedor.
+                        </p>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
+                              Selecione o Boleto / Parcela em Aberto para Abatimento ({supplierPendingBills.length})
+                            </label>
+                            <select
+                              value={selectedBoletoId}
+                              onChange={(e) => setSelectedBoletoId(e.target.value)}
+                              className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-600"
+                            >
+                              {supplierPendingBills.map((bill) => {
+                                const doc = getExpenseDocLabel(bill);
+                                const venc =
+                                  bill.dueDate || (bill as any).data_vencimento
+                                    ? formatDateBR(bill.dueDate || (bill as any).data_vencimento)
+                                    : 'Sem venc.';
+                                const openAmt = getExpenseOpenAmount(bill);
+                                return (
+                                  <option key={bill.id} value={bill.id}>
+                                    {doc} - Venc: {venc} - {formatCurrencyBRL(openAmt)}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+
+                          {selectedBoleto && (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                              <div className="bg-slate-100 border border-gray-300 rounded px-2.5 py-1.5">
+                                <span className="block text-[10px] font-bold uppercase text-slate-600">
+                                  Valor Atual em Aberto
+                                </span>
+                                <span className="font-black text-slate-900">
+                                  {formatCurrencyBRL(getExpenseOpenAmount(selectedBoleto))}
+                                </span>
+                              </div>
+                              <div className="bg-amber-50 border border-amber-300 rounded px-2.5 py-1.5">
+                                <span className="block text-[10px] font-bold uppercase text-amber-800">
+                                  Abatimento (Devolução)
+                                </span>
+                                <span className="font-black text-amber-950">
+                                  - {formatCurrencyBRL(Math.min(getExpenseOpenAmount(selectedBoleto), totalDevolvido))}
+                                </span>
+                              </div>
+                              <div className="bg-emerald-50 border border-emerald-400 rounded px-2.5 py-1.5">
+                                <span className="block text-[10px] font-bold uppercase text-emerald-800">
+                                  Saldo Restante no Boleto
+                                </span>
+                                <span className="font-black text-emerald-950">
+                                  {formatCurrencyBRL(
+                                    Math.max(0, getExpenseOpenAmount(selectedBoleto) - totalDevolvido)
+                                  )}
+                                  {getExpenseOpenAmount(selectedBoleto) - totalDevolvido <= 0.005 && (
+                                    <span className="ml-1.5 text-[10px] font-black uppercase text-teal-800">
+                                      (Liquidado / Abatido por Devolução)
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Opções complementares preservadas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200">
+                    {[
+                      {
+                        id: 'diferenca_recebida',
+                        label: 'Estorno Recebido em Dinheiro / PIX',
+                      },
+                      {
+                        id: 'sem_impacto',
+                        label: 'Apenas Baixa de Garantia (Sem Financeiro)',
+                      },
+                    ].map((opt) => (
+                      <label
+                        key={opt.id}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded border text-[11px] font-bold cursor-pointer ${
+                          destinoFornecedor === opt.id
+                            ? 'bg-emerald-50 border-emerald-700 text-emerald-950'
+                            : 'bg-white border-gray-300 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="destinoFornecedor"
+                          checked={destinoFornecedor === opt.id}
+                          onChange={() => setDestinoFornecedor(opt.id as any)}
+                          className="accent-emerald-600 shrink-0"
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : tipoOperacao === 'devolucao_fornecedor' ? (
+                <div className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-300 rounded px-3 py-2">
+                  Selecione um Fornecedor no Card 1 para consultar boletos pendentes e definir o destino do crédito.
                 </div>
               ) : tipoOperacao === 'troca_direta' && saldoFinal > 0.005 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center bg-sky-50 border border-sky-400 rounded p-2.5">
@@ -1611,6 +1963,37 @@ export const TrocaDevolucaoDetailsModal: React.FC<TrocaDevolucaoDetailsModalProp
               </span>
             </div>
           </div>
+
+          {record.boletoAbatido && (
+            <div className="bg-teal-50 border border-teal-700 rounded-md p-3 space-y-1.5 text-xs text-teal-950">
+              <div className="font-black uppercase tracking-wider text-[11px] flex items-center justify-between">
+                <span>Abatimento Aplicado no Contas a Pagar</span>
+                <span className="px-2 py-0.5 rounded bg-teal-700 text-white text-[10px]">
+                  {record.boletoAbatido.statusResultante}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase text-teal-800">Documento / NF</span>
+                  <span className="font-bold">{record.boletoAbatido.documento || '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] font-bold uppercase text-teal-800">Vencimento</span>
+                  <span className="font-bold">
+                    {record.boletoAbatido.vencimento ? formatDateBR(record.boletoAbatido.vencimento) : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] font-bold uppercase text-teal-800">Valor Abatido</span>
+                  <span className="font-black">{formatCurrencyBRL(record.boletoAbatido.valorAbatido)}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] font-bold uppercase text-teal-800">Saldo Restante</span>
+                  <span className="font-black">{formatCurrencyBRL(record.boletoAbatido.saldoRestante)}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-[#cad4e6] border-t border-black px-4 py-2.5 flex items-center justify-end gap-2">

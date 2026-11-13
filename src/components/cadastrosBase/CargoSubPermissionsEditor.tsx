@@ -63,7 +63,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
   // Pills de navegação rápida entre módulos no topo da Coluna 3
   const moduleTabs = [
     { id: 'financeiro' as const, label: 'Financeiro', count: countFinanceiro, total: 8, active: Boolean(permissoes.financeiro), icon: DollarSign },
-    { id: 'notas' as const, label: 'Notas e Entradas', count: countNotas, total: 4, active: Boolean(permissoes.notas || permissoes.estoque), icon: Receipt },
+    { id: 'notas' as const, label: 'Fiscal & Notas', count: countNotas, total: 4, active: Boolean(permissoes.notas || permissoes.estoque), icon: Receipt },
     { id: 'rh' as const, label: 'RH', count: countRh, total: 9, active: Boolean(permissoes.rh), icon: HeartHandshake },
     { id: 'relatorios' as const, label: 'Relatórios', count: countRelatorios, total: 8, active: Boolean(permissoes.relatorios), icon: FileSpreadsheet },
     { id: 'clientes' as const, label: 'Clientes', count: countClientes, total: 4, active: Boolean(permissoes.clientes), icon: Users },
@@ -246,17 +246,17 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             permissoes.sub_financeiro
           )}
 
-        {/* 2. MÓDULO NOTAS E ENTRADAS */}
+        {/* 2. MÓDULO FISCAL & NOTAS */}
         {(activeModuleFocus === 'notas' || activeModuleFocus === 'all') &&
           renderModuleCard(
             'mod-notas',
-            'Módulo Notas e Entradas',
+            'Módulo Fiscal & Notas',
             Boolean(permissoes.notas || permissoes.estoque),
             'notas',
             'sub_notas',
             <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />,
             [
-              { key: 'historico', label: 'Histórico de Notas e Entradas' },
+              { key: 'historico', label: 'Histórico de Fiscal & Notas' },
               { key: 'importar_xml', label: 'Importar XML (Carregar Arquivos)' },
               { key: 'nova_entrada', label: 'Nova Entrada Manual' },
               { key: 'acoes_avancadas', label: 'Ações Avançadas (Editar / Excluir)' },

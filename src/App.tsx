@@ -3846,7 +3846,7 @@ export default function App() {
                 (currentRestrictedPerm === 'financeiro' || activeTab.includes('financeiro') || activeTab.includes('despesas') || activeTab.includes('contas')) ? 'Financeiro (Bancos, Saldos, DRE)' :
                 (currentRestrictedPerm === 'frotas' || activeTab.includes('frotas') || activeTab.includes('veiculos')) ? 'Gestão de Frotas & Veículos' :
                 (currentRestrictedPerm === 'rh' || activeTab.includes('rh') || activeTab.includes('funcionarios')) ? 'Recursos Humanos (Folhas, Férias, Faltas)' :
-                (currentRestrictedPerm === 'estoque' || activeTab.includes('estoque') || activeTab.includes('fiscal') || activeTab.includes('almoxarifado')) ? 'Estoque / Almoxarifado / Notas Fiscais' :
+                (currentRestrictedPerm === 'estoque' || activeTab.includes('estoque') || activeTab.includes('fiscal') || activeTab.includes('almoxarifado')) ? 'Estoque / Almoxarifado / Fiscal & Notas' :
                 (currentRestrictedPerm === 'empresa' || activeTab.includes('configuracoes')) ? 'Dados da Empresa (Configurações cadastrais)' : 'este módulo'
               }
               onNavigateHome={() => setActiveTab('dashboard')}

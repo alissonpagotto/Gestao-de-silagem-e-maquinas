@@ -142,8 +142,13 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
   ) => {
     setRecords(getStoredTrocasDevolucoes());
     setCreditos(getStoredClienteCreditos());
+    const sentToFiscalQueue =
+      newRecord.tipoOperacao === 'devolucao_fornecedor' ||
+      newRecord.itensDevolvidos.some((i) => i.returnToStock === false);
     setSuccessNotice(
-      `Operação ${newRecord.protocolo} registrada com sucesso! Estoque e financeiro atualizados.`
+      sentToFiscalQueue
+        ? `Operação ${newRecord.protocolo} registrada! Estoque atualizado e item(ns) enviado(s) para Fiscal & Notas → Pendências de Devolução / Garantia.`
+        : `Operação ${newRecord.protocolo} registrada com sucesso! Estoque e financeiro atualizados.`
     );
     if (shouldAutoPrint) {
       await printTrocaDevolucaoA4(newRecord, companyProfile);

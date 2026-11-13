@@ -94,7 +94,8 @@ import {
   purgeGhostDocumentosEntrada,
   recordDeletedDocumentoEntradaId,
   getDeletedDocumentoEntradaIds,
-  deleteLocalDocumentoEntrada
+  deleteLocalDocumentoEntrada,
+  getStoredPendenciasDevolucao
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -155,6 +156,7 @@ import {
   DEFAULT_STOCK_SERVICES
 } from './TireReformOrderView';
 import { DevolucaoNotasView, getStoredNotasDevolucao } from './DevolucaoNotasView';
+import { PendenciasDevolucaoView } from './PendenciasDevolucaoView';
 import { MdfeView, getStoredMdfe } from './MdfeView';
 import { ManifestacaoDestinatarioView, getStoredManifestacoes } from './ManifestacaoDestinatarioView';
 
@@ -1273,7 +1275,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // -------------------------------------------------------------------------
   // ABAS PRINCIPAIS DO CABEÇALHO: NÍVEL 1 & NÍVEL 2 DE NOTAS FISCAIS
   // -------------------------------------------------------------------------
-  type MainFiscalTab = 'notas' | 'notas_fiscais' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao' | 'manifestacao_destinatario';
+  type MainFiscalTab = 'notas' | 'notas_fiscais' | 'pedido_compra' | 'pedidos_reforma' | 'devolucao' | 'pendencias_devolucao' | 'manifestacao_destinatario';
   type NotasFiscaisSubTab = 'nfe' | 'cte' | 'nfe_c' | 'nfse' | 'mdfe';
 
   const [activeMainFiscalTab, setActiveMainFiscalTab] = useState<MainFiscalTab>('notas');
@@ -1323,6 +1325,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [reformOrdersCount, setReformOrdersCount] = useState<number>(() => getStoredReformOrders().length);
   const [pendingReformCount, setPendingReformCount] = useState<number>(() => getStoredPendingReformTires().length);
   const [devolucaoCount, setDevolucaoCount] = useState<number>(() => getStoredNotasDevolucao().length);
+  const [pendenciasDevolucaoCount, setPendenciasDevolucaoCount] = useState<number>(() =>
+    getStoredPendenciasDevolucao().filter(p => p.status === 'Aguardando Decisão Fiscal').length
+  );
   const [mdfeCount, setMdfeCount] = useState<number>(() => getStoredMdfe().length);
   const [manifestacoesCount, setManifestacoesCount] = useState<number>(() => getStoredManifestacoes().length);
 
@@ -1405,16 +1410,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setReformOrdersCount(getStoredReformOrders().length);
       setPendingReformCount(getStoredPendingReformTires().length);
       setDevolucaoCount(getStoredNotasDevolucao().length);
+      setPendenciasDevolucaoCount(
+        getStoredPendenciasDevolucao().filter(p => p.status === 'Aguardando Decisão Fiscal').length
+      );
     };
     window.addEventListener('storage', handleCountUpdate);
     window.addEventListener('colaca_silagem_pedidos_reforma_updated', handleCountUpdate);
     window.addEventListener('colaca_silagem_abrir_pedido_reforma', handleCountUpdate);
     window.addEventListener('colaca_silagem_notas_devolucao_updated', handleCountUpdate);
+    window.addEventListener('agrocontrol_pendencias_devolucao_updated', handleCountUpdate);
     return () => {
       window.removeEventListener('storage', handleCountUpdate);
       window.removeEventListener('colaca_silagem_pedidos_reforma_updated', handleCountUpdate);
       window.removeEventListener('colaca_silagem_abrir_pedido_reforma', handleCountUpdate);
       window.removeEventListener('colaca_silagem_notas_devolucao_updated', handleCountUpdate);
+      window.removeEventListener('agrocontrol_pendencias_devolucao_updated', handleCountUpdate);
     };
   }, []);
 
@@ -6671,8 +6681,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* 1. Header Unificado 3D Slim com Título, Contador e Botões Importar XML e Nova Entrada Manual */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2 mb-3">
         <div>
-          <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-            Notas e Entradas
+          <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase">
+            FISCAL & NOTAS
           </h2>
         </div>
 
@@ -6717,7 +6727,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (CONTRATO MASTER) */}
         <div className="w-full bg-[#edf4ff] dark:bg-stone-850 border-b border-[#edf4ff] dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
           <nav 
-            aria-label="Abas de Notas e Entradas"
+            aria-label="Abas de Fiscal & Notas"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
             {/* TAB 1: NOTAS E ENTRADAS */}
@@ -6812,6 +6822,31 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <span>NOTAS DE DEVOLUÇÃO</span>
               <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-700 text-[10px] font-bold">
                 {devolucaoFilteredCount}
+              </span>
+            </button>
+
+            {/* TAB 5.1: ⚠️ PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA */}
+            <button
+              type="button"
+              id="tab-fiscal-pendencias-devolucao"
+              onClick={() => setActiveMainFiscalTab('pendencias_devolucao')}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                activeMainFiscalTab === 'pendencias_devolucao'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-rose-600 -mb-px z-10'
+                  : pendenciasDevolucaoCount > 0
+                    ? 'bg-rose-50/90 hover:bg-rose-100/90 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 text-rose-900 dark:text-rose-200'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <span>⚠️ PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  pendenciasDevolucaoCount > 0
+                    ? 'bg-red-600 text-white shadow-2xs'
+                    : 'bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300'
+                }`}
+              >
+                {pendenciasDevolucaoCount}
               </span>
             </button>
 
@@ -6984,6 +7019,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               competence={fiscalCompetence}
               onCompetenceChange={setFiscalCompetence}
             />
+          ) : activeMainFiscalTab === 'pendencias_devolucao' ? (
+            <PendenciasDevolucaoView companyProfile={companyProfile} />
           ) : (
             /* Conteúdo padrão de Notas e Entradas */
             <div className="w-full space-y-4">

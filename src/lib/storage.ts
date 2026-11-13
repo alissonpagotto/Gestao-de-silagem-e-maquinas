@@ -38,7 +38,8 @@ import {
   TanqueCombustivel,
   FinanceiroCheque,
   ClienteCredito,
-  TrocaDevolucaoRecord
+  TrocaDevolucaoRecord,
+  PendenciaDevolucaoRecord
 } from '../types';
 import { backfillEmployeesBadgeNumbers } from '../components/rh/badgeHelpers';
 import { 
@@ -136,6 +137,7 @@ export const STORAGE_KEYS = {
   STOCK_PRODUCTS: 'colaca_silagem_estoque_produtos',
   FORM_SEQUENCES: 'agrocontrol_form_sequences',
   TROCAS_DEVOLUCOES: 'agrocontrol_trocas_devolucoes',
+  PENDENCIAS_DEVOLUCAO: 'agrocontrol_pendencias_devolucao',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -434,8 +436,11 @@ export function getStoredExpenses(): Expense[] {
 
       const sup = String(item.supplier || item.fornecedor || item.credor || '').trim().toLowerCase();
       const desc = String(item.description || item.title || '').trim().toLowerCase();
-      // Remove apenas placeholders vazios de valor zero (exceto compensados em estoque)
-      if (isNaN(val) || (val <= 0 && item.status !== 'compensado_estoque') || (sup === 'fornecedor' && desc === 'despesa fornecedor' && val === 0)) {
+      // Remove apenas placeholders vazios de valor zero (exceto compensados em estoque ou liquidados/abatidos por devolução)
+      const isSettledZero =
+        item.status === 'compensado_estoque' ||
+        item.status === 'Liquidado / Abatido por Devolução';
+      if (isNaN(val) || (val <= 0 && !isSettledZero) || (sup === 'fornecedor' && desc === 'despesa fornecedor' && val === 0)) {
         hasInvalid = true;
         return false;
       }
@@ -472,7 +477,12 @@ export function saveStoredExpenses(expenses: Expense[]): void {
         : (typeof item.valor === 'number'
             ? item.valor
             : parseFloat(String(item.amount ?? item.valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
-      return !isNaN(val) && (val > 0 || item.status === 'compensado_estoque');
+      return (
+        !isNaN(val) &&
+        (val > 0 ||
+          item.status === 'compensado_estoque' ||
+          item.status === 'Liquidado / Abatido por Devolução')
+      );
     });
 
     const json = JSON.stringify(cleaned);
@@ -4705,4 +4715,47 @@ export function getNextTrocaProtocolo(existing?: TrocaDevolucaoRecord[]): string
   return `DEV-${year}-${String(maxSeq + 1).padStart(3, '0')}`;
 }
 
+// ==============================================================================
+// FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA (QUARENTENA FISCAL - 100% LOCAL)
+// ==============================================================================
+export function getStoredPendenciasDevolucao(): PendenciaDevolucaoRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PENDENCIAS_DEVOLUCAO);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('Erro ao ler pendências de devolução:', e);
+    return [];
+  }
+}
 
+export function saveStoredPendenciasDevolucao(records: PendenciaDevolucaoRecord[]): void {
+  try {
+    const safeList = Array.isArray(records) ? records : [];
+    const json = JSON.stringify(safeList);
+    safeLocalStorageSetItem(STORAGE_KEYS.PENDENCIAS_DEVOLUCAO, json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('agrocontrol_pendencias_devolucao_updated', { detail: safeList })
+      );
+    }
+  } catch (e) {
+    console.warn('Erro ao salvar pendências de devolução:', e);
+  }
+}
+
+export function addPendenciasDevolucao(newItems: PendenciaDevolucaoRecord[]): void {
+  if (!Array.isArray(newItems) || newItems.length === 0) return;
+  const current = getStoredPendenciasDevolucao();
+  saveStoredPendenciasDevolucao([...newItems, ...current]);
+}
+
+export function updatePendenciaDevolucao(
+  id: string,
+  updates: Partial<PendenciaDevolucaoRecord>
+): void {
+  const current = getStoredPendenciasDevolucao();
+  const next = current.map((item) => (item.id === id ? { ...item, ...updates } : item));
+  saveStoredPendenciasDevolucao(next);
+}
