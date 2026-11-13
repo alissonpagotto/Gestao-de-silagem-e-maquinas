@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Plus,
@@ -14,6 +14,11 @@ import {
   CheckCircle2,
   Eye,
   Receipt,
+  Settings,
+  ChevronDown,
+  FileText,
+  Building2,
+  User,
 } from 'lucide-react';
 import {
   BoletoAbatidoInfo,
@@ -38,8 +43,11 @@ import {
   getNextTrocaProtocolo,
   getStoredClients,
   getStoredClienteCreditos,
+  getStoredDocumentosEntrada,
+  getStoredDocumentosEntradaItens,
   getStoredExpenses,
   getStoredInventory,
+  getStoredServices,
   getStoredSuppliers,
   getStoredTrocasDevolucoes,
   saveStoredClients,
@@ -59,6 +67,7 @@ import {
   printTrocaDevolucaoA4,
   printTrocaDevolucaoCupom80mm,
 } from './trocaDevolucaoPrintUtils';
+import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 
 interface NovaTrocaDevolucaoModalProps {
   isOpen: boolean;
@@ -70,12 +79,58 @@ interface NovaTrocaDevolucaoModalProps {
   onSuccess: (record: TrocaDevolucaoRecord, shouldAutoPrint: boolean) => void;
 }
 
-const MOTIVOS_PADRAO: TrocaMotivo[] = [
-  'Defeito',
-  'Tamanho/Modelo Incorreto',
-  'Desistência',
+const TROCA_MOTIVOS_STORAGE_KEY = 'agrocontrol_trocas_motivos';
+
+const DEFAULT_TROCA_MOTIVOS: string[] = [
+  'Defeito de Fabricação',
   'Garantia',
+  'Peça / Produto Enviado Errado (Divergência no Pedido)',
+  'Especificação / Aplicação Incompatível',
+  'Tamanho / Modelo Incorreto',
+  'Desistência / Troca Comercial',
+  'Avaria no Transporte',
 ];
+
+function getStoredTrocaMotivos(): string[] {
+  try {
+    const raw = localStorage.getItem(TROCA_MOTIVOS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const cleaned = parsed
+          .map((item) => String(item || '').trim())
+          .filter(Boolean);
+        if (cleaned.length > 0) return cleaned;
+      }
+    }
+  } catch {}
+  return [...DEFAULT_TROCA_MOTIVOS];
+}
+
+function saveStoredTrocaMotivos(items: string[]): void {
+  try {
+    const cleaned = items.map((i) => String(i || '').trim()).filter(Boolean);
+    localStorage.setItem(TROCA_MOTIVOS_STORAGE_KEY, JSON.stringify(cleaned));
+  } catch {}
+}
+
+interface OriginDocItemMatch {
+  productId?: string;
+  code?: string;
+  description: string;
+  unitPrice?: number;
+}
+
+interface OriginDocOption {
+  id: string;
+  value: string;
+  label: string;
+  number: string;
+  dateStr: string;
+  amount: number;
+  sourceLabel: string;
+  items: OriginDocItemMatch[];
+}
 
 function getItemDisplayName(item: InventoryItem): string {
   return String(item.nome_comercial || item.name || item.nome || 'Produto sem nome').trim();
@@ -117,6 +172,39 @@ function normalizeText(value?: string | null): string {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase();
+}
+
+function normalizeDigits(value?: string | null): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function normalizeDateIso(raw?: string | null): string {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return '';
+}
+
+function inventoryItemMatchesOriginItem(
+  inv: InventoryItem,
+  originItem: OriginDocItemMatch
+): boolean {
+  if (originItem.productId && String(inv.id) === String(originItem.productId)) {
+    return true;
+  }
+  const invCode = normalizeText(inv.codigo_produto || inv.code);
+  const orgCode = normalizeText(originItem.code);
+  if (invCode && orgCode && invCode === orgCode) {
+    return true;
+  }
+  const invName = normalizeText(inv.nome_comercial || inv.name || inv.nome);
+  const orgDesc = normalizeText(originItem.description);
+  if (invName && orgDesc && (invName === orgDesc || invName.includes(orgDesc) || orgDesc.includes(invName))) {
+    return true;
+  }
+  return false;
 }
 
 function getExpenseOpenAmount(exp: Expense): number {
@@ -180,31 +268,45 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [clientsList, setClientsList] = useState<Client[]>(clients);
   const [expensesList, setExpensesList] = useState<Expense[]>([]);
+  const [motivosList, setMotivosList] = useState<string[]>(() => getStoredTrocaMotivos());
+  const [isMotivoManagerOpen, setIsMotivoManagerOpen] = useState<boolean>(false);
 
   // Card 1: Operação e Envolvido
   const [tipoOperacao, setTipoOperacao] = useState<TrocaOperacaoTipo>('devolucao_cliente');
-  const [selectedClientId, setSelectedClientId] = useState<string>('consumidor_avulso');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [avulsoNome, setAvulsoNome] = useState<string>('Consumidor Avulso');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [envolvidoSearch, setEnvolvidoSearch] = useState<string>('');
+  const [isEnvolvidoDropdownOpen, setIsEnvolvidoDropdownOpen] = useState<boolean>(false);
   const [dataOperacao, setDataOperacao] = useState<string>(todayIso);
   const [numeroOrigem, setNumeroOrigem] = useState<string>('');
-  const [motivo, setMotivo] = useState<TrocaMotivo>('Defeito');
+  const [selectedOriginDocId, setSelectedOriginDocId] = useState<string>('');
+  const [isOriginDropdownOpen, setIsOriginDropdownOpen] = useState<boolean>(false);
+  const [motivo, setMotivo] = useState<TrocaMotivo>('Defeito de Fabricação');
   const [observacoes, setObservacoes] = useState<string>('');
 
-  // Card 2: Produtos Devolvidos
+  // Card 2: Produtos Devolvidos (Combobox Unificado)
   const [searchDevolvido, setSearchDevolvido] = useState<string>('');
   const [selectedProdDevolvidoId, setSelectedProdDevolvidoId] = useState<string>('');
+  const [isProdDevolvidoDropdownOpen, setIsProdDevolvidoDropdownOpen] = useState<boolean>(false);
   const [qtdDevolvida, setQtdDevolvida] = useState<string>('1');
   const [precoDevolvido, setPrecoDevolvido] = useState<string>('');
   const [retornarAoEstoque, setRetornarAoEstoque] = useState<boolean>(true);
   const [itensDevolvidos, setItensDevolvidos] = useState<TrocaDevolucaoItem[]>([]);
 
-  // Card 3: Produtos Levados na Troca (Troca Direta)
+  // Card 3: Produtos Levados na Troca (Troca Direta - Combobox Unificado)
   const [searchLevado, setSearchLevado] = useState<string>('');
   const [selectedProdLevadoId, setSelectedProdLevadoId] = useState<string>('');
+  const [isProdLevadoDropdownOpen, setIsProdLevadoDropdownOpen] = useState<boolean>(false);
   const [qtdLevada, setQtdLevada] = useState<string>('1');
   const [precoLevado, setPrecoLevado] = useState<string>('');
   const [itensLevados, setItensLevados] = useState<TrocaDevolucaoItem[]>([]);
+
+  // Refs para fechar dropdowns ao clicar fora
+  const envolvidoBoxRef = useRef<HTMLDivElement>(null);
+  const originBoxRef = useRef<HTMLDivElement>(null);
+  const prodDevolvidoBoxRef = useRef<HTMLDivElement>(null);
+  const prodLevadoBoxRef = useRef<HTMLDivElement>(null);
 
   // Financeiro
   const [modoCreditoOuEstorno, setModoCreditoOuEstorno] = useState<'vale_credito' | 'estorno'>(
@@ -220,7 +322,29 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Carrega dados atualizados ao abrir o modal
+  // Fecha dropdowns ao clicar fora
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (ev: MouseEvent) => {
+      const target = ev.target as Node;
+      if (envolvidoBoxRef.current && !envolvidoBoxRef.current.contains(target)) {
+        setIsEnvolvidoDropdownOpen(false);
+      }
+      if (originBoxRef.current && !originBoxRef.current.contains(target)) {
+        setIsOriginDropdownOpen(false);
+      }
+      if (prodDevolvidoBoxRef.current && !prodDevolvidoBoxRef.current.contains(target)) {
+        setIsProdDevolvidoDropdownOpen(false);
+      }
+      if (prodLevadoBoxRef.current && !prodLevadoBoxRef.current.contains(target)) {
+        setIsProdLevadoDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  // Carrega dados atualizados ao abrir o modal (iniciando Cliente/Fornecedor em branco)
   useEffect(() => {
     if (!isOpen) return;
     setInventoryList(getStoredInventory());
@@ -228,24 +352,39 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     setSuppliersList(sups);
     setClientsList(clients && clients.length > 0 ? clients : getStoredClients());
     setExpensesList(getStoredExpenses());
+    const loadedMotivos = getStoredTrocaMotivos();
+    setMotivosList(loadedMotivos);
+    setIsMotivoManagerOpen(false);
 
     const initialTipo: TrocaOperacaoTipo = defaultTipoOperacao || 'devolucao_cliente';
     setTipoOperacao(initialTipo);
-    setSelectedClientId('consumidor_avulso');
+    setSelectedClientId('');
     setAvulsoNome('Consumidor Avulso');
-    setSelectedSupplierId(sups[0]?.id || '');
+    setSelectedSupplierId('');
+    setEnvolvidoSearch('');
+    setIsEnvolvidoDropdownOpen(false);
     setDataOperacao(todayIso);
     setNumeroOrigem('');
-    setMotivo(initialTipo === 'devolucao_fornecedor' ? 'Garantia' : 'Defeito');
+    setSelectedOriginDocId('');
+    setIsOriginDropdownOpen(false);
+    const defaultReason =
+      initialTipo === 'devolucao_fornecedor'
+        ? loadedMotivos.find((m) => normalizeText(m) === 'garantia') || loadedMotivos[0] || 'Garantia'
+        : loadedMotivos.find((m) => normalizeText(m).includes('defeito')) ||
+          loadedMotivos[0] ||
+          'Defeito de Fabricação';
+    setMotivo(defaultReason);
     setObservacoes('');
     setSearchDevolvido('');
     setSelectedProdDevolvidoId('');
+    setIsProdDevolvidoDropdownOpen(false);
     setQtdDevolvida('1');
     setPrecoDevolvido('');
     setRetornarAoEstoque(true);
     setItensDevolvidos([]);
     setSearchLevado('');
     setSelectedProdLevadoId('');
+    setIsProdLevadoDropdownOpen(false);
     setQtdLevada('1');
     setPrecoLevado('');
     setItensLevados([]);
@@ -266,6 +405,58 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       window.removeEventListener('silagem_expenses_updated', refreshExpenses);
     };
   }, [isOpen, clients, todayIso, defaultTipoOperacao]);
+
+  const selectedSupplier = useMemo(
+    () => suppliersList.find((s) => String(s.id) === String(selectedSupplierId)) || null,
+    [suppliersList, selectedSupplierId]
+  );
+
+  const selectedClient = useMemo(
+    () =>
+      selectedClientId && selectedClientId !== 'consumidor_avulso'
+        ? clientsList.find((c) => String(c.id) === String(selectedClientId)) || null
+        : null,
+    [clientsList, selectedClientId]
+  );
+
+  // Filtragem do combobox de Fornecedor / Cliente
+  const filteredSuppliersDropdown = useMemo(() => {
+    const q = normalizeText(envolvidoSearch);
+    const qDigits = normalizeDigits(envolvidoSearch);
+    return suppliersList
+      .filter((sup) => {
+        if (!q) return true;
+        const n1 = normalizeText(sup.name);
+        const n2 = normalizeText(sup.tradeName);
+        const doc = normalizeDigits(sup.cnpjOrCpf);
+        return n1.includes(q) || n2.includes(q) || (qDigits.length > 0 && doc.includes(qDigits));
+      })
+      .slice(0, 40);
+  }, [suppliersList, envolvidoSearch]);
+
+  const filteredClientsDropdown = useMemo(() => {
+    const q = normalizeText(envolvidoSearch);
+    const qDigits = normalizeDigits(envolvidoSearch);
+    return clientsList
+      .filter((cli) => {
+        if (!q) return true;
+        const n1 = normalizeText(cli.name || cli.nome);
+        const n2 = normalizeText(cli.farmName || cli.fazenda);
+        const doc = normalizeDigits(cli.cpfCnpj);
+        return n1.includes(q) || n2.includes(q) || (qDigits.length > 0 && doc.includes(qDigits));
+      })
+      .slice(0, 40);
+  }, [clientsList, envolvidoSearch]);
+
+  const showAvulsoOption = useMemo(() => {
+    const q = normalizeText(envolvidoSearch);
+    if (!q) return true;
+    return (
+      'consumidor avulso balcao'.includes(q) ||
+      q.includes('avulso') ||
+      q.includes('balcao')
+    );
+  }, [envolvidoSearch]);
 
   const supplierPendingBills = useMemo(() => {
     if (tipoOperacao !== 'devolucao_fornecedor' || !selectedSupplierId) return [];
@@ -308,51 +499,456 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     [supplierPendingBills, selectedBoletoId]
   );
 
-  const filteredDevolvidoOptions = useMemo(() => {
-    const q = searchDevolvido.trim().toLowerCase();
-    return inventoryList
-      .filter((item) => {
-        if (!q) return true;
-        const name = getItemDisplayName(item).toLowerCase();
-        const code = getItemCode(item).toLowerCase();
-        const barcode = String(item.barcode || item.codigo_barras || '').toLowerCase();
-        return name.includes(q) || code.includes(q) || barcode.includes(q);
-      })
-      .slice(0, 60);
-  }, [inventoryList, searchDevolvido]);
+  // Vinculação inteligente: consulta todas as Notas Fiscais de Entrada (Fornecedor) ou Vendas/Pedidos (Cliente)
+  const relatedOriginDocs = useMemo<OriginDocOption[]>(() => {
+    if (!isOpen) return [];
+    const options: OriginDocOption[] = [];
+    const seenKeys = new Set<string>();
+
+    if (tipoOperacao === 'devolucao_fornecedor') {
+      if (!selectedSupplier) return [];
+      const supId = String(selectedSupplier.id);
+      const supName = normalizeText(selectedSupplier.name);
+      const supTrade = normalizeText(selectedSupplier.tradeName);
+      const supDigits = normalizeDigits(selectedSupplier.cnpjOrCpf);
+
+      const matchesSup = (
+        id?: string | null,
+        name?: string | null,
+        cnpj?: string | null
+      ): boolean => {
+        if (id && String(id) === supId) return true;
+        const docDigits = normalizeDigits(cnpj);
+        if (supDigits && docDigits && supDigits === docDigits) return true;
+        const normName = normalizeText(name);
+        if (!normName) return false;
+        if (supName && (normName === supName || normName.includes(supName) || supName.includes(normName))) {
+          return true;
+        }
+        if (supTrade && (normName === supTrade || normName.includes(supTrade) || supTrade.includes(normName))) {
+          return true;
+        }
+        return false;
+      };
+
+      const allDocItens = getStoredDocumentosEntradaItens();
+
+      // 1) Documentos de Entrada (XML importados e entradas manuais)
+      getStoredDocumentosEntrada().forEach((doc) => {
+        const dName = doc.fornecedor_nome || doc.fornecedor;
+        if (!matchesSup(doc.fornecedor_id, dName, doc.fornecedor_cnpj)) return;
+        const numRaw = String(doc.numero || doc.numero_documento || '').trim();
+        const numDisplay = numRaw
+          ? numRaw.toUpperCase().startsWith('NF')
+            ? numRaw
+            : `NF ${numRaw}`
+          : `DOC-${String(doc.id).slice(-5)}`;
+        const dateIso = normalizeDateIso(doc.data_emissao || doc.data || doc.data_entrada);
+        const amount = Number(doc.valor_total || 0);
+        const dedupKey = `nf_${normalizeText(numRaw || doc.id)}`;
+        if (seenKeys.has(dedupKey)) return;
+        seenKeys.add(dedupKey);
+
+        const docItemsFromTable = allDocItens.filter(
+          (it) => String(it.documento_entrada_id) === String(doc.id)
+        );
+        const mergedItems = (
+          doc.itens && doc.itens.length > 0 ? doc.itens : docItemsFromTable
+        ).map((it) => ({
+          productId: it.produto_id ? String(it.produto_id) : undefined,
+          description: String(it.descricao || ''),
+          unitPrice: Number(it.valor_unitario || 0),
+        }));
+
+        options.push({
+          id: `doc_ent_${doc.id}`,
+          value: numDisplay,
+          number: numRaw || numDisplay,
+          label: `${numDisplay}${dateIso ? ` - ${formatDateBR(dateIso)}` : ''} - ${formatCurrencyBRL(amount)}`,
+          dateStr: dateIso,
+          amount,
+          sourceLabel: doc.tipo_documento || 'NF-e Entrada',
+          items: mergedItems,
+        });
+      });
+
+      // 2) Notas Fiscais diretas (agrocontrol_notas_nfe / agrocontrol_notas_nfec)
+      ['agrocontrol_notas_nfe', 'agrocontrol_notas_nfec'].forEach((storageKey) => {
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return;
+          parsed.forEach((n: any) => {
+            if (!n || !matchesSup(n.supplierId, n.supplierName, n.supplierCnpj)) return;
+            const numRaw = String(n.number || '').trim();
+            const numDisplay = numRaw
+              ? numRaw.toUpperCase().startsWith('NF')
+                ? numRaw
+                : `NF ${numRaw}`
+              : `NF-${String(n.id).slice(-5)}`;
+            const dateIso = normalizeDateIso(n.issueDate || n.createdAt);
+            const amount = Number(n.totalAmount || 0);
+            const dedupKey = `nf_${normalizeText(numRaw || n.id)}`;
+            if (seenKeys.has(dedupKey)) return;
+            seenKeys.add(dedupKey);
+
+            const items: OriginDocItemMatch[] = Array.isArray(n.items)
+              ? n.items.map((it: any) => ({
+                  productId: it.productId ? String(it.productId) : undefined,
+                  code: it.code ? String(it.code) : undefined,
+                  description: String(it.description || ''),
+                  unitPrice: Number(it.unitPrice || 0),
+                }))
+              : [];
+
+            options.push({
+              id: `${storageKey}_${n.id}`,
+              value: numDisplay,
+              number: numRaw || numDisplay,
+              label: `${numDisplay}${dateIso ? ` - ${formatDateBR(dateIso)}` : ''} - ${formatCurrencyBRL(amount)}`,
+              dateStr: dateIso,
+              amount,
+              sourceLabel: storageKey === 'agrocontrol_notas_nfec' ? 'NFC-e' : 'NF-e',
+              items,
+            });
+          });
+        } catch {}
+      });
+
+      // 3) Notas registradas no Contas a Pagar / Despesas vinculadas ao fornecedor
+      const expGroups = new Map<
+        string,
+        { numRaw: string; numDisplay: string; dateIso: string; total: number; id: string }
+      >();
+      expensesList.forEach((exp) => {
+        const expSupId = exp.supplierId || exp.fornecedorId;
+        const expSupName = exp.supplier || (exp as any).fornecedor;
+        if (!matchesSup(expSupId, expSupName, undefined)) return;
+        const invNum = String(exp.invoiceNumber || '').trim();
+        if (!invNum) return;
+        const normInv = normalizeText(invNum.replace(/^nf[\s\-:]*/i, ''));
+        if (!normInv || seenKeys.has(`nf_${normInv}`) || seenKeys.has(`nf_${normalizeText(invNum)}`)) {
+          return;
+        }
+        const amt = getExpenseOpenAmount(exp);
+        const dateIso = normalizeDateIso(exp.dueDate || exp.paymentDate || exp.createdAt);
+        const existingGroup = expGroups.get(normInv);
+        if (existingGroup) {
+          existingGroup.total = Number((existingGroup.total + amt).toFixed(2));
+        } else {
+          const numDisplay = invNum.toUpperCase().startsWith('NF') ? invNum : `NF ${invNum}`;
+          expGroups.set(normInv, {
+            id: `exp_${exp.id}`,
+            numRaw: invNum,
+            numDisplay,
+            dateIso,
+            total: amt,
+          });
+        }
+      });
+
+      expGroups.forEach((grp, normInv) => {
+        const dedupKey = `nf_${normInv}`;
+        if (seenKeys.has(dedupKey)) return;
+        seenKeys.add(dedupKey);
+        options.push({
+          id: grp.id,
+          value: grp.numDisplay,
+          number: grp.numRaw,
+          label: `${grp.numDisplay}${grp.dateIso ? ` - ${formatDateBR(grp.dateIso)}` : ''} - ${formatCurrencyBRL(grp.total)}`,
+          dateStr: grp.dateIso,
+          amount: grp.total,
+          sourceLabel: 'Conta / NF',
+          items: [],
+        });
+      });
+    } else if (selectedClientId) {
+      const isAvulso = selectedClientId === 'consumidor_avulso';
+      const cliId = selectedClient ? String(selectedClient.id) : '';
+      const cliName = normalizeText(selectedClient?.name || selectedClient?.nome);
+      const cliDigits = normalizeDigits(selectedClient?.cpfCnpj);
+
+      const matchesCli = (
+        id?: string | null,
+        name?: string | null,
+        doc?: string | null
+      ): boolean => {
+        if (isAvulso) {
+          if (id === 'consumidor_avulso') return true;
+          const n = normalizeText(name);
+          return !id && (n === '' || n.includes('consumidor') || n.includes('avulso') || n.includes('balcao'));
+        }
+        if (id && cliId && String(id) === cliId) return true;
+        const dDigits = normalizeDigits(doc);
+        if (cliDigits && dDigits && cliDigits === dDigits) return true;
+        const n = normalizeText(name);
+        if (cliName && n && (n === cliName || n.includes(cliName) || cliName.includes(n))) {
+          return true;
+        }
+        return false;
+      };
+
+      // 1) Vendas PDV (agrocontrol_vendas / agrocontrol_pdv_vendas / colaca_silagem_vendas_pdv)
+      ['agrocontrol_vendas', 'agrocontrol_pdv_vendas', 'colaca_silagem_vendas_pdv'].forEach((key) => {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return;
+          parsed.forEach((v: any) => {
+            if (!v) return;
+            if (!matchesCli(v.clientId, v.cliente || v.clientName, v.clienteCpfCnpj)) return;
+            const num = String(v.numeroPedido || v.orderNumber || v.numeroVenda || `PDV-${v.id}`).trim();
+            const dedupKey = `venda_${normalizeText(num)}`;
+            if (seenKeys.has(dedupKey)) return;
+            seenKeys.add(dedupKey);
+            const dateIso = normalizeDateIso(v.date || v.data || v.criadoEm || v.createdAt);
+            const amount = Number(v.totalLiquido ?? v.valorLiquido ?? v.totalAmount ?? 0);
+            const items: OriginDocItemMatch[] = Array.isArray(v.itens)
+              ? v.itens.map((it: any) => ({
+                  productId: it.productId ? String(it.productId) : it.id ? String(it.id) : undefined,
+                  code: it.codigo ? String(it.codigo) : undefined,
+                  description: String(it.descricao || it.description || ''),
+                  unitPrice: Number(it.precoUnitario || it.unitPrice || 0),
+                }))
+              : [];
+            options.push({
+              id: `pdv_${v.id || num}`,
+              value: num,
+              number: num,
+              label: `${num}${dateIso ? ` - ${formatDateBR(dateIso)}` : ''} - ${formatCurrencyBRL(amount)}`,
+              dateStr: dateIso,
+              amount,
+              sourceLabel: 'Venda PDV',
+              items,
+            });
+          });
+        } catch {}
+      });
+
+      // 2) Pedidos / Vendas no módulo de Serviços
+      getStoredServices().forEach((srv) => {
+        const typeStr = normalizeText(srv.serviceType);
+        const tabStr = normalizeText(srv.serviceTab);
+        if (!typeStr.includes('venda') && tabStr !== 'venda') return;
+        if (!matchesCli(srv.clientId, srv.clientName, undefined)) return;
+        const num = String(srv.orderNumber || `VND-${String(srv.id).slice(-5)}`).trim();
+        const dedupKey = `venda_${normalizeText(num)}`;
+        if (seenKeys.has(dedupKey)) return;
+        seenKeys.add(dedupKey);
+        const dateIso = normalizeDateIso(srv.date || srv.startDate || (srv as any).createdAt);
+        const amount = Number(srv.totalAmount || 0);
+        options.push({
+          id: `srv_${srv.id}`,
+          value: num,
+          number: num,
+          label: `${num}${dateIso ? ` - ${formatDateBR(dateIso)}` : ''} - ${formatCurrencyBRL(amount)}`,
+          dateStr: dateIso,
+          amount,
+          sourceLabel: 'Pedido / Venda',
+          items: [],
+        });
+      });
+    }
+
+    return options.sort((a, b) => String(b.dateStr || '').localeCompare(String(a.dateStr || '')));
+  }, [isOpen, tipoOperacao, selectedSupplier, selectedClient, selectedClientId, expensesList]);
+
+  const activeOriginDoc = useMemo<OriginDocOption | null>(() => {
+    if (selectedOriginDocId) {
+      const byId = relatedOriginDocs.find((d) => d.id === selectedOriginDocId);
+      if (byId) return byId;
+    }
+    const q = normalizeText(numeroOrigem);
+    if (!q) return null;
+    return (
+      relatedOriginDocs.find(
+        (d) => normalizeText(d.value) === q || normalizeText(d.number) === q
+      ) || null
+    );
+  }, [relatedOriginDocs, selectedOriginDocId, numeroOrigem]);
+
+  const filteredOriginDocsDropdown = useMemo(() => {
+    const q = normalizeText(numeroOrigem);
+    if (!q) return relatedOriginDocs.slice(0, 40);
+    return relatedOriginDocs
+      .filter((d) => normalizeText(d.label).includes(q) || normalizeText(d.value).includes(q))
+      .slice(0, 40);
+  }, [relatedOriginDocs, numeroOrigem]);
+
+  // Mapa de produtos vinculados ao fornecedor selecionado (via notas do fornecedor ou campos no item)
+  const supplierLinkedInvIds = useMemo(() => {
+    const matchedIds = new Set<string>();
+    if (tipoOperacao !== 'devolucao_fornecedor' || !selectedSupplier) return matchedIds;
+
+    const supId = String(selectedSupplier.id);
+    const supName = normalizeText(selectedSupplier.name);
+    const supTrade = normalizeText(selectedSupplier.tradeName);
+
+    const allOriginItems: OriginDocItemMatch[] = [];
+    relatedOriginDocs.forEach((doc) => {
+      doc.items.forEach((it) => allOriginItems.push(it));
+    });
+
+    inventoryList.forEach((inv) => {
+      const rawSupId = String(
+        (inv as any).supplierId || (inv as any).fornecedorId || (inv as any).fornecedor_id || ''
+      );
+      const rawSupName = normalizeText(
+        (inv as any).supplier || (inv as any).fornecedor || (inv as any).fornecedor_nome || ''
+      );
+      const directMatch =
+        (rawSupId && rawSupId === supId) ||
+        (rawSupName &&
+          ((supName && rawSupName.includes(supName)) ||
+            (supTrade && rawSupName.includes(supTrade))));
+
+      if (
+        directMatch ||
+        allOriginItems.some((orgIt) => inventoryItemMatchesOriginItem(inv, orgIt))
+      ) {
+        matchedIds.add(String(inv.id));
+      }
+    });
+
+    return matchedIds;
+  }, [tipoOperacao, selectedSupplier, relatedOriginDocs, inventoryList]);
+
+  // Lista priorizada e filtrada para o campo unificado "PRODUTO DEVOLVIDO *"
+  const groupedDevolvidoOptions = useMemo(() => {
+    const q = normalizeText(searchDevolvido);
+    const selectedItem = inventoryList.find(
+      (i) => String(i.id) === String(selectedProdDevolvidoId)
+    );
+    const selectedDisplayStr = selectedItem
+      ? normalizeText(
+          `${getItemCode(selectedItem) ? `[${getItemCode(selectedItem)}] ` : ''}${getItemDisplayName(
+            selectedItem
+          )}`
+        )
+      : '';
+    // Se o texto no input é exatamente o nome do produto recém-selecionado, mostra a lista completa ao reabrir
+    const effectiveQuery = q && q === selectedDisplayStr ? '' : q;
+
+    const matchesQuery = (item: InventoryItem) => {
+      if (!effectiveQuery) return true;
+      const name = normalizeText(getItemDisplayName(item));
+      const code = normalizeText(getItemCode(item));
+      const barcode = normalizeText(item.barcode || item.codigo_barras);
+      return (
+        name.includes(effectiveQuery) ||
+        code.includes(effectiveQuery) ||
+        barcode.includes(effectiveQuery)
+      );
+    };
+
+    const noteItems: Array<{ item: InventoryItem; originUnitPrice?: number }> = [];
+    const supplierItems: InventoryItem[] = [];
+    const generalItems: InventoryItem[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. Produtos da Nota / Venda de Origem selecionada
+    if (activeOriginDoc && activeOriginDoc.items.length > 0) {
+      inventoryList.forEach((item) => {
+        if (!matchesQuery(item)) return;
+        const matchedOrigin = activeOriginDoc.items.find((orgIt) =>
+          inventoryItemMatchesOriginItem(item, orgIt)
+        );
+        if (matchedOrigin) {
+          noteItems.push({ item, originUnitPrice: matchedOrigin.unitPrice });
+          seenIds.add(String(item.id));
+        }
+      });
+    }
+
+    // 2. Produtos vinculados ao Fornecedor selecionado
+    if (tipoOperacao === 'devolucao_fornecedor' && supplierLinkedInvIds.size > 0) {
+      inventoryList.forEach((item) => {
+        if (seenIds.has(String(item.id))) return;
+        if (!matchesQuery(item)) return;
+        if (supplierLinkedInvIds.has(String(item.id))) {
+          supplierItems.push(item);
+          seenIds.add(String(item.id));
+        }
+      });
+    }
+
+    // 3. Restante do estoque acessível logo abaixo
+    inventoryList.forEach((item) => {
+      if (seenIds.has(String(item.id))) return;
+      if (!matchesQuery(item)) return;
+      if (generalItems.length < 60) {
+        generalItems.push(item);
+      }
+    });
+
+    return { noteItems, supplierItems, generalItems };
+  }, [
+    inventoryList,
+    searchDevolvido,
+    selectedProdDevolvidoId,
+    activeOriginDoc,
+    tipoOperacao,
+    supplierLinkedInvIds,
+  ]);
 
   const filteredLevadoOptions = useMemo(() => {
-    const q = searchLevado.trim().toLowerCase();
+    const q = normalizeText(searchLevado);
+    const selectedItem = inventoryList.find((i) => String(i.id) === String(selectedProdLevadoId));
+    const selectedDisplayStr = selectedItem
+      ? normalizeText(
+          `${getItemCode(selectedItem) ? `[${getItemCode(selectedItem)}] ` : ''}${getItemDisplayName(
+            selectedItem
+          )}`
+        )
+      : '';
+    const effectiveQuery = q && q === selectedDisplayStr ? '' : q;
+
     return inventoryList
       .filter((item) => {
-        if (!q) return true;
-        const name = getItemDisplayName(item).toLowerCase();
-        const code = getItemCode(item).toLowerCase();
-        const barcode = String(item.barcode || item.codigo_barras || '').toLowerCase();
-        return name.includes(q) || code.includes(q) || barcode.includes(q);
+        if (!effectiveQuery) return true;
+        const name = normalizeText(getItemDisplayName(item));
+        const code = normalizeText(getItemCode(item));
+        const barcode = normalizeText(item.barcode || item.codigo_barras);
+        return (
+          name.includes(effectiveQuery) ||
+          code.includes(effectiveQuery) ||
+          barcode.includes(effectiveQuery)
+        );
       })
       .slice(0, 60);
-  }, [inventoryList, searchLevado]);
+  }, [inventoryList, searchLevado, selectedProdLevadoId]);
 
-  const handleSelectProdDevolvido = (id: string) => {
+  const handleSelectProdDevolvido = (id: string, originUnitPrice?: number) => {
     setSelectedProdDevolvidoId(id);
     const found = inventoryList.find((i) => String(i.id) === String(id));
     if (found) {
-      const price =
+      const codePrefix = getItemCode(found) ? `[${getItemCode(found)}] ` : '';
+      setSearchDevolvido(`${codePrefix}${getItemDisplayName(found)}`);
+      const fallbackPrice =
         tipoOperacao === 'devolucao_fornecedor'
           ? getItemCostPrice(found)
           : getItemSalePrice(found);
+      const price =
+        originUnitPrice !== undefined && originUnitPrice > 0
+          ? originUnitPrice
+          : fallbackPrice;
       setPrecoDevolvido(price > 0 ? price.toFixed(2) : '0.00');
     }
+    setIsProdDevolvidoDropdownOpen(false);
   };
 
   const handleSelectProdLevado = (id: string) => {
     setSelectedProdLevadoId(id);
     const found = inventoryList.find((i) => String(i.id) === String(id));
     if (found) {
+      const codePrefix = getItemCode(found) ? `[${getItemCode(found)}] ` : '';
+      setSearchLevado(`${codePrefix}${getItemDisplayName(found)}`);
       const price = getItemSalePrice(found);
       setPrecoLevado(price > 0 ? price.toFixed(2) : '0.00');
     }
+    setIsProdLevadoDropdownOpen(false);
   };
 
   const handleAddItemDevolvido = () => {
@@ -457,6 +1053,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     e.preventDefault();
     setErrorMsg(null);
 
+    if (tipoOperacao === 'devolucao_fornecedor' && !selectedSupplierId) {
+      setErrorMsg('Busque e selecione um Fornecedor no Card 1 antes de confirmar a operação.');
+      return;
+    }
+    if (tipoOperacao !== 'devolucao_fornecedor' && !selectedClientId) {
+      setErrorMsg('Busque e selecione um Cliente (ou "Consumidor Avulso") no Card 1.');
+      return;
+    }
     if (itensDevolvidos.length === 0) {
       setErrorMsg('Adicione pelo menos 1 produto devolvido antes de confirmar a operação.');
       return;
@@ -1039,7 +1643,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              <div className="sm:col-span-6">
+              <div className="sm:col-span-5">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                   Tipo de Operação *
                 </label>
@@ -1047,9 +1651,23 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                   value={tipoOperacao}
                   onChange={(e) => {
                     const nextTipo = e.target.value as TrocaOperacaoTipo;
+                    const wasFornecedor = tipoOperacao === 'devolucao_fornecedor';
+                    const isNextFornecedor = nextTipo === 'devolucao_fornecedor';
                     setTipoOperacao(nextTipo);
-                    if (nextTipo === 'devolucao_fornecedor') {
+                    if (isNextFornecedor) {
                       setRetornarAoEstoque(true);
+                    }
+                    if (wasFornecedor !== isNextFornecedor) {
+                      setSelectedSupplierId('');
+                      setSelectedClientId('');
+                      setEnvolvidoSearch('');
+                      setIsEnvolvidoDropdownOpen(false);
+                      setNumeroOrigem('');
+                      setSelectedOriginDocId('');
+                      setIsOriginDropdownOpen(false);
+                      setSelectedProdDevolvidoId('');
+                      setSearchDevolvido('');
+                      setPrecoDevolvido('');
                     }
                   }}
                   className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
@@ -1079,61 +1697,287 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 />
               </div>
 
-              <div className="sm:col-span-3">
+              <div className="sm:col-span-4">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                   Motivo *
                 </label>
-                <select
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                  className="w-full bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                >
-                  {MOTIVOS_PADRAO.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                <div className="flex items-center gap-1">
+                  <select
+                    value={motivo}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__manage__') {
+                        setIsMotivoManagerOpen(true);
+                      } else {
+                        setMotivo(val);
+                      }
+                    }}
+                    className="flex-1 min-w-0 bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600 cursor-pointer"
+                  >
+                    {!motivosList.includes(motivo) && motivo && (
+                      <option value={motivo}>{motivo}</option>
+                    )}
+                    {motivosList.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                    <option value="__manage__" className="text-sky-700 font-bold">
+                      ⚙️ Gerenciar motivos...
                     </option>
-                  ))}
-                </select>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsMotivoManagerOpen(true)}
+                    className="h-[30px] w-[30px] flex items-center justify-center bg-white hover:bg-gray-100 text-black border border-gray-400 rounded transition cursor-pointer shrink-0"
+                    title="Gerenciar motivos personalizados"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
+              {/* CAMPO BUSCA DIGITÁVEL: FORNECEDOR * OU CLIENTE * (INICIANDO EM BRANCO) */}
               {tipoOperacao === 'devolucao_fornecedor' ? (
-                <div className="sm:col-span-5">
+                <div ref={envolvidoBoxRef} className="sm:col-span-5 relative">
                   <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                     Fornecedor *
                   </label>
-                  <select
-                    value={selectedSupplierId}
-                    onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="w-full bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                  >
-                    {suppliersList.length === 0 && (
-                      <option value="">Nenhum fornecedor cadastrado</option>
-                    )}
-                    {suppliersList.map((sup) => (
-                      <option key={sup.id} value={sup.id}>
-                        {sup.name} {sup.cnpjOrCpf ? `(${sup.cnpjOrCpf})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={envolvidoSearch}
+                      onFocus={() => setIsEnvolvidoDropdownOpen(true)}
+                      onChange={(e) => {
+                        setEnvolvidoSearch(e.target.value);
+                        if (selectedSupplierId) {
+                          setSelectedSupplierId('');
+                          setNumeroOrigem('');
+                          setSelectedOriginDocId('');
+                        }
+                        setIsEnvolvidoDropdownOpen(true);
+                      }}
+                      placeholder="Digite parte do nome, CPF ou CNPJ para buscar..."
+                      className={`w-full pl-8 pr-12 py-1.5 bg-white border text-black text-xs font-semibold rounded focus:outline-none focus:ring-2 focus:ring-slate-600 ${
+                        selectedSupplierId ? 'border-emerald-700' : 'border-gray-400'
+                      }`}
+                    />
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {(envolvidoSearch || selectedSupplierId) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnvolvidoSearch('');
+                            setSelectedSupplierId('');
+                            setNumeroOrigem('');
+                            setSelectedOriginDocId('');
+                            setIsEnvolvidoDropdownOpen(true);
+                          }}
+                          className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
+                          title="Limpar fornecedor"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsEnvolvidoDropdownOpen((prev) => !prev)}
+                        className="p-0.5 text-slate-600 hover:text-black rounded cursor-pointer"
+                        title="Abrir lista de fornecedores"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {isEnvolvidoDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black rounded-md shadow-xl max-h-56 overflow-y-auto z-50 divide-y divide-gray-200">
+                      {filteredSuppliersDropdown.length === 0 ? (
+                        <div className="px-3 py-2.5 text-xs font-semibold text-slate-600">
+                          Nenhum fornecedor encontrado para "{envolvidoSearch}".
+                        </div>
+                      ) : (
+                        filteredSuppliersDropdown.map((sup) => {
+                          const displayName = sup.tradeName || sup.name;
+                          const isSelected = String(sup.id) === String(selectedSupplierId);
+                          return (
+                            <button
+                              key={sup.id}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setSelectedSupplierId(String(sup.id));
+                                setEnvolvidoSearch(displayName);
+                                setIsEnvolvidoDropdownOpen(false);
+                                setNumeroOrigem('');
+                                setSelectedOriginDocId('');
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-sky-50 flex items-center justify-between gap-2 cursor-pointer ${
+                                isSelected ? 'bg-emerald-50 font-bold text-emerald-950' : 'text-black'
+                              }`}
+                            >
+                              <div className="min-w-0 flex items-center gap-1.5">
+                                <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <div className="truncate">
+                                  <span className="font-bold uppercase">{displayName}</span>
+                                  {sup.tradeName && sup.name && sup.tradeName !== sup.name && (
+                                    <span className="block text-[10px] text-slate-500 truncate">
+                                      {sup.name}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {sup.cnpjOrCpf && (
+                                <span className="text-[10px] font-mono font-semibold text-slate-600 shrink-0">
+                                  {sup.cnpjOrCpf}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
-                  <div className={selectedClientId === 'consumidor_avulso' ? 'sm:col-span-3' : 'sm:col-span-5'}>
+                  <div
+                    ref={envolvidoBoxRef}
+                    className={`${
+                      selectedClientId === 'consumidor_avulso' ? 'sm:col-span-3' : 'sm:col-span-5'
+                    } relative`}
+                  >
                     <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                       Cliente *
                     </label>
-                    <select
-                      value={selectedClientId}
-                      onChange={(e) => setSelectedClientId(e.target.value)}
-                      className="w-full bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                    >
-                      <option value="consumidor_avulso">Consumidor Avulso (Balcão)</option>
-                      {clientsList.map((cli) => (
-                        <option key={cli.id} value={cli.id}>
-                          {cli.name || cli.nome} {cli.farmName ? `— ${cli.farmName}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={envolvidoSearch}
+                        onFocus={() => setIsEnvolvidoDropdownOpen(true)}
+                        onChange={(e) => {
+                          setEnvolvidoSearch(e.target.value);
+                          if (selectedClientId) {
+                            setSelectedClientId('');
+                            setNumeroOrigem('');
+                            setSelectedOriginDocId('');
+                          }
+                          setIsEnvolvidoDropdownOpen(true);
+                        }}
+                        placeholder="Digite parte do nome, CPF ou CNPJ para buscar..."
+                        className={`w-full pl-8 pr-12 py-1.5 bg-white border text-black text-xs font-semibold rounded focus:outline-none focus:ring-2 focus:ring-slate-600 ${
+                          selectedClientId ? 'border-emerald-700' : 'border-gray-400'
+                        }`}
+                      />
+                      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {(envolvidoSearch || selectedClientId) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEnvolvidoSearch('');
+                              setSelectedClientId('');
+                              setNumeroOrigem('');
+                              setSelectedOriginDocId('');
+                              setIsEnvolvidoDropdownOpen(true);
+                            }}
+                            className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
+                            title="Limpar cliente"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsEnvolvidoDropdownOpen((prev) => !prev)}
+                          className="p-0.5 text-slate-600 hover:text-black rounded cursor-pointer"
+                          title="Abrir lista de clientes"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {isEnvolvidoDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black rounded-md shadow-xl max-h-56 overflow-y-auto z-50 divide-y divide-gray-200">
+                        {showAvulsoOption && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setSelectedClientId('consumidor_avulso');
+                              setEnvolvidoSearch('Consumidor Avulso (Balcão)');
+                              setIsEnvolvidoDropdownOpen(false);
+                              setNumeroOrigem('');
+                              setSelectedOriginDocId('');
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-amber-50 flex items-center justify-between gap-2 cursor-pointer ${
+                              selectedClientId === 'consumidor_avulso'
+                                ? 'bg-amber-50 font-bold text-amber-950'
+                                : 'text-slate-900 font-bold bg-slate-50'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <User className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                              <span>Consumidor Avulso (Balcão)</span>
+                            </span>
+                            <span className="text-[10px] font-bold uppercase text-amber-800">
+                              Balcão
+                            </span>
+                          </button>
+                        )}
+                        {filteredClientsDropdown.length === 0 ? (
+                          !showAvulsoOption && (
+                            <div className="px-3 py-2.5 text-xs font-semibold text-slate-600">
+                              Nenhum cliente encontrado para "{envolvidoSearch}".
+                            </div>
+                          )
+                        ) : (
+                          filteredClientsDropdown.map((cli) => {
+                            const displayName = cli.name || cli.nome || 'Cliente';
+                            const farm = cli.farmName || cli.fazenda;
+                            const isSelected = String(cli.id) === String(selectedClientId);
+                            return (
+                              <button
+                                key={cli.id}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setSelectedClientId(String(cli.id));
+                                  setEnvolvidoSearch(
+                                    farm ? `${displayName} — ${farm}` : displayName
+                                  );
+                                  setIsEnvolvidoDropdownOpen(false);
+                                  setNumeroOrigem('');
+                                  setSelectedOriginDocId('');
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-sky-50 flex items-center justify-between gap-2 cursor-pointer ${
+                                  isSelected ? 'bg-emerald-50 font-bold text-emerald-950' : 'text-black'
+                                }`}
+                              >
+                                <div className="min-w-0 flex items-center gap-1.5">
+                                  <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                  <div className="truncate">
+                                    <span className="font-bold uppercase">{displayName}</span>
+                                    {farm && (
+                                      <span className="block text-[10px] text-slate-500 truncate">
+                                        {farm}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {cli.cpfCnpj && (
+                                  <span className="text-[10px] font-mono font-semibold text-slate-600 shrink-0">
+                                    {cli.cpfCnpj}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {selectedClientId === 'consumidor_avulso' && (
@@ -1153,20 +1997,122 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 </>
               )}
 
-              <div className="sm:col-span-3">
-                <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                  Nº Venda / Nota de Origem (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={numeroOrigem}
-                  onChange={(e) => setNumeroOrigem(e.target.value)}
-                  placeholder="Ex: PDV-012 ou NF 4520"
-                  className="w-full bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                />
+              {/* CAMPO INTELIGENTE: Nº VENDA / NOTA DE ORIGEM COM AUTOCOMPLETAR */}
+              <div ref={originBoxRef} className="sm:col-span-4 relative">
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <label className="block text-[10px] font-bold uppercase text-slate-900 truncate">
+                    Nº Venda / Nota de Origem (Opcional)
+                  </label>
+                  {relatedOriginDocs.length > 0 && (
+                    <span className="text-[9.5px] font-black text-emerald-800 bg-emerald-100 border border-emerald-400 px-1.5 rounded shrink-0">
+                      {relatedOriginDocs.length}{' '}
+                      {tipoOperacao === 'devolucao_fornecedor'
+                        ? relatedOriginDocs.length === 1
+                          ? 'NF'
+                          : 'NFs'
+                        : relatedOriginDocs.length === 1
+                          ? 'venda'
+                          : 'vendas'}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <FileText className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={numeroOrigem}
+                    onFocus={() => {
+                      if (relatedOriginDocs.length > 0) setIsOriginDropdownOpen(true);
+                    }}
+                    onChange={(e) => {
+                      setNumeroOrigem(e.target.value);
+                      setSelectedOriginDocId('');
+                      if (relatedOriginDocs.length > 0) setIsOriginDropdownOpen(true);
+                    }}
+                    placeholder={
+                      relatedOriginDocs.length > 0
+                        ? 'Selecione da lista ou digite manualmente...'
+                        : 'Ex: PDV-012 ou NF 4520'
+                    }
+                    className={`w-full pl-8 pr-11 py-1.5 bg-white border text-black text-xs font-semibold rounded focus:outline-none focus:ring-2 focus:ring-slate-600 ${
+                      activeOriginDoc ? 'border-emerald-700' : 'border-gray-400'
+                    }`}
+                  />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {numeroOrigem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNumeroOrigem('');
+                          setSelectedOriginDocId('');
+                        }}
+                        className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
+                        title="Limpar nota/venda de origem"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {relatedOriginDocs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsOriginDropdownOpen((prev) => !prev)}
+                        className="p-0.5 text-slate-600 hover:text-black rounded cursor-pointer"
+                        title="Listar notas/vendas vinculadas"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {isOriginDropdownOpen && relatedOriginDocs.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black rounded-md shadow-xl max-h-52 overflow-y-auto z-50 divide-y divide-gray-200">
+                    <div className="px-2.5 py-1 bg-slate-100 text-[10px] font-black uppercase text-slate-700 sticky top-0 border-b border-gray-300">
+                      {tipoOperacao === 'devolucao_fornecedor'
+                        ? 'Notas Fiscais de Entrada deste Fornecedor'
+                        : 'Vendas / Pedidos deste Cliente'}
+                    </div>
+                    {filteredOriginDocsDropdown.length === 0 ? (
+                      <div className="px-3 py-2 text-[11px] font-semibold text-slate-600">
+                        Nenhuma nota/venda correspondente — o texto digitado será mantido manualmente.
+                      </div>
+                    ) : (
+                      filteredOriginDocsDropdown.map((docOpt) => {
+                        const isSel = activeOriginDoc?.id === docOpt.id;
+                        return (
+                          <button
+                            key={docOpt.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setNumeroOrigem(docOpt.value);
+                              setSelectedOriginDocId(docOpt.id);
+                              setIsOriginDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-sky-50 flex items-center justify-between gap-2 cursor-pointer ${
+                              isSel ? 'bg-emerald-50 font-bold text-emerald-950' : 'text-black'
+                            }`}
+                          >
+                            <div className="min-w-0 truncate">
+                              <span className="font-bold">{docOpt.label}</span>
+                              {docOpt.items.length > 0 && (
+                                <span className="block text-[10px] text-emerald-700 font-semibold">
+                                  {docOpt.items.length} produto(s) vinculado(s) para filtro rápido
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 border border-gray-300 text-slate-700 shrink-0">
+                              {docOpt.sourceLabel}
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="sm:col-span-4">
+              <div className="sm:col-span-3">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                   Observações (Opcional)
                 </label>
@@ -1209,46 +2155,188 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                 <span>
                   Quarentena Fiscal: Nenhuma NF-e será emitida agora. O item será enviado para{' '}
-                  <strong>Fiscal &amp; Notas → Pendências de Devolução / Garantia</strong> (status: Aguardando Decisão Fiscal).
+                  <strong>Fiscal &amp; Notas → Devoluções &amp; Garantias</strong> (status: Aguardando Decisão Fiscal).
                 </span>
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-              <div className="sm:col-span-3">
-                <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                  Filtrar Estoque
-                </label>
+              {/* CAMPO UNIFICADO INTELIGENTE: PRODUTO DEVOLVIDO * */}
+              <div ref={prodDevolvidoBoxRef} className="sm:col-span-7 relative">
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <label className="block text-[10px] font-bold uppercase text-slate-900">
+                    Produto Devolvido *
+                  </label>
+                  {activeOriginDoc && groupedDevolvidoOptions.noteItems.length > 0 ? (
+                    <span className="text-[9.5px] font-black text-emerald-800 bg-emerald-100 border border-emerald-400 px-1.5 rounded">
+                      Priorizando {groupedDevolvidoOptions.noteItems.length} item(ns) da{' '}
+                      {activeOriginDoc.value}
+                    </span>
+                  ) : tipoOperacao === 'devolucao_fornecedor' &&
+                    groupedDevolvidoOptions.supplierItems.length > 0 ? (
+                    <span className="text-[9.5px] font-black text-sky-800 bg-sky-100 border border-sky-400 px-1.5 rounded">
+                      Priorizando {groupedDevolvidoOptions.supplierItems.length} item(ns) do fornecedor
+                    </span>
+                  ) : null}
+                </div>
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2 pointer-events-none" />
                   <input
                     type="text"
                     value={searchDevolvido}
-                    onChange={(e) => setSearchDevolvido(e.target.value)}
-                    placeholder="Nome, código ou barras..."
-                    className="w-full pl-7 pr-2 py-1.5 bg-white border border-gray-400 text-black text-xs rounded focus:outline-none focus:ring-2 focus:ring-slate-600"
+                    onFocus={() => setIsProdDevolvidoDropdownOpen(true)}
+                    onChange={(e) => {
+                      setSearchDevolvido(e.target.value);
+                      if (selectedProdDevolvidoId) setSelectedProdDevolvidoId('');
+                      setIsProdDevolvidoDropdownOpen(true);
+                    }}
+                    placeholder="Digite nome, código, código de barras ou selecione..."
+                    className={`w-full pl-8 pr-12 py-1.5 bg-white border text-black text-xs font-semibold rounded focus:outline-none focus:ring-2 focus:ring-slate-600 ${
+                      selectedProdDevolvidoId ? 'border-emerald-700' : 'border-gray-400'
+                    }`}
                   />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {(searchDevolvido || selectedProdDevolvidoId) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchDevolvido('');
+                          setSelectedProdDevolvidoId('');
+                          setPrecoDevolvido('');
+                          setIsProdDevolvidoDropdownOpen(true);
+                        }}
+                        className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
+                        title="Limpar produto"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsProdDevolvidoDropdownOpen((prev) => !prev)}
+                      className="p-0.5 text-slate-600 hover:text-black rounded cursor-pointer"
+                      title="Abrir lista de produtos"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="sm:col-span-4">
-                <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                  Produto Devolvido *
-                </label>
-                <select
-                  value={selectedProdDevolvidoId}
-                  onChange={(e) => handleSelectProdDevolvido(e.target.value)}
-                  className="w-full bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                >
-                  <option value="">-- Selecione o produto --</option>
-                  {filteredDevolvidoOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {getItemCode(item) ? `[${getItemCode(item)}] ` : ''}
-                      {getItemDisplayName(item)} (Saldo: {getItemStockQty(item)}{' '}
-                      {item.unit || item.unidade_medida || 'UN'})
-                    </option>
-                  ))}
-                </select>
+                {isProdDevolvidoDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black rounded-md shadow-xl max-h-64 overflow-y-auto z-50 divide-y divide-gray-200">
+                    {groupedDevolvidoOptions.noteItems.length === 0 &&
+                    groupedDevolvidoOptions.supplierItems.length === 0 &&
+                    groupedDevolvidoOptions.generalItems.length === 0 ? (
+                      <div className="px-3 py-2.5 text-xs font-semibold text-slate-600">
+                        Nenhum produto encontrado no estoque para "{searchDevolvido}".
+                      </div>
+                    ) : (
+                      <>
+                        {groupedDevolvidoOptions.noteItems.length > 0 && (
+                          <div>
+                            <div className="px-2.5 py-1 bg-emerald-100 text-[10px] font-black uppercase text-emerald-950 border-b border-emerald-300 sticky top-0">
+                              📄 Itens da Nota / Venda ({activeOriginDoc?.value})
+                            </div>
+                            {groupedDevolvidoOptions.noteItems.map(({ item, originUnitPrice }) => {
+                              const isSel = String(item.id) === String(selectedProdDevolvidoId);
+                              return (
+                                <button
+                                  key={`note_${item.id}`}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectProdDevolvido(item.id, originUnitPrice);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50 flex items-center justify-between gap-2 cursor-pointer border-b border-gray-100 ${
+                                    isSel ? 'bg-emerald-100 font-bold' : 'bg-emerald-50/30'
+                                  }`}
+                                >
+                                  <span className="truncate font-bold text-black">
+                                    {getItemCode(item) ? `[${getItemCode(item)}] ` : ''}
+                                    {getItemDisplayName(item)}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-emerald-900 shrink-0">
+                                    Saldo: {getItemStockQty(item)}{' '}
+                                    {item.unit || item.unidade_medida || 'UN'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {groupedDevolvidoOptions.supplierItems.length > 0 && (
+                          <div>
+                            <div className="px-2.5 py-1 bg-sky-100 text-[10px] font-black uppercase text-sky-950 border-b border-sky-300 sticky top-0">
+                              🏭 Produtos deste Fornecedor
+                            </div>
+                            {groupedDevolvidoOptions.supplierItems.map((item) => {
+                              const isSel = String(item.id) === String(selectedProdDevolvidoId);
+                              return (
+                                <button
+                                  key={`sup_${item.id}`}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectProdDevolvido(item.id);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-sky-50 flex items-center justify-between gap-2 cursor-pointer border-b border-gray-100 ${
+                                    isSel ? 'bg-sky-100 font-bold' : 'bg-sky-50/30'
+                                  }`}
+                                >
+                                  <span className="truncate font-bold text-black">
+                                    {getItemCode(item) ? `[${getItemCode(item)}] ` : ''}
+                                    {getItemDisplayName(item)}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-sky-900 shrink-0">
+                                    Saldo: {getItemStockQty(item)}{' '}
+                                    {item.unit || item.unidade_medida || 'UN'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {groupedDevolvidoOptions.generalItems.length > 0 && (
+                          <div>
+                            {(groupedDevolvidoOptions.noteItems.length > 0 ||
+                              groupedDevolvidoOptions.supplierItems.length > 0) && (
+                              <div className="px-2.5 py-1 bg-slate-100 text-[10px] font-black uppercase text-slate-700 border-b border-gray-300 sticky top-0">
+                                📦 Demais Produtos do Estoque
+                              </div>
+                            )}
+                            {groupedDevolvidoOptions.generalItems.map((item) => {
+                              const isSel = String(item.id) === String(selectedProdDevolvidoId);
+                              return (
+                                <button
+                                  key={`gen_${item.id}`}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectProdDevolvido(item.id);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 flex items-center justify-between gap-2 cursor-pointer border-b border-gray-100 ${
+                                    isSel ? 'bg-emerald-50 font-bold text-emerald-950' : 'text-black'
+                                  }`}
+                                >
+                                  <span className="truncate font-semibold">
+                                    {getItemCode(item) ? `[${getItemCode(item)}] ` : ''}
+                                    {getItemDisplayName(item)}
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-slate-600 shrink-0">
+                                    Saldo: {getItemStockQty(item)}{' '}
+                                    {item.unit || item.unidade_medida || 'UN'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="sm:col-span-2">
@@ -1373,40 +2461,88 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             {tipoOperacao === 'troca_direta' && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                  <div className="sm:col-span-3">
-                    <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                      Filtrar Estoque (Saída)
-                    </label>
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={searchLevado}
-                        onChange={(e) => setSearchLevado(e.target.value)}
-                        placeholder="Nome, código ou barras..."
-                        className="w-full pl-7 pr-2 py-1.5 bg-white border border-gray-400 text-black text-xs rounded focus:outline-none focus:ring-2 focus:ring-slate-600"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-4">
+                  <div ref={prodLevadoBoxRef} className="sm:col-span-7 relative">
                     <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                       Produto Levado pelo Cliente *
                     </label>
-                    <select
-                      value={selectedProdLevadoId}
-                      onChange={(e) => handleSelectProdLevado(e.target.value)}
-                      className="w-full bg-white border border-gray-400 text-black text-xs font-semibold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                    >
-                      <option value="">-- Selecione o produto --</option>
-                      {filteredLevadoOptions.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {getItemCode(item) ? `[${getItemCode(item)}] ` : ''}
-                          {getItemDisplayName(item)} (Saldo: {getItemStockQty(item)}{' '}
-                          {item.unit || item.unidade_medida || 'UN'})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={searchLevado}
+                        onFocus={() => setIsProdLevadoDropdownOpen(true)}
+                        onChange={(e) => {
+                          setSearchLevado(e.target.value);
+                          if (selectedProdLevadoId) setSelectedProdLevadoId('');
+                          setIsProdLevadoDropdownOpen(true);
+                        }}
+                        placeholder="Digite nome, código, código de barras ou selecione..."
+                        className={`w-full pl-8 pr-12 py-1.5 bg-white border text-black text-xs font-semibold rounded focus:outline-none focus:ring-2 focus:ring-slate-600 ${
+                          selectedProdLevadoId ? 'border-sky-700' : 'border-gray-400'
+                        }`}
+                      />
+                      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {(searchLevado || selectedProdLevadoId) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchLevado('');
+                              setSelectedProdLevadoId('');
+                              setPrecoLevado('');
+                              setIsProdLevadoDropdownOpen(true);
+                            }}
+                            className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
+                            title="Limpar produto"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsProdLevadoDropdownOpen((prev) => !prev)}
+                          className="p-0.5 text-slate-600 hover:text-black rounded cursor-pointer"
+                          title="Abrir lista de produtos"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {isProdLevadoDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black rounded-md shadow-xl max-h-56 overflow-y-auto z-50 divide-y divide-gray-200">
+                        {filteredLevadoOptions.length === 0 ? (
+                          <div className="px-3 py-2.5 text-xs font-semibold text-slate-600">
+                            Nenhum produto encontrado para "{searchLevado}".
+                          </div>
+                        ) : (
+                          filteredLevadoOptions.map((item) => {
+                            const isSel = String(item.id) === String(selectedProdLevadoId);
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSelectProdLevado(item.id);
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-sky-50 flex items-center justify-between gap-2 cursor-pointer ${
+                                  isSel ? 'bg-sky-100 font-bold text-sky-950' : 'text-black'
+                                }`}
+                              >
+                                <span className="truncate font-semibold">
+                                  {getItemCode(item) ? `[${getItemCode(item)}] ` : ''}
+                                  {getItemDisplayName(item)}
+                                </span>
+                                <span className="text-[10px] font-semibold text-slate-600 shrink-0">
+                                  Saldo: {getItemStockQty(item)}{' '}
+                                  {item.unit || item.unidade_medida || 'UN'}
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
@@ -1829,6 +2965,26 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           </div>
         </form>
       </div>
+
+      {/* Sub-modal: Gerenciador de Motivos Personalizados */}
+      <CategoryOptionsManagerModal
+        isOpen={isMotivoManagerOpen}
+        onClose={() => setIsMotivoManagerOpen(false)}
+        title="Gerenciar Motivos de Troca / Devolução"
+        subtitle="Adicione, edite ou exclua motivos para o modal de Trocas & Devoluções"
+        items={motivosList}
+        defaultItems={DEFAULT_TROCA_MOTIVOS}
+        placeholder="Ex: Divergência de quantidade, Validade próxima..."
+        zIndexClass="z-[9999]"
+        onSaveItems={(updated) => {
+          saveStoredTrocaMotivos(updated);
+          setMotivosList(updated);
+          if (!updated.includes(motivo)) {
+            setMotivo(updated[0] || DEFAULT_TROCA_MOTIVOS[0]);
+          }
+        }}
+        onSelectItem={(item) => setMotivo(item)}
+      />
     </div>
   );
 };
