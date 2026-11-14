@@ -8763,7 +8763,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
-        <div className="w-full flex-1 min-h-0 flex flex-col bg-[#edf4ff] dark:bg-stone-900 border-[#edf4ff] dark:border-stone-700 p-3 sm:p-3.5">
+        <div className="w-full flex-1 min-h-0 flex flex-col bg-[#cad4e6] dark:bg-stone-900 border-[#edf4ff] dark:border-stone-700 p-3 sm:p-3.5">
           {activeMainFiscalTab === 'pedido_compra' ? (
             <FiscalDocumentTypeView 
               category="pedido_compra" 
@@ -8919,7 +8919,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </div>
 
       {/* Pílulas Limpas de Filtro Rápido com Contadores (Central de Documentos) */}
-      <div className="flex flex-wrap items-center gap-1.5 bg-white/80 dark:bg-stone-900/90 border border-slate-200 dark:border-stone-800 rounded-xl px-3 py-2 shadow-2xs">
+      <div className="flex flex-wrap items-center gap-1.5 bg-[#cad4e6] dark:bg-stone-900/90 border border-[#090a0a] dark:border-stone-800 rounded-xl px-3 py-2 shadow-2xs">
         {(
           [
             { key: 'todos', label: 'Todos', count: centralDocPillCounts.todos },
@@ -8935,6 +8935,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const activeClasses = activeDocDirection === 'saida'
             ? 'bg-[#1e40af] text-white border-[#1e3a8a] shadow-xs'
             : 'bg-[#059669] text-white border-[#047857] shadow-xs';
+          const inactiveClassesByKey: Record<CentralDocumentFilter, string> = {
+            todos: 'bg-slate-100/90 hover:bg-slate-200/80 text-slate-700 border-slate-300/80 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            nfe: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#070707] border-[#0e0e0e] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            cte: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#070707] border-[#040404] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            nfse: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#0d0d0d] border-[#060606] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            nfce: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#000000] border-[#000000] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            mdfe: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#000000] border-[#080808] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            avulsas: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#121212] border-[#0b0b0b] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+          };
           return (
             <button
               key={pill.key}
@@ -8942,9 +8951,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               id={`pill-central-doc-${pill.key}`}
               onClick={() => setActiveDocFilter(pill.key)}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer border ${
-                isActive
-                  ? activeClasses
-                  : 'bg-slate-100/90 hover:bg-slate-200/80 text-slate-700 border-slate-300/80 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700'
+                isActive ? activeClasses : inactiveClassesByKey[pill.key]
               }`}
             >
               <span>{pill.label}</span>
@@ -8963,7 +8970,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </div>
 
       {/* Barra de Ações: Campo de Busca Rápida de Documentos */}
-      <div className="bg-[#edf4ff] dark:bg-stone-900 border border-[#edf4ff] dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-[#cad4e6] dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <form onSubmit={handleSearchNfe} className="flex-1 w-full">
           <div className="relative flex items-center w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
@@ -9974,7 +9981,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs w-full max-w-full flex-1 min-h-0 flex flex-col">
-          <div className={`w-full max-w-full ${parsedData ? 'h-[calc(100vh-295px)] min-h-[380px]' : 'flex-1 min-h-[360px]'} overflow-y-auto overflow-x-auto`}>
+          <div className={`w-full max-w-full bg-[#cad4e6] border-[#080808] dark:bg-stone-900 ${parsedData ? 'h-[calc(100vh-295px)] min-h-[380px]' : 'flex-1 min-h-[360px]'} overflow-y-auto overflow-x-auto`}>
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider shadow-sm">
                 <tr>
