@@ -41,6 +41,14 @@ export function getEmployeeAvatarRef(employeeId: string): string {
   return `${INDEXEDDB_PREFIX}${getEmployeeAvatarKey(employeeId)}`;
 }
 
+export function getClientAvatarKey(clientId: string): string {
+  return `client_avatar_${String(clientId || '').trim()}`;
+}
+
+export function getClientAvatarRef(clientId: string): string {
+  return `${INDEXEDDB_PREFIX}${getClientAvatarKey(clientId)}`;
+}
+
 function dispatchMediaUpdated(key?: string): void {
   if (typeof window === 'undefined') return;
   try {
@@ -209,6 +217,17 @@ export async function saveEmployeeAvatar(employeeId: string, dataUrl: string): P
 export async function deleteEmployeeAvatar(employeeId: string): Promise<void> {
   if (!employeeId) return;
   await deleteMediaFromIndexedDB(getEmployeeAvatarKey(employeeId));
+}
+
+export async function saveClientAvatar(clientId: string, dataUrl: string): Promise<string> {
+  const key = getClientAvatarKey(clientId);
+  await saveMediaToIndexedDB(key, dataUrl);
+  return getClientAvatarRef(clientId);
+}
+
+export async function deleteClientAvatar(clientId: string): Promise<void> {
+  if (!clientId) return;
+  await deleteMediaFromIndexedDB(getClientAvatarKey(clientId));
 }
 
 export async function saveCompanyLogo(dataUrl: string): Promise<string> {

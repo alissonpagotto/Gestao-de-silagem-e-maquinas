@@ -108,6 +108,7 @@ import {
   getStoredFiscalRecords
 } from './lib/storage';
 import { useConfirm } from './context/ConfirmContext';
+import { deleteClientAvatar } from './lib/imageStorage';
 
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -2526,7 +2527,7 @@ export default function App() {
     });
   };
 
-  const handleDeleteClient = async (id: string) => {
+  const handleDeleteClient = async (id: string): Promise<boolean> => {
     const isConfirmed = await confirm({
       title: 'Excluir Cliente / Produtor',
       message: 'Deseja realmente excluir este produtor da sua base CRM?',
@@ -2536,10 +2537,13 @@ export default function App() {
     });
     if (isConfirmed) {
       setClients((prev) => prev.filter((c) => c.id !== id));
+      void deleteClientAvatar(id);
       deleteCliente(id, activeTenantId).catch(err => {
         console.warn('Notice deleting client from Supabase:', err);
       });
+      return true;
     }
+    return false;
   };
 
   const handleUpdateClientStatus = (clientId: string, status: Client['status']) => {
@@ -4439,6 +4443,8 @@ export default function App() {
         }}
         onSave={handleSaveClient}
         editingClient={editingClient}
+        clientsList={clients}
+        onDeleteClient={handleDeleteClient}
       />
 
       {/* Order Modal */}

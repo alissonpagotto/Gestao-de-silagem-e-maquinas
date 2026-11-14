@@ -1236,12 +1236,15 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     const cleanQ = q.replace(/\D/g, '');
     return agroClientes.filter(c => {
+      const code = (c.code || c.codigo || '').toLowerCase();
       const name = (c.nome || c.name || '').toLowerCase();
       const farm = (c.fazenda || c.farmName || '').toLowerCase();
       const doc = (c.cpfCnpj || '').replace(/\D/g, '');
       const phone = (c.telefone || c.phone || '').replace(/\D/g, '');
       const city = (c.city || c.cidade || '').toLowerCase();
       return (
+        code.includes(q) ||
+        (cleanQ.length > 0 && code.includes(cleanQ)) ||
         name.includes(q) ||
         farm.includes(q) ||
         city.includes(q) ||
@@ -2223,9 +2226,102 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }, 50);
   };
 
+  const selectedClientObj = useMemo(
+    () => agroClientes.find(c => c.id === selectedClientId),
+    [agroClientes, selectedClientId]
+  );
+
+  const clientOverdueBlock = useMemo(() => {
+    if (!selectedClientObj || !selectedClientObj.blockOverdueCredit) {
+      return { blocked: false, reason: '' };
+    }
+    const clientNameNorm = String(selectedClientObj.nome || selectedClientObj.name || '').trim().toLowerCase();
+    const clientCpfDigits = String(selectedClientObj.cpfCnpj || '').replace(/\D/g, '');
+    if (selectedClientObj.status === 'inadimplente') {
+      return {
+        blocked: true,
+        reason: `Venda a prazo bloqueada: o cliente "${selectedClientObj.nome || selectedClientObj.name}" está marcado como Inadimplente e possui bloqueio de crédito ativo.`,
+      };
+    }
+
+    const todayIso = new Date().toISOString().split('T')[0];
+    const normalizeDueIso = (raw?: string): string => {
+      if (!raw) return '';
+      const trimmed = String(raw).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+      const brMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+      return '';
+    };
+
+    try {
+      const keys = ['agrocontrol_contas_receber', 'agrocontrol_financeiro_receber', 'agrocontrol_receber'];
+      const seenIds = new Set<string>();
+      const allReceivables: any[] = [];
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const rec of parsed) {
+            const recId = String(rec?.id || '');
+            if (recId && seenIds.has(recId)) continue;
+            if (recId) seenIds.add(recId);
+            allReceivables.push(rec);
+          }
+        }
+      }
+
+      const hasOverdue = allReceivables.some((rec: any) => {
+        const st = String(rec?.status || '').toUpperCase();
+        if (['PAGO', 'RECEBIDO', 'LIQUIDADO', 'CANCELADO'].includes(st)) return false;
+
+        const recClientId = String(rec?.clientId || '');
+        const recCpf = String(rec?.clienteCpfCnpj || rec?.cpfCnpj || '').replace(/\D/g, '');
+        const recClientName = String(rec?.cliente || rec?.clientName || '').trim().toLowerCase();
+        const belongsToClient =
+          (selectedClientObj.id && recClientId === selectedClientObj.id) ||
+          (clientCpfDigits && recCpf && clientCpfDigits === recCpf) ||
+          (clientNameNorm && recClientName && (recClientName === clientNameNorm || recClientName.includes(clientNameNorm)));
+
+        if (!belongsToClient) return false;
+
+        if (Array.isArray(rec?.parcelas) && rec.parcelas.length > 0) {
+          const overdueInst = rec.parcelas.some((p: any) => {
+            const pSt = String(p?.status || '').toUpperCase();
+            if (['PAGO', 'RECEBIDO', 'LIQUIDADO'].includes(pSt)) return false;
+            const due = normalizeDueIso(p?.vencimento || p?.dueDate);
+            return Boolean(due && due < todayIso);
+          });
+          if (overdueInst) return true;
+        }
+
+        const topDue = normalizeDueIso(rec?.dueDate || rec?.vencimento || rec?.dataVencimento);
+        return Boolean(topDue && topDue < todayIso);
+      });
+
+      if (hasOverdue) {
+        return {
+          blocked: true,
+          reason: `Venda a prazo bloqueada: o cliente "${selectedClientObj.nome || selectedClientObj.name}" possui parcela(s) vencida(s) em aberto no Contas a Receber.`,
+        };
+      }
+    } catch {
+      // ignore parse errors
+    }
+
+    return { blocked: false, reason: '' };
+  }, [selectedClientObj, isCheckoutModalOpen, formaPagamento]);
+
   // Confirmar Venda 100% Offline e Executar Bypass de Impressão na aba '_blank'
   const handleConfirmarEImprimir = async () => {
     if (items.length === 0) return;
+
+    if (formaPagamento === 'prazo' && clientOverdueBlock.blocked) {
+      setWarningMessage(clientOverdueBlock.reason);
+      setTimeout(() => setWarningMessage(null), 6000);
+      return;
+    }
 
     try {
       const isContract = operacaoTipo === 'contrato_silagem' || items.some(it => 
@@ -2980,7 +3076,18 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   </button>
 
                   {/* Lista de Produtores Rurais Cadastrados no LocalStorage */}
-                  {suggestedClients.map(c => (
+                  {suggestedClients.map(c => {
+                    const priceTableBadge =
+                      c.defaultPriceTable === 'custo'
+                        ? '1-PC'
+                        : c.defaultPriceTable === 'venda'
+                        ? '2-PF'
+                        : c.defaultPriceTable === 'atacado'
+                        ? '3-PA'
+                        : c.defaultPriceTable === 'promocional'
+                        ? '4-PP'
+                        : '';
+                    return (
                     <button
                       key={c.id}
                       type="button"
@@ -2989,26 +3096,49 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                         const name = (c.nome || c.name || '').toUpperCase();
                         const farm = (c.fazenda || c.farmName || '').toUpperCase();
                         setClientSearch(farm ? `${name} (${farm})` : name);
+                        if (
+                          c.defaultPriceTable === 'custo' ||
+                          c.defaultPriceTable === 'venda' ||
+                          c.defaultPriceTable === 'atacado' ||
+                          c.defaultPriceTable === 'promocional'
+                        ) {
+                          handleTableChange(c.defaultPriceTable);
+                        }
                         setShowClientSuggestions(false);
                         searchInputRef.current?.focus();
                       }}
                       className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-emerald-50 dark:hover:bg-stone-800 flex items-center justify-between transition cursor-pointer"
                     >
                       <div className="flex flex-col min-w-0 pr-2">
-                        <span className="font-bold text-zinc-900 dark:text-white truncate uppercase">
-                          {c.nome || c.name}
-                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {(c.code || c.codigo) && (
+                            <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 text-slate-900 dark:text-stone-200 border border-slate-300 dark:border-stone-700 font-mono text-[9.5px] font-black shrink-0">
+                              #{c.code || c.codigo}
+                            </span>
+                          )}
+                          <span className="font-bold text-zinc-900 dark:text-white truncate uppercase">
+                            {c.nome || c.name}
+                          </span>
+                        </div>
                         <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold truncate uppercase">
-                          {c.fazenda || c.farmName ? `Fazenda: ${c.fazenda || c.farmName}` : 'Produtor Rural'}
+                          {c.fazenda || c.farmName ? `Estab.: ${c.fazenda || c.farmName}` : 'Cliente'}
                           {c.city || c.cidade ? ` • ${c.city || c.cidade}` : ''}
                           {c.cpfCnpj ? ` • ${c.cpfCnpj}` : ''}
                         </span>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-black uppercase shrink-0">
-                        PRODUTOR RURAL
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {priceTableBadge && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-300 font-black uppercase">
+                            TAB {priceTableBadge}
+                          </span>
+                        )}
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-black uppercase">
+                          CLIENTE
+                        </span>
+                      </div>
                     </button>
-                  ))}
+                    );
+                  })}
 
                   {suggestedClients.length === 0 && clientSearch && clientSearch !== 'CONSUMIDOR FINAL / BALCÃO' && (
                     <div className="px-3 py-2 text-xs text-slate-500 dark:text-stone-400 text-center font-medium">
@@ -4141,6 +4271,14 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                         </table>
                       </div>
                     )}
+
+                    {/* Alerta de Bloqueio de Venda a Prazo por Parcela Vencida / Inadimplência */}
+                    {clientOverdueBlock.blocked && (
+                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-500 text-rose-900 dark:text-rose-200 flex items-start gap-2 text-xs font-bold">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <span>{clientOverdueBlock.reason}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -4231,7 +4369,12 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               <button
                 type="button"
                 onClick={handleConfirmarEImprimir}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] transition active:scale-95 cursor-pointer uppercase tracking-wider ml-auto"
+                disabled={formaPagamento === 'prazo' && clientOverdueBlock.blocked}
+                className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black border transition uppercase tracking-wider ml-auto ${
+                  formaPagamento === 'prazo' && clientOverdueBlock.blocked
+                    ? 'bg-rose-200 text-rose-800 border-rose-400 cursor-not-allowed opacity-80'
+                    : 'bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] active:scale-95 cursor-pointer'
+                }`}
               >
                 <span>🖨️ [F2] FINALIZAR VENDA E IMPRIMIR</span>
               </button>

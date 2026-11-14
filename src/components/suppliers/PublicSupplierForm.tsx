@@ -37,6 +37,9 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
   const [municipalRegistration, setMunicipalRegistration] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [salespersonName, setSalespersonName] = useState('');
+  const [salespersonPhone, setSalespersonPhone] = useState('');
+  const [defaultPaymentTerm, setDefaultPaymentTerm] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [address, setAddress] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
@@ -119,6 +122,9 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
       municipalRegistration: municipalRegistration.trim() || undefined,
       phone: phone.trim(),
       email: email.trim() || undefined,
+      salespersonName: salespersonName.trim() || undefined,
+      salespersonPhone: salespersonPhone.trim() || undefined,
+      defaultPaymentTerm: defaultPaymentTerm.trim() || undefined,
       zipCode: zipCode.trim() || undefined,
       address: address.trim() || undefined,
       neighborhood: neighborhood.trim() || undefined,
@@ -136,21 +142,23 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-[#0a8bc1] flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 max-w-lg w-full text-center shadow-2xl border border-white/30 space-y-6">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle2 className="w-12 h-12" />
+      <div className="min-h-screen bg-[#cad4e6] flex items-center justify-center p-4">
+        <div className="bg-[#e0e6f1] rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl border border-black space-y-5">
+          <div className="w-16 h-16 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto border border-black shadow-sm">
+            <CheckCircle2 className="w-10 h-10" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black text-stone-900 tracking-tight">Ficha Enviada com Sucesso!</h2>
-            <p className="text-sm text-stone-600 leading-relaxed">
-              Obrigado! Os dados cadastrais de <strong className="text-stone-900">{name}</strong> foram recebidos com segurança pelo setor de compras e fiscal da Silagem Fácil.
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Ficha Enviada com Sucesso!</h2>
+            <p className="text-sm text-slate-800 leading-relaxed">
+              Obrigado! Os dados cadastrais de <strong className="text-black">{name}</strong> foram recebidos com segurança pelo setor de compras e fiscal.
             </p>
           </div>
-          <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-left text-xs text-stone-700 space-y-1">
+          <div className="bg-white p-4 rounded-xl border border-black text-left text-xs text-slate-900 space-y-1.5">
             <p><span className="font-bold">Fornecedor:</span> {name}</p>
             {tradeName && <p><span className="font-bold">Nome Fantasia:</span> {tradeName}</p>}
             <p><span className="font-bold">Contato:</span> {phone}</p>
+            {salespersonName && <p><span className="font-bold">Vendedor / Representante:</span> {salespersonName}{salespersonPhone ? ` (${salespersonPhone})` : ''}</p>}
+            {defaultPaymentTerm && <p><span className="font-bold">Condição de Pagamento / Prazo Padrão:</span> {defaultPaymentTerm}</p>}
             {cnpjOrCpf && <p><span className="font-bold">CNPJ/CPF:</span> {cnpjOrCpf}</p>}
             {city && <p><span className="font-bold">Localização:</span> {city} - {state}</p>}
           </div>
@@ -165,6 +173,9 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                 setMunicipalRegistration('');
                 setPhone('');
                 setEmail('');
+                setSalespersonName('');
+                setSalespersonPhone('');
+                setDefaultPaymentTerm('');
                 setZipCode('');
                 setAddress('');
                 setNeighborhood('');
@@ -172,14 +183,14 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                 setState('PR');
                 setNotes('');
               }}
-              className="flex-1 py-3 px-4 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 text-sm font-bold transition cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl border border-black bg-white hover:bg-slate-100 text-slate-900 text-sm font-bold transition cursor-pointer"
             >
               Enviar Outro Cadastro
             </button>
             {onBackToApp && (
               <button
                 onClick={onBackToApp}
-                className="flex-1 py-3 px-4 rounded-xl bg-[#0963cb] hover:bg-[#0852a8] text-white text-sm font-bold shadow-md transition cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white text-sm font-bold shadow-md transition cursor-pointer"
               >
                 Voltar ao Sistema
               </button>
@@ -191,28 +202,28 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
   }
 
   return (
-    <div className="min-h-screen bg-stone-100 py-6 px-3 sm:px-6 flex flex-col items-center justify-center font-['Plus_Jakarta_Sans',sans-serif]">
-      <div className="w-full max-w-3xl bg-[#0a8bc1] rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+    <div className="min-h-screen bg-[#cad4e6] py-6 px-3 sm:px-6 flex flex-col items-center justify-center font-['Plus_Jakarta_Sans',sans-serif]">
+      <div className="w-full max-w-3xl bg-[#cad4e6] rounded-2xl shadow-2xl border border-black overflow-hidden">
         
         {/* Header Superior */}
-        <div className="bg-[#0963cb] px-6 py-5 text-white flex items-center justify-between border-b border-white/10">
+        <div className="bg-[#cad4e6] px-6 py-4 text-slate-900 flex items-center justify-between border-b border-black">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center border border-white/20 shadow-inner">
-              <Truck className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-black shadow-2xs">
+              <Truck className="w-5 h-5 text-slate-900" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 uppercase">
                 Cadastro de Fornecedor & Parceiro
               </h1>
-              <p className="text-xs text-blue-100 font-medium">
-                Silagem Fácil — Cadastro comercial e emissão de notas fiscais
+              <p className="text-xs text-slate-800 font-medium">
+                Cadastro comercial, contato de vendas e emissão de notas fiscais
               </p>
             </div>
           </div>
           {onBackToApp && (
             <button
               onClick={onBackToApp}
-              className="text-xs font-bold text-white/80 hover:text-white flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition cursor-pointer"
+              className="text-xs font-bold text-slate-900 flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-black transition cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Voltar</span>
@@ -221,22 +232,22 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
         </div>
 
         {/* Informações Instrucionais */}
-        <div className="px-6 py-3 bg-[#0a8bc1] text-white text-xs font-medium border-b border-white/10">
+        <div className="px-6 py-2.5 bg-[#e0e6f1] text-slate-900 text-xs font-semibold border-b border-black">
           Preencha o formulário abaixo com os dados cadastrais da sua empresa para emissão de pedidos, ordens de compra e pagamentos.
         </div>
 
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3 bg-rose-600 text-white text-xs font-bold rounded-xl shadow-xs">
+          <div className="mx-6 mt-4 p-3 bg-rose-600 border border-black text-white text-xs font-bold rounded-xl shadow-xs">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3 bg-[#cad4e6]">
           {/* Card 1: Identificação e Dados Fiscais */}
-          <div className="bg-[#b0d2ed] p-4 rounded-2xl border border-[#96c1e5] shadow-xs space-y-3">
-            <div className="flex items-center space-x-2 border-b border-[#96c1e5]/60 pb-2">
-              <Building2 className="w-4 h-4 text-black" />
-              <h3 className="text-xs font-bold text-black uppercase tracking-wider">
+          <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black shadow-2xs space-y-3">
+            <div className="flex items-center space-x-2 border-b border-black/20 pb-2">
+              <Building2 className="w-4 h-4 text-slate-900" />
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Dados Principais & Fiscais
               </h3>
             </div>
@@ -260,7 +271,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                     value={cnpjOrCpf}
                     onChange={(e) => handleCnpjChange(e.target.value)}
                     maxLength={18}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                   />
                   <Search className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
@@ -275,7 +286,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
             </div>
@@ -289,7 +300,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                   type="text"
                   value={tradeName}
                   onChange={(e) => setTradeName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
 
@@ -300,7 +311,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 >
                   <option value="Combustível">Combustível & Arla</option>
                   <option value="Alimentação & Restaurante">Alimentação & Restaurante</option>
@@ -321,7 +332,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                   type="text"
                   value={stateRegistration}
                   onChange={(e) => setStateRegistration(formatIE(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
 
@@ -333,7 +344,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                   type="text"
                   value={municipalRegistration}
                   onChange={(e) => setMunicipalRegistration(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
             </div>
@@ -350,7 +361,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                     value={phone}
                     onChange={(e) => setPhone(formatPhone(e.target.value))}
                     maxLength={15}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                   />
                   <Phone className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
@@ -365,7 +376,7 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                   />
                   <Mail className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
@@ -374,10 +385,10 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
           </div>
 
           {/* Card 2: Endereço */}
-          <div className="bg-[#b0d2ed] p-4 rounded-2xl border border-[#96c1e5] shadow-xs space-y-3">
-            <div className="flex items-center space-x-2 border-b border-[#96c1e5]/60 pb-2">
-              <MapPin className="w-4 h-4 text-black" />
-              <h3 className="text-xs font-bold text-black uppercase tracking-wider">
+          <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black shadow-2xs space-y-3">
+            <div className="flex items-center space-x-2 border-b border-black/20 pb-2">
+              <MapPin className="w-4 h-4 text-slate-900" />
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Endereço & Localização
               </h3>
             </div>
@@ -385,12 +396,12 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-black uppercase">
+                  <label className="block text-[11px] font-bold text-slate-900 uppercase">
                     CEP (Auto-Busca)
                   </label>
                   {isLoadingCep && (
-                    <span className="text-[10px] text-black font-bold flex items-center space-x-1">
-                      <Loader2 className="w-3 h-3 animate-spin text-[#0963cb]" />
+                    <span className="text-[10px] text-slate-900 font-bold flex items-center space-x-1">
+                      <Loader2 className="w-3 h-3 animate-spin text-slate-900" />
                       <span>Buscando...</span>
                     </span>
                   )}
@@ -401,52 +412,52 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                     value={zipCode}
                     onChange={(e) => handleCepChange(e.target.value)}
                     maxLength={9}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                   />
-                  <Search className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
                   Endereço / Logradouro / Número
                 </label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
                   Bairro / Distrito
                 </label>
                 <input
                   type="text"
                   value={neighborhood}
                   onChange={(e) => setNeighborhood(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
                   Cidade
                 </label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
                   Estado (UF)
                 </label>
                 <input
@@ -454,36 +465,81 @@ export const PublicSupplierForm: React.FC<PublicSupplierFormProps> = ({ onBackTo
                   value={state}
                   onChange={(e) => setState(e.target.value.toUpperCase())}
                   maxLength={2}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium uppercase focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium uppercase focus:outline-none focus:ring-2 focus:ring-slate-600"
                 />
               </div>
             </div>
           </div>
 
-          {/* Card 3: Observações e Dados Bancários */}
-          <div className="bg-[#b0d2ed] p-4 rounded-2xl border border-[#96c1e5] shadow-xs space-y-3">
-            <div className="flex items-center space-x-2 border-b border-[#96c1e5]/60 pb-2">
-              <FileText className="w-4 h-4 text-black" />
-              <h3 className="text-xs font-bold text-black uppercase tracking-wider">
-                Observações, Dados Bancários ou Chave PIX
+          {/* Card 3: Contato Comercial, Condições & Dados Bancários */}
+          <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black shadow-2xs space-y-3">
+            <div className="flex items-center space-x-2 border-b border-black/20 pb-2">
+              <FileText className="w-4 h-4 text-slate-900" />
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Contato Comercial, Condições de Pagamento & Dados Bancários
               </h3>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
+                  Nome do Vendedor / Representante
+                </label>
+                <input
+                  type="text"
+                  value={salespersonName}
+                  onChange={(e) => setSalespersonName(e.target.value)}
+                  placeholder="Ex: Carlos Silva"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
+                  WhatsApp Direto do Vendedor
+                </label>
+                <input
+                  type="text"
+                  value={salespersonPhone}
+                  onChange={(e) => setSalespersonPhone(formatPhone(e.target.value))}
+                  maxLength={15}
+                  placeholder="(00) 00000-0000"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
+                  Condição de Pagamento / Prazo Padrão
+                </label>
+                <input
+                  type="text"
+                  value={defaultPaymentTerm}
+                  onChange={(e) => setDefaultPaymentTerm(e.target.value)}
+                  placeholder="Ex: Boleto 28/56 dias, PIX à vista..."
+                  className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
+                />
+              </div>
+            </div>
+
             <div>
+              <label className="block text-[11px] font-bold text-slate-900 uppercase mb-1">
+                Observações, Dados Bancários ou Chave PIX
+              </label>
               <textarea
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:ring-2 focus:ring-[#0963cb] resize-none"
+                className="w-full px-3 py-2 rounded-xl border border-gray-400 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-600 resize-none"
               />
             </div>
           </div>
 
           {/* Botão de Envio */}
-          <div className="pt-2 flex justify-end">
+          <div className="pt-2 flex justify-end border-t border-black">
             <button
               type="submit"
-              className="w-full sm:w-auto px-8 py-3 rounded-2xl bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold text-sm shadow-xl transition active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
+              className="w-full sm:w-auto px-8 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-bold text-sm shadow-md transition active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Send className="w-4 h-4" />
               <span>Enviar Ficha Cadastral</span>

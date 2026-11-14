@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchFornecedores, mapRowToSupplier, toValidUUID, isSupabaseConfigured, upsertFornecedor, deleteFornecedor } from '../../lib/supabaseService';
-import { saveStoredSuppliers, getActiveCompanyId } from '../../lib/storage';
+import { saveStoredSuppliers, ensureSequentialSupplierCodes, getActiveCompanyId } from '../../lib/storage';
 import { 
   Plus, 
   Search, 
@@ -12,10 +12,12 @@ import {
   Trash2, 
   MessageCircle,
   Pencil,
+  Printer,
 } from 'lucide-react';
 import { Supplier } from '../../types';
 import { cleanDigits, formatCpfCnpj, formatIE } from '../../lib/formatters';
 import { SupplierModal } from './SupplierModal';
+import { printSupplierRegistrationA4 } from './supplierPrintUtils';
 import { useConfirm } from '../../context/ConfirmContext';
 
 interface SuppliersModuleProps {
@@ -31,11 +33,17 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => Array.isArray(suppliers) ? suppliers : []);
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() =>
+    ensureSequentialSupplierCodes(Array.isArray(suppliers) ? suppliers : []).items
+  );
 
   useEffect(() => {
     if (suppliers) {
-      setLocalSuppliers(Array.isArray(suppliers) ? suppliers : []);
+      const { items, changed } = ensureSequentialSupplierCodes(Array.isArray(suppliers) ? suppliers : []);
+      setLocalSuppliers(items);
+      if (changed) {
+        saveStoredSuppliers(items);
+      }
     }
   }, [suppliers]);
 
@@ -138,15 +146,21 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
     };
   }, []);
 
-  const filteredSuppliers = localSuppliers.filter(sup =>
-    sup.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sup.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (sup.tradeName && sup.tradeName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (sup.city && sup.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (sup.cnpjOrCpf && sup.cnpjOrCpf.includes(searchTerm)) ||
-    (sup.stateRegistration && sup.stateRegistration.includes(searchTerm)) ||
-    (sup.municipalRegistration && sup.municipalRegistration.includes(searchTerm))
-  );
+  const filteredSuppliers = localSuppliers.filter(sup => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return true;
+    const supCode = (sup.code || sup.codigo || '').toLowerCase();
+    return (
+      supCode.includes(q) ||
+      (sup.name || '').toLowerCase().includes(q) ||
+      (sup.category || '').toLowerCase().includes(q) ||
+      (sup.tradeName && sup.tradeName.toLowerCase().includes(q)) ||
+      (sup.city && sup.city.toLowerCase().includes(q)) ||
+      (sup.cnpjOrCpf && sup.cnpjOrCpf.toLowerCase().includes(q)) ||
+      (sup.stateRegistration && sup.stateRegistration.toLowerCase().includes(q)) ||
+      (sup.municipalRegistration && sup.municipalRegistration.toLowerCase().includes(q))
+    );
+  });
 
   const handleOpenNew = () => {
     setEditingSupplier(null);
@@ -158,7 +172,7 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string): Promise<boolean> => {
     const sup = localSuppliers.find(s => s.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Fornecedor',
@@ -176,7 +190,9 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       saveStoredSuppliers(updated);
       onSaveSuppliers(updated);
       deleteFornecedor(id, activeCompanyId).catch(err => console.warn('Supabase deleteFornecedor notice:', err));
+      return true;
     }
+    return false;
   };
 
   return (
@@ -218,7 +234,7 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
         <input
           type="text"
           id="input-buscar-fornecedor"
-          placeholder="Buscar fornecedor por razão social, CNPJ, categoria ou cidade..."
+          placeholder="Buscar fornecedor por código (0001), razão social, CNPJ/CPF, categoria ou cidade..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 placeholder:text-slate-400 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-medium focus:ring-2 focus:ring-zinc-900/10 outline-none transition"
@@ -247,9 +263,14 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
             ) : (
               filteredSuppliers.map((sup) => (
                 <tr key={sup.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                  {/* Coluna 1: Nome Principal + Fantasia + Tag em Linha Única Horizontal */}
+                  {/* Coluna 1: Código + Nome Principal + Fantasia + Tag em Linha Única Horizontal */}
                   <td className="py-1 px-2.5 align-middle">
                     <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                      {(sup.code || sup.codigo) && (
+                        <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-700 font-mono text-[10px] font-black shrink-0">
+                          #{sup.code || sup.codigo}
+                        </span>
+                      )}
                       <span className="font-bold text-xs text-zinc-900 dark:text-white truncate" title={sup.name}>
                         {sup.name}
                       </span>
@@ -258,9 +279,11 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
                           • Fantasia: {sup.tradeName}
                         </span>
                       )}
-                      <span className="text-[9.5px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 border border-slate-200 dark:border-stone-700 shrink-0">
-                        {sup.category}
-                      </span>
+                      {sup.category && (
+                        <span className="text-[9.5px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-stone-400 border border-slate-200 dark:border-stone-700 shrink-0">
+                          {sup.category}
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -317,6 +340,16 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
                       )}
                       <button
                         type="button"
+                        onClick={() => {
+                          void printSupplierRegistrationA4(sup);
+                        }}
+                        className="p-1 text-slate-600 dark:text-stone-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition cursor-pointer"
+                        title="Imprimir Ficha Cadastral (A4)"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleEdit(sup)}
                         className="p-1 text-slate-600 dark:text-stone-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded transition cursor-pointer"
                         title="Editar fornecedor"
@@ -344,24 +377,28 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       <SupplierModal
         isOpen={isModalOpen}
         editingSupplier={editingSupplier}
+        suppliersList={localSuppliers}
+        onDeleteSupplier={handleDelete}
         onClose={() => {
           setIsModalOpen(false);
           setEditingSupplier(null);
         }}
         onSave={(savedSup) => {
           const activeCompanyId = getActiveCompanyId();
-          const index = suppliers.findIndex(s => s.id === savedSup.id);
+          const index = localSuppliers.findIndex(s => s.id === savedSup.id);
           if (index >= 0) {
-            const updated = [...suppliers];
+            const updated = [...localSuppliers];
             updated[index] = savedSup;
-            setLocalSuppliers(updated);
-            saveStoredSuppliers(updated);
-            onSaveSuppliers(updated);
+            const { items: normalized } = ensureSequentialSupplierCodes(updated);
+            setLocalSuppliers(normalized);
+            saveStoredSuppliers(normalized);
+            onSaveSuppliers(normalized);
           } else {
-            const updated = [...suppliers, savedSup];
-            setLocalSuppliers(updated);
-            saveStoredSuppliers(updated);
-            onSaveSuppliers(updated);
+            const updated = [savedSup, ...localSuppliers];
+            const { items: normalized } = ensureSequentialSupplierCodes(updated);
+            setLocalSuppliers(normalized);
+            saveStoredSuppliers(normalized);
+            onSaveSuppliers(normalized);
           }
           upsertFornecedor(savedSup, activeCompanyId).catch(err => console.warn('Supabase upsertFornecedor notice:', err));
         }}

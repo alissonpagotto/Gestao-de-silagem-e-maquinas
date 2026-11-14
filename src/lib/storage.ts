@@ -663,6 +663,158 @@ export function getActiveNfeDraft(): any | null {
   }
 }
 
+export const CLIENT_CODE_COUNTER_KEY = 'agrocontrol_clientes_seq_counter';
+export const SUPPLIER_CODE_COUNTER_KEY = 'agrocontrol_fornecedores_seq_counter';
+
+export function formatSequentialCode(num: number): string {
+  const safe = Number.isFinite(num) && num > 0 ? Math.floor(num) : 1;
+  return String(safe).padStart(4, '0');
+}
+
+export function parseSequentialCode(raw?: string | number | null): number {
+  const digits = String(raw ?? '').replace(/\D/g, '');
+  if (!digits) return 0;
+  const parsed = parseInt(digits, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function getStoredCodeCounter(counterKey: string): number {
+  try {
+    const raw = localStorage.getItem(counterKey);
+    return parseSequentialCode(raw);
+  } catch {
+    return 0;
+  }
+}
+
+function setStoredCodeCounter(counterKey: string, value: number): void {
+  try {
+    const current = getStoredCodeCounter(counterKey);
+    if (value > current) {
+      localStorage.setItem(counterKey, String(value));
+    }
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+function ensureSequentialCodesForList<T extends { code?: string; codigo?: string; createdAt?: string }>(
+  items: T[],
+  counterKey: string
+): { items: T[]; changed: boolean; maxCode: number } {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { items: [], changed: false, maxCode: getStoredCodeCounter(counterKey) };
+  }
+
+  let changed = false;
+  let maxCode = getStoredCodeCounter(counterKey);
+  const usedNumbers = new Set<number>();
+
+  const normalized = items.map((item) => {
+    const rawCode = item?.code || item?.codigo || '';
+    const num = parseSequentialCode(rawCode);
+    if (num > 0 && !usedNumbers.has(num)) {
+      usedNumbers.add(num);
+      if (num > maxCode) maxCode = num;
+      const formatted = formatSequentialCode(num);
+      if (item.code !== formatted || item.codigo !== formatted) {
+        changed = true;
+        return { ...item, code: formatted, codigo: formatted };
+      }
+      return item;
+    }
+    if (rawCode && num === 0) {
+      return item;
+    }
+    return { ...item };
+  });
+
+  // Backfill records missing a valid sequential code (oldest first so 0001 goes to oldest)
+  const missingIndices = normalized
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => !item.code && !item.codigo)
+    .sort((a, b) => {
+      const tA = a.item.createdAt ? new Date(a.item.createdAt).getTime() : 0;
+      const tB = b.item.createdAt ? new Date(b.item.createdAt).getTime() : 0;
+      if (tA && tB && tA !== tB) return tA - tB;
+      return a.idx - b.idx;
+    });
+
+  if (missingIndices.length > 0) {
+    let nextNum = maxCode + 1;
+    for (const entry of missingIndices) {
+      while (usedNumbers.has(nextNum)) {
+        nextNum += 1;
+      }
+      const formatted = formatSequentialCode(nextNum);
+      usedNumbers.add(nextNum);
+      normalized[entry.idx] = {
+        ...normalized[entry.idx],
+        code: formatted,
+        codigo: formatted,
+      };
+      if (nextNum > maxCode) maxCode = nextNum;
+      nextNum += 1;
+      changed = true;
+    }
+  }
+
+  setStoredCodeCounter(counterKey, maxCode);
+  return { items: normalized, changed, maxCode };
+}
+
+export function ensureSequentialClientCodes(clients: Client[]): { items: Client[]; changed: boolean } {
+  const { items, changed } = ensureSequentialCodesForList(clients, CLIENT_CODE_COUNTER_KEY);
+  return { items, changed };
+}
+
+export function ensureSequentialSupplierCodes(suppliers: Supplier[]): { items: Supplier[]; changed: boolean } {
+  const { items, changed } = ensureSequentialCodesForList(suppliers, SUPPLIER_CODE_COUNTER_KEY);
+  return { items, changed };
+}
+
+export function getNextClientCode(existingClients?: Client[]): string {
+  const list = Array.isArray(existingClients) ? existingClients : getStoredClients();
+  let maxCode = getStoredCodeCounter(CLIENT_CODE_COUNTER_KEY);
+  for (const c of list) {
+    const num = parseSequentialCode(c?.code || c?.codigo);
+    if (num > maxCode) maxCode = num;
+  }
+  return formatSequentialCode(maxCode + 1);
+}
+
+export function syncClientCodeCounter(code?: string, existingClients?: Client[]): void {
+  let maxCode = Math.max(getStoredCodeCounter(CLIENT_CODE_COUNTER_KEY), parseSequentialCode(code));
+  if (Array.isArray(existingClients)) {
+    for (const c of existingClients) {
+      const num = parseSequentialCode(c?.code || c?.codigo);
+      if (num > maxCode) maxCode = num;
+    }
+  }
+  setStoredCodeCounter(CLIENT_CODE_COUNTER_KEY, maxCode);
+}
+
+export function getNextSupplierCode(existingSuppliers?: Supplier[]): string {
+  const list = Array.isArray(existingSuppliers) ? existingSuppliers : getStoredSuppliers();
+  let maxCode = getStoredCodeCounter(SUPPLIER_CODE_COUNTER_KEY);
+  for (const s of list) {
+    const num = parseSequentialCode(s?.code || s?.codigo);
+    if (num > maxCode) maxCode = num;
+  }
+  return formatSequentialCode(maxCode + 1);
+}
+
+export function syncSupplierCodeCounter(code?: string, existingSuppliers?: Supplier[]): void {
+  let maxCode = Math.max(getStoredCodeCounter(SUPPLIER_CODE_COUNTER_KEY), parseSequentialCode(code));
+  if (Array.isArray(existingSuppliers)) {
+    for (const s of existingSuppliers) {
+      const num = parseSequentialCode(s?.code || s?.codigo);
+      if (num > maxCode) maxCode = num;
+    }
+  }
+  setStoredCodeCounter(SUPPLIER_CODE_COUNTER_KEY, maxCode);
+}
+
 export function getStoredClients(): Client[] {
   try {
     const raw = localStorage.getItem('agrocontrol_clientes') ||
@@ -682,13 +834,14 @@ export function getStoredClients(): Client[] {
       const isMockId = c.id && String(c.id).startsWith('mock_');
       return !isMock && !isMockId;
     });
-    if (cleaned.length !== parsed.length) {
-      const json = JSON.stringify(cleaned);
+    const { items: withCodes, changed: codesChanged } = ensureSequentialClientCodes(cleaned);
+    if (cleaned.length !== parsed.length || codesChanged) {
+      const json = JSON.stringify(withCodes);
       localStorage.setItem('agrocontrol_clientes', json);
       localStorage.setItem('colaca_silagem_clientes', json);
       localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
     }
-    return cleaned;
+    return withCodes;
   } catch (e) {
     return [];
   }
@@ -696,7 +849,8 @@ export function getStoredClients(): Client[] {
 
 export function saveStoredClients(clients: Client[]): void {
   try {
-    const json = JSON.stringify(clients);
+    const { items: withCodes } = ensureSequentialClientCodes(Array.isArray(clients) ? clients : []);
+    const json = JSON.stringify(withCodes);
     localStorage.setItem('agrocontrol_clientes', json);
     localStorage.setItem('colaca_silagem_clientes', json);
     localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
@@ -705,28 +859,148 @@ export function saveStoredClients(clients: Client[]): void {
   }
 }
 
-export const DEFAULT_ATIVIDADES: string[] = [
-  "GADO DE LEITE",
-  "CONFINAMENTO DE CORTE",
-  "GADO MISTO",
-  "CRIA & RECRU DE CORTE",
-  "EQUINOS / OVINOS / OUTRO"
+export interface ClientSelectOption {
+  id: string;
+  label: string;
+  active: boolean;
+  group?: string;
+}
+
+export const DEFAULT_ATIVIDADES_CATALOG: ClientSelectOption[] = [
+  // Comércio & Varejo
+  { id: 'comercio_varejista', label: 'Comércio Varejista', active: true, group: 'Comércio & Varejo' },
+  { id: 'comercio_atacadista', label: 'Comércio Atacadista', active: true, group: 'Comércio & Varejo' },
+  { id: 'supermercado_mercearia', label: 'Supermercado / Mercearia', active: true, group: 'Comércio & Varejo' },
+  { id: 'loja_pecas_autopecas', label: 'Loja de Peças / Autopeças', active: true, group: 'Comércio & Varejo' },
+  { id: 'materiais_construcao', label: 'Materiais de Construção', active: true, group: 'Comércio & Varejo' },
+  { id: 'agropecuaria_veterinaria', label: 'Agropecuária / Loja Veterinária', active: true, group: 'Comércio & Varejo' },
+  { id: 'posto_combustiveis', label: 'Posto de Combustíveis', active: true, group: 'Comércio & Varejo' },
+  { id: 'distribuidora', label: 'Distribuidora', active: true, group: 'Comércio & Varejo' },
+  // Serviços & Transporte
+  { id: 'prestacao_servicos_gerais', label: 'Prestação de Serviços Gerais', active: true, group: 'Serviços & Transporte' },
+  { id: 'transporte_rodoviario_cargas', label: 'Transporte Rodoviário de Cargas', active: true, group: 'Serviços & Transporte' },
+  { id: 'oficina_mecanica_tornearia', label: 'Oficina Mecânica / Tornearia', active: true, group: 'Serviços & Transporte' },
+  { id: 'terraplanagem_engenharia', label: 'Terraplanagem / Engenharia', active: true, group: 'Serviços & Transporte' },
+  { id: 'prestacao_servicos_agricolas', label: 'Prestação de Serviços Agrícolas', active: true, group: 'Serviços & Transporte' },
+  { id: 'consultoria_assessoria', label: 'Consultoria / Assessoria', active: true, group: 'Serviços & Transporte' },
+  // Indústria & Transformação
+  { id: 'industria_fabrica', label: 'Indústria / Fábrica', active: true, group: 'Indústria & Transformação' },
+  { id: 'metalurgica_serralheria', label: 'Metalúrgica / Serralheria', active: true, group: 'Indústria & Transformação' },
+  { id: 'madeireira_marcenaria', label: 'Madeireira / Marcenaria', active: true, group: 'Indústria & Transformação' },
+  { id: 'laticinio_frigorifico', label: 'Laticínio / Frigorífico', active: true, group: 'Indústria & Transformação' },
+  { id: 'cerealista_armazem', label: 'Cerealista / Armazém Geral', active: true, group: 'Indústria & Transformação' },
+  { id: 'cooperativa', label: 'Cooperativa', active: true, group: 'Indústria & Transformação' },
+  // Agronegócio & Produção Rural
+  { id: 'producao_graos_lavoura', label: 'Produção de Grãos / Lavoura', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'gado_de_leite', label: 'Gado de Leite', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'pecuaria_corte_confinamento', label: 'Pecuária de Corte / Confinamento', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'gado_misto', label: 'Gado Misto', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'suinocultura', label: 'Suinocultura', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'avicultura', label: 'Avicultura', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'piscicultura', label: 'Piscicultura', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'fruticultura_hortifruti', label: 'Fruticultura / Hortifrúti', active: true, group: 'Agronegócio & Produção Rural' },
+  { id: 'silvicultura_reflorestamento', label: 'Silvicultura / Reflorestamento', active: true, group: 'Agronegócio & Produção Rural' },
+  // Outros
+  { id: 'pessoa_fisica_consumidor', label: 'Pessoa Física / Consumidor Final', active: true, group: 'Outros' },
+  { id: 'orgao_publico_prefeitura', label: 'Órgão Público / Prefeitura', active: true, group: 'Outros' },
+  { id: 'outras_atividades', label: 'Outras Atividades', active: true, group: 'Outros' },
 ];
+
+export const DEFAULT_ATIVIDADES: string[] = DEFAULT_ATIVIDADES_CATALOG.map((item) => item.label);
+
+const ATIVIDADES_CATALOG_KEY = 'agrocontrol_atividades_catalog';
+const LEGACY_ATIVIDADES_DEFAULTS = new Set([
+  'GADO DE LEITE',
+  'CONFINAMENTO DE CORTE',
+  'GADO MISTO',
+  'CRIA & RECRU DE CORTE',
+  'EQUINOS / OVINOS / OUTRO',
+]);
+
+export function getStoredAtividadesCatalog(): ClientSelectOption[] {
+  try {
+    const rawCatalog = localStorage.getItem(ATIVIDADES_CATALOG_KEY);
+    if (rawCatalog) {
+      const parsed = JSON.parse(rawCatalog);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((item: any) => ({
+          id: String(item.id || item.label || '').trim() || `ativ_${Date.now()}`,
+          label: String(item.label || item.id || '').trim(),
+          active: item.active !== false,
+          group: item.group ? String(item.group) : undefined,
+        })).filter((it) => Boolean(it.label));
+      }
+    }
+
+    // Migração suave: preservar eventuais atividades personalizadas salvas anteriormente em 'agrocontrol_atividades'
+    const base = DEFAULT_ATIVIDADES_CATALOG.map((item) => ({ ...item }));
+    const rawLegacy = localStorage.getItem('agrocontrol_atividades');
+    if (rawLegacy) {
+      try {
+        const parsedLegacy = JSON.parse(rawLegacy);
+        if (Array.isArray(parsedLegacy)) {
+          const existingLower = new Set(base.map((b) => b.label.toLowerCase()));
+          parsedLegacy.forEach((entry: any) => {
+            const label = String(entry || '').trim();
+            if (!label) return;
+            const upper = label.toUpperCase();
+            if (LEGACY_ATIVIDADES_DEFAULTS.has(upper)) return;
+            if (!existingLower.has(label.toLowerCase())) {
+              existingLower.add(label.toLowerCase());
+              base.push({
+                id: `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+                label,
+                active: true,
+                group: 'Personalizadas',
+              });
+            }
+          });
+        }
+      } catch {
+        // ignore malformed legacy list
+      }
+    }
+
+    localStorage.setItem(ATIVIDADES_CATALOG_KEY, JSON.stringify(base));
+    localStorage.setItem('agrocontrol_atividades', JSON.stringify(base.filter((i) => i.active).map((i) => i.label)));
+    return base;
+  } catch (e) {
+    return DEFAULT_ATIVIDADES_CATALOG.map((item) => ({ ...item }));
+  }
+}
+
+export function saveStoredAtividadesCatalog(catalog: ClientSelectOption[]): ClientSelectOption[] {
+  try {
+    const seen = new Set<string>();
+    const normalized: ClientSelectOption[] = [];
+    for (const item of catalog) {
+      const label = String(item.label || '').trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      normalized.push({
+        id: String(item.id || key.replace(/[^a-z0-9]+/g, '_')),
+        label,
+        active: item.active !== false,
+        group: item.group,
+      });
+    }
+    localStorage.setItem(ATIVIDADES_CATALOG_KEY, JSON.stringify(normalized));
+    const activeLabels = normalized.filter((i) => i.active).map((i) => i.label);
+    localStorage.setItem('agrocontrol_atividades', JSON.stringify(activeLabels));
+    window.dispatchEvent(new CustomEvent('agrocontrol_atividades_updated', { detail: activeLabels }));
+    return normalized;
+  } catch (e) {
+    console.error('Failed to save atividades catalog', e);
+    return catalog;
+  }
+}
 
 export function getStoredAtividades(): string[] {
   try {
-    const raw = localStorage.getItem('agrocontrol_atividades');
-    if (!raw) {
-      localStorage.setItem('agrocontrol_atividades', JSON.stringify(DEFAULT_ATIVIDADES));
-      return DEFAULT_ATIVIDADES;
-    }
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const cleaned = Array.from(new Set(parsed.map((item: any) => String(item).trim().toUpperCase()).filter(Boolean)));
-      return cleaned.length > 0 ? cleaned : DEFAULT_ATIVIDADES;
-    }
-    localStorage.setItem('agrocontrol_atividades', JSON.stringify(DEFAULT_ATIVIDADES));
-    return DEFAULT_ATIVIDADES;
+    const catalog = getStoredAtividadesCatalog();
+    return catalog.filter((i) => i.active).map((i) => i.label);
   } catch (e) {
     return DEFAULT_ATIVIDADES;
   }
@@ -734,10 +1008,27 @@ export function getStoredAtividades(): string[] {
 
 export function saveStoredAtividades(atividades: string[]): string[] {
   try {
-    const unique = Array.from(new Set(atividades.map(a => String(a).trim().toUpperCase()).filter(Boolean)));
-    localStorage.setItem('agrocontrol_atividades', JSON.stringify(unique));
-    window.dispatchEvent(new CustomEvent('agrocontrol_atividades_updated', { detail: unique }));
-    return unique;
+    const currentCatalog = getStoredAtividadesCatalog();
+    const activeSet = new Set(atividades.map((a) => String(a).trim().toLowerCase()).filter(Boolean));
+    const updatedCatalog = currentCatalog.map((item) => ({
+      ...item,
+      active: activeSet.has(item.label.toLowerCase()),
+    }));
+    const existingLower = new Set(updatedCatalog.map((i) => i.label.toLowerCase()));
+    atividades.forEach((raw) => {
+      const label = String(raw || '').trim();
+      if (label && !existingLower.has(label.toLowerCase())) {
+        existingLower.add(label.toLowerCase());
+        updatedCatalog.push({
+          id: `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+          label,
+          active: true,
+          group: 'Personalizadas',
+        });
+      }
+    });
+    const saved = saveStoredAtividadesCatalog(updatedCatalog);
+    return saved.filter((i) => i.active).map((i) => i.label);
   } catch (e) {
     console.error('Failed to save atividades', e);
     return atividades;
@@ -745,14 +1036,277 @@ export function saveStoredAtividades(atividades: string[]): string[] {
 }
 
 export function addAtividadeIfNew(novaAtividade: string): string[] {
-  const current = getStoredAtividades();
-  const trimmedUpper = (novaAtividade || '').trim().toUpperCase();
-  if (!trimmedUpper) return current;
-  if (!current.includes(trimmedUpper)) {
-    const updated = [...current, trimmedUpper];
-    return saveStoredAtividades(updated);
+  const catalog = getStoredAtividadesCatalog();
+  const trimmed = (novaAtividade || '').trim();
+  if (!trimmed) return catalog.filter((i) => i.active).map((i) => i.label);
+  const existingIdx = catalog.findIndex((i) => i.label.toLowerCase() === trimmed.toLowerCase());
+  if (existingIdx >= 0) {
+    if (!catalog[existingIdx].active) {
+      const updated = catalog.map((item, idx) => idx === existingIdx ? { ...item, active: true } : item);
+      saveStoredAtividadesCatalog(updated);
+      return updated.filter((i) => i.active).map((i) => i.label);
+    }
+    return catalog.filter((i) => i.active).map((i) => i.label);
   }
-  return current;
+  const updated = [
+    ...catalog,
+    {
+      id: `custom_${trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${Date.now()}`,
+      label: trimmed,
+      active: true,
+      group: 'Personalizadas',
+    },
+  ];
+  saveStoredAtividadesCatalog(updated);
+  return updated.filter((i) => i.active).map((i) => i.label);
+}
+
+// ==========================================
+// Catálogo Dinâmico: STATUS NO FUNIL CRM
+// ==========================================
+
+export const DEFAULT_CRM_STATUS_CATALOG: ClientSelectOption[] = [
+  { id: 'lead', label: 'Lead / Novo Contato', active: true, group: 'Prospecção' },
+  { id: 'contatado', label: 'Contatado / Em Qualificação', active: true, group: 'Prospecção' },
+  { id: 'proposta', label: 'Proposta / Cotação Enviada', active: true, group: 'Negociação' },
+  { id: 'em_negociacao', label: 'Em Negociação / Fechamento', active: true, group: 'Negociação' },
+  { id: 'cliente_ativo', label: 'Cliente Ativo (Comprando)', active: true, group: 'Carteira Ativa' },
+  { id: 'cliente_vip', label: 'Cliente VIP / Recorrente', active: true, group: 'Carteira Ativa' },
+  { id: 'cliente_esporadico', label: 'Cliente Esporádico / Avulso', active: true, group: 'Carteira Ativa' },
+  { id: 'pos_venda', label: 'Pós-Venda / Acompanhamento', active: true, group: 'Relacionamento' },
+  { id: 'inadimplente', label: 'Inadimplente / Bloqueio Financeiro', active: true, group: 'Financeiro / Retenção' },
+  { id: 'inativo', label: 'Inativo / Pausado', active: true, group: 'Financeiro / Retenção' },
+  { id: 'perdido', label: 'Perdido / Sem Interesse', active: true, group: 'Financeiro / Retenção' },
+];
+
+const CRM_STATUS_CATALOG_KEY = 'agrocontrol_crm_status_catalog';
+
+export function getStoredCrmStatusCatalog(): ClientSelectOption[] {
+  try {
+    const raw = localStorage.getItem(CRM_STATUS_CATALOG_KEY);
+    if (!raw) {
+      localStorage.setItem(CRM_STATUS_CATALOG_KEY, JSON.stringify(DEFAULT_CRM_STATUS_CATALOG));
+      return DEFAULT_CRM_STATUS_CATALOG.map((item) => ({ ...item }));
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((item: any) => ({
+        id: String(item.id || item.label || '').trim() || `status_${Date.now()}`,
+        label: String(item.label || item.id || '').trim(),
+        active: item.active !== false,
+        group: item.group ? String(item.group) : undefined,
+      })).filter((it) => Boolean(it.label));
+    }
+    localStorage.setItem(CRM_STATUS_CATALOG_KEY, JSON.stringify(DEFAULT_CRM_STATUS_CATALOG));
+    return DEFAULT_CRM_STATUS_CATALOG.map((item) => ({ ...item }));
+  } catch (e) {
+    return DEFAULT_CRM_STATUS_CATALOG.map((item) => ({ ...item }));
+  }
+}
+
+export function saveStoredCrmStatusCatalog(catalog: ClientSelectOption[]): ClientSelectOption[] {
+  try {
+    const seen = new Set<string>();
+    const normalized: ClientSelectOption[] = [];
+    for (const item of catalog) {
+      const label = String(item.label || '').trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const id = String(
+        item.id ||
+          label
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '')
+      );
+      normalized.push({
+        id: id || `status_${Date.now()}`,
+        label,
+        active: item.active !== false,
+        group: item.group,
+      });
+    }
+    localStorage.setItem(CRM_STATUS_CATALOG_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent('agrocontrol_crm_status_updated', { detail: normalized }));
+    return normalized;
+  } catch (e) {
+    console.error('Failed to save CRM status catalog', e);
+    return catalog;
+  }
+}
+
+export function getActiveCrmStatuses(): ClientSelectOption[] {
+  return getStoredCrmStatusCatalog().filter((s) => s.active);
+}
+
+export function getCrmStatusLabel(statusIdOrLabel?: string): string {
+  if (!statusIdOrLabel) return '—';
+  const catalog = getStoredCrmStatusCatalog();
+  const found = catalog.find(
+    (s) => s.id.toLowerCase() === statusIdOrLabel.toLowerCase() || s.label.toLowerCase() === statusIdOrLabel.toLowerCase()
+  );
+  return found ? found.label : statusIdOrLabel.replace(/_/g, ' ');
+}
+
+// ==========================================
+// Catálogo Dinâmico: SERVIÇOS / OPERAÇÕES DE INTERESSE
+// ==========================================
+
+export const DEFAULT_CLIENT_SERVICES_CATALOG: ClientSelectOption[] = [
+  { id: 'servico_corte', label: 'Serviço de Corte', active: true, group: 'Operações' },
+  { id: 'servico_colheita', label: 'Serviço de Colheita', active: true, group: 'Operações' },
+  { id: 'servico_trator', label: 'Serviço de Trator', active: true, group: 'Maquinário' },
+  { id: 'servico_maquina', label: 'Serviço de Máquina', active: true, group: 'Maquinário' },
+  { id: 'servico_frete', label: 'Serviço de Frete', active: true, group: 'Logística' },
+  { id: 'venda_produtos_pecas', label: 'Venda de Produtos / Peças', active: true, group: 'Comercial' },
+];
+
+const CLIENT_SERVICES_CATALOG_KEY = 'agrocontrol_servicos_interesse_catalog';
+
+export function getStoredClientServicesCatalog(): ClientSelectOption[] {
+  try {
+    const raw = localStorage.getItem(CLIENT_SERVICES_CATALOG_KEY);
+    if (!raw) {
+      localStorage.setItem(CLIENT_SERVICES_CATALOG_KEY, JSON.stringify(DEFAULT_CLIENT_SERVICES_CATALOG));
+      return DEFAULT_CLIENT_SERVICES_CATALOG.map((item) => ({ ...item }));
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed
+        .map((item: any) => ({
+          id: String(item.id || item.label || '').trim() || `srv_${Date.now()}`,
+          label: String(item.label || item.id || '').trim(),
+          active: item.active !== false,
+          group: item.group ? String(item.group) : undefined,
+        }))
+        .filter((it) => Boolean(it.label));
+    }
+    localStorage.setItem(CLIENT_SERVICES_CATALOG_KEY, JSON.stringify(DEFAULT_CLIENT_SERVICES_CATALOG));
+    return DEFAULT_CLIENT_SERVICES_CATALOG.map((item) => ({ ...item }));
+  } catch (e) {
+    return DEFAULT_CLIENT_SERVICES_CATALOG.map((item) => ({ ...item }));
+  }
+}
+
+export function saveStoredClientServicesCatalog(catalog: ClientSelectOption[]): ClientSelectOption[] {
+  try {
+    const seen = new Set<string>();
+    const normalized: ClientSelectOption[] = [];
+    for (const item of catalog) {
+      const label = String(item.label || '').trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const id = String(
+        item.id ||
+          label
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '')
+      );
+      normalized.push({
+        id: id || `srv_${Date.now()}`,
+        label,
+        active: item.active !== false,
+        group: item.group,
+      });
+    }
+    localStorage.setItem(CLIENT_SERVICES_CATALOG_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent('agrocontrol_servicos_interesse_updated', { detail: normalized }));
+    return normalized;
+  } catch (e) {
+    console.error('Failed to save client services catalog', e);
+    return catalog;
+  }
+}
+
+// ==========================================
+// Catálogo Dinâmico: CATEGORIAS DE FORNECEDORES
+// ==========================================
+
+export const DEFAULT_SUPPLIER_CATEGORIES_CATALOG: ClientSelectOption[] = [
+  { id: 'pecas_manutencao', label: 'Peças & Manutenção', active: true, group: 'Manutenção' },
+  { id: 'combustiveis_lubrificantes', label: 'Combustíveis & Lubrificantes', active: true, group: 'Energia & Frota' },
+  { id: 'insumos_mercadorias', label: 'Insumos & Mercadorias', active: true, group: 'Suprimentos' },
+  { id: 'transportadora_frete', label: 'Transportadora / Frete', active: true, group: 'Logística' },
+  { id: 'servicos_terceirizados', label: 'Serviços Terceirizados', active: true, group: 'Serviços' },
+  { id: 'tecnologia_escritorio', label: 'Tecnologia & Escritório', active: true, group: 'Administrativo' },
+  { id: 'outros', label: 'Outros', active: true, group: 'Outros' },
+];
+
+const SUPPLIER_CATEGORIES_CATALOG_KEY = 'agrocontrol_fornecedor_categorias_catalog';
+
+export function getStoredSupplierCategoriesCatalog(): ClientSelectOption[] {
+  try {
+    const raw = localStorage.getItem(SUPPLIER_CATEGORIES_CATALOG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .map((item: any) => ({
+            id: String(item.id || item.label || '').trim() || `sup_cat_${Date.now()}`,
+            label: String(item.label || item.id || '').trim(),
+            active: item.active !== false,
+            group: item.group ? String(item.group) : undefined,
+          }))
+          .filter((it) => Boolean(it.label));
+      }
+    }
+
+    const base = DEFAULT_SUPPLIER_CATEGORIES_CATALOG.map((item) => ({ ...item }));
+    localStorage.setItem(SUPPLIER_CATEGORIES_CATALOG_KEY, JSON.stringify(base));
+    localStorage.setItem(
+      STORAGE_KEYS.SUPPLIER_CATEGORIES,
+      JSON.stringify(base.filter((i) => i.active).map((i) => i.label))
+    );
+    return base;
+  } catch {
+    return DEFAULT_SUPPLIER_CATEGORIES_CATALOG.map((item) => ({ ...item }));
+  }
+}
+
+export function saveStoredSupplierCategoriesCatalog(catalog: ClientSelectOption[]): ClientSelectOption[] {
+  try {
+    const seen = new Set<string>();
+    const normalized: ClientSelectOption[] = [];
+    for (const item of catalog) {
+      const label = String(item.label || '').trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const id = String(
+        item.id ||
+          label
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '')
+      );
+      normalized.push({
+        id: id || `sup_cat_${Date.now()}`,
+        label,
+        active: item.active !== false,
+        group: item.group,
+      });
+    }
+    localStorage.setItem(SUPPLIER_CATEGORIES_CATALOG_KEY, JSON.stringify(normalized));
+    const activeLabels = normalized.filter((i) => i.active).map((i) => i.label);
+    localStorage.setItem(STORAGE_KEYS.SUPPLIER_CATEGORIES, JSON.stringify(activeLabels));
+    window.dispatchEvent(new CustomEvent('agrocontrol_fornecedor_categorias_updated', { detail: activeLabels }));
+    return normalized;
+  } catch (e) {
+    console.error('Failed to save supplier categories catalog', e);
+    return catalog;
+  }
 }
 
 export function getStoredOrders(): SilageOrder[] {
@@ -1314,17 +1868,30 @@ export function resetAllSystemData(): void {
 export function getStoredSuppliers(): Supplier[] {
   try {
     const raw = localStorage.getItem('agrocontrol_fornecedores') || localStorage.getItem(STORAGE_KEYS.SUPPLIERS);
-    if (!raw) return INITIAL_SUPPLIERS;
-    return JSON.parse(raw);
+    if (!raw) {
+      const { items } = ensureSequentialSupplierCodes(INITIAL_SUPPLIERS.map(s => ({ ...s })));
+      return items;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const { items: withCodes, changed } = ensureSequentialSupplierCodes(parsed);
+    if (changed) {
+      const json = JSON.stringify(withCodes);
+      safeLocalStorageSetItem('agrocontrol_fornecedores', json);
+      safeLocalStorageSetItem(STORAGE_KEYS.SUPPLIERS, json);
+    }
+    return withCodes;
   } catch (e) {
-    return INITIAL_SUPPLIERS;
+    return INITIAL_SUPPLIERS.map(s => ({ ...s }));
   }
 }
 
 export function saveStoredSuppliers(suppliers: Supplier[]): void {
   try {
-    safeLocalStorageSetItem('agrocontrol_fornecedores', JSON.stringify(suppliers));
-    safeLocalStorageSetItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(suppliers));
+    const { items: withCodes } = ensureSequentialSupplierCodes(Array.isArray(suppliers) ? suppliers : []);
+    const json = JSON.stringify(withCodes);
+    safeLocalStorageSetItem('agrocontrol_fornecedores', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.SUPPLIERS, json);
   } catch (e) {
     console.warn('Failed to save suppliers', e);
   }
@@ -4471,19 +5038,38 @@ export const saveCompanyRhFerias = (ferias: VacationRecord[], companyId?: string
 export const getCompanyRhFerias = (companyId?: string): VacationRecord[] => getCompanyData<VacationRecord>('rh_ferias', getStoredVacations, companyId);
 
 export const saveCompanyFornecedores = (fornecedores: Supplier[], companyId?: string): void => {
-  saveCompanyData('fornecedores', fornecedores, companyId);
+  const { items: withCodes } = ensureSequentialSupplierCodes(Array.isArray(fornecedores) ? fornecedores : []);
+  saveCompanyData('fornecedores', withCodes, companyId);
   try {
-    localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(fornecedores));
-    localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(fornecedores));
+    localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(withCodes));
+    localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(withCodes));
   } catch {}
 };
-export const getCompanyFornecedores = (companyId?: string): Supplier[] => getCompanyData<Supplier>('fornecedores', getStoredSuppliers, companyId);
+export const getCompanyFornecedores = (companyId?: string): Supplier[] => {
+  const raw = getCompanyData<Supplier>('fornecedores', getStoredSuppliers, companyId);
+  const { items: withCodes, changed } = ensureSequentialSupplierCodes(raw);
+  if (changed) {
+    saveCompanyData('fornecedores', withCodes, companyId);
+  }
+  return withCodes;
+};
 
 export const saveCompanyClientes = (clientes: Client[], companyId?: string): void => {
-  saveCompanyData('clientes', clientes, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clientes)); } catch {}
+  const { items: withCodes } = ensureSequentialClientCodes(Array.isArray(clientes) ? clientes : []);
+  saveCompanyData('clientes', withCodes, companyId);
+  try {
+    localStorage.setItem('agrocontrol_clientes', JSON.stringify(withCodes));
+    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(withCodes));
+  } catch {}
 };
-export const getCompanyClientes = (companyId?: string): Client[] => getCompanyData<Client>('clientes', getStoredClients, companyId);
+export const getCompanyClientes = (companyId?: string): Client[] => {
+  const raw = getCompanyData<Client>('clientes', getStoredClients, companyId);
+  const { items: withCodes, changed } = ensureSequentialClientCodes(raw);
+  if (changed) {
+    saveCompanyData('clientes', withCodes, companyId);
+  }
+  return withCodes;
+};
 
 export const saveCompanyDespesas = (despesas: Expense[], companyId?: string): void => {
   saveCompanyData('despesas', despesas, companyId);

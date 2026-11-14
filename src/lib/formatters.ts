@@ -385,6 +385,89 @@ export async function fetchAddressByCep(cep: string): Promise<CepLookupResult> {
   return { success: false, message: 'CEP não encontrado ou serviço temporariamente indisponível.' };
 }
 
+export interface ReverseCepItem {
+  cep: string;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+}
+
+export interface ReverseCepSearchResult {
+  success: boolean;
+  items: ReverseCepItem[];
+  message?: string;
+}
+
+export async function searchCepByAddress(
+  uf: string,
+  city: string,
+  street: string
+): Promise<ReverseCepSearchResult> {
+  const cleanUf = (uf || '').trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const cleanCity = (city || '').trim();
+  const cleanStreet = (street || '').trim();
+
+  if (cleanUf.length !== 2) {
+    return { success: false, items: [], message: 'Selecione uma UF válida.' };
+  }
+  if (cleanCity.length < 3) {
+    return { success: false, items: [], message: 'Informe ao menos 3 caracteres no campo Cidade.' };
+  }
+  if (cleanStreet.length < 3) {
+    return { success: false, items: [], message: 'Informe ao menos 3 caracteres no campo Rua / Logradouro.' };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+    const url = `https://viacep.com.br/ws/${encodeURIComponent(cleanUf)}/${encodeURIComponent(cleanCity)}/${encodeURIComponent(cleanStreet)}/json/`;
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return {
+        success: false,
+        items: [],
+        message: 'Não foi possível consultar o ViaCEP no momento. Tente novamente.',
+      };
+    }
+
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      return {
+        success: true,
+        items: [],
+        message: "Nenhum CEP encontrado. Verifique a grafia ou tente 'Centro' / avenida principal.",
+      };
+    }
+
+    const items: ReverseCepItem[] = data
+      .filter((entry: any) => entry && entry.cep)
+      .map((entry: any) => ({
+        cep: formatCep(entry.cep),
+        logradouro: String(entry.logradouro || '').trim(),
+        complemento: String(entry.complemento || '').trim(),
+        bairro: String(entry.bairro || '').trim(),
+        localidade: String(entry.localidade || cleanCity).trim(),
+        uf: String(entry.uf || cleanUf).trim().toUpperCase(),
+      }));
+
+    return {
+      success: true,
+      items,
+      message: items.length === 0 ? 'Nenhum CEP encontrado para os critérios informados.' : undefined,
+    };
+  } catch {
+    return {
+      success: false,
+      items: [],
+      message: 'Falha de conexão ao consultar ViaCEP. Verifique sua internet.',
+    };
+  }
+}
+
 // ==========================================
 // 7. Online CNPJ Lookup (BrasilAPI + Fallback)
 // ==========================================

@@ -14,13 +14,15 @@ import {
   CheckCircle2,
   Calendar,
   Sparkles,
-  Layers
+  Layers,
+  Printer
 } from 'lucide-react';
 import { Client, SilageOrder } from '../../types';
-import { formatCurrencyBRL, formatDateBR, saveStoredClients, getStoredAtividades } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, saveStoredClients, ensureSequentialClientCodes, getStoredAtividades, getCrmStatusLabel } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchClientes, mapRowToClient, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { mapCattleTypeToAtividade } from './ClientModal';
+import { printClientRegistrationA4 } from './clientPrintUtils';
 
 interface CrmModuleProps {
   clients: Client[];
@@ -43,11 +45,15 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   onUpdateClientStatus,
   onSaveClients,
 }) => {
-  const [localClients, setLocalClients] = useState<Client[]>(clients);
+  const [localClients, setLocalClients] = useState<Client[]>(() => ensureSequentialClientCodes(clients).items);
 
   useEffect(() => {
     if (clients) {
-      setLocalClients(clients);
+      const { items, changed } = ensureSequentialClientCodes(clients);
+      setLocalClients(items);
+      if (changed) {
+        saveStoredClients(items);
+      }
     }
   }, [clients]);
 
@@ -167,12 +173,18 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   }, []);
 
   const filteredClients = localClients.filter((c) => {
+    const q = searchTerm.trim().toLowerCase();
     const clientName = c.nome || c.name || '';
     const farmName = c.fazenda || c.farmName || '';
+    const clientCode = (c.code || c.codigo || '').toLowerCase();
+    const clientDoc = (c.cpfCnpj || '').toLowerCase();
     const matchSearch =
-      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      farmName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.city || c.cidade || '').toLowerCase().includes(searchTerm.toLowerCase());
+      !q ||
+      clientCode.includes(q) ||
+      clientName.toLowerCase().includes(q) ||
+      farmName.toLowerCase().includes(q) ||
+      clientDoc.includes(q) ||
+      (c.city || c.cidade || '').toLowerCase().includes(q);
 
     if (!matchSearch) return false;
     if (selectedAtividade !== 'todos') {
@@ -302,7 +314,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por produtor, fazenda ou cidade..."
+            placeholder="Buscar por código (0001), nome, estabelecimento, CPF/CNPJ ou cidade..."
             className="w-full pl-7 pr-3 py-1 bg-stone-50 dark:bg-stone-800/50 rounded-lg border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-xs"
           />
         </div>
@@ -359,7 +371,14 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <span className="block font-black text-black dark:text-white text-xs">{client.nome || client.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              {(client.code || client.codigo) && (
+                                <span className="px-1.5 py-0.2 rounded bg-white/90 text-slate-900 border border-slate-400 font-mono text-[9.5px] font-black shrink-0">
+                                  #{client.code || client.codigo}
+                                </span>
+                              )}
+                              <span className="block font-black text-black dark:text-white text-xs">{client.nome || client.name}</span>
+                            </div>
                             <span className="text-[11px] text-black/90 dark:text-stone-300 font-bold">{client.fazenda || client.farmName}</span>
                             {client.stateRegistration && (
                               <span className="block text-[9px] text-black/80 dark:text-stone-300 font-semibold">
@@ -375,13 +394,21 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                             <span className="text-black/80 dark:text-stone-400 font-bold">Localização:</span>
                             <strong className="text-black dark:text-white font-black">{client.city}/{client.state}</strong>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-black/80 dark:text-stone-400 font-bold">Rebanho:</span>
-                            <strong className="text-black dark:text-white font-black">{client.headCount || 0} cab.</strong>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-black/80 dark:text-stone-400 font-bold shrink-0">Porte / Rebanho:</span>
+                            <strong className="text-black dark:text-white font-black truncate">
+                              {client.porteCapacidade && /[^\d]/.test(client.porteCapacidade)
+                                ? client.porteCapacidade
+                                : `${client.headCount || 0} cab.`}
+                            </strong>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-black/80 dark:text-stone-400 font-bold">Demanda:</span>
-                            <strong className="text-black dark:text-emerald-400 font-black">{client.monthlyDemandTons || 0} ton/mês</strong>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-black/80 dark:text-stone-400 font-bold shrink-0">Demanda / Potencial:</span>
+                            <strong className="text-black dark:text-emerald-400 font-black truncate">
+                              {client.potencialCompraMensal && /[^\d.,]/.test(client.potencialCompraMensal)
+                                ? client.potencialCompraMensal
+                                : `${client.monthlyDemandTons || 0} ton/mês`}
+                            </strong>
                           </div>
                         </div>
 
@@ -455,10 +482,10 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
             <table className="w-full text-left text-xs text-zinc-800 dark:text-stone-200 border-collapse">
               <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm text-slate-600 dark:text-stone-400 font-bold border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Produtor & Fazenda</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Cliente & Estabelecimento</th>
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Cidade / UF</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Atividade / Rebanho</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Demanda Estimada</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Atividade / Porte</th>
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Demanda / Potencial</th>
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Status</th>
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 text-right">Ações</th>
                 </tr>
@@ -471,11 +498,20 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredClients.map((client) => (
+                filteredClients.map((client) => {
+                  const clientServices = client.interestedServices || client.servicosInteresse || [];
+                  const hasCustomPorte = Boolean(client.porteCapacidade && /[^\d]/.test(client.porteCapacidade));
+                  const hasCustomPotencial = Boolean(client.potencialCompraMensal && /[^\d.,]/.test(client.potencialCompraMensal));
+                  return (
                   <tr key={client.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                    {/* Linha Única Estrita: Nome e Fazenda na mesma linha sem quebra */}
+                    {/* Nome, Estabelecimento e badges discretas dos serviços de interesse abaixo */}
                     <td className="py-1 px-2.5 align-middle">
                       <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                        {(client.code || client.codigo) && (
+                          <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-700 font-mono text-[10px] font-black shrink-0">
+                            #{client.code || client.codigo}
+                          </span>
+                        )}
                         <span className="font-bold text-xs text-zinc-900 dark:text-white truncate">
                           {client.nome || client.name}
                         </span>
@@ -490,6 +526,18 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                           </span>
                         )}
                       </div>
+                      {clientServices.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          {clientServices.map((srv) => (
+                            <span
+                              key={srv}
+                              className="px-1.5 py-0 rounded text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                            >
+                              {srv}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="py-1 px-2.5 whitespace-nowrap text-xs text-zinc-700 dark:text-stone-300 align-middle">
                       {client.city}/{client.state}
@@ -497,15 +545,19 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                     <td className="py-1 px-2.5 align-middle">
                       <div className="flex items-center space-x-1.5 whitespace-nowrap">
                         {getCattleBadge(client)}
-                        <span className="text-slate-500 dark:text-stone-400 text-[11px] font-medium">{client.headCount || 0} cab.</span>
+                        <span className="text-slate-500 dark:text-stone-400 text-[11px] font-medium truncate max-w-[180px]">
+                          {hasCustomPorte ? client.porteCapacidade : `${client.headCount || 0} cab.`}
+                        </span>
                       </div>
                     </td>
                     <td className="py-1 px-2.5 whitespace-nowrap align-middle">
-                      <strong className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">{client.monthlyDemandTons || 0} ton/mês</strong>
+                      <strong className="text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                        {hasCustomPotencial ? client.potencialCompraMensal : `${client.monthlyDemandTons || 0} ton/mês`}
+                      </strong>
                     </td>
-                    <td className="py-1 px-2.5 capitalize whitespace-nowrap align-middle">
+                    <td className="py-1 px-2.5 whitespace-nowrap align-middle">
                       <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border border-slate-300 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
-                        {client.status.replace('_', ' ')}
+                        {getCrmStatusLabel(client.status)}
                       </span>
                     </td>
                     <td className="py-1 px-2.5 text-right whitespace-nowrap align-middle">
@@ -521,6 +573,16 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                             <MessageCircle className="w-3.5 h-3.5" />
                           </a>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void printClientRegistrationA4(client);
+                          }}
+                          className="p-1 text-slate-600 dark:text-stone-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          title="Imprimir Ficha Cadastral"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => onEditClient(client)}
@@ -540,7 +602,8 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

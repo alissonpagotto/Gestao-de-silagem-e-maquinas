@@ -163,9 +163,20 @@ export interface Expense {
   createdAt: string;
 }
 
+export interface AuthorizedBuyer {
+  id: string;
+  name: string;
+  documentOrPhone?: string;
+  relationshipOrRole?: string;
+}
+
 export interface Client {
   id: string;
+  code?: string;
+  codigo?: string;
   companyId?: string; // ID da Empresa
+  personType?: 'PF' | 'PJ';
+  avatarUrl?: string;
   name: string;
   nome?: string; // Compatibilidade com schema Supabase em português
   farmName: string;
@@ -174,6 +185,8 @@ export interface Client {
   stateRegistration?: string;
   zipCode?: string;
   address?: string;
+  addressNumber?: string;
+  addressComplement?: string;
   neighborhood?: string;
   city: string;
   cidade?: string;
@@ -182,13 +195,37 @@ export interface Client {
   phone: string;
   telefone?: string;
   email?: string;
+  contribuinteIcms?: string;
   areaHectares?: number;
   accessRoute?: string;
   cattleType: 'leite' | 'corte' | 'misto' | 'confinamento' | 'outro' | string;
   atividade?: string;
   headCount?: number;
   monthlyDemandTons?: number;
-  status: 'lead' | 'contatado' | 'proposta' | 'cliente_ativo' | 'inativo';
+  porteCapacidade?: string;
+  potencialCompraMensal?: string;
+  interestedServices?: string[];
+  servicosInteresse?: string[];
+  birthDate?: string;
+  secondaryContact?: string;
+  creditLimit?: number;
+  preferredPaymentTerm?: string;
+  defaultPriceTable?: 'custo' | 'venda' | 'atacado' | 'promocional' | '';
+  blockOverdueCredit?: boolean;
+  authorizedBuyers?: AuthorizedBuyer[];
+  status:
+    | 'lead'
+    | 'contatado'
+    | 'proposta'
+    | 'em_negociacao'
+    | 'cliente_ativo'
+    | 'cliente_vip'
+    | 'cliente_esporadico'
+    | 'pos_venda'
+    | 'inadimplente'
+    | 'inativo'
+    | 'perdido'
+    | string;
   notes?: string;
   observacoes?: string;
   totalPurchasedTons?: number;
@@ -214,16 +251,23 @@ export interface ClientFormSubmission {
   fazenda?: string;
   cpfCnpj?: string;
   stateRegistration?: string;
+  birthDate?: string;
   phone: string;
+  secondaryContact?: string;
   email?: string;
   zipCode?: string;
   address?: string;
+  addressNumber?: string;
+  addressComplement?: string;
   neighborhood?: string;
   city: string;
   state: string;
+  contribuinteIcms?: string;
   cattleType: 'leite' | 'corte' | 'misto' | 'confinamento' | 'outro';
   headCount?: number;
   monthlyDemandTons?: number;
+  creditLimit?: number;
+  preferredPaymentTerm?: string;
   notes?: string;
   submittedAt: string;
   status: 'pendente' | 'importado';
@@ -765,8 +809,13 @@ export interface SupplierFormSubmission {
   municipalRegistration?: string;
   phone: string;
   email?: string;
+  salespersonName?: string;
+  salespersonPhone?: string;
+  defaultPaymentTerm?: string;
   zipCode?: string;
   address?: string;
+  addressNumber?: string;
+  addressComplement?: string;
   neighborhood?: string;
   city?: string;
   state?: string;
@@ -777,17 +826,25 @@ export interface SupplierFormSubmission {
 
 export interface Supplier {
   id: string;
+  code?: string;
+  codigo?: string;
+  personType?: 'PF' | 'PJ';
   companyId?: string;
   name: string;
   tradeName?: string;
-  category: string; // 'Combustível', 'Peças & Oficinas', 'Sementes & Insumos', 'Lonas & Embalagens'
+  category: string; // 'Peças & Manutenção', 'Combustíveis & Lubrificantes', 'Insumos & Mercadorias', etc.
   cnpjOrCpf?: string;
   stateRegistration?: string;
   municipalRegistration?: string;
   phone: string;
   email?: string;
+  salespersonName?: string;
+  salespersonPhone?: string;
+  defaultPaymentTerm?: string;
   zipCode?: string;
   address?: string;
+  addressNumber?: string;
+  addressComplement?: string;
   neighborhood?: string;
   city?: string;
   state?: string;
