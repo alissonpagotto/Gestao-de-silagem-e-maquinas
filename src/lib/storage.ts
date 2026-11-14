@@ -39,7 +39,8 @@ import {
   FinanceiroCheque,
   ClienteCredito,
   TrocaDevolucaoRecord,
-  PendenciaDevolucaoRecord
+  PendenciaDevolucaoRecord,
+  NotaSaidaRecord
 } from '../types';
 import { backfillEmployeesBadgeNumbers } from '../components/rh/badgeHelpers';
 import { 
@@ -138,6 +139,7 @@ export const STORAGE_KEYS = {
   FORM_SEQUENCES: 'agrocontrol_form_sequences',
   TROCAS_DEVOLUCOES: 'agrocontrol_trocas_devolucoes',
   PENDENCIAS_DEVOLUCAO: 'agrocontrol_pendencias_devolucao',
+  NOTAS_SAIDA: 'agrocontrol_notas_saida',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -4213,6 +4215,11 @@ export const deleteLocalDocumentoEntradaItem = (id: string): void => {
 // ==========================================
 
 export const DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES: string[] = [
+  'NF-e',
+  'CT-e',
+  'NFS-e',
+  'NFC-e',
+  'MDF-e',
   'Romaneio',
   'Nota avulsa',
   'Cupom sem valor fiscal',
@@ -4256,6 +4263,44 @@ export function saveStoredManualEntryDocumentTypes(types: string[]): void {
   } catch (e) {
     console.error('Failed to save manual entry document types', e);
   }
+}
+
+// ==========================================
+// NOTAS DE SAÍDA (EMITIDAS PELA EMPRESA)
+// ==========================================
+
+export function getStoredNotasSaida(): NotaSaidaRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.NOTAS_SAIDA);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Failed to load notas de saida', e);
+    return [];
+  }
+}
+
+export function saveStoredNotasSaida(notas: NotaSaidaRecord[]): void {
+  try {
+    const list = Array.isArray(notas) ? notas : [];
+    safeLocalStorageSetItem(STORAGE_KEYS.NOTAS_SAIDA, JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent('agrocontrol_notas_saida_updated', { detail: list }));
+  } catch (e) {
+    console.error('Failed to save notas de saida', e);
+  }
+}
+
+export function saveLocalNotaSaida(nota: NotaSaidaRecord): void {
+  const all = getStoredNotasSaida();
+  const exists = all.some(n => n.id === nota.id);
+  const updated = exists ? all.map(n => (n.id === nota.id ? nota : n)) : [nota, ...all];
+  saveStoredNotasSaida(updated);
+}
+
+export function deleteLocalNotaSaida(id: string): void {
+  const all = getStoredNotasSaida();
+  saveStoredNotasSaida(all.filter(n => n.id !== id));
 }
 
 export function getLastDayOfMonth(year: number, monthIndex0: number): string {

@@ -96,6 +96,7 @@ export interface FiscalDocumentTypeViewProps {
   companyProfile: CompanyProfile | null;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
+  hideCompetenceSelector?: boolean;
   onAddExpenseFromNfe?: (expenseOrList: any) => void;
   onRefreshAll?: () => void;
 }
@@ -182,6 +183,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   companyProfile,
   competence,
   onCompetenceChange,
+  hideCompetenceSelector = false,
   onAddExpenseFromNfe,
   onRefreshAll
 }) => {
@@ -1317,11 +1319,13 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-center">
-          <CompetenceSelector
-            competence={activeCompetence}
-            onPrev={handlePrevCompetence}
-            onNext={handleNextCompetence}
-          />
+          {!hideCompetenceSelector && (
+            <CompetenceSelector
+              competence={activeCompetence}
+              onPrev={handlePrevCompetence}
+              onNext={handleNextCompetence}
+            />
+          )}
 
           <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-stone-300">
             <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700">

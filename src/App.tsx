@@ -3837,7 +3837,7 @@ export default function App() {
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 
               id="crm-main-content"
-              className={`flex-1 min-h-0 ${isPdvFullscreen ? 'p-0 pb-0 overflow-y-auto' : (activeTab === 'configuracoes' || activeTab === 'frotas' || activeTab === 'frota' || activeTab === 'veiculos' || activeTab === 'combustivel' || activeTab === 'manutencoes' || activeTab === 'motoristas' || activeTab === 'equipe' || activeTab === 'rodizio') ? 'p-2 sm:p-2.5 lg:p-3 pb-2 lg:pb-2 overflow-hidden flex flex-col' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3.5 overflow-y-auto'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
+              className={`flex-1 min-h-0 ${isPdvFullscreen ? 'p-0 pb-0 overflow-y-auto' : (activeTab === 'configuracoes' || activeTab === 'frotas' || activeTab === 'frota' || activeTab === 'veiculos' || activeTab === 'combustivel' || activeTab === 'manutencoes' || activeTab === 'motoristas' || activeTab === 'equipe' || activeTab === 'rodizio') ? 'p-2 sm:p-2.5 lg:p-3 pb-2 lg:pb-2 overflow-hidden flex flex-col' : (activeTab === 'fiscal' || activeTab === 'documentos_entrada' || activeTab === 'entradas' || activeTab === 'nfe_importar' || activeTab === 'nfe_notas') ? 'p-2 sm:p-2.5 lg:p-3 pb-2 lg:pb-2 overflow-y-auto flex flex-col' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3.5 overflow-y-auto'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
             >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (
@@ -4064,7 +4064,7 @@ export default function App() {
 
           {/* TAB: Notas e Entradas (NF-e, Notas Fiscais, Entradas Manuais, Romaneios, Recibos) */}
           {(activeTab === 'fiscal' || activeTab === 'documentos_entrada' || activeTab === 'entradas' || activeTab === 'nfe_importar' || activeTab === 'nfe_notas') && (
-            <div id="fiscal-module-container" className="w-full max-w-none space-y-6">
+            <div id="fiscal-module-container" className="w-full max-w-none flex-1 min-h-0 flex flex-col">
               <NfeModule
                 expenses={expenses}
                 companyProfile={companyProfile}

@@ -322,12 +322,14 @@ interface DevolucaoNotasViewProps {
   companyProfile?: CompanyProfile;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
+  hideCompetenceSelector?: boolean;
 }
 
 export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   companyProfile,
   competence,
   onCompetenceChange,
+  hideCompetenceSelector = false,
 }) => {
   const [records, setRecords] = useState<TrocaDevolucaoRecord[]>(() =>
     getUnifiedFiscalDevolucoes()
@@ -713,11 +715,13 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
             </div>
 
             <div className="flex items-center gap-1">
-              <CompetenceSelector
-                competence={activeCompetence}
-                onPrev={handlePrevCompetence}
-                onNext={handleNextCompetence}
-              />
+              {!hideCompetenceSelector && (
+                <CompetenceSelector
+                  competence={activeCompetence}
+                  onPrev={handlePrevCompetence}
+                  onNext={handleNextCompetence}
+                />
+              )}
               {useCompetenceFilter ? (
                 <button
                   type="button"

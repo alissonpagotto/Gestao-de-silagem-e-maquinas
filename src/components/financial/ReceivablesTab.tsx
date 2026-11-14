@@ -36,8 +36,11 @@ import {
   saveStoredBankTransactions,
   getStoredFinanceiroCheques,
   saveStoredFinanceiroCheques,
-  getActiveCompanyId
+  getActiveCompanyId,
+  getStoredNotasSaida,
+  saveStoredNotasSaida
 } from '../../lib/storage';
+import { NotaSaidaRecord } from '../../types';
 import { toValidUUID } from '../../lib/supabaseService';
 import { 
   ReceivePaymentModal, 
@@ -90,6 +93,17 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 }) => {
   const [localOrders, setLocalOrders] = useState<SilageOrder[]>(orders);
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
+  const [localNotasSaida, setLocalNotasSaida] = useState<NotaSaidaRecord[]>(() => getStoredNotasSaida());
+
+  useEffect(() => {
+    const syncNotasSaida = () => setLocalNotasSaida(getStoredNotasSaida());
+    window.addEventListener('agrocontrol_notas_saida_updated', syncNotasSaida);
+    window.addEventListener('storage', syncNotasSaida);
+    return () => {
+      window.removeEventListener('agrocontrol_notas_saida_updated', syncNotasSaida);
+      window.removeEventListener('storage', syncNotasSaida);
+    };
+  }, []);
 
   useEffect(() => {
     setLocalOrders((prev) => {
@@ -186,9 +200,64 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       });
   }, [localServices]);
 
+  const receivablesFromNotasSaida: ReceivableItem[] = useMemo(() => {
+    const mapCond = (cond?: string): PaymentMethod | undefined => {
+      const c = (cond || '').toLowerCase();
+      if (c.includes('pix')) return 'pix';
+      if (c.includes('dinheiro')) return 'dinheiro';
+      if (c.includes('cart')) return 'cartao_credito';
+      if (c.includes('transfer')) return 'transferencia';
+      if (c.includes('cheque')) return 'cheque';
+      if (c.includes('prazo') || c.includes('faturado')) return 'prazo_carteira';
+      if (c.includes('boleto')) return 'boleto';
+      return undefined;
+    };
+
+    return localNotasSaida
+      .filter((n) => n.lancarContasReceber && n.status !== 'CANCELADA')
+      .map((n) => {
+        const isCte = (n.tipoDocumento || '').toLowerCase().includes('ct-e') || (n.tipoDocumento || '').toLowerCase().includes('cte');
+        let resolvedClientName = n.destinatarioNome || 'Consumidor Avulso';
+        let resolvedClientId = n.destinatarioId;
+
+        if (isCte) {
+          if (n.cteTomadorFinalNome) {
+            resolvedClientName = n.cteTomadorFinalNome;
+            resolvedClientId = n.cteTomadorFinalId;
+          } else {
+            const tomadorTipo = (n.cteTomador || 'Remetente').toLowerCase();
+            if (tomadorTipo.includes('outro') || tomadorTipo.includes('terceiro')) {
+              resolvedClientName = n.cteTomadorTerceiroNome || n.destinatarioNome || 'Terceiro Tomador';
+              resolvedClientId = n.cteTomadorTerceiroId;
+            } else if (tomadorTipo.includes('remetente')) {
+              resolvedClientName = n.cteRemetenteNome || n.destinatarioNome || 'Remetente';
+              resolvedClientId = n.cteRemetenteId;
+            } else {
+              resolvedClientName = n.destinatarioNome || 'Destinatário';
+              resolvedClientId = n.destinatarioId;
+            }
+          }
+        }
+
+        return {
+          id: n.id,
+          type: 'Nota Fiscal de Saída',
+          clientName: resolvedClientName,
+          date: n.dataEmissao || n.createdAt || '',
+          dueDate: n.dataVencimento || n.dataEmissao || n.createdAt || '',
+          volume: `${(n.tipoDocumento || 'NF').split(' ')[0]} Nº ${n.numero}${n.serie ? `/${n.serie}` : ''}`,
+          totalAmount: Number(n.valorTotal) || 0,
+          status: n.receberStatus === 'pago' ? 'pago' : 'pendente',
+          notes: n.descricao || n.observacoes || '',
+          clientId: resolvedClientId,
+          paymentMethod: (n.receberPaymentMethod as PaymentMethod) || mapCond(n.condicaoPagamento),
+        };
+      });
+  }, [localNotasSaida]);
+
   const allReceivables = useMemo(() => {
-    return [...receivablesFromOrders, ...receivablesFromServices];
-  }, [receivablesFromOrders, receivablesFromServices]);
+    return [...receivablesFromOrders, ...receivablesFromServices, ...receivablesFromNotasSaida];
+  }, [receivablesFromOrders, receivablesFromServices, receivablesFromNotasSaida]);
 
   const competenceReceivables = useMemo(() => {
     return allReceivables.filter((r) => {
@@ -559,6 +628,25 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           console.warn('Erro ao atualizar status do cheque:', e);
         }
       }
+    }
+
+    // 2.1 Atualiza Nota Fiscal de Saída quando integrada ao Contas a Receber
+    if (details.itemType === 'Nota Fiscal de Saída') {
+      const updatedNotas = localNotasSaida.map((n) => {
+        if (n.id === details.itemId) {
+          return {
+            ...n,
+            receberStatus: 'pago' as const,
+            receberPaymentDate: details.receiptDate,
+            receberPaymentMethod: details.paymentMethod,
+            valorTotal: details.paidAmount,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return n;
+      });
+      setLocalNotasSaida(updatedNotas);
+      saveStoredNotasSaida(updatedNotas);
     }
 
     // 3. Registra movimentação no Extrato Bancário e atualiza Saldo da Conta Bancária

@@ -2053,6 +2053,13 @@ export interface DocumentoEntradaRecord {
   descricao?: string;
   valor_total: number;
   observacoes?: string;
+  condicao_pagamento?: string;
+  parcelas_qtd?: number;
+  machineryId?: string;
+  machineryName?: string;
+  vehicleId?: string;
+  vehiclePlate?: string;
+  vehicleModel?: string;
   status?: 'Rascunho' | 'Finalizado' | string;
   created_at?: string;
   updated_at?: string;
@@ -2070,6 +2077,175 @@ export interface DocumentoEntradaItem {
   valor_total: number;
   created_at?: string;
 }
+
+// ==============================================================================
+// MÓDULO DOCUMENTOS DE SAÍDA (NOTAS EMITIDAS PELA EMPRESA)
+// ==============================================================================
+export type TipoDocumentoSaida =
+  | 'NFS-e (Prestação de Serviço)'
+  | 'NF-e (Venda de Mercadoria)'
+  | 'NF-e (Remessa / Retorno)'
+  | 'CT-e (Conhecimento de Transporte / Frete)'
+  | 'NFC-e (Consumidor)'
+  | 'MDF-e (Manifesto)'
+  | string;
+
+export interface NotaSaidaItem {
+  id: string;
+  inventoryItemId?: string;
+  codigo?: string;
+  descricao: string;
+  ncm?: string;
+  cfop?: string;
+  unidade: string;
+  quantidade: number;
+  valorUnitario: number;
+  desconto?: number;
+  baseIcms?: number;
+  aliquotaIcms?: number;
+  valorIcms?: number;
+  valorTotal: number;
+}
+
+export interface CteNfeVinculada {
+  id: string;
+  sourceDocId?: string;
+  numero: string;
+  serie?: string;
+  chaveAcesso?: string;
+  valorNota: number;
+}
+
+export interface NotaSaidaRecord {
+  id: string;
+  companyId?: string;
+  tipoDocumento: TipoDocumentoSaida;
+  numero: string;
+  serie?: string;
+  dataEmissao: string; // YYYY-MM-DD
+  dataVencimento?: string; // YYYY-MM-DD
+  chaveAcesso?: string;
+  destinatarioId?: string;
+  destinatarioNome: string;
+  destinatarioCpfCnpj?: string;
+  destinatarioIe?: string;
+  destinatarioEndereco?: string;
+  destinatarioCidadeUf?: string;
+  isConsumidorAvulso?: boolean;
+  veiculoId?: string;
+  veiculoPlaca?: string;
+  veiculoModelo?: string;
+  descricao: string;
+  valorTotal: number;
+  condicaoPagamento: string;
+  lancarContasReceber: boolean;
+  receberStatus?: 'pendente' | 'pago';
+  receberPaymentDate?: string;
+  receberPaymentMethod?: string;
+  status?: 'EMITIDA' | 'AUTORIZADA' | 'CANCELADA' | string;
+  observacoes?: string;
+
+  // A) Campos específicos de NFS-e
+  nfseCodigoServico?: string;
+  nfseMunicipioPrestacao?: string;
+  nfseAliquotaIss?: number;
+  nfseValorIss?: number;
+  nfseRetencaoIss?: boolean;
+  nfseNaturezaOperacao?: string;
+  nfsePedidoServicoId?: string;
+  nfsePedidoServicoLabel?: string;
+  nfseQuantidadeAreaHoras?: number;
+  nfseUnidadeAreaHoras?: string;
+  nfseValorUnitario?: number;
+  nfseObservacoesFiscais?: string;
+
+  // B & D) Campos específicos de NF-e (Venda / Remessa / Retorno) e NFC-e
+  nfeNaturezaOperacao?: string;
+  nfeCfop?: string;
+  nfeFinalidade?: string;
+  nfeModalidadeFrete?: string;
+  nfeTransportadoraNome?: string;
+  nfeTransportadoraPlaca?: string;
+  nfeReferenciada?: string;
+  itens?: NotaSaidaItem[];
+  baixarEstoqueAutomatico?: boolean;
+  estoqueBaixado?: boolean;
+
+  // C) Campos específicos de CT-e
+  cteCfop?: string;
+  cteTipoServico?: string;
+  cteMunicipioInicio?: string;
+  cteMunicipioTermino?: string;
+  cteTomador?: string;
+  cteRemetenteId?: string;
+  cteRemetenteNome?: string;
+  cteRemetenteCpfCnpj?: string;
+  cteRemetenteIe?: string;
+  cteRemetenteEndereco?: string;
+  cteRemetenteCidadeUf?: string;
+  cteRemetenteIsEmpresaPropria?: boolean;
+  cteTomadorTerceiroId?: string;
+  cteTomadorTerceiroNome?: string;
+  cteTomadorTerceiroCpfCnpj?: string;
+  cteTomadorTerceiroIe?: string;
+  cteTomadorTerceiroEndereco?: string;
+  cteTomadorTerceiroCidadeUf?: string;
+  cteTomadorFinalId?: string;
+  cteTomadorFinalNome?: string;
+  cteTomadorFinalCpfCnpj?: string;
+  cteTomadorFinalIe?: string;
+  cteTomadorFinalEndereco?: string;
+  cteTomadorFinalCidadeUf?: string;
+  cteProdutoPredominante?: string;
+  ctePesoBrutoKg?: number;
+  cteValorCarga?: number;
+  cteNfeTransportada?: string;
+  cteNfesVinculadas?: CteNfeVinculada[];
+  motoristaId?: string;
+  motoristaNome?: string;
+  motoristaCpf?: string;
+
+  // E) Campos específicos de MDF-e
+  mdfeUfCarregamento?: string;
+  mdfeUfDescarregamento?: string;
+  mdfeMunicipiosPercurso?: string;
+  mdfeVeiculoRenavam?: string;
+  mdfeReboquePlaca?: string;
+  mdfeSeguradora?: string;
+  mdfeApoliceSeguro?: string;
+  mdfeDocumentosVinculados?: string;
+  mdfePesoTotalKg?: number;
+  mdfeValorTotalCarga?: number;
+
+  // Dados Adicionais / Reservado ao Fisco (universal)
+  informacoesComplementares?: string;
+  reservadoFisco?: string;
+
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Lc116ServiceCodeEntry {
+  codigo: string;
+  descricao: string;
+  isDefault?: boolean;
+}
+
+export type CfopOperacaoTipo =
+  | 'venda'
+  | 'remessa_retorno'
+  | 'devolucao'
+  | 'transporte'
+  | 'outros';
+
+export interface CfopCatalogEntry {
+  codigo: string;
+  descricao: string;
+  tipo: CfopOperacaoTipo;
+  isDefault?: boolean;
+}
+
+export type NotaSaidaModelKey = 'NFE' | 'NFSE' | 'CTE' | 'NFCE' | 'MDFE';
 
 // ==============================================================================
 // MÓDULO GESTÃO E CONTROLE DO ALMOXARIFADO

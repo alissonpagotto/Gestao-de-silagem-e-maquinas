@@ -391,6 +391,7 @@ export interface TireReformOrderViewProps {
   initialCreateMode?: boolean;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
+  hideCompetenceSelector?: boolean;
   onOrderSaved?: (order: TireReformOrder) => void;
   onEfetivarRetorno?: (order: TireReformOrder) => void;
 }
@@ -400,6 +401,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   initialCreateMode = false,
   competence,
   onCompetenceChange,
+  hideCompetenceSelector = false,
   onOrderSaved,
   onEfetivarRetorno,
 }) => {
@@ -1489,11 +1491,13 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 />
               </div>
 
-              <CompetenceSelector
-                competence={activeCompetence}
-                onPrev={handlePrevCompetence}
-                onNext={handleNextCompetence}
-              />
+              {!hideCompetenceSelector && (
+                <CompetenceSelector
+                  competence={activeCompetence}
+                  onPrev={handlePrevCompetence}
+                  onNext={handleNextCompetence}
+                />
+              )}
 
               <button
                 type="button"

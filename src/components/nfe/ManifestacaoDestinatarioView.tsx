@@ -124,6 +124,7 @@ interface ManifestacaoDestinatarioViewProps {
   companyProfile: CompanyProfile | null;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
+  hideCompetenceSelector?: boolean;
   inventory?: InventoryItem[];
   onSaveInventory?: (inv: InventoryItem[]) => void;
   expenses?: Expense[];
@@ -135,6 +136,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
   companyProfile,
   competence,
   onCompetenceChange,
+  hideCompetenceSelector = false,
   inventory = [],
   onSaveInventory,
   onAddExpenseFromNfe,
@@ -608,11 +610,13 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
         </div>
 
         <div className="flex items-center gap-2">
-          <CompetenceSelector
-            competence={activeCompetence}
-            onPrev={handlePrevCompetence}
-            onNext={handleNextCompetence}
-          />
+          {!hideCompetenceSelector && (
+            <CompetenceSelector
+              competence={activeCompetence}
+              onPrev={handlePrevCompetence}
+              onNext={handleNextCompetence}
+            />
+          )}
 
           <button
             type="button"
