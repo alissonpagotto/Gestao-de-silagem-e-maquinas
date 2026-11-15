@@ -193,6 +193,19 @@ export function formatBoletoCurrencyValue(value: number): string {
   });
 }
 
+export function addDaysIsoDate(baseIso: string, days: number): string {
+  const safeDays = Math.trunc(Number(days) || 0);
+  const match = (baseIso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const baseUtc = match
+    ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : Date.now();
+  const target = new Date(baseUtc + safeDays * 86400000);
+  const y = target.getUTCFullYear();
+  const m = String(target.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(target.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function computeFebrabanDueFactor(dueDateStr: string): string {
   if (!dueDateStr) return '0000';
   const match = dueDateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -499,7 +512,21 @@ export function generateNextNossoNumero(seed?: string | number): string {
   return `${year2}${month2}${suffix}${rand2}`.slice(0, 10);
 }
 
-export function buildBoletoPrintHtml(doc: BoletoDocumentInput): string {
+export function incrementNossoNumero(baseNossoNumero: string, offset: number): string {
+  const digits = cleanDigits(baseNossoNumero || '') || '00000001';
+  const safeOffset = Math.max(0, Math.trunc(Number(offset) || 0));
+  if (safeOffset === 0) return digits;
+  const targetLen = Math.max(digits.length, 8);
+  try {
+    const nextVal = BigInt(digits) + BigInt(safeOffset);
+    return nextVal.toString().padStart(targetLen, '0').slice(-Math.max(targetLen, 10));
+  } catch {
+    const num = (parseInt(digits.slice(-9), 10) || 1) + safeOffset;
+    return String(num).padStart(targetLen, '0');
+  }
+}
+
+function buildBoletoSheetInnerHtml(doc: BoletoDocumentInput): string {
   const barcodeSvg = generateI2of5SvgString(doc.barcode, 52);
   const valorFormatado = formatCurrencyBRL(doc.valorDocumento);
   const descontoFormatado =
@@ -512,150 +539,7 @@ export function buildBoletoPrintHtml(doc: BoletoDocumentInput): string {
   const dataVencBr = formatDateBR(doc.dataVencimento);
   const instrucoesHtml = escapeHtml(doc.instrucoes).replace(/\n/g, '<br/>');
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <title>Boleto Bancário ${escapeHtml(doc.numeroDocumento)} - ${escapeHtml(doc.pagadorNome)}</title>
-  <style>
-    @page {
-      size: A4 portrait;
-      margin: 10mm;
-    }
-    * {
-      box-sizing: border-box;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    body {
-      margin: 0;
-      padding: 12px;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #000000;
-      background: #ffffff;
-      font-size: 10px;
-    }
-    .sheet {
-      width: 100%;
-      max-width: 760px;
-      margin: 0 auto;
-    }
-    .section-tag {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #333333;
-      margin-bottom: 3px;
-      display: flex;
-      justify-content: space-between;
-    }
-    .bank-header {
-      display: flex;
-      align-items: flex-end;
-      border-bottom: 2px solid #000000;
-      padding-bottom: 4px;
-      margin-bottom: 0;
-    }
-    .bank-name {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      font-weight: 900;
-      padding-right: 10px;
-      border-right: 2px solid #000000;
-      white-space: nowrap;
-    }
-    .bank-badge {
-      display: inline-block;
-      padding: 2px 6px;
-      color: #ffffff;
-      font-weight: 900;
-      font-size: 11px;
-      border-radius: 3px;
-    }
-    .bank-code {
-      font-size: 16px;
-      font-weight: 900;
-      padding: 0 12px;
-      border-right: 2px solid #000000;
-      white-space: nowrap;
-      font-family: "Courier New", monospace;
-    }
-    .linha-digitavel {
-      flex: 1;
-      text-align: right;
-      font-size: 12.5px;
-      font-weight: 900;
-      font-family: "Courier New", monospace;
-      letter-spacing: 0.02em;
-      padding-left: 8px;
-    }
-    table.boleto-grid {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    table.boleto-grid td {
-      border: 1px solid #000000;
-      padding: 3px 5px;
-      vertical-align: top;
-    }
-    .lbl {
-      display: block;
-      font-size: 7.5px;
-      text-transform: uppercase;
-      color: #222222;
-      margin-bottom: 2px;
-    }
-    .val {
-      display: block;
-      font-size: 10px;
-      font-weight: 700;
-      color: #000000;
-      word-break: break-word;
-    }
-    .val-right {
-      text-align: right;
-      font-weight: 900;
-    }
-    .cut-line {
-      border-top: 1px dashed #000000;
-      margin: 14px 0;
-      position: relative;
-      text-align: right;
-    }
-    .cut-line span {
-      background: #ffffff;
-      padding: 0 6px;
-      font-size: 8px;
-      font-weight: 700;
-      position: relative;
-      top: -6px;
-    }
-    .barcode-area {
-      margin-top: 8px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .barcode-svg {
-      flex: 1;
-      max-width: 460px;
-    }
-    .auth-box {
-      width: 210px;
-      text-align: right;
-      font-size: 8px;
-      border-top: 1px solid #000000;
-      padding-top: 3px;
-    }
-  </style>
-</head>
-<body>
-  <div class="sheet">
+  return `<div class="sheet">
     <!-- RECIBO DO PAGADOR -->
     <div class="section-tag">
       <span>Recibo do Pagador</span>
@@ -833,13 +717,195 @@ export function buildBoletoPrintHtml(doc: BoletoDocumentInput): string {
       <div class="barcode-svg">${barcodeSvg}</div>
       <div class="auth-box">Autenticação Mecânica — Ficha de Compensação</div>
     </div>
-  </div>
+  </div>`;
+}
+
+export function buildBoletosBatchPrintHtml(docs: BoletoDocumentInput[]): string {
+  const safeDocs = docs.length > 0 ? docs : [];
+  const firstDoc = safeDocs[0];
+  const titleText =
+    safeDocs.length > 1 && firstDoc
+      ? `Carnê de Boletos (${safeDocs.length} Parcelas) - ${firstDoc.pagadorNome}`
+      : firstDoc
+      ? `Boleto Bancário ${firstDoc.numeroDocumento} - ${firstDoc.pagadorNome}`
+      : 'Boleto Bancário FEBRABAN';
+
+  const sheetsHtml = safeDocs
+    .map(
+      (doc) => `<div class="sheet-page">${buildBoletoSheetInnerHtml(doc)}</div>`
+    )
+    .join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(titleText)}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      margin: 0;
+      padding: 12px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #000000;
+      background: #ffffff;
+      font-size: 10px;
+    }
+    .sheet-page {
+      page-break-after: always;
+      break-after: page;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 24px;
+    }
+    .sheet-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+      margin-bottom: 0;
+    }
+    @media print {
+      body {
+        padding: 0;
+      }
+      .sheet-page {
+        margin-bottom: 0;
+      }
+    }
+    .sheet {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .section-tag {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #333333;
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .bank-header {
+      display: flex;
+      align-items: flex-end;
+      border-bottom: 2px solid #000000;
+      padding-bottom: 4px;
+      margin-bottom: 0;
+    }
+    .bank-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 900;
+      padding-right: 10px;
+      border-right: 2px solid #000000;
+      white-space: nowrap;
+    }
+    .bank-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 11px;
+      border-radius: 3px;
+    }
+    .bank-code {
+      font-size: 16px;
+      font-weight: 900;
+      padding: 0 12px;
+      border-right: 2px solid #000000;
+      white-space: nowrap;
+      font-family: "Courier New", monospace;
+    }
+    .linha-digitavel {
+      flex: 1;
+      text-align: right;
+      font-size: 12.5px;
+      font-weight: 900;
+      font-family: "Courier New", monospace;
+      letter-spacing: 0.02em;
+      padding-left: 8px;
+    }
+    table.boleto-grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    table.boleto-grid td {
+      border: 1px solid #000000;
+      padding: 3px 5px;
+      vertical-align: top;
+    }
+    .lbl {
+      display: block;
+      font-size: 7.5px;
+      text-transform: uppercase;
+      color: #222222;
+      margin-bottom: 2px;
+    }
+    .val {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      color: #000000;
+      word-break: break-word;
+    }
+    .val-right {
+      text-align: right;
+      font-weight: 900;
+    }
+    .cut-line {
+      border-top: 1px dashed #000000;
+      margin: 14px 0;
+      position: relative;
+      text-align: right;
+    }
+    .cut-line span {
+      background: #ffffff;
+      padding: 0 6px;
+      font-size: 8px;
+      font-weight: 700;
+      position: relative;
+      top: -6px;
+    }
+    .barcode-area {
+      margin-top: 8px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .barcode-svg {
+      flex: 1;
+      max-width: 460px;
+    }
+    .auth-box {
+      width: 210px;
+      text-align: right;
+      font-size: 8px;
+      border-top: 1px solid #000000;
+      padding-top: 3px;
+    }
+  </style>
+</head>
+<body>
+  ${sheetsHtml}
   <script>
     (function(){
       function go(){
         setTimeout(function(){
           try { window.focus(); window.print(); } catch(e) {}
-        }, 220);
+        }, 250);
       }
       if (document.readyState === 'complete') go();
       else window.onload = go;
@@ -849,8 +915,13 @@ export function buildBoletoPrintHtml(doc: BoletoDocumentInput): string {
 </html>`;
 }
 
-export function openBoletoPrintWindow(doc: BoletoDocumentInput): boolean {
-  const html = buildBoletoPrintHtml(doc);
+export function buildBoletoPrintHtml(doc: BoletoDocumentInput): string {
+  return buildBoletosBatchPrintHtml([doc]);
+}
+
+export function openBoletosBatchPrintWindow(docs: BoletoDocumentInput[]): boolean {
+  if (!docs || docs.length === 0) return false;
+  const html = buildBoletosBatchPrintHtml(docs);
   try {
     const win = window.open('', '_blank', 'width=920,height=840');
     if (win) {
@@ -890,11 +961,15 @@ export function openBoletoPrintWindow(doc: BoletoDocumentInput): boolean {
         iframe?.contentWindow?.focus();
         iframe?.contentWindow?.print();
       } catch {}
-    }, 300);
+    }, 320);
     return true;
   } catch {
     return false;
   }
+}
+
+export function openBoletoPrintWindow(doc: BoletoDocumentInput): boolean {
+  return openBoletosBatchPrintWindow([doc]);
 }
 
 export function buildBoletoShareMessage(doc: BoletoDocumentInput): string {
@@ -914,7 +989,47 @@ export function buildBoletoShareMessage(doc: BoletoDocumentInput): string {
   ].join('\n');
 }
 
+export function buildBoletosBatchShareMessage(docs: BoletoDocumentInput[]): string {
+  if (!docs || docs.length === 0) return '';
+  if (docs.length === 1) return buildBoletoShareMessage(docs[0]);
+
+  const first = docs[0];
+  const totalAmount = docs.reduce((acc, d) => acc + (Number(d.valorDocumento) || 0), 0);
+  const headerLines = [
+    `Olá ${first.pagadorNome}, segue o resumo completo do seu Carnê com *${docs.length} Boletos Bancários* para pagamento:`,
+    ``,
+    `• Beneficiário: ${first.beneficiarioNome} (${first.beneficiarioCnpj})`,
+    `• Banco Emissor: ${first.bankMeta.codeWithDv} - ${first.bankMeta.shortName}`,
+    `• Quantidade de Parcelas: ${docs.length}x`,
+    `• Valor Total do Carnê: ${formatCurrencyBRL(totalAmount)}`,
+  ];
+
+  const parcelBlocks = docs.map((doc, idx) => {
+    const label = doc.demonstrativoParcela || `Parcela ${idx + 1}/${docs.length}`;
+    return [
+      ``,
+      `----------------------------------------`,
+      `📌 ${label} — Doc: ${doc.numeroDocumento}`,
+      `• Vencimento: ${formatDateBR(doc.dataVencimento)}`,
+      `• Valor: ${formatCurrencyBRL(doc.valorDocumento)}`,
+      `• Linha Digitável:`,
+      `${doc.linhaDigitavel}`,
+    ].join('\n');
+  });
+
+  return [
+    ...headerLines,
+    ...parcelBlocks,
+    ``,
+    `Copie e cole a Linha Digitável correspondente no aplicativo do seu banco para efetuar o pagamento.`,
+  ].join('\n');
+}
+
 export function buildBoletoWhatsAppUrl(doc: BoletoDocumentInput, phone?: string): string {
+  return buildBoletosBatchWhatsAppUrl([doc], phone);
+}
+
+export function buildBoletosBatchWhatsAppUrl(docs: BoletoDocumentInput[], phone?: string): string {
   const digits = cleanDigits(phone || '');
   const fullPhone =
     digits.length >= 10 && digits.length <= 11
@@ -922,17 +1037,34 @@ export function buildBoletoWhatsAppUrl(doc: BoletoDocumentInput, phone?: string)
       : digits.length >= 12
       ? digits
       : '';
-  const text = encodeURIComponent(buildBoletoShareMessage(doc));
+  const text = encodeURIComponent(buildBoletosBatchShareMessage(docs));
   return fullPhone
     ? `https://wa.me/${fullPhone}?text=${text}`
     : `https://wa.me/?text=${text}`;
 }
 
 export function buildBoletoMailtoUrl(doc: BoletoDocumentInput, email?: string): string {
+  return buildBoletosBatchMailtoUrl([doc], email);
+}
+
+export function buildBoletosBatchMailtoUrl(docs: BoletoDocumentInput[], email?: string): string {
+  if (!docs || docs.length === 0) return 'mailto:';
+  if (docs.length === 1) {
+    const doc = docs[0];
+    const subject = encodeURIComponent(
+      `Boleto Bancário ${doc.numeroDocumento} - Vencimento ${formatDateBR(doc.dataVencimento)} (${formatCurrencyBRL(doc.valorDocumento)})`
+    );
+    const body = encodeURIComponent(buildBoletoShareMessage(doc));
+    const target = (email || '').trim();
+    return `mailto:${encodeURIComponent(target)}?subject=${subject}&body=${body}`;
+  }
+
+  const first = docs[0];
+  const totalAmount = docs.reduce((acc, d) => acc + (Number(d.valorDocumento) || 0), 0);
   const subject = encodeURIComponent(
-    `Boleto Bancário ${doc.numeroDocumento} - Vencimento ${formatDateBR(doc.dataVencimento)} (${formatCurrencyBRL(doc.valorDocumento)})`
+    `Carnê de Boletos Bancários (${docs.length} Parcelas) - ${first.pagadorNome} - Total ${formatCurrencyBRL(totalAmount)}`
   );
-  const body = encodeURIComponent(buildBoletoShareMessage(doc));
+  const body = encodeURIComponent(buildBoletosBatchShareMessage(docs));
   const target = (email || '').trim();
   return `mailto:${encodeURIComponent(target)}?subject=${subject}&body=${body}`;
 }

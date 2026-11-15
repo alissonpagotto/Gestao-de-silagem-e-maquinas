@@ -13,7 +13,8 @@ import {
   Check,
   CreditCard,
   Building2,
-  Sparkles
+  Sparkles,
+  Landmark
 } from 'lucide-react';
 import { 
   SilageOrder, 
@@ -49,6 +50,12 @@ import {
   InstallmentPreviewItem 
 } from './ReceivePaymentModal';
 import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
+import { CnabRemessaRetornoModal, CnabBatchSettlePayload } from './CnabRemessaRetornoModal';
+import {
+  BOLETOS_EMITIDOS_UPDATED_EVENT,
+  getStoredBoletosEmitidos,
+  markBoletosStatus,
+} from '../../utils/cnabUtils';
 
 export const getPaymentMethodLabel = (method?: PaymentMethod | string): string => {
   switch (method) {
@@ -134,6 +141,31 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   // Modal de Baixa de Contas a Receber
   const [settlingItem, setSettlingItem] = useState<ReceivableItem | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // Modal de Remessa & Retorno Bancário (CNAB 240 / 400)
+  const [isCnabModalOpen, setIsCnabModalOpen] = useState<boolean>(false);
+  const [pendingRemessaCount, setPendingRemessaCount] = useState<number>(
+    () => getStoredBoletosEmitidos().filter((b) => b.statusRegistro === 'AGUARDANDO_REMESSA').length
+  );
+
+  useEffect(() => {
+    const syncBoletosCount = () => {
+      setPendingRemessaCount(
+        getStoredBoletosEmitidos().filter((b) => b.statusRegistro === 'AGUARDANDO_REMESSA').length
+      );
+    };
+    window.addEventListener(BOLETOS_EMITIDOS_UPDATED_EVENT, syncBoletosCount);
+    window.addEventListener('storage', syncBoletosCount);
+    return () => {
+      window.removeEventListener(BOLETOS_EMITIDOS_UPDATED_EVENT, syncBoletosCount);
+      window.removeEventListener('storage', syncBoletosCount);
+    };
+  }, []);
+
+  const effectiveBankAccounts = useMemo(
+    () => (bankAccounts && bankAccounts.length > 0 ? bankAccounts : getStoredBankAccounts()),
+    [bankAccounts]
+  );
 
   // Combined Receivables Items
   const receivablesFromOrders: ReceivableItem[] = useMemo(() => {
@@ -834,6 +866,306 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     }, 6000);
   };
 
+  // Baixa automática em lote via Arquivo Retorno (.RET) CNAB 240 / 400
+  const handleBatchSettleFromRetorno = (payload: CnabBatchSettlePayload) => {
+    const activeCompanyId = companyProfile?.id || getActiveCompanyId();
+    const nowIso = new Date().toISOString();
+    const todayStr = nowIso.split('T')[0];
+
+    let boletosUpdated = 0;
+    const allStoredBoletosBefore = getStoredBoletosEmitidos();
+    const boletoById = new Map(allStoredBoletosBefore.map((b) => [b.id, b]));
+
+    payload.rows.forEach((row) => {
+      if (row.matchedBoletoId) {
+        markBoletosStatus([row.matchedBoletoId], 'LIQUIDADO', {
+          dataLiquidacao: row.dataCredito || row.dataOcorrencia || todayStr,
+          valorPago: Number((Number(row.valorPago) || 0).toFixed(2)),
+        });
+        boletosUpdated += 1;
+      }
+    });
+
+    const allStoredBoletosAfter = getStoredBoletosEmitidos();
+    const groupedByConta = new Map<
+      string,
+      {
+        contaId: string;
+        tipo?: string;
+        paidSum: number;
+        latestDate: string;
+        parcelLabels: string[];
+      }
+    >();
+
+    let creditedAmount = 0;
+    const newTransactions: BankTransaction[] = [];
+
+    payload.rows.forEach((row) => {
+      const paidVal = Number((Number(row.valorPago) || 0).toFixed(2));
+      if (paidVal <= 0) return;
+
+      creditedAmount = Number((creditedAmount + paidVal).toFixed(2));
+      const txDate = row.dataCredito || row.dataOcorrencia || todayStr;
+
+      newTransactions.push({
+        id: toValidUUID(),
+        bankAccountId: payload.bankAccountId,
+        type: 'entrada',
+        sourceType: 'receita',
+        category: 'Recebimento Boleto (CNAB)',
+        description: `Baixa Retorno CNAB${payload.fileName ? ` (${payload.fileName})` : ''} - ${row.clienteNome} | NN ${row.nossoNumero}`,
+        amount: paidVal,
+        date: txDate,
+        createdAt: nowIso,
+      });
+
+      const matchedBoleto = row.matchedBoletoId ? boletoById.get(row.matchedBoletoId) : undefined;
+      const contaId = row.matchedContaReceberId || matchedBoleto?.contaReceberId;
+      if (contaId) {
+        const existingGroup = groupedByConta.get(contaId);
+        const parcelaLabel = matchedBoleto?.parcela || '';
+        if (existingGroup) {
+          existingGroup.paidSum = Number((existingGroup.paidSum + paidVal).toFixed(2));
+          if (txDate > existingGroup.latestDate) existingGroup.latestDate = txDate;
+          if (parcelaLabel) existingGroup.parcelLabels.push(parcelaLabel);
+        } else {
+          groupedByConta.set(contaId, {
+            contaId,
+            tipo: row.matchedContaReceberTipo || matchedBoleto?.contaReceberTipo,
+            paidSum: paidVal,
+            latestDate: txDate,
+            parcelLabels: parcelaLabel ? [parcelaLabel] : [],
+          });
+        }
+      }
+    });
+
+    let settledCount = 0;
+    let nextOrders = [...localOrders];
+    let nextServices = [...localServices];
+    let nextNotas = [...localNotasSaida];
+    let ordersChanged = false;
+    let servicesChanged = false;
+    let notasChanged = false;
+
+    groupedByConta.forEach((group) => {
+      const remainingBoletos = allStoredBoletosAfter.filter(
+        (b) => b.contaReceberId === group.contaId && b.statusRegistro !== 'LIQUIDADO'
+      );
+      const parcelaTag =
+        group.parcelLabels.length > 0 ? ` [${group.parcelLabels.join(', ')}]` : '';
+
+      // 1. Tenta liquidar em Prestação de Serviço
+      const sIdx = nextServices.findIndex((s) => s.id === group.contaId);
+      if (sIdx >= 0) {
+        const target = nextServices[sIdx];
+        if (target.paymentStatus !== 'pago' && target.status !== 'finalizado') {
+          settledCount += 1;
+          servicesChanged = true;
+          if (remainingBoletos.length === 0) {
+            nextServices[sIdx] = {
+              ...target,
+              status: 'finalizado',
+              paymentStatus: 'pago',
+              paymentMethod: 'boleto',
+              paymentDate: group.latestDate,
+              paidAmount: Number(((Number(target.paidAmount) || 0) + group.paidSum).toFixed(2)),
+              billingNotes: `${target.billingNotes || target.serviceType || 'Serviço'} (Liquidado via Retorno CNAB${parcelaTag} em ${formatDateBR(group.latestDate)})`.trim(),
+              updatedAt: nowIso,
+            };
+          } else {
+            const remainingTotal = Math.max(
+              0.01,
+              Number(((Number(target.totalAmount) || 0) - group.paidSum).toFixed(2))
+            );
+            nextServices[sIdx] = {
+              ...target,
+              totalAmount: remainingTotal,
+              dueDate: remainingBoletos[0].vencimento || target.dueDate,
+              paymentMethod: 'boleto',
+              updatedAt: nowIso,
+            };
+            nextServices.push({
+              ...target,
+              id: `serv_cnab_${target.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              totalAmount: group.paidSum,
+              dueDate: group.latestDate,
+              status: 'finalizado',
+              billingStatus: 'faturado',
+              billedAt: target.billedAt || nowIso,
+              paymentStatus: 'pago',
+              paymentMethod: 'boleto',
+              paymentDate: group.latestDate,
+              paidAmount: group.paidSum,
+              isInstallment: true,
+              parentOrderId: target.id,
+              billingNotes: `${target.billingNotes || target.serviceType || 'Serviço'} (Parcela${parcelaTag} liquidada via Retorno CNAB)`.trim(),
+              updatedAt: nowIso,
+            });
+          }
+        }
+        return;
+      }
+
+      // 2. Tenta liquidar em Venda de Silagem
+      const oIdx = nextOrders.findIndex((o) => o.id === group.contaId);
+      if (oIdx >= 0) {
+        const target = nextOrders[oIdx];
+        if (target.paymentStatus !== 'pago') {
+          settledCount += 1;
+          ordersChanged = true;
+          if (remainingBoletos.length === 0) {
+            nextOrders[oIdx] = {
+              ...target,
+              paymentStatus: 'pago',
+              paymentMethod: 'boleto',
+              paymentDate: group.latestDate,
+              paidAmount: Number(((Number(target.paidAmount) || 0) + group.paidSum).toFixed(2)),
+              notes: `${target.notes || ''} (Liquidado via Retorno CNAB${parcelaTag} em ${formatDateBR(group.latestDate)})`.trim(),
+              updatedAt: nowIso,
+            };
+          } else {
+            const remainingTotal = Math.max(
+              0.01,
+              Number(((Number(target.totalAmount) || 0) - group.paidSum).toFixed(2))
+            );
+            nextOrders[oIdx] = {
+              ...target,
+              totalAmount: remainingTotal,
+              dueDate: remainingBoletos[0].vencimento || target.dueDate,
+              paymentMethod: 'boleto',
+              updatedAt: nowIso,
+            };
+            nextOrders.push({
+              ...target,
+              id: `ord_cnab_${target.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              totalAmount: group.paidSum,
+              deliveryDate: group.latestDate,
+              date: group.latestDate,
+              dueDate: group.latestDate,
+              paymentStatus: 'pago',
+              paymentMethod: 'boleto',
+              paidAmount: group.paidSum,
+              paymentDate: group.latestDate,
+              status: 'confirmado',
+              isInstallment: true,
+              parentOrderId: target.id,
+              notes: `${target.notes || ''} (Parcela${parcelaTag} liquidada via Retorno CNAB)`.trim(),
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            });
+          }
+        }
+        return;
+      }
+
+      // 3. Tenta liquidar em Nota Fiscal de Saída
+      const nIdx = nextNotas.findIndex((n) => n.id === group.contaId);
+      if (nIdx >= 0) {
+        const target = nextNotas[nIdx];
+        if (target.receberStatus !== 'pago') {
+          settledCount += 1;
+          notasChanged = true;
+          if (remainingBoletos.length === 0) {
+            nextNotas[nIdx] = {
+              ...target,
+              receberStatus: 'pago',
+              receberPaymentDate: group.latestDate,
+              receberPaymentMethod: 'boleto',
+              condicaoPagamento: 'Boleto',
+              updatedAt: nowIso,
+            };
+          } else {
+            const remainingTotal = Math.max(
+              0.01,
+              Number(((Number(target.valorTotal) || 0) - group.paidSum).toFixed(2))
+            );
+            nextNotas[nIdx] = {
+              ...target,
+              valorTotal: remainingTotal,
+              dataVencimento: remainingBoletos[0].vencimento || target.dataVencimento,
+              receberPaymentMethod: 'boleto',
+              updatedAt: nowIso,
+            };
+            nextNotas.push({
+              ...target,
+              id: `nf_cnab_${target.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              numero: `${target.numero}${parcelaTag ? ` ${parcelaTag}` : ' (Parc)'}`,
+              valorTotal: group.paidSum,
+              dataVencimento: group.latestDate,
+              condicaoPagamento: 'Boleto',
+              receberStatus: 'pago',
+              receberPaymentDate: group.latestDate,
+              receberPaymentMethod: 'boleto',
+              observacoes: `${target.observacoes ? `${target.observacoes} | ` : ''}Liquidado via Retorno CNAB${parcelaTag}`.trim(),
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            });
+          }
+        }
+      }
+    });
+
+    if (servicesChanged) {
+      setLocalServices(nextServices);
+      saveStoredServices(nextServices);
+      if (onSaveServices) onSaveServices(nextServices);
+    }
+    if (ordersChanged) {
+      setLocalOrders(nextOrders);
+      saveStoredOrders(nextOrders);
+      if (onSaveOrders) onSaveOrders(nextOrders);
+    }
+    if (notasChanged) {
+      setLocalNotasSaida(nextNotas);
+      saveStoredNotasSaida(nextNotas);
+    }
+
+    // Credita conta bancária e grava extrato
+    if (payload.bankAccountId && creditedAmount > 0) {
+      try {
+        const allAccs = getStoredBankAccounts();
+        const targetAcc = allAccs.find((a) => a.id === payload.bankAccountId);
+        if (targetAcc) {
+          targetAcc.balance = Number(
+            ((Number(targetAcc.balance) || 0) + creditedAmount).toFixed(2)
+          );
+          targetAcc.updatedAt = nowIso;
+          saveStoredBankAccounts(allAccs);
+          saveCompanyFinanceiroContas(allAccs, activeCompanyId);
+          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+          window.dispatchEvent(new Event('bank_accounts_updated'));
+        }
+
+        if (newTransactions.length > 0) {
+          const currentTx = getStoredBankTransactions();
+          saveStoredBankTransactions([...newTransactions, ...currentTx]);
+        }
+      } catch (txErr) {
+        console.warn('Aviso ao creditar saldo/extrato bancário via CNAB:', txErr);
+      }
+    }
+
+    setPendingRemessaCount(
+      getStoredBoletosEmitidos().filter((b) => b.statusRegistro === 'AGUARDANDO_REMESSA').length
+    );
+
+    const summaryMsg = `Retorno CNAB processado! ${boletosUpdated} boleto(s) liquidado(s), ${settledCount} conta(s) a receber baixada(s) e ${formatCurrencyBRL(
+      creditedAmount
+    )} creditado(s) no saldo bancário.`;
+    setSuccessMessage(summaryMsg);
+    setTimeout(() => {
+      setSuccessMessage((curr) => (curr === summaryMsg ? '' : curr));
+    }, 7000);
+
+    return {
+      settledCount,
+      creditedAmount,
+      boletosUpdated,
+    };
+  };
+
   return (
     <div id="financial-tab-receber" className="financial-subtab-clean space-y-3">
       {/* Toast de Sucesso da Baixa */}
@@ -907,9 +1239,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         </div>
       </div>
 
-      {/* Filters Bar (Compact) */}
-      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-black dark:text-white">
-        <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none">
+      {/* Filters & CNAB Actions Bar (Compact) */}
+      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 text-black dark:text-white">
+        <div className="flex items-center space-x-1.5 w-full lg:w-auto overflow-x-auto scrollbar-none">
           <CompetenceSelector
             competence={activeCompetence}
             onPrev={handlePrev}
@@ -954,15 +1286,33 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           </button>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-3.5 h-3.5 text-black absolute left-2.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por cliente, tipo..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
-          />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+          <button
+            type="button"
+            id="btn-cnab-remessa-retorno"
+            onClick={() => setIsCnabModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white border border-black text-xs font-black transition cursor-pointer shadow-xs whitespace-nowrap"
+            title="Gerar arquivo Remessa (.REM) ou importar arquivo Retorno (.RET) CNAB 240/400"
+          >
+            <Landmark className="w-3.5 h-3.5 shrink-0" />
+            <span>🏦 Remessa &amp; Retorno Bancário (CNAB)</span>
+            {pendingRemessaCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded bg-amber-300 text-black border border-black text-[10px] font-black leading-none">
+                {pendingRemessaCount}
+              </span>
+            )}
+          </button>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-black absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por cliente, tipo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
+            />
+          </div>
         </div>
       </div>
 
@@ -1084,11 +1434,23 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           isOpen={Boolean(settlingItem)}
           onClose={() => setSettlingItem(null)}
           item={settlingItem}
-          bankAccounts={bankAccounts}
+          bankAccounts={effectiveBankAccounts}
           companyProfile={companyProfile}
           onSuccess={handleReceiptSuccess}
         />
       )}
+
+      {/* Modal de Remessa & Retorno Bancário (CNAB 240 / 400) */}
+      <CnabRemessaRetornoModal
+        isOpen={isCnabModalOpen}
+        onClose={() => setIsCnabModalOpen(false)}
+        bankAccounts={effectiveBankAccounts}
+        companyProfile={companyProfile}
+        orders={localOrders}
+        services={localServices}
+        notasSaida={localNotasSaida}
+        onBatchSettleRetorno={handleBatchSettleFromRetorno}
+      />
     </div>
   );
 };

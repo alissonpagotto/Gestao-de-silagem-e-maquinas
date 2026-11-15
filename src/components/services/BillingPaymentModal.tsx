@@ -380,19 +380,27 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   }, [service?.clientId, item?.clientId, resolvedClient]);
 
   const handleOpenBoletoModal = (
-    dueDate: string,
-    amount: number,
-    parcelaLabel?: string,
-    parcelSuffix?: string
+    firstDueDate: string,
+    totalAmountToParcel: number,
+    installmentsCount: number,
+    intervalDays: number,
+    installmentsSchedule: Array<{ number: number; total: number; dueDate: string; amount: number }>
   ) => {
     const baseDoc = targetOrderNumber
-      ? `${targetOrderNumber}${parcelSuffix ? `-${parcelSuffix}` : ''}`
-      : `${targetId.slice(-6).toUpperCase()}${parcelSuffix ? `-${parcelSuffix}` : ''}`;
+      ? `${targetOrderNumber}`
+      : `${targetId.slice(-6).toUpperCase()}`;
+    const safeCount = Math.max(1, Number(installmentsCount) || 1);
     setBoletoModalData({
+      contaReceberId: targetId,
+      contaReceberTipo: item?.type || (isServiceMode ? 'Prestação de Serviço' : 'Venda de Silagem'),
       numeroDocumento: baseDoc || 'DOC-001',
-      dueDate: dueDate || today,
-      amount: Number(amount) || 0,
-      parcelaLabel,
+      dueDate: firstDueDate || today,
+      amount: Number(totalAmountToParcel) || 0,
+      installmentsCount: safeCount,
+      intervalDays: Math.max(1, Number(intervalDays) || 30),
+      installments: installmentsSchedule,
+      parcelaLabel:
+        safeCount > 1 ? `CARNÊ COMPLETO: ${safeCount} BOLETOS` : 'Parcela Única',
       referenceDescription: `${serviceOrType}${farmOrOrigin ? ` (${farmOrOrigin})` : ''}`,
       bankAccountId: selectedBankAccountId || priorityBankAccount?.id,
     });
@@ -1659,8 +1667,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                             </span>
                             <span className="text-[10px] text-slate-700 font-medium">
                               {line.installmentsCount > 1
-                                ? `Gere o boleto da 1ª parcela abaixo ou emita individualmente em cada parcela (${line.installmentsCount}x).`
-                                : `Emita, edite encargos/banco, imprima em PDF ou envie via WhatsApp/E-mail (${formatCurrencyBRL(lineTotalWithInterest)}).`}
+                                ? `Gere, visualize, imprima ou envie o carnê completo com todas as ${line.installmentsCount} parcelas (${formatCurrencyBRL(lineTotalWithInterest)}) em lote.`
+                                : `Emita, configure parcelas/encargos/banco, imprima em PDF ou envie via WhatsApp/E-mail (${formatCurrencyBRL(lineTotalWithInterest)}).`}
                             </span>
                           </div>
                         </div>
@@ -1669,16 +1677,15 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           onClick={() =>
                             handleOpenBoletoModal(
                               breakdown[0]?.dueDate || line.firstDueDate,
-                              breakdown[0]?.amount || lineTotalWithInterest,
-                              line.installmentsCount > 1
-                                ? `Parcela 1/${line.installmentsCount}`
-                                : 'Parcela Única',
-                              line.installmentsCount > 1 ? `P1-${line.installmentsCount}` : undefined
+                              lineTotalWithInterest,
+                              line.installmentsCount,
+                              line.installmentsIntervalDays,
+                              breakdown
                             )
                           }
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white border border-black text-xs font-black uppercase shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                         >
-                          <span>🧾 Gerar / Visualizar Boleto</span>
+                          <span>🧾 GERAR / VISUALIZAR BOLETOS (CARNÊ / LOTE)</span>
                         </button>
                       </div>
                     )}
@@ -1862,23 +1869,6 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                     <span className="text-[9px] font-bold text-amber-800 bg-amber-50 border border-black px-1 rounded">
                                       +juros
                                     </span>
-                                  )}
-                                  {line.paymentMethod === 'boleto' && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleOpenBoletoModal(
-                                          itemBreakdown.dueDate,
-                                          itemBreakdown.amount,
-                                          `Parcela ${itemBreakdown.number}/${itemBreakdown.total}`,
-                                          `P${itemBreakdown.number}-${itemBreakdown.total}`
-                                        )
-                                      }
-                                      className="ml-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-800 text-white border border-black text-[10px] font-black uppercase transition cursor-pointer"
-                                      title={`Gerar / Visualizar Boleto da Parcela ${itemBreakdown.number}/${itemBreakdown.total}`}
-                                    >
-                                      <span>🧾 Gerar / Visualizar Boleto</span>
-                                    </button>
                                   )}
                                 </div>
                               ))}
