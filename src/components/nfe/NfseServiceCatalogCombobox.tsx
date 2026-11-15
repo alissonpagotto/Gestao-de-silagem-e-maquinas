@@ -44,6 +44,7 @@ export interface NfseServiceCatalogComboboxProps {
   selectedId: string;
   onSelectService: (item: InventoryItem | null) => void;
   placeholder?: string;
+  compact?: boolean;
 }
 
 export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProps> = ({
@@ -52,6 +53,7 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
   selectedId,
   onSelectService,
   placeholder = 'DIGITE OU SELECIONE UM SERVIÇO CADASTRADO NO ESTOQUE / CATÁLOGO...',
+  compact = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -254,7 +256,13 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="relative flex items-center">
-        <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 pointer-events-none shrink-0" />
+        <Search
+          className={
+            compact
+              ? 'w-3 h-3 text-slate-400 absolute left-1.5 pointer-events-none shrink-0'
+              : 'w-3.5 h-3.5 text-slate-500 absolute left-2 pointer-events-none shrink-0'
+          }
+        />
         <input
           id={id}
           ref={inputRef}
@@ -272,9 +280,15 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
           placeholder={inputPlaceholder}
           autoComplete="off"
           title={selectedLabel || inputPlaceholder}
-          className="w-full h-8 pl-7 pr-12 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] rounded-lg text-xs font-bold uppercase text-black dark:text-stone-100 placeholder:text-slate-400 focus:outline-none truncate"
+          className={
+            compact
+              ? 'w-full pl-5 pr-9 py-1 bg-slate-50 dark:bg-stone-800 focus:bg-white dark:focus:bg-stone-900 border border-slate-300 dark:border-stone-600 focus:border-[#6d28d9] rounded text-[11px] font-bold uppercase text-black dark:text-stone-100 placeholder:text-slate-400 focus:outline-none truncate'
+              : 'w-full h-8 pl-7 pr-12 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] rounded-lg text-xs font-bold uppercase text-black dark:text-stone-100 placeholder:text-slate-400 focus:outline-none truncate'
+          }
         />
-        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+        <div
+          className={`absolute ${compact ? 'right-1' : 'right-1.5'} top-1/2 -translate-y-1/2 flex items-center gap-0.5`}
+        >
           {(selectedId || (isOpen && searchQuery)) && (
             <button
               type="button"
@@ -283,7 +297,7 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
               title="Limpar serviço selecionado"
               className="p-0.5 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className={compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
             </button>
           )}
           <button
@@ -302,7 +316,7 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
             className="p-0.5 text-slate-600 hover:text-black dark:text-stone-300 dark:hover:text-white rounded cursor-pointer"
           >
             <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} transition-transform ${isOpen ? 'rotate-180' : ''}`}
             />
           </button>
         </div>

@@ -1359,6 +1359,13 @@ export function buildNotaSaidaHtml(
       </table>
     `;
   } else if (isNfse) {
+    const nfseComplementaryLines = [
+      nota.nfsePedidoServicoLabel ? `PEDIDO / OS VINCULADO: ${nota.nfsePedidoServicoLabel}` : '',
+      nota.nfseObservacoesFiscais ? nota.nfseObservacoesFiscais : '',
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
     const servicosExtraLines = [
       nota.descricao || '-',
       nota.nfsePedidoServicoLabel ? `PEDIDO / OS VINCULADO: ${nota.nfsePedidoServicoLabel}` : '',
@@ -1380,39 +1387,79 @@ export function buildNotaSaidaHtml(
       </table>
     `;
 
-    const nfseColWidths = ['10%', '50%', '13%', '13%', '14%'];
+    const nfseColWidths = ['9%', '43%', '12%', '12%', '11%', '13%'];
     const nfseHeader = `
       <tr>
         <th style="text-align:center;">CÓD. LC 116</th>
         <th style="text-align:left;">DISCRIMINAÇÃO DO SERVIÇO PRESTADO</th>
         <th style="text-align:right;">QTD / UNID.</th>
         <th style="text-align:right;">V. UNIT. (R$)</th>
+        <th style="text-align:right;">DESC. (R$)</th>
         <th style="text-align:right;">VALOR TOTAL (R$)</th>
       </tr>
     `;
-    const nfseRows = `
-      <tr class="sefaz-data-row">
-        <td class="tc mono">${escapeHtml(nota.nfseCodigoServico || '17.05')}</td>
-        <td class="bold" style="white-space:pre-line;line-height:1.35;">${escapeHtml(servicosExtraLines)}</td>
-        <td class="tr mono">${nota.nfseQuantidadeAreaHoras ? `${Number(nota.nfseQuantidadeAreaHoras).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${escapeHtml(nota.nfseUnidadeAreaHoras || 'UN')}` : '1 UN'}</td>
-        <td class="tr mono">${nota.nfseValorUnitario ? formatBRLNumber(nota.nfseValorUnitario) : formatBRLNumber(nota.valorTotal)}</td>
-        <td class="tr mono bold">${formatBRLNumber(nota.valorTotal)}</td>
-      </tr>
-    `;
+    const nfseRows =
+      itemsList.length > 0
+        ? itemsList
+            .map(
+              (it) => `
+          <tr class="sefaz-data-row">
+            <td class="tc mono">${escapeHtml(it.codigoServico || nota.nfseCodigoServico || '17.05')}</td>
+            <td class="bold">${escapeHtml(it.descricao || '-')}${it.codigo ? ` <span class="mono" style="font-weight:normal;color:#475569;">(CÓD: ${escapeHtml(it.codigo)})</span>` : ''}</td>
+            <td class="tr mono">${Number(it.quantidade || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${escapeHtml(it.unidade || 'UN')}</td>
+            <td class="tr mono">${formatBRLNumber(it.valorUnitario || 0)}</td>
+            <td class="tr mono">${formatBRLNumber(it.desconto || 0)}</td>
+            <td class="tr mono bold">${formatBRLNumber(it.valorTotal || 0)}</td>
+          </tr>
+        `
+            )
+            .join('')
+        : `
+          <tr class="sefaz-data-row">
+            <td class="tc mono">${escapeHtml(nota.nfseCodigoServico || '17.05')}</td>
+            <td class="bold" style="white-space:pre-line;line-height:1.35;">${escapeHtml(servicosExtraLines)}</td>
+            <td class="tr mono">${nota.nfseQuantidadeAreaHoras ? `${Number(nota.nfseQuantidadeAreaHoras).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${escapeHtml(nota.nfseUnidadeAreaHoras || 'UN')}` : '1 UN'}</td>
+            <td class="tr mono">${nota.nfseValorUnitario ? formatBRLNumber(nota.nfseValorUnitario) : formatBRLNumber(nota.valorTotal)}</td>
+            <td class="tr mono">0,00</td>
+            <td class="tr mono bold">${formatBRLNumber(nota.valorTotal)}</td>
+          </tr>
+        `;
+
+    const nfseComplementaryBox =
+      itemsList.length > 0 && nfseComplementaryLines
+        ? `
+      <table class="sefaz-box-table no-top">
+        <colgroup><col style="width:100%" /></colgroup>
+        <tr>
+          <td>
+            <span class="lbl">OBSERVAÇÕES FISCAIS / DISCRIMINAÇÃO COMPLEMENTAR DA NFS-e</span>
+            <span class="val" style="white-space:pre-line;">${escapeHtml(nfseComplementaryLines)}</span>
+          </td>
+        </tr>
+      </table>
+    `
+        : '';
 
     specificMiddleHtml = `
-      <div class="sec-title">DISCRIMINAÇÃO DOS SERVIÇOS PRESTADOS</div>
+      <div class="sec-title">DISCRIMINAÇÃO DOS SERVIÇOS PRESTADOS${itemsList.length > 0 ? ` (${itemsList.length} ${itemsList.length === 1 ? 'SERVIÇO' : 'SERVIÇOS'})` : ''}</div>
       ${buildExpandableTableBox(nfseColWidths, nfseHeader, nfseRows, isHomologacao)}
+      ${nfseComplementaryBox}
     `;
+
+    const nfseBaseCalculo = nota.valorTotal > 0 ? nota.valorTotal : totalProdutos;
+    const nfseValorIssCalc =
+      nota.nfseValorIss !== undefined
+        ? nota.nfseValorIss
+        : Number(((nfseBaseCalculo * (nota.nfseAliquotaIss || 0)) / 100).toFixed(2));
 
     specificBottomTotalsHtml = `
       <div class="sec-title">CÁLCULO DO ISSQN, TOTAIS E COBRANÇA</div>
       <table class="sefaz-box-table">
         <colgroup><col style="width:20%" /><col style="width:20%" /><col style="width:20%" /><col style="width:18%" /><col style="width:22%" /></colgroup>
         <tr>
-          <td><span class="lbl">BASE DE CÁLCULO (R$)</span><span class="val tr">${formatBRLNumber(nota.valorTotal)}</span></td>
+          <td><span class="lbl">BASE DE CÁLCULO (R$)</span><span class="val tr">${formatBRLNumber(nfseBaseCalculo)}</span></td>
           <td><span class="lbl">ALÍQUOTA ISS (%)</span><span class="val tr">${nota.nfseAliquotaIss !== undefined ? `${Number(nota.nfseAliquotaIss).toFixed(2)}%` : '0,00%'}</span></td>
-          <td><span class="lbl">VALOR DO ISS (R$)</span><span class="val tr">${formatBRLNumber(nota.nfseValorIss || 0)}</span></td>
+          <td><span class="lbl">VALOR DO ISS (R$)</span><span class="val tr">${formatBRLNumber(nfseValorIssCalc)}</span></td>
           <td><span class="lbl">ISS RETIDO</span><span class="val tc">${nota.nfseRetencaoIss ? 'SIM' : 'NÃO'}</span></td>
           <td class="highlight-cell"><span class="lbl">VALOR TOTAL DA NFS-e</span><span class="val tr bold-lg">R$ ${formatBRLNumber(nota.valorTotal)}</span></td>
         </tr>

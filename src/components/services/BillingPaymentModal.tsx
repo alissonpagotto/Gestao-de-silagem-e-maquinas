@@ -25,6 +25,8 @@ import {
   Wallet,
   WalletCards,
   Settings,
+  Save,
+  Barcode,
 } from 'lucide-react';
 import { 
   ServiceOrder, 
@@ -41,7 +43,8 @@ import {
   saveStoredFinanceiroCheques,
   getStoredClients,
   getStoredBankAccounts,
-  getStoredEmployees
+  getStoredEmployees,
+  getStoredCompanyProfile
 } from '../../lib/storage';
 import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { 
@@ -59,6 +62,10 @@ import {
   doesPaymentMethodGenerateInstallment,
 } from '../../lib/paymentMethodsStorage';
 import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+import {
+  BoletoGeneratorModal,
+  BoletoInitialData,
+} from '../financial/BoletoGeneratorModal';
 
 export interface ReceivableItem {
   id: string;
@@ -85,6 +92,7 @@ export interface InstallmentPreviewItem {
   dueDate: string;
   amount: number;
   isPaid: boolean;
+  paymentMethod?: PaymentMethod;
   notes?: string;
 }
 
@@ -117,6 +125,7 @@ export interface ReceivePaymentSuccessDetails {
   isInstallmentPlan?: boolean;
   installments?: InstallmentPreviewItem[];
   firstPaidImmediately?: boolean;
+  keepAllPending?: boolean;
   interestAmount?: number;
   interestPercentage?: number;
   splitLines?: BillingPaymentLine[];
@@ -331,20 +340,37 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   const [successToast, setSuccessToast] = useState('');
   const [formValidationError, setFormValidationError] = useState('');
   const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const [boletoModalData, setBoletoModalData] = useState<BoletoInitialData | null>(null);
   const { allMethods: globalPaymentMethods, activeMethods: activeGlobalPaymentMethods } =
     useGlobalPaymentMethods();
 
-  // Identificação do cliente e documento para preenchimento de cheques
+  const effectiveCompanyProfile = useMemo(
+    () => companyProfile || getStoredCompanyProfile(),
+    [companyProfile]
+  );
+
+  // Identificação do cliente e documento para preenchimento de cheques e boletos
   const resolvedClient = useMemo(() => {
-    if (!clientName) return null;
     try {
       const clients = getStoredClients();
+      const explicitClientId = service?.clientId || item?.clientId;
+      if (explicitClientId) {
+        const byId = clients.find(c => String(c.id) === String(explicitClientId));
+        if (byId) return byId;
+      }
+      if (!clientName) return null;
       const cleanSearch = clientName.trim().toLowerCase();
-      return clients.find(c => (c.name || '').trim().toLowerCase() === cleanSearch) || null;
+      return (
+        clients.find(
+          c =>
+            (c.name || '').trim().toLowerCase() === cleanSearch ||
+            (c.nome || '').trim().toLowerCase() === cleanSearch
+        ) || null
+      );
     } catch {
       return null;
     }
-  }, [clientName]);
+  }, [clientName, service?.clientId, item?.clientId]);
 
   const targetClientId = useMemo(() => {
     if (service?.clientId) return service.clientId;
@@ -352,6 +378,25 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     if (resolvedClient?.id) return String(resolvedClient.id);
     return null;
   }, [service?.clientId, item?.clientId, resolvedClient]);
+
+  const handleOpenBoletoModal = (
+    dueDate: string,
+    amount: number,
+    parcelaLabel?: string,
+    parcelSuffix?: string
+  ) => {
+    const baseDoc = targetOrderNumber
+      ? `${targetOrderNumber}${parcelSuffix ? `-${parcelSuffix}` : ''}`
+      : `${targetId.slice(-6).toUpperCase()}${parcelSuffix ? `-${parcelSuffix}` : ''}`;
+    setBoletoModalData({
+      numeroDocumento: baseDoc || 'DOC-001',
+      dueDate: dueDate || today,
+      amount: Number(amount) || 0,
+      parcelaLabel,
+      referenceDescription: `${serviceOrType}${farmOrOrigin ? ` (${farmOrOrigin})` : ''}`,
+      bankAccountId: selectedBankAccountId || priorityBankAccount?.id,
+    });
+  };
 
   // Checa se o título já veio com cheque da custódia vinculado
   useEffect(() => {
@@ -907,9 +952,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     setTimeout(() => setSuccessToast(''), 4000);
   };
 
-  // Submissão da confirmação unificada
-  const handleConfirm = async () => {
+  // Submissão da confirmação unificada ('settle' = baixar/quitar agora | 'save_open' = salvar forma/parcelas em aberto)
+  const handleConfirm = async (actionMode: 'settle' | 'save_open' = 'settle') => {
     if (!isBalanced) return;
+
+    const isSaveOpenMode = actionMode === 'save_open';
 
     // Validação estrita: todas as linhas precisam de uma forma de pagamento definida
     const emptyMethodLine = lines.find((l) => !l.paymentMethod);
@@ -919,10 +966,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       return;
     }
 
-    // Validação de Conta Bancária obrigatória para recebimentos imediatos (PIX, Dinheiro, TED/DOC, Cartões)
+    // Validação de Conta Bancária obrigatória para recebimentos imediatos (somente na quitação/baixa imediata)
     const IMMEDIATE_METHODS = ['pix', 'dinheiro', 'transferencia', 'cartao_credito', 'cartao_debito'];
     const requiresBankAccount =
       !isServiceMode &&
+      !isSaveOpenMode &&
       effectiveBankAccounts.length > 0 &&
       lines.some((l) => IMMEDIATE_METHODS.includes(String(l.paymentMethod)));
 
@@ -1138,7 +1186,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
     // 3. Se for chamado a partir do Financeiro > A Receber (onSuccess / ReceivableItem)
     if (onSuccess && activeRecord) {
-      // Monta cronograma consolidado de parcelas para a baixa financeira
+      // Monta cronograma consolidado de parcelas para a baixa financeira ou faturamento em aberto
       const allInstallments: InstallmentPreviewItem[] = [];
       let globalNumber = 0;
 
@@ -1151,7 +1199,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             totalInstallments: 0, // atualizado abaixo
             dueDate: b.dueDate,
             amount: b.amount,
-            isPaid: globalNumber === 1,
+            isPaid: isSaveOpenMode ? false : globalNumber === 1,
+            paymentMethod: (line.paymentMethod || 'pix') as PaymentMethod,
             notes: line.notes || billingNotesExtra,
           });
         });
@@ -1166,15 +1215,16 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       onSuccess({
         itemId: targetId,
         itemType: (activeRecord as any).type || (service ? 'Prestação de Serviço' : 'Venda de Silagem'),
-        paymentMethod: lines[0]?.paymentMethod || 'pix',
+        paymentMethod: (lines[0]?.paymentMethod || 'pix') as PaymentMethod,
         paidAmount: totalFinalExpected,
-        receiptDate,
+        receiptDate: isSaveOpenMode ? (allInstallments[0]?.dueDate || receiptDate) : receiptDate,
         cheque: allSavedCheques[0],
         cheques: allSavedCheques.length > 0 ? allSavedCheques : undefined,
-        bankAccountId: selectedBankAccountId,
+        bankAccountId: isSaveOpenMode ? undefined : selectedBankAccountId,
         isInstallmentPlan: isMultiInstallment,
         installments: isMultiInstallment ? allInstallments : undefined,
-        firstPaidImmediately: true,
+        firstPaidImmediately: !isSaveOpenMode,
+        keepAllPending: isSaveOpenMode,
         interestAmount: totalInterestAdded > 0 ? totalInterestAdded : undefined,
         splitLines: lines,
         unlockedChequeSubstitution: isUnlockedByAdmin,
@@ -1596,6 +1646,43 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                       </div>
                     </div>
 
+                    {/* AÇÃO RÁPIDA DE EMISSÃO / VISUALIZAÇÃO DE BOLETO BANCÁRIO */}
+                    {line.paymentMethod === 'boleto' && !isChequeRestricted && (
+                      <div className="p-2.5 bg-white border border-black rounded-lg flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="p-1.5 rounded bg-blue-700 text-white shrink-0">
+                            <Barcode className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="font-black text-black uppercase block text-[11px]">
+                              Emissor de Boleto Bancário (Padrão FEBRABAN)
+                            </span>
+                            <span className="text-[10px] text-slate-700 font-medium">
+                              {line.installmentsCount > 1
+                                ? `Gere o boleto da 1ª parcela abaixo ou emita individualmente em cada parcela (${line.installmentsCount}x).`
+                                : `Emita, edite encargos/banco, imprima em PDF ou envie via WhatsApp/E-mail (${formatCurrencyBRL(lineTotalWithInterest)}).`}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenBoletoModal(
+                              breakdown[0]?.dueDate || line.firstDueDate,
+                              breakdown[0]?.amount || lineTotalWithInterest,
+                              line.installmentsCount > 1
+                                ? `Parcela 1/${line.installmentsCount}`
+                                : 'Parcela Única',
+                              line.installmentsCount > 1 ? `P1-${line.installmentsCount}` : undefined
+                            )
+                          }
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white border border-black text-xs font-black uppercase shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
+                        >
+                          <span>🧾 Gerar / Visualizar Boleto</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* BLOQUEIO CONDICIONAL E DINÂMICO PARA FORMA "ASSINADO NOTA" */}
                     {isAssinadoNota && (
                       <div className="p-3 bg-amber-50 border border-black rounded-xl flex items-center justify-between gap-3 text-black">
@@ -1775,6 +1862,23 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                     <span className="text-[9px] font-bold text-amber-800 bg-amber-50 border border-black px-1 rounded">
                                       +juros
                                     </span>
+                                  )}
+                                  {line.paymentMethod === 'boleto' && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenBoletoModal(
+                                          itemBreakdown.dueDate,
+                                          itemBreakdown.amount,
+                                          `Parcela ${itemBreakdown.number}/${itemBreakdown.total}`,
+                                          `P${itemBreakdown.number}-${itemBreakdown.total}`
+                                        )
+                                      }
+                                      className="ml-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-800 text-white border border-black text-[10px] font-black uppercase transition cursor-pointer"
+                                      title={`Gerar / Visualizar Boleto da Parcela ${itemBreakdown.number}/${itemBreakdown.total}`}
+                                    >
+                                      <span>🧾 Gerar / Visualizar Boleto</span>
+                                    </button>
                                   )}
                                 </div>
                               ))}
@@ -2042,7 +2146,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
         </div>
 
         {/* RODAPÉ COM AÇÕES */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3 bg-[#cad4e6] border-t border-black shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 sm:px-6 py-3 bg-[#cad4e6] border-t border-black shrink-0">
           <div className="text-xs text-black font-semibold truncate mr-2">
             {isBalanced ? (
               <span className="text-emerald-800 font-bold">
@@ -2056,7 +2160,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -2070,9 +2174,27 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 <span>Selecione a Forma de Pagamento</span>
               </span>
             )}
+
+            {!isServiceMode && (
+              <button
+                type="button"
+                onClick={() => handleConfirm('save_open')}
+                disabled={!isBalanced || lines.some((l) => !l.paymentMethod)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
+                  isBalanced && lines.every((l) => Boolean(l.paymentMethod))
+                    ? 'bg-blue-700 hover:bg-blue-800 text-white border border-blue-950 cursor-pointer'
+                    : 'text-slate-600 bg-slate-200 border border-slate-400 cursor-not-allowed'
+                }`}
+                title="Salva a forma de pagamento, juros e parcelamento mantendo todos os títulos em aberto sem movimentar conta bancária"
+              >
+                <Save className="w-3.5 h-3.5 stroke-[2.3]" />
+                <span>💾 SALVAR FORMA / GERAR PARCELAS (EM ABERTO)</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={handleConfirm}
+              onClick={() => handleConfirm('settle')}
               disabled={!isBalanced || lines.some((l) => !l.paymentMethod)}
               className={`inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
                 isBalanced && lines.every((l) => Boolean(l.paymentMethod))
@@ -2086,7 +2208,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                   ? 'Selecione uma forma de pagamento para habilitar'
                   : isServiceMode
                   ? 'Confirmar faturamento e enviar ao Contas a Receber'
-                  : 'Confirmar recebimento / quitação'
+                  : 'Confirmar recebimento / quitação com baixa financeira'
               }
             >
               {isServiceMode ? (
@@ -2251,6 +2373,16 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       <PaymentMethodsManagerModal
         isOpen={isPaymentMethodsManagerOpen}
         onClose={() => setIsPaymentMethodsManagerOpen(false)}
+      />
+
+      <BoletoGeneratorModal
+        isOpen={Boolean(boletoModalData)}
+        onClose={() => setBoletoModalData(null)}
+        initialData={boletoModalData}
+        bankAccounts={effectiveBankAccounts}
+        companyProfile={effectiveCompanyProfile}
+        client={resolvedClient}
+        clientNameFallback={clientName}
       />
     </div>
   );

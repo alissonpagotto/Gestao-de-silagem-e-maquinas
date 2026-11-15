@@ -71,7 +71,8 @@ import {
   ServiceOrder,
   CfopCatalogEntry,
   CfopOperacaoTipo,
-  Lc116ServiceCodeEntry
+  Lc116ServiceCodeEntry,
+  MaintenanceLog
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -116,8 +117,17 @@ import {
   deleteLocalNotaSaida,
   getStoredEmployees,
   getStoredServices,
-  getStoredCompanyProfile
+  getStoredCompanyProfile,
+  getStoredMaintenanceLogs
 } from '../../lib/storage';
+import {
+  PendingMaintenanceFromEntryNfePayload,
+  dispatchOpenMaintenanceFromEntryNfe,
+  getDocumentoEntradaNumber,
+  getDocumentoEntradaSupplier,
+  getDocumentoEntradaTotal,
+  isOpenMaintenanceOrder
+} from '../../utils/entryToMaintenancePrefill';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay, desformatarMoeda } from '../../lib/formatters';
 import { SupplierModal } from '../suppliers/SupplierModal';
@@ -1321,6 +1331,8 @@ export interface NfeModuleProps {
   onSaveCostCenters?: (costCenters: CostCenter[]) => void;
   categories?: ExpenseCategory[];
   onNavigate?: (tab: string) => void;
+  maintenanceLogs?: MaintenanceLog[];
+  onDistributeEntryToMaintenance?: (payload: PendingMaintenanceFromEntryNfePayload) => void;
 }
 
 export const NfeModule: React.FC<NfeModuleProps> = ({
@@ -1337,6 +1349,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   onSaveCostCenters,
   categories,
   onNavigate,
+  maintenanceLogs,
+  onDistributeEntryToMaintenance,
 }) => {
   // -------------------------------------------------------------------------
   // ABAS PRINCIPAIS DO CABEÇALHO & CENTRAL DE DOCUMENTOS UNIFICADA
@@ -1586,6 +1600,60 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     items: LabelProductItem[];
     title: string;
   } | null>(null);
+
+  // Diálogo inteligente pós-salvamento de Nota de Entrada -> Distribuição para Frota (Manutenção)
+  const [fleetDistributePrompt, setFleetDistributePrompt] = useState<{
+    isOpen: boolean;
+    documentoEntrada: DocumentoEntradaRecord;
+    pendingPrintPrompt?: {
+      isOpen: boolean;
+      title: string;
+      description: string;
+      items: LabelProductItem[];
+    } | null;
+  } | null>(null);
+  const [selectedTargetOsId, setSelectedTargetOsId] = useState<string>('');
+
+  const openMaintenanceOrders = useMemo(() => {
+    const source =
+      maintenanceLogs && maintenanceLogs.length > 0
+        ? maintenanceLogs
+        : getStoredMaintenanceLogs();
+    return source.filter(isOpenMaintenanceOrder);
+  }, [maintenanceLogs, fleetDistributePrompt?.isOpen]);
+
+  useEffect(() => {
+    if (fleetDistributePrompt?.isOpen) {
+      setSelectedTargetOsId((prev) =>
+        prev && openMaintenanceOrders.some((o) => o.id === prev)
+          ? prev
+          : openMaintenanceOrders[0]?.id || ''
+      );
+    }
+  }, [fleetDistributePrompt?.isOpen, openMaintenanceOrders]);
+
+  const handleLaunchEntryToFleetOs = (mode: 'existing_os' | 'new_os') => {
+    if (!fleetDistributePrompt) return;
+    const payload: PendingMaintenanceFromEntryNfePayload = {
+      mode,
+      targetOsId: mode === 'existing_os' ? selectedTargetOsId : undefined,
+      documentoEntrada: fleetDistributePrompt.documentoEntrada,
+      createdAt: new Date().toISOString(),
+    };
+    setFleetDistributePrompt(null);
+    if (onDistributeEntryToMaintenance) {
+      onDistributeEntryNfeCallbackSafe(payload);
+    } else {
+      dispatchOpenMaintenanceFromEntryNfe(payload);
+      if (onNavigate) onNavigate('manutencoes');
+    }
+  };
+
+  const onDistributeEntryNfeCallbackSafe = (payload: PendingMaintenanceFromEntryNfePayload) => {
+    if (onDistributeEntryToMaintenance) {
+      onDistributeEntryToMaintenance(payload);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // ENTRADAS MANUAIS (public.documentos_entrada: Romaneios, Recibos, etc.)
@@ -1965,7 +2033,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [nfseRetencaoIss, setNfseRetencaoIss] = useState(false);
   const [nfseNaturezaOperacao, setNfseNaturezaOperacao] = useState('Tributação no Município');
   const [nfsePedidoServicoId, setNfsePedidoServicoId] = useState('');
-  const [nfseSelectedCatalogServiceId, setNfseSelectedCatalogServiceId] = useState('');
   const [nfseQuantidadeAreaHoras, setNfseQuantidadeAreaHoras] = useState('');
   const [nfseUnidadeAreaHoras, setNfseUnidadeAreaHoras] = useState('HORAS');
   const [nfseValorUnitarioDisplay, setNfseValorUnitarioDisplay] = useState('');
@@ -2097,7 +2164,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     valorNota: 0,
   });
 
-  const createEmptySaidaItem = (defaultCfop = '5102'): NotaSaidaItem => ({
+  const createEmptySaidaItem = (
+    defaultCfop = '5102',
+    options?: { codigoServico?: string; unidade?: string }
+  ): NotaSaidaItem => ({
     id: `ns_item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     inventoryItemId: '',
     fleetVehicleId: '',
@@ -2106,7 +2176,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     descricao: '',
     ncm: '',
     cfop: defaultCfop,
-    unidade: 'UN',
+    codigoServico: options?.codigoServico || '',
+    unidade: options?.unidade || 'UN',
     quantidade: 1,
     valorUnitario: 0,
     desconto: 0,
@@ -2129,7 +2200,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfseRetencaoIss(false);
     setNfseNaturezaOperacao('Tributação no Município');
     setNfsePedidoServicoId('');
-    setNfseSelectedCatalogServiceId('');
     setNfseQuantidadeAreaHoras('');
     setNfseUnidadeAreaHoras('HORAS');
     setNfseValorUnitarioDisplay('');
@@ -2152,7 +2222,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfeTransportadoraIsPropriaEmpresa(false);
     setNfeReferenciada('');
     setSelectedRefNotaMeta(null);
-    setSaidaItens([createEmptySaidaItem('5102')]);
+    setSaidaItens([createEmptySaidaItem('5102', { codigoServico: '17.05', unidade: 'HORAS' })]);
     setSaidaBaixarEstoque(false);
 
     setCteCfop('5352');
@@ -2463,19 +2533,43 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setSaidaVeiculoId('');
       setSaidaVeiculoPlaca('');
       setNfsePedidoServicoId(payload.serviceId || '');
-      setNfseSelectedCatalogServiceId('');
-      setNfseQuantidadeAreaHoras(payload.quantity > 0 ? formatBrNumberDisplay(payload.quantity) : '');
-      setNfseUnidadeAreaHoras(normalizeNfseUnit(payload.unit));
-      setNfseValorUnitarioDisplay(
-        payload.unitRate > 0 ? formatCurrencyInputDisplay(payload.unitRate) : ''
-      );
 
-      const total = Number(payload.totalAmount || 0);
-      setSaidaValorDisplay(total > 0 ? formatCurrencyInputDisplay(total) : '');
-      const issVal = Number(((total * 2) / 100).toFixed(2));
+      const osTotal = Number(payload.totalAmount || 0);
+      const osQty = payload.quantity > 0 ? payload.quantity : 1;
+      const osUnit = normalizeNfseUnit(payload.unit) || 'HORAS';
+      const osRate = payload.unitRate > 0 ? payload.unitRate : osTotal;
+      const osServiceTitle = (payload.serviceType || 'PRESTAÇÃO DE SERVIÇO').trim().toUpperCase();
+      const osNumTag = payload.orderNumber
+        ? ` (OS ${payload.orderNumber.startsWith('#') ? payload.orderNumber : `#${payload.orderNumber}`})`
+        : '';
+
+      setNfseQuantidadeAreaHoras(osQty > 0 ? formatBrNumberDisplay(osQty) : '');
+      setNfseUnidadeAreaHoras(osUnit);
+      setNfseValorUnitarioDisplay(osRate > 0 ? formatCurrencyInputDisplay(osRate) : '');
+      setSaidaItens([
+        {
+          ...createEmptySaidaItem('', { codigoServico: '17.05', unidade: osUnit }),
+          descricao: `${osServiceTitle}${osNumTag}`,
+          codigoServico: '17.05',
+          unidade: osUnit,
+          quantidade: osQty,
+          valorUnitario: osRate,
+          desconto: 0,
+          valorTotal: osTotal > 0 ? Number(osTotal.toFixed(2)) : Number((osQty * osRate).toFixed(2)),
+        },
+      ]);
+
+      setSaidaValorDisplay(osTotal > 0 ? formatCurrencyInputDisplay(osTotal) : '');
+      const issVal = Number(((osTotal * 2) / 100).toFixed(2));
       setNfseValorIssDisplay(formatCurrencyInputDisplay(issVal));
 
-      setSaidaDescricao(payload.description || '');
+      const extraObsFromOs = (payload.description || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('PRESTAÇÃO DE SERVIÇO:'))
+        .join(' | ');
+      setNfseObservacoesFiscais(extraObsFromOs);
+      setSaidaDescricao('');
       setSaidaCondicaoPagamento(payload.condicaoPagamento || 'Boleto Bancário');
       setSaidaLancarContasReceber(false); // Desmarcado por padrão (título financeiro já gerado no faturamento)
 
@@ -2557,7 +2651,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setSaidaLancarContasReceber(Boolean(nota.lancarContasReceber));
 
     // NFS-e
-    setNfseCodigoServico(nota.nfseCodigoServico || '17.05');
+    const editNfseCodigo = nota.nfseCodigoServico || '17.05';
+    setNfseCodigoServico(editNfseCodigo);
     setNfseMunicipioPrestacao(nota.nfseMunicipioPrestacao || nota.destinatarioCidadeUf || '');
     setNfseAliquotaIss(nota.nfseAliquotaIss !== undefined ? String(nota.nfseAliquotaIss) : '2.00');
     setNfseValorIssDisplay(nota.nfseValorIss ? formatCurrencyInputDisplay(nota.nfseValorIss) : '0,00');
@@ -2567,7 +2662,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfseQuantidadeAreaHoras(nota.nfseQuantidadeAreaHoras ? formatBrNumberDisplay(nota.nfseQuantidadeAreaHoras) : '');
     setNfseUnidadeAreaHoras(nota.nfseUnidadeAreaHoras || 'HORAS');
     setNfseValorUnitarioDisplay(nota.nfseValorUnitario ? formatCurrencyInputDisplay(nota.nfseValorUnitario) : '');
-    setNfseObservacoesFiscais(nota.nfseObservacoesFiscais || '');
+
+    const legacyDescLines = (nota.descricao || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const legacyExtraObs =
+      !nota.nfseObservacoesFiscais &&
+      normalizedTipoEdit.includes('NFS-e') &&
+      (!nota.itens || nota.itens.length === 0) &&
+      legacyDescLines.length > 1
+        ? legacyDescLines.slice(1).join(' | ')
+        : '';
+    setNfseObservacoesFiscais(nota.nfseObservacoesFiscais || legacyExtraObs);
 
     // NF-e / NFC-e
     const rawNaturezaEdit = nota.nfeNaturezaOperacao || 'Venda de Mercadoria';
@@ -2596,7 +2703,40 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfeTransportadoraVeiculoUf(nota.nfeTransportadoraVeiculoUf || '');
     setNfeTransportadoraIsPropriaEmpresa(Boolean(nota.nfeTransportadoraIsPropriaEmpresa));
     setNfeReferenciada(nota.nfeReferenciada || '');
-    setSaidaItens(nota.itens && nota.itens.length > 0 ? nota.itens : [createEmptySaidaItem(nota.nfeCfop || '5102')]);
+
+    if (nota.itens && nota.itens.length > 0) {
+      setSaidaItens(
+        normalizedTipoEdit.includes('NFS-e')
+          ? nota.itens.map((it) => ({
+              ...it,
+              codigoServico: it.codigoServico || editNfseCodigo,
+              unidade: it.unidade || 'HORAS',
+            }))
+          : nota.itens
+      );
+    } else if (normalizedTipoEdit.includes('NFS-e')) {
+      const legacyQty = Number(nota.nfseQuantidadeAreaHoras || 1);
+      const legacyTotal = Number(nota.valorTotal || 0);
+      const legacyUnit = nota.nfseUnidadeAreaHoras || 'HORAS';
+      const legacyRate = Number(
+        nota.nfseValorUnitario ||
+          (legacyQty > 0 ? Number((legacyTotal / legacyQty).toFixed(2)) : legacyTotal)
+      );
+      setSaidaItens([
+        {
+          ...createEmptySaidaItem('', { codigoServico: editNfseCodigo, unidade: legacyUnit }),
+          descricao: (legacyDescLines[0] || '').toUpperCase(),
+          codigoServico: editNfseCodigo,
+          unidade: legacyUnit,
+          quantidade: legacyQty,
+          valorUnitario: legacyRate,
+          desconto: 0,
+          valorTotal: legacyTotal > 0 ? legacyTotal : Number((legacyQty * legacyRate).toFixed(2)),
+        },
+      ]);
+    } else {
+      setSaidaItens([createEmptySaidaItem(nota.nfeCfop || '5102')]);
+    }
     setSaidaBaixarEstoque(Boolean(nota.baixarEstoqueAutomatico));
 
     // CT-e
@@ -3092,6 +3232,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     );
   };
 
+  const handleHeaderNfseCodigoServicoChange = (newCodigo: string) => {
+    const prevHeader = nfseCodigoServico;
+    setNfseCodigoServico(newCodigo);
+    setSaidaItens((prev) =>
+      prev.map((it) =>
+        !it.codigoServico || it.codigoServico === prevHeader
+          ? { ...it, codigoServico: newCodigo }
+          : it
+      )
+    );
+  };
+
   const handleHeaderNfeCfopChange = (newCfop: string) => {
     if (newCfop === '__manage__') {
       setCfopManagerTarget('nfe');
@@ -3147,7 +3299,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setNfeCfop(cfopAuto);
       setSaidaItens(prev =>
         prev.length > 0
-          ? prev.map(it => ({ ...it, fleetVehicleId: '', fleetAssetLabel: '', cfop: cfopAuto }))
+          ? prev.map(it => ({
+              ...it,
+              fleetVehicleId: '',
+              fleetAssetLabel: '',
+              cfop: cfopAuto,
+              unidade: !it.descricao && !it.inventoryItemId && it.unidade === 'HORAS' ? 'UN' : it.unidade,
+            }))
           : [createEmptySaidaItem(cfopAuto)]
       );
     } else if (newTipo.includes('Retorno')) {
@@ -3160,7 +3318,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setAvailableVehicles(loadAvailableVehicles());
       setSaidaItens(prev =>
         prev.length > 0
-          ? prev.map(it => ({ ...it, cfop: cfopAuto }))
+          ? prev.map(it => ({
+              ...it,
+              cfop: cfopAuto,
+              unidade: !it.descricao && !it.inventoryItemId && it.unidade === 'HORAS' ? 'UN' : it.unidade,
+            }))
           : [createEmptySaidaItem(cfopAuto)]
       );
     } else if (newTipo.includes('Remessa')) {
@@ -3173,7 +3335,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setAvailableVehicles(loadAvailableVehicles());
       setSaidaItens(prev =>
         prev.length > 0
-          ? prev.map(it => ({ ...it, cfop: cfopAuto }))
+          ? prev.map(it => ({
+              ...it,
+              cfop: cfopAuto,
+              unidade: !it.descricao && !it.inventoryItemId && it.unidade === 'HORAS' ? 'UN' : it.unidade,
+            }))
           : [createEmptySaidaItem(cfopAuto)]
       );
     } else if (newTipo.includes('NF-e')) {
@@ -3183,9 +3349,35 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setNfeFinalidade('Normal');
       setSaidaItens(prev =>
         prev.length > 0
-          ? prev.map(it => ({ ...it, fleetVehicleId: '', fleetAssetLabel: '', cfop: cfopAuto }))
+          ? prev.map(it => ({
+              ...it,
+              fleetVehicleId: '',
+              fleetAssetLabel: '',
+              cfop: cfopAuto,
+              unidade: !it.descricao && !it.inventoryItemId && it.unidade === 'HORAS' ? 'UN' : it.unidade,
+            }))
           : [createEmptySaidaItem(cfopAuto)]
       );
+    } else if (newTipo.includes('NFS-e')) {
+      const codAuto = nfseCodigoServico || '17.05';
+      setSaidaItens((prev) => {
+        const next =
+          prev.length > 0
+            ? prev.map((it) => ({
+                ...it,
+                fleetVehicleId: '',
+                fleetAssetLabel: '',
+                codigoServico: it.codigoServico || codAuto,
+                unidade: !it.descricao && !it.inventoryItemId && it.unidade === 'UN' ? 'HORAS' : it.unidade,
+              }))
+            : [createEmptySaidaItem('', { codigoServico: codAuto, unidade: 'HORAS' })];
+        const sumTotal = next.reduce((acc, item) => acc + (Number(item.valorTotal) || 0), 0);
+        if (sumTotal > 0) {
+          setSaidaValorDisplay(formatCurrencyInputDisplay(sumTotal));
+          syncNfseValorIss(sumTotal, nfseAliquotaIss);
+        }
+        return next;
+      });
     } else if (newTipo.includes('CT-e')) {
       setCteCfop(translateCfopByScope('5352', escopo));
     }
@@ -3231,65 +3423,80 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
     const metrics = resolveServiceMetricsForNfse(os);
     const total = Number(os.totalAmount || metrics.quantity * metrics.unitRate || 0);
+    const qty = metrics.quantity > 0 ? metrics.quantity : 1;
+    const rate = metrics.unitRate > 0 ? metrics.unitRate : total;
+    const unit = metrics.unit || 'HORAS';
 
-    setNfseQuantidadeAreaHoras(metrics.quantity > 0 ? formatBrNumberDisplay(metrics.quantity) : '');
-    setNfseUnidadeAreaHoras(metrics.unit);
-    setNfseValorUnitarioDisplay(metrics.unitRate > 0 ? formatCurrencyInputDisplay(metrics.unitRate) : '');
-    if (total > 0) {
-      setSaidaValorDisplay(formatCurrencyInputDisplay(total));
-      syncNfseValorIss(total, nfseAliquotaIss);
-    }
-    setSaidaDescricao(buildServiceDescriptionForNfse(os, { overrideTotalAmount: total }));
+    setNfseQuantidadeAreaHoras(qty > 0 ? formatBrNumberDisplay(qty) : '');
+    setNfseUnidadeAreaHoras(unit);
+    setNfseValorUnitarioDisplay(rate > 0 ? formatCurrencyInputDisplay(rate) : '');
+
+    const osServiceTitle = (os.serviceType || 'PRESTAÇÃO DE SERVIÇO').trim().toUpperCase();
+    const osNumTag = os.orderNumber
+      ? ` (OS ${os.orderNumber.startsWith('#') ? os.orderNumber : `#${os.orderNumber}`})`
+      : '';
+    setSaidaItens([
+      {
+        ...createEmptySaidaItem('', { codigoServico: nfseCodigoServico || '17.05', unidade: unit }),
+        descricao: `${osServiceTitle}${osNumTag}`,
+        codigoServico: nfseCodigoServico || '17.05',
+        unidade: unit,
+        quantidade: qty,
+        valorUnitario: rate,
+        desconto: 0,
+        valorTotal: total > 0 ? Number(total.toFixed(2)) : Number((qty * rate).toFixed(2)),
+      },
+    ]);
+    setItemQtyInputMap({});
+
+    const computedTotal = total > 0 ? Number(total.toFixed(2)) : Number((qty * rate).toFixed(2));
+    setSaidaValorDisplay(computedTotal > 0 ? formatCurrencyInputDisplay(computedTotal) : '');
+    syncNfseValorIss(computedTotal, nfseAliquotaIss);
+
+    const osFullDesc = buildServiceDescriptionForNfse(os, { overrideTotalAmount: computedTotal });
+    const extraObsFromOs = osFullDesc
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('PRESTAÇÃO DE SERVIÇO:'))
+      .join(' | ');
+    setNfseObservacoesFiscais(extraObsFromOs);
+    setSaidaDescricao('');
   };
 
-  const handleSelectNfseCatalogService = (item: InventoryItem | null) => {
+  const handleSelectNfseRowCatalogService = (index: number, item: InventoryItem | null) => {
     if (!item) {
-      setNfseSelectedCatalogServiceId('');
+      handleUpdateSaidaItem(index, {
+        inventoryItemId: '',
+        codigo: '',
+      });
       return;
     }
 
-    setNfseSelectedCatalogServiceId(item.id);
     const serviceName = String(item.name || item.nome_comercial || item.nome || '').trim().toUpperCase();
     const fiscalDesc = String(item.fiscalName || '').trim().toUpperCase();
     const codeStr = String(item.code || item.codigo_produto || '').trim().toUpperCase();
     const rawUnit = String(item.unit || item.unidade_medida || 'UN').trim().toUpperCase();
-    const normalizedUnit = normalizeNfseUnit(rawUnit);
+    const normalizedUnit = normalizeNfseUnit(rawUnit) || 'HORAS';
     const unitPrice = getInventoryItemServicePrice(item);
     const lc116Code = extractLc116CodeFromInventoryItem(item);
 
-    setNfseUnidadeAreaHoras(normalizedUnit);
-    if (unitPrice > 0) {
-      setNfseValorUnitarioDisplay(formatCurrencyInputDisplay(unitPrice));
-    }
-    if (lc116Code) {
-      setNfseCodigoServico(lc116Code);
-    }
+    const rowDescription =
+      fiscalDesc && fiscalDesc !== serviceName ? `${serviceName} - ${fiscalDesc}` : serviceName;
 
-    const q = parsePtBrNumber(nfseQuantidadeAreaHoras);
-    if (q > 0 && unitPrice > 0) {
-      const tot = Number((q * unitPrice).toFixed(2));
-      setSaidaValorDisplay(formatCurrencyInputDisplay(tot));
-      syncNfseValorIss(tot, nfseAliquotaIss);
-    }
-
-    const detailParts: string[] = [];
-    if (fiscalDesc && fiscalDesc !== serviceName) detailParts.push(fiscalDesc);
-    if (codeStr) detailParts.push(`CÓD: ${codeStr}`);
-    if (unitPrice > 0) detailParts.push(`V. UNIT: ${formatCurrencyBRL(unitPrice)} / ${rawUnit || normalizedUnit}`);
-    const newLine =
-      detailParts.length > 0 ? `${serviceName} (${detailParts.join(' • ')})` : serviceName;
-
-    if (newLine) {
-      setSaidaDescricao((prev) => {
-        const trimmed = prev.trim();
-        if (!trimmed) return newLine;
-        if (trimmed.toUpperCase().includes(serviceName)) return prev;
-        return `${trimmed}\n${newLine}`;
-      });
-    }
+    handleUpdateSaidaItem(index, {
+      inventoryItemId: item.id,
+      fleetVehicleId: '',
+      fleetAssetLabel: '',
+      codigo: codeStr,
+      descricao: rowDescription,
+      codigoServico: lc116Code || saidaItens[index]?.codigoServico || nfseCodigoServico || '17.05',
+      unidade: normalizedUnit,
+      valorUnitario: unitPrice,
+    });
   };
 
   const handleUpdateSaidaItem = (index: number, patch: Partial<NotaSaidaItem>) => {
+    const isNfse = saidaTipoDocumento.includes('NFS-e');
     setSaidaItens(prev => {
       const next = prev.map((it, i) => {
         if (i !== index) return it;
@@ -3309,7 +3516,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         };
       });
       const sumTotal = next.reduce((acc, item) => acc + (Number(item.valorTotal) || 0), 0);
-      if (sumTotal > 0) {
+      if (isNfse) {
+        setSaidaValorDisplay(sumTotal > 0 ? formatCurrencyInputDisplay(sumTotal) : '');
+        syncNfseValorIss(sumTotal, nfseAliquotaIss);
+      } else if (sumTotal > 0) {
         setSaidaValorDisplay(formatCurrencyInputDisplay(sumTotal));
       }
       return next;
@@ -3517,17 +3727,36 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const handleAddSaidaItemRow = () => {
+    if (saidaTipoDocumento.includes('NFS-e')) {
+      setSaidaItens(prev => [
+        ...prev,
+        createEmptySaidaItem('', { codigoServico: nfseCodigoServico || '17.05', unidade: 'HORAS' }),
+      ]);
+      return;
+    }
     setSaidaItens(prev => [...prev, createEmptySaidaItem(nfeCfop || '5102')]);
   };
 
   const handleRemoveSaidaItemRow = (index: number) => {
+    const isNfse = saidaTipoDocumento.includes('NFS-e');
     setSaidaItens(prev => {
-      const next = prev.filter((_, i) => i !== index);
+      const filtered = prev.filter((_, i) => i !== index);
+      const next =
+        filtered.length > 0
+          ? filtered
+          : [
+              isNfse
+                ? createEmptySaidaItem('', { codigoServico: nfseCodigoServico || '17.05', unidade: 'HORAS' })
+                : createEmptySaidaItem(nfeCfop || '5102'),
+            ];
       const sumTotal = next.reduce((acc, item) => acc + (Number(item.valorTotal) || 0), 0);
-      if (next.length > 0 && sumTotal > 0) {
+      if (isNfse) {
+        setSaidaValorDisplay(sumTotal > 0 ? formatCurrencyInputDisplay(sumTotal) : '');
+        syncNfseValorIss(sumTotal, nfseAliquotaIss);
+      } else if (filtered.length > 0 && sumTotal > 0) {
         setSaidaValorDisplay(formatCurrencyInputDisplay(sumTotal));
       }
-      return next.length > 0 ? next : [createEmptySaidaItem(nfeCfop || '5102')];
+      return next;
     });
   };
 
@@ -3686,8 +3915,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const resolvedPlaca = saidaVeiculoPlaca.trim().toUpperCase() || selectedVeh?.plate || selectedVeh?.licensePlateOrSerial || '';
     const resolvedModelo = selectedVeh ? `${selectedVeh.brand ? `${selectedVeh.brand} ` : ''}${selectedVeh.model || selectedVeh.name || ''}`.trim() : '';
 
-    const validItens = isNfeOrNfce
-      ? saidaItens.filter(it => it.descricao.trim() !== '' || it.inventoryItemId || it.fleetVehicleId)
+    const validItens = (isNfeOrNfce || isNfse)
+      ? saidaItens
+          .filter(it => it.descricao.trim() !== '' || it.inventoryItemId || it.fleetVehicleId || Number(it.valorTotal) > 0)
+          .map(it =>
+            isNfse
+              ? {
+                  ...it,
+                  codigoServico: (it.codigoServico || nfseCodigoServico || '17.05').trim(),
+                  unidade: (it.unidade || 'HORAS').trim().toUpperCase(),
+                  ncm: undefined,
+                  cfop: undefined,
+                }
+              : it
+          )
       : [];
 
     const hasFleetAsset = validItens.some(it => Boolean(it.fleetVehicleId));
@@ -3696,6 +3937,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const linkedOs = isNfse && nfsePedidoServicoId
       ? localServices.find(s => s.id === nfsePedidoServicoId)
       : undefined;
+
+    const nfseTotalQtd = isNfse
+      ? validItens.reduce((acc, it) => acc + (Number(it.quantidade) || 0), 0)
+      : 0;
 
     const nowIso = new Date().toISOString();
     const record: NotaSaidaRecord = {
@@ -3718,10 +3963,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       veiculoPlaca: resolvedPlaca || undefined,
       veiculoModelo: resolvedModelo || undefined,
       descricao:
-        saidaDescricao.trim() ||
-        (validItens.length > 0
-          ? validItens.map(it => `${it.quantidade} ${it.unidade} ${it.descricao}`).join(' | ')
-          : `${saidaTipoDocumento} emitida para ${destinatarioLimpo}`),
+        isNfse && validItens.length > 0
+          ? validItens
+              .map(it => `${formatBrNumberDisplay(it.quantidade || 1) || '1'} ${it.unidade || 'UN'} ${it.descricao}`)
+              .join(' | ')
+          : saidaDescricao.trim() ||
+            (validItens.length > 0
+              ? validItens.map(it => `${it.quantidade} ${it.unidade} ${it.descricao}`).join(' | ')
+              : `${saidaTipoDocumento} emitida para ${destinatarioLimpo}`),
       valorTotal: Number(valorNum.toFixed(2)),
       condicaoPagamento: saidaCondicaoPagamento,
       lancarContasReceber: saidaLancarContasReceber,
@@ -3743,9 +3992,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       nfsePedidoServicoLabel: linkedOs
         ? `${linkedOs.orderNumber ? `OS ${linkedOs.orderNumber} - ` : ''}${linkedOs.serviceType} (${linkedOs.clientName})`
         : undefined,
-      nfseQuantidadeAreaHoras: isNfse && nfseQuantidadeAreaHoras ? parsePtBrNumber(nfseQuantidadeAreaHoras) || undefined : undefined,
-      nfseUnidadeAreaHoras: isNfse ? nfseUnidadeAreaHoras : undefined,
-      nfseValorUnitario: isNfse && nfseValorUnitarioDisplay ? parseCurrencyInput(nfseValorUnitarioDisplay) : undefined,
+      nfseQuantidadeAreaHoras: isNfse
+        ? (validItens.length > 0 ? nfseTotalQtd || undefined : (nfseQuantidadeAreaHoras ? parsePtBrNumber(nfseQuantidadeAreaHoras) || undefined : undefined))
+        : undefined,
+      nfseUnidadeAreaHoras: isNfse
+        ? (validItens[0]?.unidade || nfseUnidadeAreaHoras)
+        : undefined,
+      nfseValorUnitario: isNfse
+        ? (validItens.length === 1
+            ? validItens[0].valorUnitario
+            : validItens.length > 1 && nfseTotalQtd > 0
+              ? Number((valorNum / nfseTotalQtd).toFixed(2))
+              : nfseValorUnitarioDisplay
+                ? parseCurrencyInput(nfseValorUnitarioDisplay)
+                : undefined)
+        : undefined,
       nfseObservacoesFiscais: isNfse ? nfseObservacoesFiscais.trim() || undefined : undefined,
 
       // NF-e / NFC-e
@@ -3764,7 +4025,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       nfeTransportadoraVeiculoUf: isNfeOrNfce ? nfeTransportadoraVeiculoUf.trim().toUpperCase().slice(0, 2) || undefined : undefined,
       nfeTransportadoraIsPropriaEmpresa: isNfeOrNfce ? nfeTransportadoraIsPropriaEmpresa : undefined,
       nfeReferenciada: isNfeOrNfce ? nfeReferenciada.trim() || undefined : undefined,
-      itens: isNfeOrNfce && validItens.length > 0 ? validItens : undefined,
+      itens: (isNfeOrNfce || isNfse) && validItens.length > 0 ? validItens : undefined,
       baixarEstoqueAutomatico: isNfeOrNfce ? effectiveBaixarEstoque : undefined,
       estoqueBaixado: Boolean(editingNotaSaida?.estoqueBaixado),
 
@@ -5454,6 +5715,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
 
       // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
+      let savedManualItemsForDoc: DocumentoEntradaItem[] = [];
       if (manualDocItems && manualDocItems.length > 0) {
         try {
           const existingItems = getStoredDocumentosEntradaItens();
@@ -5462,10 +5724,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             ...mItem,
             documento_entrada_id: activeDocId,
           }));
+          savedManualItemsForDoc = itemsToSave;
           saveStoredDocumentosEntradaItens([...itemsToSave, ...otherItems]);
         } catch (e) {
           console.warn('Aviso ao sincronizar itens no colaca_silagem_documentos_entrada_itens:', e);
         }
+      }
+
+      const finalDocWithItems: DocumentoEntradaRecord = {
+        ...finalDoc,
+        itens: savedManualItemsForDoc.length > 0 ? savedManualItemsForDoc : finalDoc.itens,
+      };
+      if (savedManualItemsForDoc.length > 0) {
+        const docsWithItems = [finalDocWithItems, ...notasAtualizadas.filter(d => d.id !== finalDocWithItems.id)];
+        localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(docsWithItems));
+        saveStoredDocumentosEntrada(docsWithItems);
+        setDocumentosEntrada(docsWithItems);
       }
 
       // Limpeza completa de rascunhos temporários do cache
@@ -5503,7 +5777,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       );
       setTimeout(() => setSuccessMessage(''), 5000);
 
-      // Pergunta se o usuário deseja imprimir as etiquetas correspondentes aos itens da entrada manual
+      // Prepara prompt de etiquetas (exibido caso o usuário opte por manter apenas no estoque)
       const labelsToPrint: LabelProductItem[] = (manualDocItems || []).map(item => {
         const matched = localInventory.find(p => 
           (item.produto_id && p.id === item.produto_id) ||
@@ -5535,14 +5809,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         };
       });
 
-      if (labelsToPrint.length > 0) {
-        setPrintPromptState({
-          isOpen: true,
-          title: 'Deseja imprimir as etiquetas de gôndola?',
-          description: `A entrada manual (${manualDocumentType}) foi finalizada e ${labelsToPrint.length} item(ns) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
-          items: labelsToPrint
-        });
-      }
+      const pendingPrint = labelsToPrint.length > 0
+        ? {
+            isOpen: true,
+            title: 'Deseja imprimir as etiquetas de gôndola?',
+            description: `A entrada manual (${manualDocumentType}) foi finalizada e ${labelsToPrint.length} item(ns) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
+            items: labelsToPrint
+          }
+        : null;
+
+      setFleetDistributePrompt({
+        isOpen: true,
+        documentoEntrada: finalDocWithItems,
+        pendingPrintPrompt: pendingPrint,
+      });
     } catch (err) {
       console.error('Erro ao confirmar parcelas da entrada manual:', err);
       setManualFormError('Erro ao concluir a entrada e lançar no financeiro. Tente novamente.');
@@ -8963,15 +9243,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       };
     });
 
-    if (itemsForLabels.length > 0) {
-      setPrintPromptState({
-        isOpen: true,
-        title: 'Deseja imprimir as etiquetas de gôndola?',
-        description: `A Nota Fiscal Nº ${cleanInvoiceNumber} (${parsedData.transactionType}) foi importada com sucesso e ${itemsForLabels.length} produto(s) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
-        items: itemsForLabels
-      });
-    }
-
+    let savedNonFinancialItems: DocumentoEntradaItem[] = [];
     if (parsedData.items && parsedData.items.length > 0) {
       try {
         const xmlItemsPayload: DocumentoEntradaItem[] = parsedData.items.map((item, idx) => ({
@@ -8987,6 +9259,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           valor_total: Number(item.totalPrice) || (Number(item.quantity) * Number(item.unitPrice)) || 0,
           created_at: new Date().toISOString()
         }));
+        savedNonFinancialItems = xmlItemsPayload;
 
         const existingAllItems = getStoredDocumentosEntradaItens();
         const filteredExisting = existingAllItems.filter(i => i.documento_entrada_id !== fiscalRecordId);
@@ -8994,6 +9267,64 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       } catch (err) {
         console.warn('Erro ao salvar itens no colaca_silagem_documentos_entrada_itens:', err);
       }
+    }
+
+    const nonFinIssueDate = parsedData.issueDate || parsedData.entryDate || new Date().toISOString().split('T')[0];
+    const nonFinEntryDate = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
+    const docEntradaNonFin: DocumentoEntradaRecord = {
+      id: fiscalRecordId,
+      numero: cleanInvoiceNumber,
+      numero_documento: cleanInvoiceNumber,
+      serie: parsedData.series || '1',
+      chave_acesso: parsedData.accessKey || undefined,
+      fornecedor: parsedData.supplier,
+      fornecedor_nome: parsedData.supplier,
+      fornecedor_cnpj: parsedData.supplierCnpj || undefined,
+      data: nonFinIssueDate,
+      data_entrada: nonFinEntryDate,
+      data_emissao: nonFinIssueDate,
+      data_vencimento: parsedData.dueDate || nonFinIssueDate,
+      tipo_documento: 'Nota Fiscal',
+      valor_total: Number(parsedData.totalAmount) || 0,
+      natureza_operacao: parsedData.transactionType || parsedData.operationNature,
+      observacoes: `NF-e ${cleanInvoiceNumber} (${parsedData.transactionType || 'Entrada sem Custo'}). Fornecedor: ${parsedData.supplier}.`,
+      status: 'Finalizado',
+      itens: savedNonFinancialItems.length > 0 ? savedNonFinancialItems : undefined,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const currentNonFinDocs = getStoredDocumentosEntrada();
+    const updatedNonFinDocs = [
+      docEntradaNonFin,
+      ...currentNonFinDocs.filter(
+        (d) =>
+          d.id !== fiscalRecordId &&
+          (d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+      ),
+    ];
+    saveStoredDocumentosEntrada(updatedNonFinDocs);
+    setDocumentosEntrada(updatedNonFinDocs);
+    if (isSupabaseConfigured) {
+      insertDocumentoEntrada(docEntradaNonFin).catch(e => console.warn('Aviso insertDocumentoEntrada non-financial:', e));
+    }
+
+    const pendingPrintNonFin = itemsForLabels.length > 0
+      ? {
+          isOpen: true,
+          title: 'Deseja imprimir as etiquetas de gôndola?',
+          description: `A Nota Fiscal Nº ${cleanInvoiceNumber} (${parsedData.transactionType}) foi importada com sucesso e ${itemsForLabels.length} produto(s) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
+          items: itemsForLabels
+        }
+      : null;
+
+    if (!isDevolucao) {
+      setFleetDistributePrompt({
+        isOpen: true,
+        documentoEntrada: docEntradaNonFin,
+        pendingPrintPrompt: pendingPrintNonFin,
+      });
+    } else if (pendingPrintNonFin) {
+      setPrintPromptState(pendingPrintNonFin);
     }
 
     clearActiveNfeDraft();
@@ -9487,16 +9818,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       };
     });
 
-    if (itemsForLabels.length > 0) {
-      setPrintPromptState({
-        isOpen: true,
-        title: 'Deseja imprimir as etiquetas de gôndola?',
-        description: `A Nota Fiscal Nº ${cleanInvoiceNumber} foi importada com sucesso e ${itemsForLabels.length} produto(s) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
-        items: itemsForLabels
-      });
-    }
-
     // Persistência compulsória em colaca_silagem_documentos_entrada_itens
+    let savedXmlItemsForDoc: DocumentoEntradaItem[] = [];
     if (parsedData.items && parsedData.items.length > 0) {
       try {
         const xmlItemsPayload: DocumentoEntradaItem[] = parsedData.items.map((item, idx) => ({
@@ -9512,6 +9835,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           valor_total: Number(item.totalPrice) || (Number(item.quantity) * Number(item.unitPrice)) || 0,
           created_at: new Date().toISOString()
         }));
+        savedXmlItemsForDoc = xmlItemsPayload;
 
         const existingAllItems = getStoredDocumentosEntradaItens();
         const filteredExisting = existingAllItems.filter(i => i.documento_entrada_id !== fiscalRecordId);
@@ -9520,6 +9844,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         console.warn('Erro ao salvar itens no colaca_silagem_documentos_entrada_itens:', err);
       }
     }
+
+    const docEntradaWithItems: DocumentoEntradaRecord = {
+      ...docEntradaFinal,
+      itens: savedXmlItemsForDoc.length > 0 ? savedXmlItemsForDoc : undefined,
+    };
+    if (savedXmlItemsForDoc.length > 0) {
+      const updatedDocsWithItems = [
+        docEntradaWithItems,
+        ...updatedDocsList.filter(d => d.id !== docEntradaWithItems.id),
+      ];
+      saveStoredDocumentosEntrada(updatedDocsWithItems);
+      setDocumentosEntrada(updatedDocsWithItems);
+    }
+
+    const pendingPrintXml = itemsForLabels.length > 0
+      ? {
+          isOpen: true,
+          title: 'Deseja imprimir as etiquetas de gôndola?',
+          description: `A Nota Fiscal Nº ${cleanInvoiceNumber} foi importada com sucesso e ${itemsForLabels.length} produto(s) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
+          items: itemsForLabels
+        }
+      : null;
+
+    setFleetDistributePrompt({
+      isOpen: true,
+      documentoEntrada: docEntradaWithItems,
+      pendingPrintPrompt: pendingPrintXml,
+    });
 
     clearActiveNfeDraft();
     try {
@@ -13628,6 +13980,125 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       />
 
       {/* ========================================================================= */}
+      {/* DIÁLOGO INTELIGENTE PÓS-SALVAMENTO: DISTRIBUIR ITENS PARA A FROTA (OS)?  */}
+      {/* Tema oficial: bg-[#cad4e6] / bg-[#e0e6f1] border border-black             */}
+      {/* ========================================================================= */}
+      {fleetDistributePrompt && fleetDistributePrompt.isOpen && (
+        <div className="fixed inset-0 z-[9998] bg-black/60 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-xl bg-[#cad4e6] border-2 border-black rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-[#233248] text-white px-4 py-3 flex items-center justify-between border-b border-black">
+              <div className="flex items-center space-x-2">
+                <Wrench className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wide">
+                  ✅ NOTA FISCAL SALVA! DESEJA DISTRIBUIR OS ITENS PARA A FROTA (MANUTENÇÃO)?
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const pendingPrint = fleetDistributePrompt.pendingPrintPrompt;
+                  setFleetDistributePrompt(null);
+                  if (pendingPrint) setPrintPromptState(pendingPrint);
+                }}
+                className="p-1 rounded bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="bg-[#e0e6f1] border border-black rounded p-3 text-xs text-slate-900 space-y-1">
+                <p className="italic text-slate-800">
+                  Você pode enviar as peças desta nota diretamente para uma Ordem de Manutenção existente ou abrir uma nova OS agora.
+                </p>
+                <div className="font-bold text-[11px] text-slate-700 pt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>
+                    NF-e Nº:{' '}
+                    <strong className="text-slate-950">
+                      {getDocumentoEntradaNumber(fleetDistributePrompt.documentoEntrada) || 'S/N'}
+                    </strong>
+                  </span>
+                  <span>
+                    Fornecedor:{' '}
+                    <strong className="text-slate-950">
+                      {getDocumentoEntradaSupplier(fleetDistributePrompt.documentoEntrada)}
+                    </strong>
+                  </span>
+                  <span>
+                    Total:{' '}
+                    <strong className="text-emerald-800">
+                      {formatCurrencyBRL(getDocumentoEntradaTotal(fleetDistributePrompt.documentoEntrada))}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Opção 2: Vincular a uma OS Existente */}
+              <div className="bg-[#e0e6f1] border border-black rounded p-3 space-y-2">
+                <div className="text-xs font-black text-slate-900">
+                  🔧 Vincular a uma OS Existente
+                </div>
+                {openMaintenanceOrders.length === 0 ? (
+                  <div className="text-[11px] text-slate-600 bg-white border border-slate-400 rounded px-2.5 py-2">
+                    Nenhuma Ordem de Manutenção em aberto (Em Andamento, Aguardando Peças ou Agendada) encontrada no momento.
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      value={selectedTargetOsId}
+                      onChange={(e) => setSelectedTargetOsId(e.target.value)}
+                      className="flex-1 px-2.5 py-2 bg-white border border-black rounded text-xs font-bold text-slate-900 outline-none"
+                    >
+                      {openMaintenanceOrders.map((os) => (
+                        <option key={os.id} value={os.id}>
+                          {(os.osNumber || os.id.slice(0, 8))} - {os.machineryPlateOrName} - {os.description || os.serviceCategory}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!selectedTargetOsId}
+                      onClick={() => handleLaunchEntryToFleetOs('existing_os')}
+                      className="px-3 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white border border-black rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+                    >
+                      Importar Itens para esta OS
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Ações: Opção 1 & Opção 3 */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pendingPrint = fleetDistributePrompt.pendingPrintPrompt;
+                    setFleetDistributePrompt(null);
+                    if (pendingPrint) setPrintPromptState(pendingPrint);
+                  }}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-900 border border-black rounded text-xs font-bold cursor-pointer"
+                >
+                  📦 Manter Apenas no Estoque
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleLaunchEntryToFleetOs('new_os')}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-black rounded text-xs font-bold cursor-pointer shadow-sm"
+                >
+                  ➕ Abrir Nova Ordem de Manutenção com esta Nota
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* DIÁLOGO DE CONFIRMAÇÃO: DESEJA IMPRIMIR AS ETIQUETAS DE GÔNDOLA? */}
       {/* ========================================================================= */}
       {printPromptState && printPromptState.isOpen && (
@@ -14385,43 +14856,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-black/20 dark:border-stone-700 shrink-0">
                       <span className="text-[11px] font-black text-[#6d28d9] dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" />
-                        <span>DADOS FISCAIS E DISCRIMINAÇÃO DA NFS-E (PRESTAÇÃO DE SERVIÇO)</span>
+                        <span>DADOS FISCAIS DA NFS-E E GRADE DE SERVIÇOS (CONECTADA AO ESTOQUE / CATÁLOGO)</span>
                       </span>
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="nfse-pedido-select" className="text-[10px] font-black uppercase text-black/80 dark:text-stone-300">
-                          VINCULAR PEDIDO / OS:
-                        </label>
-                        <select
-                          id="nfse-pedido-select"
-                          value={nfsePedidoServicoId}
-                          onChange={(e) => handleLinkServiceOrderNfse(e.target.value)}
-                          className="px-2 py-1 bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-600 rounded-lg text-[11px] font-bold text-black dark:text-stone-100 uppercase max-w-[280px] cursor-pointer"
-                        >
-                          <option value="">NENHUM PEDIDO VINCULADO (MANUAL)</option>
-                          {localServices.map(s => (
-                            <option key={s.id} value={s.id}>
-                              {`${s.orderNumber ? `OS ${s.orderNumber} • ` : ''}${s.clientName} - ${s.serviceType} (${formatCurrencyBRL(s.totalAmount || 0)})`.toUpperCase()}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
 
-                    {/* Seletor Digitável de Serviços Cadastrados (Estoque / Catálogo) */}
-                    <div className="shrink-0">
-                      <label htmlFor="nfse-catalog-service-select" className="block text-[10px] font-black text-[#6d28d9] dark:text-purple-300 uppercase mb-0.5">
-                        SELECIONAR SERVIÇO CADASTRADO (ESTOQUE / CATÁLOGO - OPCIONAL)
-                      </label>
-                      <NfseServiceCatalogCombobox
-                        id="nfse-catalog-service-select"
-                        inventory={localInventory}
-                        selectedId={nfseSelectedCatalogServiceId}
-                        onSelectService={handleSelectNfseCatalogService}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2 shrink-0">
-                      <div className="lg:col-span-3">
+                    {/* Cabeçalho Fiscal Compacto em uma única linha limpa */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2.7fr_1.7fr_1.7fr_1.0fr_1.2fr_2.5fr] gap-2 shrink-0">
+                      <div>
                         <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
                           CÓD. SERVIÇO (LC 116/03)
                         </label>
@@ -14430,10 +14871,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             id="nfse-codigo-servico-select"
                             value={nfseCodigoServico}
                             options={lc116ComboboxOptions}
-                            onSelect={(codigo) => setNfseCodigoServico(codigo)}
+                            onSelect={(codigo) => handleHeaderNfseCodigoServicoChange(codigo)}
                             onManageClick={() => setIsLc116ManagerOpen(true)}
                             manageLabel="Gerenciar códigos LC 116/03..."
-                            placeholder="DIGITE CÓDIGO OU SERVIÇO (EX: 17.05, SILAGEM)..."
+                            placeholder="EX: 17.05, SILAGEM..."
                             borderColorClass="border-black/40 dark:border-stone-600"
                             dropdownMinWidth={460}
                           />
@@ -14448,7 +14889,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </button>
                         </div>
                       </div>
-                      <div className="lg:col-span-3">
+                      <div>
                         <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
                           MUNICÍPIO DA PRESTAÇÃO
                         </label>
@@ -14460,21 +14901,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase"
                         />
                       </div>
-                      <div className="lg:col-span-2">
+                      <div>
                         <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                          NATUREZA OPERAÇÃO
+                          NATUREZA DA OPERAÇÃO
                         </label>
                         <select
                           value={nfseNaturezaOperacao}
                           onChange={(e) => setNfseNaturezaOperacao(e.target.value)}
-                          className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase"
+                          className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase cursor-pointer"
                         >
                           <option value="Tributação no Município">TRIBUTAÇÃO NO MUNICÍPIO</option>
                           <option value="Fora do Município">FORA DO MUNICÍPIO</option>
                           <option value="Isenção / Imune">ISENÇÃO / IMUNE</option>
                         </select>
                       </div>
-                      <div className="lg:col-span-2">
+                      <div>
                         <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
                           ALÍQUOTA ISS (%)
                         </label>
@@ -14490,133 +14931,197 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-right text-black dark:text-stone-100"
                         />
                       </div>
-                      <div className="lg:col-span-2">
+                      <div>
                         <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                          VALOR ISS (R$) / RETENÇÃO
-                        </label>
-                        <div className="flex gap-1">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={nfseValorIssDisplay}
-                            onChange={(e) => setNfseValorIssDisplay(maskBrCurrencyATM(e.target.value))}
-                            placeholder="0,00"
-                            className="w-1/2 h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-right text-black dark:text-stone-100"
-                          />
-                          <select
-                            value={nfseRetencaoIss ? 'SIM' : 'NAO'}
-                            onChange={(e) => setNfseRetencaoIss(e.target.value === 'SIM')}
-                            className="w-1/2 h-8 px-1.5 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-[10px] font-black text-black dark:text-stone-100 uppercase"
-                            title="Retenção de ISS?"
-                          >
-                            <option value="NAO">RET: NÃO</option>
-                            <option value="SIM">RET: SIM</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Discriminação Detalhada (Área/Horas + Unitário + Obs Fiscais) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 shrink-0">
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                          ÁREA / HORAS / QTD
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={nfseQuantidadeAreaHoras}
-                          onChange={(e) => {
-                            const masked = maskBrNumberWithThousands(e.target.value);
-                            setNfseQuantidadeAreaHoras(masked);
-                            const q = parsePtBrNumber(masked);
-                            const u = desformatarMoeda(nfseValorUnitarioDisplay);
-                            if (q > 0 && u > 0) {
-                              const tot = Number((q * u).toFixed(2));
-                              setSaidaValorDisplay(formatCurrencyInputDisplay(tot));
-                              syncNfseValorIss(tot, nfseAliquotaIss);
-                            } else if (u > 0 && q <= 0) {
-                              setSaidaValorDisplay('');
-                              syncNfseValorIss(0, nfseAliquotaIss);
-                            }
-                          }}
-                          placeholder="EX: 12,5"
-                          className="w-full px-2 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-right text-black dark:text-stone-100"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                          UNIDADE
+                          RETENÇÃO ISS
                         </label>
                         <select
-                          value={nfseUnidadeAreaHoras}
-                          onChange={(e) => setNfseUnidadeAreaHoras(e.target.value)}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase"
+                          value={nfseRetencaoIss ? 'SIM' : 'NAO'}
+                          onChange={(e) => setNfseRetencaoIss(e.target.value === 'SIM')}
+                          className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-black text-black dark:text-stone-100 uppercase cursor-pointer"
+                          title="Retenção de ISS?"
                         >
-                          <option value="HORAS">HORAS</option>
-                          <option value="HA">HECTARES (HA)</option>
-                          <option value="ALQ">ALQUEIRES</option>
-                          <option value="TON">TONELADAS</option>
-                          <option value="KM">QUILÔMETROS (KM)</option>
-                          <option value="UN">UNIDADE / SERV.</option>
-                          {nfseUnidadeAreaHoras &&
-                            !(BUILTIN_NFSE_UNITS as readonly string[]).includes(nfseUnidadeAreaHoras) && (
-                              <option value={nfseUnidadeAreaHoras}>{nfseUnidadeAreaHoras}</option>
-                            )}
+                          <option value="NAO">RET: NÃO</option>
+                          <option value="SIM">RET: SIM</option>
                         </select>
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                          VALOR UNITÁRIO (R$)
+                      <div>
+                        <label htmlFor="nfse-pedido-select" className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
+                          VINCULAR PEDIDO / OS
                         </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={nfseValorUnitarioDisplay}
-                          onChange={(e) => {
-                            const masked = maskBrCurrencyATM(e.target.value);
-                            setNfseValorUnitarioDisplay(masked);
-                            const q = parsePtBrNumber(nfseQuantidadeAreaHoras);
-                            const u = desformatarMoeda(masked);
-                            if (q > 0 && u > 0) {
-                              const tot = Number((q * u).toFixed(2));
-                              setSaidaValorDisplay(formatCurrencyInputDisplay(tot));
-                              syncNfseValorIss(tot, nfseAliquotaIss);
-                            } else if (q > 0 && u <= 0) {
-                              setSaidaValorDisplay('');
-                              syncNfseValorIss(0, nfseAliquotaIss);
-                            }
-                          }}
-                          placeholder="0,00"
-                          className="w-full px-2 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-right text-black dark:text-stone-100"
-                        />
-                      </div>
-                      <div className="sm:col-span-6">
-                        <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                          OBSERVAÇÕES FISCAIS (EX: SIMPLES NACIONAL / RETENÇÕES)
-                        </label>
-                        <input
-                          type="text"
-                          value={nfseObservacoesFiscais}
-                          onChange={(e) => setNfseObservacoesFiscais(e.target.value)}
-                          placeholder="EX: DOCUMENTO EMITIDO POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL..."
-                          className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase"
-                        />
+                        <select
+                          id="nfse-pedido-select"
+                          value={nfsePedidoServicoId}
+                          onChange={(e) => handleLinkServiceOrderNfse(e.target.value)}
+                          className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase cursor-pointer"
+                        >
+                          <option value="">NENHUM PEDIDO (MANUAL)</option>
+                          {localServices.map(s => (
+                            <option key={s.id} value={s.id}>
+                              {`${s.orderNumber ? `OS ${s.orderNumber} • ` : ''}${s.clientName} - ${s.serviceType} (${formatCurrencyBRL(s.totalAmount || 0)})`.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <label htmlFor="saida-descricao-input" className="block text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wide mb-1 shrink-0">
-                        DISCRIMINAÇÃO DETALHADA DOS SERVIÇOS PRESTADOS
-                      </label>
-                      <textarea
-                        id="saida-descricao-input"
-                        rows={8}
-                        value={saidaDescricao}
-                        onChange={(e) => setSaidaDescricao(e.target.value)}
-                        placeholder="EX: PRESTAÇÃO DE SERVIÇO DE ENSILAGEM DE MILHO / COLHEITA / HORAS MÁQUINA..."
-                        className="w-full flex-1 min-h-[210px] px-3 py-2 bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-600 rounded-lg text-xs font-bold leading-relaxed text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e40af] uppercase resize-y"
-                      />
+                    {/* Datalists de suporte para as linhas de serviço da NFS-e */}
+                    <datalist id="nfse-item-lc116-datalist">
+                      {lc116Codes.map((c) => (
+                        <option key={c.codigo} value={c.codigo}>
+                          {c.codigo} - {c.descricao}
+                        </option>
+                      ))}
+                    </datalist>
+                    <datalist id="nfse-item-unit-datalist">
+                      {BUILTIN_NFSE_UNITS.map((u) => (
+                        <option key={u} value={u} />
+                      ))}
+                    </datalist>
+
+                    {/* Grade de Serviços em Linhas (Mesmo Padrão Visual da NF-e) */}
+                    <div className="flex-1 min-h-[260px] bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-700 rounded-lg overflow-auto">
+                      <table className="w-full text-[11px] border-collapse">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-slate-100 dark:bg-stone-800 border-b border-black/30 text-[10px] font-black uppercase">
+                            <th className="p-1.5 text-left min-w-[190px]">BUSCAR SERVIÇO (ESTOQUE)</th>
+                            <th className="p-1.5 text-left min-w-[200px]">DESCRIÇÃO DO SERVIÇO PRESTADO</th>
+                            <th className="p-1.5 text-center w-[78px]">
+                              <span className="inline-flex items-center justify-center gap-1">
+                                <span>CÓD. LC 116</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsLc116ManagerOpen(true)}
+                                  className="text-slate-600 hover:text-black dark:text-stone-300 dark:hover:text-white cursor-pointer"
+                                  title="Gerenciar códigos de serviço LC 116/03"
+                                >
+                                  <Settings className="w-3 h-3" />
+                                </button>
+                              </span>
+                            </th>
+                            <th className="p-1.5 text-center w-[62px]">UN</th>
+                            <th className="p-1.5 text-right w-[82px]">QTD / HORAS</th>
+                            <th className="p-1.5 text-right w-[94px]">V. UNIT (R$)</th>
+                            <th className="p-1.5 text-right w-[80px]">DESC. (R$)</th>
+                            <th className="p-1.5 text-right w-[98px]">TOTAL (R$)</th>
+                            <th className="p-1 text-right whitespace-nowrap w-[132px]">
+                              <button
+                                type="button"
+                                onClick={handleAddSaidaItemRow}
+                                className="ml-auto px-2 py-1 bg-[#1e40af] hover:bg-[#1e3a8a] text-white rounded-md text-[9.5px] font-black uppercase inline-flex items-center gap-1 transition cursor-pointer shadow-2xs whitespace-nowrap"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>ADICIONAR SERVIÇO</span>
+                              </button>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-stone-700">
+                          {saidaItens.map((item, idx) => (
+                            <tr key={item.id}>
+                              <td className="p-1">
+                                <NfseServiceCatalogCombobox
+                                  id={`nfse-row-catalog-${idx}`}
+                                  compact={true}
+                                  inventory={localInventory}
+                                  selectedId={item.inventoryItemId || ''}
+                                  onSelectService={(selected) => handleSelectNfseRowCatalogService(idx, selected)}
+                                  placeholder="BUSCAR SERVIÇO (ESTOQUE)..."
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  value={item.descricao}
+                                  onChange={(e) => handleUpdateSaidaItem(idx, { descricao: e.target.value })}
+                                  placeholder="DESCRIÇÃO DO SERVIÇO PRESTADO..."
+                                  className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold uppercase"
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  list="nfse-item-lc116-datalist"
+                                  value={item.codigoServico || nfseCodigoServico}
+                                  onChange={(e) => handleUpdateSaidaItem(idx, { codigoServico: e.target.value })}
+                                  placeholder="17.05"
+                                  className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-mono font-bold text-center"
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  list="nfse-item-unit-datalist"
+                                  value={item.unidade}
+                                  onChange={(e) => handleUpdateSaidaItem(idx, { unidade: e.target.value.toUpperCase() })}
+                                  placeholder="HORAS"
+                                  className="w-full px-1 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold text-center uppercase"
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={itemQtyInputMap[item.id] ?? (item.quantidade > 0 ? formatBrNumberDisplay(item.quantidade) : '')}
+                                  onChange={(e) => {
+                                    const masked = maskBrNumberWithThousands(e.target.value);
+                                    setItemQtyInputMap(prev => ({ ...prev, [item.id]: masked }));
+                                    handleUpdateSaidaItem(idx, { quantidade: parsePtBrNumber(masked) });
+                                  }}
+                                  onBlur={() => {
+                                    setItemQtyInputMap(prev => {
+                                      const next = { ...prev };
+                                      delete next[item.id];
+                                      return next;
+                                    });
+                                  }}
+                                  placeholder="1"
+                                  className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-mono font-bold text-right"
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={item.valorUnitario > 0 ? formatCurrencyInputDisplay(item.valorUnitario) : ''}
+                                  onChange={(e) => {
+                                    const masked = maskBrCurrencyATM(e.target.value);
+                                    handleUpdateSaidaItem(idx, { valorUnitario: desformatarMoeda(masked) });
+                                  }}
+                                  placeholder="0,00"
+                                  className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-mono font-bold text-right"
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={item.desconto && item.desconto > 0 ? formatCurrencyInputDisplay(item.desconto) : ''}
+                                  onChange={(e) => {
+                                    const masked = maskBrCurrencyATM(e.target.value);
+                                    handleUpdateSaidaItem(idx, { desconto: desformatarMoeda(masked) });
+                                  }}
+                                  placeholder="0,00"
+                                  className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-mono text-right"
+                                />
+                              </td>
+                              <td className="p-1 text-right font-mono font-black text-emerald-700 dark:text-emerald-400">
+                                {formatCurrencyBRL(item.valorTotal)}
+                              </td>
+                              <td className="p-1 text-right pr-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSaidaItemRow(idx)}
+                                  className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded cursor-pointer"
+                                  title="Remover serviço"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
@@ -16093,6 +16598,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 )}
               </div>
 
+              {notaSaidaTab === 2 && saidaTipoDocumento.includes('NFS-e') && (
+                <div className="px-3 py-1.5 bg-[#d5def0] dark:bg-stone-800/90 border-t border-black/30 dark:border-stone-700 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <label
+                      htmlFor="nfse-observacoes-fiscais-input"
+                      className="text-[10px] font-black text-black/80 dark:text-stone-300 uppercase whitespace-nowrap shrink-0"
+                    >
+                      OBSERVAÇÕES FISCAIS / DISCRIMINAÇÃO COMPLEMENTAR DA NFS-E:
+                    </label>
+                    <input
+                      id="nfse-observacoes-fiscais-input"
+                      type="text"
+                      value={nfseObservacoesFiscais}
+                      onChange={(e) => setNfseObservacoesFiscais(e.target.value)}
+                      placeholder="EX: DOCUMENTO EMITIDO POR ME/EPP OPTANTE PELO SIMPLES NACIONAL, INFORMAÇÕES DA OS OU COMPLEMENTO..."
+                      className="flex-1 min-w-0 px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase"
+                    />
+                    <div className="flex items-center gap-2 shrink-0 px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-[10.5px] font-mono font-black">
+                      <span className="text-slate-600 dark:text-stone-400">
+                        ISS ({nfseAliquotaIss || '0'}%):{' '}
+                        <span className="text-[#6d28d9] dark:text-purple-300">
+                          {formatCurrencyBRL(parseCurrencyInput(nfseValorIssDisplay))}
+                        </span>
+                      </span>
+                      <span className="text-slate-300 dark:text-stone-600">|</span>
+                      <span className="text-emerald-700 dark:text-emerald-400">
+                        TOTAL: {formatCurrencyBRL(parseCurrencyInput(saidaValorDisplay))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {notaSaidaTab === 2 && (saidaTipoDocumento.includes('NF-e') || saidaTipoDocumento.includes('NFC-e')) && (
                 <div className="px-3 py-1.5 bg-[#d5def0] dark:bg-stone-800/90 border-t border-black/30 dark:border-stone-700 shrink-0">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
@@ -16424,16 +16962,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               {viewingNotaSaida.itens && viewingNotaSaida.itens.length > 0 && (
                 <div className="border border-slate-200 dark:border-stone-700 rounded-lg overflow-hidden">
                   <div className="px-3 py-1.5 bg-slate-100 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-600 dark:text-stone-300">
-                    Itens / Produtos ({viewingNotaSaida.itens.length})
+                    {viewingNotaSaida.tipoDocumento.includes('NFS-e')
+                      ? `Serviços Prestados (${viewingNotaSaida.itens.length})`
+                      : `Itens / Produtos (${viewingNotaSaida.itens.length})`}
                   </div>
                   <table className="w-full text-[11px]">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-stone-800/80 border-b border-slate-200 dark:border-stone-700">
                         <th className="p-1.5 text-left">Descrição</th>
-                        <th className="p-1.5 text-center">NCM</th>
-                        <th className="p-1.5 text-center">CFOP</th>
+                        {viewingNotaSaida.tipoDocumento.includes('NFS-e') ? (
+                          <th className="p-1.5 text-center">Cód. LC 116</th>
+                        ) : (
+                          <>
+                            <th className="p-1.5 text-center">NCM</th>
+                            <th className="p-1.5 text-center">CFOP</th>
+                          </>
+                        )}
                         <th className="p-1.5 text-right">Qtd</th>
                         <th className="p-1.5 text-right">Unit.</th>
+                        <th className="p-1.5 text-right">Desc.</th>
                         <th className="p-1.5 text-right">Total</th>
                       </tr>
                     </thead>
@@ -16441,10 +16988,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       {viewingNotaSaida.itens.map(it => (
                         <tr key={it.id}>
                           <td className="p-1.5 font-bold uppercase">{it.descricao}</td>
-                          <td className="p-1.5 text-center font-mono">{it.ncm || '-'}</td>
-                          <td className="p-1.5 text-center font-mono">{it.cfop || '-'}</td>
+                          {viewingNotaSaida.tipoDocumento.includes('NFS-e') ? (
+                            <td className="p-1.5 text-center font-mono">
+                              {it.codigoServico || viewingNotaSaida.nfseCodigoServico || '17.05'}
+                            </td>
+                          ) : (
+                            <>
+                              <td className="p-1.5 text-center font-mono">{it.ncm || '-'}</td>
+                              <td className="p-1.5 text-center font-mono">{it.cfop || '-'}</td>
+                            </>
+                          )}
                           <td className="p-1.5 text-right font-mono">{it.quantidade} {it.unidade}</td>
                           <td className="p-1.5 text-right font-mono">{formatCurrencyBRL(it.valorUnitario)}</td>
+                          <td className="p-1.5 text-right font-mono">{formatCurrencyBRL(it.desconto || 0)}</td>
                           <td className="p-1.5 text-right font-mono font-bold">{formatCurrencyBRL(it.valorTotal)}</td>
                         </tr>
                       ))}

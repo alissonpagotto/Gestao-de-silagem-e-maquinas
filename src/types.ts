@@ -2193,6 +2193,7 @@ export interface NotaSaidaItem {
   descricao: string;
   ncm?: string;
   cfop?: string;
+  codigoServico?: string;
   unidade: string;
   quantidade: number;
   valorUnitario: number;

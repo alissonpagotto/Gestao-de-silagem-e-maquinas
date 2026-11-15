@@ -33,6 +33,11 @@ import {
   PENDING_NFSE_PREFILL_STORAGE_KEY,
   OPEN_NFSE_FROM_SERVICE_EVENT,
 } from './utils/nfsePrefill';
+import {
+  OPEN_MAINTENANCE_FROM_ENTRY_NFE_EVENT,
+  PendingMaintenanceFromEntryNfePayload,
+  consumePendingMaintenanceFromEntryNfe,
+} from './utils/entryToMaintenancePrefill';
 import { 
   getStoredExpenses, 
   saveStoredExpenses,
@@ -333,6 +338,19 @@ export default function App() {
   const [isReorderMenuOpen, setIsReorderMenuOpen] = useState(false);
   const [isGlobalHelpModalOpen, setIsGlobalHelpModalOpen] = useState(false);
   const [draftMaintenanceLogFromAlmox, setDraftMaintenanceLogFromAlmox] = useState<MaintenanceLog | null>(null);
+  const [pendingEntryNfeForMaintenance, setPendingEntryNfeForMaintenance] = useState<PendingMaintenanceFromEntryNfePayload | null>(() => consumePendingMaintenanceFromEntryNfe());
+
+  useEffect(() => {
+    const handleOpenMaintFromEntry = (e: Event) => {
+      const detail = (e as CustomEvent<PendingMaintenanceFromEntryNfePayload>)?.detail;
+      if (detail?.documentoEntrada) {
+        setPendingEntryNfeForMaintenance(detail);
+        setActiveTab('manutencoes');
+      }
+    };
+    window.addEventListener(OPEN_MAINTENANCE_FROM_ENTRY_NFE_EVENT, handleOpenMaintFromEntry);
+    return () => window.removeEventListener(OPEN_MAINTENANCE_FROM_ENTRY_NFE_EVENT, handleOpenMaintFromEntry);
+  }, []);
 
   const handleSaveMenuOrder = (newOrder: string[]) => {
     setMenuOrder(newOrder);
@@ -4097,6 +4115,11 @@ export default function App() {
                   setTimeout(() => setCostCenters(updatedCostCenters), 0);
                 }}
                 categories={categories}
+                maintenanceLogs={maintenanceLogs}
+                onDistributeEntryToMaintenance={(payload) => {
+                  setPendingEntryNfeForMaintenance(payload);
+                  setActiveTab('manutencoes');
+                }}
                 onNavigate={(tab) => {
                   setTimeout(() => setActiveTab(tab), 0);
                 }}
@@ -4240,6 +4263,8 @@ export default function App() {
               companyProfile={companyProfile}
               initialDraftMaintenanceLog={draftMaintenanceLogFromAlmox}
               onClearInitialDraftMaintenanceLog={() => setDraftMaintenanceLogFromAlmox(null)}
+              initialEntryNfePayload={pendingEntryNfeForMaintenance}
+              onClearInitialEntryNfePayload={() => setPendingEntryNfeForMaintenance(null)}
               initialSubTab={
                 activeTab === 'veiculos' ? 'veiculos' :
                 activeTab === 'motoristas' ? 'motoristas' :

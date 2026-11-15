@@ -287,9 +287,10 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     });
   }, [competenceReceivables, statusFilter, searchTerm]);
 
-  // Executa a baixa com sucesso e desdobra parcelas quando aplicável
+  // Executa a baixa com sucesso ou salva forma/parcelas em aberto sem movimentar caixa/banco
   const handleReceiptSuccess = (details: ReceivePaymentSuccessDetails) => {
     const activeCompanyId = companyProfile?.id || getActiveCompanyId();
+    const isKeepAllPending = Boolean(details.keepAllPending);
 
     // 1. Atualiza ordens de serviço
     if (details.itemType === 'Prestação de Serviço') {
@@ -297,9 +298,12 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
       if (targetService && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
         const inst1 = details.installments[0];
-        const isInst1Paid = Boolean(inst1.isPaid);
+        const isInst1Paid = !isKeepAllPending && Boolean(inst1.isPaid);
+        const inst1Method = inst1.paymentMethod || details.paymentMethod;
         const chq1 = details.cheques?.[0] || details.cheque;
-        const chqDesc1 = chq1 ? ` - Cheque nº ${chq1.numero_cheque || chq1.numeroCheque} (${chq1.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
+        const chqDesc1 = chq1
+          ? ` - Cheque nº ${chq1.numero_cheque || chq1.numeroCheque} (${chq1.banco})`
+          : ` - ${getPaymentMethodLabel(inst1Method)}`;
 
         // Atualiza o serviço de origem para representar a 1ª parcela
         const updatedOriginal: ServiceOrder = {
@@ -309,7 +313,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           dueDate: inst1.dueDate,
           status: isInst1Paid ? ('finalizado' as const) : ('faturado' as const),
           paymentStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
-          paymentMethod: details.paymentMethod,
+          paymentMethod: inst1Method,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
           paidAmount: isInst1Paid ? inst1.amount : 0,
           billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`,
@@ -324,8 +328,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
         // Cria as parcelas subsequentes (2..N) com status 'pendente' no Contas a Receber
         const newInstallments: ServiceOrder[] = details.installments.slice(1).map((inst, idx) => {
+          const instMethod = inst.paymentMethod || details.paymentMethod;
           const chqN = details.cheques?.[idx + 1];
-          const chqDescN = chqN ? ` - Cheque nº ${chqN.numero_cheque || chqN.numeroCheque} (${chqN.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
+          const chqDescN = chqN
+            ? ` - Cheque nº ${chqN.numero_cheque || chqN.numeroCheque} (${chqN.banco})`
+            : ` - ${getPaymentMethodLabel(instMethod)}`;
           return {
             ...targetService,
             id: `serv_inst_${targetService.id}_${inst.number}_${Date.now()}_${idx}`,
@@ -339,7 +346,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             billingStatus: 'faturado' as const,
             billedAt: targetService.billedAt || new Date().toISOString(),
             paymentStatus: 'pendente' as const,
-            paymentMethod: details.paymentMethod,
+            paymentMethod: instMethod,
             paymentDate: undefined,
             paidAmount: 0,
             createdAt: new Date().toISOString(),
@@ -393,12 +400,31 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         }
 
       } else {
-        // Fluxo padrão sem parcelamento
+        // Fluxo sem parcelamento (quitação imediata OU salvar forma em aberto)
         const chqSingle = details.cheques?.[0] || details.cheque;
         const chqSingleNote = chqSingle ? ` (Cheque nº ${chqSingle.numero_cheque || chqSingle.numeroCheque} - ${chqSingle.banco})` : '';
+        const newDueDate = details.splitLines?.[0]?.firstDueDate;
 
         const updated = localServices.map(s => {
           if (s.id === details.itemId) {
+            if (isKeepAllPending) {
+              return {
+                ...s,
+                totalAmount: details.paidAmount,
+                dueDate: newDueDate || s.dueDate,
+                status: 'faturado' as const,
+                paymentStatus: 'pendente' as const,
+                paymentMethod: details.paymentMethod,
+                paymentDate: undefined,
+                paidAmount: 0,
+                billingNotes: details.interestAmount
+                  ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Forma definida: ${getPaymentMethodLabel(details.paymentMethod)} com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                  : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
+                updatedAt: new Date().toISOString(),
+                chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || s.chequeId) : undefined,
+                chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || s.chequeNumero) : undefined,
+              };
+            }
             return {
               ...s,
               totalAmount: details.paidAmount,
@@ -408,7 +434,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               paymentDate: details.receiptDate,
               paidAmount: details.paidAmount,
               billingNotes: details.interestAmount 
-                ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
               updatedAt: new Date().toISOString(),
               chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || s.chequeId) : undefined,
@@ -421,43 +447,45 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         saveStoredServices(updated);
         if (onSaveServices) onSaveServices(updated);
 
-        // Se baixou em cheque ou compensou cheque pré-existente
-        try {
-          const storedChqs = getStoredFinanceiroCheques();
-          const targetItem = allReceivables.find(r => r.id === details.itemId);
-          const chqToUpdate = storedChqs.find(sc => 
-            (chqSingle && sc.id === chqSingle.id) ||
-            (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
-            (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
-            (sc.ordem_id === details.itemId || sc.ordemId === details.itemId)
-          );
-          if (chqToUpdate) {
-            if (details.paymentMethod === 'cheque') {
-              chqToUpdate.status = 'COMPENSADO';
-              chqToUpdate.data_compensacao = details.receiptDate;
-              chqToUpdate.dataCompensacao = details.receiptDate;
-              if (details.bankAccountId) {
-                chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
-                chqToUpdate.contaBancariaDestinoId = details.bankAccountId;
+        // Atualiza custódia de cheques apenas na quitação imediata (em aberto mantém EM_NOSSO_PODER)
+        if (!isKeepAllPending) {
+          try {
+            const storedChqs = getStoredFinanceiroCheques();
+            const targetItem = allReceivables.find(r => r.id === details.itemId);
+            const chqToUpdate = storedChqs.find(sc => 
+              (chqSingle && sc.id === chqSingle.id) ||
+              (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
+              (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
+              (sc.ordem_id === details.itemId || sc.ordemId === details.itemId)
+            );
+            if (chqToUpdate) {
+              if (details.paymentMethod === 'cheque') {
+                chqToUpdate.status = 'COMPENSADO';
+                chqToUpdate.data_compensacao = details.receiptDate;
+                chqToUpdate.dataCompensacao = details.receiptDate;
+                if (details.bankAccountId) {
+                  chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+                  chqToUpdate.contaBancariaDestinoId = details.bankAccountId;
+                }
+              } else {
+                chqToUpdate.status = 'SUBSTITUIDO';
+                chqToUpdate.ordem_id = undefined;
+                chqToUpdate.ordemId = undefined;
+                const substMsg = `Substituído por ${getPaymentMethodLabel(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+                if (!chqToUpdate.observacoes?.includes('Substituído por')) {
+                  chqToUpdate.observacoes = chqToUpdate.observacoes ? `${chqToUpdate.observacoes} | ${substMsg}` : substMsg;
+                }
               }
-            } else {
-              chqToUpdate.status = 'SUBSTITUIDO';
-              chqToUpdate.ordem_id = undefined;
-              chqToUpdate.ordemId = undefined;
-              const substMsg = `Substituído por ${getPaymentMethodLabel(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
-              if (!chqToUpdate.observacoes?.includes('Substituído por')) {
-                chqToUpdate.observacoes = chqToUpdate.observacoes ? `${chqToUpdate.observacoes} | ${substMsg}` : substMsg;
-              }
+              chqToUpdate.updated_at = new Date().toISOString();
+              saveStoredFinanceiroCheques(storedChqs);
+              try {
+                localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
+              } catch {}
+              window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
             }
-            chqToUpdate.updated_at = new Date().toISOString();
-            saveStoredFinanceiroCheques(storedChqs);
-            try {
-              localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
-            } catch {}
-            window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+          } catch (e) {
+            console.warn('Erro ao atualizar status do cheque:', e);
           }
-        } catch (e) {
-          console.warn('Erro ao atualizar status do cheque:', e);
         }
       }
     } 
@@ -467,9 +495,12 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
       if (targetOrder && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
         const inst1 = details.installments[0];
-        const isInst1Paid = Boolean(inst1.isPaid);
+        const isInst1Paid = !isKeepAllPending && Boolean(inst1.isPaid);
+        const inst1Method = inst1.paymentMethod || details.paymentMethod;
         const chq1 = details.cheques?.[0] || details.cheque;
-        const chqDesc1 = chq1 ? ` - Cheque nº ${chq1.numero_cheque || chq1.numeroCheque} (${chq1.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
+        const chqDesc1 = chq1
+          ? ` - Cheque nº ${chq1.numero_cheque || chq1.numeroCheque} (${chq1.banco})`
+          : ` - ${getPaymentMethodLabel(inst1Method)}`;
 
         // Atualiza a ordem original para a 1ª parcela
         const updatedOriginalOrder: SilageOrder = {
@@ -479,7 +510,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           date: inst1.dueDate,
           dueDate: inst1.dueDate,
           paymentStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
-          paymentMethod: details.paymentMethod,
+          paymentMethod: inst1Method,
           paidAmount: isInst1Paid ? inst1.amount : 0,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
           notes: `${targetOrder.notes || ''} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`.trim(),
@@ -494,8 +525,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
         // Cria as parcelas subsequentes (2..N) com status 'pendente'
         const newInstallmentOrders: SilageOrder[] = details.installments.slice(1).map((inst, idx) => {
+          const instMethod = inst.paymentMethod || details.paymentMethod;
           const chqN = details.cheques?.[idx + 1];
-          const chqDescN = chqN ? ` - Cheque nº ${chqN.numero_cheque || chqN.numeroCheque} (${chqN.banco})` : ` - ${getPaymentMethodLabel(details.paymentMethod)}`;
+          const chqDescN = chqN
+            ? ` - Cheque nº ${chqN.numero_cheque || chqN.numeroCheque} (${chqN.banco})`
+            : ` - ${getPaymentMethodLabel(instMethod)}`;
           return {
             ...targetOrder,
             id: `ord_inst_${targetOrder.id}_${inst.number}_${Date.now()}_${idx}`,
@@ -505,7 +539,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             date: inst.dueDate,
             dueDate: inst.dueDate,
             paymentStatus: 'pendente' as const,
-            paymentMethod: details.paymentMethod,
+            paymentMethod: instMethod,
             paidAmount: 0,
             paymentDate: undefined,
             notes: `${targetOrder.notes || ''} (Parcela ${inst.number}/${inst.totalInstallments}${chqDescN})`.trim(),
@@ -565,9 +599,27 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         // Fluxo padrão sem parcelamento
         const chqSingle = details.cheques?.[0] || details.cheque;
         const chqSingleNote = chqSingle ? ` (Cheque nº ${chqSingle.numero_cheque || chqSingle.numeroCheque} - ${chqSingle.banco})` : '';
+        const newDueDate = details.splitLines?.[0]?.firstDueDate;
 
         const updated = localOrders.map(o => {
           if (o.id === details.itemId) {
+            if (isKeepAllPending) {
+              return {
+                ...o,
+                totalAmount: details.paidAmount,
+                dueDate: newDueDate || o.dueDate,
+                paymentStatus: 'pendente' as const,
+                paymentMethod: details.paymentMethod,
+                paidAmount: 0,
+                paymentDate: undefined,
+                notes: details.interestAmount
+                  ? `${o.notes || ''}${chqSingleNote} (Forma definida: ${getPaymentMethodLabel(details.paymentMethod)} com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                  : `${o.notes || ''}${chqSingleNote}`.trim(),
+                updatedAt: new Date().toISOString(),
+                chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || o.chequeId) : undefined,
+                chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || o.chequeNumero) : undefined,
+              };
+            }
             return {
               ...o,
               totalAmount: details.paidAmount,
@@ -576,7 +628,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               paidAmount: details.paidAmount,
               paymentDate: details.receiptDate,
               notes: details.interestAmount
-                ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de R$ ${formatCurrencyBRL(details.interestAmount)})`.trim()
+                ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${o.notes || ''}${chqSingleNote}`.trim(),
               updatedAt: new Date().toISOString(),
               chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || o.chequeId) : undefined,
@@ -588,75 +640,143 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         setLocalOrders(updated);
         saveStoredOrders(updated);
         if (onSaveOrders) onSaveOrders(updated);
-        if (onToggleOrderStatus) onToggleOrderStatus(details.itemId);
+        if (onToggleOrderStatus && !isKeepAllPending) onToggleOrderStatus(details.itemId);
 
-        // Se baixou em cheque ou compensou cheque pré-existente
-        try {
-          const storedChqs = getStoredFinanceiroCheques();
-          const targetItem = allReceivables.find(r => r.id === details.itemId);
-          const chqToUpdate = storedChqs.find(sc => 
-            (chqSingle && sc.id === chqSingle.id) ||
-            (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
-            (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
-            (sc.ordem_id === details.itemId || sc.ordemId === details.itemId)
-          );
-          if (chqToUpdate) {
-            if (details.paymentMethod === 'cheque') {
-              chqToUpdate.status = 'COMPENSADO';
-              chqToUpdate.data_compensacao = details.receiptDate;
-              chqToUpdate.dataCompensacao = details.receiptDate;
-              if (details.bankAccountId) {
-                chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
-                chqToUpdate.contaBancariaDestinoId = details.bankAccountId;
+        // Atualiza status do cheque apenas na quitação imediata
+        if (!isKeepAllPending) {
+          try {
+            const storedChqs = getStoredFinanceiroCheques();
+            const targetItem = allReceivables.find(r => r.id === details.itemId);
+            const chqToUpdate = storedChqs.find(sc => 
+              (chqSingle && sc.id === chqSingle.id) ||
+              (targetItem?.chequeId && sc.id === targetItem.chequeId) ||
+              (targetItem?.chequeNumero && (sc.numero_cheque === targetItem.chequeNumero || sc.numeroCheque === targetItem.chequeNumero)) ||
+              (sc.ordem_id === details.itemId || sc.ordemId === details.itemId)
+            );
+            if (chqToUpdate) {
+              if (details.paymentMethod === 'cheque') {
+                chqToUpdate.status = 'COMPENSADO';
+                chqToUpdate.data_compensacao = details.receiptDate;
+                chqToUpdate.dataCompensacao = details.receiptDate;
+                if (details.bankAccountId) {
+                  chqToUpdate.conta_bancaria_destino_id = details.bankAccountId;
+                  chqToUpdate.contaBancariaDestinoId = details.bankAccountId;
+                }
+              } else {
+                chqToUpdate.status = 'SUBSTITUIDO';
+                chqToUpdate.ordem_id = undefined;
+                chqToUpdate.ordemId = undefined;
+                const substMsg = `Substituído por ${getPaymentMethodLabel(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
+                if (!chqToUpdate.observacoes?.includes('Substituído por')) {
+                  chqToUpdate.observacoes = chqToUpdate.observacoes ? `${chqToUpdate.observacoes} | ${substMsg}` : substMsg;
+                }
               }
-            } else {
-              chqToUpdate.status = 'SUBSTITUIDO';
-              chqToUpdate.ordem_id = undefined;
-              chqToUpdate.ordemId = undefined;
-              const substMsg = `Substituído por ${getPaymentMethodLabel(details.paymentMethod).toUpperCase()} na baixa em ${details.receiptDate}`;
-              if (!chqToUpdate.observacoes?.includes('Substituído por')) {
-                chqToUpdate.observacoes = chqToUpdate.observacoes ? `${chqToUpdate.observacoes} | ${substMsg}` : substMsg;
-              }
+              chqToUpdate.updated_at = new Date().toISOString();
+              saveStoredFinanceiroCheques(storedChqs);
+              try {
+                localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
+              } catch {}
+              window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
             }
-            chqToUpdate.updated_at = new Date().toISOString();
-            saveStoredFinanceiroCheques(storedChqs);
-            try {
-              localStorage.setItem('agrocontrol_custodia_cheques', JSON.stringify(storedChqs));
-            } catch {}
-            window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+          } catch (e) {
+            console.warn('Erro ao atualizar status do cheque:', e);
           }
-        } catch (e) {
-          console.warn('Erro ao atualizar status do cheque:', e);
         }
       }
     }
 
-    // 2.1 Atualiza Nota Fiscal de Saída quando integrada ao Contas a Receber
+    // 2.1 Atualiza Nota Fiscal de Saída quando integrada ao Contas a Receber (incluindo parcelamento e salvar em aberto)
     if (details.itemType === 'Nota Fiscal de Saída') {
-      const updatedNotas = localNotasSaida.map((n) => {
-        if (n.id === details.itemId) {
+      const targetNota = localNotasSaida.find((n) => n.id === details.itemId);
+      if (targetNota && details.isInstallmentPlan && details.installments && details.installments.length > 1) {
+        const inst1 = details.installments[0];
+        const isInst1Paid = !isKeepAllPending && Boolean(inst1.isPaid);
+        const inst1Method = inst1.paymentMethod || details.paymentMethod;
+
+        const updatedOriginalNota: NotaSaidaRecord = {
+          ...targetNota,
+          numero: `${targetNota.numero} (1/${inst1.totalInstallments})`,
+          valorTotal: inst1.amount,
+          dataVencimento: inst1.dueDate,
+          condicaoPagamento: getPaymentMethodLabel(inst1Method),
+          receberStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
+          receberPaymentDate: isInst1Paid ? details.receiptDate : undefined,
+          receberPaymentMethod: inst1Method,
+          updatedAt: new Date().toISOString(),
+        };
+
+        const childNotas: NotaSaidaRecord[] = details.installments.slice(1).map((inst, idx) => {
+          const instMethod = inst.paymentMethod || details.paymentMethod;
           return {
-            ...n,
-            receberStatus: 'pago' as const,
-            receberPaymentDate: details.receiptDate,
-            receberPaymentMethod: details.paymentMethod,
-            valorTotal: details.paidAmount,
+            ...targetNota,
+            id: `nf_inst_${targetNota.id}_${inst.number}_${Date.now()}_${idx}`,
+            numero: `${targetNota.numero} (${inst.number}/${inst.totalInstallments})`,
+            valorTotal: inst.amount,
+            dataVencimento: inst.dueDate,
+            condicaoPagamento: getPaymentMethodLabel(instMethod),
+            receberStatus: 'pendente' as const,
+            receberPaymentDate: undefined,
+            receberPaymentMethod: instMethod,
+            observacoes: `${targetNota.observacoes ? `${targetNota.observacoes} | ` : ''}Parcela ${inst.number}/${inst.totalInstallments}`.trim(),
+            createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
-        }
-        return n;
-      });
-      setLocalNotasSaida(updatedNotas);
-      saveStoredNotasSaida(updatedNotas);
+        });
+
+        const updatedNotas = [
+          ...localNotasSaida.filter((n) => n.id !== details.itemId),
+          updatedOriginalNota,
+          ...childNotas,
+        ];
+        setLocalNotasSaida(updatedNotas);
+        saveStoredNotasSaida(updatedNotas);
+      } else {
+        const newDueDate = details.splitLines?.[0]?.firstDueDate;
+        const updatedNotas = localNotasSaida.map((n) => {
+          if (n.id === details.itemId) {
+            if (isKeepAllPending) {
+              return {
+                ...n,
+                dataVencimento: newDueDate || n.dataVencimento,
+                condicaoPagamento: getPaymentMethodLabel(details.paymentMethod),
+                receberStatus: 'pendente' as const,
+                receberPaymentDate: undefined,
+                receberPaymentMethod: details.paymentMethod,
+                valorTotal: details.paidAmount,
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return {
+              ...n,
+              receberStatus: 'pago' as const,
+              receberPaymentDate: details.receiptDate,
+              receberPaymentMethod: details.paymentMethod,
+              valorTotal: details.paidAmount,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return n;
+        });
+        setLocalNotasSaida(updatedNotas);
+        saveStoredNotasSaida(updatedNotas);
+      }
     }
 
-    // 3. Registra movimentação no Extrato Bancário e atualiza Saldo da Conta Bancária
-    const isFirstPaid = details.isInstallmentPlan ? Boolean(details.installments?.[0]?.isPaid) : true;
-    const amountReceivedNow = details.isInstallmentPlan 
-      ? (isFirstPaid ? (details.installments?.[0]?.amount || 0) : 0)
+    // 3. Registra movimentação no Extrato Bancário e atualiza Saldo da Conta Bancária (SOMENTE na quitação/baixa)
+    const isFirstPaid = isKeepAllPending
+      ? false
+      : details.isInstallmentPlan
+      ? Boolean(details.installments?.[0]?.isPaid)
+      : true;
+    const amountReceivedNow = isKeepAllPending
+      ? 0
+      : details.isInstallmentPlan
+      ? isFirstPaid
+        ? details.installments?.[0]?.amount || 0
+        : 0
       : details.paidAmount;
 
-    if (details.bankAccountId && amountReceivedNow > 0) {
+    if (!isKeepAllPending && details.bankAccountId && amountReceivedNow > 0) {
       try {
         // Atualiza saldo real da conta de destino
         const allAccs = getStoredBankAccounts();
@@ -694,7 +814,13 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
     // 4. Monta mensagem de feedback detalhada e clara
     let msg = '';
-    if (details.isInstallmentPlan && details.installments && details.installments.length > 1) {
+    if (isKeepAllPending) {
+      if (details.isInstallmentPlan && details.installments && details.installments.length > 1) {
+        msg = `Forma salva e ${details.installments.length} parcelas geradas EM ABERTO via ${getPaymentMethodLabel(details.paymentMethod)} (nenhum valor movimentado no caixa/banco).`;
+      } else {
+        msg = `Forma de pagamento (${getPaymentMethodLabel(details.paymentMethod)}) salva EM ABERTO no Contas a Receber sem movimentar saldo bancário.`;
+      }
+    } else if (details.isInstallmentPlan && details.installments && details.installments.length > 1) {
       msg = `Parcelamento em ${details.installments.length}x confirmado via ${getPaymentMethodLabel(details.paymentMethod)}! ${isFirstPaid ? '1ª parcela baixada como recebida e demais parcelas' : 'Todas as parcelas geradas'} em aberto no Contas a Receber.`;
     } else {
       msg = `Baixa confirmada com sucesso! Conta recebida via ${getPaymentMethodLabel(details.paymentMethod)}.`;

@@ -11,7 +11,8 @@ import {
   RotateCcw,
   Lock
 } from 'lucide-react';
-import { Machinery, Employee, FleetTeam, FuelLog, MaintenanceLog, Expense, CompanyProfile, ServiceOrder, SilageOrder, VehicleTypeDefinition, TireRotationLog, InventoryItem, Supplier, MaintenancePurchaseRequest, BankAccount } from '../../types';
+import { Machinery, Employee, FleetTeam, FuelLog, MaintenanceLog, MaintenancePartItem, Expense, CompanyProfile, ServiceOrder, SilageOrder, VehicleTypeDefinition, TireRotationLog, InventoryItem, Supplier, MaintenancePurchaseRequest, BankAccount } from '../../types';
+import { PendingMaintenanceFromEntryNfePayload } from '../../utils/entryToMaintenancePrefill';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 import { FleetDashboard } from './FleetDashboard';
 import { FleetVehiclesView } from './FleetVehiclesView';
@@ -81,6 +82,8 @@ interface FleetModuleProps {
   initialSubTab?: FleetSubTab;
   initialDraftMaintenanceLog?: MaintenanceLog | null;
   onClearInitialDraftMaintenanceLog?: () => void;
+  initialEntryNfePayload?: PendingMaintenanceFromEntryNfePayload | null;
+  onClearInitialEntryNfePayload?: () => void;
   onSaveMachineries: (machineries: Machinery[]) => void;
   onSaveEmployees: (employees: Employee[]) => void;
   onSaveTeams?: (teams: FleetTeam[]) => void;
@@ -112,6 +115,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   initialSubTab,
   initialDraftMaintenanceLog,
   onClearInitialDraftMaintenanceLog,
+  initialEntryNfePayload,
+  onClearInitialEntryNfePayload,
   onSaveMachineries,
   onSaveEmployees,
   onSaveTeams,
@@ -334,6 +339,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [editingMaintenanceLog, setEditingMaintenanceLog] = useState<MaintenanceLog | null>(null);
+  const [activeEntryNfePayload, setActiveEntryNfePayload] = useState<PendingMaintenanceFromEntryNfePayload | null>(null);
 
   React.useEffect(() => {
     if (initialSubTab) {
@@ -356,6 +362,29 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       }
     }
   }, [initialDraftMaintenanceLog]);
+
+  const onClearInitialEntryNfeRef = React.useRef(onClearInitialEntryNfePayload);
+  React.useEffect(() => {
+    onClearInitialEntryNfeRef.current = onClearInitialEntryNfePayload;
+  }, [onClearInitialEntryNfePayload]);
+
+  React.useEffect(() => {
+    if (!initialEntryNfePayload) return;
+    setActiveSubTab('manutencoes');
+    if (initialEntryNfePayload.mode === 'existing_os' && initialEntryNfePayload.targetOsId) {
+      const targetLog = maintenanceLogsRef.current.find(
+        (m) => m.id === initialEntryNfePayload.targetOsId
+      );
+      setEditingMaintenanceLog(targetLog || null);
+    } else {
+      setEditingMaintenanceLog(null);
+    }
+    setActiveEntryNfePayload(initialEntryNfePayload);
+    setIsMaintenanceModalOpen(true);
+    if (onClearInitialEntryNfeRef.current) {
+      onClearInitialEntryNfeRef.current();
+    }
+  }, [initialEntryNfePayload]);
 
   // --- VEHICLES HANDLERS ---
   const handleOpenNewVehicle = () => {
@@ -911,6 +940,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       deductStock?: boolean; 
       createPurchaseRequest?: boolean;
       skipAccountsPayableDreOnly?: boolean;
+      newlyDeductedParts?: MaintenancePartItem[];
     }
   ) => {
     const isDreOnly = Boolean(
@@ -952,13 +982,28 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       onSaveMachineries(machineries.map(m => m.id === targetVehicle.id ? updatedVehicle : m));
     }
 
-    // 1. Sincronização e Baixa Automática no Almoxarifado Interno
-    if (shouldDeductStock) {
-      const latestInventory = getStoredInventory();
-      if (latestInventory && latestInventory.length > 0 && onSaveInventory) {
-        onSaveInventory(latestInventory);
+    // 1. Sincronização e Baixa Automática no Almoxarifado Interno (evitando dupla subtração)
+    const latestInventory = getStoredInventory();
+    if (latestInventory && latestInventory.length > 0 && onSaveInventory) {
+      onSaveInventory(latestInventory);
+    }
+    if (flags?.newlyDeductedParts !== undefined) {
+      if (flags.newlyDeductedParts.length > 0 && latestInventory.length > 0) {
+        flags.newlyDeductedParts.forEach((p) => {
+          const matchedInv = latestInventory.find(
+            (inv) =>
+              (p.inventoryItemId && inv.id === p.inventoryItemId) ||
+              (inv.name && p.description && inv.name.trim().toLowerCase() === p.description.trim().toLowerCase())
+          );
+          if (matchedInv) {
+            upsertEstoqueItem(matchedInv).catch((err) =>
+              console.warn('Supabase upsertEstoqueItem OS notice:', err)
+            );
+          }
+        });
       }
-      // Dispara o comando definitivo no Supabase ('public.estoque_produtos')
+    } else if (shouldDeductStock) {
+      // Fluxo legado (sem newlyDeductedParts): dispara comando definitivo no Supabase
       if (log.partsItems && log.partsItems.length > 0) {
         baixarEstoqueProdutosDefinitivoOS(
           log.partsItems.map(p => ({
@@ -1427,14 +1472,18 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         onClose={() => {
           setIsMaintenanceModalOpen(false);
           setEditingMaintenanceLog(null);
+          setActiveEntryNfePayload(null);
         }}
         onSave={handleSaveMaintenance}
         editingLog={editingMaintenanceLog}
         machineries={machineries}
         employees={employees}
         inventory={inventory}
+        onSaveInventory={onSaveInventory}
         suppliers={suppliers}
         companyProfile={companyProfile}
+        initialEntryNfePayload={activeEntryNfePayload}
+        onClearInitialEntryNfePayload={() => setActiveEntryNfePayload(null)}
       />
 
       {/* Vehicle History & Profitability Modal */}

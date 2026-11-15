@@ -35,7 +35,8 @@ import {
   Receipt,
   ArrowRight,
   CheckCheck,
-  Gauge
+  Gauge,
+  Download
 } from 'lucide-react';
 import { 
   MaintenanceLog, 
@@ -54,7 +55,8 @@ import {
   MaintenanceFinancialConditions,
   PaymentMethod,
   MaintenanceCategoryDefinition,
-  PreventiveGroupItem
+  PreventiveGroupItem,
+  DocumentoEntradaRecord
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -68,8 +70,10 @@ import {
   getPreventivePlanForVehicle,
   resolveVehicleGroupCategory
 } from '../../lib/storage';
+import { upsertEstoqueItem } from '../../lib/supabaseService';
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
 import { ProductSearchModal } from './ProductSearchModal';
+import { ImportEntryNfeToMaintenanceModal } from './ImportEntryNfeToMaintenanceModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from '../nfe/NfeInstallmentsModal';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 import {
@@ -79,6 +83,13 @@ import {
   getGlobalPaymentMethodLabel,
 } from '../../lib/paymentMethodsStorage';
 import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+import {
+  PendingMaintenanceFromEntryNfePayload,
+  getDocumentoEntradaDate,
+  getDocumentoEntradaNumber,
+  getDocumentoEntradaSupplier,
+  getDocumentoEntradaTotal,
+} from '../../utils/entryToMaintenancePrefill';
 
 export const parseCleanPriceNumber = (val: any): number => {
   if (val === undefined || val === null || val === '') return 0;
@@ -147,14 +158,18 @@ interface MaintenanceModalProps {
       deductStock: boolean;
       createPurchaseRequest: boolean;
       skipAccountsPayableDreOnly?: boolean;
+      newlyDeductedParts?: MaintenancePartItem[];
     }
   ) => void;
   editingLog: MaintenanceLog | null;
   machineries: Machinery[];
   inventory?: InventoryItem[];
+  onSaveInventory?: (updated: InventoryItem[]) => void;
   suppliers?: Supplier[];
   employees?: Employee[];
   companyProfile?: CompanyProfile;
+  initialEntryNfePayload?: PendingMaintenanceFromEntryNfePayload | null;
+  onClearInitialEntryNfePayload?: () => void;
 }
 
 export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
@@ -164,12 +179,17 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   editingLog,
   machineries,
   inventory = [],
+  onSaveInventory,
   suppliers = [],
   employees = [],
   companyProfile,
+  initialEntryNfePayload,
+  onClearInitialEntryNfePayload,
 }) => {
   // Active subtab inside modal for clean navigation
   const [activeTab, setActiveTab] = useState<'geral' | 'pecas' | 'fiscal_financeiro'>('geral');
+  const [isImportEntryNfeModalOpen, setIsImportEntryNfeModalOpen] = useState(false);
+  const [preselectedEntryNfeDoc, setPreselectedEntryNfeDoc] = useState<DocumentoEntradaRecord | null>(null);
 
   const maintenanceGuard = useModalUnsavedGuard({
     isOpen,
@@ -958,7 +978,52 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     }
     setSaveSuccess(false);
     setFeedbackBanner(null);
-  }, [editingLog, isOpen, machineries]);
+
+    if (isOpen && initialEntryNfePayload?.documentoEntrada) {
+      const doc = initialEntryNfePayload.documentoEntrada;
+      const docNum = getDocumentoEntradaNumber(doc);
+      const docSupplier = getDocumentoEntradaSupplier(doc);
+      const docDate = getDocumentoEntradaDate(doc);
+      const docTotal = getDocumentoEntradaTotal(doc);
+
+      setHasNfe(true);
+      if (docNum) setNfeNumber(docNum);
+      if (doc.serie) setNfeSeries(doc.serie);
+      if (doc.chave_acesso) setNfeAccessKey(doc.chave_acesso);
+      if (docDate) setNfeIssueDate(docDate);
+      if (docSupplier) {
+        setNfeSupplierName(docSupplier);
+        if (!editingLog) setFinancialSupplier(docSupplier);
+      }
+      if (docTotal > 0) setNfeTotalAmount(String(docTotal));
+
+      if (!editingLog) {
+        const linkedMachId = doc.machineryId || doc.vehicleId;
+        if (linkedMachId && machineries.some((m) => m.id === linkedMachId)) {
+          setMachineryId(linkedMachId);
+        }
+        if (docDate) setDate(docDate);
+        setSkipAccountsPayableDreOnly(true);
+        setCreateExpense(false);
+        setDescription(
+          docNum
+            ? `Manutenção / Aplicação de Peças da NF-e Nº ${docNum}${docSupplier ? ` (${docSupplier})` : ''}`
+            : 'Manutenção / Aplicação de Peças de Nota Fiscal de Entrada'
+        );
+      } else if (!editingLog.financialConditions?.createAccountsPayable) {
+        setSkipAccountsPayableDreOnly(true);
+        setCreateExpense(false);
+      }
+
+      setActiveTab('pecas');
+      setPreselectedEntryNfeDoc(doc);
+      setIsImportEntryNfeModalOpen(true);
+      onClearInitialEntryNfePayload?.();
+    } else if (!isOpen) {
+      setIsImportEntryNfeModalOpen(false);
+      setPreselectedEntryNfeDoc(null);
+    }
+  }, [editingLog, isOpen, machineries, initialEntryNfePayload]);
 
   // Máscara visual de milhar em tempo real (padrão pt-BR, ex: 5000 vira "5.000"; 12550 vira "12.550")
   const formatThousand = (val: string | number | undefined): string => {
@@ -1394,18 +1459,66 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             (inv.name && itemToRemove.description && String(inv.name).trim().toLowerCase() === String(itemToRemove.description).trim().toLowerCase())
           );
           if (targetIdx !== -1) {
-            updatedStock[targetIdx] = {
+            const restoredQty = Math.round(((Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) || 0) + qtyToRestore) * 100) / 100;
+            const restoredItem: InventoryItem = {
               ...updatedStock[targetIdx],
-              quantity: (Number(updatedStock[targetIdx].quantity) || 0) + qtyToRestore,
+              quantity: restoredQty,
+              quantidade_atual: restoredQty,
               updatedAt: new Date().toISOString()
             };
+            updatedStock[targetIdx] = restoredItem;
             saveStoredInventory(updatedStock);
             setStoredInventory(updatedStock);
+            onSaveInventory?.(updatedStock);
+            window.dispatchEvent(new CustomEvent('silagem_inventory_changed'));
+            upsertEstoqueItem(restoredItem).catch(err => console.warn('Supabase upsertEstoqueItem restore notice:', err));
           }
         }
       }
     }
     setPartsItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleConfirmImportFromEntryNfe = ({
+    documentoEntrada,
+    partsItems: importedParts,
+  }: {
+    documentoEntrada: DocumentoEntradaRecord;
+    partsItems: MaintenancePartItem[];
+  }) => {
+    setUsePartsItemList(true);
+    setPartsItems((prev) => [...prev, ...importedParts]);
+
+    const docNum = getDocumentoEntradaNumber(documentoEntrada);
+    const docSupplier = getDocumentoEntradaSupplier(documentoEntrada);
+    const docDate = getDocumentoEntradaDate(documentoEntrada);
+    const docTotal = getDocumentoEntradaTotal(documentoEntrada);
+
+    setHasNfe(true);
+    if (docNum) setNfeNumber(docNum);
+    if (documentoEntrada.serie) setNfeSeries(documentoEntrada.serie);
+    if (documentoEntrada.chave_acesso) setNfeAccessKey(documentoEntrada.chave_acesso);
+    if (docDate) setNfeIssueDate(docDate);
+    if (docSupplier) {
+      setNfeSupplierName(docSupplier);
+      if (!financialSupplier.trim()) setFinancialSupplier(docSupplier);
+    }
+    if (docTotal > 0 && !nfeTotalAmount) {
+      setNfeTotalAmount(String(docTotal));
+    }
+
+    if (!createExpense) {
+      setSkipAccountsPayableDreOnly(true);
+    }
+
+    setStoredInventory(getStoredInventory());
+    setIsImportEntryNfeModalOpen(false);
+    setPreselectedEntryNfeDoc(null);
+    setFeedbackBanner({
+      type: 'save',
+      message: `${importedParts.length} peça(s) importada(s) da NF-e Nº ${docNum || 'Entrada'} com baixa proporcional executada no estoque!${!editingLog ? ' Confirme o Veículo na Aba 1 e salve a OS.' : ''}`
+    });
+    setTimeout(() => setFeedbackBanner(null), 5000);
   };
 
   // Cálculo total de peças
@@ -1529,6 +1642,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       let updatedStock = [...baseStock];
       let hasNewDeductions = false;
       const negativeStockWarnings: string[] = [];
+      const newlyDeductedParts: MaintenancePartItem[] = [];
 
       // LÓGICA DO LOOP:
       // Quando o usuário clica em "Salvar Ordem de Serviço", o script verifica cada linha.
@@ -1568,26 +1682,35 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             };
             hasNewDeductions = true;
 
-            // Assim que a linha nova for processada e salva com sucesso, marca-a imediatamente como "baixada"
-            return {
+            const updatedPart: MaintenancePartItem = {
               ...part,
               stockDeducted: true,
               financeiro_bloqueado: true,
             };
+            newlyDeductedParts.push(updatedPart);
+
+            // Assim que a linha nova for processada e salva com sucesso, marca-a imediatamente como "baixada"
+            return updatedPart;
           }
         }
 
         // Para linhas novas externas ou sem registro direto no inventário físico
-        return {
+        const fallbackPart: MaintenancePartItem = {
           ...part,
           stockDeducted: true,
           financeiro_bloqueado: isInternal,
         };
+        if (isInternal) {
+          newlyDeductedParts.push(fallbackPart);
+        }
+        return fallbackPart;
       });
 
       if (hasNewDeductions) {
         saveStoredInventory(updatedStock);
         setStoredInventory(updatedStock);
+        onSaveInventory?.(updatedStock);
+        window.dispatchEvent(new CustomEvent('silagem_inventory_changed'));
       }
 
       // Atualiza imediatamente o estado da tabela de produtos para refletir as linhas como baixadas
@@ -1655,9 +1778,10 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       // createExpense é estritamente isTriggeringExpense (desativado quando skipAccountsPayableDreOnly estiver ativo).
       onSave(log, {
         createExpense: isTriggeringExpense && grandTotal > 0,
-        deductStock: true,
+        deductStock: newlyDeductedParts.length > 0,
         createPurchaseRequest: generatePurchaseRequest || (targetStatus === 'aguardando_pecas' && externalPartsCount > 0),
         skipAccountsPayableDreOnly: isDreOnly,
+        newlyDeductedParts,
       });
 
       const warningText = negativeStockWarnings.length > 0
@@ -2845,17 +2969,33 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     </select>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      osPartSearchInputRef.current?.focus();
-                      osPartSearchInputRef.current?.select();
-                    }}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-slate-800 stroke-[2.2]" />
-                    <span>+ ADICIONAR PEÇA / SERVIÇO</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      id="btn-importar-nota-fiscal-os"
+                      type="button"
+                      onClick={() => {
+                        setPreselectedEntryNfeDoc(null);
+                        setIsImportEntryNfeModalOpen(true);
+                      }}
+                      className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-black text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
+                      title="Importar peças e custos diretamente de uma Nota Fiscal de Entrada salva"
+                    >
+                      <Download className="w-3.5 h-3.5 text-white stroke-[2.2]" />
+                      <span>📥 IMPORTAR DE NOTA FISCAL</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        osPartSearchInputRef.current?.focus();
+                        osPartSearchInputRef.current?.select();
+                      }}
+                      className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-slate-800 stroke-[2.2]" />
+                      <span>+ ADICIONAR PEÇA / SERVIÇO</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -3913,6 +4053,21 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         onClose={() => setIsPaymentMethodsManagerOpen(false)}
         zIndexClass="z-[100]"
         onSelectMethod={(key) => setPaymentMethod(key)}
+      />
+
+      <ImportEntryNfeToMaintenanceModal
+        isOpen={isImportEntryNfeModalOpen}
+        onClose={() => {
+          setIsImportEntryNfeModalOpen(false);
+          setPreselectedEntryNfeDoc(null);
+        }}
+        inventory={allInventoryList}
+        onSaveInventory={(updated) => {
+          setStoredInventory(updated);
+          onSaveInventory?.(updated);
+        }}
+        initialDocument={preselectedEntryNfeDoc}
+        onConfirmImport={handleConfirmImportFromEntryNfe}
       />
     </div>
   );
