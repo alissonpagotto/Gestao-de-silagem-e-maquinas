@@ -471,7 +471,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   return (
     <div 
       id="venda-module-root"
-      className={`w-full max-w-none antialiased ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full overflow-hidden' : activeTab === 'pdv' ? 'space-y-1 overflow-hidden global' : 'space-y-2.5'}`}
+      className={`w-full max-w-none antialiased ${isPdvFullscreen && activeTab === 'pdv' ? 'min-h-full overflow-y-auto overflow-x-hidden' : activeTab === 'pdv' ? 'space-y-1 overflow-y-auto overflow-x-hidden global' : 'space-y-2.5'}`}
     >
       {/* 1. CABEÇALHO PADRONIZADO SLIM COM TÍTULO */}
       {(!isPdvFullscreen || activeTab !== 'pdv') && (
@@ -557,7 +557,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
         )}
 
         {/* MOLDURA GERAL INTEGRADA (ALINHAMENTO SETA VERDE) */}
-        <div className={`w-full ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full border-0 rounded-none p-0 bg-[#edf4ff] dark:bg-stone-900' : 'border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global ' + (activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3')}`}>
+        <div className={`w-full ${isPdvFullscreen && activeTab === 'pdv' ? 'min-h-full border-0 rounded-none p-0 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto overflow-x-hidden' : 'border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden global ' + (activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3')}`}>
           {activeTab === 'pdv' ? (
             <PdvView
               clients={clients}

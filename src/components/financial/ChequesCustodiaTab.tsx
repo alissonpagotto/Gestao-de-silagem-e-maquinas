@@ -929,6 +929,26 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                       {/* 8. Ações */}
                       <td className="py-3 px-3.5 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            disabled={!hasImage}
+                            onClick={() => {
+                              if (hasImage) setViewingImageUrl(imageUrl);
+                            }}
+                            className={`p-1.5 rounded-lg border transition shrink-0 ${
+                              hasImage
+                                ? 'bg-slate-100 hover:bg-sky-50 border-slate-300 text-sky-700 hover:text-sky-900 dark:bg-stone-800 dark:border-stone-700 dark:text-sky-400 dark:hover:bg-sky-950/50 cursor-pointer shadow-2xs'
+                                : 'bg-slate-100/60 border-slate-200 text-slate-400 dark:bg-stone-800/40 dark:border-stone-800 dark:text-stone-600 cursor-not-allowed opacity-60'
+                            }`}
+                            title={
+                              hasImage
+                                ? 'Visualizar Imagem da Folha Física do Cheque'
+                                : 'Nenhuma imagem digitalizada anexada a este cheque'
+                            }
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
                           {isEmCarteira && (
                             <>
                               <button

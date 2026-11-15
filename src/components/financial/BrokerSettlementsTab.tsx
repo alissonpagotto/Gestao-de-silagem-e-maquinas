@@ -23,13 +23,21 @@ import {
   Coins,
   ArrowUpRight,
   User,
-  ExternalLink
+  ExternalLink,
+  Settings
 } from 'lucide-react';
 import { BrokerSettlement, Employee, SilageOrder, BankAccount, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  extractGlobalPaymentMethodFromRecord,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
@@ -60,6 +68,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
   onNextMonth,
 }) => {
   const { confirm } = useConfirm();
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const [paymentManagerTarget, setPaymentManagerTarget] = useState<'form' | 'settle'>('settle');
 
   // Filtrar estritamente apenas colaboradores que possuem a função/cargo de Agenciador
   const brokerEmployees = useMemo(() => {
@@ -190,7 +201,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
     setFormDeductions(formatCurrencyInputDisplay(item.deductions || 0));
     setFormStatus(item.status === 'pago' ? 'pago' : 'pendente');
     setFormBankAccountId(item.bankAccountId || '');
-    setFormPaymentMethod((item.paymentMethod as PaymentMethod) || 'pix');
+    setFormPaymentMethod(extractGlobalPaymentMethodFromRecord(item) || 'pix');
     setFormPaymentDate(item.paymentDate || '');
     setFormNotes(item.notes || '');
     setIsModalOpen(true);
@@ -269,11 +280,10 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
   // Quick Settle Payment (Dar Baixa)
   const handleOpenSettleModal = (item: BrokerSettlement) => {
-    const broker = brokerEmployees.find(b => b.id === item.brokerId);
     setSettleTarget(item);
     setSettlePaymentDate(new Date().toISOString().split('T')[0]);
     setSettleAccountId(bankAccounts.length > 0 ? bankAccounts[0].id : '');
-    setSettlePaymentMethod('pix');
+    setSettlePaymentMethod(extractGlobalPaymentMethodFromRecord(item) || 'pix');
     setSettleReceiptNumber('');
     setSettleNotes('');
     setCopiedPix(false);
@@ -1184,23 +1194,73 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                 </div>
 
                 {formStatus === 'pago' && (
-                  <div>
-                    <label className="block text-xs font-bold text-black mb-1">
-                      Conta Bancária de Saída
-                    </label>
-                    <select
-                      value={formBankAccountId}
-                      onChange={(e) => setFormBankAccountId(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium focus:outline-none"
-                    >
-                      <option value="">Selecione a conta de saída...</option>
-                      {bankAccounts.map(acc => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.accountName || acc.bankName} (Saldo: {formatCurrencyBRL(acc.currentBalance)})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Conta Bancária de Saída
+                      </label>
+                      <select
+                        value={formBankAccountId}
+                        onChange={(e) => setFormBankAccountId(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium focus:outline-none"
+                      >
+                        <option value="">Selecione a conta de saída...</option>
+                        {bankAccounts.map(acc => (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.accountName || acc.bankName} (Saldo: {formatCurrencyBRL(acc.currentBalance)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1 gap-1">
+                        <label className="text-xs font-bold text-black">
+                          Forma de Pagamento
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentManagerTarget('form');
+                            setIsPaymentMethodsManagerOpen(true);
+                          }}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+                          title="Gerenciar Formas de Pagamento"
+                        >
+                          <Settings className="w-3 h-3" />
+                          <span>Gerenciar</span>
+                        </button>
+                      </div>
+                      <select
+                        value={formPaymentMethod}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__manage_payment_methods__') {
+                            setPaymentManagerTarget('form');
+                            setIsPaymentMethodsManagerOpen(true);
+                            return;
+                          }
+                          setFormPaymentMethod(val as PaymentMethod);
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium focus:outline-none cursor-pointer"
+                      >
+                        {globalPaymentMethods.map((m) => {
+                          const mKey = getPaymentMethodKey(m);
+                          return (
+                            <option key={m.id} value={mKey}>
+                              {m.nome}
+                            </option>
+                          );
+                        })}
+                        {formPaymentMethod &&
+                          !globalPaymentMethods.some((m) => getPaymentMethodKey(m) === formPaymentMethod) && (
+                            <option value={formPaymentMethod}>
+                              {getGlobalPaymentMethodLabel(formPaymentMethod)}
+                            </option>
+                          )}
+                        <option value="__manage_payment_methods__">⚙️ Gerenciar Formas de Pagamento...</option>
+                      </select>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -1335,19 +1395,51 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Forma de Pagamento
-                  </label>
+                  <div className="flex items-center justify-between mb-1 gap-1">
+                    <label className="text-xs font-bold text-black">
+                      Forma de Pagamento
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentManagerTarget('settle');
+                        setIsPaymentMethodsManagerOpen(true);
+                      }}
+                      className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+                      title="Gerenciar Formas de Pagamento"
+                    >
+                      <Settings className="w-3 h-3" />
+                      <span>Gerenciar</span>
+                    </button>
+                  </div>
                   <select
                     value={settlePaymentMethod}
-                    onChange={(e) => setSettlePaymentMethod(e.target.value as PaymentMethod)}
-                    className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium focus:outline-none"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__manage_payment_methods__') {
+                        setPaymentManagerTarget('settle');
+                        setIsPaymentMethodsManagerOpen(true);
+                        return;
+                      }
+                      setSettlePaymentMethod(val as PaymentMethod);
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium focus:outline-none cursor-pointer"
                   >
-                    <option value="pix">PIX</option>
-                    <option value="transferencia">Transferência Bancária (TED/DOC)</option>
-                    <option value="dinheiro">Dinheiro em Espécie</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="outros">Outro</option>
+                    {globalPaymentMethods.map((m) => {
+                      const mKey = getPaymentMethodKey(m);
+                      return (
+                        <option key={m.id} value={mKey}>
+                          {m.nome}
+                        </option>
+                      );
+                    })}
+                    {settlePaymentMethod &&
+                      !globalPaymentMethods.some((m) => getPaymentMethodKey(m) === settlePaymentMethod) && (
+                        <option value={settlePaymentMethod}>
+                          {getGlobalPaymentMethodLabel(settlePaymentMethod)}
+                        </option>
+                      )}
+                    <option value="__manage_payment_methods__">⚙️ Gerenciar Formas de Pagamento...</option>
                   </select>
                 </div>
               </div>
@@ -1567,6 +1659,18 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
           </div>
         </div>
       )}
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[100]"
+        onSelectMethod={(key) => {
+          if (paymentManagerTarget === 'form') {
+            setFormPaymentMethod(key);
+          } else {
+            setSettlePaymentMethod(key);
+          }
+        }}
+      />
     </div>
   );
 };

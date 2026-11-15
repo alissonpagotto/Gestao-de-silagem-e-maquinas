@@ -53,6 +53,12 @@ import {
   findMatchingOption,
 } from './productClassificationStorage';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
+import {
+  getStoredUnidadesMedida,
+  getStoredAlmoxarifadoSetores,
+  AUXILIARY_EVENTS,
+  dispatchAuxiliaryRegistryChange,
+} from '../../lib/auxiliaryRegistries';
 
 export const DEFAULT_TIRE_BRANDS = [
   'MICHELIN',
@@ -87,6 +93,7 @@ export function getStoredTireBrands(): string[] {
 export function saveStoredTireBrands(brands: string[]): void {
   try {
     localStorage.setItem(TIRE_BRAND_STORAGE_KEY, JSON.stringify(brands));
+    dispatchAuxiliaryRegistryChange(AUXILIARY_EVENTS.MARCAS_PNEUS_UPDATED, brands);
   } catch (e) {
     console.warn('Erro ao salvar marcas de pneus:', e);
   }
@@ -245,6 +252,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [subgroupOptions, setSubgroupOptions] = useState<string[]>(() => getSuggestedSubgroupsForGroup(''));
   const [variationOptions, setVariationOptions] = useState<string[]>(() => getStoredProductVariations());
   const [brandOptions, setBrandOptions] = useState<string[]>(() => getStoredProductBrands());
+  const [unitOptions, setUnitOptions] = useState<string[]>(() => getStoredUnidadesMedida());
+  const [sectorPresets, setSectorPresets] = useState<string[]>(() => getStoredAlmoxarifadoSetores());
   const [activeManagerModal, setActiveManagerModal] = useState<
     'tipo_produto' | 'grupo' | 'subgrupo' | 'variacao' | 'marca' | null
   >(null);
@@ -253,6 +262,31 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [codigoBarras, setCodigoBarras] = useState('');
   const [semGtin, setSemGtin] = useState(false);
   const [refFabrica, setRefFabrica] = useState('');
+
+  useEffect(() => {
+    const syncAux = () => {
+      setTipoProdutoOptions(getStoredTipoProdutoOptions());
+      setGroupOptions(getStoredProductGroups());
+      setSubgroupOptions(getSuggestedSubgroupsForGroup(grupo));
+      setVariationOptions(getStoredProductVariations());
+      setBrandOptions(getStoredProductBrands());
+      setUnitOptions(getStoredUnidadesMedida());
+      setSectorPresets(getStoredAlmoxarifadoSetores());
+      setTireBrandOptions(getStoredTireBrands());
+    };
+    window.addEventListener(AUXILIARY_EVENTS.UNIDADES_UPDATED, syncAux);
+    window.addEventListener(AUXILIARY_EVENTS.SETORES_ALMOX_UPDATED, syncAux);
+    window.addEventListener(AUXILIARY_EVENTS.MARCAS_PNEUS_UPDATED, syncAux);
+    window.addEventListener(AUXILIARY_EVENTS.PRODUCT_CLASSIFICATION_UPDATED, syncAux);
+    window.addEventListener('storage', syncAux);
+    return () => {
+      window.removeEventListener(AUXILIARY_EVENTS.UNIDADES_UPDATED, syncAux);
+      window.removeEventListener(AUXILIARY_EVENTS.SETORES_ALMOX_UPDATED, syncAux);
+      window.removeEventListener(AUXILIARY_EVENTS.MARCAS_PNEUS_UPDATED, syncAux);
+      window.removeEventListener(AUXILIARY_EVENTS.PRODUCT_CLASSIFICATION_UPDATED, syncAux);
+      window.removeEventListener('storage', syncAux);
+    };
+  }, [grupo]);
 
   useEffect(() => {
     setSubgroupOptions(getSuggestedSubgroupsForGroup(grupo));
@@ -1879,20 +1913,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                         />
                         <datalist id="product-form-units-list">
-                          <option value="UN" />
-                          <option value="KG" />
-                          <option value="LT" />
-                          <option value="GALÃO" />
-                          <option value="GL" />
-                          <option value="SC" />
-                          <option value="M" />
-                          <option value="M2" />
-                          <option value="CX" />
-                          <option value="PAR" />
-                          <option value="TON" />
-                          <option value="ROLO" />
-                          <option value="DOSES" />
-                          <option value="HORAS" />
+                          {unitOptions.map((u) => (
+                            <option key={u} value={u} />
+                          ))}
                         </datalist>
                       </div>
 
@@ -2522,6 +2545,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           </label>
                           <input
                             type="text"
+                            list="product-form-setor-list"
                             maxLength={4}
                             value={setor}
                             onChange={(e) => setSetor(e.target.value.toUpperCase())}
@@ -2530,6 +2554,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             className="w-full h-7 px-1 py-0.5 text-xs font-mono font-black text-center uppercase rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                             title="Setor do Almoxarifado"
                           />
+                          <datalist id="product-form-setor-list">
+                            {sectorPresets.map((sec) => (
+                              <option key={sec} value={sec} />
+                            ))}
+                          </datalist>
                         </div>
 
                         {/* 2. Rua */}

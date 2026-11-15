@@ -20,10 +20,18 @@ import {
   Calendar,
   Layers,
   Percent,
-  Info
+  Info,
+  Settings
 } from 'lucide-react';
 import { Employee, SalaryAdvance, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR, saveStoredSalaryAdvances } from '../../lib/storage';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  normalizeGlobalPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
 import { getActiveUserSession } from '../../lib/cadastrosBaseStorage';
@@ -57,6 +65,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Competência ativa
@@ -220,7 +230,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       setSelectedEmployeeId(advance.employeeId);
       setDate(advance.date);
       setAmount(advance.amount);
-      setPaymentMethod(advance.paymentMethod);
+      setPaymentMethod(normalizeGlobalPaymentMethodKey(advance.paymentMethod) || 'pix');
       setReferenceMonth(advance.referenceMonth || currentMonthRef);
       setStatus(advance.status);
       setReason(advance.reason || '');
@@ -966,18 +976,47 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                   {/* Linha 4: Forma Pagto & Mês de Desconto */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block font-bold text-black dark:text-stone-100 mb-1">
-                        Forma de Pagamento
-                      </label>
+                      <div className="flex items-center justify-between mb-1 gap-1">
+                        <label className="font-bold text-black dark:text-stone-100">
+                          Forma de Pagamento
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#0963cb] dark:text-sky-400 hover:underline cursor-pointer"
+                          title="Gerenciar Formas de Pagamento Globais"
+                        >
+                          <Settings className="w-3 h-3" />
+                          <span>Gerenciar</span>
+                        </button>
+                      </div>
                       <select
                         value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__manage_payment_methods__') {
+                            setIsPaymentMethodsManagerOpen(true);
+                            return;
+                          }
+                          setPaymentMethod(val as PaymentMethod);
+                        }}
                         className="w-full p-2 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium cursor-pointer"
                       >
-                        <option value="pix">PIX</option>
-                        <option value="dinheiro">Dinheiro</option>
-                        <option value="transferencia">Transferência Bancária</option>
-                        <option value="cheque">Cheque</option>
+                        {globalPaymentMethods.map((m) => {
+                          const mKey = getPaymentMethodKey(m);
+                          return (
+                            <option key={m.id} value={mKey}>
+                              {m.nome}
+                            </option>
+                          );
+                        })}
+                        {paymentMethod &&
+                          !globalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                            <option value={paymentMethod}>
+                              {getGlobalPaymentMethodLabel(paymentMethod)}
+                            </option>
+                          )}
+                        <option value="__manage_payment_methods__">⚙️ Gerenciar Formas de Pagamento...</option>
                       </select>
                     </div>
                     <div>
@@ -1191,6 +1230,12 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         </div>
       )}
 
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[100]"
+        onSelectMethod={(key) => setPaymentMethod(key)}
+      />
     </div>
   );
 };

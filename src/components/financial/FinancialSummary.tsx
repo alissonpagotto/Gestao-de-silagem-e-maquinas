@@ -1045,7 +1045,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-[#edf4ff] dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3">
+        <div className="w-full border border-[#edf4ff] dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden global p-3 space-y-3">
 
       {/* ABA: Consolidado */}
       {activeTab === 'consolidado' && (

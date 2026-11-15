@@ -571,6 +571,7 @@ export interface CadastrosBaseSubPermissions {
   centros_custo?: boolean;        // [ ] Centros de Custo
   plano_contas?: boolean;         // [ ] Plano de Contas & Formas
   cargos_permissoes?: boolean;    // [ ] Cargos, Setores & Permissões
+  cadastros_auxiliares?: boolean; // [ ] Cadastros Auxiliares & Tabelas
 }
 
 export interface EmpresaSubPermissions {

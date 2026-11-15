@@ -2967,7 +2967,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
   return (
     <div 
       id="pdv-frente-de-caixa-container"
-      className={`w-full ${isPdvFullscreen ? 'h-full max-h-none py-1' : 'h-[calc(100vh-175px)] max-h-[calc(100vh-170px)]'} flex flex-col justify-between overflow-hidden global antialiased select-none gap-1.5`}
+      className={`w-full ${isPdvFullscreen ? 'min-h-full py-1' : 'min-h-[calc(100vh-175px)]'} flex flex-col justify-between overflow-y-auto overflow-x-hidden global antialiased select-none gap-1.5`}
     >
       {/* Alerta Não-Bloqueante de Validação */}
       {warningMessage && (

@@ -395,6 +395,11 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
 export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void {
   try {
     safeLocalStorageSetItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL, JSON.stringify(tanques));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_tanques_combustivel_updated', { detail: tanques }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key: STORAGE_KEYS.TANQUES_COMBUSTIVEL, tanques } }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch (e) {
     console.warn('Failed to save tanques_combustivel', e);
   }
@@ -3140,6 +3145,10 @@ function getStoredList<T = string>(key: string, defaultList: T[]): T[] {
 function saveStoredList<T = any>(key: string, list: T[]): void {
   try {
     safeLocalStorageSetItem(key, JSON.stringify(list));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key, list } }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch (e) {
     console.warn('Failed to save list for key ' + key, e);
   }
@@ -4085,6 +4094,11 @@ export function saveStoredVehicleTypes(types: VehicleTypeDefinition[]): void {
   try {
     safeLocalStorageSetItem('colaca_silagem_tipos_veiculos', JSON.stringify(types));
     safeLocalStorageSetItem(STORAGE_KEYS.VEHICLE_TYPES, JSON.stringify(types));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_tipos_veiculos_updated', { detail: types }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key: STORAGE_KEYS.VEHICLE_TYPES, types } }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch (e) {
     console.warn('Failed to save vehicle types', e);
   }
@@ -4448,6 +4462,8 @@ export function saveStoredMaintenanceCategories(categories: MaintenanceCategoryD
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrocontrol_servicos_categorias_updated', { detail: sorted }));
       window.dispatchEvent(new CustomEvent('maintenance_categories_updated', { detail: sorted }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key: STORAGE_KEYS.MAINTENANCE_CATEGORIES, sorted } }));
+      window.dispatchEvent(new Event('storage'));
     }
   } catch (e) {
     console.error('Failed to save maintenance categories', e);
@@ -4827,6 +4843,11 @@ export function saveStoredManualEntryDocumentTypes(types: string[]): void {
     // Salva a lista sem duplicados
     const unique = Array.from(new Set(clean));
     localStorage.setItem(STORAGE_KEYS.MANUAL_ENTRY_DOCUMENT_TYPES, JSON.stringify(unique));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_tipos_documentos_entrada_updated', { detail: unique }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key: STORAGE_KEYS.MANUAL_ENTRY_DOCUMENT_TYPES, unique } }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch (e) {
     console.error('Failed to save manual entry document types', e);
   }

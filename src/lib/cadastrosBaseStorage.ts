@@ -106,6 +106,7 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
     centros_custo: true,
     plano_contas: true,
     cargos_permissoes: true,
+    cadastros_auxiliares: true,
   },
   sub_empresa: {
     identificacao: true,

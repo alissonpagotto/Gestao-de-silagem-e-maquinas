@@ -989,7 +989,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2 sm:gap-2.5 h-full overflow-hidden justify-start">
+    <div className="flex flex-col gap-2 sm:gap-2.5 overflow-y-auto overflow-x-hidden justify-start">
       {/* BLOCO DE BOTÕES DE AÇÃO RÁPIDA (CONTRATO MASTER AGROCONTROL) */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap shrink-0 bg-[#edf4ff] border border-[#403e3e] rounded-xl p-2 sm:px-3 sm:py-2 dark:bg-transparent dark:border-transparent">
         {/* 1º PAGAR TÍTULO */}

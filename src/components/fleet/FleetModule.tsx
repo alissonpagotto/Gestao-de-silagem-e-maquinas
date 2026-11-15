@@ -1087,10 +1087,10 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   };
 
   return (
-    <div id="fleet-management-module" className="w-full h-full flex flex-col min-h-0 overflow-hidden">
+    <div id="fleet-management-module" className="w-full flex-1 flex flex-col min-h-0">
       
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
-      <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="w-full flex-1 flex flex-col min-h-0">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
         <div className="shrink-0 w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
@@ -1256,7 +1256,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full flex-1 flex flex-col min-h-0 border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden p-2 sm:p-2.5">
+        <div className="w-full flex-1 flex flex-col min-h-0 border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden p-2 sm:p-2.5">
           {/* Trava Visual de Segurança para Sub-abas Bloqueadas */}
           {!isFleetSubTabAllowed(activeSubTab) && (
             <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">

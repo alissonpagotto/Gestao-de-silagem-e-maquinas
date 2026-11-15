@@ -16,14 +16,15 @@ import { Employee, Supplier } from '../../types';
 import { getCompanyFornecedores, getStoredSuppliers } from '../../lib/storage';
 import { getEmployeeBadgeNumber } from '../rh/badgeHelpers';
 import {
-  ASO_EXAM_OPTIONS,
-  ASO_EXAM_PURPOSES,
-  AsoExamPurpose,
+  AsoExamOption,
   AsoGuidePayload,
   formatSupplierFullAddress,
   getDefaultSelectedAsoExams,
+  getDynamicAsoExamOptions,
+  getDynamicAsoPurposes,
   isDriverOrOperatorRole,
 } from './asoGuideUtils';
+import { AUXILIARY_EVENTS } from '../../lib/auxiliaryRegistries';
 
 interface AsoAuthorizationModalProps {
   isOpen: boolean;
@@ -44,10 +45,27 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
   onClose,
   onGenerate,
 }) => {
-  const [purpose, setPurpose] = useState<AsoExamPurpose>('Admissional (Contratação)');
+  const [asoPurposes, setAsoPurposes] = useState<string[]>(() => getDynamicAsoPurposes());
+  const [asoExamOptions, setAsoExamOptions] = useState<AsoExamOption[]>(() => getDynamicAsoExamOptions());
+  const [purpose, setPurpose] = useState<string>(() => getDynamicAsoPurposes()[0] || 'Admissional (Contratação)');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+
+  useEffect(() => {
+    const syncAsoLists = () => {
+      setAsoPurposes(getDynamicAsoPurposes());
+      setAsoExamOptions(getDynamicAsoExamOptions());
+    };
+    window.addEventListener(AUXILIARY_EVENTS.ASO_FINALIDADES_UPDATED, syncAsoLists);
+    window.addEventListener(AUXILIARY_EVENTS.ASO_EXAMES_UPDATED, syncAsoLists);
+    window.addEventListener('storage', syncAsoLists);
+    return () => {
+      window.removeEventListener(AUXILIARY_EVENTS.ASO_FINALIDADES_UPDATED, syncAsoLists);
+      window.removeEventListener(AUXILIARY_EVENTS.ASO_EXAMES_UPDATED, syncAsoLists);
+      window.removeEventListener('storage', syncAsoLists);
+    };
+  }, []);
 
   // Campos manuais quando "Outro / Digitar Manualmente" está selecionado
   const [manualName, setManualName] = useState('');
@@ -87,9 +105,13 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
       return (a.name || '').localeCompare(b.name || '', 'pt-BR');
     });
 
+    const latestPurposes = getDynamicAsoPurposes();
+    const latestExams = getDynamicAsoExamOptions();
+    setAsoPurposes(latestPurposes);
+    setAsoExamOptions(latestExams);
     setSuppliers(sortedSuppliers);
     setSupplierSearch('');
-    setPurpose('Admissional (Contratação)');
+    setPurpose(latestPurposes[0] || 'Admissional (Contratação)');
 
     const firstClinic = sortedSuppliers.find((s) => {
       const hay = `${s.category || ''} ${s.name || ''} ${s.tradeName || ''}`.toLowerCase();
@@ -260,14 +282,17 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
                 </label>
                 <select
                   value={purpose}
-                  onChange={(e) => setPurpose(e.target.value as AsoExamPurpose)}
+                  onChange={(e) => setPurpose(e.target.value)}
                   className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-slate-500 rounded-lg text-xs font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 >
-                  {ASO_EXAM_PURPOSES.map((p) => (
+                  {asoPurposes.map((p) => (
                     <option key={p} value={p}>
                       {p}
                     </option>
                   ))}
+                  {purpose && !asoPurposes.includes(purpose) && (
+                    <option value={purpose}>{purpose}</option>
+                  )}
                 </select>
               </div>
 
@@ -436,7 +461,7 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {ASO_EXAM_OPTIONS.map((exam) => {
+              {asoExamOptions.map((exam) => {
                 const isChecked = selectedExamIds.includes(exam.id);
                 return (
                   <label

@@ -120,6 +120,11 @@ function saveStoredTrocaMotivos(items: string[]): void {
   try {
     const cleaned = items.map((i) => String(i || '').trim()).filter(Boolean);
     localStorage.setItem(TROCA_MOTIVOS_STORAGE_KEY, JSON.stringify(cleaned));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_trocas_motivos_updated', { detail: cleaned }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: cleaned }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch {}
 }
 
@@ -381,7 +386,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const syncMotivos = () => setMotivosList(getStoredTrocaMotivos());
+    window.addEventListener('agrocontrol_trocas_motivos_updated', syncMotivos);
+    window.addEventListener('storage', syncMotivos);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('agrocontrol_trocas_motivos_updated', syncMotivos);
+      window.removeEventListener('storage', syncMotivos);
+    };
   }, [isOpen]);
 
   // Carrega dados atualizados ao abrir o modal (iniciando Cliente/Fornecedor em branco)

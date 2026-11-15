@@ -857,7 +857,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
   }, [historicoCotacoes, historySearchTerm]);
 
   return (
-    <div className="w-full flex flex-col h-[calc(100vh-210px)] min-h-[500px] max-h-[95vh] overflow-hidden global bg-slate-50 dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-700 shadow-xs">
+    <div className="w-full flex flex-col min-h-[500px] overflow-y-auto overflow-x-hidden global bg-slate-50 dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-700 shadow-xs">
       
       {/* AVISO TEMPORÁRIO DE SUCESSO */}
       {toastMessage && (

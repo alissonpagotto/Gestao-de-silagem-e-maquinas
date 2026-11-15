@@ -468,7 +468,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   };
 
   return (
-    <div id="company-settings-view" className="w-full h-full max-h-[calc(100vh-120px)] overflow-hidden flex flex-col justify-between space-y-2.5 animate-in fade-in duration-200">
+    <div id="company-settings-view" className="w-full min-h-full overflow-y-auto overflow-x-hidden flex flex-col justify-between space-y-2.5 animate-in fade-in duration-200">
       
       {/* Toast Notification */}
       {savedSuccess && (

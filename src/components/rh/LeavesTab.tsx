@@ -23,6 +23,7 @@ import {
   matchesCompetence 
 } from '../financial/CompetenceSelector';
 import { getDefaultCompetenceMonth } from './payrollHelpers';
+import { getStoredTiposAfastamento, AUXILIARY_EVENTS } from '../../lib/auxiliaryRegistries';
 
 interface LeavesTabProps {
   employees: Employee[];
@@ -44,6 +45,17 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<LeaveRecord | null>(null);
+  const [leaveTypeOptions, setLeaveTypeOptions] = useState<string[]>(() => getStoredTiposAfastamento());
+
+  React.useEffect(() => {
+    const syncTypes = () => setLeaveTypeOptions(getStoredTiposAfastamento());
+    window.addEventListener(AUXILIARY_EVENTS.AFASTAMENTO_UPDATED, syncTypes);
+    window.addEventListener('storage', syncTypes);
+    return () => {
+      window.removeEventListener(AUXILIARY_EVENTS.AFASTAMENTO_UPDATED, syncTypes);
+      window.removeEventListener('storage', syncTypes);
+    };
+  }, []);
 
   // Competência ativa
   const activeCompetence = currentMonthRef || getDefaultCompetenceMonth();
@@ -489,12 +501,14 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                       className="w-full px-2.5 py-1 sm:py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-stone-100 text-xs font-bold outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       required
                     >
-                      <option value="Atestado Médico">Atestado Médico (Geral)</option>
-                      <option value="Acidente de Trabalho (CAT)">Acidente de Trabalho (CAT Rural / Silagem)</option>
-                      <option value="Auxílio Doença / INSS">Auxílio Doença / INSS (&gt; 15 dias)</option>
-                      <option value="Licença Maternidade/Paternidade">Licença Maternidade / Paternidade</option>
-                      <option value="Licença Não Remunerada">Licença Não Remunerada / Pessoal</option>
-                      <option value="Outro">Outro Afastamento Legal</option>
+                      {leaveTypeOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                      {type && !leaveTypeOptions.includes(type) && (
+                        <option value={type}>{type}</option>
+                      )}
                     </select>
                   </div>
 

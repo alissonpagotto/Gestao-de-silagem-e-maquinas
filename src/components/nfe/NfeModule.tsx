@@ -8923,7 +8923,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </header>
 
       {/* 2. ESTRUTURA INTEGRADA DE PONTA A PONTA: MOLDURA MDI TRIDIMENSIONAL ACETINADA E BLOCO SÓLIDO */}
-      <div className="w-full flex-1 min-h-0 flex flex-col border border-[#edf4ff] dark:border-stone-700 rounded-xl overflow-hidden bg-[#edf4ff] dark:bg-stone-900 shadow-xs">
+      <div className="w-full flex-1 min-h-0 flex flex-col border border-[#edf4ff] dark:border-stone-700 rounded-xl overflow-y-auto overflow-x-hidden bg-[#edf4ff] dark:bg-stone-900 shadow-xs">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (CONTRATO MASTER) */}
         <div className="w-full shrink-0 bg-[#edf4ff] dark:bg-stone-850 border-b border-[#edf4ff] dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
           <nav 
@@ -9038,7 +9038,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
-        <div className="w-full flex-1 min-h-0 flex flex-col bg-[#cad4e6] dark:bg-stone-900 border-[#edf4ff] dark:border-stone-700 p-3 sm:p-3.5">
+        <div className="w-full flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden bg-[#cad4e6] dark:bg-stone-900 border-[#edf4ff] dark:border-stone-700 p-3 sm:p-3.5">
           {activeMainFiscalTab === 'pedido_compra' ? (
             <FiscalDocumentTypeView 
               category="pedido_compra" 
@@ -9090,7 +9090,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             />
           ) : (
             /* Conteúdo padrão de Notas e Entradas */
-            <div className="w-full flex-1 min-h-0 flex flex-col gap-3">
+            <div className="w-full flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto overflow-x-hidden pb-6">
       {successMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center space-x-2.5 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-semibold animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -9126,7 +9126,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* Seletor Principal de Direção (Entrada vs. Saída) no Topo da Central de Documentos */}
       <div
         id="seletor-direcao-central-documentos"
-        className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+        className="shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-2"
       >
         <button
           type="button"
@@ -9194,7 +9194,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </div>
 
       {/* Pílulas Limpas de Filtro Rápido com Contadores (Central de Documentos) */}
-      <div className="flex flex-wrap items-center gap-1.5 bg-[#cad4e6] dark:bg-stone-900/90 border border-[#090a0a] dark:border-stone-800 rounded-xl px-3 py-2 shadow-2xs">
+      <div className="shrink-0 flex flex-wrap items-center gap-1.5 bg-[#cad4e6] dark:bg-stone-900/90 border border-[#090a0a] dark:border-stone-800 rounded-xl px-3 py-2 shadow-2xs">
         {(
           [
             { key: 'todos', label: 'Todos', count: centralDocPillCounts.todos },
@@ -9245,7 +9245,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </div>
 
       {/* Barra de Ações: Campo de Busca Rápida de Documentos */}
-      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-[#cad4e6] dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-[#cad4e6] dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <form onSubmit={handleSearchNfe} className="flex-1 w-full">
           <div className="relative flex items-center w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
@@ -9292,7 +9292,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       {/* 2. PAINEL DADOS EXTRAÍDOS DA NOTA - APARECE DINAMICAMENTE LOGO ACIMA DA TABELA DE HISTÓRICO */}
       {parsedData && (
-        <div id="painel-itens-nfe-aberta" className="w-full bg-[#e6e6e6] dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4 animate-in fade-in duration-200 text-zinc-900 dark:text-stone-100">
+        <div id="painel-itens-nfe-aberta" className="shrink-0 w-full bg-[#e6e6e6] dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4 animate-in fade-in duration-200 text-zinc-900 dark:text-stone-100">
           
           {/* Banner de Modo de Edição ou Importação Ativo */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl animate-in fade-in text-zinc-900 dark:text-stone-100">
@@ -9578,7 +9578,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                   {/* Tabela de Produtos da NF-e (100% da Largura da Tela - Formato Lista Enxuta) */}
                   {parsedData.items && parsedData.items.length > 0 && (
-                    <div className="border border-zinc-200 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs w-full bg-white dark:bg-stone-900">
+                    <div className="border border-zinc-200 dark:border-stone-700 rounded-xl overflow-x-hidden shadow-2xs w-full bg-white dark:bg-stone-900">
                       <div className="bg-zinc-100 dark:bg-stone-800 px-3 py-1.5 flex items-center justify-between text-zinc-900 dark:text-stone-100">
                         <div className="flex items-center space-x-2 text-xs font-black text-zinc-900 dark:text-stone-200">
                           <Package className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300 shrink-0" />
@@ -10226,7 +10226,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       )}
 
       {/* 3. HISTÓRICO UNIFICADO DE NOTAS E ENTRADAS (XML & REGISTROS MANUAIS) */}
-      <div id="painel-historico-notas-nfe" className="flex-1 min-h-0 flex flex-col gap-1.5">
+      <div id="painel-historico-notas-nfe" className={`${parsedData ? 'shrink-0' : 'flex-1 min-h-0'} flex flex-col gap-1.5`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <div className="flex items-center space-x-2">
             <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">

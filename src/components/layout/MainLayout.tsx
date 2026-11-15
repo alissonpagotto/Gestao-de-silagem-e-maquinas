@@ -93,7 +93,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           setIsDarkMode={setIsDarkMode}
           onLogout={onLogout}
         />
-        <main id="main-layout-content" className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden">
+        <main id="main-layout-content" className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-y-auto overflow-x-hidden">
           {children}
         </main>
       </div>

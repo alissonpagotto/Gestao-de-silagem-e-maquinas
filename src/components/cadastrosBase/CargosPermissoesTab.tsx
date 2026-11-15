@@ -187,6 +187,7 @@ const DEFAULT_FORM_PERMISSOES: RolePermissions = {
     centros_custo: true,
     plano_contas: true,
     cargos_permissoes: true,
+    cadastros_auxiliares: true,
   },
   sub_empresa: {
     identificacao: true,
@@ -460,7 +461,7 @@ export const CargosPermissoesTab: React.FC = () => {
       sub_relatorios: ['dashboard', 'resumo_geral', 'ativo_imobilizado', 'exportar_excel', 'cortes', 'vendas', 'despesas', 'consumo'],
       sub_clientes: ['lista', 'kanban', 'novo_cliente', 'acoes_avancadas'],
       sub_fornecedores: ['lista', 'novo_fornecedor', 'acoes_avancadas'],
-      sub_cadastros: ['centros_custo', 'plano_contas', 'cargos_permissoes'],
+      sub_cadastros: ['centros_custo', 'plano_contas', 'cargos_permissoes', 'cadastros_auxiliares'],
       sub_empresa: ['identificacao', 'localizacao', 'contatos', 'enquadramento_fiscal', 'chaves_pix', 'gestao_socios', 'identidade_visual'],
       sub_servicos: ['agenda', 'corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento'],
       sub_frotas: ['painel', 'veiculos', 'motoristas', 'equipes', 'combustivel', 'manutencoes', 'pneus'],
@@ -1887,7 +1888,7 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
-                              <span className="truncate">Acesso ao Módulo Configurações</span>
+                              <span className="truncate">Acesso a Cadastros & Configurações</span>
                               <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
                                 permissoes.cadastros_base ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
                               }`}>
@@ -1895,7 +1896,7 @@ export const CargosPermissoesTab: React.FC = () => {
                               </span>
                             </div>
                             <div className="text-[10px] text-slate-700 leading-tight truncate">
-                              Centros de Custo, Plano de Contas e Cargos
+                              Centros de Custo, Plano de Contas, Auxiliares e Cargos
                             </div>
                           </div>
                         </div>

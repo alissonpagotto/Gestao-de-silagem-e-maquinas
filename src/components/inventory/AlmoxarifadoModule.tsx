@@ -1976,7 +1976,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   }, [itensCaixaDoVeiculo]);
 
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-64px)] lg:overflow-hidden space-y-2.5">
+    <div className="flex flex-col space-y-2.5">
       {/* Datalist global de colaboradores para sugestão rápida em campos de operador/mecânico */}
       <datalist id="almox-employees-list">
         {employeeNames.map(name => (
@@ -2113,7 +2113,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-hidden global p-3 space-y-3 flex-1 min-h-0 flex flex-col">
+        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden global p-3 space-y-3 flex-1 min-h-0 flex flex-col">
           {/* Indicadores Resumo Compactos em Moldura */}
           <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs shrink-0">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
@@ -2177,7 +2177,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         <div className="no-print flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Formulário Esquerdo: Pedido / Lista de Peças por Veículo */}
           <div
-            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-xl p-3 shadow-xs flex flex-col min-h-0 overflow-hidden transition ${
+            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-xl p-3 shadow-xs flex flex-col min-h-0 overflow-y-auto overflow-x-hidden transition ${
               editingRetiradaPeca || editingLoteKey
                 ? 'border-amber-500 dark:border-amber-500 ring-2 ring-amber-500/20'
                 : 'border-zinc-200 dark:border-stone-800'
@@ -2623,7 +2623,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           </div>
 
           {/* Lista / Histórico Agrupado por Pedido / Lote Expansível (Accordion / Collapsible) */}
-          <div className="lg:col-span-7 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
+          <div className="lg:col-span-7 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
             <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 mb-2 border-b border-zinc-200 dark:border-stone-800">
               <div>
                 <div className="flex items-center gap-2">
@@ -3084,7 +3084,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           </div>
 
           {/* Lista Ativa de Ferramentas Emprestadas e Devolvidas */}
-          <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
+          <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
             <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
               <div>
                 <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
@@ -3539,7 +3539,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             </div>
 
             {/* Tabela de Ferramentas Fixas do Veículo Selecionado */}
-            <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
+            <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
               <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
                 <div>
                   <h3 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">

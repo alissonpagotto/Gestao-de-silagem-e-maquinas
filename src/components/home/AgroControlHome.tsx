@@ -492,7 +492,7 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   return (
     <div 
       id="agrocontrol-home-root"
-      className="flex flex-col h-full justify-between p-4 overflow-hidden select-none bg-[#edf4ff] dark:bg-gradient-to-b dark:from-stone-900 dark:via-stone-900 dark:to-stone-950"
+      className="flex flex-col min-h-full justify-between p-4 overflow-y-auto overflow-x-hidden select-none bg-[#edf4ff] dark:bg-gradient-to-b dark:from-stone-900 dark:via-stone-900 dark:to-stone-950"
     >
       
       {/* =========================================================================

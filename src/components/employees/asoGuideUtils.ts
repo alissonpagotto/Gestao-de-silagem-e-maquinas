@@ -36,6 +36,36 @@ export const ASO_EXAM_OPTIONS: AsoExamOption[] = [
   { id: 'raio_x', label: 'Raio-X de Tórax / Coluna' },
 ];
 
+export function getDynamicAsoPurposes(): string[] {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agrocontrol_aso_finalidades') : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const cleaned = parsed.map((p: any) => String(p || '').trim()).filter(Boolean);
+        if (cleaned.length > 0) return cleaned;
+      }
+    }
+  } catch {}
+  return [...ASO_EXAM_PURPOSES];
+}
+
+export function getDynamicAsoExamOptions(): AsoExamOption[] {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('agrocontrol_aso_exames') : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const cleaned = parsed
+          .filter((item: any) => item && item.id && item.label)
+          .map((item: any) => ({ id: String(item.id).trim(), label: String(item.label).trim() }));
+        if (cleaned.length > 0) return cleaned;
+      }
+    }
+  } catch {}
+  return [...ASO_EXAM_OPTIONS];
+}
+
 export interface AsoClinicInfo {
   supplierId?: string;
   isManual: boolean;
@@ -46,7 +76,7 @@ export interface AsoClinicInfo {
 }
 
 export interface AsoGuidePayload {
-  purpose: AsoExamPurpose;
+  purpose: string;
   clinic: AsoClinicInfo;
   scheduledDate?: string;
   scheduledTime?: string;
@@ -117,7 +147,7 @@ export function generateAsoGuideHtml(
         <span style="font-size: 6.5pt; font-weight: normal; margin-top: 2px;">Identificação</span>
       </div>`;
 
-  const selectedExams = ASO_EXAM_OPTIONS.filter((opt) =>
+  const selectedExams = getDynamicAsoExamOptions().filter((opt) =>
     payload.selectedExamIds.includes(opt.id)
   );
 
@@ -316,7 +346,7 @@ export function generateAsoGuideWhatsAppText(
 ): string {
   const companyName = (company?.tradeName || company?.corporateName || 'AGROCONTROL').toUpperCase();
   const badgeNumber = payload.badgeNumber || getEmployeeBadgeNumber(employee, 1);
-  const selectedLabels = ASO_EXAM_OPTIONS.filter((opt) =>
+  const selectedLabels = getDynamicAsoExamOptions().filter((opt) =>
     payload.selectedExamIds.includes(opt.id)
   ).map((o) => `• ${o.label}`);
 

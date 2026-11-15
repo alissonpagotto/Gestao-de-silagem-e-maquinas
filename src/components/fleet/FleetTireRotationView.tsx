@@ -1525,7 +1525,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
             COLUNA 2 (5 Colunas no Grid LG): CHASSI INTERATIVO
             ---------------------------------------------------- */}
         <div className="lg:col-span-5 space-y-3">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl p-4 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col h-full max-h-[820px] overflow-hidden">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-4 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col">
             
             {/* Header do Chassi */}
             <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">

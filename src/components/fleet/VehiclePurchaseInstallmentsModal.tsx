@@ -12,11 +12,14 @@ import {
   Divide, 
   FileCheck,
   Truck,
-  CreditCard
+  CreditCard,
+  Settings
 } from 'lucide-react';
 import { useConfirm } from '../../context/ConfirmContext';
 import { formatCurrencyBRL } from '../../lib/storage';
 import { formatarMoeda, desformatarMoeda } from '../../lib/formatters';
+import { useGlobalPaymentMethods, getPaymentMethodKey } from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export interface VehiclePurchaseInstallmentRow {
   id: string;
@@ -283,6 +286,28 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
   onConfirmAndSave,
 }) => {
   const { confirm } = useConfirm();
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+
+  const paymentMethodsOptions = React.useMemo(() => {
+    const existingKeys = new Set(PAYMENT_METHODS_OPTIONS.map((o) => o.methodKey));
+    const extras = globalPaymentMethods
+      .filter((m) => {
+        const k = getPaymentMethodKey(m);
+        return m.isCustom || !existingKeys.has(k);
+      })
+      .map((m) => {
+        const k = getPaymentMethodKey(m);
+        const code = String(m.codigo || k).toUpperCase();
+        return {
+          code,
+          label: `${code} - ${m.nome}`,
+          methodKey: k,
+        };
+      });
+    return [...PAYMENT_METHODS_OPTIONS, ...extras];
+  }, [globalPaymentMethods]);
+
   const [installments, setInstallments] = useState<VehiclePurchaseInstallmentRow[]>([]);
   const [installmentsCountInput, setInstallmentsCountInput] = useState<number>(initialInstallmentsCount || 1);
   const [selectedInterval, setSelectedInterval] = useState<number | null>(initialIntervalDays ?? 30);
@@ -638,7 +663,7 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
 
       // Se alterou o código de Meio de Pagamento, atualiza também o rótulo
       if (field === 'paymentMethodCode') {
-        const found = PAYMENT_METHODS_OPTIONS.find(opt => opt.code === value);
+        const found = paymentMethodsOptions.find(opt => opt.code === value);
         if (found) {
           updated.paymentMethodLabel = found.label;
         }
@@ -1048,7 +1073,19 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
                     <th className="py-3 px-3 min-w-[140px]">Valor (R$)</th>
                     <th className="py-3 px-3 min-w-[90px]">Prazo (Dias)</th>
                     <th className="py-3 px-3 min-w-[130px]">Vencimento</th>
-                    <th className="py-3 px-3 min-w-[170px]">Meio de Pagto</th>
+                    <th className="py-3 px-3 min-w-[170px]">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>Meio de Pagto</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                          className="p-0.5 rounded hover:bg-white/80 text-sky-700 cursor-pointer"
+                          title="Gerenciar Formas de Pagamento Globais"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </th>
                     <th className="py-3 px-3 min-w-[120px]">Crédito</th>
                     <th className="py-3 px-3 min-w-[120px]">Débito</th>
                     <th className="py-3 px-3 min-w-[120px]">Observações</th>
@@ -1112,11 +1149,17 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
                           onChange={(e) => handleUpdateInstallment(inst.id, 'paymentMethodCode', e.target.value)}
                           className="w-full px-2 py-1.5 text-xs font-bold bg-white text-black border border-[#96c1e5] rounded-lg focus:ring-2 focus:ring-[#0963cb]/30 focus:outline-hidden shadow-2xs cursor-pointer"
                         >
-                          {PAYMENT_METHODS_OPTIONS.map(opt => (
+                          {paymentMethodsOptions.map(opt => (
                             <option key={opt.code} value={opt.code}>
                               {opt.label}
                             </option>
                           ))}
+                          {inst.paymentMethodCode &&
+                            !paymentMethodsOptions.some((o) => o.code === inst.paymentMethodCode) && (
+                              <option value={inst.paymentMethodCode}>
+                                {inst.paymentMethodLabel || inst.paymentMethodCode}
+                              </option>
+                            )}
                         </select>
                       </td>
 
@@ -1330,6 +1373,11 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
         </div>
       )}
 
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[100]"
+      />
     </div>
   );
 };

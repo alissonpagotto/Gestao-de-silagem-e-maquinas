@@ -30,6 +30,7 @@ import {
   matchesCompetence 
 } from '../financial/CompetenceSelector';
 import { getDefaultCompetenceMonth } from './payrollHelpers';
+import { getStoredTiposAtestados, AUXILIARY_EVENTS } from '../../lib/auxiliaryRegistries';
 
 interface AtestadosTabProps {
   employees: Employee[];
@@ -50,6 +51,19 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
+  const [certificateTypeOptions, setCertificateTypeOptions] = useState<string[]>(() =>
+    getStoredTiposAtestados()
+  );
+
+  React.useEffect(() => {
+    const syncTypes = () => setCertificateTypeOptions(getStoredTiposAtestados());
+    window.addEventListener(AUXILIARY_EVENTS.ATESTADOS_UPDATED, syncTypes);
+    window.addEventListener('storage', syncTypes);
+    return () => {
+      window.removeEventListener(AUXILIARY_EVENTS.ATESTADOS_UPDATED, syncTypes);
+      window.removeEventListener('storage', syncTypes);
+    };
+  }, []);
 
   // Competência ativa
   const activeCompetence = currentMonthRef || getDefaultCompetenceMonth();
@@ -373,12 +387,11 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
             className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
           >
             <option value="todos">Todos os Tipos</option>
-            <option value="Atestado Médico">Atestado Médico</option>
-            <option value="Atestado Odontológico">Atestado Odontológico</option>
-            <option value="Declaração de Horas">Declaração de Horas</option>
-            <option value="Acompanhamento Familiar">Acompanhamento Familiar</option>
-            <option value="Licença Maternidade/Paternidade">Licença Maternidade/Paternidade</option>
-            <option value="Outro">Outro</option>
+            {certificateTypeOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
           </select>
 
           {/* Filtro por Status */}
@@ -613,12 +626,14 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         className="w-full px-2.5 py-1 sm:py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         required
                       >
-                        <option value="Atestado Médico">Atestado Médico</option>
-                        <option value="Atestado Odontológico">Atestado Odontológico</option>
-                        <option value="Declaração de Horas">Declaração de Comparecimento / Horas</option>
-                        <option value="Acompanhamento Familiar">Acompanhamento Familiar</option>
-                        <option value="Licença Maternidade/Paternidade">Licença Maternidade / Paternidade</option>
-                        <option value="Outro">Outro</option>
+                        {certificateTypeOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                        {type && !certificateTypeOptions.includes(type) && (
+                          <option value={type}>{type}</option>
+                        )}
                       </select>
                     </div>
 

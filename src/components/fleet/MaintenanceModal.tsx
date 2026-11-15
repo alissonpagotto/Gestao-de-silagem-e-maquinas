@@ -26,6 +26,7 @@ import {
   Layers,
   FileCheck2,
   Tag,
+  Settings,
   Settings2,
   Users,
   Hammer,
@@ -71,6 +72,13 @@ import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
 import { ProductSearchModal } from './ProductSearchModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from '../nfe/NfeInstallmentsModal';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  normalizeGlobalPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export const parseCleanPriceNumber = (val: any): number => {
   if (val === undefined || val === null || val === '') return 0;
@@ -471,6 +479,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   // --- INTEGRAÇÃO FINANCEIRA (CONTAS A PAGAR) ---
   const [createExpense, setCreateExpense] = useState(true);
   const [skipAccountsPayableDreOnly, setSkipAccountsPayableDreOnly] = useState(false);
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+
   const [paymentTerm, setPaymentTerm] = useState<MaintenanceFinancialConditions['paymentTerm']>('a_vista');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('boleto');
   const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -875,7 +886,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       if (editingLog.financialConditions) {
         setCreateExpense(isDreOnlyInitial ? false : editingLog.financialConditions.createAccountsPayable);
         setPaymentTerm(editingLog.financialConditions.paymentTerm);
-        setPaymentMethod(editingLog.financialConditions.paymentMethod);
+        setPaymentMethod(normalizeGlobalPaymentMethodKey(editingLog.financialConditions.paymentMethod) || 'boleto');
         setFirstDueDate(editingLog.financialConditions.firstDueDate);
         setFinancialSupplier(editingLog.financialConditions.supplierName || '');
         setExpenseGenerated(!isDreOnlyInitial && !!editingLog.financialConditions.createAccountsPayable);
@@ -3433,19 +3444,47 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                     {/* 1º Lugar: Forma de Pagamento */}
                     <div>
-                      <label className="block text-[11px] font-bold text-zinc-700 mb-1">
-                        Forma de Pagamento
-                      </label>
+                      <div className="flex items-center justify-between mb-1 gap-1">
+                        <label className="text-[11px] font-bold text-zinc-700">
+                          Forma de Pagamento
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+                          title="Gerenciar Formas de Pagamento"
+                        >
+                          <Settings className="w-3 h-3" />
+                          <span>Gerenciar</span>
+                        </button>
+                      </div>
                       <select
                         value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__manage_payment_methods__') {
+                            setIsPaymentMethodsManagerOpen(true);
+                            return;
+                          }
+                          setPaymentMethod(val as any);
+                        }}
                         className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold text-zinc-900 cursor-pointer focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       >
-                        <option value="boleto">Boleto Bancário</option>
-                        <option value="pix">PIX / Transferência</option>
-                        <option value="cartao_credito">Cartão de Crédito</option>
-                        <option value="dinheiro">Dinheiro em Espécie</option>
-                        <option value="safra_prazo">Cheque / Safra</option>
+                        {globalPaymentMethods.map((m) => {
+                          const mKey = getPaymentMethodKey(m);
+                          return (
+                            <option key={m.id} value={mKey}>
+                              {m.nome}
+                            </option>
+                          );
+                        })}
+                        {paymentMethod &&
+                          !globalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                            <option value={paymentMethod}>
+                              {getGlobalPaymentMethodLabel(paymentMethod)}
+                            </option>
+                          )}
+                        <option value="__manage_payment_methods__">⚙️ Gerenciar Formas de Pagamento...</option>
                       </select>
                     </div>
 
@@ -3867,6 +3906,13 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           });
           setTimeout(() => setFeedbackBanner(null), 3000);
         }}
+      />
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[100]"
+        onSelectMethod={(key) => setPaymentMethod(key)}
       />
     </div>
   );

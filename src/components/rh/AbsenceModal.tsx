@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { Employee, AbsenceRecord } from '../../types';
+import {
+  getStoredTiposOcorrenciasFaltas,
+  AUXILIARY_EVENTS,
+  KeyLabelAuxItem,
+} from '../../lib/auxiliaryRegistries';
 
 export interface AbsenceModalProps {
   isOpen: boolean;
@@ -34,6 +39,19 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [calculationMemory, setCalculationMemory] = useState<string>('');
+  const [absenceTypeOptions, setAbsenceTypeOptions] = useState<KeyLabelAuxItem[]>(() =>
+    getStoredTiposOcorrenciasFaltas()
+  );
+
+  useEffect(() => {
+    const syncTypes = () => setAbsenceTypeOptions(getStoredTiposOcorrenciasFaltas());
+    window.addEventListener(AUXILIARY_EVENTS.OCORRENCIAS_UPDATED, syncTypes);
+    window.addEventListener('storage', syncTypes);
+    return () => {
+      window.removeEventListener(AUXILIARY_EVENTS.OCORRENCIAS_UPDATED, syncTypes);
+      window.removeEventListener('storage', syncTypes);
+    };
+  }, []);
 
   const computeDiscount = (empId: string, unit: 'dias' | 'horas', days: number, hrs: number, shouldDiscount: boolean) => {
     if (!shouldDiscount || !empId) return { discountAmount: 0, calculationMemory: 'Sem desconto em folha.' };
@@ -232,10 +250,14 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                     onChange={(e) => setType(e.target.value as any)}
                     className="w-full px-2.5 py-1.5 border border-gray-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
                   >
-                    <option value="injustificada">Falta Injustificada</option>
-                    <option value="justificada">Falta Justificada</option>
-                    <option value="suspensao">Suspensão Disciplinar</option>
-                    <option value="atraso">Atraso / Saída Antecipada</option>
+                    {absenceTypeOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                    {type && !absenceTypeOptions.some((o) => o.id === type) && (
+                      <option value={type}>{type}</option>
+                    )}
                   </select>
                 </div>
                 <div>

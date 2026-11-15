@@ -738,12 +738,22 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const sorted = Array.from(new Set(cleaned)).sort((a, b) => a.localeCompare('pt-BR'));
     setRegTypeOptions(sorted);
     localStorage.setItem(STORAGE_KEYS.REG_TYPES, JSON.stringify(sorted));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_reg_types_updated', { detail: sorted }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: sorted }));
+      window.dispatchEvent(new Event('storage'));
+    }
   };
 
   const handleUpdateRoleOptions = (newOpts: string[]) => {
     const sorted = Array.from(new Set(newOpts)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     setRoleOptions(sorted);
     localStorage.setItem(STORAGE_KEYS.ROLES, JSON.stringify(sorted));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_roles_updated', { detail: sorted }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: sorted }));
+      window.dispatchEvent(new Event('storage'));
+    }
     if (role1 && !sorted.some(r => r.toLowerCase() === role1.toLowerCase())) {
       setRole1(sorted[0] || 'Operador de Forrageira');
     }
@@ -755,7 +765,44 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const handleUpdateContractTypeOptions = (newOpts: string[]) => {
     setContractTypeOptions(newOpts);
     localStorage.setItem(STORAGE_KEYS.CONTRACT_TYPES, JSON.stringify(newOpts));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_contract_types_updated', { detail: newOpts }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: newOpts }));
+      window.dispatchEvent(new Event('storage'));
+    }
   };
+
+  useEffect(() => {
+    const syncEmployeeAuxLists = () => {
+      try {
+        const savedReg = localStorage.getItem(STORAGE_KEYS.REG_TYPES);
+        if (savedReg) {
+          const parsed = JSON.parse(savedReg);
+          if (Array.isArray(parsed) && parsed.length > 0) setRegTypeOptions(parsed);
+        }
+        const savedRoles = localStorage.getItem(STORAGE_KEYS.ROLES);
+        if (savedRoles) {
+          const parsed = JSON.parse(savedRoles);
+          if (Array.isArray(parsed) && parsed.length > 0) setRoleOptions(parsed);
+        }
+        const savedContracts = localStorage.getItem(STORAGE_KEYS.CONTRACT_TYPES);
+        if (savedContracts) {
+          const parsed = JSON.parse(savedContracts);
+          if (Array.isArray(parsed) && parsed.length > 0) setContractTypeOptions(parsed);
+        }
+      } catch {}
+    };
+    window.addEventListener('silagem_reg_types_updated', syncEmployeeAuxLists);
+    window.addEventListener('silagem_roles_updated', syncEmployeeAuxLists);
+    window.addEventListener('silagem_contract_types_updated', syncEmployeeAuxLists);
+    window.addEventListener('storage', syncEmployeeAuxLists);
+    return () => {
+      window.removeEventListener('silagem_reg_types_updated', syncEmployeeAuxLists);
+      window.removeEventListener('silagem_roles_updated', syncEmployeeAuxLists);
+      window.removeEventListener('silagem_contract_types_updated', syncEmployeeAuxLists);
+      window.removeEventListener('storage', syncEmployeeAuxLists);
+    };
+  }, []);
 
   // Form State
   const [registrationType, setRegistrationType] = useState<EmployeeRegistrationType | string>('Funcionário');

@@ -141,7 +141,7 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
   return (
     <div 
       id="modulo-despesas-master"
-      className="w-full h-full flex flex-col space-y-4 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto scrollbar-thin p-2 sm:p-3 select-none"
+      className="w-full min-h-full flex flex-col space-y-4 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto overflow-x-hidden scrollbar-thin p-2 sm:p-3 select-none"
     >
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-300 dark:border-stone-800 pb-2.5">

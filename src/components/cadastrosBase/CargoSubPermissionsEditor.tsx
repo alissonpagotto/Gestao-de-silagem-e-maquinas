@@ -68,11 +68,11 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
     { id: 'relatorios' as const, label: 'Relatórios', count: countRelatorios, total: 8, active: Boolean(permissoes.relatorios), icon: FileSpreadsheet },
     { id: 'clientes' as const, label: 'Clientes', count: countClientes, total: 4, active: Boolean(permissoes.clientes), icon: Users },
     { id: 'fornecedores' as const, label: 'Fornecedores', count: countFornecedores, total: 3, active: Boolean(permissoes.fornecedores), icon: Truck },
-    { id: 'cadastros' as const, label: 'Configurações', count: countCadastros, total: 3, active: Boolean(permissoes.cadastros_base), icon: ClipboardList },
+    { id: 'cadastros' as const, label: 'Cadastros & Config.', count: countCadastros, total: 4, active: Boolean(permissoes.cadastros_base), icon: ClipboardList },
     { id: 'empresa' as const, label: 'Empresa', count: countEmpresa, total: 7, active: Boolean(permissoes.empresa), icon: Building },
     { id: 'servicos' as const, label: 'Prestação de Serviços', count: countServicos, total: 7, active: Boolean(permissoes.servicos), icon: Tractor },
     { id: 'frotas' as const, label: 'Frotas', count: countFrotas, total: 7, active: Boolean(permissoes.frotas), icon: Truck },
-    { id: 'all' as const, label: 'Todos', count: totalAtivas, total: 60, active: true, icon: Sliders },
+    { id: 'all' as const, label: 'Todos', count: totalAtivas, total: 61, active: true, icon: Sliders },
   ];
 
   // Helper para renderizar cartão do módulo
@@ -345,11 +345,11 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             permissoes.sub_fornecedores
           )}
 
-        {/* 7. MÓDULO CADASTROS BASE */}
+        {/* 7. MÓDULO CADASTROS & CONFIGURAÇÕES */}
         {(activeModuleFocus === 'cadastros' || activeModuleFocus === 'all') &&
           renderModuleCard(
             'mod-cadastros',
-            'Módulo Configurações',
+            'Módulo Cadastros & Configurações',
             Boolean(permissoes.cadastros_base),
             'cadastros_base',
             'sub_cadastros',
@@ -358,6 +358,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
               { key: 'centros_custo', label: 'Centros de Custo' },
               { key: 'plano_contas', label: 'Plano de Contas & Formas' },
               { key: 'cargos_permissoes', label: 'Cargos, Setores & Permissões' },
+              { key: 'cadastros_auxiliares', label: '📋 Cadastros Auxiliares' },
             ],
             permissoes.sub_cadastros
           )}
@@ -433,7 +434,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
           <span className="font-bold">Total de Telas e Abas Ativas:</span>
         </div>
         <span className="font-extrabold px-2 py-0.5 rounded-md bg-indigo-600 text-white border border-black text-xs">
-          {totalAtivas} de 60 ativas
+          {totalAtivas} de 61 ativas
         </span>
       </div>
     </div>

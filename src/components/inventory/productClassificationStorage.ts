@@ -209,6 +209,11 @@ function writeStoredArray(key: string, values: string[]): string[] {
   const cleaned = dedupeStrings(values);
   try {
     localStorage.setItem(key, JSON.stringify(cleaned));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_produto_classificacao_updated', { detail: { key, values: cleaned } }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key, values: cleaned } }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch {}
   return cleaned;
 }
@@ -309,6 +314,11 @@ function readSubgroupMap(storageKey: string): Record<string, string[]> {
 function writeSubgroupMap(map: Record<string, string[]>): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SUBGRUPOS_MAP, JSON.stringify(map));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_produto_classificacao_updated', { detail: { key: STORAGE_KEYS.SUBGRUPOS_MAP, map } }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: { key: STORAGE_KEYS.SUBGRUPOS_MAP, map } }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch {}
 }
 

@@ -713,7 +713,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
   }, [belowStockItems, criticalSearchTerm]);
 
   return (
-    <div className="w-full flex flex-col space-y-2 h-[calc(100vh-210px)] min-h-[500px] max-h-[95vh] overflow-hidden">
+    <div className="w-full flex flex-col space-y-2 min-h-[500px] overflow-y-auto overflow-x-hidden">
       
       {/* AVISO TEMPORÁRIO DE SUCESSO */}
       {toastMessage && (
@@ -934,7 +934,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
       </div>
 
       {/* 2. TABELA DE COMPRAS MANTIDA EM RASCUNHO (100% ISOLADA COM ROLAGEM INDEPENDENTE) */}
-      <div className="flex-1 min-h-0 border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-850 overflow-hidden flex flex-col shadow-xs">
+      <div className="flex-1 min-h-0 border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-850 overflow-y-auto overflow-x-hidden flex flex-col shadow-xs">
         <div className="max-h-[calc(100vh-320px)] overflow-x-auto overflow-y-auto flex-1 border border-slate-300 dark:border-stone-700 rounded-lg">
           <table className="w-full text-left border-collapse text-[11px]">
             <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wide border-b border-slate-300 dark:border-stone-700 sticky top-0 z-20 shadow-sm">

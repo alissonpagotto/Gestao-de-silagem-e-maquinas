@@ -9,6 +9,14 @@ import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, fetchPrecoCombustivelEstoque, extractProductUnitPrice, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
 import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, getStoredInventory, ensureDieselProductsInInventory, calculateDefaultDueDate, formatCurrencyBRL, CANONICAL_TANK_UUIDS, CANONICAL_FUEL_PROD_UUIDS, normalizeTankIdToUUID, normalizeFuelProdIdToUUID } from '../../lib/storage';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  normalizeGlobalPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+import { getStoredTiposCombustivel, AUXILIARY_EVENTS } from '../../lib/auxiliaryRegistries';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -133,11 +141,25 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [machineryId, setMachineryId] = useState('');
   
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const [storedFuelTypeNames, setStoredFuelTypeNames] = useState<string[]>(() => getStoredTiposCombustivel());
+
+  useEffect(() => {
+    const syncFuelTypes = () => setStoredFuelTypeNames(getStoredTiposCombustivel());
+    window.addEventListener(AUXILIARY_EVENTS.COMBUSTIVEL_UPDATED, syncFuelTypes);
+    window.addEventListener('storage', syncFuelTypes);
+    return () => {
+      window.removeEventListener(AUXILIARY_EVENTS.COMBUSTIVEL_UPDATED, syncFuelTypes);
+      window.removeEventListener('storage', syncFuelTypes);
+    };
+  }, []);
+
   // 1. ORIGEM DO COMBUSTÍVEL & INTEGRAÇÃO FINANCEIRA
   const [fuelOrigin, setFuelOrigin] = useState<FuelOrigin>('Tanque Interno (Fazenda)');
   const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
   const [dueDate, setDueDate] = useState(() => calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
-  const [paymentMethod, setPaymentMethod] = useState<'Pix' | 'Cartão' | 'Dinheiro' | string>('Pix');
+  const [paymentMethod, setPaymentMethod] = useState<string>('pix');
   const [bankAccountId, setBankAccountId] = useState('');
 
   const [fuelType, setFuelType] = useState<FuelLog['fuelType']>('Diesel S10');
@@ -494,8 +516,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       );
       setFuelOrigin(inferredOrigin);
       setSupplierStation(editingLog.supplierStation || (inferredOrigin === 'Tanque Interno (Fazenda)' ? 'Tanque da Fazenda' : ''));
-      const rawPay = (editingLog.paymentMethod || '').toLowerCase();
-      const normPay = rawPay.includes('cart') ? 'Cartão' : (rawPay.includes('dinh') ? 'Dinheiro' : 'Pix');
+      const normPay = normalizeGlobalPaymentMethodKey(editingLog.paymentMethod) || 'pix';
       setPaymentMethod(normPay);
       setBankAccountId(editingLog.bankAccountId || (availableBankAccounts[0]?.id || ''));
       setDueDate(editingLog.dueDate || calculateDefaultDueDate(editingLog.date));
@@ -514,7 +535,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setDate(new Date().toISOString().split('T')[0]);
       setFuelOrigin('Tanque Interno (Fazenda)');
       setSupplierStation('Tanque da Fazenda');
-      setPaymentMethod('Pix');
+      setPaymentMethod('pix');
       setBankAccountId(availableBankAccounts[0]?.id || '');
       setDueDate(calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
       const curProd = fuelStockProducts.find(p => p.id === selectedFuelProductId) ||
@@ -1297,14 +1318,12 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                             </option>
                           );
                         })}
-                        {fuelStockProducts.length === 0 && (
-                          <>
-                            <option value="prod_diesel_s10">Diesel S10</option>
-                            <option value="prod_diesel_s500">Diesel S500</option>
-                            <option value="prod_arla_32_granel">Arla 32 (Granel/Litro)</option>
-                            <option value="prod_arla_32_galao_20l">Arla 32 (Galão 20L)</option>
-                          </>
-                        )}
+                        {fuelStockProducts.length === 0 &&
+                          storedFuelTypeNames.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
@@ -1573,21 +1592,49 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     <div className="space-y-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-700">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1">
-                            <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>Pagamento <span className="text-rose-500">*</span></span>
-                          </label>
+                          <div className="flex items-center justify-between mb-0.5 gap-1">
+                            <label className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center space-x-1">
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Pagamento <span className="text-rose-500">*</span></span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                              className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400 hover:underline cursor-pointer"
+                              title="Gerenciar Formas de Pagamento Globais"
+                            >
+                              <Settings className="w-3 h-3" />
+                              <span>Gerenciar</span>
+                            </button>
+                          </div>
                           <select
                             value={paymentMethod}
                             onChange={(e) => {
-                              setPaymentMethod(e.target.value);
+                              const val = e.target.value;
+                              if (val === '__manage_payment_methods__') {
+                                setIsPaymentMethodsManagerOpen(true);
+                                return;
+                              }
+                              setPaymentMethod(val);
                               setValidationError('');
                             }}
                             className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 cursor-pointer shadow-xs"
                           >
-                            <option value="Pix">Pix</option>
-                            <option value="Cartão">Cartão</option>
-                            <option value="Dinheiro">Dinheiro</option>
+                            {globalPaymentMethods.map((m) => {
+                              const mKey = getPaymentMethodKey(m);
+                              return (
+                                <option key={m.id} value={mKey}>
+                                  {m.nome}
+                                </option>
+                              );
+                            })}
+                            {paymentMethod &&
+                              !globalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                                <option value={paymentMethod}>
+                                  {getGlobalPaymentMethodLabel(paymentMethod)}
+                                </option>
+                              )}
+                            <option value="__manage_payment_methods__">⚙️ Gerenciar Formas de Pagamento...</option>
                           </select>
                         </div>
 
@@ -1979,6 +2026,12 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           </div>
         </div>
       )}
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[100]"
+        onSelectMethod={(key) => setPaymentMethod(key)}
+      />
     </div>
   );
 };

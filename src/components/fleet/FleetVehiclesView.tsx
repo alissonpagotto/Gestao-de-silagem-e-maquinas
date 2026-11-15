@@ -1476,7 +1476,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col min-h-0 overflow-hidden space-y-2">
+    <div className="w-full flex flex-col space-y-2">
 
       {/* Sub-abas de Navegação: VEÍCULOS & MÁQUINAS | TIPOS DE TROCAS (100% Fixo / Âncora) */}
       <div className="shrink-0 flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-stone-200 dark:border-stone-800">
@@ -1538,7 +1538,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       </div>
 
       {vehicleSubTab === 'tipos_trocas' ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden space-y-2 animate-in fade-in duration-200">
+        <div className="flex flex-col space-y-2 animate-in fade-in duration-200">
           
           {/* Feedback Banner */}
           {preventiveFeedback && (
@@ -1643,8 +1643,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
           </div>
 
-          {/* Card Mestre de Parametrização para a Categoria Selecionada (100% Fixo com Grid Rolável Interno) */}
-          <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-800 shadow-sm overflow-hidden w-full">
+          {/* Card Mestre de Parametrização para a Categoria Selecionada */}
+          <div className="flex flex-col bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-800 shadow-sm overflow-x-hidden w-full">
             
             {/* Header da Categoria Selecionada */}
             <div className="shrink-0 p-3 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800">
