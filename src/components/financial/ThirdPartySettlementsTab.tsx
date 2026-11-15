@@ -498,7 +498,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
 
       {/* Modal Acerto de Terceiro - Tema Oficial Alto Contraste */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between mx-auto my-auto">
             
             {/* Header */}

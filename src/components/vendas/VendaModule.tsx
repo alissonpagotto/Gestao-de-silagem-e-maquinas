@@ -497,10 +497,11 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 type="button"
                 id="tab-dashboard-vendas"
                 onClick={() => handleSelectTab('dashboard')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'dashboard' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'dashboard'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -511,10 +512,11 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 type="button"
                 id="tab-pdv-frente-caixa"
                 onClick={() => handleSelectTab('pdv')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'pdv' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'pdv'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
@@ -525,10 +527,11 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 type="button"
                 id="tab-fluxo-caixa-vendas"
                 onClick={() => handleSelectTab('fluxo_caixa')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'fluxo_caixa' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'fluxo_caixa'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -539,10 +542,11 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 type="button"
                 id="tab-trocas-devolucoes-vendas"
                 onClick={() => handleSelectTab('trocas_devolucoes')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                style={activeTab === 'trocas_devolucoes' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
                   activeTab === 'trocas_devolucoes'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />

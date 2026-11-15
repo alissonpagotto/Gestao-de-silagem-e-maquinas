@@ -401,7 +401,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
 
       {/* MODAL 1: INSERIR CONTA / BOLETO DO BANCO VINCULADO */}
       {isBillModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-[2px] animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 animate-in fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
             <div className="px-4 sm:px-5 py-3 flex items-center justify-between bg-[#cad4e6] border-b border-black text-black shrink-0">
               <div className="flex items-center space-x-2.5">
@@ -549,7 +549,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
 
       {/* MODAL 2: VINCULAR CONTAS A PAGAR EXISTENTES EM LOTE */}
       {isLinkBatchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-[2px] animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 animate-in fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
             <div className="px-4 sm:px-5 py-3 flex items-center justify-between bg-[#cad4e6] border-b border-black text-black shrink-0">
               <div className="flex items-center space-x-2.5">

@@ -209,81 +209,80 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-2.5 animate-fade-in financial-subtab-clean">
       
-      {/* Top Header */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <Fuel className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-              Relatório de Consumo de Combustível & Lubrificantes
-            </h3>
-            <p className="text-xs text-stone-500">
-              Controle de litros de Diesel S10/Arla, gasto financeiro e médias de consumo (L/h para máquinas e km/L para rodoviários)
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <CompetenceSelector
-            competence={activeCompetence}
-            onPrev={handlePrev}
-            onNext={handleNext}
-          />
-
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 font-bold text-xs rounded-xl transition cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Exportar Consumo (CSV)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+      {/* 1. Cards de Resumo Finos e Compactos */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
         
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-3.5 shadow-2xs border-l-4 border-l-amber-500">
-          <span className="text-[11px] font-bold text-stone-500 uppercase block">Litros Totais Consumidos</span>
-          <div className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
-            {totalLiters.toFixed(1)} L
+        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+            <Droplet className="w-3.5 h-3.5" />
           </div>
-          <span className="text-[10px] text-stone-400">{filteredLogs.length} abastecimentos</span>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
+              Litros Totais Consumidos
+            </span>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <div className="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 font-['Outfit'] leading-tight truncate">
+                {totalLiters.toFixed(1)} L
+              </div>
+              <div className="text-[10px] text-stone-500 leading-tight truncate">
+                {filteredLogs.length} abastecimentos
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-3.5 shadow-2xs border-l-4 border-l-rose-500">
-          <span className="text-[11px] font-bold text-stone-500 uppercase block">Custo Total de Combustível</span>
-          <div className="text-lg sm:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">
-            {formatCurrencyBRL(totalAmount)}
+        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0">
+            <DollarSign className="w-3.5 h-3.5" />
           </div>
-          <span className="text-[10px] text-stone-400">Total investido em diesel/óleo</span>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
+              Custo Total de Combustível
+            </span>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <div className="text-sm sm:text-base font-black text-rose-600 dark:text-rose-400 font-['Outfit'] leading-tight truncate">
+                {formatCurrencyBRL(totalAmount)}
+              </div>
+              <div className="text-[10px] text-stone-500 leading-tight truncate">
+                Total investido em diesel/óleo
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-3.5 shadow-2xs border-l-4 border-l-teal-500">
-          <span className="text-[11px] font-bold text-stone-500 uppercase block">Preço Médio por Litro</span>
-          <div className="text-lg sm:text-xl font-black text-teal-600 dark:text-teal-400 mt-0.5">
-            {formatCurrencyBRL(avgPricePerLiter)}
+        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-teal-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 flex items-center justify-center shrink-0">
+            <Gauge className="w-3.5 h-3.5" />
           </div>
-          <span className="text-[10px] text-stone-400">Valor médio pago / litro</span>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
+              Preço Médio por Litro
+            </span>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <div className="text-sm sm:text-base font-black text-teal-600 dark:text-teal-400 font-['Outfit'] leading-tight truncate">
+                {formatCurrencyBRL(avgPricePerLiter)}
+              </div>
+              <div className="text-[10px] text-stone-500 leading-tight truncate">
+                Valor médio pago / litro
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
 
       {/* Top Máquinas por Consumo com Médias Formatadas */}
       {machineryStats.length > 0 && (
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
-          <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 mb-3 flex items-center space-x-1.5">
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-3 shadow-xs">
+          <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 mb-2 flex items-center space-x-1.5">
             <Tractor className="w-3.5 h-3.5 text-stone-400" />
             <span>Consumo Consolidado por Máquina / Trator / Caminhão</span>
           </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {machineryStats.map(m => (
-              <div key={m.name} className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200/70 dark:border-stone-700/60 flex justify-between items-center">
+              <div key={m.name} className="py-2 px-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200/70 dark:border-stone-700/60 flex justify-between items-center">
                 <div className="min-w-0 flex-1 pr-2">
                   <div className="flex items-center gap-1.5">
                     {m.isMachine ? (
@@ -295,7 +294,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                       {m.name}
                     </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                     <span className="text-[10px] text-stone-400">{m.count} abastecimento(s)</span>
                     {m.avgEfficiencyText && (
                       <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
@@ -318,25 +317,25 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
         </div>
       )}
 
-      {/* Filter and Search */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-3 shadow-xs flex flex-col md:flex-row items-center justify-between gap-2.5">
-        <div className="relative w-full md:w-72">
-          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* 2. Filtros, Busca, Competência e Exportação */}
+      <div className="bg-white dark:bg-stone-900 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por veículo, operador ou posto..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-[#009688]"
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Filtro Dinâmico de Veículo / Máquina */}
           <select
             value={selectedVehicle}
             onChange={(e) => setSelectedVehicle(e.target.value)}
-            className="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-[#009688] cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688] cursor-pointer"
           >
             <option value="todos">Todos os Veículos / Máquinas</option>
             {machineries.map((m) => (
@@ -350,7 +349,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
           <select
             value={fuelTypeFilter}
             onChange={(e) => setFuelTypeFilter(e.target.value)}
-            className="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-[#009688] cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688] cursor-pointer"
           >
             <option value="todos">Todos os combustíveis</option>
             <option value="Diesel S10">Diesel S10</option>
@@ -359,12 +358,27 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
             <option value="Gasolina">Gasolina</option>
             <option value="Etanol">Etanol</option>
           </select>
+
+          <CompetenceSelector
+            competence={activeCompetence}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
+
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 font-bold text-xs rounded-lg transition cursor-pointer shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Exportar Consumo (CSV)</span>
+          </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
-        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
+      {/* 3. Tabela */}
+      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
+        <div className="max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
               <tr>

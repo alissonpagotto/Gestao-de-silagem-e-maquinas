@@ -44,6 +44,13 @@ import {
 } from '../financial/CompetenceSelector';
 import { upsertContaAPagar, deleteContaAPagar, isSupabaseConfigured } from '../../lib/supabaseService';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  normalizeGlobalPaymentMethodKey,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'nfse';
 
@@ -233,8 +240,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const [formSupplierName, setFormSupplierName] = useState('');
   const [formSupplierCnpj, setFormSupplierCnpj] = useState('');
   const [formVehicleId, setFormVehicleId] = useState('');
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
   const [formDescription, setFormDescription] = useState('');
-  const [formPaymentMethod, setFormPaymentMethod] = useState('Boleto Bancário');
+  const [formPaymentMethod, setFormPaymentMethod] = useState('boleto');
   const [formInstallmentsCount, setFormInstallmentsCount] = useState<number>(1);
   const [formNotes, setFormNotes] = useState('');
   const [formItems, setFormItems] = useState<FiscalDocumentItem[]>([]);
@@ -374,7 +383,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     setFormSupplierCnpj('');
     setFormVehicleId('');
     setFormDescription(category === 'cte' ? 'Frete rodoviário de silagem / insumos agrícolas' : category === 'nfse' ? 'Serviços de mecânica / manutenção terceirizada da frota' : '');
-    setFormPaymentMethod('Boleto Bancário');
+    setFormPaymentMethod('boleto');
     setFormInstallmentsCount(1);
     setFormFirstDueDate(formDate || new Date().toISOString().split('T')[0]);
     setFormNotes('');
@@ -558,7 +567,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       issRate: formIssRetained ? formIssRate : undefined,
       issAmount: formIssRetained ? issAmountVal : undefined,
       netPayableAmount: formIssRetained ? netPayableVal : finalTotal,
-      paymentMethod: formPaymentMethod.toUpperCase(),
+      paymentMethod: getGlobalPaymentMethodLabel(formPaymentMethod),
       installmentsCount: count,
       installments,
       status: config.isPlanningOnly ? 'PENDENTE' : 'CONFIRMADO',
@@ -650,7 +659,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           categoryColor: '#10b981',
           costCenterName: 'Almoxarifado & Estoque',
           status: 'pendente',
-          paymentMethod: 'boleto',
+          paymentMethod: normalizeGlobalPaymentMethodKey(formPaymentMethod) || formPaymentMethod || 'boleto',
           supplier: newRecord.supplierName,
           fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
@@ -727,7 +736,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           categoryColor: '#0284c7',
           costCenterName: plate ? `Veículo ${plate}` : 'Frotas & Logística',
           status: 'pendente',
-          paymentMethod: 'boleto',
+          paymentMethod: normalizeGlobalPaymentMethodKey(formPaymentMethod) || formPaymentMethod || 'boleto',
           supplier: newRecord.supplierName,
           fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
@@ -785,7 +794,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           categoryColor: '#d97706',
           costCenterName: 'Administrativo & Fiscal',
           status: 'pendente',
-          paymentMethod: 'boleto',
+          paymentMethod: normalizeGlobalPaymentMethodKey(formPaymentMethod) || formPaymentMethod || 'boleto',
           supplier: newRecord.supplierName,
           fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
@@ -862,7 +871,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           categoryColor: '#0ea5e9',
           costCenterName: plate ? `Veículo ${plate}` : 'Oficina & Manutenção',
           status: 'pendente',
-          paymentMethod: 'boleto',
+          paymentMethod: normalizeGlobalPaymentMethodKey(formPaymentMethod) || formPaymentMethod || 'boleto',
           supplier: newRecord.supplierName,
           fornecedor: newRecord.supplierName,
           supplierName: newRecord.supplierName,
@@ -1554,19 +1563,37 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
-                      CONDIÇÃO DE PAGAMENTO
-                    </label>
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <label className="block text-[10px] font-bold uppercase text-black">
+                        CONDIÇÃO DE PAGAMENTO
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                        className="inline-flex items-center gap-0.5 text-[9.5px] font-black uppercase text-sky-800 hover:text-black cursor-pointer"
+                        title="Gerenciar Formas de Pagamento Globais"
+                      >
+                        <Wrench className="w-2.5 h-2.5" />
+                        <span>Gerenciar</span>
+                      </button>
+                    </div>
                     <select
                       value={formPaymentMethod}
                       onChange={(e) => setFormPaymentMethod(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-white dark:bg-stone-900 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      className="w-full px-2.5 py-1 bg-white border border-black rounded-lg text-xs font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
                     >
-                      <option value="Boleto Bancário">Boleto Bancário</option>
-                      <option value="PIX / Transferência">PIX / Transferência</option>
-                      <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      <option value="Prazo Safra">Prazo Safra</option>
-                      <option value="À Vista">À Vista</option>
+                      {formPaymentMethod &&
+                        !globalPaymentMethods.some(m => getPaymentMethodKey(m) === formPaymentMethod) && (
+                          <option value={formPaymentMethod}>{getGlobalPaymentMethodLabel(formPaymentMethod)}</option>
+                        )}
+                      {globalPaymentMethods.map(m => {
+                        const key = getPaymentMethodKey(m);
+                        return (
+                          <option key={m.id} value={key}>
+                            {m.nome}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
@@ -2127,6 +2154,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           </div>
         </div>
       )}
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[9999]"
+        onSelectMethod={(key) => setFormPaymentMethod(key)}
+      />
     </div>
   );
 };

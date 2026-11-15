@@ -534,9 +534,10 @@ export const RHModule: React.FC<RHModuleProps> = ({
     setActiveTab('adiantamentos');
   };
 
-  // Triggers para acionar ações de Funcionários a partir do cabeçalho superior ou de módulos externos
+  // Triggers para acionar ações de Funcionários e Rescisões a partir do cabeçalho superior ou de módulos externos
   const [externalNewEmployeeTrigger, setExternalNewEmployeeTrigger] = useState(0);
   const [externalPrintEmployeesTrigger, setExternalPrintEmployeesTrigger] = useState(0);
+  const [externalNewTerminationTrigger, setExternalNewTerminationTrigger] = useState(0);
 
   const lastExternalPropTriggerRef = useRef(propExternalNewEmployeeTrigger);
   useEffect(() => {
@@ -584,6 +585,19 @@ export const RHModule: React.FC<RHModuleProps> = ({
             </button>
           </div>
         )}
+
+        {activeTab === 'rescisao' && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setExternalNewTerminationTrigger(prev => prev + 1)}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>+ Nova Rescisão</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
@@ -599,10 +613,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('dashboard')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'dashboard' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'dashboard'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -615,10 +630,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('funcionarios')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'funcionarios' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'funcionarios'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <UserSquare2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
@@ -631,10 +647,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('folha')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'folha' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'folha'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -647,10 +664,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('ferias')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'ferias' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'ferias'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
@@ -663,10 +681,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('afastamentos')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'afastamentos' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'afastamentos'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <AlertCircle className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
@@ -679,10 +698,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('adiantamentos')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'adiantamentos' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'adiantamentos'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -695,10 +715,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('atestados')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'atestados' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'atestados'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <FileHeart className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
@@ -711,10 +732,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('faltas')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'faltas' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'faltas'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <CalendarX2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -727,10 +749,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('rescisao')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                style={activeTab === 'rescisao' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                   activeTab === 'rescisao'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <UserX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
@@ -743,10 +766,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabChange('crachas')}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                style={activeTab === 'crachas' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
                   activeTab === 'crachas'
-                    ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                 }`}
               >
                 <IdCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -881,6 +905,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           currentMonthRef={currentMonthRef}
           onChangeMonthRef={handleUpdateMonthRef}
           onSaveEmployees={onSaveEmployees}
+          externalNewTerminationTrigger={externalNewTerminationTrigger}
         />
       )}
 

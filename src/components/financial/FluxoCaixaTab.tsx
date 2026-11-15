@@ -873,7 +873,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           MODAL 1: SUPRIMENTO DE CAIXA (ENTRADA MANUAL)
          ========================================================================= */}
       {isSuprimentoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
             <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
               <span className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
@@ -952,7 +952,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           MODAL 2: SANGRIA DE CAIXA (RETIRADA MANUAL)
          ========================================================================= */}
       {isSangriaModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
             <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
               <span className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
@@ -1047,7 +1047,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           MODAL 3: FECHAMENTO DE CAIXA CONSOLIDADO & IMPRESSÃO (SLIM PRO)
          ========================================================================= */}
       {isFecharModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden">
             {/* Cabeçalho */}
             <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">

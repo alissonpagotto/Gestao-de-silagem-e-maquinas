@@ -154,7 +154,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         status: o.paymentStatus === 'pago' ? 'pago' : 'pendente',
         notes: o.notes || '',
         clientId: (o as any).clientId || (o as any).client_id,
-        paymentMethod: o.paymentMethod || (isCheque ? 'cheque' : undefined),
+        paymentMethod: o.paymentMethod || (o as any).formaPagamento || (o as any).forma_pagamento || (isCheque ? 'cheque' : undefined),
         isInstallment: o.isInstallment,
         installmentNumber: o.installmentNumber,
         totalInstallments: o.totalInstallments,
@@ -190,7 +190,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             ? `${s.serviceType || 'Serviço'}: ${s.billingNotes}`
             : (s.serviceType || s.farmLocation || ''),
           clientId: (s as any).clientId || (s as any).client_id,
-          paymentMethod: s.paymentMethod || (isCheque ? 'cheque' : undefined),
+          paymentMethod: s.paymentMethod || (s as any).formaPagamento || (s as any).forma_pagamento || (isCheque ? 'cheque' : undefined),
           isInstallment: s.isInstallment,
           installmentNumber: s.installmentNumber,
           totalInstallments: s.totalInstallments,
@@ -205,6 +205,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       const c = (cond || '').toLowerCase();
       if (c.includes('pix')) return 'pix';
       if (c.includes('dinheiro')) return 'dinheiro';
+      if (c.includes('débito') || c.includes('debito')) return 'cartao_debito';
       if (c.includes('cart')) return 'cartao_credito';
       if (c.includes('transfer')) return 'transferencia';
       if (c.includes('cheque')) return 'cheque';

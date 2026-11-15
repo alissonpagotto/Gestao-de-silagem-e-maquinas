@@ -4489,7 +4489,7 @@ export default function App() {
 
       {/* Modal de Ajuda & Guia de Atalhos Global */}
       {isGlobalHelpModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 select-none">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 select-none" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-2.5 px-3 flex items-center justify-between text-white shadow-2xs">
               <div className="flex items-center space-x-2">

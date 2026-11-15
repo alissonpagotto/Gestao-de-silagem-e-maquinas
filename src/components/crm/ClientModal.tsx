@@ -1552,7 +1552,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden`}>
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden`} style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
       <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header - Tema Oficial #cad4e6 + border-black */}

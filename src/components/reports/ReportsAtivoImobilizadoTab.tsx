@@ -254,101 +254,75 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
   }, [companyProfile, machineries, metrics]);
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-2.5 animate-fade-in financial-subtab-clean">
       
-      {/* 1. Barra de Ações Superiores & Botão de Impressão */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs">
-        <div>
-          <h2 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 flex items-center space-x-2 font-['Outfit']">
-            <Building2 className="w-5 h-5 text-[#0963cb]" />
-            <span>Ativo Imobilizado, FIPE & Tributos da Frota</span>
-          </h2>
-          <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5">
-            Demonstrativo contábil e patrimonial de veículos, avaliação comercial de mercado e projeção de impostos (IPVA / CRLV).
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {/* Botão de Impressão com o padrão solicitado (Fundo branco, texto e ícones pretos, hover #b0d2ed) */}
-          <button
-            type="button"
-            onClick={() => setIsPrintModalOpen(true)}
-            className="h-9 px-4 rounded-xl border border-stone-300 bg-white hover:bg-[#b0d2ed] text-[#000000] text-xs font-bold transition flex items-center space-x-2 shadow-xs cursor-pointer"
-            style={{ color: '#000000' }}
-          >
-            <Printer className="w-4 h-4 text-[#000000]" />
-            <span>🖨️ Imprimir Imobilizado</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Três Cards de Resumo Principais Solicitados */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+      {/* 1. Três Cards de Resumo Finos e Compactos */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
         {/* Card 1: CAPITAL TOTAL IMOBILIZADO */}
-        <div className="bg-white dark:bg-stone-900 rounded-xl p-4 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-[#0963cb] shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#0963cb] flex items-center justify-center shrink-0">
+            <Building2 className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
               CAPITAL TOTAL IMOBILIZADO
             </span>
-            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#0963cb]">
-              <Building2 className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl sm:text-3xl font-black text-[#0963cb] font-['Outfit']">
-              {formatCurrencyBRL(metrics.capitalTotalImobilizado)}
-            </div>
-            <div className="text-[11px] text-stone-500 mt-1 flex items-center space-x-1">
-              <span>{metrics.totalFrota} veículos e máquinas registrados</span>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <div className="text-sm sm:text-base font-black text-[#0963cb] font-['Outfit'] leading-tight truncate">
+                {formatCurrencyBRL(metrics.capitalTotalImobilizado)}
+              </div>
+              <div className="text-[10px] text-stone-500 leading-tight truncate">
+                {metrics.totalFrota} veículos e máquinas registrados
+              </div>
             </div>
           </div>
         </div>
 
         {/* Card 2: TOTAL DE IPVA PROJETADO */}
-        <div className="bg-white dark:bg-stone-900 rounded-xl p-4 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+            <Landmark className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
               TOTAL DE IPVA PROJETADO
             </span>
-            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600">
-              <Landmark className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl sm:text-3xl font-black text-amber-600 font-['Outfit']">
-              {formatCurrencyBRL(metrics.totalIpvaProjetado)}
-            </div>
-            <div className="text-[11px] text-stone-500 mt-1 flex items-center space-x-2">
-              <span className="text-emerald-600 font-bold">{metrics.ipvaLancadosCount} no Financeiro</span>
-              <span>•</span>
-              <span className="text-amber-700 font-semibold">{metrics.ipvaPendentesCount} a lançar</span>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <div className="text-sm sm:text-base font-black text-amber-600 font-['Outfit'] leading-tight truncate">
+                {formatCurrencyBRL(metrics.totalIpvaProjetado)}
+              </div>
+              <div className="text-[10px] text-stone-500 leading-tight flex items-center space-x-1.5 truncate">
+                <span className="text-emerald-600 font-bold">{metrics.ipvaLancadosCount} no Financeiro</span>
+                <span>•</span>
+                <span className="text-amber-700 font-semibold">{metrics.ipvaPendentesCount} a lançar</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Card 3: LICENCIAMENTOS PENDENTES */}
-        <div className="bg-white dark:bg-stone-900 rounded-xl p-4 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
               LICENCIAMENTOS PENDENTES
             </span>
-            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-['Outfit']">
-              {metrics.totalLicenciamentosPendentes} <span className="text-sm font-semibold text-stone-500">veículos</span>
-            </div>
-            <div className="text-[11px] text-stone-500 mt-1">
-              Valor estimado: <strong className="text-stone-700 dark:text-stone-300">{formatCurrencyBRL(metrics.totalLicenciamento)}</strong>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <div className="text-sm sm:text-base font-black text-emerald-600 font-['Outfit'] leading-tight truncate">
+                {metrics.totalLicenciamentosPendentes} <span className="text-xs font-semibold text-stone-500">veículos</span>
+              </div>
+              <div className="text-[10px] text-stone-500 leading-tight truncate">
+                Valor estimado: <strong className="text-stone-700 dark:text-stone-300">{formatCurrencyBRL(metrics.totalLicenciamento)}</strong>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Filtros e Busca */}
-      <div className="bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2.5">
+      {/* 2. Filtros, Busca e Impressão */}
+      <div className="bg-white dark:bg-stone-900 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -360,7 +334,7 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
           />
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
@@ -385,12 +359,22 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
             <option value="alugado">Alugado</option>
             <option value="arrendado">Arrendado / Financiado</option>
           </select>
+
+          <button
+            type="button"
+            onClick={() => setIsPrintModalOpen(true)}
+            className="py-1.5 px-3 rounded-lg border border-stone-300 bg-white hover:bg-[#b0d2ed] text-[#000000] text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer shrink-0"
+            style={{ color: '#000000' }}
+          >
+            <Printer className="w-3.5 h-3.5 text-[#000000]" />
+            <span>🖨️ Imprimir Imobilizado</span>
+          </button>
         </div>
       </div>
 
-      {/* 4. Tabela Densa de Ativo Imobilizado com Totalizadores */}
+      {/* 3. Tabela Densa de Ativo Imobilizado com Totalizadores */}
       <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-800 shadow-xs overflow-hidden">
-        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
+        <div className="max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
               <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[11px] font-black uppercase text-stone-700 dark:text-stone-300 tracking-wider">

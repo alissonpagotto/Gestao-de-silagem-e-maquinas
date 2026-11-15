@@ -192,7 +192,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const defaultPdfFilename = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
       <div 
         className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
@@ -411,7 +411,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       {/* Enhanced WhatsApp Sending Modal (PDF vs Text Mode) */}
       {isWhatsAppModalOpen && (
         <div 
-          className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-150"
+          className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-150"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col max-h-[92vh]"

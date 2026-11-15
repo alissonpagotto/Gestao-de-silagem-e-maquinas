@@ -49,7 +49,8 @@ export type PaymentMethod =
   | 'cheque'
   | 'prazo_carteira'
   | 'safra_prazo'
-  | 'assinado_nota';
+  | 'assinado_nota'
+  | (string & {});
 
 export interface ExpenseCategory {
   id: string;
@@ -633,10 +634,24 @@ export interface FormaPagamentoItem {
   id: string;
   codigo: string;
   nome: string;
-  tipo: 'dinheiro' | 'pix' | 'boleto' | 'cartao_credito' | 'cartao_debito' | 'transferencia' | 'cheque' | 'outro';
+  tipo:
+    | 'dinheiro'
+    | 'pix'
+    | 'boleto'
+    | 'cartao_credito'
+    | 'cartao_debito'
+    | 'transferencia'
+    | 'cheque'
+    | 'prazo_carteira'
+    | 'safra_prazo'
+    | 'assinado_nota'
+    | 'outro';
   prazoDias?: number;
   taxaPercentual?: number;
+  geraParcelaPrazo?: boolean;
   ativo: boolean;
+  isCustom?: boolean;
+  ordem?: number;
 }
 
 export interface PlanoContasEFormasData {

@@ -238,7 +238,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
   if (!isOpen || !imageSrc) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-fadeIn">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/60 animate-fadeIn" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
       <div 
         className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl shadow-2xl border border-black dark:border-stone-800 w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] overflow-hidden flex flex-col justify-between mx-auto my-auto"
         onClick={(e) => e.stopPropagation()}

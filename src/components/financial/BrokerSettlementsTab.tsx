@@ -952,7 +952,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 6. MODAL DE NOVO / EDITAR LANÇAMENTO DE COMISSÃO */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-[2px] animate-in fade-in duration-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 animate-in fade-in duration-200 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
             {/* Modal Header */}
             <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] text-black border-b border-black flex items-center justify-between shrink-0">
@@ -1244,7 +1244,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 7. MODAL DE BAIXA RÁPIDA / PAGAMENTO DO REPASSE */}
       {isSettleModalOpen && settleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-[2px] animate-in fade-in duration-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 animate-in fade-in duration-200 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] overflow-hidden shadow-2xl flex flex-col justify-between mx-auto my-auto">
             {/* Header */}
             <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
@@ -1421,7 +1421,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 8. MODAL DE IMPRESSÃO DE RECIBO DE REPASSE */}
       {isPrintModalOpen && printTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-[2px] animate-in fade-in duration-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 animate-in fade-in duration-200 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">

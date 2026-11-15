@@ -893,7 +893,7 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
           4. MODAL: REGISTRAR REAJUSTE SALARIAL (PADRÃO OURO)
          ===================================================================== */}
       {isSalaryModalOpen && selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 mx-auto my-auto">
             {/* Header Oficial */}
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0">

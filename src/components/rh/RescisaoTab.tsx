@@ -88,6 +88,7 @@ interface RescisaoTabProps {
   currentMonthRef?: string;
   onChangeMonthRef?: (month: string) => void;
   onSaveEmployees?: (employees: Employee[]) => void;
+  externalNewTerminationTrigger?: number;
 }
 
 export const RescisaoTab: React.FC<RescisaoTabProps> = ({
@@ -99,6 +100,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   currentMonthRef,
   onChangeMonthRef,
   onSaveEmployees,
+  externalNewTerminationTrigger,
 }) => {
   const { confirm } = useConfirm();
   const { currentUser, companyId: authCompanyId } = useAuth();
@@ -487,6 +489,16 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     setEditingTermination(null);
     setIsCalculationModalOpen(true);
   };
+
+  const lastNewTriggerRef = useRef(externalNewTerminationTrigger);
+  useEffect(() => {
+    if (externalNewTerminationTrigger !== undefined && externalNewTerminationTrigger !== lastNewTriggerRef.current) {
+      lastNewTriggerRef.current = externalNewTerminationTrigger;
+      if (externalNewTerminationTrigger > 0) {
+        handleOpenNewTermination();
+      }
+    }
+  }, [externalNewTerminationTrigger]);
 
   // Abertura do Modal para "Visualizar / Editar" rescisão existente
   const handleOpenEditTermination = (record: TerminationRecord) => {
@@ -946,7 +958,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   }, [competenceTerminations, statusFilter, searchTerm]);
 
   return (
-    <div className="w-full space-y-4 antialiased">
+    <div className="w-full space-y-2.5 antialiased financial-subtab-clean">
       
       {/* Banner de Feedback da Integração Financeira */}
       {integrationBanner && (
@@ -979,77 +991,50 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         </div>
       )}
 
-      {/* 1. TOPO DA PÁGINA: Cabeçalho com Título & Botão de Ação Primário "+ Nova Rescisão" */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-black dark:text-white">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
-            <Scale className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-black dark:text-white tracking-tight">
-              Gestão de Rescisões Contratuais CLT
-            </h2>
-            <p className="text-xs text-black/85 dark:text-stone-300 font-medium">
-              Controle de desligamentos, cálculo oficial de verbas rescisórias, integração financeira e emissão de TRCT
-            </p>
-          </div>
-        </div>
-
-        {/* Botão de Ação Primário Destacado em Verde "+ Nova Rescisão" */}
-        <button
-          type="button"
-          onClick={handleOpenNewTermination}
-          className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs sm:text-sm rounded-xl transition shadow-xs cursor-pointer active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>+ Nova Rescisão</span>
-        </button>
-      </div>
-
-      {/* 2. KPIs de Resumo Rápido */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
-          <span className="text-[10px] sm:text-[11px] font-black uppercase text-black dark:text-stone-300 block">
+      {/* 1. KPIs de Resumo Rápido Compactos */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+          <span className="text-[10px] font-black uppercase text-black dark:text-stone-300 block leading-tight truncate">
             Total de Rescisões
           </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-lg sm:text-xl font-black font-['Outfit']">{totalCount}</span>
-            <span className="text-xs font-bold text-black/70 dark:text-stone-400">registro(s)</span>
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
+            <span className="text-sm sm:text-base font-black font-['Outfit'] leading-tight">{totalCount}</span>
+            <span className="text-[10px] font-bold text-black/70 dark:text-stone-400 leading-tight">registro(s)</span>
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
-          <span className="text-[10px] sm:text-[11px] font-black uppercase text-emerald-950 dark:text-emerald-400 block">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+          <span className="text-[10px] font-black uppercase text-emerald-950 dark:text-emerald-400 block leading-tight truncate">
             Homologadas / Integradas
           </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-lg sm:text-xl font-black font-['Outfit'] text-emerald-900 dark:text-emerald-400">
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
+            <span className="text-sm sm:text-base font-black font-['Outfit'] text-emerald-900 dark:text-emerald-400 leading-tight">
               {homologadosCount + integradosCount}
             </span>
-            <span className="text-xs font-bold text-black/70 dark:text-stone-400">
+            <span className="text-[10px] font-bold text-black/70 dark:text-stone-400 leading-tight">
               {integradosCount > 0 ? `(${integradosCount} integradas)` : 'concluída(s)'}
             </span>
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
-          <span className="text-[10px] sm:text-[11px] font-black uppercase text-amber-950 dark:text-amber-400 block">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+          <span className="text-[10px] font-black uppercase text-amber-950 dark:text-amber-400 block leading-tight truncate">
             Em Andamento
           </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-lg sm:text-xl font-black font-['Outfit'] text-amber-900 dark:text-amber-400">
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
+            <span className="text-sm sm:text-base font-black font-['Outfit'] text-amber-900 dark:text-amber-400 leading-tight">
               {rascunhosCount}
             </span>
-            <span className="text-xs font-bold text-black/70 dark:text-stone-400">rascunho(s)</span>
+            <span className="text-[10px] font-bold text-black/70 dark:text-stone-400 leading-tight">rascunho(s)</span>
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
-          <span className="text-[10px] sm:text-[11px] font-black uppercase text-black dark:text-stone-300 block">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+          <span className="text-[10px] font-black uppercase text-black dark:text-stone-300 block leading-tight truncate">
             Valor Líquido Total
           </span>
-          <div className="mt-1">
-            <span className="text-base sm:text-lg font-black font-['Outfit'] text-emerald-950 dark:text-emerald-400">
+          <div className="mt-0.5">
+            <span className="text-sm sm:text-base font-black font-['Outfit'] text-emerald-950 dark:text-emerald-400 leading-tight">
               {formatMoneyBRL(totalNetLiquido)}
             </span>
           </div>

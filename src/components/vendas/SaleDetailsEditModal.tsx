@@ -14,12 +14,21 @@ import {
   Printer,
   Save,
   Check,
-  Search
+  Search,
+  Settings
 } from 'lucide-react';
 import { ServiceOrder, CompanyProfile, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { generatePrintableSaleHtml } from './PdvView';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  normalizeGlobalPaymentMethodKey,
+  doesPaymentMethodGenerateInstallment,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 interface SaleItem {
   id: string;
@@ -62,7 +71,9 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
   const [clienteCpfCnpj, setClienteCpfCnpj] = useState('');
   const [dataVenda, setDataVenda] = useState('');
   const [horaVenda, setHoraVenda] = useState('12:00');
-  const [formaPagamento, setFormaPagamento] = useState('À VISTA');
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const [formaPagamento, setFormaPagamento] = useState('dinheiro');
   const [tipoCobranca, setTipoCobranca] = useState('CARTEIRA');
   const [desconto, setDesconto] = useState(0);
 
@@ -176,11 +187,8 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
     if (!resolvedDate) resolvedDate = new Date().toISOString().split('T')[0];
 
     const resolvedHora = targetSale?.hora || '12:00';
-    let resolvedForma = (targetSale?.formaPagamento || 'A VISTA').toUpperCase();
-    if (resolvedForma === 'A_VISTA') resolvedForma = 'À VISTA';
-    if (resolvedForma === 'CARTAO_DEBITO') resolvedForma = 'DÉBITO';
-    if (resolvedForma === 'CARTAO_CREDITO') resolvedForma = 'CRÉDITO';
-    if (resolvedForma === 'PRAZO') resolvedForma = 'A PRAZO';
+    const rawForma = targetSale?.paymentMethod || targetSale?.formaPagamento || 'dinheiro';
+    const resolvedForma = normalizeGlobalPaymentMethodKey(rawForma) || String(rawForma).toUpperCase();
 
     const resolvedTipoCobranca = (targetSale?.tipoCobranca || 'CARTEIRA').toUpperCase();
     const resolvedDesconto = Number(targetSale?.desconto || 0);
@@ -382,9 +390,10 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
       valorLiquido: totals.totalLiquido,
       totalAmount: totals.totalLiquido,
       ratePerUnit: totals.totalLiquido,
-      formaPagamento: formaPagamento,
+      formaPagamento: getGlobalPaymentMethodLabel(formaPagamento),
+      paymentMethod: normalizeGlobalPaymentMethodKey(formaPagamento) || formaPagamento,
       tipoCobranca: tipoCobranca,
-      status: formaPagamento === 'A PRAZO' ? 'pendente' : 'concluido',
+      status: doesPaymentMethodGenerateInstallment(formaPagamento) ? 'pendente' : 'concluido',
     };
   };
 
@@ -505,7 +514,7 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
               p.valor_parcela = valorParcela;
               p.description = `Venda ${orderNumber} (${idx + 1}/${count})`;
             });
-          } else if (formaPagamento === 'A PRAZO') {
+          } else if (doesPaymentMethodGenerateInstallment(formaPagamento)) {
             receberList.unshift({
               id: `REC-${saleId || Date.now()}`,
               orderNumber: orderNumber,
@@ -514,6 +523,8 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
               clientName: clienteNome,
               cliente: clienteNome,
               description: `Venda a Prazo ${orderNumber}`,
+              paymentMethod: normalizeGlobalPaymentMethodKey(formaPagamento) || formaPagamento,
+              formaPagamento: getGlobalPaymentMethodLabel(formaPagamento),
               date: dataVenda,
               dueDate: dataVenda,
               totalAmount: totals.totalLiquido,
@@ -565,7 +576,8 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-none flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
     >
       <div
         className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl text-slate-900"
@@ -579,7 +591,7 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
               DETALHES E EDIÇÃO DA VENDA: {orderNumber || 'PEDIDO'}
             </h3>
             <span className="hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-black bg-white text-slate-900 border border-black uppercase">
-              {formaPagamento} • {items.length} {items.length === 1 ? 'ITEM' : 'ITENS'}
+              {getGlobalPaymentMethodLabel(formaPagamento)} • {items.length} {items.length === 1 ? 'ITEM' : 'ITENS'}
             </span>
           </div>
           <button
@@ -673,21 +685,39 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                 />
               </div>
 
-              {/* Forma de Pagamento */}
+              {/* Forma de Pagamento (Fonte Única Global) */}
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
-                  FORMA DE PAGAMENTO *:
-                </label>
+                <div className="flex items-center justify-between gap-1 mb-0.5">
+                  <label className="block text-[10px] font-black uppercase text-black">
+                    FORMA DE PAGAMENTO *:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                    className="inline-flex items-center gap-0.5 text-[9.5px] font-black uppercase text-sky-800 hover:text-black cursor-pointer"
+                    title="Gerenciar Formas de Pagamento Globais"
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>Gerenciar</span>
+                  </button>
+                </div>
                 <select
                   value={formaPagamento}
                   onChange={e => setFormaPagamento(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-850 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                  className="w-full px-2 py-1.5 rounded border border-black bg-white text-xs font-bold text-black uppercase shadow-2xs outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
                 >
-                  <option value="À VISTA">À VISTA (DINHEIRO)</option>
-                  <option value="PIX">PIX</option>
-                  <option value="DÉBITO">CARTÃO DÉBITO</option>
-                  <option value="CRÉDITO">CARTÃO CRÉDITO</option>
-                  <option value="A PRAZO">A PRAZO</option>
+                  {formaPagamento &&
+                    !globalPaymentMethods.some(m => getPaymentMethodKey(m) === formaPagamento) && (
+                      <option value={formaPagamento}>{getGlobalPaymentMethodLabel(formaPagamento)}</option>
+                    )}
+                  {globalPaymentMethods.map(m => {
+                    const key = getPaymentMethodKey(m);
+                    return (
+                      <option key={m.id} value={key}>
+                        {m.nome}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -1060,6 +1090,13 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
         </div>
 
       </div>
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[90]"
+        onSelectMethod={(key) => setFormaPagamento(key)}
+      />
     </div>
   );
 };

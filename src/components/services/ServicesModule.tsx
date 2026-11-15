@@ -719,17 +719,18 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                   onDrop={(e) => handleDrop(index, e)}
                   onDragEnd={handleDragEnd}
                   onClick={() => setActiveTab(tab.id)}
+                  style={isActive ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
                   title="Clique para alternar ou arraste para reorganizar a ordem das abas"
-                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-wide uppercase select-none transition-all cursor-pointer whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
+                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase select-none transition-all cursor-pointer whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
                     isActive
-                      ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                      : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                      ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                      : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                   } ${isDragging ? 'opacity-40 scale-95' : ''} ${isDragOver ? 'ring-2 ring-emerald-500 z-20' : ''}`}
                 >
                   <Icon 
                     className={`w-3.5 h-3.5 transition-colors shrink-0 ${
                       isActive 
-                        ? 'text-emerald-700 dark:text-emerald-400' 
+                        ? 'text-black' 
                         : 'text-slate-500 dark:text-stone-400'
                     }`} 
                   />

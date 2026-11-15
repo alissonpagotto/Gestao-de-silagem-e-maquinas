@@ -57,6 +57,14 @@ import {
   saveStoredTrocasDevolucoes,
 } from '../../lib/storage';
 import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  normalizeGlobalPaymentMethodKey,
+  doesPaymentMethodGenerateInstallment,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+import {
   adicionarSangriaCaixa,
   getOperadorLogadoNome,
   isCaixaAbertoHojeParaOperador,
@@ -252,7 +260,7 @@ function getExpenseDocLabel(exp: Expense): string {
 export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = ({
   isOpen,
   onClose,
-  clients,
+  clients = [],
   companyProfile,
   defaultTipoOperacao,
   onSaveClients,
@@ -267,7 +275,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
-  const [clientsList, setClientsList] = useState<Client[]>(clients);
+  const [clientsList, setClientsList] = useState<Client[]>(() => (Array.isArray(clients) ? clients : []));
   const [expensesList, setExpensesList] = useState<Expense[]>([]);
   const [motivosList, setMotivosList] = useState<string[]>(() => getStoredTrocaMotivos());
   const [isMotivoManagerOpen, setIsMotivoManagerOpen] = useState<boolean>(false);
@@ -313,8 +321,10 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [modoCreditoOuEstorno, setModoCreditoOuEstorno] = useState<'vale_credito' | 'estorno'>(
     'vale_credito'
   );
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
   const [formaEstorno, setFormaEstorno] = useState<'DINHEIRO' | 'PIX'>('DINHEIRO');
-  const [formaPagamentoDiferenca, setFormaPagamentoDiferenca] = useState<string>('DINHEIRO');
+  const [formaPagamentoDiferenca, setFormaPagamentoDiferenca] = useState<string>('dinheiro');
   const [destinoFornecedor, setDestinoFornecedor] = useState<
     'credito_fornecedor' | 'abatimento_boleto' | 'diferenca_recebida' | 'sem_impacto'
   >('credito_fornecedor');
@@ -379,8 +389,8 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     if (!isOpen) return;
     setInventoryList(getStoredInventory());
     const sups = getStoredSuppliers();
-    setSuppliersList(sups);
-    setClientsList(clients && clients.length > 0 ? clients : getStoredClients());
+    setSuppliersList(Array.isArray(sups) ? sups : []);
+    setClientsList(Array.isArray(clients) && clients.length > 0 ? clients : getStoredClients());
     setExpensesList(getStoredExpenses());
     const loadedMotivos = getStoredTrocaMotivos();
     setMotivosList(loadedMotivos);
@@ -437,14 +447,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   }, [isOpen, clients, todayIso, defaultTipoOperacao]);
 
   const selectedSupplier = useMemo(
-    () => suppliersList.find((s) => String(s.id) === String(selectedSupplierId)) || null,
+    () => (Array.isArray(suppliersList) ? suppliersList : []).find((s) => String(s.id) === String(selectedSupplierId)) || null,
     [suppliersList, selectedSupplierId]
   );
 
   const selectedClient = useMemo(
     () =>
       selectedClientId && selectedClientId !== 'consumidor_avulso'
-        ? clientsList.find((c) => String(c.id) === String(selectedClientId)) || null
+        ? (Array.isArray(clientsList) ? clientsList : []).find((c) => String(c.id) === String(selectedClientId)) || null
         : null,
     [clientsList, selectedClientId]
   );
@@ -453,7 +463,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const filteredSuppliersDropdown = useMemo(() => {
     const q = normalizeText(envolvidoSearch);
     const qDigits = normalizeDigits(envolvidoSearch);
-    return suppliersList
+    return (Array.isArray(suppliersList) ? suppliersList : [])
       .filter((sup) => {
         if (!q) return true;
         const n1 = normalizeText(sup.name);
@@ -467,7 +477,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const filteredClientsDropdown = useMemo(() => {
     const q = normalizeText(envolvidoSearch);
     const qDigits = normalizeDigits(envolvidoSearch);
-    return clientsList
+    return (Array.isArray(clientsList) ? clientsList : [])
       .filter((cli) => {
         if (!q) return true;
         const n1 = normalizeText(cli.name || cli.nome);
@@ -1318,12 +1328,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       } else if (tipoOperacao === 'troca_direta' && saldoFinal > 0.005) {
         // Cliente deve pagar diferença
         const valorDif = Number(saldoFinal.toFixed(2));
-        formaPagDif = formaPagamentoDiferenca;
-        const isPrazo = formaPagamentoDiferenca.toUpperCase().includes('PRAZO');
+        const resolvedMethodKey = normalizeGlobalPaymentMethodKey(formaPagamentoDiferenca) || formaPagamentoDiferenca;
+        const resolvedMethodLabel = getGlobalPaymentMethodLabel(resolvedMethodKey);
+        formaPagDif = resolvedMethodLabel;
+        const isPrazo = doesPaymentMethodGenerateInstallment(resolvedMethodKey);
 
         if (isPrazo) {
           destinoFinanceiro = 'diferenca_receber';
-          destinoFinanceiroLabel = `A Receber (${formatCurrencyBRL(valorDif)}) - ${formaPagamentoDiferenca}`;
+          destinoFinanceiroLabel = `A Receber (${formatCurrencyBRL(valorDif)}) - ${resolvedMethodLabel}`;
 
           const receberItem = {
             id: `rec_troca_${Date.now()}`,
@@ -1342,7 +1354,8 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             totalLiquido: valorDif,
             totalAmount: valorDif,
             amount: valorDif,
-            formaPagamento: formaPagamentoDiferenca,
+            paymentMethod: resolvedMethodKey,
+            formaPagamento: resolvedMethodLabel,
             descricao: `Diferença de Troca ${protocolo} - ${envolvidoNome}`,
             createdAt: now.toISOString(),
           };
@@ -1373,13 +1386,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
               numeroPedido: protocolo,
               cliente: envolvidoNome,
               valor: valorDif,
-              formaPagamento: 'A PRAZO (CARTEIRA)',
+              formaPagamento: `A PRAZO (${resolvedMethodLabel})`,
               dataHora: `${dataBR} ${horaStr}`,
             });
           }
         } else {
           destinoFinanceiro = 'diferenca_recebida';
-          destinoFinanceiroLabel = `Diferença Recebida (${formatCurrencyBRL(valorDif)}) - ${formaPagamentoDiferenca}`;
+          destinoFinanceiroLabel = `Diferença Recebida (${formatCurrencyBRL(valorDif)}) - ${resolvedMethodLabel}`;
 
           const receitaItem = {
             id: `rec_troca_${Date.now()}`,
@@ -1392,7 +1405,8 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             totalLiquido: valorDif,
             totalAmount: valorDif,
             amount: valorDif,
-            formaPagamento: formaPagamentoDiferenca,
+            paymentMethod: resolvedMethodKey,
+            formaPagamento: resolvedMethodLabel,
             tipo: 'receita',
             type: 'entrada',
             status: 'liquidado',
@@ -1427,7 +1441,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
               numeroPedido: protocolo,
               cliente: envolvidoNome,
               valor: valorDif,
-              formaPagamento: formaPagamentoDiferenca,
+              formaPagamento: resolvedMethodLabel,
               dataHora: `${dataBR} ${horaStr}`,
             });
           }
@@ -2885,19 +2899,41 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                     </span>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                      Forma de Recebimento da Diferença
-                    </label>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label className="block text-[10px] font-bold uppercase text-slate-900">
+                        Forma de Recebimento da Diferença
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                        className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-sky-800 hover:text-black cursor-pointer"
+                        title="Gerenciar Formas de Pagamento Globais"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>Gerenciar</span>
+                      </button>
+                    </div>
                     <select
                       value={formaPagamentoDiferenca}
                       onChange={(e) => setFormaPagamentoDiferenca(e.target.value)}
-                      className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-600"
+                      className="w-full bg-white border border-black text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
                     >
-                      <option value="DINHEIRO">Dinheiro (Lança no Caixa)</option>
-                      <option value="PIX">PIX (Lança no Financeiro / Caixa)</option>
-                      <option value="CARTÃO DE DÉBITO">Cartão de Débito</option>
-                      <option value="CARTÃO DE CRÉDITO">Cartão de Crédito</option>
-                      <option value="A PRAZO (CARTEIRA)">A Prazo / Carteira (Contas a Receber)</option>
+                      {formaPagamentoDiferenca &&
+                        !globalPaymentMethods.some(
+                          (m) => getPaymentMethodKey(m) === formaPagamentoDiferenca
+                        ) && (
+                          <option value={formaPagamentoDiferenca}>
+                            {getGlobalPaymentMethodLabel(formaPagamentoDiferenca)}
+                          </option>
+                        )}
+                      {globalPaymentMethods.map((m) => {
+                        const key = getPaymentMethodKey(m);
+                        return (
+                          <option key={m.id} value={key}>
+                            {m.nome}{m.geraParcelaPrazo ? ' (A Prazo)' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
@@ -3017,6 +3053,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           }
         }}
         onSelectItem={(item) => setMotivo(item)}
+      />
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[9999]"
+        onSelectMethod={(key) => setFormaPagamentoDiferenca(key)}
       />
     </div>
   );

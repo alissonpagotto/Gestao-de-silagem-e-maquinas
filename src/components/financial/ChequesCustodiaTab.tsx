@@ -1008,7 +1008,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE DEPOSITAR / COMPENSAR */}
       {compensatingCheque && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0 text-black">
               <div className="flex items-center space-x-2.5">
@@ -1122,7 +1122,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE VISUALIZAÇÃO DA IMAGEM DO CHEQUE */}
       {viewingImageUrl && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden">
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0 text-black">
               <span className="text-sm font-black text-black uppercase tracking-wide">
@@ -1160,7 +1160,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE NOVO CHEQUE AVULSO */}
       {isNewChequeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 shrink-0">
               <div className="flex items-center space-x-2">

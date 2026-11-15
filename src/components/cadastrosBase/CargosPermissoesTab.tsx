@@ -1082,7 +1082,7 @@ export const CargosPermissoesTab: React.FC = () => {
       {/*    (ACIONADO APENAS AO CLICAR EM '+ NOVO CARGO' OU 'EDITAR')              */}
       {/* ========================================================================= */}
       {isEditorOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150">
             
             {/* Header */}
@@ -2049,7 +2049,8 @@ export const CargosPermissoesTab: React.FC = () => {
       {/* MICRO MODAL DE CONFIRMAÇÃO DE SEGURANÇA: RESTAURAR PADRÃO */}
       {isResetConfirmOpen && (
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
           role="dialog"
           aria-modal="true"
         >

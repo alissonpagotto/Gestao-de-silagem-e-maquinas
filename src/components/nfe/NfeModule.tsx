@@ -8935,10 +8935,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-central-documentos"
               onClick={() => setActiveMainFiscalTab('notas')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              style={activeMainFiscalTab === 'notas' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeMainFiscalTab === 'notas'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                  ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <span>📄 CENTRAL DE DOCUMENTOS</span>
@@ -8952,10 +8953,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-pedido-compra"
               onClick={() => setActiveMainFiscalTab('pedido_compra')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              style={activeMainFiscalTab === 'pedido_compra' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeMainFiscalTab === 'pedido_compra'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-indigo-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                  ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -8970,10 +8972,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-pedidos-reforma"
               onClick={() => setActiveMainFiscalTab('pedidos_reforma')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              style={activeMainFiscalTab === 'pedidos_reforma' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeMainFiscalTab === 'pedidos_reforma'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-amber-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                  ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <Wrench className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -8993,12 +8996,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-devolucoes-garantias"
               onClick={() => setActiveMainFiscalTab('devolucao')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+              style={activeMainFiscalTab === 'devolucao' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeMainFiscalTab === 'devolucao'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : pendenciasDevolucaoCount > 0
-                    ? 'bg-rose-50/90 hover:bg-rose-100/90 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 text-rose-900 dark:text-rose-200'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-rose-50/90 hover:bg-rose-100/90 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 text-rose-900 font-bold dark:text-rose-200'
+                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <span>🔄 DEVOLUÇÕES &amp; GARANTIAS</span>
@@ -9017,10 +9021,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               type="button"
               id="tab-fiscal-manifestacao-destinatario"
               onClick={() => setActiveMainFiscalTab('manifestacao_destinatario')}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide font-bold uppercase transition cursor-pointer select-none whitespace-nowrap ${
+              style={activeMainFiscalTab === 'manifestacao_destinatario' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
                 activeMainFiscalTab === 'manifestacao_destinatario'
-                  ? 'bg-white text-zinc-900 dark:bg-stone-900 dark:text-white shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                  ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
               }`}
             >
               <FileCheck2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -12698,7 +12703,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isNotaSaidaModalOpen && (
         <div
           id="modal-lancar-nota-saida"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-1 sm:p-2 overflow-hidden animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-none flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.40)' }}
         >
           <div
             className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
@@ -14899,7 +14905,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {viewingNotaSaida && (
         <div
           id="modal-espelho-nota-saida"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-none flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.40)' }}
         >
           <div
             id="nota-saida-espelho-print"
@@ -15228,7 +15235,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {notaSaidaToDelete && (
         <div
           id="modal-confirmar-exclusao-nota-saida"
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-80 bg-black/40 backdrop-blur-none flex items-center justify-center p-4 animate-in fade-in"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.40)' }}
         >
           <div
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 text-stone-900 dark:text-stone-100"

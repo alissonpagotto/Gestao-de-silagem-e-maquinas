@@ -625,29 +625,29 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
           3. TABELA DE AUDITORIA E FATURAMENTO
           ======================================================== */}
       <section className="bg-white dark:bg-stone-900 rounded-lg shadow-2xs">
-        <div className="w-full max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
-          <table className="w-full text-left border-collapse">
+        <div className="w-full max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-hidden border border-slate-300 dark:border-stone-700 rounded-lg">
+          <table className="w-full table-auto text-left border-collapse">
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
               <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800">
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-14">
                   Nº
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                   CLIENTE
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                   DATA
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                   TIPO DE SERVIÇO
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right">
                   VALOR ATUAL
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center">
                   STATUS FATURAMENTO
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right">
                   AÇÕES
                 </th>
               </tr>
@@ -677,38 +677,29 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                       className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
                     >
                       {/* Nº Limpo e Unificado */}
-                      <td className="px-3 py-1.5 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold">
                         {item.cleanOrderNumber}
                       </td>
 
-                      {/* Cliente e Fazenda */}
-                      <td className="px-3 py-1.5 whitespace-nowrap">
-                        <div className="font-bold text-zinc-900 dark:text-white text-xs leading-snug uppercase">
+                      {/* Cliente e Estabelecimento */}
+                      <td className="px-2.5 py-1.5">
+                        <div className="font-bold text-zinc-900 dark:text-white text-xs leading-snug uppercase break-words">
                           {service.clientName}
                         </div>
                         {service.farmName && (
-                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium uppercase">
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium uppercase break-words">
                             {service.farmName}
-                          </div>
-                        )}
-
-                        {/* Resumo Financeiro Unificado da OS */}
-                        {item.summaryBillingNotes && (
-                          <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold mt-0.5 flex items-center gap-1 uppercase">
-                            <span className="bg-blue-50 dark:bg-blue-950/60 px-1 py-0.2 rounded border border-blue-200 dark:border-blue-800">
-                              FAT: {item.summaryBillingNotes}
-                            </span>
                           </div>
                         )}
                       </td>
 
                       {/* Data */}
-                      <td className="px-3 py-1.5 text-xs text-zinc-700 dark:text-stone-300 font-medium whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-xs text-zinc-700 dark:text-stone-300 font-medium">
                         {service.startDate ? formatDateBR(service.startDate) : '--'}
                       </td>
 
                       {/* Tipo de Serviço */}
-                      <td className="px-3 py-1.5 whitespace-nowrap">
+                      <td className="px-2.5 py-1.5">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${serviceTypeBadge.className}`}
                         >
@@ -717,28 +708,28 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                       </td>
 
                       {/* Valor Atual Consolidado */}
-                      <td className="px-3 py-1.5 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
                         {formatCurrencyBRL(item.totalAmount || 0)}
                       </td>
 
                       {/* Status Interno do Faturamento Unificado */}
-                      <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase ${item.statusBadge.className}`}
                         >
-                          <Check className="w-3 h-3 stroke-[3]" />
-                          {item.statusBadge.label}
+                          <Check className="w-3 h-3 stroke-[3] shrink-0" />
+                          <span>{item.statusBadge.label}</span>
                         </span>
                       </td>
 
                       {/* Ações */}
-                      <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-2.5 py-1.5 text-right">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
                           {/* Botão Auditar / Revisar Valores */}
                           <button
                             type="button"
                             onClick={() => handleOpenAuditModal(service)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-750 border border-slate-300 dark:border-stone-600 rounded-md shadow-2xs transition cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-750 border border-slate-300 dark:border-stone-600 rounded-md shadow-2xs transition cursor-pointer"
                             title="Auditar valores, descontos e anotações do faturamento"
                           >
                             <Pencil className="w-3 h-3 text-slate-600 dark:text-stone-300" />
@@ -749,7 +740,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenServiceModal(service)}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md shadow-2xs transition cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md shadow-2xs transition cursor-pointer"
                             title="Visualizar ordem de serviço completa e DRE"
                           >
                             <Eye className="w-3 h-3" />
@@ -761,7 +752,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                             <button
                               type="button"
                               onClick={() => handleSendToReceivables(service)}
-                              className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-md shadow-xs transition cursor-pointer uppercase active:scale-95"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-md shadow-xs transition cursor-pointer uppercase active:scale-95"
                               title="Enviar imediatamente para o módulo Contas a Receber"
                             >
                               <Send className="w-3 h-3" />

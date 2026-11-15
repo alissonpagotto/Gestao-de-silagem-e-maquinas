@@ -42,6 +42,14 @@ import { registrarVendaNoCaixa } from '../../lib/caixaStorage';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { useConfirm } from '../../context/ConfirmContext';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  normalizeGlobalPaymentMethodKey,
+  doesPaymentMethodGenerateInstallment,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export interface PdvItem {
   id: string;
@@ -87,7 +95,7 @@ export interface VendaRascunho {
   clientSearch?: string;
   tabelaPreco?: PriceTable;
   fretesVinculados?: FreteVinculadoItem[];
-  formaPagamento?: 'a_vista' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo';
+  formaPagamento?: string;
   prazoCondicao?: string;
   tipoCobranca?: 'carteira' | 'boleto';
   qtdeParcelas?: number;
@@ -854,8 +862,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   };
 
-  // Controle de Pagamento
-  const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo'>('a_vista');
+  // Controle de Pagamento (Sincronizado com Fonte Única Global agrocontrol_formas_pagamento)
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const [formaPagamento, setFormaPagamento] = useState<string>('dinheiro');
   const [valorPagoInput, setValorPagoInput] = useState<string>('');
   
   // Bloco Prazo: Condição, Cobrança, Formato e Parcelas
@@ -1501,9 +1511,16 @@ export const PdvView: React.FC<PdvViewProps> = ({
     };
   }, [items, valorPagoInput, fretesVinculados, productCatalog]);
 
+  const isDeferredPayment = useMemo(() => {
+    return (
+      formaPagamento === 'prazo' ||
+      doesPaymentMethodGenerateInstallment(formaPagamento)
+    );
+  }, [formaPagamento, globalPaymentMethods]);
+
   // Parcelas do Bloco a Prazo
   const parcelas = useMemo<InstallmentRow[]>(() => {
-    if (formaPagamento !== 'prazo' || totals.totalLiquido <= 0 || qtdeParcelas <= 0) return [];
+    if (!isDeferredPayment || totals.totalLiquido <= 0 || qtdeParcelas <= 0) return [];
     
     const count = Math.max(1, qtdeParcelas);
     const valorBase = Math.round((totals.totalLiquido / count) * 100) / 100;
@@ -1528,7 +1545,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
 
     return rows;
-  }, [formaPagamento, totals.totalLiquido, qtdeParcelas, dataPrimeiraParcela]);
+  }, [isDeferredPayment, totals.totalLiquido, qtdeParcelas, dataPrimeiraParcela]);
 
   // Interceptação do gatilho de multiplicação por asterisco ("QTD *") no campo de busca do PDV
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2158,7 +2175,10 @@ export const PdvView: React.FC<PdvViewProps> = ({
     setSelectedClientId(draft.selectedClientId || '');
     setClientSearch(draft.clientSearch || 'CONSUMIDOR FINAL / BALCÃO');
     if (draft.tabelaPreco) setTabelaPreco(draft.tabelaPreco);
-    if (draft.formaPagamento) setFormaPagamento(draft.formaPagamento);
+    if (draft.formaPagamento) {
+      const normalizedKey = normalizeGlobalPaymentMethodKey(draft.formaPagamento) || draft.formaPagamento;
+      setFormaPagamento(normalizedKey);
+    }
     if (draft.prazoCondicao) setPrazoCondicao(draft.prazoCondicao);
     if (draft.tipoCobranca) setTipoCobranca(draft.tipoCobranca);
     if (draft.qtdeParcelas) setQtdeParcelas(draft.qtdeParcelas);
@@ -2184,20 +2204,44 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   };
 
-  // Acionamento Reativo e Foco Operacional no Botão "À VISTA"
-  const handleAcionarAVista = () => {
-    setFormaPagamento('a_vista');
-    const formattedLiquido = totals.totalLiquido > 0 
-      ? totals.totalLiquido.toFixed(2).replace('.', ',') 
-      : '0,00';
-    setValorPagoInput(formattedLiquido);
+  const handleSelectPdvPaymentMethod = (methodKey: string) => {
+    const resolvedKey =
+      methodKey === 'a_vista'
+        ? 'dinheiro'
+        : methodKey === 'prazo'
+          ? 'prazo_carteira'
+          : methodKey;
+    setFormaPagamento(resolvedKey);
 
-    setTimeout(() => {
-      if (valorPagoInputRef.current) {
-        valorPagoInputRef.current.focus();
-        valorPagoInputRef.current.select();
+    if (resolvedKey === 'boleto') {
+      setTipoCobranca('boleto');
+    } else if (
+      resolvedKey === 'prazo_carteira' ||
+      resolvedKey === 'safra_prazo' ||
+      resolvedKey === 'assinado_nota'
+    ) {
+      setTipoCobranca('carteira');
+    }
+
+    if (!doesPaymentMethodGenerateInstallment(resolvedKey)) {
+      const formattedLiquido = totals.totalLiquido > 0
+        ? totals.totalLiquido.toFixed(2).replace('.', ',')
+        : '0,00';
+      if (resolvedKey === 'dinheiro' || !valorPagoInput || parseFloat(valorPagoInput.replace(/\./g, '').replace(',', '.')) <= 0) {
+        setValorPagoInput(formattedLiquido);
       }
-    }, 20);
+      setTimeout(() => {
+        if (valorPagoInputRef.current) {
+          valorPagoInputRef.current.focus();
+          valorPagoInputRef.current.select();
+        }
+      }, 20);
+    }
+  };
+
+  // Acionamento Reativo e Foco Operacional no Botão "DINHEIRO / À VISTA"
+  const handleAcionarAVista = () => {
+    handleSelectPdvPaymentMethod('dinheiro');
   };
 
   // Abrir Janela Modal Centralizada de Fechamento do PDV (F2)
@@ -2317,7 +2361,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
   const handleConfirmarEImprimir = async () => {
     if (items.length === 0) return;
 
-    if (formaPagamento === 'prazo' && clientOverdueBlock.blocked) {
+    if (isDeferredPayment && clientOverdueBlock.blocked) {
       setWarningMessage(clientOverdueBlock.reason);
       setTimeout(() => setWarningMessage(null), 6000);
       return;
@@ -2346,18 +2390,16 @@ export const PdvView: React.FC<PdvViewProps> = ({
       const clienteSelecionado = agroClientes.find(c => c.id === selectedClientId);
       const farmNameResolved = clienteSelecionado?.fazenda || (clienteSelecionado as any)?.farmName || "Venda Rápida Balcão PDV";
 
-      const formaPagamentoAtiva = formaPagamento === 'prazo'
-        ? 'A PRAZO'
-        : formaPagamento === 'pix'
-          ? 'PIX'
-          : formaPagamento === 'cartao_credito'
-            ? 'CARTÃO DE CRÉDITO'
-            : formaPagamento === 'cartao_debito'
-              ? 'CARTÃO DE DÉBITO'
-              : 'A VISTA';
+      const resolvedMethodKey =
+        formaPagamento === 'a_vista'
+          ? 'dinheiro'
+          : formaPagamento === 'prazo'
+            ? 'prazo_carteira'
+            : formaPagamento;
+      const formaPagamentoAtiva = getGlobalPaymentMethodLabel(resolvedMethodKey);
 
-      const tipoCobrancaAtiva = formaPagamento === 'prazo'
-        ? (tipoCobranca === 'carteira' ? 'CARTEIRA' : tipoCobranca === 'boleto' ? 'BOLETO' : String(tipoCobranca || '').toUpperCase())
+      const tipoCobrancaAtiva = isDeferredPayment
+        ? (tipoCobranca === 'boleto' || resolvedMethodKey === 'boleto' ? 'BOLETO' : 'CARTEIRA')
         : '';
 
       const totalBruto = Number(totals.totalBruto || 0);
@@ -2393,7 +2435,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
         totalBruto: Number(totalBruto),
         desconto: Number(desconto),
         totalLiquido: Number(totalLiquido),
-        formaPagamento: formaPagamentoAtiva, // Ex: "A VISTA", "PIX", "A PRAZO"
+        formaPagamento: formaPagamentoAtiva,
+        paymentMethod: resolvedMethodKey,
         tipoCobranca: tipoCobrancaAtiva || "" // Ex: "CARTEIRA", "BOLETO"
       };
 
@@ -2408,7 +2451,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       novaVenda.clientId = selectedClientId || undefined;
       novaVenda.fazenda = farmNameResolved;
       novaVenda.farmName = farmNameResolved;
-      novaVenda.status = formaPagamentoAtiva === "A PRAZO" ? "pendente" : "concluido";
+      novaVenda.status = isDeferredPayment ? "pendente" : "concluido";
       novaVenda.fretes = [...fretesVinculados];
       novaVenda.criadoEm = now.toISOString();
       novaVenda.createdAt = novaVenda.criadoEm;
@@ -2461,8 +2504,8 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
       // C) INTEGRAÇÃO COMPULSÓRIA DO FINANCEIRO (PRINT 3):
       try {
-        if (formaPagamentoAtiva !== "A PRAZO") {
-          // Venda à vista (dinheiro ou PIX): lança receita imediatamente para alimentar os cards do Print 3
+        if (!isDeferredPayment) {
+          // Venda à vista / liquidação imediata: lança receita imediatamente
           const receitaItem = {
             id: `rec_${novaVenda.id}`,
             vendaId: novaVenda.id,
@@ -2476,10 +2519,11 @@ export const PdvView: React.FC<PdvViewProps> = ({
             totalAmount: Number(novaVenda.totalLiquido),
             amount: Number(novaVenda.totalLiquido),
             formaPagamento: formaPagamentoAtiva,
+            paymentMethod: resolvedMethodKey,
             tipo: 'receita',
             type: 'entrada',
             status: 'liquidado',
-            descricao: `Venda PDV à Vista - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`,
+            descricao: `Venda PDV (${formaPagamentoAtiva}) - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`,
             createdAt: now.toISOString()
           };
 
@@ -2512,17 +2556,22 @@ export const PdvView: React.FC<PdvViewProps> = ({
             console.warn("Erro ao integrar com caixa operacional:", eCx);
           }
         } else {
-          // Venda a prazo: insere na chave 'agrocontrol_financeiro_receber' com status "PENDENTE"
+          // Venda a prazo / boleto / cheque / safra / assinado: insere no Contas a Receber com status "PENDENTE"
           const receberAtuais = JSON.parse(localStorage.getItem('agrocontrol_financeiro_receber') || localStorage.getItem('agrocontrol_receber') || '[]');
+          const dueDateFirst = parcelas[0]?.vencimento || dataPrimeiraParcela || dateStr;
           receberAtuais.unshift({ 
             ...novaVenda, 
             status: "PENDENTE",
             tipo: "receber",
+            paymentMethod: resolvedMethodKey,
+            formaPagamento: formaPagamentoAtiva,
+            dueDate: dueDateFirst,
+            parcelas: parcelas.length > 0 ? parcelas : undefined,
             valor: Number(novaVenda.totalLiquido),
             totalLiquido: Number(novaVenda.totalLiquido),
             totalAmount: Number(novaVenda.totalLiquido),
             amount: Number(novaVenda.totalLiquido),
-            descricao: `Venda PDV a Prazo - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`
+            descricao: `Venda PDV ${formaPagamentoAtiva} - ${novaVenda.numeroPedido} - ${novaVenda.cliente}`
           });
           localStorage.setItem('agrocontrol_contas_receber', JSON.stringify(receberAtuais));
           localStorage.setItem('agrocontrol_financeiro_receber', JSON.stringify(receberAtuais));
@@ -2532,14 +2581,14 @@ export const PdvView: React.FC<PdvViewProps> = ({
           window.dispatchEvent(new CustomEvent('agrocontrol_receber_updated', { detail: receberAtuais }));
           window.dispatchEvent(new CustomEvent('financeiro_receber_updated', { detail: receberAtuais }));
 
-          // Também registra no Caixa Operacional para apuração de Carteira / Boleto:
+          // Também registra no Caixa Operacional para apuração de Carteira / Boleto / Prazo:
           try {
             registrarVendaNoCaixa({
               id: novaVenda.id,
               numeroPedido: novaVenda.numeroPedido,
               cliente: novaVenda.cliente,
               valor: Number(novaVenda.totalLiquido),
-              formaPagamento: tipoCobrancaAtiva ? `A PRAZO (${tipoCobrancaAtiva})` : 'A PRAZO (CARTEIRA)',
+              formaPagamento: `A PRAZO (${formaPagamentoAtiva})`,
               dataHora: `${dataFormatadaPtBr} ${timeStr}`
             });
           } catch (eCx) {
@@ -2624,7 +2673,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
           date: dateStr,
           startDate: dateStr,
           completionDate: dateStr,
-          status: formaPagamentoAtiva === 'A PRAZO' ? 'em_andamento' : 'concluido',
+          status: isDeferredPayment ? 'em_andamento' : 'concluido',
           ratePerUnit: totals.totalLiquido,
           totalAmount: totals.totalLiquido,
           tonsEstimated: totalTons > 0 ? totalTons : undefined,
@@ -2650,13 +2699,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
       }
 
       const cobrancaLabel = tipoCobranca === 'carteira' ? 'CARTEIRA (CONTA INTERNA)' : 'BOLETO BANCÁRIO';
-      const formaLabelMap: Record<string, string> = {
-        a_vista: 'À VISTA (DINHEIRO)',
-        cartao_debito: 'CARTÃO DE DÉBITO',
-        cartao_credito: 'CARTÃO DE CRÉDITO',
-        pix: 'PIX INSTANTÂNEO',
-        prazo: `A PRAZO [${cobrancaLabel}] (${prazoCondicao} - ${qtdeParcelas}x)`
-      };
+      const formaDisplayText = isDeferredPayment
+        ? `${formaPagamentoAtiva} [${cobrancaLabel}] (${prazoCondicao} - ${qtdeParcelas}x)`
+        : formaPagamentoAtiva;
 
       const saleRecord = {
         orderNumber: novaVenda.numeroPedido,
@@ -2670,13 +2715,13 @@ export const PdvView: React.FC<PdvViewProps> = ({
         totalDesconto: totals.totalDesconto,
         totalFrete: totals.totalFrete,
         totalLiquido: totals.totalLiquido,
-        forma: formaLabelMap[formaPagamento] || formaPagamentoAtiva,
-        tipoCobranca: formaPagamento === 'prazo' ? cobrancaLabel : undefined,
-        bancoEmissor: formaPagamento === 'prazo' && tipoCobranca === 'boleto' ? prioritaryAccount.rawText : undefined,
+        forma: formaDisplayText,
+        tipoCobranca: isDeferredPayment ? cobrancaLabel : undefined,
+        bancoEmissor: isDeferredPayment && tipoCobranca === 'boleto' ? prioritaryAccount.rawText : undefined,
         formatoImpressao: formatoImpressao,
         valorPago: totals.valorPago,
         troco: totals.troco,
-        parcelas: formaPagamento === 'prazo' ? [...parcelas] : undefined,
+        parcelas: isDeferredPayment ? [...parcelas] : undefined,
         fretes: [...fretesVinculados]
       };
 
@@ -2806,42 +2851,30 @@ export const PdvView: React.FC<PdvViewProps> = ({
         e.preventDefault();
         handleSaveVendaRascunho();
       }
-      // [F5] À VISTA
+      // [F5] DINHEIRO
       else if (e.key === 'F5') {
         e.preventDefault();
-        handleAcionarAVista();
+        handleSelectPdvPaymentMethod('dinheiro');
       }
       // [F6] PIX
       else if (e.key === 'F6') {
         e.preventDefault();
-        setFormaPagamento('pix');
-        setTimeout(() => {
-          valorPagoInputRef.current?.focus();
-          valorPagoInputRef.current?.select();
-        }, 30);
+        handleSelectPdvPaymentMethod('pix');
       }
       // [F7] DÉBITO
       else if (e.key === 'F7') {
         e.preventDefault();
-        setFormaPagamento('cartao_debito');
-        setTimeout(() => {
-          valorPagoInputRef.current?.focus();
-          valorPagoInputRef.current?.select();
-        }, 30);
+        handleSelectPdvPaymentMethod('cartao_debito');
       }
       // [F8] CRÉDITO
       else if (e.key === 'F8') {
         e.preventDefault();
-        setFormaPagamento('cartao_credito');
-        setTimeout(() => {
-          valorPagoInputRef.current?.focus();
-          valorPagoInputRef.current?.select();
-        }, 30);
+        handleSelectPdvPaymentMethod('cartao_credito');
       }
-      // [F9] A PRAZO
+      // [F9] A PRAZO (CARTEIRA)
       else if (e.key === 'F9') {
         e.preventDefault();
-        setFormaPagamento('prazo');
+        handleSelectPdvPaymentMethod('prazo_carteira');
       }
       // [F10] ALTERNAR FORMATO DE IMPRESSÃO (A4 <-> TÉRMICA 80MM)
       else if (e.key === 'F10') {
@@ -3779,28 +3812,29 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
       {isCheckoutModalOpen && (
         <div 
           id="modal-fechamento-pdv-overlay"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-none flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
         >
           <div 
             id="modal-fechamento-pdv"
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden select-none shadow-2xl text-slate-900"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden select-none shadow-2xl text-black"
             onClick={e => e.stopPropagation()}
           >
             {/* Cabeçalho Oficial (#cad4e6 + border-black) */}
-            <div className="bg-[#cad4e6] px-4 py-2.5 text-slate-900 flex items-center justify-between border-b border-black shrink-0">
+            <div className="bg-[#cad4e6] px-4 py-2.5 text-black flex items-center justify-between border-b border-black shrink-0">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-slate-900 shrink-0" />
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider font-['Outfit'] text-slate-900">
+                <Printer className="w-4 h-4 text-black shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider font-['Outfit'] text-black">
                   🖨️ CONCLUIR E EMITIR COMPROVANTE DE VENDA
                 </h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-white text-slate-900 border border-black">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-white text-black border border-black">
                   {items.length} {items.length === 1 ? 'ITEM' : 'ITENS'} • {operacaoTipo === 'contrato_silagem' ? 'CONTRATO DE SILAGEM' : 'VENDA BALCÃO'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCheckoutModalOpen(false)}
-                className="p-1 bg-white hover:bg-slate-100 rounded border border-black transition text-slate-900 cursor-pointer"
+                className="p-1 bg-white hover:bg-slate-100 rounded border border-black transition text-black cursor-pointer"
                 title="Fechar (Esc)"
               >
                 <X className="w-4 h-4" />
@@ -3810,28 +3844,28 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
             {/* Conteúdo Central do Modal */}
             <div className="flex-1 min-h-0 p-3.5 sm:p-4 overflow-y-auto space-y-3 bg-[#cad4e6]">
               
-              {/* 1. BLOCOS DE VALORES MACRO: CARDS DESTACADOS COM CONTORNOS FINOS DE AÇO */}
+              {/* 1. BLOCOS DE VALORES MACRO: TEMA OFICIAL (#e0e6f1 + border-black + bg-white) */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {/* Card Total Líquido a Pagar */}
-                <div className="bg-gradient-to-b from-amber-50 to-amber-100/70 dark:from-amber-950/40 dark:to-stone-900 border-2 border-amber-500/80 rounded-xl p-3 shadow-xs">
+                <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-black tracking-wider">
                       TOTAL LÍQUIDO A PAGAR
                     </span>
-                    <DollarSign className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <DollarSign className="w-3.5 h-3.5 text-black" />
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black font-['Outfit'] text-amber-800 dark:text-amber-300 mt-1">
+                  <div className="text-2xl sm:text-3xl font-black font-['Outfit'] text-black mt-1">
                     {formatCurrencyBRL(totals.totalLiquido)}
                   </div>
-                  <div className="text-[9.5px] font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5 truncate">
+                  <div className="text-[9.5px] font-bold text-slate-800 mt-0.5 truncate">
                     SUBTOTAL: {formatCurrencyBRL(totals.totalBruto)} • DESC: {formatCurrencyBRL(totals.totalDesconto)}{totals.totalFrete > 0 ? ` • FRETE: ${formatCurrencyBRL(totals.totalFrete)}` : ''}
                   </div>
                 </div>
 
                 {/* Card Valor Recebido */}
-                <div className="bg-white dark:bg-stone-800 border-2 border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-xs">
+                <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-black tracking-wider">
                       VALOR RECEBIDO (R$)
                     </span>
                     <button
@@ -3846,7 +3880,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                           }
                         }, 20);
                       }}
-                      className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-stone-700 text-sky-700 dark:text-sky-300 border border-slate-300 dark:border-stone-600 hover:bg-sky-50 uppercase cursor-pointer"
+                      className="text-[9px] font-black px-1.5 py-0.5 rounded bg-white text-black border border-black hover:bg-slate-100 uppercase cursor-pointer"
                       title="Copiar valor exato líquido"
                     >
                       VALOR EXATO
@@ -3866,25 +3900,25 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     onFocus={e => e.target.select()}
                     onClick={e => (e.target as HTMLInputElement).select()}
                     placeholder={totals.totalLiquido > 0 ? totals.totalLiquido.toFixed(2).replace('.', ',') : '0,00'}
-                    className="w-full text-2xl sm:text-3xl font-black font-['Outfit'] text-zinc-900 dark:text-white bg-transparent outline-none mt-1 border-b border-slate-300 dark:border-stone-600 focus:border-amber-500 font-mono"
+                    className="w-full text-2xl sm:text-3xl font-black font-['Outfit'] text-black bg-white px-2 py-0.5 rounded border border-black outline-none mt-1 focus:ring-1 focus:ring-emerald-600 font-mono"
                   />
-                  <div className="text-[9.5px] font-bold text-slate-500 dark:text-stone-400 mt-0.5">
+                  <div className="text-[9.5px] font-bold text-slate-800 mt-0.5">
                     DIGITE O VALOR EFETIVAMENTE PAGO PELO CLIENTE
                   </div>
                 </div>
 
                 {/* Card Troco */}
-                <div className="bg-gradient-to-b from-emerald-50 to-emerald-100/70 dark:from-emerald-950/40 dark:to-stone-900 border-2 border-emerald-500/80 rounded-xl p-3 shadow-xs">
+                <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-emerald-900 dark:text-emerald-300 tracking-wider">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-black tracking-wider">
                       TROCO A DEVOLVER
                     </span>
-                    <CheckCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-700" />
                   </div>
-                  <div className={`text-2xl sm:text-3xl font-black font-['Outfit'] mt-1 ${totals.troco > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-stone-500'}`}>
+                  <div className={`text-2xl sm:text-3xl font-black font-['Outfit'] mt-1 ${totals.troco > 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
                     {formatCurrencyBRL(totals.troco)}
                   </div>
-                  <div className={`text-[9.5px] font-black mt-0.5 uppercase tracking-wide truncate ${totals.troco > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-emerald-700/80 dark:text-emerald-400/80'}`}>
+                  <div className={`text-[9.5px] font-black mt-0.5 uppercase tracking-wide truncate ${totals.troco > 0 ? 'text-emerald-800' : 'text-slate-700'}`}>
                     {totals.troco > 0 ? `DEVOLVER ${formatCurrencyBRL(totals.troco)} EM DINHEIRO` : 'SEM TROCO A DEVOLVER'}
                   </div>
                 </div>
@@ -4109,66 +4143,82 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 )}
               </div>
 
-              {/* 2. GRADE DE BOTÕES DE FORMA DE PAGAMENTO REATIVOS */}
+              {/* 2. GRADE DE BOTÕES DE FORMA DE PAGAMENTO REATIVOS (FONTE ÚNICA GLOBAL) */}
               <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                    <span>FORMA DE PAGAMENTO:</span>
-                  </span>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 font-mono uppercase">
-                    {formaPagamento === 'a_vista' && 'À VISTA (DINHEIRO)'}
-                    {formaPagamento === 'pix' && 'PIX INSTANTÂNEO'}
-                    {formaPagamento === 'cartao_debito' && 'CARTÃO DE DÉBITO'}
-                    {formaPagamento === 'cartao_credito' && 'CARTÃO DE CRÉDITO'}
-                    {formaPagamento === 'prazo' && 'A PRAZO (PARCELADO)'}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase text-black tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-black" />
+                      <span>FORMA DE PAGAMENTO:</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-black border border-black text-[10px] font-black uppercase cursor-pointer transition shadow-2xs"
+                      title="Gerenciar Formas de Pagamento Globais"
+                    >
+                      <Settings className="w-3 h-3" />
+                      <span>Gerenciar</span>
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-white border border-black text-black font-mono uppercase">
+                    {getGlobalPaymentMethodLabel(formaPagamento)}
+                    {isDeferredPayment ? ' • A PRAZO' : ''}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                  {[
-                    { key: 'a_vista', label: '[F5] À VISTA' },
-                    { key: 'pix', label: '[F6] PIX' },
-                    { key: 'cartao_debito', label: '[F7] DÉBITO' },
-                    { key: 'cartao_credito', label: '[F8] CRÉDITO' },
-                    { key: 'prazo', label: '[F9] A PRAZO' },
-                  ].map(method => {
-                    const isSelected = formaPagamento === method.key;
+                  {globalPaymentMethods.map(m => {
+                    const mKey = getPaymentMethodKey(m);
+                    const normalizedCurrent =
+                      formaPagamento === 'a_vista'
+                        ? 'dinheiro'
+                        : formaPagamento === 'prazo'
+                          ? 'prazo_carteira'
+                          : formaPagamento;
+                    const isSelected = normalizedCurrent === mKey;
+                    const shortcutHint =
+                      mKey === 'dinheiro'
+                        ? '[F5] '
+                        : mKey === 'pix'
+                          ? '[F6] '
+                          : mKey === 'cartao_debito'
+                            ? '[F7] '
+                            : mKey === 'cartao_credito'
+                              ? '[F8] '
+                              : mKey === 'prazo_carteira'
+                                ? '[F9] '
+                                : '';
                     return (
                       <button
-                        key={method.key}
+                        key={m.id}
                         type="button"
-                        onClick={() => {
-                          if (method.key === 'a_vista') {
-                            handleAcionarAVista();
-                          } else {
-                            setFormaPagamento(method.key as any);
-                          }
-                        }}
-                        className={`py-2 px-2 rounded-lg text-xs font-black uppercase transition cursor-pointer text-center border shadow-2xs ${
+                        onClick={() => handleSelectPdvPaymentMethod(mKey)}
+                        className={`py-2 px-2 rounded-lg text-[11px] font-black uppercase transition cursor-pointer text-center border shadow-2xs truncate ${
                           isSelected
-                            ? 'bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-white border-amber-600 ring-2 ring-amber-300 dark:ring-amber-800'
-                            : 'bg-slate-100 dark:bg-stone-700 hover:bg-slate-200 dark:hover:bg-stone-600 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-600'
+                            ? 'bg-emerald-600 text-white border-black ring-2 ring-emerald-400'
+                            : 'bg-white hover:bg-slate-100 text-black border-black'
                         }`}
+                        title={`${m.nome}${m.geraParcelaPrazo ? ' (Gera parcelamento a prazo)' : ''}`}
                       >
-                        {method.label}
+                        {shortcutHint}{m.nome}
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Bloco Condição para Pagamento a Prazo (Expande dinamicamente) */}
-                {formaPagamento === 'prazo' && (
-                  <div className="mt-2 pt-2.5 border-t border-slate-200 dark:border-stone-700 space-y-2.5 animate-in fade-in duration-150">
+                {isDeferredPayment && (
+                  <div className="mt-2 pt-2.5 border-t border-black/20 space-y-2.5 animate-in fade-in duration-150">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-black mb-0.5">
                           PRAZO:
                         </label>
                         <select
                           value={prazoCondicao}
                           onChange={e => setPrazoCondicao(e.target.value)}
-                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                          className="w-full px-2 py-1 rounded-md border border-black bg-white text-xs font-bold text-black uppercase shadow-2xs outline-none focus:ring-1 focus:ring-emerald-600"
                         >
                           <option value="30 DIAS">30 DIAS</option>
                           <option value="30/60 DIAS">30/60 DIAS</option>
@@ -4179,13 +4229,13 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-black mb-0.5">
                           TIPO COBRANÇA *:
                         </label>
                         <select
                           value={tipoCobranca}
                           onChange={e => setTipoCobranca(e.target.value as 'carteira' | 'boleto')}
-                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white uppercase shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                          className="w-full px-2 py-1 rounded-md border border-black bg-white text-xs font-bold text-black uppercase shadow-2xs outline-none focus:ring-1 focus:ring-emerald-600"
                         >
                           <option value="carteira">💳 CARTEIRA (CONTA INTERNA)</option>
                           <option value="boleto">📄 BOLETO BANCÁRIO</option>
@@ -4193,25 +4243,25 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-black mb-0.5">
                           DATA 1ª PARCELA:
                         </label>
                         <input
                           type="date"
                           value={dataPrimeiraParcela}
                           onChange={e => setDataPrimeiraParcela(e.target.value)}
-                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                          className="w-full px-2 py-1 rounded-md border border-black bg-white text-xs font-bold text-black shadow-2xs outline-none focus:ring-1 focus:ring-emerald-600"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                        <label className="block text-[10px] font-black uppercase text-black mb-0.5">
                           QTDE/PARCELAS:
                         </label>
                         <select
                           value={qtdeParcelas}
                           onChange={e => setQtdeParcelas(parseInt(e.target.value) || 1)}
-                          className="w-full px-2 py-1 rounded-md border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white shadow-2xs outline-none focus:ring-1 focus:ring-amber-500"
+                          className="w-full px-2 py-1 rounded-md border border-black bg-white text-xs font-bold text-black shadow-2xs outline-none focus:ring-1 focus:ring-emerald-600"
                         >
                           <option value={1}>1x (Parcela Única)</option>
                           <option value={2}>2x Mensais</option>
@@ -4225,11 +4275,11 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
                     {/* Inteligência de busca da conta bancária prioritária do LocalStorage */}
                     {tipoCobranca === 'boleto' && (
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-800 text-[10px] text-sky-800 dark:text-sky-300 shadow-2xs">
-                        <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                        <span className="font-bold text-slate-500 dark:text-stone-400 uppercase">BANCO EMISSOR DO BOLETO:</span>
-                        <span className="font-mono text-xs font-black uppercase text-sky-950 dark:text-sky-100">{prioritaryAccount.rawText}</span>
-                        <span className="ml-auto inline-flex items-center px-1.5 py-0.2 rounded bg-sky-600 text-white text-[9px] font-black uppercase tracking-wider">
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-black text-[10px] text-black shadow-2xs">
+                        <Building2 className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+                        <span className="font-bold text-slate-700 uppercase">BANCO EMISSOR DO BOLETO:</span>
+                        <span className="font-mono text-xs font-black uppercase text-black">{prioritaryAccount.rawText}</span>
+                        <span className="ml-auto inline-flex items-center px-1.5 py-0.2 rounded bg-sky-700 text-white text-[9px] font-black uppercase tracking-wider">
                           ⭐ CONTA PRIORITÁRIA
                         </span>
                       </div>
@@ -4237,21 +4287,21 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
                     {/* Tabela de Parcelas Previstas */}
                     {parcelas.length > 0 && (
-                      <div className="bg-slate-50 dark:bg-stone-900 rounded-lg border border-slate-200 dark:border-stone-700 overflow-hidden max-h-28 overflow-y-auto">
+                      <div className="bg-white rounded-lg border border-black overflow-hidden max-h-28 overflow-y-auto">
                         <table className="w-full text-xs text-left">
-                          <thead className="bg-slate-200 dark:bg-stone-800 text-[9.5px] font-black uppercase text-slate-700 dark:text-stone-300 border-b border-slate-300 dark:border-stone-700 sticky top-0">
+                          <thead className="bg-slate-200 text-[9.5px] font-black uppercase text-black border-b border-black sticky top-0">
                             <tr>
                               <th className="py-1 px-2.5">PARCELA</th>
                               <th className="py-1 px-2.5">VENCIMENTO</th>
                               <th className="py-1 px-2.5 text-right">VALOR</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-semibold text-[10.5px]">
+                          <tbody className="divide-y divide-slate-200 font-semibold text-[10.5px]">
                             {parcelas.map(p => (
-                              <tr key={p.numero} className="even:bg-white dark:even:bg-stone-850 odd:bg-slate-50 dark:odd:bg-stone-900">
-                                <td className="py-1 px-2.5 text-slate-700 dark:text-stone-300">{p.numero}ª Parcela</td>
-                                <td className="py-1 px-2.5 text-slate-700 dark:text-stone-300">{formatDateBR(p.vencimento)}</td>
-                                <td className="py-1 px-2.5 text-right font-black font-mono text-zinc-900 dark:text-white">{formatCurrencyBRL(p.valor)}</td>
+                              <tr key={p.numero} className="even:bg-[#f2f2f2] odd:bg-white">
+                                <td className="py-1 px-2.5 text-black">{p.numero}ª Parcela</td>
+                                <td className="py-1 px-2.5 text-black">{formatDateBR(p.vencimento)}</td>
+                                <td className="py-1 px-2.5 text-right font-black font-mono text-black">{formatCurrencyBRL(p.valor)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -4261,8 +4311,8 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
                     {/* Alerta de Bloqueio de Venda a Prazo por Parcela Vencida / Inadimplência */}
                     {clientOverdueBlock.blocked && (
-                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-500 text-rose-900 dark:text-rose-200 flex items-start gap-2 text-xs font-bold">
-                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-600 text-rose-900 flex items-start gap-2 text-xs font-bold">
+                        <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
                         <span>{clientOverdueBlock.reason}</span>
                       </div>
                     )}
@@ -4356,9 +4406,9 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               <button
                 type="button"
                 onClick={handleConfirmarEImprimir}
-                disabled={formaPagamento === 'prazo' && clientOverdueBlock.blocked}
+                disabled={isDeferredPayment && clientOverdueBlock.blocked}
                 className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-bold border transition uppercase tracking-wider ml-auto ${
-                  formaPagamento === 'prazo' && clientOverdueBlock.blocked
+                  isDeferredPayment && clientOverdueBlock.blocked
                     ? 'bg-rose-200 text-rose-800 border-rose-400 cursor-not-allowed opacity-80'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-900 shadow-xs active:scale-95 cursor-pointer'
                 }`}
@@ -4998,6 +5048,13 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
           </div>
         </div>
       )}
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[90]"
+        onSelectMethod={(key) => handleSelectPdvPaymentMethod(key)}
+      />
     </div>
   );
 };

@@ -12,10 +12,18 @@ import {
   CreditCard,
   Building2,
   Receipt,
-  FileCheck2
+  FileCheck2,
+  Settings,
 } from 'lucide-react';
 import { BankAccount, PaymentMethod, SilageOrder, ServiceOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredOrders, getStoredServices } from '../../lib/storage';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  extractGlobalPaymentMethodFromRecord,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export interface PendingReceivableOption {
   id: string;
@@ -25,6 +33,8 @@ export interface PendingReceivableOption {
   date: string;
   dueDate: string;
   amount: number;
+  paymentMethod?: string;
+  notes?: string;
 }
 
 interface ReceiveTitleQuickModalProps {
@@ -71,6 +81,8 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
   const [documentNumber, setDocumentNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState<boolean>(false);
+  const { activeMethods: activeGlobalPaymentMethods } = useGlobalPaymentMethods();
 
   // Campos para lançamento direto
   const [directDescription, setDirectDescription] = useState<string>('');
@@ -93,6 +105,8 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
           date: o.date || o.createdAt || today,
           dueDate: o.deliveryDate || o.date || today,
           amount: Number(o.totalAmount) || 0,
+          paymentMethod: o.paymentMethod || (o as any).formaPagamento,
+          notes: o.notes,
         });
       }
     });
@@ -110,6 +124,8 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
           date: s.date || (s as any).createdAt || today,
           dueDate: s.date || today,
           amount: Number(s.totalAmount) || 0,
+          paymentMethod: s.paymentMethod || (s as any).formaPagamento,
+          notes: s.billingNotes || s.notes,
         });
       }
     });
@@ -159,6 +175,15 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
       }
     }
   }, [isOpen, defaultAccountId, accounts, pendingReceivables]);
+
+  // Pré-preenche forma de pagamento original do título a receber selecionado
+  useEffect(() => {
+    if (!isOpen || !selectedItem) return;
+    const detected = extractGlobalPaymentMethodFromRecord(selectedItem);
+    if (detected) {
+      setPaymentMethod(detected);
+    }
+  }, [isOpen, selectedItem]);
 
   const selectedAccount = useMemo(() => {
     return accounts.find(a => a.id === bankAccountId);
@@ -242,7 +267,7 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
       <div 
         role="dialog"
         aria-modal="true"
@@ -386,12 +411,12 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                   placeholder="NOME DO CLIENTE OU PAGADOR"
                   value={directClient}
                   onChange={(e) => setDirectClient(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="direct-receive-amount-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="direct-receive-amount-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   VALOR (R$) *
                 </label>
                 <input
@@ -408,12 +433,12 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                     const num = parseInt(v, 10) / 100;
                     setDirectAmountStr(num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                   }}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-black text-stone-900 dark:text-white font-['Outfit'] text-xs focus:ring-1 focus:ring-[#1b5e20] outline-none"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-black text-black font-['Outfit'] text-xs focus:ring-1 focus:ring-[#1b5e20] outline-none"
                 />
               </div>
 
               <div className="sm:col-span-3 space-y-1">
-                <label htmlFor="direct-receive-desc-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="direct-receive-desc-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   HISTÓRICO / DESCRIÇÃO DO RECEBIMENTO *
                 </label>
                 <input
@@ -422,7 +447,7 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                   placeholder="EX: PAGAMENTO ENTRADA DE SAFRA / PARCELA"
                   value={directDescription}
                   onChange={(e) => setDirectDescription(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
                 />
               </div>
             </div>
@@ -437,14 +462,14 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* CONTA BANCÁRIA DE DESTINO */}
               <div className="space-y-1">
-                <label htmlFor="receive-bank-account-select" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="receive-bank-account-select" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   ONDE ENTRA O DINHEIRO (CONTA BANCÁRIA) *
                 </label>
                 <select
                   id="receive-bank-account-select"
                   value={bankAccountId}
                   onChange={(e) => setBankAccountId(e.target.value)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
                 >
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
@@ -453,36 +478,54 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                   ))}
                 </select>
                 {selectedAccount && (
-                  <div className="text-[9.5px] text-stone-500 font-semibold uppercase mt-0.5">
-                    SALDO ATUAL: <strong className="text-stone-900 dark:text-white">{formatCurrencyBRL(selectedAccount.balance)}</strong>
+                  <div className="text-[9.5px] text-slate-700 font-semibold uppercase mt-0.5">
+                    SALDO ATUAL: <strong className="text-black">{formatCurrencyBRL(selectedAccount.balance)}</strong>
                   </div>
                 )}
               </div>
 
               {/* FORMA DE RECEBIMENTO */}
               <div className="space-y-1">
-                <label htmlFor="receive-method-select" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
-                  FORMA DE RECEBIMENTO *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="receive-method-select" className="block text-[10px] font-black text-black uppercase tracking-wide">
+                    FORMA DE RECEBIMENTO *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                    title="Gerenciar Formas de Pagamento / Recebimento"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-black text-[9px] font-black text-black uppercase cursor-pointer"
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>Gerenciar</span>
+                  </button>
+                </div>
                 <select
                   id="receive-method-select"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs cursor-pointer"
                 >
-                  <option value="pix">PIX</option>
-                  <option value="transferencia">TRANSFERÊNCIA (TED / DOC)</option>
-                  <option value="boleto">BOLETO BANCÁRIO</option>
-                  <option value="dinheiro">DINHEIRO (ESPÉCIE / CAIXA)</option>
-                  <option value="debito">CARTÃO DE DÉBITO</option>
-                  <option value="credito">CARTÃO DE CRÉDITO</option>
-                  <option value="cheque">CHEQUE</option>
+                  {activeGlobalPaymentMethods.map((m) => {
+                    const key = getPaymentMethodKey(m);
+                    return (
+                      <option key={m.id} value={key}>
+                        {m.nome}
+                      </option>
+                    );
+                  })}
+                  {paymentMethod &&
+                    !activeGlobalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                      <option value={paymentMethod}>
+                        {getGlobalPaymentMethodLabel(paymentMethod)}
+                      </option>
+                    )}
                 </select>
               </div>
 
               {/* DATA DO RECEBIMENTO */}
               <div className="space-y-1">
-                <label htmlFor="receive-date-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="receive-date-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   DATA EFETIVA DO CRÉDITO / RECEBIMENTO *
                 </label>
                 <input
@@ -490,13 +533,13 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                   type="date"
                   value={receiptDate}
                   onChange={(e) => setReceiptDate(e.target.value)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
                 />
               </div>
 
               {/* Nº DOC / AUTENTICAÇÃO */}
               <div className="space-y-1">
-                <label htmlFor="receive-doc-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="receive-doc-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   Nº DOCUMENTO / AUTENTICAÇÃO (OPCIONAL)
                 </label>
                 <input
@@ -505,14 +548,14 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                   placeholder="EX: PIX E2E-99120"
                   value={documentNumber}
                   onChange={(e) => setDocumentNumber(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none text-xs"
                 />
               </div>
             </div>
 
             {/* OBSERVAÇÕES */}
             <div className="space-y-1">
-              <label htmlFor="receive-notes-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+              <label htmlFor="receive-notes-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                 OBSERVAÇÕES ADICIONAIS (OPCIONAL)
               </label>
               <input
@@ -521,7 +564,7 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
                 placeholder="OBSERVAÇÕES DO RECEBIMENTO"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value.toUpperCase())}
-                className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none text-xs"
+                className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none text-xs"
               />
             </div>
           </div>
@@ -566,6 +609,11 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
           </div>
         </form>
       </div>
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+      />
     </div>
   );
 };

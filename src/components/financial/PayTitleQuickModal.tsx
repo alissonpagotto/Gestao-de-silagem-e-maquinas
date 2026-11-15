@@ -12,10 +12,18 @@ import {
   Tag,
   CreditCard,
   Building2,
-  Receipt
+  Receipt,
+  Settings,
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  extractGlobalPaymentMethodFromRecord,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 interface PayTitleQuickModalProps {
   isOpen: boolean;
@@ -64,6 +72,8 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
   const [authCode, setAuthCode] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState<boolean>(false);
+  const { activeMethods: activeGlobalPaymentMethods } = useGlobalPaymentMethods();
 
   // Campos para lançamento direto
   const [directDescription, setDirectDescription] = useState<string>('');
@@ -135,8 +145,9 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
       if (selectedExpense.employeeId && employees.some(e => e.id === selectedExpense.employeeId)) {
         setEmployeeId(selectedExpense.employeeId);
       }
-      if (selectedExpense.paymentMethod) {
-        setPaymentMethod(selectedExpense.paymentMethod);
+      const resolvedMethod = extractGlobalPaymentMethodFromRecord(selectedExpense);
+      if (resolvedMethod) {
+        setPaymentMethod(resolvedMethod);
       }
     }
   }, [selectedExpense, accounts, employees]);
@@ -240,7 +251,7 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
       <div 
         role="dialog"
         aria-modal="true"
@@ -384,12 +395,12 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   placeholder="EX: ABASTECIMENTO EXTRA OU MANUTENÇÃO"
                   value={directDescription}
                   onChange={(e) => setDirectDescription(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="direct-amount-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="direct-amount-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   VALOR (R$) *
                 </label>
                 <input
@@ -406,12 +417,12 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                     const num = parseInt(v, 10) / 100;
                     setDirectAmountStr(num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                   }}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-black text-stone-900 dark:text-white font-['Outfit'] text-xs focus:ring-1 focus:ring-[#1b5e20] outline-none"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-black text-black font-['Outfit'] text-xs focus:ring-1 focus:ring-[#1b5e20] outline-none"
                 />
               </div>
 
               <div className="sm:col-span-3 space-y-1">
-                <label htmlFor="direct-supplier-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="direct-supplier-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   FORNECEDOR / CREDOR DO PAGAMENTO *
                 </label>
                 <input
@@ -420,7 +431,7 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   placeholder="NOME DA EMPRESA OU BENEFICIÁRIO"
                   value={directSupplier}
                   onChange={(e) => setDirectSupplier(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
                 />
               </div>
             </div>
@@ -435,14 +446,14 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* CONTA BANCÁRIA */}
               <div className="space-y-1">
-                <label htmlFor="pay-bank-account-select" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="pay-bank-account-select" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   DE ONDE SAI O DINHEIRO (CONTA BANCÁRIA) *
                 </label>
                 <select
                   id="pay-bank-account-select"
                   value={bankAccountId}
                   onChange={(e) => setBankAccountId(e.target.value)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
                 >
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
@@ -451,36 +462,54 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   ))}
                 </select>
                 {selectedAccount && (
-                  <div className="text-[9.5px] text-stone-500 font-semibold uppercase mt-0.5">
-                    SALDO ATUAL: <strong className="text-stone-900 dark:text-white">{formatCurrencyBRL(selectedAccount.balance)}</strong>
+                  <div className="text-[9.5px] text-slate-700 font-semibold uppercase mt-0.5">
+                    SALDO ATUAL: <strong className="text-black">{formatCurrencyBRL(selectedAccount.balance)}</strong>
                   </div>
                 )}
               </div>
 
               {/* FORMA DE PAGAMENTO */}
               <div className="space-y-1">
-                <label htmlFor="pay-method-select" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
-                  FORMA DE PAGAMENTO *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="pay-method-select" className="block text-[10px] font-black text-black uppercase tracking-wide">
+                    FORMA DE PAGAMENTO *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                    title="Gerenciar Formas de Pagamento"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-black text-[9px] font-black text-black uppercase cursor-pointer"
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>Gerenciar</span>
+                  </button>
+                </div>
                 <select
                   id="pay-method-select"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs cursor-pointer"
                 >
-                  <option value="pix">PIX</option>
-                  <option value="transferencia">TRANSFERÊNCIA (TED / DOC)</option>
-                  <option value="boleto">BOLETO BANCÁRIO</option>
-                  <option value="assinado_nota">ASSINADO NOTA</option>
-                  <option value="debito">CARTÃO DE DÉBITO</option>
-                  <option value="dinheiro">DINHEIRO (ESPÉCIE / CAIXA)</option>
-                  <option value="cheque">CHEQUE</option>
+                  {activeGlobalPaymentMethods.map((m) => {
+                    const key = getPaymentMethodKey(m);
+                    return (
+                      <option key={m.id} value={key}>
+                        {m.nome}
+                      </option>
+                    );
+                  })}
+                  {paymentMethod &&
+                    !activeGlobalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                      <option value={paymentMethod}>
+                        {getGlobalPaymentMethodLabel(paymentMethod)}
+                      </option>
+                    )}
                 </select>
               </div>
 
               {/* DATA DO PAGAMENTO */}
               <div className="space-y-1">
-                <label htmlFor="pay-date-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="pay-date-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   DATA EFETIVA DO PAGAMENTO *
                 </label>
                 <input
@@ -488,20 +517,20 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
                 />
               </div>
 
               {/* RESPONSÁVEL / FUNCIONÁRIO */}
               <div className="space-y-1">
-                <label htmlFor="pay-employee-select" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="pay-employee-select" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   RESPONSÁVEL PELO PAGAMENTO *
                 </label>
                 <select
                   id="pay-employee-select"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase focus:ring-1 focus:ring-[#1b5e20] outline-none text-xs"
                 >
                   {employees.filter(e => e.active !== false).map((emp) => (
                     <option key={emp.id} value={emp.id}>
@@ -516,7 +545,7 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                     placeholder="DIGITE O NOME DO RESPONSÁVEL"
                     value={customEmployeeName}
                     onChange={(e) => setCustomEmployeeName(e.target.value.toUpperCase())}
-                    className="w-full mt-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1 font-bold text-stone-900 dark:text-white uppercase text-xs"
+                    className="w-full mt-1 bg-white border border-black rounded-lg px-2.5 py-1 font-bold text-black uppercase text-xs"
                   />
                 )}
               </div>
@@ -525,7 +554,7 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
             {/* COMPROVANTE E OBSERVAÇÕES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div className="space-y-1">
-                <label htmlFor="pay-auth-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="pay-auth-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   CÓDIGO DE AUTENTICAÇÃO / PROTOCOLO (OPCIONAL)
                 </label>
                 <input
@@ -534,12 +563,12 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   placeholder="EX: AUTH-98218-BRL"
                   value={authCode}
                   onChange={(e) => setAuthCode(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="pay-notes-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="pay-notes-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   OBSERVAÇÕES ADICIONAIS (OPCIONAL)
                 </label>
                 <input
@@ -548,7 +577,7 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                   placeholder="OBSERVAÇÕES DE QUITAÇÃO"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value.toUpperCase())}
-                  className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg px-2.5 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none text-xs"
+                  className="w-full bg-white border border-black rounded-lg px-2.5 py-1.5 font-bold text-black uppercase outline-none text-xs"
                 />
               </div>
             </div>
@@ -594,6 +623,11 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
           </div>
         </form>
       </div>
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+      />
     </div>
   );
 };

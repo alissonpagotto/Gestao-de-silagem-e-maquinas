@@ -14,9 +14,15 @@ import {
   Trash2, 
   Divide, 
   FileCheck,
-  Receipt
+  Receipt,
+  Settings
 } from 'lucide-react';
 import { formatCurrencyBRL } from '../../lib/storage';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export interface NfeDetailedInstallment {
   id: string;
@@ -51,18 +57,18 @@ interface NfeInstallmentsModalProps {
   onConfirmAndSave: (installments: NfeDetailedInstallment[]) => void;
 }
 
-// Opções de Meio de Pagamento com código contábil/fiscal
-const PAYMENT_METHODS_OPTIONS = [
-  { code: '01', label: '01 - Boleto Bancário', methodKey: 'boleto' },
-  { code: '02', label: '02 - PIX', methodKey: 'pix' },
-  { code: '03', label: '03 - Transferência Bancária (TED/DOC)', methodKey: 'transferencia' },
-  { code: '04', label: '04 - Cartão de Crédito', methodKey: 'cartao_credito' },
-  { code: '05', label: '05 - Cartão de Débito', methodKey: 'cartao_debito' },
-  { code: '06', label: '06 - Dinheiro / Espécie', methodKey: 'dinheiro' },
-  { code: '07', label: '07 - Cheque', methodKey: 'safra_prazo' },
-  { code: '08', label: '08 - A Prazo / Safra Agrícola', methodKey: 'safra_prazo' },
-  { code: '99', label: '99 - Outros', methodKey: 'boleto' },
-];
+const FISCAL_CODE_BY_METHOD_KEY: Record<string, string> = {
+  boleto: '01',
+  pix: '02',
+  transferencia: '03',
+  cartao_credito: '04',
+  cartao_debito: '05',
+  dinheiro: '06',
+  cheque: '07',
+  safra_prazo: '08',
+  prazo_carteira: '09',
+  assinado_nota: '10',
+};
 
 function addDaysToDate(baseDate: string, days: number): string {
   try {
@@ -120,6 +126,24 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
   totalLabel,
   onConfirmAndSave,
 }) => {
+  const { activeMethods: globalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+
+  const paymentMethodsOptions = React.useMemo(() => {
+    const mapped = globalPaymentMethods.map((m, idx) => {
+      const mKey = getPaymentMethodKey(m);
+      const code = FISCAL_CODE_BY_METHOD_KEY[mKey] || m.codigo || `9${idx + 1}`;
+      return {
+        code,
+        label: `${code} - ${m.nome}`,
+        methodKey: mKey,
+      };
+    });
+    return mapped.length > 0
+      ? mapped
+      : [{ code: '01', label: '01 - BOLETO', methodKey: 'boleto' }];
+  }, [globalPaymentMethods]);
+
   const [installments, setInstallments] = useState<NfeDetailedInstallment[]>([]);
   const [installmentsCountInput, setInstallmentsCountInput] = useState<number>(initialInstallmentsCount || 1);
   const [activeFileRowId, setActiveFileRowId] = useState<string | null>(null);
@@ -135,7 +159,7 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
                              '3.1.1.01 - Insumos Operacionais';
 
   // Determina meio de pagamento inicial
-  const defaultPayOption = PAYMENT_METHODS_OPTIONS.find(o => o.methodKey === defaultPaymentMethod) || PAYMENT_METHODS_OPTIONS[0];
+  const defaultPayOption = paymentMethodsOptions.find(o => o.methodKey === defaultPaymentMethod) || paymentMethodsOptions[0];
 
   // Inicializa parcelas ao abrir ou quando total/XML mudar
   useEffect(() => {
@@ -240,7 +264,7 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
 
       // Se alterou o código de pagamento, atualiza o rótulo
       if (field === 'paymentMethodCode') {
-        const opt = PAYMENT_METHODS_OPTIONS.find(o => o.code === value);
+        const opt = paymentMethodsOptions.find(o => o.code === value);
         if (opt) updated.paymentMethodLabel = opt.label;
       }
 
@@ -394,7 +418,8 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
   return (
     <div 
       id="modal-janela-2-parcelas-nfe"
-      className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-black/60 backdrop-blur-[2px] animate-in fade-in"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-black/60 backdrop-blur-none animate-in fade-in"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
     >
       {/* Input de arquivo invisível para anexos de boleto/recibo */}
       <input 
@@ -583,7 +608,20 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
                     <th className="py-3 px-3 min-w-[140px]">Valor (R$)</th>
                     <th className="py-3 px-3 min-w-[90px]">Prazo (Dias)</th>
                     <th className="py-3 px-3 min-w-[130px]">Vencimento</th>
-                    <th className="py-3 px-3 min-w-[160px]">Meio de Pagto (M. Pagto)</th>
+                    <th className="py-3 px-3 min-w-[180px]">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>Meio de Pagto</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-black border border-black text-[9px] font-black uppercase cursor-pointer"
+                          title="Gerenciar Formas de Pagamento Globais"
+                        >
+                          <Settings className="w-2.5 h-2.5" />
+                          <span>Gerenciar</span>
+                        </button>
+                      </div>
+                    </th>
                     <th className="py-3 px-3 min-w-[110px]">Crédito</th>
                     <th className="py-3 px-3 min-w-[110px]">Débito</th>
                     <th className="py-3 px-3 min-w-[110px]">Observações</th>
@@ -651,9 +689,15 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
                         <select
                           value={inst.paymentMethodCode}
                           onChange={(e) => handleUpdateInstallment(inst.id, 'paymentMethodCode', e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs font-bold bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden shadow-2xs cursor-pointer"
+                          className="w-full px-2 py-1.5 text-xs font-bold bg-white text-black border border-black rounded-lg focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden shadow-2xs cursor-pointer"
                         >
-                          {PAYMENT_METHODS_OPTIONS.map(opt => (
+                          {inst.paymentMethodCode &&
+                            !paymentMethodsOptions.some(o => o.code === inst.paymentMethodCode) && (
+                              <option value={inst.paymentMethodCode}>
+                                {inst.paymentMethodLabel || inst.paymentMethodCode}
+                              </option>
+                            )}
+                          {paymentMethodsOptions.map(opt => (
                             <option key={opt.code} value={opt.code}>
                               {opt.label}
                             </option>
@@ -866,6 +910,11 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
         </div>
       )}
 
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+        zIndexClass="z-[9999]"
+      />
     </div>
   );
 };

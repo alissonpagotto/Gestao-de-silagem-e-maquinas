@@ -982,7 +982,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 
       {/* MODAL PARA REGISTRO DE ALTERAÇÃO SALARIAL */}
       {isSalaryModalOpen && currentEmployee && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between bg-[#cad4e6] rounded-xl shadow-2xl border border-black overflow-hidden mx-auto my-auto">
             
             <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between shrink-0">

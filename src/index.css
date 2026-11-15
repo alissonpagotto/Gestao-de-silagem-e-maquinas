@@ -907,20 +907,20 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
 }
 
 /* Customização de Fundo (Modo Dia / Claro) */
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) {
   background-color: #edf4ff !important;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.financial-subtab-clean) > div:nth-of-type(1) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.financial-subtab-clean):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed) {
   background-color: #edf4ff !important;
   border-color: #edf4ff !important;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.financial-subtab-clean) > div:nth-of-type(1) > div:nth-of-type(2):not(.consolidado-date-range) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.financial-subtab-clean):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed) > div:nth-of-type(2):not(.consolidado-date-range):not(.fixed) {
   border-color: #080808 !important;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.financial-subtab-clean) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.financial-subtab-clean):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed) > div:nth-of-type(2):not(.fixed) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge):not(.fixed) {
   background-color: #edf4ff !important;
 }
 
@@ -1107,16 +1107,16 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
 }
 
 /* Focus Mode: #cad4e6 nos contêineres e seção selecionados dentro do conteúdo principal */
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2),
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.financial-subtab-clean) > div:nth-of-type(1),
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > section:nth-of-type(2) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.financial-subtab-clean):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed):not([id^="modal-"]) > section:nth-of-type(2) {
   background-color: #cad4e6 !important;
 }
 
 /* Focus Mode: #cad4e6 nos elementos selecionados do módulo de estoque/almoxarifado */
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#inventory-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2),
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#inventory-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge),
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#inventory-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#inventory-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#inventory-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div#inventory-module-root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.fixed) {
   background-color: #cad4e6 !important;
 }
 
@@ -1128,13 +1128,13 @@ html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-
 }
 
 /* Focus Mode: #cad4e6 e #e0e6f1 nos elementos selecionados da visualização ativa */
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) {
   background-color: #cad4e6 !important;
 }
 
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge),
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge),
-html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2):not(.competence-selector-root):not(.competence-selector-badge) {
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge):not(.fixed),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(2):not(.fixed) > div:nth-of-type(1):not(.competence-selector-root):not(.competence-selector-badge),
+html:not(.dark) div#root:nth-of-type(1) > div#desktop-outer-frame-container:nth-of-type(1) > div#desktop-window-mother-frame:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(2):not(.fixed):not([id^="modal-"]) > div:nth-of-type(2):not(.fixed) > div:nth-of-type(2):not(.competence-selector-root):not(.competence-selector-badge) {
   background-color: #e0e6f1 !important;
 }
 

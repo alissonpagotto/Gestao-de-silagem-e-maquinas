@@ -637,8 +637,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   isCadastrosBaseActive ||
                   activeTab === item.id ||
                   (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
+                  (item.id === 'financeiro' && ['financeiro', 'contas', 'bancos', 'pagar', 'receber'].includes(activeTab)) ||
                   (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
-                  (item.id === 'frotas' && ['veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
+                  (item.id === 'frotas' && ['frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
                   (item.id === 'rh' && (activeTab === 'funcionarios' || activeTab === 'rh'));
 
                 return (
@@ -649,6 +650,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       id={`sidebar-nav-${item.id}`}
                       onClick={() => handleSelect(item.id)}
+                      style={!isRestricted && isActive ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
                       title={
                         isRestricted 
                           ? `${(item.id === 'cadastros_base' ? 'CONFIGURAÇÕES' : item.id === 'servicos' ? 'PRESTAÇÃO DE SERVIÇOS' : item.label).toUpperCase()} (ACESSO BLOQUEADO)` 
@@ -660,7 +662,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           isRestricted
                             ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
                             : isActive
-                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                              ? 'bg-orange-400/40 text-black font-bold shadow-xs border border-orange-500/40'
                               : 'text-slate-800 dark:text-stone-300 hover:bg-white/40 dark:hover:bg-stone-700/40 hover:text-slate-900 dark:hover:text-white'
                         }
                       `}
@@ -671,7 +673,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             isRestricted 
                               ? 'text-rose-500' 
                               : isActive 
-                                ? 'text-slate-900 dark:text-white' 
+                                ? 'text-black' 
                                 : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white'
                           }`} 
                         />
@@ -681,7 +683,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               isRestricted
                                 ? 'text-zinc-500 dark:text-stone-400'
                                 : isActive 
-                                  ? 'text-slate-900 font-bold dark:text-white' 
+                                  ? 'text-black font-bold' 
                                   : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-200 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
                             }`}
                           >
@@ -726,12 +728,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id="sidebar-nav-configuracoes"
               type="button"
               onClick={() => handleSelect('configuracoes')}
+              style={isEmpresaActive ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
               title="DADOS DA EMPRESA"
               className={`
                 w-full flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-2.5'} py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
                 ${
                   isEmpresaActive
-                    ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                    ? 'bg-orange-400/40 text-black font-bold shadow-xs border border-orange-500/40'
                     : 'text-slate-800 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-800 hover:text-slate-900 dark:hover:text-white'
                 }
               `}
@@ -739,13 +742,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-2.5 truncate'}`}>
                 <Building 
                   className={`w-4 h-4 shrink-0 transition ${
-                    isEmpresaActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
+                    isEmpresaActive ? 'text-black' : 'text-slate-700 group-hover:text-slate-900 dark:text-stone-400 dark:group-hover:text-white'
                   }`} 
                 />
                 {!isCollapsed && (
                   <span 
                     className={`truncate text-[11px] font-bold uppercase tracking-wider ${
-                      isEmpresaActive ? 'text-slate-900 font-bold dark:text-white' : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
+                      isEmpresaActive ? 'text-black font-bold' : 'text-slate-800 group-hover:text-slate-900 dark:text-stone-300 dark:group-hover:text-white [text-shadow:_0_1px_0_rgba(255,255,255,0.7)] dark:[text-shadow:_none]'
                     }`}
                   >
                     Dados da Empresa

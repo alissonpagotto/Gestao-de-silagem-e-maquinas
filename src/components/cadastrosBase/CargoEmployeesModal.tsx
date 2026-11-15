@@ -72,7 +72,7 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
   if (!isOpen || !cargo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden overflow-y-hidden animate-in fade-in duration-150" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
       <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
         
         {/* Header */}

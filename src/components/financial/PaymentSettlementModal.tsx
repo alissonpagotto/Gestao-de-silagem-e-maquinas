@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
   Search,
   Info,
+  Settings,
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod, FinanceiroCheque } from '../../types';
 import {
@@ -23,6 +24,13 @@ import {
 } from '../../lib/storage';
 import { fetchFinanceiroCheques, saveFinanceiroCheque } from '../../lib/supabaseService';
 import { BankLogoIcon } from './BankLogoIcon';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  extractGlobalPaymentMethodFromRecord,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export interface PaymentSettlementData {
   paymentDate: string;
@@ -66,18 +74,6 @@ interface PaymentSettlementModalProps {
   }) => void;
 }
 
-const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
-  { value: 'assinado_nota', label: 'Assinado Nota' },
-  { value: 'boleto', label: 'Boleto Bancário' },
-  { value: 'cartao_credito', label: 'Cartão de Crédito' },
-  { value: 'cartao_debito', label: 'Cartão de Débito' },
-  { value: 'cheque', label: 'Cheque' },
-  { value: 'dinheiro', label: 'Dinheiro em Espécie (Caixa)' },
-  { value: 'pix', label: 'PIX' },
-  { value: 'safra_prazo', label: 'Safra / A Prazo' },
-  { value: 'transferencia', label: 'Transferência (TED / DOC)' },
-];
-
 export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   isOpen,
   onClose,
@@ -87,6 +83,8 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   onConfirmSettlement,
 }) => {
   const today = new Date().toISOString().split('T')[0];
+  const { activeMethods: activeGlobalPaymentMethods } = useGlobalPaymentMethods();
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
 
   const [paymentDate, setPaymentDate] = useState(today);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -152,9 +150,10 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
     // Inicializa Fornecedor do Crédito
     setCreditSupplier(expense.creditSupplier || expense.supplier || '');
 
-    // Método de pagamento configurado
-    if (expense.paymentMethod && PAYMENT_METHOD_OPTIONS.some((m) => m.value === expense.paymentMethod)) {
-      setPaymentMethod(expense.paymentMethod);
+    // Método de pagamento original pré-preenchido automaticamente
+    const detectedMethod = extractGlobalPaymentMethodFromRecord(expense);
+    if (detectedMethod) {
+      setPaymentMethod(detectedMethod);
     } else {
       setPaymentMethod('pix');
     }
@@ -399,7 +398,8 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   return (
     <div
       id="modal-baixa-pagamento"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden overflow-y-hidden animate-in fade-in"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
     >
       <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
         {/* CABEÇALHO */}
@@ -522,12 +522,23 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
               </span>
             </div>
 
-            {/* Forma de Pagamento (Ordem Alfabética Estrita) */}
+            {/* Forma de Pagamento (Sincronizada com Lista Única Global) */}
             <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-1.5">
-              <label htmlFor="select-metodo-pagamento-baixa" className="block text-xs font-black text-black flex items-center gap-1.5">
-                <WalletCards className="w-3.5 h-3.5 text-[#0963cb]" />
-                <span>Forma de Pagamento Utilizada</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="select-metodo-pagamento-baixa" className="block text-xs font-black text-black flex items-center gap-1.5">
+                  <WalletCards className="w-3.5 h-3.5 text-[#0963cb]" />
+                  <span>Forma de Pagamento Utilizada</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                  title="Gerenciar Formas de Pagamento"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-black text-[9px] font-black text-black uppercase cursor-pointer"
+                >
+                  <Settings className="w-3 h-3" />
+                  <span>Gerenciar</span>
+                </button>
+              </div>
               <select
                 id="select-metodo-pagamento-baixa"
                 value={paymentMethod}
@@ -535,13 +546,22 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                   setPaymentMethod(e.target.value as PaymentMethod);
                   setErrorMessage('');
                 }}
-                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
+                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-black rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer uppercase"
               >
-                {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
+                {activeGlobalPaymentMethods.map((m) => {
+                  const key = getPaymentMethodKey(m);
+                  return (
+                    <option key={m.id} value={key}>
+                      {m.nome}
+                    </option>
+                  );
+                })}
+                {paymentMethod &&
+                  !activeGlobalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                    <option value={paymentMethod}>
+                      {getGlobalPaymentMethodLabel(paymentMethod)}
+                    </option>
+                  )}
               </select>
               <span className="text-[10px] text-slate-700 font-medium block">
                 Canal bancário ou meio de pagamento utilizado
@@ -965,6 +985,11 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
           </div>
         </form>
       </div>
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+      />
     </div>
   );
 };

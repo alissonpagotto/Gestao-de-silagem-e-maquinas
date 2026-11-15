@@ -6,6 +6,11 @@ import {
   SimulatedUserSession 
 } from '../types';
 import { getStoredEmployees, saveStoredEmployees } from './storage';
+import {
+  DEFAULT_GLOBAL_PAYMENT_METHODS,
+  getStoredGlobalPaymentMethods,
+  saveGlobalPaymentMethods,
+} from './paymentMethodsStorage';
 
 export type { SimulatedUserSession };
 
@@ -429,15 +434,7 @@ export const INITIAL_PLANO_CONTAS_E_FORMAS: PlanoContasEFormasData = {
     { id: 'cat-desp-6', codigo: '2.06', nome: 'Almoxarifado & Insumos Operacionais', tipo: 'despesa', descricao: 'Lonas de silagem, inoculantes, EPIs e ferramentas', ativo: true },
     { id: 'cat-desp-7', codigo: '2.07', nome: 'Despesas Administrativas & Escritório', tipo: 'despesa', descricao: 'Software, internet, contabilidade e materiais', ativo: true },
   ],
-  formasPagamento: [
-    { id: 'fp-pix', codigo: 'PIX', nome: 'PIX Instantâneo', tipo: 'pix', prazoDias: 0, taxaPercentual: 0, ativo: true },
-    { id: 'fp-boleto', codigo: 'BOL', nome: 'Boleto Bancário', tipo: 'boleto', prazoDias: 30, taxaPercentual: 1.5, ativo: true },
-    { id: 'fp-ted', codigo: 'TED', nome: 'Transferência Bancária (TED/DOC)', tipo: 'transferencia', prazoDias: 0, taxaPercentual: 0, ativo: true },
-    { id: 'fp-cartao-cred', codigo: 'CC', nome: 'Cartão de Crédito Corporativo', tipo: 'cartao_credito', prazoDias: 30, taxaPercentual: 2.9, ativo: true },
-    { id: 'fp-dinheiro', codigo: 'DIN', nome: 'Dinheiro em Espécie', tipo: 'dinheiro', prazoDias: 0, taxaPercentual: 0, ativo: true },
-    { id: 'fp-cheque-vista', codigo: 'CHQ-V', nome: 'Cheque à Vista', tipo: 'cheque', prazoDias: 0, taxaPercentual: 0, ativo: true },
-    { id: 'fp-cheque-pre', codigo: 'CHQ-P', nome: 'Cheque Pré-datado', tipo: 'cheque', prazoDias: 30, taxaPercentual: 0, ativo: true },
-  ],
+  formasPagamento: DEFAULT_GLOBAL_PAYMENT_METHODS,
 };
 
 /* =========================================================
@@ -668,26 +665,56 @@ export function saveStoredCentrosCusto(centers: CostCenter[]): void {
 
 export function getStoredPlanoContas(): PlanoContasEFormasData {
   try {
-    const raw = localStorage.getItem(CADASTROS_STORAGE_KEYS.PLANO_CONTAS);
+    const globalFormas = getStoredGlobalPaymentMethods();
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CADASTROS_STORAGE_KEYS.PLANO_CONTAS) : null;
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.categorias) && Array.isArray(parsed.formasPagamento)) {
-        return parsed;
+      if (parsed && Array.isArray(parsed.categorias)) {
+        return {
+          categorias: parsed.categorias,
+          formasPagamento: Array.isArray(globalFormas) ? globalFormas : DEFAULT_GLOBAL_PAYMENT_METHODS,
+        };
       }
     }
-    saveStoredPlanoContas(INITIAL_PLANO_CONTAS_E_FORMAS);
-    return INITIAL_PLANO_CONTAS_E_FORMAS;
+    const initData: PlanoContasEFormasData = {
+      categorias: [...INITIAL_PLANO_CONTAS_E_FORMAS.categorias],
+      formasPagamento: Array.isArray(globalFormas) ? globalFormas : DEFAULT_GLOBAL_PAYMENT_METHODS,
+    };
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(CADASTROS_STORAGE_KEYS.PLANO_CONTAS, JSON.stringify(initData));
+      }
+    } catch {
+      // ignorar erros de persistência silenciosa na leitura inicial
+    }
+    return initData;
   } catch (err) {
     console.error('Erro ao ler plano_contas do localStorage:', err);
-    return INITIAL_PLANO_CONTAS_E_FORMAS;
+    return {
+      categorias: [...INITIAL_PLANO_CONTAS_E_FORMAS.categorias],
+      formasPagamento: [...DEFAULT_GLOBAL_PAYMENT_METHODS],
+    };
   }
 }
 
 export function saveStoredPlanoContas(data: PlanoContasEFormasData): void {
   try {
-    localStorage.setItem(CADASTROS_STORAGE_KEYS.PLANO_CONTAS, JSON.stringify(data));
+    const safeData: PlanoContasEFormasData = {
+      categorias: Array.isArray(data?.categorias)
+        ? data.categorias
+        : [...INITIAL_PLANO_CONTAS_E_FORMAS.categorias],
+      formasPagamento: Array.isArray(data?.formasPagamento) && data.formasPagamento.length > 0
+        ? data.formasPagamento
+        : getStoredGlobalPaymentMethods(),
+    };
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CADASTROS_STORAGE_KEYS.PLANO_CONTAS, JSON.stringify(safeData));
+    }
+    if (Array.isArray(data?.formasPagamento) && data.formasPagamento.length > 0) {
+      saveGlobalPaymentMethods(data.formasPagamento, { skipLegacyEvent: true });
+    }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('colaca_silagem_plano_updated', { detail: data }));
+      window.dispatchEvent(new CustomEvent('colaca_silagem_plano_updated', { detail: safeData }));
     }
   } catch (err) {
     console.error('Erro ao salvar plano_contas:', err);

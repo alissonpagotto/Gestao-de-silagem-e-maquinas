@@ -24,6 +24,7 @@ import {
   Landmark,
   Wallet,
   WalletCards,
+  Settings,
 } from 'lucide-react';
 import { 
   ServiceOrder, 
@@ -49,6 +50,15 @@ import {
   toValidUUID 
 } from '../../lib/supabaseService';
 import { BRAZILIAN_BANKS } from '../financial/brazilianBanks';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+  normalizeGlobalPaymentMethodKey,
+  extractGlobalPaymentMethodFromRecord,
+  doesPaymentMethodGenerateInstallment,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 export interface ReceivableItem {
   id: string;
@@ -115,41 +125,30 @@ export interface ReceivePaymentSuccessDetails {
 
 export const getPaymentMethodLabel = (method?: PaymentMethod | string | ''): string => {
   if (!method) return 'Selecione uma forma de pagamento...';
-  switch (method) {
-    case 'dinheiro':
-      return 'Dinheiro';
-    case 'pix':
-      return 'PIX';
-    case 'cartao_credito':
-      return 'Cartão Crédito';
-    case 'cartao_debito':
-      return 'Cartão Débito';
-    case 'transferencia':
-      return 'TED / DOC';
-    case 'cheque':
-      return 'Cheque';
-    case 'prazo_carteira':
-      return 'A prazo (carteira)';
-    case 'safra_prazo':
-      return 'Safra a Prazo';
-    case 'boleto':
-      return 'Boleto';
-    case 'assinado_nota':
-      return 'Assinado nota';
-    default:
-      return method ? String(method).toUpperCase() : 'Não informado';
-  }
+  return getGlobalPaymentMethodLabel(method);
+};
+
+export const normalizePaymentMethodValue = (raw?: string | null): PaymentMethod | '' => {
+  return normalizeGlobalPaymentMethodKey(raw);
+};
+
+export const resolveOriginalPaymentMethod = (record: any): PaymentMethod | '' => {
+  return extractGlobalPaymentMethodFromRecord(record);
 };
 
 export const isInstallmentEligible = (method?: PaymentMethod | string | ''): boolean => {
   if (!method) return false;
-  return (
+  if (method === 'assinado_nota') return false;
+  if (
     method === 'cartao_credito' ||
     method === 'cheque' ||
     method === 'prazo_carteira' ||
     method === 'safra_prazo' ||
     method === 'boleto'
-  );
+  ) {
+    return true;
+  }
+  return doesPaymentMethodGenerateInstallment(method);
 };
 
 export interface BillingPaymentLine {
@@ -331,6 +330,9 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   const [unlockPasswordError, setUnlockPasswordError] = useState('');
   const [successToast, setSuccessToast] = useState('');
   const [formValidationError, setFormValidationError] = useState('');
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const { allMethods: globalPaymentMethods, activeMethods: activeGlobalPaymentMethods } =
+    useGlobalPaymentMethods();
 
   // Identificação do cliente e documento para preenchimento de cheques
   const resolvedClient = useMemo(() => {
@@ -397,16 +399,21 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
   const isChequeRestricted = hasPreRegisteredCheque && !isUnlockedByAdmin;
 
+  // Reseta destravamento administrativo apenas ao abrir/trocar de título
+  useEffect(() => {
+    if (!isOpen || !targetId) return;
+    setIsUnlockedByAdmin(false);
+    setShowUnlockPasswordModal(false);
+    setUnlockPasswordInput('');
+    setUnlockPasswordError('');
+  }, [isOpen, targetId]);
+
   // Sincroniza formulário ao abrir o modal
   useEffect(() => {
     if (!activeRecord || !isOpen) return;
 
     const baseDueDate = activeRecord.dueDate || (activeRecord as any).startDate || (activeRecord as any).date || today;
     setReceiptDate(today);
-    setIsUnlockedByAdmin(false);
-    setShowUnlockPasswordModal(false);
-    setUnlockPasswordInput('');
-    setUnlockPasswordError('');
     setSuccessToast('');
     setFormValidationError('');
 
@@ -428,9 +435,12 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       setSelectedBankAccountId('');
     }
 
-    // Inicialização da Forma de Pagamento TOTALMENTE LIMPA (sem padrão):
-    // Aberta estritamente vazia ('') para o usuário escolher como deseja receber
-    const initialMethod: PaymentMethod | '' = isChequeRestricted ? 'cheque' : '';
+    // Pré-preenche automaticamente com a forma de pagamento original do título a receber
+    // (mantendo o campo editável, exceto se travado por cheque em custódia)
+    const detectedOriginalMethod = !isServiceMode ? resolveOriginalPaymentMethod(activeRecord) : '';
+    const initialMethod: PaymentMethod | '' = hasPreRegisteredCheque
+      ? 'cheque'
+      : detectedOriginalMethod;
 
     // Inicializa folha de cheque se for cheque
     const initialChequeLeaf: ChequeItemForm = {
@@ -464,7 +474,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     ]);
 
     setBillingNotesExtra((activeRecord as any).billingNotes || activeRecord.notes || '');
-  }, [activeRecord, isOpen, today, isChequeRestricted, totalAmount, preloadedCheque, clientName, resolvedClient, effectiveBankAccounts, priorityBankAccount, isServiceMode]);
+  }, [activeRecord, isOpen, today, hasPreRegisteredCheque, totalAmount, preloadedCheque, clientName, resolvedClient, effectiveBankAccounts, priorityBankAccount, isServiceMode]);
 
   // Sincronização reativa de desbloqueio: assegura que o campo de conta nunca permaneça em branco na abertura
   useEffect(() => {
@@ -1177,7 +1187,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   if (!isOpen || !activeRecord) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-none flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
+    >
       <div 
         id="billing-payment-modal-container"
         className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black"
@@ -1286,32 +1299,32 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 sm:p-4 bg-[#e0e6f1] rounded-xl border border-black">
             {/* Valor Total Auditado */}
             <div className="bg-white p-3 rounded-lg border border-black shadow-2xs">
-              <span className="text-[10px] font-black text-zinc-500 dark:text-stone-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
                 {isServiceMode ? 'Valor Total Auditado' : 'Valor Total do Título'}
               </span>
-              <span className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit']">
+              <span className="text-lg sm:text-xl font-black text-black font-['Outfit']">
                 {formatCurrencyBRL(totalAmount)}
               </span>
             </div>
 
             {/* Total Distribuído */}
-            <div className="bg-white dark:bg-stone-800 p-3 rounded-lg border border-slate-200 dark:border-stone-700 shadow-2xs">
+            <div className="bg-white p-3 rounded-lg border border-black shadow-2xs">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-zinc-500 dark:text-stone-400 uppercase tracking-wider block">
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
                   Total Distribuído
                 </span>
                 {totalInterestAdded > 0 && (
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-black px-1.5 py-0.5 rounded">
                     +{formatCurrencyBRL(totalInterestAdded)} juros
                   </span>
                 )}
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-lg sm:text-xl font-black text-blue-700 dark:text-blue-400 font-['Outfit']">
+                <span className="text-lg sm:text-xl font-black text-blue-800 font-['Outfit']">
                   {formatCurrencyBRL(totalAllocated)}
                 </span>
                 {totalInterestAdded > 0 && (
-                  <span className="text-xs font-bold text-zinc-500 dark:text-stone-400">
+                  <span className="text-xs font-bold text-slate-700">
                     ({formatCurrencyBRL(totalFinalExpected)} final)
                   </span>
                 )}
@@ -1320,21 +1333,21 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
             {/* Saldo a Distribuir */}
             <div
-              className={`p-3 rounded-lg border shadow-2xs ${
+              className={`p-3 rounded-lg border border-black shadow-2xs ${
                 isBalanced
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
+                  ? 'bg-emerald-50'
                   : isOverAllocated
-                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
-                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800'
+                  ? 'bg-rose-50'
+                  : 'bg-amber-50'
               }`}
             >
               <span
                 className={`text-[10px] font-black uppercase tracking-wider block ${
                   isBalanced
-                    ? 'text-emerald-700 dark:text-emerald-300'
+                    ? 'text-emerald-800'
                     : isOverAllocated
-                    ? 'text-rose-700 dark:text-rose-300'
-                    : 'text-amber-700 dark:text-amber-300'
+                    ? 'text-rose-800'
+                    : 'text-amber-800'
                 }`}
               >
                 Saldo a Distribuir
@@ -1342,10 +1355,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
               <span
                 className={`text-lg sm:text-xl font-black font-['Outfit'] ${
                   isBalanced
-                    ? 'text-emerald-800 dark:text-emerald-200'
+                    ? 'text-emerald-900'
                     : isOverAllocated
-                    ? 'text-rose-800 dark:text-rose-200'
-                    : 'text-amber-800 dark:text-amber-200'
+                    ? 'text-rose-900'
+                    : 'text-amber-900'
                 }`}
               >
                 {formatCurrencyBRL(remainingBalance)}
@@ -1399,7 +1412,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                 Conta Bancária de Depósito / Caixa{' '}
                 {!isServiceMode && lines.some((l) => ['pix', 'dinheiro', 'transferencia', 'cartao_credito', 'cartao_debito'].includes(String(l.paymentMethod))) && (
                   <span className="text-rose-600">*</span>
@@ -1440,10 +1453,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           <div className="space-y-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                <h4 className="text-xs font-black text-black uppercase tracking-wider">
                   Formas de Recebimento ({lines.length})
                 </h4>
-                <p className="text-[11px] text-zinc-500 dark:text-stone-400">
+                <p className="text-[11px] text-slate-800 font-medium">
                   Configure múltiplas formas de pagamento e condições de parcelamento para este pedido.
                 </p>
               </div>
@@ -1452,7 +1465,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddLine}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 rounded-lg shadow-2xs transition cursor-pointer uppercase active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-50 border border-black rounded-lg shadow-2xs transition cursor-pointer uppercase active:scale-95"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>+ Adicionar Forma</span>
@@ -1480,16 +1493,28 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       {/* Indicador de Linha */}
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-stone-700 text-zinc-800 dark:text-stone-200 text-xs font-black flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full bg-white border border-black text-black text-xs font-black flex items-center justify-center">
                           {index + 1}
                         </span>
                       </div>
 
                       {/* Forma de Pagamento */}
                       <div className="flex-1 min-w-[180px]">
-                        <label className="block text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase mb-1">
-                          Forma de Pagamento
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold text-black uppercase">
+                            Forma de Pagamento
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                            disabled={isChequeRestricted}
+                            title="Gerenciar Formas de Pagamento"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-black text-[9px] font-black text-black uppercase cursor-pointer disabled:opacity-50"
+                          >
+                            <Settings className="w-3 h-3" />
+                            <span>Gerenciar</span>
+                          </button>
+                        </div>
                         <select
                           id={`payment-method-select-${line.id}`}
                           value={line.paymentMethod || ''}
@@ -1497,29 +1522,33 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           onChange={(e) =>
                             handleUpdateLine(line.id, 'paymentMethod', e.target.value as PaymentMethod)
                           }
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase cursor-pointer disabled:opacity-60"
+                          className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black uppercase cursor-pointer disabled:opacity-60"
                         >
                           <option value="">Selecione uma forma de pagamento...</option>
-                          <option value="pix">PIX</option>
-                          <option value="dinheiro">Dinheiro</option>
-                          <option value="cartao_credito">Cartão de Crédito</option>
-                          <option value="cartao_debito">Cartão de Débito</option>
-                          <option value="transferencia">TED / DOC</option>
-                          <option value="cheque">Cheque</option>
-                          <option value="prazo_carteira">A Prazo (Carteira)</option>
-                          <option value="safra_prazo">Safra a Prazo</option>
-                          <option value="boleto">Boleto</option>
-                          <option value="assinado_nota">Assinado nota</option>
+                          {activeGlobalPaymentMethods.map((m) => {
+                            const key = getPaymentMethodKey(m);
+                            return (
+                              <option key={m.id} value={key}>
+                                {m.nome}
+                              </option>
+                            );
+                          })}
+                          {line.paymentMethod &&
+                            !activeGlobalPaymentMethods.some((m) => getPaymentMethodKey(m) === line.paymentMethod) && (
+                              <option value={line.paymentMethod}>
+                                {getGlobalPaymentMethodLabel(line.paymentMethod)}
+                              </option>
+                            )}
                         </select>
                       </div>
 
                       {/* Valor Alocado (R$) */}
                       <div className="w-full sm:w-44">
-                        <label className="block text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase mb-1">
+                        <label className="block text-[10px] font-bold text-black uppercase mb-1">
                           Valor (R$)
                         </label>
                         <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs font-bold text-zinc-400 pointer-events-none">
+                          <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs font-bold text-slate-600 pointer-events-none">
                             R$
                           </span>
                           <input
@@ -1530,14 +1559,14 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                             onChange={(e) => handleAmountMaskChange(line.id, e.target.value)}
                             onFocus={(e) => e.target.select()}
                             placeholder="0,00"
-                            className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="w-full pl-8 pr-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black disabled:opacity-60 disabled:cursor-not-allowed"
                           />
                         </div>
                       </div>
 
                       {/* 1º Vencimento / Data Base */}
                       <div className="w-full sm:w-40">
-                        <label className="block text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase mb-1">
+                        <label className="block text-[10px] font-bold text-black uppercase mb-1">
                           {line.installmentsCount > 1 ? '1º Vencimento' : 'Data Vencimento'}
                         </label>
                         <input
@@ -1545,7 +1574,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           disabled={isChequeRestricted}
                           value={line.firstDueDate}
                           onChange={(e) => handleUpdateLine(line.id, 'firstDueDate', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-bold text-zinc-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
 
@@ -1557,8 +1586,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           disabled={lines.length <= 1 || isChequeRestricted}
                           className={`p-1.5 rounded-lg border transition ${
                             lines.length <= 1 || isChequeRestricted
-                              ? 'text-zinc-300 dark:text-stone-600 border-slate-200 dark:border-stone-800 cursor-not-allowed'
-                              : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900 cursor-pointer'
+                              ? 'bg-white/60 text-slate-400 border-slate-400 cursor-not-allowed'
+                              : 'bg-white text-rose-600 hover:bg-rose-50 border-black cursor-pointer'
                           }`}
                           title={lines.length <= 1 || isChequeRestricted ? 'Mínimo de 1 forma obrigatória' : 'Remover forma'}
                         >
@@ -1569,7 +1598,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
                     {/* BLOQUEIO CONDICIONAL E DINÂMICO PARA FORMA "ASSINADO NOTA" */}
                     {isAssinadoNota && (
-                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-xl flex items-center justify-between gap-3 text-amber-950 dark:text-amber-200">
+                      <div className="p-3 bg-amber-50 border border-black rounded-xl flex items-center justify-between gap-3 text-black">
                         <div className="flex items-center space-x-2.5">
                           <div className="p-1.5 rounded-lg bg-amber-600 text-white shrink-0">
                             <FileCheck2 className="w-4 h-4" />
@@ -1578,12 +1607,12 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                             <span className="text-xs font-black uppercase tracking-wider block">
                               Forma Assinado Nota (Compromisso em Carteira)
                             </span>
-                            <span className="text-[11px] text-amber-800 dark:text-amber-300">
+                            <span className="text-[11px] text-amber-900 font-medium">
                               Nota assinada no ato pelo produtor / acerto de campo. Campos de juros bancários e parcelamento ficam bloqueados para esta modalidade.
                             </span>
                           </div>
                         </div>
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-200/80 dark:bg-amber-900 text-amber-950 dark:text-amber-100 border border-amber-400 shrink-0 uppercase tracking-wider">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-200 text-black border border-black shrink-0 uppercase tracking-wider">
                           Nota Assinada
                         </span>
                       </div>
@@ -1591,18 +1620,18 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
                     {/* BLOCO DE JUROS / ACRÉSCIMOS E PARCELAMENTO (QUANDO PARCELÁVEL E NÃO ASSINADO NOTA E NÃO TRAVADO) */}
                     {isInstallment && !isAssinadoNota && !isChequeRestricted && (
-                      <div className="mt-2 pt-3 border-t border-dashed border-slate-200 dark:border-stone-750 bg-slate-50/70 dark:bg-stone-800/50 p-3.5 rounded-xl space-y-3">
+                      <div className="mt-2 bg-[#cad4e6] border border-black p-3.5 rounded-xl space-y-3">
                         {/* 1. SEÇÃO DE JUROS / ACRÉSCIMOS (REATIVIDADE BIDIRECIONAL R$ <-> %) */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/90 dark:border-amber-800/60 rounded-lg">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 bg-white border border-black rounded-lg">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded bg-amber-200/80 dark:bg-amber-900/60 flex items-center justify-center shrink-0">
-                              <Percent className="w-3.5 h-3.5 text-amber-800 dark:text-amber-300 stroke-[2.5]" />
+                            <div className="w-7 h-7 rounded bg-amber-200 border border-black flex items-center justify-center shrink-0">
+                              <Percent className="w-3.5 h-3.5 text-black stroke-[2.5]" />
                             </div>
                             <div>
-                              <span className="text-[11px] font-black text-amber-950 dark:text-amber-200 uppercase tracking-tight block">
+                              <span className="text-[11px] font-black text-black uppercase tracking-tight block">
                                 Juros / Acréscimos desta Linha (Opcional)
                               </span>
-                              <span className="text-[10px] text-amber-800/80 dark:text-amber-400/90 font-medium">
+                              <span className="text-[10px] text-slate-700 font-medium">
                                 Incorpora no valor parcelado sem afetar a distribuição do saldo base do serviço
                               </span>
                             </div>
@@ -1611,11 +1640,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           <div className="flex items-center gap-3">
                             {/* Juros em R$ */}
                             <div className="w-32">
-                              <label className="block text-[9px] font-bold text-zinc-600 dark:text-stone-400 uppercase mb-0.5">
+                              <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
                                 Juros (R$)
                               </label>
                               <div className="relative">
-                                <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-[10px] font-bold text-zinc-400 pointer-events-none">
+                                <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-[10px] font-bold text-slate-600 pointer-events-none">
                                   R$
                                 </span>
                                 <input
@@ -1625,14 +1654,14 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                   onChange={(e) => handleInterestAmountMaskChange(line.id, e.target.value)}
                                   onFocus={(e) => e.target.select()}
                                   placeholder="0,00"
-                                  className="w-full pl-7 pr-2 py-1 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-md text-xs font-black text-amber-950 dark:text-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  className="w-full pl-7 pr-2 py-1 bg-white border border-black rounded-md text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black"
                                 />
                               </div>
                             </div>
 
                             {/* Juros em % */}
                             <div className="w-28">
-                              <label className="block text-[9px] font-bold text-zinc-600 dark:text-stone-400 uppercase mb-0.5">
+                              <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
                                 Juros (%)
                               </label>
                               <div className="relative">
@@ -1643,9 +1672,9 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                   value={line.interestPercentage === undefined ? '' : line.interestPercentage}
                                   onChange={(e) => handleInterestPercentChange(line.id, e.target.value)}
                                   placeholder="0,00"
-                                  className="w-full pl-2.5 pr-6 py-1 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-md text-xs font-black text-amber-950 dark:text-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  className="w-full pl-2.5 pr-6 py-1 bg-white border border-black rounded-md text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black"
                                 />
-                                <span className="absolute inset-y-0 right-0 pr-2 flex items-center text-[10px] font-bold text-zinc-400 pointer-events-none">
+                                <span className="absolute inset-y-0 right-0 pr-2 flex items-center text-[10px] font-bold text-slate-600 pointer-events-none">
                                   %
                                 </span>
                               </div>
@@ -1653,11 +1682,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
                             {/* Resumo visual do Total Corrigido se houver juros */}
                             {lineInterestAmount > 0 && (
-                              <div className="shrink-0 text-right pl-2 hidden sm:block border-l border-amber-200 dark:border-amber-800/60">
-                                <span className="text-[9px] font-bold text-amber-900 dark:text-amber-300 uppercase block">
+                              <div className="shrink-0 text-right pl-2 hidden sm:block border-l border-black">
+                                <span className="text-[9px] font-bold text-black uppercase block">
                                   Novo Total da Linha:
                                 </span>
-                                <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                                <span className="text-xs font-black text-emerald-800">
                                   {formatCurrencyBRL(lineTotalWithInterest)}
                                 </span>
                               </div>
@@ -1668,15 +1697,15 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                         {/* 2. CONDIÇÃO DE PARCELAMENTO */}
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                           <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                            <span className="text-[11px] font-bold text-zinc-800 dark:text-stone-200 uppercase">
+                            <Layers className="w-4 h-4 text-blue-700" />
+                            <span className="text-[11px] font-bold text-black uppercase">
                               Condição de Parcelamento:
                             </span>
                           </div>
 
                           {/* Seletor de Parcelas */}
                           <div className="flex items-center gap-2">
-                            <label className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase">
+                            <label className="text-[10px] font-bold text-black uppercase">
                               Nº Parcelas:
                             </label>
                             <select
@@ -1684,7 +1713,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                               onChange={(e) =>
                                 handleUpdateLine(line.id, 'installmentsCount', Number(e.target.value))
                               }
-                              className="px-2.5 py-1 bg-white dark:bg-stone-700 border border-slate-300 dark:border-stone-600 rounded-md text-xs font-bold text-zinc-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer uppercase"
+                              className="px-2.5 py-1 bg-white border border-black rounded-md text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black cursor-pointer uppercase"
                             >
                               <option value={1}>1x (À Vista)</option>
                               {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24].map((n) => (
@@ -1698,7 +1727,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           {/* Intervalo de Dias */}
                           {line.installmentsCount > 1 && (
                             <div className="flex items-center gap-2">
-                              <label className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase">
+                              <label className="text-[10px] font-bold text-black uppercase">
                                 Intervalo:
                               </label>
                               <select
@@ -1710,7 +1739,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                     Number(e.target.value)
                                   )
                                 }
-                                className="px-2.5 py-1 bg-white dark:bg-stone-700 border border-slate-300 dark:border-stone-600 rounded-md text-xs font-bold text-zinc-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer uppercase"
+                                className="px-2.5 py-1 bg-white border border-black rounded-md text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black cursor-pointer uppercase"
                               >
                                 <option value={15}>15 em 15 dias</option>
                                 <option value={30}>30 dias (Mensal)</option>
@@ -1731,19 +1760,19 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                               {breakdown.map((itemBreakdown) => (
                                 <div
                                   key={itemBreakdown.number}
-                                  className="flex items-center gap-2 px-2.5 py-1 bg-white dark:bg-stone-700 border border-slate-200 dark:border-stone-600 rounded-md text-[11px] font-semibold shadow-2xs"
+                                  className="flex items-center gap-2 px-2.5 py-1 bg-white border border-black rounded-md text-[11px] font-semibold shadow-2xs"
                                 >
-                                  <span className="font-bold text-blue-700 dark:text-blue-300">
+                                  <span className="font-bold text-blue-800">
                                     {itemBreakdown.number}/{itemBreakdown.total}:
                                   </span>
-                                  <span className="font-black text-zinc-900 dark:text-white">
+                                  <span className="font-black text-black">
                                     {formatCurrencyBRL(itemBreakdown.amount)}
                                   </span>
-                                  <span className="text-zinc-500 dark:text-stone-400 text-[10px]">
+                                  <span className="text-slate-700 text-[10px]">
                                     ({formatDateBR(itemBreakdown.dueDate)})
                                   </span>
                                   {lineInterestAmount > 0 && (
-                                    <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-1 rounded">
+                                    <span className="text-[9px] font-bold text-amber-800 bg-amber-50 border border-black px-1 rounded">
                                       +juros
                                     </span>
                                   )}
@@ -1758,8 +1787,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                     {/* GRADE DINÂMICA DE MÚLTIPLAS FOLHAS DE CHEQUE BASEADA NA QUANTIDADE DE PARCELAS (OU SOMENTE LEITURA SE TRAVADO) */}
                     {isChequeLine && (
                       isChequeRestricted && preloadedCheque ? (
-                        <div className="mt-3 p-3.5 bg-slate-50 dark:bg-stone-850/90 border border-slate-300 dark:border-stone-700 rounded-xl space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-700 pb-2">
+                        <div className="mt-3 p-3.5 bg-[#cad4e6] border border-black rounded-xl space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black pb-2">
                             <div className="flex items-center space-x-2">
                               <div className="p-1.5 rounded-lg bg-slate-800 text-white shadow-2xs">
                                 <Lock className="w-4 h-4" />
@@ -1778,38 +1807,38 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                             </span>
                           </div>
 
-                          <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div className="bg-white border border-black rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                             <div>
-                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Banco Emissor</span>
-                              <span className="font-bold text-slate-900 dark:text-white">{preloadedCheque.banco || '---'}</span>
+                              <span className="block text-[10px] font-bold text-slate-600 uppercase">Banco Emissor</span>
+                              <span className="font-bold text-black">{preloadedCheque.banco || '---'}</span>
                             </div>
                             <div>
-                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Nº do Cheque</span>
-                              <span className="font-mono font-black text-slate-900 dark:text-white">
+                              <span className="block text-[10px] font-bold text-slate-600 uppercase">Nº do Cheque</span>
+                              <span className="font-mono font-black text-black">
                                 {preloadedCheque.numero_cheque || preloadedCheque.numeroCheque || '---'}
                               </span>
                             </div>
                             <div>
-                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Bom Para (Vencimento)</span>
-                              <span className="font-bold text-slate-900 dark:text-white">
+                              <span className="block text-[10px] font-bold text-slate-600 uppercase">Bom Para (Vencimento)</span>
+                              <span className="font-bold text-black">
                                 {formatDateBR(preloadedCheque.data_vencimento || (preloadedCheque as any).dataVencimento || '')}
                               </span>
                             </div>
                             <div>
-                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Emitente</span>
-                              <span className="font-semibold text-slate-900 dark:text-white">
+                              <span className="block text-[10px] font-bold text-slate-600 uppercase">Emitente</span>
+                              <span className="font-semibold text-black">
                                 {preloadedCheque.emitente_nome || preloadedCheque.emitenteNome || clientName}
                               </span>
                             </div>
                             <div>
-                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">CPF / CNPJ do Emitente</span>
-                              <span className="font-mono text-slate-800 dark:text-stone-200">
+                              <span className="block text-[10px] font-bold text-slate-600 uppercase">CPF / CNPJ do Emitente</span>
+                              <span className="font-mono text-black">
                                 {preloadedCheque.emitente_documento || preloadedCheque.emitenteDocumento || 'Não informado'}
                               </span>
                             </div>
                             <div>
-                              <span className="block text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase">Valor de Face</span>
-                              <span className="font-black text-emerald-700 dark:text-emerald-400">
+                              <span className="block text-[10px] font-bold text-slate-600 uppercase">Valor de Face</span>
+                              <span className="font-black text-emerald-800">
                                 {formatCurrencyBRL(Number(preloadedCheque.valor) || totalAmount)}
                               </span>
                             </div>
@@ -1817,14 +1846,14 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
                           {(preloadedCheque.imagem_url || (preloadedCheque as any).imagemUrl) && (
                             <div className="flex items-center justify-between pt-1">
-                              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                              <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 Imagem física da folha anexada na custódia
                               </span>
                               <button
                                 type="button"
                                 onClick={() => setZoomImageUrl(preloadedCheque.imagem_url || (preloadedCheque as any).imagemUrl || '')}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-xs font-bold transition cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white hover:bg-sky-50 text-black border border-black text-xs font-bold transition cursor-pointer"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>Visualizar Folha do Cheque</span>
@@ -1833,22 +1862,22 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                           )}
                         </div>
                       ) : (
-                      <div className="mt-3 p-3.5 bg-sky-50/70 dark:bg-stone-850/80 border border-sky-300 dark:border-stone-700 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between border-b border-sky-200 dark:border-stone-700 pb-2">
+                      <div className="mt-3 p-3.5 bg-[#cad4e6] border border-black rounded-xl space-y-3">
+                        <div className="flex items-center justify-between border-b border-black pb-2">
                           <div className="flex items-center space-x-2">
                             <div className="p-1.5 rounded-lg bg-sky-700 text-white shadow-2xs">
                               <FileText className="w-4 h-4" />
                             </div>
                             <div>
-                              <span className="text-xs font-black uppercase tracking-wider text-sky-950 dark:text-stone-100 block">
+                              <span className="text-xs font-black uppercase tracking-wider text-black block">
                                 Metadados das Folhas de Cheque ({line.cheques?.length || 1} {line.cheques && line.cheques.length > 1 ? 'folhas' : 'folha'})
                               </span>
-                              <span className="text-[10px] text-slate-600 dark:text-stone-400">
+                              <span className="text-[10px] text-slate-800 font-medium">
                                 Preencha os dados dos cheques para custódia e controle financeiro
                               </span>
                             </div>
                           </div>
-                          <span className="text-[10px] font-bold text-sky-800 dark:text-sky-300 bg-sky-100 dark:bg-stone-800 border border-sky-200 dark:border-stone-700 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold text-black bg-white border border-black px-2 py-0.5 rounded-full">
                             Status Inicial: Em Carteira / Custódia
                           </span>
                         </div>
@@ -1856,12 +1885,12 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                         {/* Grade de Folhas de Cheque */}
                         <div className="space-y-3">
                           {line.cheques?.map((chq, chqIdx) => (
-                            <div key={chq.id || chqIdx} className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2.5">
-                              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-stone-300 border-b border-slate-100 dark:border-stone-800 pb-1.5">
-                                <span className="text-sky-900 dark:text-sky-400 font-black uppercase">
+                            <div key={chq.id || chqIdx} className="bg-white border border-black rounded-xl p-3 shadow-2xs space-y-2.5">
+                              <div className="flex items-center justify-between text-xs font-bold text-black border-b border-black/20 pb-1.5">
+                                <span className="text-black font-black uppercase">
                                   Folha {chqIdx + 1}/{line.cheques?.length || 1} • Parcela {chqIdx + 1}
                                 </span>
-                                <span className="font-mono text-emerald-700 dark:text-emerald-400 font-black">
+                                <span className="font-mono text-emerald-800 font-black">
                                   Valor de Face: {formatCurrencyBRL(chq.valor)}
                                 </span>
                               </div>
@@ -1869,13 +1898,13 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                 {/* Banco */}
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase mb-0.5">
+                                  <label className="block text-[10px] font-bold text-black uppercase mb-0.5">
                                     Banco <span className="text-rose-600">*</span>
                                   </label>
                                   <select
                                     value={chq.banco}
                                     onChange={(e) => handleUpdateCheque(line.id, chqIdx, 'banco', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                                    className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
                                   >
                                     {BRAZILIAN_BANKS.map((b) => (
                                       <option key={b.code} value={b.displayName}>
@@ -1887,7 +1916,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
                                 {/* Número do Cheque */}
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase mb-0.5">
+                                  <label className="block text-[10px] font-bold text-black uppercase mb-0.5">
                                     Nº do Cheque <span className="text-rose-600">*</span>
                                   </label>
                                   <input
@@ -1895,20 +1924,20 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                     value={chq.numero}
                                     onChange={(e) => handleUpdateCheque(line.id, chqIdx, 'numero', e.target.value)}
                                     placeholder="Ex: 001245"
-                                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-mono font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                                   />
                                 </div>
 
                                 {/* Vencimento / Bom Para */}
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase mb-0.5">
+                                  <label className="block text-[10px] font-bold text-black uppercase mb-0.5">
                                     Bom Para (Vencimento) <span className="text-rose-600">*</span>
                                   </label>
                                   <input
                                     type="date"
                                     value={chq.dataVencimento}
                                     onChange={(e) => handleUpdateCheque(line.id, chqIdx, 'dataVencimento', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                                   />
                                 </div>
                               </div>
@@ -1916,7 +1945,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 {/* Nome do Emitente */}
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase mb-0.5">
+                                  <label className="block text-[10px] font-bold text-black uppercase mb-0.5">
                                     Nome do Emitente <span className="text-rose-600">*</span>
                                   </label>
                                   <input
@@ -1924,13 +1953,13 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                     value={chq.emitenteNome}
                                     onChange={(e) => handleUpdateCheque(line.id, chqIdx, 'emitenteNome', e.target.value)}
                                     placeholder="Nome impresso ou correntista"
-                                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                                   />
                                 </div>
 
                                 {/* CPF / CNPJ do Emitente */}
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase mb-0.5">
+                                  <label className="block text-[10px] font-bold text-black uppercase mb-0.5">
                                     CPF / CNPJ do Emitente
                                   </label>
                                   <input
@@ -1938,7 +1967,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                     value={chq.emitenteDoc}
                                     onChange={(e) => handleUpdateCheque(line.id, chqIdx, 'emitenteDoc', e.target.value)}
                                     placeholder="000.000.000-00"
-                                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    className="w-full px-2.5 py-1.5 bg-white border border-black rounded-lg text-xs font-mono text-black focus:outline-none focus:ring-1 focus:ring-black"
                                   />
                                 </div>
                               </div>
@@ -1946,7 +1975,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                               {/* Foto do Cheque (Upload / Câmera) */}
                               <div className="pt-1 flex items-center justify-between text-xs">
                                 <div className="flex items-center gap-2">
-                                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-stone-600 bg-slate-50 dark:bg-stone-800 text-slate-700 dark:text-stone-200 text-[11px] font-bold cursor-pointer hover:bg-slate-100 dark:hover:bg-stone-750 transition">
+                                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-black bg-[#e0e6f1] text-black text-[11px] font-bold cursor-pointer hover:bg-[#cad4e6] transition">
                                     <Camera className="w-3.5 h-3.5 text-sky-600" />
                                     <span>Foto do Cheque</span>
                                     <input
@@ -2078,7 +2107,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
       {/* MODAL ZOOM DE FOTO DE CHEQUE */}
       {zoomImageUrl && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in">
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-none animate-in fade-in"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
+        >
           <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl text-black">
             <div className="flex items-center justify-between px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0">
               <div className="flex items-center space-x-2">
@@ -2117,19 +2149,22 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
       {/* MODAL DE AUTORIZAÇÃO ADMINISTRATIVA PARA DESTRAVAMENTO DE CHEQUE */}
       {showUnlockPasswordModal && (
-        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-[2px]">
-          <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-none"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
+        >
+          <div className="w-full max-w-md bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black animate-in fade-in zoom-in-95 duration-150">
             {/* Cabeçalho */}
-            <div className="px-4 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white flex items-center justify-between">
+            <div className="px-4 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="p-1.5 rounded-lg bg-black/20 text-white">
+                <div className="p-1.5 rounded-lg bg-[#e0e6f1] border border-black text-black">
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-black">
                     Autorização Administrativa
                   </h3>
-                  <p className="text-[10px] text-amber-100 font-medium">
+                  <p className="text-[10px] text-slate-800 font-medium">
                     Destravar forma de recebimento deste cheque
                   </p>
                 </div>
@@ -2141,33 +2176,33 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                   setUnlockPasswordInput('');
                   setUnlockPasswordError('');
                 }}
-                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-black/10 transition cursor-pointer"
+                className="p-1 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Formulário de Senha */}
-            <form onSubmit={handleConfirmUnlock} className="p-4 space-y-3.5">
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 space-y-1">
+            <form onSubmit={handleConfirmUnlock} className="p-4 space-y-3.5 bg-[#cad4e6]">
+              <div className="p-2.5 rounded-xl bg-[#e0e6f1] border border-black text-[11px] text-black space-y-1">
                 <p className="font-semibold">
                   Digite a Senha do Administrador para alterar a forma de recebimento deste cheque:
                 </p>
-                <div className="text-[10px] text-slate-600 dark:text-stone-300 pt-1 border-t border-amber-200/60 dark:border-amber-800/60 flex items-center justify-between">
+                <div className="text-[10px] text-black pt-1 border-t border-black/30 flex items-center justify-between">
                   <span>Cheque: <strong>{preloadedCheque?.numero_cheque || preloadedCheque?.numeroCheque || (activeRecord as any)?.chequeNumero || 'Folha Vinculada'}</strong></span>
-                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{formatCurrencyBRL(preloadedCheque?.valor || totalAmount)}</span>
+                  <span className="font-mono font-bold text-emerald-800">{formatCurrencyBRL(preloadedCheque?.valor || totalAmount)}</span>
                 </div>
               </div>
 
               {unlockPasswordError && (
-                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2">
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-black text-rose-800 text-xs font-bold flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>{unlockPasswordError}</span>
                 </div>
               )}
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-stone-300 mb-1">
+              <div className="p-3 rounded-xl bg-[#e0e6f1] border border-black">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                   Senha do Administrador <span className="text-rose-600">*</span>
                 </label>
                 <div className="relative">
@@ -2180,15 +2215,15 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                       setUnlockPasswordInput(e.target.value);
                       if (unlockPasswordError) setUnlockPasswordError('');
                     }}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-800 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-3 py-2 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-stone-400 mt-1">
+                <p className="text-[10px] text-slate-800 mt-1 font-medium">
                   Ao destravar, o cheque será retirado da custódia e você poderá selecionar PIX, Dinheiro, TED ou outra forma.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-stone-800">
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-black">
                 <button
                   type="button"
                   onClick={() => {
@@ -2196,13 +2231,13 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                     setUnlockPasswordInput('');
                     setUnlockPasswordError('');
                   }}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 text-xs font-black text-white bg-amber-600 hover:bg-amber-700 active:scale-95 rounded-xl transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-black text-white bg-amber-600 hover:bg-amber-700 border border-black active:scale-95 rounded-lg transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
                 >
                   <Unlock className="w-3.5 h-3.5" />
                   <span>Confirmar e Destravar</span>
@@ -2212,6 +2247,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           </div>
         </div>
       )}
+
+      <PaymentMethodsManagerModal
+        isOpen={isPaymentMethodsManagerOpen}
+        onClose={() => setIsPaymentMethodsManagerOpen(false)}
+      />
     </div>
   );
 };

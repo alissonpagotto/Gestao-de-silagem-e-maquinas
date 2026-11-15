@@ -21,6 +21,7 @@ import {
   Coins,
   FileText,
   AlertCircle,
+  Settings,
 } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
@@ -30,6 +31,12 @@ import { formatCorporateCardDisplay, syncExpenseWithCardsAndBank } from '../../l
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
+import {
+  useGlobalPaymentMethods,
+  getPaymentMethodKey,
+  getGlobalPaymentMethodLabel,
+} from '../../lib/paymentMethodsStorage';
+import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -186,6 +193,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('assinado_nota');
   const [bankAccountId, setBankAccountId] = useState<string>(() => priorityBankAccountId);
   const [corporateCardId, setCorporateCardId] = useState<string>('');
+  const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
+  const { activeMethods: activeGlobalPaymentMethods } = useGlobalPaymentMethods();
 
   const selectedAccount = useMemo(() => {
     return effectiveBankAccounts.find((a) => a.id === bankAccountId);
@@ -1342,7 +1351,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div id="modal-nova-despesa" className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+      <div id="modal-nova-despesa" className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
         <div
           className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
@@ -2018,25 +2027,40 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div className="col-span-4">
-              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
-                FORMA DE PAGAMENTO
-              </label>
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
+                  FORMA DE PAGAMENTO
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentMethodsManagerOpen(true)}
+                  title="Gerenciar Formas de Pagamento"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-white hover:bg-slate-100 border border-black text-[9px] font-black text-black uppercase cursor-pointer"
+                >
+                  <Settings className="w-2.5 h-2.5" />
+                  <span>Gerenciar</span>
+                </button>
+              </div>
               <div className="relative">
                 <select
                   value={paymentMethod}
                   onChange={(e) => handlePaymentMethodChange(e.target.value as PaymentMethod)}
                   className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 uppercase cursor-pointer"
                 >
-                  <option value="assinado_nota">ASSINADO NOTA</option>
-                  <option value="boleto">BOLETO BANCÁRIO</option>
-                  <option value="pix">PIX</option>
-                  <option value="dinheiro">DINHEIRO EM ESPÉCIE</option>
-                  <option value="cartao_credito">CARTÃO DE CRÉDITO</option>
-                  <option value="cartao_debito">CARTÃO DE DÉBITO</option>
-                  <option value="transferencia">TRANSFERÊNCIA BANCÁRIA (TED/DOC)</option>
-                  <option value="cheque">CHEQUE</option>
-                  <option value="prazo_carteira">A PRAZO (CARTEIRA)</option>
-                  <option value="safra_prazo">SAFRA A PRAZO</option>
+                  {activeGlobalPaymentMethods.map((m) => {
+                    const key = getPaymentMethodKey(m);
+                    return (
+                      <option key={m.id} value={key}>
+                        {m.nome}
+                      </option>
+                    );
+                  })}
+                  {paymentMethod &&
+                    !activeGlobalPaymentMethods.some((m) => getPaymentMethodKey(m) === paymentMethod) && (
+                      <option value={paymentMethod}>
+                        {getGlobalPaymentMethodLabel(paymentMethod)}
+                      </option>
+                    )}
                 </select>
                 <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -2691,6 +2715,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         }}
       />
     )}
+
+    <PaymentMethodsManagerModal
+      isOpen={isPaymentMethodsManagerOpen}
+      onClose={() => setIsPaymentMethodsManagerOpen(false)}
+    />
   </>
   );
 };
