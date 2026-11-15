@@ -29,6 +29,10 @@ import {
 import { Subscriber } from './types/masterAdmin';
 import { getStoredSubscribers } from './lib/masterAdminStorage';
 import { executeGlobalStorageAudit } from './lib/globalStorageAudit';
+import {
+  PENDING_NFSE_PREFILL_STORAGE_KEY,
+  OPEN_NFSE_FROM_SERVICE_EVENT,
+} from './utils/nfsePrefill';
 import { 
   getStoredExpenses, 
   saveStoredExpenses,
@@ -3894,9 +3898,17 @@ export default function App() {
               machineries={machineries}
               employees={employees}
               clients={clients}
+              inventory={inventory}
               companyProfile={companyProfile}
               onSaveServices={setServices}
               onSaveClients={setClients}
+              onEmitirNfseFromService={(payload) => {
+                try {
+                  sessionStorage.setItem(PENDING_NFSE_PREFILL_STORAGE_KEY, JSON.stringify(payload));
+                } catch {}
+                setActiveTab('fiscal');
+                window.dispatchEvent(new CustomEvent(OPEN_NFSE_FROM_SERVICE_EVENT));
+              }}
             />
           )}
 

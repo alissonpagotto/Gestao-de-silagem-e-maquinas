@@ -22,13 +22,14 @@ import {
   Receipt,
   Send
 } from 'lucide-react';
-import { ServiceOrder, Machinery, Employee, Client, CompanyProfile, ServiceAppointment } from '../../types';
+import { ServiceOrder, Machinery, Employee, Client, CompanyProfile, ServiceAppointment, InventoryItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal, ServiceTabType } from './ServiceFormModal';
 import { ServiceAgendaModule } from './ServiceAgendaModule';
 import { FieldFormsView } from './FieldFormsView';
 import { BillingModule } from './BillingModule';
+import { PendingNfseFromServicePayload } from '../../utils/nfsePrefill';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
@@ -92,9 +93,11 @@ interface ServicesModuleProps {
   machineries?: Machinery[];
   employees?: Employee[];
   clients?: Client[];
+  inventory?: InventoryItem[];
   companyProfile?: CompanyProfile;
   onSaveServices?: (services: ServiceOrder[]) => void;
   onSaveClients?: (clients: Client[]) => void;
+  onEmitirNfseFromService?: (payload: PendingNfseFromServicePayload) => void;
 }
 
 export const ServicesModule: React.FC<ServicesModuleProps> = ({
@@ -102,9 +105,11 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   machineries = [],
   employees = [],
   clients = [],
+  inventory = [],
   companyProfile,
   onSaveServices,
   onSaveClients,
+  onEmitirNfseFromService,
 }) => {
   const { confirm } = useConfirm();
 
@@ -802,6 +807,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                 setEditRecord(service);
                 setIsModalOpen(true);
               }}
+              onEmitirNfseFromService={onEmitirNfseFromService}
               competence={servicesCompetence}
               onPrevCompetence={handlePrevCompetence}
               onNextCompetence={handleNextCompetence}
@@ -1106,6 +1112,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         clients={clients}
         machineries={machineries}
         employees={employees}
+        inventory={inventory}
         companyProfile={companyProfile}
         nextNumber={`#${String(services.length + 1).padStart(3, '0')}`}
         editRecord={editRecord}

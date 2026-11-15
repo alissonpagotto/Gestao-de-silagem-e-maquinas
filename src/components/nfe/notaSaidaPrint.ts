@@ -1194,7 +1194,30 @@ export function buildNotaSaidaHtml(
 
   const fretePorContaLabel = nota.nfeModalidadeFrete || '9 - SEM OCORRÊNCIA DE TRANSPORTE';
   const transpPlaca = nota.nfeTransportadoraPlaca || nota.veiculoPlaca || '';
-  const transpNome = nota.nfeTransportadoraNome || (transpPlaca ? 'TRANSPORTE PRÓPRIO / FROTA' : 'SEM TRANSPORTADOR INFORMADO');
+  const isPropriaTransp =
+    Boolean(nota.nfeTransportadoraIsPropriaEmpresa) ||
+    (Boolean(nota.nfeTransportadoraNome) &&
+      (nota.nfeTransportadoraNome.trim().toUpperCase() === corporateName.trim().toUpperCase() ||
+        nota.nfeTransportadoraNome.trim().toUpperCase() === tradeName.trim().toUpperCase()));
+  const companyFullEndereco = [companyStreet, companyNeighborhood].filter(Boolean).join(' - ').toUpperCase();
+  const transpNome =
+    nota.nfeTransportadoraNome ||
+    (isPropriaTransp ? corporateName.toUpperCase() : transpPlaca ? 'TRANSPORTE PRÓPRIO / FROTA' : 'SEM TRANSPORTADOR INFORMADO');
+  const transpCnpjCpf = nota.nfeTransportadoraCpfCnpj
+    ? formatCpfCnpj(nota.nfeTransportadoraCpfCnpj)
+    : isPropriaTransp
+      ? companyCnpj
+      : '-';
+  const transpIe = nota.nfeTransportadoraIe || (isPropriaTransp ? companyIe : '-');
+  const transpEndereco = nota.nfeTransportadoraEndereco || (isPropriaTransp && companyFullEndereco ? companyFullEndereco : '-');
+  const transpMunicipio =
+    nota.nfeTransportadoraMunicipio || (isPropriaTransp && companyProfile?.city ? companyProfile.city.toUpperCase() : '-');
+  const transpUf =
+    nota.nfeTransportadoraUf || (isPropriaTransp && companyProfile?.state ? companyProfile.state.toUpperCase() : '-');
+  const transpVeiculoUf =
+    nota.nfeTransportadoraVeiculoUf ||
+    nota.nfeTransportadoraUf ||
+    (transpPlaca && isPropriaTransp ? (companyProfile?.state || destUf || '-').toUpperCase() : transpPlaca ? (destUf || companyProfile?.state || '-').toUpperCase() : '-');
 
   // =====================================================================
   // QUADROS ESPECÍFICOS POR TIPO DE DOCUMENTO (SEFAZ OFICIAL — TOPO / MIOLO / RODAPÉ)
@@ -1510,17 +1533,17 @@ export function buildNotaSaidaHtml(
           <td><span class="lbl">FRETE POR CONTA</span><span class="val">${escapeHtml(fretePorContaLabel)}</span></td>
           <td><span class="lbl">CÓDIGO ANTT</span><span class="val">-</span></td>
           <td><span class="lbl">PLACA DO VEÍCULO</span><span class="val mono">${escapeHtml(transpPlaca || '-')}</span></td>
-          <td><span class="lbl">UF</span><span class="val tc">${escapeHtml(companyProfile?.state || destUf || '-')}</span></td>
-          <td><span class="lbl">CNPJ / CPF</span><span class="val mono">-</span></td>
+          <td><span class="lbl">UF</span><span class="val tc">${escapeHtml(transpVeiculoUf)}</span></td>
+          <td><span class="lbl">CNPJ / CPF</span><span class="val mono">${escapeHtml(transpCnpjCpf)}</span></td>
         </tr>
       </table>
       <table class="sefaz-box-table no-top">
         <colgroup><col style="width:28%" /><col style="width:18%" /><col style="width:6%" /><col style="width:14%" /><col style="width:8%" /><col style="width:10%" /><col style="width:8%" /><col style="width:8%" /></colgroup>
         <tr>
-          <td><span class="lbl">ENDEREÇO</span><span class="val">-</span></td>
-          <td><span class="lbl">MUNICÍPIO</span><span class="val">${escapeHtml(companyProfile?.city || '-')}</span></td>
-          <td><span class="lbl">UF</span><span class="val tc">${escapeHtml(companyProfile?.state || '-')}</span></td>
-          <td><span class="lbl">INSCRIÇÃO ESTADUAL</span><span class="val">-</span></td>
+          <td><span class="lbl">ENDEREÇO</span><span class="val">${escapeHtml(transpEndereco)}</span></td>
+          <td><span class="lbl">MUNICÍPIO</span><span class="val">${escapeHtml(transpMunicipio)}</span></td>
+          <td><span class="lbl">UF</span><span class="val tc">${escapeHtml(transpUf)}</span></td>
+          <td><span class="lbl">INSCRIÇÃO ESTADUAL</span><span class="val">${escapeHtml(transpIe)}</span></td>
           <td><span class="lbl">QUANTIDADE</span><span class="val tc">${itemsList.length || 1}</span></td>
           <td><span class="lbl">ESPÉCIE</span><span class="val tc">VOLUMES</span></td>
           <td><span class="lbl">PESO BRUTO</span><span class="val tr">-</span></td>

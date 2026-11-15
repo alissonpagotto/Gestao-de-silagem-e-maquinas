@@ -25,6 +25,10 @@ import { formatCurrencyBRL, formatDateBR, getStoredBankAccounts } from '../../li
 import { useConfirm } from '../../context/ConfirmContext';
 import { BillingPaymentModal, getPaymentMethodLabel } from './BillingPaymentModal';
 import {
+  PendingNfseFromServicePayload,
+  buildPendingNfsePayloadFromBilling,
+} from '../../utils/nfsePrefill';
+import {
   CompetenceSelector,
   getCurrentCompetence,
   getPrevCompetence,
@@ -66,6 +70,7 @@ interface BillingModuleProps {
   companyProfile?: CompanyProfile;
   onSaveServices: (updated: ServiceOrder[]) => void;
   onOpenServiceModal: (service: ServiceOrder) => void;
+  onEmitirNfseFromService?: (payload: PendingNfseFromServicePayload) => void;
   competence?: string;
   onPrevCompetence?: () => void;
   onNextCompetence?: () => void;
@@ -76,6 +81,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
   companyProfile,
   onSaveServices,
   onOpenServiceModal,
+  onEmitirNfseFromService,
   competence,
   onPrevCompetence,
   onNextCompetence,
@@ -102,6 +108,10 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
   // Modal Avançado de Condições Comerciais e Definição de Recebimento
   const [billingPaymentService, setBillingPaymentService] = useState<ServiceOrder | null>(null);
+  const [postBillingNfseContext, setPostBillingNfseContext] = useState<{
+    originalService: ServiceOrder;
+    splitOrders: ServiceOrder[];
+  } | null>(null);
 
   // Sincronização reativa de contas bancárias cadastradas
   const [storedBankAccounts, setStoredBankAccounts] = useState<BankAccount[]>(() => {
@@ -322,6 +332,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
   const handleConfirmBillingPayment = (splitOrders: ServiceOrder[]) => {
     if (!splitOrders || splitOrders.length === 0) return;
     const targetParentId = splitOrders[0].parentOrderId || splitOrders[0].id;
+    const originalServiceSnapshot = billingPaymentService || splitOrders[0];
 
     const updated = services.flatMap((s) => {
       if (s.id === targetParentId) {
@@ -340,6 +351,13 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       );
     } else {
       showToast(`✓ Serviço #${orderNum} faturado com sucesso e lançado no Contas a Receber!`);
+    }
+
+    if (onEmitirNfseFromService && originalServiceSnapshot) {
+      setPostBillingNfseContext({
+        originalService: originalServiceSnapshot,
+        splitOrders,
+      });
     }
   };
 
@@ -991,6 +1009,100 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
         onClose={() => setBillingPaymentService(null)}
         onConfirm={handleConfirmBillingPayment}
       />
+
+      {/* ========================================================
+          6. DIÁLOGO INTELIGENTE PÓS-FATURAMENTO (EMITIR NFS-E AGORA?)
+          ======================================================== */}
+      {postBillingNfseContext && (
+        <div
+          id="modal-pos-faturamento-nfse"
+          className="fixed inset-0 z-[10050] flex items-center justify-center p-4 bg-black/55 backdrop-blur-none"
+        >
+          <div className="w-full max-w-lg bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100 animate-fade-in">
+            <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base leading-none shrink-0" aria-hidden="true">✅</span>
+                <h3 className="text-xs sm:text-[13px] font-black uppercase tracking-wide text-black dark:text-stone-100 leading-snug">
+                  SERVIÇO FATURADO COM SUCESSO! COMO DESEJA PROSSEGUIR?
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPostBillingNfseContext(null)}
+                className="p-1 text-black dark:text-stone-300 hover:bg-[#e0e6f1] dark:hover:bg-stone-800 border border-transparent hover:border-black rounded-lg cursor-pointer shrink-0"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-[#cad4e6] dark:bg-stone-900 space-y-3">
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-2.5">
+                <p className="text-xs font-semibold text-slate-900 dark:text-stone-200 leading-relaxed">
+                  O título financeiro já foi gerado. Deseja emitir agora a{' '}
+                  <strong className="font-black text-black dark:text-white">
+                    Nota Fiscal de Serviço (NFS-e)
+                  </strong>{' '}
+                  para este cliente?
+                </p>
+
+                {(() => {
+                  const preview = buildPendingNfsePayloadFromBilling(
+                    postBillingNfseContext.originalService,
+                    postBillingNfseContext.splitOrders
+                  );
+                  return (
+                    <div className="bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg px-3 py-2 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-black uppercase text-black dark:text-stone-100 truncate">
+                          {preview.clientName || 'CLIENTE NÃO INFORMADO'}
+                        </span>
+                        <span className="font-mono font-bold text-slate-600 dark:text-stone-400 shrink-0">
+                          OS {preview.orderNumber}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200 dark:border-stone-700">
+                        <span className="font-bold uppercase text-slate-700 dark:text-stone-300 truncate">
+                          {preview.serviceType} • {preview.condicaoPagamento.toUpperCase()}
+                        </span>
+                        <span className="font-mono font-black text-emerald-700 dark:text-emerald-400 shrink-0">
+                          {formatCurrencyBRL(preview.totalAmount)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  id="btn-pos-faturamento-interno"
+                  onClick={() => setPostBillingNfseContext(null)}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-stone-100 border border-black dark:border-stone-600 rounded-lg text-xs font-bold transition cursor-pointer"
+                >
+                  <span>📄 Manter Apenas como Pedido / Interno</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-pos-faturamento-emitir-nfse"
+                  onClick={() => {
+                    const payload = buildPendingNfsePayloadFromBilling(
+                      postBillingNfseContext.originalService,
+                      postBillingNfseContext.splitOrders
+                    );
+                    setPostBillingNfseContext(null);
+                    onEmitirNfseFromService?.(payload);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-900 rounded-lg text-xs font-black uppercase shadow-sm transition cursor-pointer active:scale-95"
+                >
+                  <span>🧾 Emitir NFS-e Agora</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

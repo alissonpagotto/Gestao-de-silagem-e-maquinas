@@ -3021,6 +3021,7 @@ export const DEFAULT_SUPPLIER_CATEGORIES = [
   'Sementes & Insumos',
   'Lonas & Embalagens',
   'Oficinas & Torneamento',
+  'Transportadora / Frete',
   'Alimentação & Refeições',
   'Arrendamento & Áreas',
   'Serviços Terceirizados',

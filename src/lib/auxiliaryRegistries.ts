@@ -17,6 +17,7 @@ export const AUXILIARY_STORAGE_KEYS = {
   RH_REG_TYPES: 'silagem_facil_custom_reg_types_v3',
   RH_ROLES: 'silagem_facil_custom_roles_v3',
   RH_CONTRACT_TYPES: 'silagem_facil_custom_contract_types_v1',
+  PLACAS_TERCEIROS: 'agrocontrol_placas_terceiros',
 } as const;
 
 export const AUXILIARY_EVENTS = {
@@ -35,6 +36,7 @@ export const AUXILIARY_EVENTS = {
   RH_ROLES_UPDATED: 'silagem_roles_updated',
   RH_CONTRACT_TYPES_UPDATED: 'silagem_contract_types_updated',
   PRODUCT_CLASSIFICATION_UPDATED: 'agrocontrol_produto_classificacao_updated',
+  PLACAS_TERCEIROS_UPDATED: 'agrocontrol_placas_terceiros_updated',
 } as const;
 
 export interface KeyLabelAuxItem {
@@ -356,6 +358,132 @@ export const getStoredRhContractTypes = (): string[] =>
   readStringArray(AUXILIARY_STORAGE_KEYS.RH_CONTRACT_TYPES, DEFAULT_RH_CONTRACT_TYPES, false);
 export const saveStoredRhContractTypes = (items: string[]): string[] =>
   saveStringArray(AUXILIARY_STORAGE_KEYS.RH_CONTRACT_TYPES, items, AUXILIARY_EVENTS.RH_CONTRACT_TYPES_UPDATED, false);
+
+// Placas & Veículos de Terceiros (Transportadoras)
+export interface ThirdPartyPlateEntry {
+  id: string;
+  placa: string;
+  uf?: string;
+  transportadoraId?: string;
+  transportadoraNome?: string;
+  modeloVeiculo?: string;
+  motoristaNome?: string;
+  motoristaCpf?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const isTransportSupplierCategory = (category?: string): boolean => {
+  const norm = String(category || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  if (!norm) return false;
+  return norm.includes('transport') || norm.includes('frete');
+};
+
+export const normalizePlateCode = (raw: string): string =>
+  String(raw || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 8);
+
+export const getStoredPlacasTerceiros = (): ThirdPartyPlateEntry[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(AUXILIARY_STORAGE_KEYS.PLACAS_TERCEIROS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Map<string, ThirdPartyPlateEntry>();
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') continue;
+      const placa = normalizePlateCode(item.placa || '');
+      if (!placa) continue;
+      seen.set(placa, {
+        id: String(item.id || `pt_${placa}_${Date.now()}`),
+        placa,
+        uf: item.uf ? String(item.uf).trim().toUpperCase().slice(0, 2) : '',
+        transportadoraId: item.transportadoraId ? String(item.transportadoraId).trim() : '',
+        transportadoraNome: item.transportadoraNome ? String(item.transportadoraNome).trim().toUpperCase() : '',
+        modeloVeiculo: item.modeloVeiculo ? String(item.modeloVeiculo).trim().toUpperCase() : '',
+        motoristaNome: item.motoristaNome ? String(item.motoristaNome).trim().toUpperCase() : '',
+        motoristaCpf: item.motoristaCpf ? String(item.motoristaCpf).trim() : '',
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+    }
+    return Array.from(seen.values()).sort((a, b) => a.placa.localeCompare(b.placa, 'pt-BR'));
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredPlacasTerceiros = (items: ThirdPartyPlateEntry[]): ThirdPartyPlateEntry[] => {
+  const seen = new Map<string, ThirdPartyPlateEntry>();
+  const nowIso = new Date().toISOString();
+  for (const item of items) {
+    const placa = normalizePlateCode(item?.placa || '');
+    if (!placa) continue;
+    seen.set(placa, {
+      id: item.id || `pt_${placa}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      placa,
+      uf: item.uf ? String(item.uf).trim().toUpperCase().slice(0, 2) : '',
+      transportadoraId: item.transportadoraId ? String(item.transportadoraId).trim() : '',
+      transportadoraNome: item.transportadoraNome ? String(item.transportadoraNome).trim().toUpperCase() : '',
+      modeloVeiculo: item.modeloVeiculo ? String(item.modeloVeiculo).trim().toUpperCase() : '',
+      motoristaNome: item.motoristaNome ? String(item.motoristaNome).trim().toUpperCase() : '',
+      motoristaCpf: item.motoristaCpf ? String(item.motoristaCpf).trim() : '',
+      createdAt: item.createdAt || nowIso,
+      updatedAt: item.updatedAt || nowIso,
+    });
+  }
+  const normalized = Array.from(seen.values()).sort((a, b) => a.placa.localeCompare(b.placa, 'pt-BR'));
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(AUXILIARY_STORAGE_KEYS.PLACAS_TERCEIROS, JSON.stringify(normalized));
+      window.dispatchEvent(new CustomEvent(AUXILIARY_EVENTS.PLACAS_TERCEIROS_UPDATED, { detail: normalized }));
+      window.dispatchEvent(new CustomEvent(AUXILIARY_REGISTRIES_UPDATED_EVENT));
+    } catch {
+      // ignore storage quota errors
+    }
+  }
+  return normalized;
+};
+
+export const upsertThirdPartyPlate = (entry: {
+  placa: string;
+  uf?: string;
+  transportadoraId?: string;
+  transportadoraNome?: string;
+  modeloVeiculo?: string;
+  motoristaNome?: string;
+  motoristaCpf?: string;
+}): ThirdPartyPlateEntry[] => {
+  const placa = normalizePlateCode(entry.placa);
+  if (!placa || placa.length < 5) return getStoredPlacasTerceiros();
+  const current = getStoredPlacasTerceiros();
+  const existingIdx = current.findIndex((p) => normalizePlateCode(p.placa) === placa);
+  const nowIso = new Date().toISOString();
+  const nextItem: ThirdPartyPlateEntry = {
+    id: existingIdx >= 0 ? current[existingIdx].id : `pt_${placa}_${Date.now()}`,
+    placa,
+    uf: (entry.uf || current[existingIdx]?.uf || '').trim().toUpperCase().slice(0, 2),
+    transportadoraId: (entry.transportadoraId || current[existingIdx]?.transportadoraId || '').trim(),
+    transportadoraNome: (entry.transportadoraNome || current[existingIdx]?.transportadoraNome || '').trim().toUpperCase(),
+    modeloVeiculo: (entry.modeloVeiculo || current[existingIdx]?.modeloVeiculo || '').trim().toUpperCase(),
+    motoristaNome: (entry.motoristaNome || current[existingIdx]?.motoristaNome || '').trim().toUpperCase(),
+    motoristaCpf: (entry.motoristaCpf || current[existingIdx]?.motoristaCpf || '').trim(),
+    createdAt: existingIdx >= 0 ? current[existingIdx].createdAt || nowIso : nowIso,
+    updatedAt: nowIso,
+  };
+  const updated =
+    existingIdx >= 0
+      ? current.map((p, idx) => (idx === existingIdx ? nextItem : p))
+      : [...current, nextItem];
+  return saveStoredPlacasTerceiros(updated);
+};
 
 /**
  * Hook auxiliar para re-renderizar automaticamente sempre que qualquer lista auxiliar

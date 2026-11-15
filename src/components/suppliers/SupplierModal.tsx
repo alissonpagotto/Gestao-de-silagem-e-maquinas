@@ -25,6 +25,9 @@ import {
   ChevronRight,
   ChevronsRight,
   Save,
+  Truck,
+  Edit3,
+  Check,
 } from 'lucide-react';
 import { Supplier, SupplierFormSubmission, DocumentoEntradaRecord, Expense } from '../../types';
 import {
@@ -55,17 +58,33 @@ import {
   getStoredExpenses,
   getStoredFiscalRecords,
 } from '../../lib/storage';
+import {
+  ThirdPartyPlateEntry,
+  getStoredPlacasTerceiros,
+  saveStoredPlacasTerceiros,
+  normalizePlateCode,
+  isTransportSupplierCategory,
+  useAuxiliarySyncVersion,
+} from '../../lib/auxiliaryRegistries';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ClientOptionsManagerModal } from '../crm/ClientOptionsManagerModal';
 import { printSupplierRegistrationA4 } from './supplierPrintUtils';
 import { ReverseCepModal } from '../common/ReverseCepModal';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
+const BRAZIL_UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
+  'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC',
+  'SP', 'SE', 'TO',
+];
+
 export interface SupplierModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (supplier: Supplier) => void;
   initialName?: string;
+  defaultCategory?: string;
+  initialTab?: 'cadastro' | 'veiculos' | 'historico';
   editingSupplier?: Supplier | null;
   zIndexClass?: string;
   suppliersList?: Supplier[];
@@ -98,16 +117,32 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   onClose,
   onSave,
   initialName = '',
+  defaultCategory = '',
+  initialTab = 'cadastro',
   editingSupplier = null,
   zIndexClass = 'z-[9999]',
   suppliersList,
   onDeleteSupplier,
 }) => {
   const { confirm } = useConfirm();
+  const auxSyncVersion = useAuxiliarySyncVersion();
   const [activeSupplier, setActiveSupplier] = useState<Supplier | null>(editingSupplier || null);
   const [registrationTimestamp, setRegistrationTimestamp] = useState<string>(new Date().toISOString());
-  const [activeTab, setActiveTab] = useState<'cadastro' | 'historico'>('cadastro');
+  const [activeTab, setActiveTab] = useState<'cadastro' | 'veiculos' | 'historico'>('cadastro');
   const [historicoSearch, setHistoricoSearch] = useState('');
+
+  // Veículos / Placas / Motoristas vinculados à transportadora
+  const [allThirdPartyPlates, setAllThirdPartyPlates] = useState<ThirdPartyPlateEntry[]>(() =>
+    getStoredPlacasTerceiros()
+  );
+  const [draftNewPlates, setDraftNewPlates] = useState<ThirdPartyPlateEntry[]>([]);
+  const [plateEditingId, setPlateEditingId] = useState<string | null>(null);
+  const [platePlaca, setPlatePlaca] = useState('');
+  const [plateUf, setPlateUf] = useState('');
+  const [plateModelo, setPlateModelo] = useState('');
+  const [plateMotorista, setPlateMotorista] = useState('');
+  const [plateMotoristaCpf, setPlateMotoristaCpf] = useState('');
+  const [plateError, setPlateError] = useState('');
 
   const [localSuppliersSnapshot, setLocalSuppliersSnapshot] = useState<Supplier[]>(() =>
     getStoredSuppliers()
@@ -379,7 +414,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
       setName(upperInit);
       setTradeName(upperInit);
       setIsTradeNameManuallyEdited(false);
-      setCategory('');
+      setCategory(defaultCategory ? resolveCategoryValue(defaultCategory) : '');
       setCnpjOrCpf('');
       setStateRegistration('');
       setMunicipalRegistration('');
@@ -397,13 +432,27 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
       setState('PR');
       setNotes('');
       setRegistrationTimestamp(new Date().toISOString());
+      setDraftNewPlates([]);
     }
+    setPlateEditingId(null);
+    setPlatePlaca('');
+    setPlateUf('');
+    setPlateModelo('');
+    setPlateMotorista('');
+    setPlateMotoristaCpf('');
+    setPlateError('');
   };
 
   useEffect(() => {
     if (isOpen) {
+      setAllThirdPartyPlates(getStoredPlacasTerceiros());
+    }
+  }, [isOpen, auxSyncVersion]);
+
+  useEffect(() => {
+    if (isOpen) {
       setIsSuccessSaved(false);
-      setActiveTab('cadastro');
+      setActiveTab(initialTab || 'cadastro');
       setHistoricoSearch('');
       try {
         const subs = getSupplierSubmissions();
@@ -415,7 +464,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
       loadSupplierIntoForm(editingSupplier || null, initialName);
       setFeedback(null);
     }
-  }, [isOpen, editingSupplier, initialName]);
+  }, [isOpen, editingSupplier, initialName, defaultCategory, initialTab]);
 
   const handleNameChange = (rawVal: string) => {
     const upperNew = rawVal.toUpperCase();
@@ -901,6 +950,34 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
       console.error('Erro na persistência de fornecedores no LocalStorage:', err);
     }
 
+    // Sincroniza placas/veículos vinculados em agrocontrol_placas_terceiros
+    try {
+      const currentPlates = getStoredPlacasTerceiros();
+      let nextPlates = currentPlates.map((p) =>
+        p.transportadoraId === savedSupplier.id
+          ? { ...p, transportadoraNome: savedSupplier.name }
+          : p
+      );
+      if (!isEditing && draftNewPlates.length > 0) {
+        const existingSet = new Set(nextPlates.map((p) => normalizePlateCode(p.placa)));
+        const toAdd = draftNewPlates.map((dp) => ({
+          ...dp,
+          transportadoraId: savedSupplier.id,
+          transportadoraNome: savedSupplier.name,
+        }));
+        nextPlates = [
+          ...nextPlates.filter((p) => !toAdd.some((a) => normalizePlateCode(a.placa) === normalizePlateCode(p.placa))),
+          ...toAdd,
+        ];
+        void existingSet;
+        setDraftNewPlates([]);
+      }
+      const savedPlates = saveStoredPlacasTerceiros(nextPlates);
+      setAllThirdPartyPlates(savedPlates);
+    } catch (err) {
+      console.warn('Erro ao sincronizar placas da transportadora:', err);
+    }
+
     onSave(savedSupplier);
     setCode(finalCode);
     setActiveSupplier(savedSupplier);
@@ -928,6 +1005,155 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         setFeedback(null);
       }, 4000);
     }
+  };
+
+  // Lista de veículos/placas vinculados a este fornecedor/transportadora
+  const linkedCarrierPlates = useMemo<ThirdPartyPlateEntry[]>(() => {
+    if (!activeSupplier) return draftNewPlates;
+    const supId = activeSupplier.id;
+    const supNameNorm = (activeSupplier.name || '').trim().toUpperCase();
+    const supTradeNorm = (activeSupplier.tradeName || '').trim().toUpperCase();
+    return allThirdPartyPlates.filter((p) => {
+      if (p.transportadoraId && p.transportadoraId === supId) return true;
+      if (!p.transportadoraId && p.transportadoraNome) {
+        const pName = p.transportadoraNome.trim().toUpperCase();
+        if (supNameNorm && pName === supNameNorm) return true;
+        if (supTradeNorm && pName === supTradeNorm) return true;
+      }
+      return false;
+    });
+  }, [activeSupplier, allThirdPartyPlates, draftNewPlates]);
+
+  const isCarrierContext = useMemo(
+    () =>
+      isTransportSupplierCategory(category) ||
+      linkedCarrierPlates.length > 0 ||
+      isTransportSupplierCategory(defaultCategory),
+    [category, linkedCarrierPlates.length, defaultCategory]
+  );
+
+  const resetPlateForm = () => {
+    setPlateEditingId(null);
+    setPlatePlaca('');
+    setPlateUf('');
+    setPlateModelo('');
+    setPlateMotorista('');
+    setPlateMotoristaCpf('');
+    setPlateError('');
+  };
+
+  const handleSaveCarrierPlate = () => {
+    const cleanedPlaca = normalizePlateCode(platePlaca);
+    if (!cleanedPlaca || cleanedPlaca.length < 5) {
+      setPlateError('Informe uma placa válida (ex: ABC1D23).');
+      return;
+    }
+
+    const pool = activeSupplier ? allThirdPartyPlates : draftNewPlates;
+    const dup = pool.find(
+      (p) => normalizePlateCode(p.placa) === cleanedPlaca && p.id !== plateEditingId
+    );
+    if (dup) {
+      setPlateError(
+        dup.transportadoraNome && activeSupplier && dup.transportadoraId !== activeSupplier.id
+          ? `A placa ${cleanedPlaca} já está vinculada a "${dup.transportadoraNome}".`
+          : `A placa ${cleanedPlaca} já está na lista.`
+      );
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const resolvedName = (name || activeSupplier?.name || '').trim().toUpperCase();
+
+    if (activeSupplier) {
+      const nextAll = plateEditingId
+        ? allThirdPartyPlates.map((p) =>
+            p.id === plateEditingId
+              ? {
+                  ...p,
+                  placa: cleanedPlaca,
+                  uf: plateUf.trim().toUpperCase().slice(0, 2),
+                  transportadoraId: activeSupplier.id,
+                  transportadoraNome: resolvedName,
+                  modeloVeiculo: plateModelo.trim().toUpperCase(),
+                  motoristaNome: plateMotorista.trim().toUpperCase(),
+                  motoristaCpf: plateMotoristaCpf.trim(),
+                  updatedAt: nowIso,
+                }
+              : p
+          )
+        : [
+            ...allThirdPartyPlates,
+            {
+              id: `pt_${cleanedPlaca}_${Date.now()}`,
+              placa: cleanedPlaca,
+              uf: plateUf.trim().toUpperCase().slice(0, 2),
+              transportadoraId: activeSupplier.id,
+              transportadoraNome: resolvedName,
+              modeloVeiculo: plateModelo.trim().toUpperCase(),
+              motoristaNome: plateMotorista.trim().toUpperCase(),
+              motoristaCpf: plateMotoristaCpf.trim(),
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            },
+          ];
+      const saved = saveStoredPlacasTerceiros(nextAll);
+      setAllThirdPartyPlates(saved);
+    } else {
+      const nextDraft = plateEditingId
+        ? draftNewPlates.map((p) =>
+            p.id === plateEditingId
+              ? {
+                  ...p,
+                  placa: cleanedPlaca,
+                  uf: plateUf.trim().toUpperCase().slice(0, 2),
+                  modeloVeiculo: plateModelo.trim().toUpperCase(),
+                  motoristaNome: plateMotorista.trim().toUpperCase(),
+                  motoristaCpf: plateMotoristaCpf.trim(),
+                  updatedAt: nowIso,
+                }
+              : p
+          )
+        : [
+            ...draftNewPlates,
+            {
+              id: `pt_${cleanedPlaca}_${Date.now()}`,
+              placa: cleanedPlaca,
+              uf: plateUf.trim().toUpperCase().slice(0, 2),
+              transportadoraId: '',
+              transportadoraNome: resolvedName,
+              modeloVeiculo: plateModelo.trim().toUpperCase(),
+              motoristaNome: plateMotorista.trim().toUpperCase(),
+              motoristaCpf: plateMotoristaCpf.trim(),
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            },
+          ];
+      setDraftNewPlates(nextDraft);
+    }
+
+    resetPlateForm();
+  };
+
+  const handleEditCarrierPlate = (entry: ThirdPartyPlateEntry) => {
+    setPlateEditingId(entry.id);
+    setPlatePlaca(entry.placa);
+    setPlateUf(entry.uf || '');
+    setPlateModelo(entry.modeloVeiculo || '');
+    setPlateMotorista(entry.motoristaNome || '');
+    setPlateMotoristaCpf(entry.motoristaCpf || '');
+    setPlateError('');
+  };
+
+  const handleDeleteCarrierPlate = (id: string) => {
+    if (activeSupplier) {
+      const nextAll = allThirdPartyPlates.filter((p) => p.id !== id);
+      const saved = saveStoredPlacasTerceiros(nextAll);
+      setAllThirdPartyPlates(saved);
+    } else {
+      setDraftNewPlates((prev) => prev.filter((p) => p.id !== id));
+    }
+    if (plateEditingId === id) resetPlateForm();
   };
 
   const formatDateTimeBR = (dateStr?: string) => {
@@ -996,12 +1222,22 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-900">
-                {activeSupplier ? 'EDITAR FORNECEDOR' : 'CADASTRO DE FORNECEDOR'}
+                {activeSupplier
+                  ? isCarrierContext
+                    ? 'EDITAR TRANSPORTADORA / FORNECEDOR'
+                    : 'EDITAR FORNECEDOR'
+                  : isCarrierContext
+                    ? 'CADASTRO DE TRANSPORTADORA'
+                    : 'CADASTRO DE FORNECEDOR'}
               </h3>
               <p className="text-[11px] text-slate-800 font-medium">
                 {activeSupplier
-                  ? `Gerenciamento de ficha comercial, dados fiscais e notas de entrada`
-                  : 'Pessoa jurídica ou física, dados fiscais, bancários e contato'}
+                  ? isCarrierContext
+                    ? 'Ficha cadastral, veículos/placas vinculados e histórico de fretes e notas'
+                    : 'Gerenciamento de ficha comercial, dados fiscais e notas de entrada'
+                  : isCarrierContext
+                    ? 'Cadastro de transportadora, frota terceirizada, motoristas e dados fiscais'
+                    : 'Pessoa jurídica ou física, dados fiscais, bancários e contato'}
               </p>
             </div>
           </div>
@@ -1132,11 +1368,11 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         )}
 
         {/* Sub-Abas Superiores - Tema Oficial #cad4e6 + border-black */}
-        <div className="px-4 sm:px-5 pt-2 bg-[#cad4e6] border-b border-black flex items-center space-x-2 shrink-0">
+        <div className="px-4 sm:px-5 pt-2 bg-[#cad4e6] border-b border-black flex items-center space-x-2 shrink-0 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab('cadastro')}
-            className={`px-3.5 sm:px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-3.5 sm:px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'cadastro'
                 ? 'bg-[#e0e6f1] text-slate-900 border-black -mb-px pb-2 shadow-xs'
                 : 'bg-[#cad4e6] hover:bg-[#dce3f0] text-slate-800 border-transparent hover:text-black'
@@ -1146,10 +1382,34 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             <span>DADOS CADASTRAIS</span>
           </button>
 
+          {isCarrierContext && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('veiculos')}
+              className={`px-3.5 sm:px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'veiculos'
+                  ? 'bg-[#e0e6f1] text-slate-900 border-black -mb-px pb-2 shadow-xs'
+                  : 'bg-[#cad4e6] hover:bg-[#dce3f0] text-slate-800 border-transparent hover:text-black'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5 text-[#0369a1]" />
+              <span>VEÍCULOS, PLACAS &amp; MOTORISTAS</span>
+              <span
+                className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'veiculos'
+                    ? 'bg-[#0369a1] text-white'
+                    : 'bg-white text-slate-900 border border-gray-400'
+                }`}
+              >
+                {linkedCarrierPlates.length}
+              </span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setActiveTab('historico')}
-            className={`px-3.5 sm:px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-3.5 sm:px-4 py-1.5 text-xs font-bold uppercase rounded-t-lg border-t border-x transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'historico'
                 ? 'bg-[#e0e6f1] text-slate-900 border-black -mb-px pb-2 shadow-xs'
                 : 'bg-[#cad4e6] hover:bg-[#dce3f0] text-slate-800 border-transparent hover:text-black'
@@ -1636,6 +1896,200 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
               </div>
             </div>
           </form>
+        )}
+
+        {/* ABA VEÍCULOS, PLACAS & MOTORISTAS */}
+        {activeTab === 'veiculos' && (
+          <div className="p-3 sm:p-4 bg-[#cad4e6] overflow-y-auto scrollbar-none flex-1 min-h-0 flex flex-col space-y-3 text-slate-900">
+            <div className="bg-[#e0e6f1] p-3 sm:p-3.5 rounded-xl border border-black shadow-2xs space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-400/70">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#0369a1]" />
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-900">
+                    {plateEditingId
+                      ? 'Editar Veículo / Placa da Transportadora'
+                      : 'Vincular Novo Veículo / Placa e Motorista'}
+                  </span>
+                </div>
+                {plateEditingId && (
+                  <button
+                    type="button"
+                    onClick={resetPlateForm}
+                    className="text-[10px] font-bold text-slate-700 hover:text-black underline uppercase cursor-pointer"
+                  >
+                    Cancelar Edição
+                  </button>
+                )}
+              </div>
+
+              {plateError && (
+                <div className="px-2.5 py-1.5 rounded-lg bg-rose-100 border border-rose-500 text-rose-800 text-[11px] font-bold">
+                  {plateError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                <div className="sm:col-span-2">
+                  <label className="block text-[10.5px] font-bold text-slate-900 uppercase tracking-wider mb-1">
+                    PLACA *
+                  </label>
+                  <input
+                    type="text"
+                    value={platePlaca}
+                    maxLength={8}
+                    onChange={(e) => setPlatePlaca(e.target.value.toUpperCase())}
+                    placeholder="ABC1D23"
+                    className="w-full h-[34px] px-2.5 rounded-xl border border-gray-400 bg-white text-black text-xs font-mono font-black uppercase focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10.5px] font-bold text-slate-900 uppercase tracking-wider mb-1">
+                    UF
+                  </label>
+                  <select
+                    value={plateUf}
+                    onChange={(e) => setPlateUf(e.target.value)}
+                    className="w-full h-[34px] px-2 rounded-xl border border-gray-400 bg-white text-black text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  >
+                    <option value="">UF...</option>
+                    {BRAZIL_UFS.map((uf) => (
+                      <option key={uf} value={uf}>
+                        {uf}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-[10.5px] font-bold text-slate-900 uppercase tracking-wider mb-1">
+                    MODELO / TIPO DO VEÍCULO
+                  </label>
+                  <input
+                    type="text"
+                    value={plateModelo}
+                    onChange={(e) => setPlateModelo(e.target.value.toUpperCase())}
+                    placeholder="EX: SCANIA R450 / BITREM"
+                    className="w-full h-[34px] px-2.5 rounded-xl border border-gray-400 bg-white text-black text-xs font-medium uppercase focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-[10.5px] font-bold text-slate-900 uppercase tracking-wider mb-1">
+                    MOTORISTA VINCULADO
+                  </label>
+                  <input
+                    type="text"
+                    value={plateMotorista}
+                    onChange={(e) => setPlateMotorista(e.target.value.toUpperCase())}
+                    placeholder="EX: JOÃO DA SILVA"
+                    className="w-full h-[34px] px-2.5 rounded-xl border border-gray-400 bg-white text-black text-xs font-medium uppercase focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  />
+                </div>
+                <div className="sm:col-span-2 flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveCarrierPlate}
+                    className="w-full h-[34px] px-3 rounded-xl bg-[#276d4b] hover:bg-[#1f573c] text-white text-xs font-black uppercase inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    {plateEditingId ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                    <span>{plateEditingId ? 'Atualizar' : 'Adicionar'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                <div className="sm:col-span-4">
+                  <label className="block text-[10.5px] font-bold text-slate-900 uppercase tracking-wider mb-1">
+                    CPF DO MOTORISTA (OPCIONAL)
+                  </label>
+                  <input
+                    type="text"
+                    value={plateMotoristaCpf}
+                    onChange={(e) => setPlateMotoristaCpf(formatCpfCnpj(e.target.value))}
+                    maxLength={14}
+                    placeholder="000.000.000-00"
+                    className="w-full h-[34px] px-2.5 rounded-xl border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  />
+                </div>
+                <div className="sm:col-span-8 flex items-end">
+                  <p className="text-[11px] font-semibold text-slate-700">
+                    Sincronizado automaticamente com o catálogo de placas de terceiros (NF-e e CT-e).
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#e0e6f1] p-2 rounded-xl border border-black overflow-hidden shadow-2xs flex-1 flex flex-col min-h-0">
+              <div className="bg-white rounded-lg border border-gray-400 overflow-auto flex-1">
+                {linkedCarrierPlates.length === 0 ? (
+                  <div className="p-8 text-center space-y-1.5">
+                    <Truck className="w-6 h-6 text-slate-500 mx-auto" />
+                    <p className="text-xs font-bold uppercase text-slate-900">
+                      Nenhum veículo / placa vinculado a esta transportadora
+                    </p>
+                    <p className="text-[11px] text-slate-600">
+                      Cadastre acima ou informe a placa ao emitir uma NF-e / CT-e para memorização automática.
+                    </p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 z-10 bg-slate-100 border-b border-gray-400 text-[10px] font-bold text-slate-900 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-2 px-3">Placa</th>
+                        <th className="py-2 px-3">UF</th>
+                        <th className="py-2 px-3">Modelo / Tipo</th>
+                        <th className="py-2 px-3">Motorista Vinculado</th>
+                        <th className="py-2 px-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 text-xs">
+                      {linkedCarrierPlates.map((entry) => (
+                        <tr key={entry.id} className="hover:bg-slate-50 transition">
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono font-black text-xs tracking-wider">
+                              {entry.placa}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800">
+                            {entry.uf || '—'}
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-900 uppercase">
+                            {entry.modeloVeiculo || '—'}
+                          </td>
+                          <td className="py-2 px-3 font-semibold text-slate-800 uppercase">
+                            {entry.motoristaNome || '—'}
+                            {entry.motoristaCpf ? (
+                              <span className="ml-1.5 text-[10px] font-mono text-slate-500">
+                                ({entry.motoristaCpf})
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="py-2 px-3 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEditCarrierPlate(entry)}
+                                className="p-1 text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 rounded cursor-pointer"
+                                title="Editar veículo / placa"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCarrierPlate(entry.id)}
+                                className="p-1 text-rose-600 hover:bg-rose-50 rounded cursor-pointer"
+                                title="Excluir veículo / placa"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ABA 2: HISTÓRICO DE COMPRAS / NOTAS */}

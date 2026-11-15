@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   Scissors, 
@@ -44,7 +44,8 @@ import {
   ServiceFuelEntry,
   ServiceMealExpense,
   BrokerSettlement,
-  ThirdPartySettlement
+  ThirdPartySettlement,
+  InventoryItem
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -54,7 +55,8 @@ import {
   getStoredSettlements,
   saveStoredSettlements,
   getCompanyFrotas,
-  getStoredMachineries
+  getStoredMachineries,
+  getCompanyEstoque
 } from '../../lib/storage';
 import { parseCurrencyToFloat, maskCurrencyBRLInput, formatCurrencyBRLOnBlur } from '../../lib/formatters';
 // Cadastro Unificado de Cliente (Modal Completo Oficial "Novo Produtor Rural / Pecuarista")
@@ -72,6 +74,7 @@ import { PrintReportFooter } from '../common/PrintReportFooter';
 import { 
   isForrageira, 
   isColheitadeira,
+  isTrator,
   findLinkedOperator, 
   formatEmployeeOptionLabel,
   formatMachineryOptionLabel,
@@ -79,6 +82,8 @@ import {
   isThirdPartyTruck,
   getTruckFuelSubtotal
 } from './serviceHelpers';
+import { ServiceStockCatalogCombobox } from './ServiceStockCatalogCombobox';
+import { getInventoryItemServicePrice, normalizeNfseUnit } from '../../utils/nfsePrefill';
 import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export type ServiceTabType = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'venda' | 'faturamento';
@@ -91,6 +96,7 @@ interface ServiceFormModalProps {
   clients?: Client[];
   machineries?: Machinery[];
   employees?: Employee[];
+  inventory?: InventoryItem[];
   companyProfile?: CompanyProfile;
   nextNumber?: string;
   editRecord?: ServiceOrder | null;
@@ -105,6 +111,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   clients = [],
   machineries = [],
   employees = [],
+  inventory = [],
   companyProfile,
   nextNumber,
   editRecord,
@@ -309,6 +316,42 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
   // 8. Observações
   const [observacoes, setObservacoes] = useState('');
+
+  // 8.5. Catálogo de Serviços do Estoque
+  const [selectedCatalogServiceId, setSelectedCatalogServiceId] = useState('');
+  const lastAutoCatalogNoteRef = useRef<string>('');
+  const [localInventory, setLocalInventory] = useState<InventoryItem[]>(() => {
+    if (inventory && inventory.length > 0) return inventory;
+    return getCompanyEstoque();
+  });
+
+  useEffect(() => {
+    if (inventory && inventory.length > 0) {
+      setLocalInventory(inventory);
+    }
+  }, [inventory]);
+
+  useEffect(() => {
+    const syncInventory = () => {
+      const stored = getCompanyEstoque();
+      if (stored && stored.length > 0) {
+        setLocalInventory(stored);
+      } else if (inventory && inventory.length > 0) {
+        setLocalInventory(inventory);
+      }
+    };
+    if (isOpen) {
+      syncInventory();
+    }
+    window.addEventListener('storage', syncInventory);
+    window.addEventListener('silagem_inventory_updated', syncInventory);
+    window.addEventListener('inventory_updated', syncInventory);
+    return () => {
+      window.removeEventListener('storage', syncInventory);
+      window.removeEventListener('silagem_inventory_updated', syncInventory);
+      window.removeEventListener('inventory_updated', syncInventory);
+    };
+  }, [isOpen, inventory]);
 
   // 9. Estados para o Modal / Tela de Prévia e Impressão
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -635,6 +678,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setFreightDriverName(editRecord.freightDriverName || editRecord.operatorAssigned || '');
 
       setObservacoes(editRecord.notes || '');
+      setSelectedCatalogServiceId(editRecord.catalogServiceId || '');
+      lastAutoCatalogNoteRef.current = '';
       setSavedOrder(editRecord || null);
       setSaveSuccessMessage(null);
     } else {
@@ -745,6 +790,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setMaintenanceHourMeter('');
 
       setObservacoes('');
+      setSelectedCatalogServiceId('');
+      lastAutoCatalogNoteRef.current = '';
       setSavedOrder(null);
       setSaveSuccessMessage(null);
     }
@@ -823,6 +870,165 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     }
     setIsQuickClientOpen(false);
   };
+
+  // Seleção de Serviço Pré-Cadastrado do Catálogo / Estoque (preenche preço unitário e observação, recalculando totais)
+  const handleSelectCatalogService = (item: InventoryItem | null) => {
+    if (!item) {
+      setSelectedCatalogServiceId('');
+      return;
+    }
+
+    setSelectedCatalogServiceId(item.id);
+    const price = getInventoryItemServicePrice(item);
+    const maskedPrice = maskCurrencyBRLInput(price);
+    const rawUnit = String(item.unit || item.unidade_medida || 'UN')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+    const normUnit = normalizeNfseUnit(rawUnit);
+    const isSaca = ['SC', 'SAC', 'SACA', 'SACAS'].includes(rawUnit);
+    const isCarga = ['CRG', 'CARGA', 'CARGAS'].includes(rawUnit);
+    const isViagem = ['VG', 'VIAG', 'VIAGEM', 'VIAGENS'].includes(rawUnit);
+
+    if (effectiveTab === 'corte' || effectiveTab === 'colheita') {
+      let targetUnit = unidadeArea;
+      if (normUnit === 'HORAS') {
+        targetUnit = 'hora';
+      } else if (normUnit === 'HA') {
+        targetUnit = 'hectares';
+      } else if (normUnit === 'ALQ') {
+        targetUnit = 'alqueires';
+      } else if (isSaca && effectiveTab === 'colheita') {
+        targetUnit = 'sacas';
+      }
+
+      if (targetUnit !== unidadeArea) {
+        setUnidadeArea(targetUnit);
+        if (targetUnit === 'hectares' || targetUnit === 'sacas') {
+          if (modoCobrancaTrator === 'area_alq') setModoCobrancaTrator('area_ha');
+          if (modoComissaoOperador === 'area_alq') {
+            setModoComissaoOperador('area_ha');
+            if (operadorTratorId) {
+              const empTr = employees.find((e) => e.id === operadorTratorId);
+              if (empTr && empTr.commissionPerHectare) {
+                setTaxaComissaoOperador(Number(empTr.commissionPerHectare.toFixed(2)));
+              }
+            }
+          }
+          const op = getSelectedForageOperator(operadorForrageiraId, operadorForrageiraNome);
+          if (op) applyForageOperatorCommission(op, targetUnit);
+        } else if (targetUnit === 'hora') {
+          const op = getSelectedForageOperator(operadorForrageiraId, operadorForrageiraNome);
+          if (op) applyForageOperatorCommission(op, 'hora');
+        }
+      }
+
+      setValorPorHectare(maskedPrice);
+    } else if (effectiveTab === 'trator') {
+      if (!tratorId && !tratorNome.trim()) {
+        const availableTractors = activeFleet.filter(
+          (m) => isTrator(m) && !selectedMachineryIds.has(m.id)
+        );
+        if (availableTractors.length > 0) {
+          const firstTrator = availableTractors[0];
+          const linkedOp = findLinkedOperator(firstTrator, employees);
+          handleSelectTrator(firstTrator.id, formatMachineryOptionLabel(firstTrator), linkedOp);
+        } else {
+          setTratorNome('Trator / Operação');
+        }
+      }
+
+      if (normUnit === 'HORAS') {
+        setModoCobrancaTrator('horas');
+      } else if (normUnit === 'HA') {
+        setModoCobrancaTrator('area_ha');
+      } else if (normUnit === 'ALQ') {
+        setModoCobrancaTrator('area_alq');
+      }
+
+      setValorUnitarioTrator(Number(price.toFixed(2)));
+    } else if (effectiveTab === 'maquina') {
+      if (equipmentCategory === 'pesadas') {
+        setHeavyMachineHourlyRate(maskedPrice);
+      } else {
+        let targetMode = truckBillingMode;
+        if (normUnit === 'KM') {
+          targetMode = 'somente_km';
+        } else if (isCarga) {
+          targetMode = 'cargas_km';
+        } else if (normUnit === 'HORAS') {
+          targetMode = 'horas';
+        }
+        if (targetMode !== truckBillingMode) {
+          setTruckBillingMode(targetMode);
+        }
+        if (targetMode === 'somente_km' || targetMode === 'km') {
+          setTruckServiceRateOnlyKm(maskedPrice);
+        } else if (targetMode === 'cargas_km' || targetMode === 'cargas') {
+          setTruckServiceRatePerLoad(maskedPrice);
+        } else {
+          setTruckServiceHourlyRate(maskedPrice);
+        }
+      }
+    } else if (effectiveTab === 'frete') {
+      let targetMode = truckBillingMode;
+      if (normUnit === 'KM') {
+        targetMode = 'km';
+      } else if (normUnit === 'HORAS') {
+        targetMode = 'horas';
+      } else if (isCarga) {
+        targetMode = 'cargas';
+      } else if (isViagem) {
+        targetMode = 'viagem';
+      }
+      if (targetMode !== truckBillingMode) {
+        setTruckBillingMode(targetMode);
+      }
+      if (targetMode === 'km' || targetMode === 'somente_km') {
+        setTruckServiceRateOnlyKm(maskedPrice);
+      } else if (targetMode === 'horas') {
+        setTruckServiceHourlyRate(maskedPrice);
+      } else if (targetMode === 'cargas' || targetMode === 'cargas_km') {
+        setTruckServiceRatePerLoad(maskedPrice);
+      } else if (targetMode === 'viagem') {
+        setTruckServiceRatePerTrip(maskedPrice);
+      }
+    }
+
+    // Preenche ou atualiza observação apenas se estiver em branco ou contendo seleção automática anterior
+    const itemName = String(item.name || item.nome_comercial || item.nome || '').trim().toUpperCase();
+    const fiscalName = String(item.fiscalName || '').trim().toUpperCase();
+    const autoNote = fiscalName && fiscalName !== itemName ? `${itemName} — ${fiscalName}` : itemName;
+    if (autoNote && (!observacoes.trim() || observacoes.trim() === lastAutoCatalogNoteRef.current)) {
+      setObservacoes(autoNote);
+      lastAutoCatalogNoteRef.current = autoNote;
+    }
+  };
+
+  const renderServiceCatalogPicker = (pickerId: string) => (
+    <div className="bg-white/90 border border-black/30 rounded-lg p-2.5 sm:p-3 space-y-1.5 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <label
+          htmlFor={pickerId}
+          className="block text-[11px] font-bold text-black uppercase tracking-wider"
+        >
+          SELECIONAR SERVIÇO DO CATÁLOGO / ESTOQUE (OPCIONAL)
+        </label>
+        {selectedCatalogServiceId && (
+          <span className="text-[10px] font-bold uppercase text-emerald-900 bg-emerald-100 border border-emerald-400 px-2 py-0.5 rounded">
+            Valor unitário preenchido do Estoque (editável)
+          </span>
+        )}
+      </div>
+      <ServiceStockCatalogCombobox
+        id={pickerId}
+        inventory={localInventory}
+        selectedId={selectedCatalogServiceId}
+        onSelectService={handleSelectCatalogService}
+      />
+    </div>
+  );
 
   // Limpeza / Opção Neutra para Forrageira
   const handleClearForrageira = () => {
@@ -1035,8 +1241,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
   // Subtotal do Serviço de Máquina ou Transporte / Frete
   const subtotalServicoMaquina = useMemo(() => {
-    if (activeTab !== 'maquina' && activeTab !== 'frete') return 0;
-    if (activeTab === 'maquina' && equipmentCategory === 'pesadas') {
+    if (effectiveTab !== 'maquina' && effectiveTab !== 'frete') return 0;
+    if (effectiveTab === 'maquina' && equipmentCategory === 'pesadas') {
       const h = typeof heavyMachineHours === 'number' ? heavyMachineHours : 0;
       const rate = typeof heavyMachineHourlyRate === 'number'
         ? heavyMachineHourlyRate
@@ -1076,7 +1282,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return 0;
     }
   }, [
-    activeTab,
+    effectiveTab,
     equipmentCategory,
     heavyMachineHours,
     heavyMachineHourlyRate,
@@ -1096,13 +1302,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   // 5. TOTAL DO PEDIDO (Cobrado do Cliente - com Frete Prancha e Frotas por Hora quando Hectares ou Por Hora)
   const totalPedido = useMemo(() => {
     const valorFretePrancha = parseCurrencyToFloat(fretePrancha);
-    if (activeTab === 'maquina' || activeTab === 'frete') {
+    if (effectiveTab === 'maquina' || effectiveTab === 'frete') {
       return subtotalServicoMaquina + valorFretePrancha;
     }
     // Inclusão da modalidade Por Hora (h) para frotas cobradas por hora
     const adicionalFrotasHoras = (unidadeArea === 'hectares' || unidadeArea === 'hora') ? totalFrotasPorHora : 0;
     return valorBaseArea + subtotalTrator + subtotalForrageira + totalAdicionalKm + adicionalFrotasHoras + valorFretePrancha;
-  }, [activeTab, subtotalServicoMaquina, valorBaseArea, subtotalTrator, subtotalForrageira, totalAdicionalKm, totalFrotasPorHora, fretePrancha, unidadeArea]);
+  }, [effectiveTab, subtotalServicoMaquina, valorBaseArea, subtotalTrator, subtotalForrageira, totalAdicionalKm, totalFrotasPorHora, fretePrancha, unidadeArea]);
 
   // =========================================================================
   // REGRA 3: CORREÇÃO MATEMÁTICA NA DISTRIBUIÇÃO GLOBAL DE FROTAS
@@ -1633,6 +1839,14 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         ? 'Venda de Silagem'
         : 'Serviço de Máquina'),
       serviceTab: (editRecord?.serviceTab && editRecord.serviceTab !== 'faturamento') ? editRecord.serviceTab : effectiveTab,
+      catalogServiceId: selectedCatalogServiceId || undefined,
+      catalogServiceName: selectedCatalogServiceId
+        ? String(
+            localInventory.find((i) => i.id === selectedCatalogServiceId)?.name ||
+              localInventory.find((i) => i.id === selectedCatalogServiceId)?.nome_comercial ||
+              ''
+          ).trim() || undefined
+        : undefined,
       status: finalStatus,
       billingStatus: isSendingToReceivables ? 'faturado' : isSendingToBilling ? 'pendente' : (billingStatus || 'pendente'),
       billingNotes: billingNotes ? billingNotes.trim().toUpperCase() : undefined,
@@ -3075,6 +3289,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                   </select>
                 </div>
 
+                {/* Seletor de Serviço Pré-Cadastrado do Estoque */}
+                {renderServiceCatalogPicker('service-catalog-maquina')}
+
                 {/* CASO A: Serviços Máquinas Pesadas */}
                 {equipmentCategory === 'pesadas' && (
                   <div className="bg-white/80 border border-black rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
@@ -3539,6 +3756,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
                 {/* Seletor das 4 Regras de Cobrança do Frete */}
                 <div className="bg-white/80 border border-black rounded-xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
+                  {renderServiceCatalogPicker('service-catalog-frete')}
+
                   <div>
                     <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-2">
                       Regra de Cobrança do Frete *
@@ -3925,6 +4144,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Seletor de Serviço Pré-Cadastrado do Estoque (Corte / Colheita) */}
+                {renderServiceCatalogPicker(`service-catalog-${effectiveTab}`)}
 
                 {/* Linha 1: Quantidade, Valor Unitário com Máscara BRL, Subtotal e Produtividade */}
                 {unidadeArea === 'sacas' ? (
@@ -4700,6 +4922,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 comissaoTratorP2Total={comissaoTratorP2}
                 comissaoFormulaP1={formulaTratorP1}
                 comissaoFormulaP2={formulaTratorP2}
+                serviceCatalogSlot={effectiveTab === 'trator' ? renderServiceCatalogPicker('service-catalog-trator') : undefined}
               />
             )}
 
@@ -4742,9 +4965,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             {/* 7. FECHAMENTO E DRE DA OPERAÇÃO (DETALHAMENTO CIRÚRGICO) */}
             <DRESummaryBlock
-              subtotalServicoMaquina={(activeTab === 'maquina' || activeTab === 'frete') ? subtotalServicoMaquina : undefined}
+              subtotalServicoMaquina={(effectiveTab === 'maquina' || effectiveTab === 'frete') ? subtotalServicoMaquina : undefined}
               descricaoServicoMaquina={
-                activeTab === 'frete'
+                effectiveTab === 'frete'
                   ? `Frete / Caminhão (${truckServiceName || 'Frota'}) • ${
                       truckBillingMode === 'km' || truckBillingMode === 'somente_km'
                         ? `${truckServiceTotalKm || 0} km`
@@ -4754,7 +4977,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                         ? `${truckServiceLoads || 0} cargas + ${truckServiceAdditionalKm || 0} km`
                         : `${truckServiceTrips || 0} viagens`
                     }`
-                  : activeTab === 'maquina'
+                  : effectiveTab === 'maquina'
                   ? equipmentCategory === 'pesadas'
                     ? `Máquina Pesada (${heavyMachineType || 'Equipamento'}) • ${heavyMachineHours || 0} h`
                     : `Caminhão (${truckServiceName || 'Frota'}) • ${

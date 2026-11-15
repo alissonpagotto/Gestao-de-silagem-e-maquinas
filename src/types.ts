@@ -1026,6 +1026,8 @@ export interface ServiceOrder {
   farmLocation?: string; // Localização da fazenda (compatibilidade)
   serviceType: 'Ensilagem' | 'Colheita' | 'Plantio' | 'Pulverização' | 'Preparo de Solo' | 'Compactação de Silo' | 'Transporte / Frete' | string;
   serviceTab?: string;
+  catalogServiceId?: string;
+  catalogServiceName?: string;
   areaHectares?: number;
   tonsEstimated?: number;
   produtividadeEstimadaSacasHa?: number;
@@ -2262,8 +2264,16 @@ export interface NotaSaidaRecord {
   nfeCfop?: string;
   nfeFinalidade?: string;
   nfeModalidadeFrete?: string;
+  nfeTransportadoraId?: string;
   nfeTransportadoraNome?: string;
+  nfeTransportadoraCpfCnpj?: string;
+  nfeTransportadoraIe?: string;
+  nfeTransportadoraEndereco?: string;
+  nfeTransportadoraMunicipio?: string;
+  nfeTransportadoraUf?: string;
   nfeTransportadoraPlaca?: string;
+  nfeTransportadoraVeiculoUf?: string;
+  nfeTransportadoraIsPropriaEmpresa?: boolean;
   nfeReferenciada?: string;
   itens?: NotaSaidaItem[];
   baixarEstoqueAutomatico?: boolean;

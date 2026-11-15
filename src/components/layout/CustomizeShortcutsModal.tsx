@@ -52,7 +52,7 @@ export const ALL_SHORTCUTS: ShortcutDefinition[] = [
   { id: 'manutencoes', label: 'Manutenções', icon: Wrench, color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40', iconColor: 'text-rose-500' },
   { id: 'combustivel', label: 'Combustível', icon: Fuel, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-500' },
   { id: 'rodizio', label: 'Rodízio Pneus', icon: CircleDot, color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/40', iconColor: 'text-cyan-500' },
-  { id: 'fornecedores', label: 'Fornecedores', icon: Truck, color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/40', iconColor: 'text-purple-500' },
+  { id: 'fornecedores', label: 'Fornecedores & Transportadoras', icon: Truck, color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/40', iconColor: 'text-purple-500' },
   { id: 'funcionarios', label: 'Funcionários', icon: UserSquare2, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-500' },
   { id: 'nfe_importar', label: 'Importar NF-e', icon: UploadCloud, color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },
   { id: 'relatorios', label: 'Relatórios', icon: FileSpreadsheet, color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/40', iconColor: 'text-teal-500' },

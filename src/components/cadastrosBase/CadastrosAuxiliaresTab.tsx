@@ -113,6 +113,8 @@ import {
   saveStoredTiposCombustivel,
   saveStoredTiposOcorrenciasFaltas,
   saveStoredUnidadesMedida,
+  getStoredPlacasTerceiros,
+  ThirdPartyPlateEntry,
   useAuxiliarySyncVersion,
 } from '../../lib/auxiliaryRegistries';
 import {
@@ -154,6 +156,7 @@ import { MaintenanceCategoriesModal } from '../fleet/MaintenanceCategoriesModal'
 import { VehicleTypesConfigModal } from '../fleet/VehicleTypesConfigModal';
 import { CfopManagerModal } from '../nfe/CfopManagerModal';
 import { Lc116ServiceCodeManagerModal } from '../nfe/Lc116ServiceCodeManagerModal';
+import { PlacasTerceirosManagerModal } from '../nfe/PlacasTerceirosManagerModal';
 
 export type AuxModuleCategory =
   | 'all'
@@ -240,6 +243,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
   const [isVehicleTypesModalOpen, setIsVehicleTypesModalOpen] = useState(false);
   const [isSubgroupsModalOpen, setIsSubgroupsModalOpen] = useState(false);
   const [isTanksModalOpen, setIsTanksModalOpen] = useState(false);
+  const [isPlacasTerceirosModalOpen, setIsPlacasTerceirosModalOpen] = useState(false);
 
   // Estado dos modais inline (Subgrupos por Grupo, Key-Label e Tanques)
   const [selectedSubgroupGroup, setSelectedSubgroupGroup] = useState<string>('__geral__');
@@ -277,6 +281,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
     const fuelTypes = getStoredTiposCombustivel();
     const tireBrands = getStoredAuxTireBrands();
     const fuelTanks: TanqueCombustivel[] = getStoredTanquesCombustivel();
+    const placasTerceiros: ThirdPartyPlateEntry[] = getStoredPlacasTerceiros();
 
     const cargos = getStoredCargosPermissoes();
     const rhRoles = getStoredRhRoles();
@@ -319,6 +324,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
       fuelTypes,
       tireBrands,
       fuelTanks,
+      placasTerceiros,
       cargos,
       rhRoles,
       rhRegTypes,
@@ -792,6 +798,20 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
           setTanksDraft(snapshot.fuelTanks.map((t) => ({ ...t })));
           setIsTanksModalOpen(true);
         },
+      },
+      {
+        id: 'placas_terceiros',
+        module: 'frota',
+        title: '🚚 Placas & Veículos de Terceiros (Transportadoras)',
+        description:
+          'Placas de caminhões e transportadoras terceirizadas memorizadas automaticamente ao emitir NF-e de venda, remessa ou retorno.',
+        storageKey: AUXILIARY_STORAGE_KEYS.PLACAS_TERCEIROS,
+        count: snapshot.placasTerceiros.length,
+        preview: snapshot.placasTerceiros
+          .slice(0, 5)
+          .map((p) => `${p.placa}${p.uf ? ` (${p.uf})` : ''}${p.transportadoraNome ? ` - ${p.transportadoraNome.slice(0, 18)}` : ''}`),
+        actionLabel: 'Gerenciar Placas',
+        onOpen: () => setIsPlacasTerceirosModalOpen(true),
       },
 
       // ===================== RH & EQUIPE =====================
@@ -1873,6 +1893,12 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
           </div>
         </div>
       )}
+
+      {/* 12. Modal Dedicado: Placas & Veículos de Terceiros (Transportadoras) */}
+      <PlacasTerceirosManagerModal
+        isOpen={isPlacasTerceirosModalOpen}
+        onClose={() => setIsPlacasTerceirosModalOpen(false)}
+      />
     </div>
   );
 };

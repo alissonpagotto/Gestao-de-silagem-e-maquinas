@@ -47,6 +47,7 @@ interface TractorBlockProps {
   comissaoTratorP2Total: number;
   comissaoFormulaP1: string;
   comissaoFormulaP2: string;
+  serviceCatalogSlot?: React.ReactNode;
 }
 
 export const TractorBlock: React.FC<TractorBlockProps> = ({
@@ -84,6 +85,7 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
   comissaoTratorP2Total,
   comissaoFormulaP1,
   comissaoFormulaP2,
+  serviceCatalogSlot,
 }) => {
   // Filtra APENAS tratores e aplica a regra de exclusão (oculta os já selecionados em outros campos)
   const tratoresDisponiveis = machineries.filter((m) => {
@@ -226,6 +228,12 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
             </select>
           </div>
         </div>
+
+        {serviceCatalogSlot && (
+          <div className="pt-1">
+            {serviceCatalogSlot}
+          </div>
+        )}
 
         {/* Se o trator estiver desativado/neutro, exibe card explicativo e oculta campos internos */}
         {!isTractorActive ? (

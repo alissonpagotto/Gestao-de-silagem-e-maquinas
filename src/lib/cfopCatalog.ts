@@ -610,6 +610,8 @@ export interface InformacoesComplementaresParams {
   tipoDocumento: TipoDocumentoSaida | string;
   naturezaOperacao?: string;
   nfeReferenciada?: string;
+  nfeReferenciadaNumero?: string;
+  nfeReferenciadaData?: string;
   veiculoPlaca?: string;
   motoristaNome?: string;
   ativosImobilizados?: string[];
@@ -651,8 +653,12 @@ export function buildDefaultInformacoesComplementares(params: InformacoesComplem
 
   if (isRemessaOuRetorno) {
     if (isRetornoOuDevolucao) {
+      const refNum = String(params.nfeReferenciadaNumero || '').trim();
+      const refData = String(params.nfeReferenciadaData || '').trim();
       const refLine = ref
-        ? `Retorno referente à NF-e de Remessa nº ${ref}.`
+        ? refNum || refData
+          ? `NFe Ref.: ${ref} — Nota Fiscal Relacionada${refNum ? ` Ref. NF ${refNum}` : ''}${refData ? ` de ${refData}` : ''}.`
+          : `Retorno referente à NF-e de Remessa nº ${ref}.`
         : 'Operação de Retorno / Devolução de mercadoria ou bem.';
       parts.push(`${refLine} Suspensão/Não incidência de ICMS conforme RICMS.`);
       ativos.forEach((assetLabel) => {
