@@ -1068,78 +1068,85 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
       {/* Password Modal */}
       {isPasswordModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
-              <div className="flex items-center space-x-2 text-cyan-700 dark:text-cyan-400">
-                <KeyRound className="w-5 h-5" />
-                <h3 className="text-sm font-bold">Alterar Senha de Acesso</h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-[#cad4e6] rounded-xl border border-black w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-black bg-[#cad4e6] flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2.5 text-black">
+                <div className="p-1.5 rounded-lg bg-white border border-black">
+                  <KeyRound className="w-4 h-4 text-emerald-700" />
+                </div>
+                <h3 className="text-sm font-black uppercase tracking-wide">Alterar Senha de Acesso</h3>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsPasswordModalOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {passwordToast && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-bold">
-                {passwordToast}
-              </div>
-            )}
+            <form onSubmit={handlePasswordSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6]">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
+                <div className="max-w-xl mx-auto bg-[#e0e6f1] border border-black rounded-xl p-5 space-y-4">
+                  {passwordToast && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-500 rounded-xl text-xs text-emerald-900 font-bold">
+                      {passwordToast}
+                    </div>
+                  )}
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Senha Atual
-                </label>
-                <input
-                  type="password"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs"
-                />
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Senha Atual
+                    </label>
+                    <input
+                      type="password"
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2 bg-white text-black border border-gray-400 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Nova Senha
+                    </label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="w-full px-3.5 py-2 bg-white text-black border border-gray-400 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Confirmar Nova Senha
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita a nova senha"
+                      className="w-full px-3.5 py-2 bg-white text-black border border-gray-400 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Nova Senha
-                </label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full px-3.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Confirmar Nova Senha
-                </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repita a nova senha"
-                  className="w-full px-3.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsPasswordModalOpen(false)}
-                  className="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-white hover:bg-gray-100 border border-black text-black rounded-xl text-xs font-bold cursor-pointer transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold shadow-xs"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-xl text-xs font-bold shadow-xs cursor-pointer transition"
                 >
                   Salvar Nova Senha
                 </button>

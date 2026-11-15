@@ -507,20 +507,20 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   return (
     <div 
       id="printable-payslip-overlay"
-      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:p-0 print:m-0 print:bg-white print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:inset-0 print:z-[99999] print:overflow-visible"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden print:p-0 print:m-0 print:bg-white print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:inset-0 print:z-[99999] print:overflow-visible"
     >
       <div 
         id="printable-payslip-card"
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 print:top-0 print:left-0 print:max-w-none print:w-full print:m-0 print:p-0 print:shadow-none print:border-none print:rounded-none print:bg-white"
+        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden mx-auto my-auto flex flex-col justify-between animate-in fade-in zoom-in-95 duration-150 print:top-0 print:left-0 print:max-w-none print:w-full print:h-auto print:max-h-none print:m-0 print:p-0 print:shadow-none print:border-none print:rounded-none print:bg-white print:overflow-visible"
       >
         
         {/* Modal Action Header (Non-printable) */}
-        <div className="print:hidden flex items-center justify-between px-5 py-3.5 bg-stone-50 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800">
+        <div className="print:hidden flex items-center justify-between px-5 py-3 bg-[#cad4e6] dark:bg-stone-800/80 border-b border-black dark:border-stone-800 shrink-0">
           <div className="flex items-center space-x-2">
-            <span className="text-sm font-bold text-stone-900 dark:text-stone-100">
+            <span className="text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
               Demonstrativo de Pagamento de Salário (Holerite)
             </span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-[#0963cb]/10 text-[#0963cb]">
+            <span className="text-[11px] px-2.5 py-0.5 rounded-md font-bold bg-white text-black border border-gray-400">
               {payroll.referenceMonth}
             </span>
           </div>
@@ -530,7 +530,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
               id="btn-print-payslip"
               onClick={handleDownloadPDF}
               disabled={isGeneratingPdf}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#0963cb] text-white text-xs font-bold hover:bg-blue-700 active:scale-95 transition cursor-pointer shadow-xs disabled:opacity-75 disabled:cursor-not-allowed"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border border-emerald-800 active:scale-95 transition cursor-pointer shadow-xs disabled:opacity-75 disabled:cursor-not-allowed"
               title="Baixar Holerite em PDF"
             >
               {isGeneratingPdf ? (
@@ -548,7 +548,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
+              className="p-1.5 text-black hover:bg-white/60 rounded-lg transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -556,7 +556,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
         </div>
 
         {/* Printable Holerite Content */}
-        <div className="p-6 sm:p-8 space-y-5 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-900 print:p-2" id="recibo-holerite-branco">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] print:p-0 print:bg-white print:overflow-visible flex justify-center items-start">
+        <div className="w-full max-w-4xl p-6 sm:p-8 space-y-5 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-900 border border-black rounded-xl shadow-md print:border-none print:shadow-none print:rounded-none print:max-w-none print:p-2" id="recibo-holerite-branco">
           
           {/* ========================================================================= */}
           {/* CABEÇALHO PADRÃO ORDEM DE SERVIÇO (2 COLUNAS JUSTIFY-BETWEEN)             */}
@@ -1125,6 +1126,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             authCode={`HOL-${payroll.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
           />
 
+        </div>
         </div>
 
       </div>

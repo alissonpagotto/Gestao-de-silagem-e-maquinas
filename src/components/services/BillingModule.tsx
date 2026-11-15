@@ -793,46 +793,48 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
           4. MODAL DE AUDITORIA DO ESCRITÓRIO
           ======================================================== */}
       {auditingService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black animate-fade-in">
             {/* Header Modal */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-                <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+            <div className="flex items-center justify-between px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#e0e6f1] border border-black flex items-center justify-center">
+                  <Receipt className="w-4 h-4 text-black" />
+                </div>
+                <h3 className="text-xs sm:text-sm font-bold text-black uppercase tracking-wider">
                   Auditoria de Faturamento • OS #{auditingService.orderNumber || auditingService.id.slice(-4)}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setAuditingService(null)}
-                className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                className="p-1.5 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Conteúdo da Auditoria */}
-            <div className="p-4 space-y-3.5 text-xs text-zinc-800 dark:text-stone-200">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#cad4e6] text-xs text-black">
               {/* Card Resumo do Cliente e Detalhes Operacionais */}
-              <div className="bg-slate-50 dark:bg-stone-800/60 p-3 rounded-lg border border-slate-200 dark:border-stone-700 space-y-2">
+              <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black space-y-2.5 shadow-xs">
                 <div className="flex justify-between items-center">
-                  <span className="font-bold text-zinc-900 dark:text-white text-sm uppercase">
+                  <span className="font-bold text-black text-sm uppercase">
                     {auditingService.clientName}
                   </span>
-                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-mono">
+                  <span className="text-[11px] text-black bg-white px-2 py-0.5 rounded border border-black font-mono font-bold">
                     {auditingService.startDate ? formatDateBR(auditingService.startDate) : ''}
                   </span>
                 </div>
                 {auditingService.farmName && (
-                  <div className="text-[11px] text-zinc-600 dark:text-stone-300 uppercase">
+                  <div className="text-xs text-slate-900 uppercase font-medium">
                     Fazenda: {auditingService.farmName}
                   </div>
                 )}
-                <div className="text-[11px] text-zinc-600 dark:text-stone-300 uppercase flex items-center justify-between">
+                <div className="text-xs text-slate-900 uppercase flex items-center justify-between font-medium">
                   <span>Serviço: {auditingService.serviceType || 'Prestação Agrícola'}</span>
                   {auditingService.areaQuantity && (
-                    <span className="font-semibold text-zinc-800 dark:text-stone-200">
+                    <span className="font-bold text-black">
                       {auditingService.areaQuantity} {auditingService.areaUnit || 'ha'}
                     </span>
                   )}
@@ -840,23 +842,23 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
                 {/* Composição Operacional: Frotas, Maquinários e Ratios */}
                 {((auditingService.trucks && auditingService.trucks.length > 0) || auditingService.forageHarvesterName || auditingService.tractorName) && (
-                  <div className="pt-2 border-t border-slate-200 dark:border-stone-700 space-y-1">
-                    <span className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase block tracking-wider">
+                  <div className="pt-2 border-t border-black/20 space-y-1">
+                    <span className="text-[10px] font-bold text-black uppercase block tracking-wider">
                       Composição da Operação & Frotas
                     </span>
-                    <div className="flex flex-wrap gap-1 text-[10px]">
+                    <div className="flex flex-wrap gap-1.5 text-[10px]">
                       {auditingService.forageHarvesterName && (
-                        <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 font-semibold">
+                        <span className="px-2 py-0.5 rounded bg-white text-black border border-black font-bold">
                           FORR: {auditingService.forageHarvesterName}
                         </span>
                       )}
                       {auditingService.tractorName && (
-                        <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 font-semibold">
+                        <span className="px-2 py-0.5 rounded bg-white text-black border border-black font-bold">
                           TRATOR: {auditingService.tractorName}
                         </span>
                       )}
                       {auditingService.trucks && auditingService.trucks.map((trk, i) => (
-                        <span key={i} className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 font-semibold">
+                        <span key={i} className="px-2 py-0.5 rounded bg-white text-black border border-black font-bold">
                           {trk.truckName || `CAMINHÃO #${i+1}`}: {trk.ratioPercent ? `${Number(trk.ratioPercent).toFixed(1)}% RATIO` : `${trk.tripLoads || 0} CARGAS`}
                         </span>
                       ))}
@@ -872,7 +874,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                       setAuditingService(null);
                       onOpenServiceModal(auditingService);
                     }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 dark:text-blue-400 hover:underline cursor-pointer uppercase"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-900 hover:underline cursor-pointer uppercase"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>Inspecionar Ordem Completa & DRE Operacional</span>
@@ -881,101 +883,103 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
               </div>
 
               {/* Grid Financeiro: Valor Original, Desconto e Acréscimo */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
-                    Valor Operacional (R$)
-                  </label>
-                  <input
-                    type="text"
-                    disabled
-                    value={formatCurrencyBRL(modalAmounts.originalBase)}
-                    className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-zinc-900 dark:text-white cursor-not-allowed"
-                  />
+              <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black space-y-4 shadow-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      Valor Operacional (R$)
+                    </label>
+                    <input
+                      type="text"
+                      disabled
+                      value={formatCurrencyBRL(modalAmounts.originalBase)}
+                      className="w-full px-3 py-2 bg-slate-100 border border-black rounded-lg text-xs font-mono font-bold text-black cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      Desconto Comercial (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={auditDiscount}
+                      onChange={(e) => setAuditDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-black rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      Acréscimo / Extras (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={auditExtra}
+                      onChange={(e) => setAuditExtra(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-black rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
                 </div>
 
+                {/* Anotações Exclusivas do Faturamento (billingNotes) */}
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
-                    Desconto Comercial (R$)
+                  <label className="block text-[11px] font-bold text-black uppercase mb-1 flex items-center justify-between">
+                    <span>Anotações do Faturamento / Escritório</span>
+                    <span className="text-[10px] text-slate-700 normal-case">(exclusivo do faturamento)</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={auditDiscount}
-                    onChange={(e) => setAuditDiscount(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  <textarea
+                    rows={3}
+                    value={auditNotes}
+                    onChange={(e) => setAuditNotes(e.target.value.toUpperCase())}
+                    placeholder="DIGITE INSTRUÇÕES DE COBRANÇA, ACORDOS DE PAGAMENTO, VENCIMENTOS OU OBSERVAÇÕES..."
+                    className="w-full px-3 py-2 bg-white border border-black rounded-lg text-xs font-medium text-black placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-black uppercase"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
-                    Acréscimo / Extras (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={auditExtra}
-                    onChange={(e) => setAuditExtra(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
-                  />
-                </div>
-              </div>
-
-              {/* Anotações Exclusivas do Faturamento (billingNotes) */}
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1 flex items-center justify-between">
-                  <span>Anotações do Faturamento / Escritório</span>
-                  <span className="text-[9px] text-zinc-400 normal-case">(exclusivo do faturamento)</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={auditNotes}
-                  onChange={(e) => setAuditNotes(e.target.value.toUpperCase())}
-                  placeholder="DIGITE INSTRUÇÕES DE COBRANÇA, ACORDOS DE PAGAMENTO, VENCIMENTOS OU OBSERVAÇÕES..."
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-medium text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 uppercase"
-                />
               </div>
 
               {/* Total Final Calculado */}
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center justify-between">
+              <div className="bg-emerald-50 p-4 rounded-xl border border-black flex items-center justify-between shadow-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase block">
+                  <span className="text-[10px] font-bold text-emerald-900 uppercase block">
                     Valor Final Faturado
                   </span>
-                  <span className="text-sm font-black text-emerald-900 dark:text-emerald-200">
+                  <span className="text-base font-black text-emerald-950">
                     {formatCurrencyBRL(modalAmounts.final)}
                   </span>
                 </div>
-                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold uppercase">
+                <span className="text-[11px] text-emerald-900 font-bold uppercase px-2.5 py-1 bg-white border border-black rounded-lg">
                   {auditingService.status === 'faturado' ? 'Já no Contas a Receber' : 'Pronto para Envio'}
                 </span>
               </div>
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="flex items-center justify-end gap-2 px-4 py-3 bg-slate-100 dark:bg-stone-800 border-t border-slate-300 dark:border-stone-700">
+            <div className="flex items-center justify-end gap-2.5 px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
               <button
                 type="button"
                 onClick={() => setAuditingService(null)}
-                className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-200 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveAudit(false)}
-                className="px-3.5 py-1.5 text-xs font-bold text-slate-800 dark:text-stone-200 bg-white dark:bg-stone-700 border border-slate-300 dark:border-stone-600 hover:bg-slate-50 rounded-lg shadow-2xs transition cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-black bg-[#e0e6f1] border border-black hover:bg-white rounded-lg shadow-2xs transition cursor-pointer"
               >
                 Salvar Auditoria
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveAudit(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition cursor-pointer uppercase active:scale-95"
+                className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg shadow-xs transition cursor-pointer uppercase"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Enviar para Contas a Receber</span>

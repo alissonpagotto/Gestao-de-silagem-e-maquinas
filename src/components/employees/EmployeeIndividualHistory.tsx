@@ -982,38 +982,39 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 
       {/* MODAL PARA REGISTRO DE ALTERAÇÃO SALARIAL */}
       {isSalaryModalOpen && currentEmployee && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-fade-in">
-          <div className="w-full max-w-[500px] bg-white rounded-lg shadow-xl border border-slate-400 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-fade-in">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between bg-[#cad4e6] rounded-xl shadow-2xl border border-black overflow-hidden mx-auto my-auto">
             
-            <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 px-3.5 py-2 flex items-center justify-between shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)]">
-              <div className="flex items-center gap-1.5">
+            <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-700" />
-                <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                <h3 className="text-xs font-black uppercase text-black tracking-wider">
                   REGISTRAR ALTERAÇÃO SALARIAL
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsSalaryModalOpen(false)}
-                className="text-slate-500 hover:text-slate-800 p-1 cursor-pointer"
+                className="text-black hover:bg-white/60 p-1 rounded cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSalaryChange} className="p-3.5 space-y-3">
-              <div className="bg-slate-50 border border-slate-200 rounded p-2 text-xs">
-                <span className="text-slate-500 uppercase font-semibold">Colaborador:</span>{' '}
-                <strong className="text-slate-800 uppercase">{currentEmployee.name}</strong>
+            <form id="salary-change-history-form" onSubmit={handleSaveSalaryChange} className="flex-1 min-h-0 overflow-y-auto p-4 bg-[#cad4e6]">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3 max-w-2xl mx-auto">
+              <div className="bg-white border border-gray-400 rounded-lg p-2.5 text-xs">
+                <span className="text-slate-700 uppercase font-semibold">Colaborador:</span>{' '}
+                <strong className="text-black uppercase">{currentEmployee.name}</strong>
                 <div className="mt-0.5">
-                  <span className="text-slate-500 uppercase font-semibold">Salário Anterior:</span>{' '}
-                  <strong className="text-slate-700">{formatCurrencyBRL(currentEmployee.salary || currentEmployee.baseSalary || 0)}</strong>
+                  <span className="text-slate-700 uppercase font-semibold">Salário Anterior:</span>{' '}
+                  <strong className="text-black">{formatCurrencyBRL(currentEmployee.salary || currentEmployee.baseSalary || 0)}</strong>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-black mb-1">
                     DATA DA VIGÊNCIA *
                   </label>
                   <input
@@ -1021,12 +1022,12 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                     required
                     value={newSalaryDate}
                     onChange={(e) => setNewSalaryDate(e.target.value)}
-                    className="w-full text-xs font-bold py-1.5 px-2 bg-white border border-slate-300 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none"
+                    className="w-full text-xs font-bold py-1.5 px-2 bg-white text-black border border-gray-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-black mb-1">
                     NOVO SALÁRIO (R$) *
                   </label>
                   <input
@@ -1035,20 +1036,20 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                     placeholder="Ex: 3.500,00"
                     value={newSalaryValue}
                     onChange={(e) => setNewSalaryValue(e.target.value)}
-                    className="w-full text-xs font-black py-1.5 px-2 bg-white border border-slate-300 rounded shadow-xs focus:ring-1 focus:ring-emerald-500 outline-none text-emerald-800"
+                    className="w-full text-xs font-black py-1.5 px-2 bg-white text-black border border-gray-400 rounded shadow-xs focus:ring-1 focus:ring-emerald-500 outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-black mb-1">
                     MOTIVO DO REAJUSTE *
                   </label>
                   <select
                     value={newSalaryReason}
                     onChange={(e) => setNewSalaryReason(e.target.value)}
-                    className="w-full text-xs font-bold uppercase py-1.5 px-2 bg-white border border-slate-300 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer"
+                    className="w-full text-xs font-bold uppercase py-1.5 px-2 bg-white text-black border border-gray-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer"
                   >
                     <option value="Reajuste Anual">REAJUSTE ANUAL</option>
                     <option value="Dissídio / Acordo Coletivo">DISSÍDIO / ACORDO COLETIVO</option>
@@ -1060,7 +1061,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-black mb-1">
                     CARGO / FUNÇÃO ATUALIZADA
                   </label>
                   <input
@@ -1068,13 +1069,13 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                     placeholder="Ex: Operador Especialista"
                     value={newSalaryCargo}
                     onChange={(e) => setNewSalaryCargo(e.target.value)}
-                    className="w-full text-xs font-bold uppercase py-1.5 px-2 bg-white border border-slate-300 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none"
+                    className="w-full text-xs font-bold uppercase py-1.5 px-2 bg-white text-black border border-gray-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                <label className="block text-[10px] font-black uppercase text-black mb-1">
                   OBSERVAÇÕES / JUSTIFICATIVA DO REAJUSTE
                 </label>
                 <textarea
@@ -1082,27 +1083,29 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
                   value={newSalaryNotes}
                   onChange={(e) => setNewSalaryNotes(e.target.value)}
                   placeholder="Informações adicionais do aumento salarial..."
-                  className="w-full text-xs py-1.5 px-2 bg-white border border-slate-300 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none"
+                  className="w-full text-xs py-1.5 px-2 bg-white text-black border border-gray-400 rounded shadow-xs focus:ring-1 focus:ring-sky-500 outline-none"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsSalaryModalOpen(false)}
-                  className="px-3 py-1.5 text-xs font-bold uppercase rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition cursor-pointer"
-                >
-                  CANCELAR
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 text-xs font-black uppercase rounded bg-gradient-to-b from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border border-emerald-600 shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>SALVAR ALTERAÇÃO</span>
-                </button>
               </div>
             </form>
+
+            <div className="flex items-center justify-end gap-2 px-4 py-3 bg-[#cad4e6] border-t border-black shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSalaryModalOpen(false)}
+                className="px-3.5 py-1.5 text-xs font-bold uppercase rounded border border-gray-400 bg-white hover:bg-gray-100 text-black transition cursor-pointer"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="submit"
+                form="salary-change-history-form"
+                className="px-4 py-1.5 text-xs font-bold uppercase rounded bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <span>SALVAR ALTERAÇÃO</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

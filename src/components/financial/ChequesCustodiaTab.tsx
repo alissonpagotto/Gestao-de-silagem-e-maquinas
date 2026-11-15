@@ -1008,18 +1008,18 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE DEPOSITAR / COMPENSAR */}
       {compensatingCheque && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-1.5 rounded-lg bg-emerald-600 text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0 text-black">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-1.5 rounded-lg bg-white border border-black text-emerald-700">
                   <Landmark className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-black">
                     Depositar e Compensar Cheque
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-stone-400">
+                  <p className="text-[11px] text-black/80 font-medium">
                     Lançamento automático de crédito na Conta Bancária e Extrato
                   </p>
                 </div>
@@ -1027,79 +1027,81 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
               <button
                 type="button"
                 onClick={() => setCompensatingCheque(null)}
-                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Resumo do Cheque */}
-            <div className="bg-slate-50 dark:bg-stone-850 p-3 rounded-xl border border-slate-200 dark:border-stone-700 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-stone-400 uppercase">Cheque nº:</span>
-                <span className="font-mono font-black text-slate-900 dark:text-white text-xs">
-                  {compensatingCheque.numero_cheque || (compensatingCheque as any).numeroCheque}
-                </span>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#cad4e6] text-black">
+              {/* Resumo do Cheque */}
+              <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase">Cheque nº:</span>
+                  <span className="font-mono font-black text-black text-xs">
+                    {compensatingCheque.numero_cheque || (compensatingCheque as any).numeroCheque}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase">Emitente:</span>
+                  <span className="font-bold text-black text-xs">
+                    {compensatingCheque.emitente_nome || (compensatingCheque as any).emitenteNome}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase">Banco de Origem:</span>
+                  <span className="font-semibold text-black text-xs">
+                    {compensatingCheque.banco}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-black/20">
+                  <span className="text-xs font-black text-black uppercase">Valor a Creditar:</span>
+                  <span className="text-base font-black text-emerald-700 font-['Outfit']">
+                    {formatCurrencyBRL(compensatingCheque.valor)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-stone-400 uppercase">Emitente:</span>
-                <span className="font-bold text-slate-900 dark:text-white text-xs">
-                  {compensatingCheque.emitente_nome || (compensatingCheque as any).emitenteNome}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-stone-400 uppercase">Banco de Origem:</span>
-                <span className="font-semibold text-slate-800 dark:text-stone-200 text-xs">
-                  {compensatingCheque.banco}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-stone-700">
-                <span className="text-xs font-black text-slate-900 dark:text-white uppercase">Valor a Creditar:</span>
-                <span className="text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit']">
-                  {formatCurrencyBRL(compensatingCheque.valor)}
-                </span>
+
+              {/* Formulário de Compensação */}
+              <div className="bg-[#e0e6f1] p-4 rounded-xl border border-black space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                    Conta Bancária de Destino (Onde o valor entrará) <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    value={targetAccountId}
+                    onChange={(e) => setTargetAccountId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-gray-400 rounded-xl bg-white text-black font-bold outline-none focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="">-- Selecione a Conta Bancária --</option>
+                    {bankAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.bankName} - Saldo Atual: {formatCurrencyBRL(acc.balance)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                    Data da Compensação / Depósito <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={compensationDate}
+                    onChange={(e) => setCompensationDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-gray-400 rounded-xl bg-white text-black font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Formulário de Compensação */}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-stone-300 mb-1">
-                  Conta Bancária de Destino (Onde o valor entrará) <span className="text-rose-600">*</span>
-                </label>
-                <select
-                  value={targetAccountId}
-                  onChange={(e) => setTargetAccountId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-600"
-                >
-                  <option value="">-- Selecione a Conta Bancária --</option>
-                  {bankAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.bankName} - Saldo Atual: {formatCurrencyBRL(acc.balance)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-stone-300 mb-1">
-                  Data da Compensação / Depósito <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={compensationDate}
-                  onChange={(e) => setCompensationDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+            <div className="flex items-center justify-end space-x-2 px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
               <button
                 type="button"
                 onClick={() => setCompensatingCheque(null)}
                 disabled={isProcessing}
-                className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition"
+                className="px-4 py-2 text-xs font-bold rounded-xl border border-black bg-white text-black hover:bg-slate-100 transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1108,7 +1110,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                 type="button"
                 onClick={handleConfirmCompensate}
                 disabled={isProcessing}
-                className="px-4 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                className="px-5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white transition flex items-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <Check className="w-4 h-4" />
                 <span>{isProcessing ? 'Liquidando...' : 'Confirmar Compensação'}</span>
@@ -1120,26 +1122,37 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE VISUALIZAÇÃO DA IMAGEM DO CHEQUE */}
       {viewingImageUrl && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xs">
-          <div className="relative max-w-3xl w-full bg-white dark:bg-stone-900 p-3 rounded-2xl shadow-2xl">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-stone-800">
-              <span className="text-xs font-bold text-slate-800 dark:text-stone-200 uppercase tracking-wide">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0 text-black">
+              <span className="text-sm font-black text-black uppercase tracking-wide">
                 Folha do Cheque Digitalizada
               </span>
               <button
                 type="button"
                 onClick={() => setViewingImageUrl('')}
-                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="max-h-[75vh] overflow-auto rounded-xl flex items-center justify-center bg-slate-950/20 p-2">
-              <img
-                src={viewingImageUrl}
-                alt="Folha do Cheque Físico"
-                className="max-h-[70vh] w-auto max-w-full object-contain rounded-lg shadow-md"
-              />
+            <div className="flex-1 min-h-0 overflow-auto p-4 bg-[#cad4e6] flex items-center justify-center">
+              <div className="w-full h-full bg-[#e0e6f1] border border-black rounded-xl p-4 flex items-center justify-center">
+                <img
+                  src={viewingImageUrl}
+                  alt="Folha do Cheque Físico"
+                  className="max-h-[72vh] w-auto max-w-full object-contain rounded-lg border border-black bg-white shadow-md"
+                />
+              </div>
+            </div>
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewingImageUrl('')}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-white border border-black text-black hover:bg-slate-100 transition cursor-pointer"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
@@ -1147,9 +1160,9 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
 
       {/* MODAL DE NOVO CHEQUE AVULSO */}
       {isNewChequeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 shrink-0">
               <div className="flex items-center space-x-2">
                 <div className="p-1.5 rounded-lg bg-emerald-600 text-white border border-emerald-800">
                   <Plus className="w-4 h-4" />

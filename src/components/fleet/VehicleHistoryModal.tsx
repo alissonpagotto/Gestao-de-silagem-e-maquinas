@@ -508,10 +508,10 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
   const companyProfile = getStoredCompanyProfile();
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 print:p-0 print:bg-white print:static">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 print:p-0 print:bg-white print:static print:overflow-visible">
       <div 
         id="vehicle-history-modal"
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden print:max-h-none print:shadow-none print:border-none print:rounded-none print:w-full"
+        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:w-full print:max-w-none print:bg-white"
       >
         
         {/* --- PRINT HEADER (Corporate 2 Columns) --- */}
@@ -525,38 +525,38 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
         </div>
 
         {/* --- HEADER --- */}
-        <div className="px-5 py-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-850/80 flex items-center justify-between gap-3 print:border-none print:bg-white">
+        <div className="px-5 py-3 border-b border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-850/80 flex items-center justify-between gap-3 shrink-0 print:border-none print:bg-white">
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300 flex items-center justify-center font-bold shrink-0 border border-pink-200 dark:border-pink-800 print:hidden">
-              <TrendingUp className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-white text-black flex items-center justify-center font-bold shrink-0 border border-black print:hidden">
+              <TrendingUp className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-2 flex-wrap">
-                <span className="font-mono font-black text-xs px-2.5 py-0.5 rounded-md bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 tracking-wider">
+                <span className="font-mono font-black text-xs px-2.5 py-0.5 rounded-md bg-white text-black border border-black tracking-wider">
                   {vehicle.licensePlateOrSerial || 'SEM PLACA'}
                 </span>
-                <h2 className="text-base font-bold text-stone-900 dark:text-stone-100 truncate font-['Outfit']">
+                <h2 className="text-sm sm:text-base font-bold text-black dark:text-stone-100 truncate font-['Outfit']">
                   {vehicle.model || vehicle.name}
                 </h2>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border border-black/30 ${
                   vehicle.status === 'operacional'
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                    : 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-300'
+                    ? 'bg-emerald-100 text-emerald-900'
+                    : 'bg-white text-black'
                 }`}>
                   {vehicle.status || 'Disponível'}
                 </span>
                 {vehicle.capacityM3 && (
-                  <span className="text-[11px] font-black text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800 flex items-center space-x-1">
+                  <span className="text-[11px] font-black text-sky-900 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-400 flex items-center space-x-1">
                     <Box className="w-3 h-3" />
                     <span>{vehicle.capacityM3} m³</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 flex items-center space-x-2">
-                <span>Motoristas Vinculados: <strong className="text-stone-700 dark:text-stone-300">{assignedDriverNames.join(', ') || 'Nenhum'}</strong></span>
+              <p className="text-xs text-black/75 dark:text-stone-400 mt-0.5 flex items-center space-x-2 font-medium">
+                <span>Motoristas Vinculados: <strong className="text-black dark:text-stone-300">{assignedDriverNames.join(', ') || 'Nenhum'}</strong></span>
                 <span>•</span>
-                <span>Horímetro: <strong className="text-stone-700 dark:text-stone-300">{vehicle.hourMeter || 0} h</strong></span>
-                {vehicle.currentKm ? <span>• KM: <strong className="text-stone-700 dark:text-stone-300">{vehicle.currentKm.toLocaleString('pt-BR')} km</strong></span> : null}
+                <span>Horímetro: <strong className="text-black dark:text-stone-300">{vehicle.hourMeter || 0} h</strong></span>
+                {vehicle.currentKm ? <span>• KM: <strong className="text-black dark:text-stone-300">{vehicle.currentKm.toLocaleString('pt-BR')} km</strong></span> : null}
               </p>
             </div>
           </div>
@@ -565,14 +565,14 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
             <button
               onClick={handlePrint}
               title="Imprimir Relatório de Lucratividade"
-              className="px-3 py-1.5 bg-[#0963cb] hover:bg-blue-700 text-white rounded-lg transition cursor-pointer flex items-center space-x-1.5 text-xs font-bold shadow-xs"
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white rounded-lg transition cursor-pointer flex items-center space-x-1.5 text-xs font-bold shadow-xs"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir DRE</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+              className="p-2 text-black hover:bg-black/10 rounded-lg transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -580,7 +580,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
         </div>
 
         {/* --- FINANCIAL HIGHLIGHTS & DRE SUMMARY CARDS --- */}
-        <div className="px-5 py-4 bg-gradient-to-r from-stone-50 via-white to-stone-50 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-stone-200 dark:border-stone-800 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-800 grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
           
           {/* 1. Proventos / Receita */}
           <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
@@ -646,10 +646,10 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
         </div>
 
         {/* --- TABS NAVIGATION --- */}
-        <div className="px-3 sm:px-4 py-1.5 border-b border-slate-300 dark:border-stone-800 flex items-center justify-between gap-2 overflow-x-auto bg-stone-100/70 dark:bg-stone-900/50">
+        <div className="px-3 sm:px-4 py-2 border-b border-black dark:border-stone-800 flex items-center justify-between gap-2 overflow-x-auto bg-[#cad4e6] dark:bg-stone-900 shrink-0 print:hidden">
           <div 
             aria-label="Abas do Histórico do Veículo"
-            className="flex items-center gap-1.5 p-1 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto scrollbar-none"
+            className="flex items-center gap-1.5 p-1 bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-700 overflow-x-auto scrollbar-none"
           >
             
             <button
@@ -738,7 +738,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
         </div>
 
         {/* --- MODAL CONTENT BODY --- */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 bg-[#cad4e6] print:bg-white">
           
           {/* TAB 1: LUCRO POR PEDIDO / SERVIÇOS (PROVENTOS) */}
           {activeTab === 'pedidos' && (
@@ -1321,13 +1321,13 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
         </div>
 
         {/* --- MODAL FOOTER --- */}
-        <div className="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-850/80 flex items-center justify-between text-xs print:hidden">
-          <div className="text-stone-500">
-            Veículo: <strong className="text-stone-700 dark:text-stone-300">{vehicle.model || vehicle.name}</strong> • Placa: <strong className="text-stone-700 dark:text-stone-300">{vehicle.licensePlateOrSerial || '--'}</strong>
+        <div className="px-5 py-3 border-t border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-850/80 flex items-center justify-between text-xs shrink-0 print:hidden">
+          <div className="text-black font-medium">
+            Veículo: <strong className="text-black font-bold">{vehicle.model || vehicle.name}</strong> • Placa: <strong className="text-black font-bold">{vehicle.licensePlateOrSerial || '--'}</strong>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 rounded-lg font-bold transition cursor-pointer"
+            className="px-4 py-2 bg-white hover:bg-gray-100 border border-gray-400 text-black rounded-lg font-bold transition cursor-pointer"
           >
             Fechar Histórico
           </button>
@@ -1347,19 +1347,21 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
       {/* --- SUB-MODAL 1: VINCULAR NOVO SERVIÇO / PROVENTO --- */}
       {isAddingService && (
-        <div className="fixed inset-0 z-60 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl w-full max-w-lg shadow-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
-              <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 font-['Outfit'] flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-emerald-600" />
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
+            <div className="px-5 py-3 bg-[#cad4e6] border-b border-black flex items-center justify-between shrink-0">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-black font-['Outfit'] flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-emerald-700" />
                 <span>Lançar / Vincular Serviço a {vehicle.licensePlateOrSerial || vehicle.name}</span>
               </h3>
-              <button onClick={() => setIsAddingService(false)} className="text-stone-400 hover:text-stone-600">
+              <button type="button" onClick={() => setIsAddingService(false)} className="p-1.5 text-black hover:bg-black/10 rounded-lg cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveQuickService} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveQuickService} className="flex-1 min-h-0 flex flex-col overflow-hidden text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6]">
+                <div className="max-w-3xl mx-auto p-4 bg-[#e0e6f1] border border-black rounded-xl space-y-3">
               
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -1477,17 +1479,20 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                 </span>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2">
+                </div>
+              </div>
+
+              <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddingService(false)}
-                  className="px-3 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg font-bold"
+                  className="px-4 py-2 bg-white hover:bg-gray-100 border border-gray-400 text-black rounded-lg font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white rounded-lg font-bold shadow-xs cursor-pointer"
                 >
                   Salvar Serviço & Atualizar Lucro
                 </button>
@@ -1499,26 +1504,28 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
       {/* --- SUB-MODAL 2: LANÇAR DESPESA DE MOTORISTA (ALIMENTAÇÃO / DIÁRIA) --- */}
       {isAddingDriverExpense && (
-        <div className="fixed inset-0 z-60 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl w-full max-w-lg shadow-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
-              <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 font-['Outfit'] flex items-center space-x-2">
-                <Utensils className="w-4 h-4 text-blue-600" />
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
+            <div className="px-5 py-3 bg-[#cad4e6] border-b border-black flex items-center justify-between shrink-0">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-black font-['Outfit'] flex items-center space-x-2">
+                <Utensils className="w-4 h-4 text-blue-700" />
                 <span>Lançar Despesa do Motorista (Alimentação / Diária / Salário)</span>
               </h3>
-              <button onClick={() => setIsAddingDriverExpense(false)} className="text-stone-400 hover:text-stone-600">
+              <button type="button" onClick={() => setIsAddingDriverExpense(false)} className="p-1.5 text-black hover:bg-black/10 rounded-lg cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDriverExpense} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveDriverExpense} className="flex-1 min-h-0 flex flex-col overflow-hidden text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6]">
+                <div className="max-w-3xl mx-auto p-4 bg-[#e0e6f1] border border-black rounded-xl space-y-3">
               
               <div>
-                <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">Motorista / Operador</label>
+                <label className="block text-[11px] font-bold text-black mb-1">Motorista / Operador</label>
                 <select
                   value={expenseDriver}
                   onChange={e => setExpenseDriver(e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-stone-100"
+                  className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-black"
                 >
                   {assignedDriverNames.map((d, i) => (
                     <option key={i} value={d}>{d}</option>
@@ -1531,11 +1538,11 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">Tipo de Despesa</label>
+                  <label className="block text-[11px] font-bold text-black mb-1">Tipo de Despesa</label>
                   <select
                     value={expenseCategory}
                     onChange={e => setExpenseCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-stone-100"
+                    className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-black"
                   >
                     <option value="alimentacao">Alimentação / Marmita / Café</option>
                     <option value="salario">Salário / Adiantamento</option>
@@ -1545,53 +1552,55 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">Data</label>
+                  <label className="block text-[11px] font-bold text-black mb-1">Data</label>
                   <input
                     type="date"
                     value={expenseDate}
                     onChange={e => setExpenseDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-stone-100"
+                    className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-black"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">Descrição do Gasto</label>
+                <label className="block text-[11px] font-bold text-black mb-1">Descrição do Gasto</label>
                 <input
                   type="text"
                   value={expenseDesc}
                   onChange={e => setExpenseDesc(e.target.value)}
                   placeholder="Ex: Almoço da equipe de corte no Restaurante Estrada"
-                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-stone-100"
+                  className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-black"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">Valor da Despesa (R$)</label>
+                <label className="block text-[11px] font-bold text-black mb-1">Valor da Despesa (R$)</label>
                 <input
                   type="number"
                   step="0.01"
                   value={expenseAmount}
                   onChange={e => setExpenseAmount(e.target.value ? Number(e.target.value) : '')}
                   placeholder="0,00"
-                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-900 dark:text-stone-100 font-mono font-bold text-rose-600 text-sm"
+                  className="w-full px-3 py-2 bg-white border border-gray-400 rounded-lg text-rose-700 font-mono font-bold text-sm"
                   required
                 />
               </div>
+                </div>
+              </div>
 
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddingDriverExpense(false)}
-                  className="px-3 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg font-bold"
+                  className="px-4 py-2 bg-white hover:bg-gray-100 border border-gray-400 text-black rounded-lg font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white rounded-lg font-bold shadow-xs cursor-pointer"
                 >
                   Lançar Despesa
                 </button>

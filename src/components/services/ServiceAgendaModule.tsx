@@ -1736,8 +1736,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       {/* 1. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO NA TELA */}
       {appointmentToDelete && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => !isDeleting && setAppointmentToDelete(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div 
             className="bg-white dark:bg-stone-900 rounded-2xl max-w-md w-full p-5 border border-stone-200 dark:border-stone-800 shadow-2xl space-y-4"
@@ -1821,8 +1820,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       {/* 2. MODAL DE ALERTA: EXCLUSÃO DE FRENTE BLOQUEADA (POSSUI AGENDAMENTOS VINCULADOS) */}
       {frontDeleteBlocked && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setFrontDeleteBlocked(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div 
             className="w-full max-w-md bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-150"
@@ -1858,8 +1856,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       {/* 3. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE FRENTE (COLUNA VAZIA) */}
       {frontToDelete && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => !isDeletingFront && setFrontToDelete(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div 
             className="w-full max-w-md bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-150"

@@ -92,9 +92,6 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
       if (filteredProducts[selectedIndex]) {
         handleConfirmSelection(filteredProducts[selectedIndex]);
       }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
     }
   };
 
@@ -107,26 +104,26 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 animate-in fade-in duration-150"
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-modal="true"
     >
       <div 
-        className="bg-white dark:bg-stone-900 w-full max-w-4xl rounded-xl shadow-2xl border border-stone-200 dark:border-stone-700 flex flex-col max-h-[85vh] overflow-hidden"
+        className="bg-[#cad4e6] w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] rounded-xl shadow-2xl border border-black flex flex-col justify-between mx-auto my-auto overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho do Modal ERP */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-stone-100 dark:bg-stone-800/90 border-b border-stone-200 dark:border-stone-700">
+        <div className="flex items-center justify-between px-5 py-3.5 bg-[#cad4e6] border-b border-black shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 bg-blue-600/10 text-blue-700 dark:text-blue-400 rounded-lg">
+            <div className="p-1.5 bg-white border border-black text-black rounded-lg">
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-900 dark:text-stone-100">
-                Consulta Avançada de Produtos & Peças (F4)
+              <h3 className="text-sm font-bold uppercase tracking-wider text-black">
+                Consulta Avançada de Produtos &amp; Peças (F4)
               </h3>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+              <p className="text-[11px] text-slate-800 font-semibold">
                 Localize peças pelo Código, Nome ou Código de Barras e pressione Enter ou clique duas vezes
               </p>
             </div>
@@ -134,7 +131,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 rounded-lg transition"
+            className="p-1.5 text-black hover:bg-white/60 border border-transparent hover:border-black rounded-lg transition cursor-pointer"
             title="Fechar (Esc)"
           >
             <X className="w-5 h-5" />
@@ -142,10 +139,10 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
         </div>
 
         {/* Barra de Filtros e Busca Rápida */}
-        <div className="p-4 bg-stone-50/70 dark:bg-stone-900/40 border-b border-stone-200 dark:border-stone-800 space-y-3">
+        <div className="p-4 bg-[#e0e6f1] border-b border-black space-y-3 shrink-0">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -155,7 +152,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
                   setSelectedIndex(0);
                 }}
                 placeholder="Digite o código (ID), descrição da peça ou código de barras..."
-                className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-gray-400 bg-white text-black placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
               />
               {searchTerm && (
                 <button
@@ -164,7 +161,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
                     setSearchTerm('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-black cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -178,7 +175,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
                   setSelectedCategory(e.target.value);
                   setSelectedIndex(0);
                 }}
-                className="w-full py-2 px-2.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase font-medium"
+                className="w-full py-2 px-2.5 text-xs rounded-lg border border-gray-400 bg-white text-black focus:outline-none focus:ring-2 focus:ring-emerald-600 uppercase font-medium"
               >
                 <option value="todos">TODAS AS CATEGORIAS</option>
                 {categories.map(cat => (
@@ -190,22 +187,22 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+          <div className="flex items-center justify-between text-[11px] text-slate-800 font-semibold">
             <span>
-              Mostrando <strong>{filteredProducts.length}</strong> itens encontrados no almoxarifado
+              Mostrando <strong className="text-black">{filteredProducts.length}</strong> itens encontrados no almoxarifado
             </span>
             <div className="hidden sm:flex items-center space-x-3 text-[10px] uppercase font-mono">
               <span className="flex items-center gap-1">
-                <kbd className="px-1 py-0.5 bg-stone-200 dark:bg-stone-800 rounded border border-stone-300 dark:border-stone-700 font-semibold">↑</kbd>
-                <kbd className="px-1 py-0.5 bg-stone-200 dark:bg-stone-800 rounded border border-stone-300 dark:border-stone-700 font-semibold">↓</kbd>
+                <kbd className="px-1 py-0.5 bg-white rounded border border-black/40 font-semibold text-black">↑</kbd>
+                <kbd className="px-1 py-0.5 bg-white rounded border border-black/40 font-semibold text-black">↓</kbd>
                 Navegar
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-stone-200 dark:bg-stone-800 rounded border border-stone-300 dark:border-stone-700 font-semibold">ENTER</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white rounded border border-black/40 font-semibold text-black">ENTER</kbd>
                 Selecionar
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="px-1 py-0.5 bg-stone-200 dark:bg-stone-800 rounded border border-stone-300 dark:border-stone-700 font-semibold">ESC</kbd>
+                <kbd className="px-1 py-0.5 bg-white rounded border border-black/40 font-semibold text-black">ESC</kbd>
                 Fechar
               </span>
             </div>
@@ -213,7 +210,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
         </div>
 
         {/* Tabela de Produtos ERP de Alta Densidade */}
-        <div ref={tableContainerRef} className="flex-1 overflow-y-auto min-h-[300px]">
+        <div ref={tableContainerRef} className="flex-1 overflow-y-auto min-h-0 bg-white">
           <table className="w-full text-left border-collapse table-fixed text-xs">
             <colgroup>
               <col className="w-[12%]" />
@@ -222,8 +219,8 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
               <col className="w-[14%]" />
               <col className="w-[14%]" />
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-stone-100 dark:bg-stone-800 border-b border-stone-300 dark:border-stone-700">
-              <tr className="text-[10px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-[#e0e6f1] border-b border-black">
+              <tr className="text-[10px] font-bold text-black uppercase tracking-wider">
                 <th className="py-2.5 px-3">CÓDIGO (ID)</th>
                 <th className="py-2.5 px-3">DESCRIÇÃO DO PRODUTO</th>
                 <th className="py-2.5 px-3">CATEGORIA</th>
@@ -231,7 +228,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
                 <th className="py-2.5 px-3 text-right">DISPONÍVEL</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+            <tbody className="divide-y divide-stone-200">
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-stone-500 dark:text-stone-400">
@@ -323,11 +320,11 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
         </div>
 
         {/* Rodapé de Ações do Modal */}
-        <div className="flex items-center justify-between px-5 py-3 bg-stone-100 dark:bg-stone-800/90 border-t border-stone-200 dark:border-stone-700">
-          <div className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
+        <div className="flex items-center justify-between px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
+          <div className="text-[11px] text-slate-800 font-semibold truncate">
             {filteredProducts[selectedIndex] ? (
               <span>
-                Item selecionado: <strong className="text-stone-800 dark:text-stone-200">{filteredProducts[selectedIndex].name}</strong> ({formatCurrencyBRL(filteredProducts[selectedIndex].unitCost || 0)})
+                Item selecionado: <strong className="text-black">{filteredProducts[selectedIndex].name}</strong> ({formatCurrencyBRL(filteredProducts[selectedIndex].unitCost || 0)})
               </span>
             ) : (
               <span>Nenhum item selecionado</span>
@@ -337,7 +334,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-600 transition"
+              className="px-4 py-1.5 text-xs font-bold rounded-lg border border-black bg-white text-black hover:bg-gray-100 transition cursor-pointer"
             >
               Cancelar (Esc)
             </button>
@@ -349,7 +346,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
                   handleConfirmSelection(filteredProducts[selectedIndex]);
                 }
               }}
-              className="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
+              className="px-5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white border border-emerald-800 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Confirmar Seleção (Enter)</span>

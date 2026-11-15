@@ -1349,27 +1349,27 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
       {/* Modal 3: Detalhes do Produto (Ficha Completa & Histórico de Movimentações) */}
       {viewingItem && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-zinc-100 dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100">
             
             {/* Header */}
-            <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+            <div className="px-5 py-3 bg-[#cad4e6] text-black flex items-center justify-between border-b border-black shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/10 rounded-xl text-zinc-200">
+                <div className="p-2 bg-white rounded-xl text-black border border-black">
                   {getCategoryIcon(viewingItem.category)}
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
+                    <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-black">
                       {viewingItem.name}
                     </h3>
                     {viewingItem.quantity <= viewingItem.minQuantity && (
-                      <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-rose-600 text-white">
+                      <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-rose-600 text-white border border-rose-900">
                         Estoque Crítico
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-300">
+                  <p className="text-[11px] font-bold uppercase text-black/75">
                     Ficha Técnica Completa & Histórico de Movimentações
                   </p>
                 </div>
@@ -1378,7 +1378,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setLabelPrintItem(viewingItem)}
-                  className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-gray-100 text-black border border-black text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
                   title="Imprimir Etiqueta de Gôndola"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -1387,7 +1387,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewingItem(null)}
-                  className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                  className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
                   title="Fechar"
                 >
                   <X className="w-5 h-5" />
@@ -1396,50 +1396,50 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             </div>
 
             {/* Content Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 bg-zinc-100 dark:bg-stone-900">
+            <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-4 bg-[#cad4e6] dark:bg-stone-900">
               
               {/* Grid de Informações Básicas do Item */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black/75 uppercase">
                     <Tag className="w-3.5 h-3.5" />
                     <span>Categoria</span>
                   </div>
-                  <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 capitalize mt-1">
+                  <div className="text-xs sm:text-sm font-black text-black dark:text-stone-100 capitalize mt-1">
                     {viewingItem.category.replace('_', ' ')}
                   </div>
                 </div>
 
-                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black/75 uppercase">
                     <MapPin className="w-3.5 h-3.5" />
                     <span>Localização</span>
                   </div>
-                  <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 mt-1 truncate">
+                  <div className="text-xs sm:text-sm font-black text-black dark:text-stone-100 mt-1 truncate">
                     {viewingItem.location || 'Barracão Principal'}
                   </div>
                 </div>
 
-                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black/75 uppercase">
                     <Package className="w-3.5 h-3.5" />
                     <span>Estoque Atual</span>
                   </div>
                   <div className={`text-xs sm:text-sm font-black mt-1 ${
                     viewingItem.quantity <= viewingItem.minQuantity 
-                      ? 'text-rose-600 dark:text-rose-400' 
-                      : 'text-zinc-800 dark:text-zinc-200'
+                      ? 'text-rose-700 dark:text-rose-400' 
+                      : 'text-black dark:text-zinc-200'
                   }`}>
                     {viewingItem.quantity} {viewingItem.unit}
                   </div>
                 </div>
 
-                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-black/75 uppercase">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span>Estoque Mínimo</span>
                   </div>
-                  <div className="text-xs sm:text-sm font-bold text-stone-800 dark:text-stone-200 mt-1">
+                  <div className="text-xs sm:text-sm font-black text-black dark:text-stone-200 mt-1">
                     {viewingItem.minQuantity} {viewingItem.unit}
                   </div>
                 </div>
@@ -1447,83 +1447,83 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
               {/* Destaque Financeiro */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3.5 bg-white dark:bg-stone-800 rounded-xl border border-zinc-300 dark:border-stone-700 flex items-center justify-between">
+                <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black dark:border-stone-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-black/75 dark:text-zinc-300">
                       Média de Custo Unitário
                     </span>
-                    <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
+                    <div className="text-base sm:text-lg font-black text-black dark:text-zinc-100 font-mono mt-0.5">
                       {formatCurrencyBRL(viewingItem.unitCost)}
-                      <span className="text-xs font-normal text-stone-500 ml-1">/{viewingItem.unit}</span>
+                      <span className="text-xs font-normal text-black/70 ml-1">/{viewingItem.unit}</span>
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-stone-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-stone-700 text-black dark:text-zinc-300 border border-black dark:border-stone-600 flex items-center justify-center">
                     <DollarSign className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-white dark:bg-stone-800 rounded-xl border border-zinc-300 dark:border-stone-700 flex items-center justify-between">
+                <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black dark:border-stone-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-black/75 dark:text-zinc-300">
                       Valor Total em Estoque
                     </span>
-                    <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
+                    <div className="text-base sm:text-lg font-black text-black dark:text-zinc-100 font-mono mt-0.5">
                       {formatCurrencyBRL(viewingItem.quantity * viewingItem.unitCost)}
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-stone-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-stone-700 text-black dark:text-zinc-300 border border-black dark:border-stone-600 flex items-center justify-center">
                     <BarChart3 className="w-4 h-4" />
                   </div>
                 </div>
               </div>
 
               {/* Precificação Sincronizada (Margens de Venda, Atacado e Promoção) */}
-              <div className="p-3.5 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800 space-y-2.5">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-800 dark:text-stone-300">
+              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-800 space-y-2.5">
+                <div className="text-[11px] font-black uppercase tracking-wider text-black dark:text-stone-300">
                   Tabela de Preços & Margens Sincronizadas
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   {/* V. Final */}
-                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700">
-                    <span className="text-[9.5px] font-bold text-zinc-700 dark:text-zinc-300 uppercase block">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-700">
+                    <span className="text-[9.5px] font-bold text-black/75 dark:text-zinc-300 uppercase block">
                       Venda Final (% Padrão)
                     </span>
-                    <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
+                    <div className="text-sm font-black text-black dark:text-zinc-100 font-mono mt-0.5">
                       {viewingItem.salePrice !== undefined 
                         ? formatCurrencyBRL(viewingItem.salePrice) 
                         : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.unitCost * 1.3) : 'R$ 0,00')}
                     </div>
-                    <span className="text-[9.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                    <span className="text-[9.5px] font-semibold text-black/70 dark:text-zinc-400">
                       Margem: +{viewingItem.profitMargin ?? (viewingItem.salePrice && viewingItem.unitCost > 0 ? Math.round(((viewingItem.salePrice - viewingItem.unitCost) / viewingItem.unitCost) * 100 * 10) / 10 : 30)}%
                     </span>
                   </div>
 
                   {/* V. Atacado */}
-                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700">
-                    <span className="text-[9.5px] font-bold text-zinc-700 dark:text-zinc-300 uppercase block">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-700">
+                    <span className="text-[9.5px] font-bold text-black/75 dark:text-zinc-300 uppercase block">
                       Atacado (% Atac.)
                     </span>
-                    <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
+                    <div className="text-sm font-black text-black dark:text-zinc-100 font-mono mt-0.5">
                       {viewingItem.wholesalePrice !== undefined 
                         ? formatCurrencyBRL(viewingItem.wholesalePrice) 
                         : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.unitCost * 1.15) : 'R$ 0,00')}
                     </div>
-                    <span className="text-[9.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                    <span className="text-[9.5px] font-semibold text-black/70 dark:text-zinc-400">
                       Margem: +{viewingItem.wholesaleMargin ?? (viewingItem.wholesalePrice && viewingItem.unitCost > 0 ? Math.round(((viewingItem.wholesalePrice - viewingItem.unitCost) / viewingItem.unitCost) * 100 * 10) / 10 : 15)}%
                     </span>
                   </div>
 
                   {/* V. Promoção */}
-                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700">
-                    <span className="text-[9.5px] font-bold text-zinc-700 dark:text-zinc-300 uppercase block">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-700">
+                    <span className="text-[9.5px] font-bold text-black/75 dark:text-zinc-300 uppercase block">
                       Promoção (% Promo.)
                     </span>
-                    <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
+                    <div className="text-sm font-black text-black dark:text-zinc-100 font-mono mt-0.5">
                       {viewingItem.promoPrice !== undefined 
                         ? formatCurrencyBRL(viewingItem.promoPrice) 
                         : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.promoPrice && viewingItem.unitCost > 0 ? viewingItem.promoPrice : viewingItem.unitCost * 1.10) : 'R$ 0,00')}
                     </div>
-                    <span className="text-[9.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                    <span className="text-[9.5px] font-semibold text-black/70 dark:text-zinc-400">
                       Margem: +{viewingItem.promoMargin ?? (viewingItem.promoPrice && viewingItem.unitCost > 0 ? Math.round(((viewingItem.promoPrice - viewingItem.unitCost) / viewingItem.unitCost) * 100 * 10) / 10 : 10)}%
                     </span>
                   </div>
@@ -1531,33 +1531,33 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               </div>
 
               {/* Histórico Recente de Movimentações */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-800 pb-1.5">
+              <div className="p-3.5 bg-[#e0e6f1] rounded-xl border border-black space-y-2">
+                <div className="flex items-center justify-between border-b border-black/25 pb-1.5">
                   <div className="flex items-center space-x-1.5">
-                    <History className="w-4 h-4 text-zinc-600" />
-                    <h4 className="text-xs font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider">
+                    <History className="w-4 h-4 text-black" />
+                    <h4 className="text-xs font-black text-black dark:text-stone-100 uppercase tracking-wider">
                       Histórico Recente de Movimentações
                     </h4>
                   </div>
-                  <span className="text-[11px] text-zinc-500 dark:text-stone-400">
+                  <span className="text-[11px] font-bold text-black/75 dark:text-stone-400">
                     {itemMovements.length} registro(s) localizados
                   </span>
                 </div>
 
                 {itemMovements.length === 0 ? (
-                  <div className="p-6 text-center border border-dashed border-zinc-300 dark:border-stone-800 rounded-xl bg-white dark:bg-stone-800/20">
-                    <Clock className="w-6 h-6 mx-auto text-zinc-400 dark:text-stone-600 mb-1" />
-                    <p className="text-xs text-zinc-600 dark:text-stone-400 font-medium">
+                  <div className="p-6 text-center border border-dashed border-black/40 dark:border-stone-800 rounded-xl bg-white dark:bg-stone-800/20">
+                    <Clock className="w-6 h-6 mx-auto text-black/40 dark:text-stone-600 mb-1" />
+                    <p className="text-xs text-black/80 dark:text-stone-400 font-bold">
                       Nenhuma saída recente registrada para este insumo em ordens de serviço ou abastecimento.
                     </p>
-                    <p className="text-[10px] text-zinc-400 mt-0.5">
+                    <p className="text-[10px] text-black/60 mt-0.5">
                       As utilizações associadas a manutenções e frotas serão rastreadas automaticamente aqui.
                     </p>
                   </div>
                 ) : (
-                  <div className="border border-zinc-300 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-zinc-200 dark:divide-stone-800 text-xs bg-white">
+                  <div className="border border-black/40 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-black/15 dark:divide-stone-800 text-xs bg-white">
                     {itemMovements.slice(0, 8).map((mov) => (
-                      <div key={mov.id} className="p-3 hover:bg-zinc-50 dark:hover:bg-stone-800/40 transition flex items-center justify-between gap-2">
+                      <div key={mov.id} className="p-3 hover:bg-slate-50 dark:hover:bg-stone-800/40 transition flex items-center justify-between gap-2">
                         <div className="flex items-center space-x-3">
                           <div className={`p-1.5 rounded-lg ${
                             mov.type === 'saida' 
@@ -1567,8 +1567,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                             {mov.type === 'saida' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                           </div>
                           <div>
-                            <p className="font-semibold text-stone-800 dark:text-stone-200">{mov.description}</p>
-                            <div className="flex items-center space-x-2 text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">
+                            <p className="font-semibold text-black dark:text-stone-200">{mov.description}</p>
+                            <div className="flex items-center space-x-2 text-[10px] text-black/70 dark:text-stone-400 mt-0.5">
                               <span className="flex items-center space-x-1">
                                 <Calendar className="w-3 h-3" />
                                 <span>{mov.date}</span>
@@ -1588,7 +1588,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                             -{mov.quantity} {mov.unit}
                           </span>
                           {mov.cost !== undefined && (
-                            <p className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">
+                            <p className="text-[10px] text-black/65 dark:text-stone-400 font-mono">
                               {formatCurrencyBRL(mov.cost)}
                             </p>
                           )}
@@ -1602,7 +1602,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             </div>
 
             {/* Footer com Botão Fechar Destacado e Atalho para Edição */}
-            <div className="px-5 py-3.5 bg-zinc-100 dark:bg-stone-800/90 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-between">
+            <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-800/90 border-t border-black dark:border-stone-700 flex items-center justify-between shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -1610,7 +1610,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   setViewingItem(null);
                   handleOpenEditModal(target);
                 }}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-stone-700 border border-zinc-300 dark:border-stone-600 bg-white text-xs font-bold transition cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-xs font-bold uppercase transition cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Editar este Item</span>
@@ -1619,7 +1619,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingItem(null)}
-                className="px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs sm:text-sm font-bold border border-zinc-900 shadow-xs transition cursor-pointer"
+                className="px-5 py-2 rounded-lg bg-white hover:bg-gray-100 text-black text-xs sm:text-sm font-bold uppercase border border-black shadow-xs transition cursor-pointer"
               >
                 Fechar Ficha
               </button>
@@ -1631,7 +1631,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
       {/* Diálogo de Pergunta: Deseja Imprimir Etiqueta do Produto Recém-Cadastrado? */}
       {promptNewLabelItem && (
-        <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden p-5 animate-in zoom-in-95 duration-150 space-y-4"
             onClick={(e) => e.stopPropagation()}

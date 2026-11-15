@@ -740,6 +740,7 @@ export function buildNotaSaidaHtml(
       nfeReferenciada: nota.nfeReferenciada,
       veiculoPlaca: nota.veiculoPlaca || nota.nfeTransportadoraPlaca,
       motoristaNome: nota.motoristaNome,
+      ativosImobilizados: itemsList.map((i) => i.fleetAssetLabel).filter((v): v is string => Boolean(v)),
     });
 
   const extraRefText =

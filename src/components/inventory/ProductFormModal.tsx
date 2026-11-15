@@ -52,6 +52,7 @@ import {
   saveCustomProductBrand,
   findMatchingOption,
 } from './productClassificationStorage';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export const DEFAULT_TIRE_BRANDS = [
   'MICHELIN',
@@ -417,6 +418,58 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   // Foto do Produto (Upload em Base64 - Offline LocalStorage)
   const [fotoBase64, setFotoBase64] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const productGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: initialData?.id || (isOpen ? 'new' : 'closed'),
+    snapshot: [
+      nome,
+      codigoInterno,
+      categoria,
+      tipoProduto,
+      grupo,
+      subgrupo,
+      variacao,
+      unidadeMedida,
+      marca,
+      codigoBarras,
+      semGtin,
+      refFabrica,
+      tireFireNumber,
+      tireBrand,
+      tireModel,
+      tireSize,
+      tireTreadDepthMm,
+      tireRetreadCount,
+      tirePressurePsi,
+      tireCurrentKm,
+      tireNotes,
+      codigoNcm,
+      grupoFiscal,
+      grupoIpi,
+      custoNominalDisplay,
+      precoVendaDisplay,
+      margemLucroSugerida,
+      porcentagemAtacado,
+      valorAtacadoDisplay,
+      porcentagemPromo,
+      valorPromoDisplay,
+      quantidadeAtual,
+      minQuantity,
+      capacidadeGalao,
+      setor,
+      rua,
+      estante,
+      nivel,
+      box,
+      fotoBase64,
+    ],
+  });
+
+  const handleAttemptClose = () => {
+    if (isSaving) return;
+    productGuard.confirmClose(onClose);
+  };
 
   // 1. COMPRESSÃO COMPULSÓRIA DA IMAGEM EM CANVAS (REDUÇÃO DE PESO):
   // Reduz para largura máxima de 400px com qualidade 0.7 (70%), enxugando o arquivo para ~30KB
@@ -1505,13 +1558,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     <>
       <div 
         id="modal-cadastrar-novo-produto-estoque"
-        className={`fixed inset-0 ${zIndexClass} bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}
-        onClick={() => {
-          if (!isSaving) onClose();
-        }}
+        className={`fixed inset-0 ${zIndexClass} bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}
       >
         <div 
-          className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
+          className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Oficial Alto Contraste */}
@@ -1531,9 +1581,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (!isSaving) onClose();
-              }}
+              onClick={handleAttemptClose}
               disabled={isSaving}
               className="p-1.5 text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer disabled:opacity-50"
               title="Fechar formulário"
@@ -1557,7 +1605,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Formulário em 3 Colunas Horizontais Paralelas - Slim Design sem Rolagem */}
-          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
+          <form onSubmit={handleSubmit} {...productGuard.captureProps} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
             <div className="p-3 sm:p-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch min-h-full">
               
@@ -2688,7 +2736,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleAttemptClose}
                   disabled={isSaving}
                   className="px-4 py-1.5 text-xs font-bold uppercase text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer active:scale-95 disabled:opacity-50"
                 >

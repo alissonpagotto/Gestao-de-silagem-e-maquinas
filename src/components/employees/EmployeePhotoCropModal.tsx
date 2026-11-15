@@ -238,22 +238,22 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
   if (!isOpen || !imageSrc) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-fadeIn">
       <div 
-        className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 w-full max-w-md overflow-hidden flex flex-col"
+        className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl shadow-2xl border border-black dark:border-stone-800 w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] overflow-hidden flex flex-col justify-between mx-auto my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho */}
-        <div className="px-5 py-4 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50 dark:bg-stone-900/60">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+        <div className="px-5 py-3 border-b border-black dark:border-stone-800 flex items-center justify-between bg-[#cad4e6] dark:bg-stone-900 shrink-0">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white border border-gray-400 text-emerald-700 flex items-center justify-center shrink-0">
               <Camera className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                 Ajustar Foto do Colaborador
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
+              <p className="text-xs text-slate-800 dark:text-stone-400 font-medium">
                 {employeeName ? `Colaborador: ${employeeName}` : 'Arraste para posicionar e use o zoom'}
               </p>
             </div>
@@ -262,7 +262,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-800 rounded-lg transition disabled:opacity-50"
+            className="p-1.5 text-black hover:bg-white/60 border border-transparent hover:border-black/20 rounded-lg transition disabled:opacity-50 cursor-pointer"
             title="Fechar"
           >
             <X className="w-5 h-5" />
@@ -270,11 +270,12 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
         </div>
 
         {/* Viewport de Recorte Interativo */}
-        <div className="p-5 flex flex-col items-center select-none bg-stone-100/50 dark:bg-stone-950/40">
+        <div className="p-5 flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start select-none bg-[#cad4e6] dark:bg-stone-950">
+          <div className="bg-[#e0e6f1] border border-black rounded-xl p-5 flex flex-col items-center w-full max-w-md shadow-xs">
           <div
             ref={containerRef}
             style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE }}
-            className={`relative rounded-xl overflow-hidden bg-stone-950 shadow-inner border border-stone-300 dark:border-stone-800 touch-none ${
+            className={`relative rounded-xl overflow-hidden bg-stone-950 shadow-inner border border-black touch-none ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             }`}
             onPointerDown={handlePointerDown}
@@ -342,12 +343,12 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
 
           {/* Controles de Zoom */}
           <div className="w-full mt-4 space-y-3 px-1">
-            <div className="flex items-center justify-between text-xs text-stone-600 dark:text-stone-300 font-medium">
+            <div className="flex items-center justify-between text-xs text-black font-bold">
               <span className="flex items-center space-x-1.5">
-                <ZoomIn className="w-3.5 h-3.5 text-stone-500" />
+                <ZoomIn className="w-3.5 h-3.5 text-slate-700" />
                 <span>Controle de Zoom</span>
               </span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="font-bold text-emerald-700">
                 {Math.round(zoom * 100)}%
               </span>
             </div>
@@ -357,7 +358,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
                 type="button"
                 onClick={() => handleZoomChange(zoom - 0.15)}
                 disabled={zoom <= 0.7 || isProcessing}
-                className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="p-1.5 rounded-lg border border-gray-400 bg-white text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                 title="Diminuir Zoom"
               >
                 <ZoomOut className="w-4 h-4" />
@@ -371,14 +372,14 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
                 value={zoom}
                 disabled={isProcessing}
                 onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                className="flex-1 h-2 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-emerald-600 dark:accent-emerald-500 disabled:opacity-50"
+                className="flex-1 h-2 bg-white border border-gray-400 rounded-lg appearance-none cursor-pointer accent-emerald-600 disabled:opacity-50"
               />
 
               <button
                 type="button"
                 onClick={() => handleZoomChange(zoom + 0.15)}
                 disabled={zoom >= 3 || isProcessing}
-                className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="p-1.5 rounded-lg border border-gray-400 bg-white text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                 title="Aumentar Zoom"
               >
                 <ZoomIn className="w-4 h-4" />
@@ -388,22 +389,23 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
                 type="button"
                 onClick={handleReset}
                 disabled={isProcessing}
-                className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40 transition"
+                className="p-1.5 rounded-lg border border-gray-400 bg-white text-black hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer"
                 title="Redefinir Posição e Zoom"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
             </div>
           </div>
+          </div>
         </div>
 
         {/* Rodapé com botões de ação */}
-        <div className="px-5 py-3.5 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-3 bg-white dark:bg-stone-900">
+        <div className="px-5 py-3 border-t border-black dark:border-stone-800 flex items-center justify-end space-x-3 bg-[#cad4e6] dark:bg-stone-900 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="px-4 py-2 text-xs font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 text-xs font-bold text-black bg-white border border-gray-400 hover:bg-gray-100 rounded-lg transition cursor-pointer disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -413,7 +415,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
             type="button"
             onClick={handleConfirmCrop}
             disabled={!imageSrc || isProcessing}
-            className={`inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition ${
+            className={`inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold text-white border border-emerald-800 rounded-lg shadow-sm transition ${
               isProcessing
                 ? 'bg-emerald-700/80 cursor-wait'
                 : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 cursor-pointer'

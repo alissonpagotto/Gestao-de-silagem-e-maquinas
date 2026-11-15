@@ -201,11 +201,10 @@ export const EmployeeListPrintModal: React.FC<EmployeeListPrintModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden"
-      onClick={onClose}
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden"
     >
       <div
-        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[93vh] animate-in fade-in zoom-in-95 duration-150"
+        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho Oficial AgroControl */}
@@ -235,7 +234,7 @@ export const EmployeeListPrintModal: React.FC<EmployeeListPrintModalProps> = ({
         </div>
 
         {/* Corpo com 2 Cards Internos (#e0e6f1 + border-black) */}
-        <div className="p-4 space-y-3 overflow-y-auto flex-1 bg-[#cad4e6] dark:bg-stone-950">
+        <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0 bg-[#cad4e6] dark:bg-stone-950">
           {/* CARD 1: Filtro de Colaboradores */}
           <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-400/70 pb-1.5">

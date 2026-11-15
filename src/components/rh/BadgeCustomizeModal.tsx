@@ -151,8 +151,8 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
   const previewScale = draftTheme.size === 'large_85x120' ? 1.05 : 1.15;
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3 no-print overflow-hidden">
-      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-[90vw] max-w-[90vw] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-3 no-print overflow-hidden">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto animate-in fade-in zoom-in-95 duration-150">
         {/* Cabeçalho do Modal - Tema Oficial */}
         <div className="px-4 py-2 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">

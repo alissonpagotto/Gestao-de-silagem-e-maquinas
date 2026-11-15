@@ -52,6 +52,7 @@ import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { toValidUUID, isSupabaseConfigured, supabase, upsertVeiculoMaquina } from '../../lib/supabaseService';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
 import { VehicleTireSetupModal } from './VehicleTireSetupModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 function isCandidateTrailer(v: any): boolean {
   if (!v) return false;
@@ -128,6 +129,15 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 }) => {
   // Active Tab: 'dados' (Dados do Veículo) vs 'historico' (Histórico do Veículo)
   const [activeTab, setActiveTab] = useState<'dados' | 'historico'>('dados');
+
+  const vehicleGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: editingVehicle?.id || (isOpen ? 'new' : 'closed'),
+  });
+
+  const handleAttemptClose = () => {
+    vehicleGuard.confirmClose(onClose);
+  };
 
   // Form Fields - Basic Identification
   const [fleetNumber, setFleetNumber] = useState('');
@@ -1795,9 +1805,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden">
       <div 
-        className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl text-black dark:text-stone-100"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl text-black dark:text-stone-100"
       >
         
         {/* Header Oficial Alto Contraste */}
@@ -1830,7 +1840,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAttemptClose}
             className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             aria-label="Fechar"
           >
@@ -1928,6 +1938,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         {activeTab === 'dados' && (
           <form 
             onSubmit={handleSubmit} 
+            {...vehicleGuard.captureProps}
             className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] dark:bg-stone-950"
           >
             <div className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5">
@@ -3575,7 +3586,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             >
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleAttemptClose}
                 className="px-4 py-2 rounded-lg border border-gray-400 bg-white hover:bg-gray-100 text-black text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
               >
                 Cancelar

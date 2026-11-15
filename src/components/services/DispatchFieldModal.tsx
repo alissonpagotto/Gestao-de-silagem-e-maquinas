@@ -211,25 +211,25 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
   return (
     <div 
       id="modal-dispatch-field"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
     >
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black">
         
-        {/* Cabeçalho do Modal - Moldura Metálica 3D Acetinada */}
-        <div className="border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 p-3.5 sm:p-4 flex items-center justify-between rounded-t-2xl">
+        {/* Cabeçalho do Modal */}
+        <div className="border-b border-black bg-[#cad4e6] text-black px-5 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <MessageSquare className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <div className="w-8 h-8 rounded-lg bg-[#e0e6f1] text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+              <MessageSquare className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black flex items-center gap-2">
                 <span>DISPARAR ESCALA PARA A EQUIPE DE CAMPO</span>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white text-black font-bold border border-black shadow-2xs">
                   {appointment.appointmentNumber}
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
-                Cliente: <strong className="text-slate-800 dark:text-stone-200 font-semibold">{appointment.clientName}</strong> • {locationText}
+              <p className="text-[11px] text-slate-800 font-medium mt-0.5">
+                Cliente: <strong className="text-black font-bold">{appointment.clientName}</strong> • {locationText}
               </p>
             </div>
           </div>
@@ -237,21 +237,21 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4 text-black" />
           </button>
         </div>
 
-        {/* Abas Internas - 3D Metálico Acetinado */}
-        <div className="flex border-b border-slate-300 dark:border-stone-800 bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-900 dark:to-stone-950 p-1.5 gap-1.5">
+        {/* Abas Internas */}
+        <div className="flex border-b border-black bg-[#cad4e6] px-4 py-2 gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('disparo')}
-            className={`px-3 py-1.5 text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'disparo'
-                ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                ? 'bg-white text-black font-bold border border-black shadow-2xs'
+                : 'bg-[#e0e6f1] text-black border border-black/40 hover:bg-white/70 font-semibold'
             }`}
           >
             <Send className="w-3.5 h-3.5" />
@@ -261,140 +261,142 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('retorno')}
-            className={`px-3 py-1.5 text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'retorno'
-                ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                : 'text-slate-600 dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200 hover:bg-slate-200/50 font-semibold'
+                ? 'bg-white text-black font-bold border border-black shadow-2xs'
+                : 'bg-[#e0e6f1] text-black border border-black/40 hover:bg-white/70 font-semibold'
             }`}
           >
             <FileCheck2 className="w-3.5 h-3.5" />
             <span>2. Retorno & Importar Dados Reais</span>
             {(appointment.realStartTime || appointment.realLoadsCount) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span>
             )}
           </button>
         </div>
 
         {/* Corpo com Scroll */}
-        <div className="p-3.5 sm:p-4 overflow-y-auto space-y-3.5 flex-1 text-xs">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 bg-[#cad4e6] text-xs text-black">
           
           {/* TAB 1: DISPARO WHATSAPP INDIVIDUAL */}
           {activeTab === 'disparo' && (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {/* Informações Resumidas do Agendamento */}
-              <div className="p-2.5 bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl space-y-1.5 text-stone-700 dark:text-stone-300">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+              <div className="p-3.5 bg-[#e0e6f1] border border-black rounded-xl space-y-1.5 text-black shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-semibold">
-                    📅 Previsto: <strong className="text-stone-900 dark:text-stone-100">{formatDateBR(appointment.startDate)} às {appointment.startTime}h</strong>
+                    📅 Previsto: <strong className="text-black">{formatDateBR(appointment.startDate)} às {appointment.startTime}h</strong>
                   </span>
                   <span className="font-semibold">
-                    🌾 Volume: <strong className="text-stone-900 dark:text-stone-100">{appointment.estimatedQuantity} {appointment.areaUnit}</strong>
+                    🌾 Volume: <strong className="text-black">{appointment.estimatedQuantity} {appointment.areaUnit}</strong>
                   </span>
                 </div>
-                <div className="text-[11px] text-stone-600 dark:text-stone-400 flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <div className="text-xs text-slate-900 flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span><strong>Frotas/Placas:</strong> {platesList}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <span className="font-bold text-stone-800 dark:text-stone-200">
-                  Operadores e Motoristas Escalados:
-                </span>
-                <span className="text-[11px] text-stone-500">
-                  Clique no botão verde para enviar diretamente pelo WhatsApp
-                </span>
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3.5 sm:p-4 space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/20 pb-2">
+                  <span className="font-bold text-black uppercase tracking-wide">
+                    Operadores e Motoristas Escalados
+                  </span>
+                  <span className="text-[11px] text-slate-800 font-medium">
+                    Clique no botão verde para enviar diretamente pelo WhatsApp
+                  </span>
+                </div>
+
+                {combinedStaff.length === 0 ? (
+                  <div className="p-6 text-center text-slate-700 bg-white rounded-xl border border-dashed border-black/40">
+                    <User className="w-8 h-8 mx-auto text-slate-500 mb-1" />
+                    <p className="font-bold text-black">
+                      Nenhum operador ou motorista específico foi escalado neste agendamento.
+                    </p>
+                    <p className="text-[11px] text-slate-700 mt-1">
+                      Edite o agendamento para associar a equipe ou utilize o disparo geral.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {combinedStaff.map((staff, idx) => {
+                      const phone = getEmployeePhone(staff.employeeName, staff.employeeId);
+                      const msg = createWhatsAppMessage(staff);
+
+                      return (
+                        <div 
+                          key={idx}
+                          className="p-3 bg-white rounded-xl border border-black flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-extrabold text-black text-xs">
+                                {staff.employeeName}
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#e0e6f1] border border-black/40 text-black">
+                                {staff.role}
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-slate-800 flex items-center gap-2">
+                              {staff.assignedVehiclePrefix && (
+                                <span className="flex items-center gap-1 font-mono text-[10px] text-emerald-800 font-bold">
+                                  <Truck className="w-3 h-3" />
+                                  {staff.assignedVehiclePrefix}
+                                </span>
+                              )}
+                              {phone ? (
+                                <span className="flex items-center gap-1 font-mono text-[10px] text-black font-semibold">
+                                  <Phone className="w-3 h-3 text-slate-700" />
+                                  {phone}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-800 font-semibold italic">
+                                  (Sem telefone no cadastro)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Botões de Ação de Disparo */}
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyMessage(msg, idx)}
+                              className="px-2.5 py-1.5 bg-white border border-black hover:bg-gray-100 text-black rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                              title="Copiar texto da mensagem"
+                            >
+                              {copiedIndex === idx ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-700" />
+                                  <span className="text-emerald-700">Copiado!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-black" />
+                                  <span>Copiar</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenWhatsApp(phone, msg)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                              title="Abrir WhatsApp para enviar"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>WhatsApp</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {combinedStaff.length === 0 ? (
-                <div className="p-6 text-center text-stone-400 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-dashed border-stone-300 dark:border-stone-700">
-                  <User className="w-8 h-8 mx-auto text-stone-300 mb-1" />
-                  <p className="font-semibold text-stone-600 dark:text-stone-300">
-                    Nenhum operador ou motorista específico foi escalado neste agendamento.
-                  </p>
-                  <p className="text-[11px] text-stone-400 mt-1">
-                    Edite o agendamento para associar a equipe ou utilize o disparo geral.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {combinedStaff.map((staff, idx) => {
-                    const phone = getEmployeePhone(staff.employeeName, staff.employeeId);
-                    const msg = createWhatsAppMessage(staff);
-
-                    return (
-                      <div 
-                        key={idx}
-                        className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:border-emerald-300 transition-colors"
-                      >
-                        <div className="space-y-0.5 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs">
-                              {staff.employeeName}
-                            </span>
-                            <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300">
-                              {staff.role}
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] text-stone-500 dark:text-stone-400 flex items-center gap-2">
-                            {staff.assignedVehiclePrefix && (
-                              <span className="flex items-center gap-1 font-mono text-[10px] text-emerald-700 dark:text-emerald-400">
-                                <Truck className="w-3 h-3" />
-                                {staff.assignedVehiclePrefix}
-                              </span>
-                            )}
-                            {phone ? (
-                              <span className="flex items-center gap-1 font-mono text-[10px] text-stone-600 dark:text-stone-300">
-                                <Phone className="w-3 h-3 text-stone-400" />
-                                {phone}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-amber-600 italic">
-                                (Sem telefone no cadastro)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Botões de Ação de Disparo */}
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyMessage(msg, idx)}
-                            className="px-2.5 py-1.5 bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 hover:bg-stone-100 text-stone-700 dark:text-stone-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                            title="Copiar texto da mensagem"
-                          >
-                            {copiedIndex === idx ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                <span className="text-emerald-600">Copiado!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5 text-stone-500" />
-                                <span>Copiar</span>
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenWhatsApp(phone, msg)}
-                            className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-lg text-xs font-black shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
-                            title="Abrir WhatsApp para enviar"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>WhatsApp</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl text-[11px] text-amber-900 dark:text-amber-200">
+              <div className="p-3 bg-[#e0e6f1] border border-black rounded-xl text-[11px] text-black">
                 💡 <strong>Dica Operacional:</strong> A mensagem já vai com o link do bloco digital, endereço do produtor, placas escaladas e as instruções para a equipe responder com os horários de início, término, cargas e horímetros assim que finalizarem.
               </div>
             </div>
@@ -402,21 +404,21 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
 
           {/* TAB 2: RETORNO E IMPORTAÇÃO DOS DADOS REAIS DE CAMPO */}
           {activeTab === 'retorno' && (
-            <form onSubmit={handleConfirmAndImportRealData} className="space-y-3.5">
+            <form id="dispatch-retorno-form" onSubmit={handleConfirmAndImportRealData} className="space-y-4">
               
-              <div className="p-3 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700 text-xs text-stone-600 dark:text-stone-300 space-y-1">
-                <p className="font-bold text-stone-900 dark:text-stone-100">
+              <div className="p-3.5 bg-[#e0e6f1] rounded-xl border border-black text-xs text-black space-y-1">
+                <p className="font-bold text-black uppercase">
                   Conferência do Retorno de Campo (Sem Contagem Automática)
                 </p>
-                <p className="text-[11px]">
-                  Insira abaixo os dados manuais informados pelos operadores via WhatsApp para conferência do escritório. Ao confirmar, o sistema atualizará a linha <strong className="text-emerald-700 dark:text-emerald-400">REAL: [Início] às [Fim]</strong> na tabela.
+                <p className="text-[11px] text-slate-900">
+                  Insira abaixo os dados manuais informados pelos operadores via WhatsApp para conferência do escritório. Ao confirmar, o sistema atualizará a linha <strong className="text-emerald-800">REAL: [Início] às [Fim]</strong> na tabela.
                 </p>
               </div>
 
               {/* Grid de Horários Reais */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 bg-[#e0e6f1] rounded-xl border border-black">
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-extrabold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-black uppercase tracking-wider">
                     Início Real (Data & Hora)
                   </label>
                   <div className="flex gap-1.5">
@@ -424,19 +426,19 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                       type="date"
                       value={realForm.realStartDate}
                       onChange={(e) => setRealForm({ ...realForm, realStartDate: e.target.value })}
-                      className="w-1/2 p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
+                      className="w-1/2 p-2 bg-white border border-black rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                     />
                     <input
                       type="time"
                       value={realForm.realStartTime}
                       onChange={(e) => setRealForm({ ...realForm, realStartTime: e.target.value })}
-                      className="w-1/2 p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-black text-emerald-700 dark:text-emerald-400"
+                      className="w-1/2 p-2 bg-white border border-black rounded-lg text-xs font-black text-emerald-800 focus:outline-none focus:ring-1 focus:ring-black"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-extrabold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-black uppercase tracking-wider">
                     Término Real (Data & Hora)
                   </label>
                   <div className="flex gap-1.5">
@@ -444,22 +446,22 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                       type="date"
                       value={realForm.realEndDate}
                       onChange={(e) => setRealForm({ ...realForm, realEndDate: e.target.value })}
-                      className="w-1/2 p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
+                      className="w-1/2 p-2 bg-white border border-black rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-black"
                     />
                     <input
                       type="time"
                       value={realForm.realEndTime}
                       onChange={(e) => setRealForm({ ...realForm, realEndTime: e.target.value })}
-                      className="w-1/2 p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-black text-emerald-700 dark:text-emerald-400"
+                      className="w-1/2 p-2 bg-white border border-black rounded-lg text-xs font-black text-emerald-800 focus:outline-none focus:ring-1 focus:ring-black"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Cargas e Horímetros */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-3.5 bg-[#e0e6f1] rounded-xl border border-black">
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-extrabold text-stone-700 dark:text-stone-300">
+                  <label className="block text-[11px] font-bold text-black uppercase">
                     Cargas Reais Contadas
                   </label>
                   <input
@@ -468,13 +470,13 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                     placeholder="Ex: 48"
                     value={realForm.realLoadsCount}
                     onChange={(e) => setRealForm({ ...realForm, realLoadsCount: e.target.value })}
-                    className="w-full p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-black text-stone-900 dark:text-stone-100"
+                    className="w-full p-2 bg-white border border-black rounded-lg text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black"
                   />
-                  <span className="text-[10px] text-stone-400">Total de viagens de silagem</span>
+                  <span className="text-[10px] text-slate-800 font-medium">Total de viagens de silagem</span>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-extrabold text-stone-700 dark:text-stone-300">
+                  <label className="block text-[11px] font-bold text-black uppercase">
                     Horímetro Inicial
                   </label>
                   <input
@@ -483,13 +485,13 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                     placeholder="Ex: 1240.5"
                     value={realForm.realHourMeterStart}
                     onChange={(e) => setRealForm({ ...realForm, realHourMeterStart: e.target.value })}
-                    className="w-full p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-stone-900 dark:text-stone-100"
+                    className="w-full p-2 bg-white border border-black rounded-lg text-xs font-mono font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                   />
-                  <span className="text-[10px] text-stone-400">Ao ligar a forrageira</span>
+                  <span className="text-[10px] text-slate-800 font-medium">Ao ligar a forrageira</span>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-extrabold text-stone-700 dark:text-stone-300">
+                  <label className="block text-[11px] font-bold text-black uppercase">
                     Horímetro Final
                   </label>
                   <input
@@ -498,15 +500,15 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                     placeholder="Ex: 1249.8"
                     value={realForm.realHourMeterEnd}
                     onChange={(e) => setRealForm({ ...realForm, realHourMeterEnd: e.target.value })}
-                    className="w-full p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-stone-900 dark:text-stone-100"
+                    className="w-full p-2 bg-white border border-black rounded-lg text-xs font-mono font-bold text-black focus:outline-none focus:ring-1 focus:ring-black"
                   />
-                  <span className="text-[10px] text-stone-400">Ao encerrar a silagem</span>
+                  <span className="text-[10px] text-slate-800 font-medium">Ao encerrar a silagem</span>
                 </div>
               </div>
 
               {/* Observações de Campo */}
-              <div className="space-y-1">
-                <label className="block text-[11px] font-extrabold text-stone-700 dark:text-stone-300">
+              <div className="p-3.5 bg-[#e0e6f1] rounded-xl border border-black space-y-1">
+                <label className="block text-[11px] font-bold text-black uppercase">
                   Observações e Ocorrências de Campo
                 </label>
                 <textarea
@@ -514,70 +516,71 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
                   placeholder="Ex: Chuva leve das 14h às 14h40; Pneu do caminhão 04 calibrado na fazenda..."
                   value={realForm.realNotes}
                   onChange={(e) => setRealForm({ ...realForm, realNotes: e.target.value })}
-                  className="w-full p-2 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100"
+                  className="w-full p-2 bg-white border border-black rounded-lg text-xs font-medium text-black focus:outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
-
-              {/* Botões do Rodapé de Importação */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-200 dark:border-stone-800">
-                <div className="flex items-center gap-2">
-                  {onProceedToBilling && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Salva dados reais antes e abre faturamento
-                        onSaveRealData(appointment.id, {
-                          realStartDate: realForm.realStartDate,
-                          realStartTime: realForm.realStartTime,
-                          realEndDate: realForm.realEndDate,
-                          realEndTime: realForm.realEndTime,
-                          realLoadsCount: realForm.realLoadsCount !== '' ? Number(realForm.realLoadsCount) : undefined,
-                          realHourMeterStart: realForm.realHourMeterStart !== '' ? Number(realForm.realHourMeterStart) : undefined,
-                          realHourMeterEnd: realForm.realHourMeterEnd !== '' ? Number(realForm.realHourMeterEnd) : undefined,
-                          realNotes: realForm.realNotes,
-                        });
-                        onClose();
-                        onProceedToBilling(appointment);
-                      }}
-                      className="px-3 py-2 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-                    >
-                      <span>Abrir Tela de Faturamento</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-stone-500" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 border border-slate-400 dark:border-stone-600 rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] transition cursor-pointer"
-                  >
-                    Fechar
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white rounded-lg text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {isSavedFeedback ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span>Dados Importados com Sucesso!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>Confirmar e Importar Dados do Campo</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
             </form>
           )}
 
+        </div>
+
+        {/* Rodapé Fixo */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t border-black bg-[#cad4e6] shrink-0">
+          <div className="flex items-center gap-2">
+            {activeTab === 'retorno' && onProceedToBilling && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSaveRealData(appointment.id, {
+                    realStartDate: realForm.realStartDate,
+                    realStartTime: realForm.realStartTime,
+                    realEndDate: realForm.realEndDate,
+                    realEndTime: realForm.realEndTime,
+                    realLoadsCount: realForm.realLoadsCount !== '' ? Number(realForm.realLoadsCount) : undefined,
+                    realHourMeterStart: realForm.realHourMeterStart !== '' ? Number(realForm.realHourMeterStart) : undefined,
+                    realHourMeterEnd: realForm.realHourMeterEnd !== '' ? Number(realForm.realHourMeterEnd) : undefined,
+                    realNotes: realForm.realNotes,
+                  });
+                  onClose();
+                  onProceedToBilling(appointment);
+                }}
+                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-black border border-black rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Abrir Tela de Faturamento</span>
+                <ExternalLink className="w-3.5 h-3.5 text-black" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
+            >
+              Fechar
+            </button>
+
+            {activeTab === 'retorno' && (
+              <button
+                type="submit"
+                form="dispatch-retorno-form"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold border border-emerald-800 shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSavedFeedback ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Dados Importados com Sucesso!</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>Confirmar e Importar Dados do Campo</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
       </div>

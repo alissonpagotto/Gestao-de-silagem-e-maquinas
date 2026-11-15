@@ -43,6 +43,7 @@ import {
   matchesCompetence 
 } from '../financial/CompetenceSelector';
 import { upsertContaAPagar, deleteContaAPagar, isSupabaseConfigured } from '../../lib/supabaseService';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export type FiscalDocumentCategory = 'nfe' | 'cte' | 'nfe_c' | 'pedido_compra' | 'nfse';
 
@@ -249,6 +250,33 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemUnit, setItemUnit] = useState('UN');
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
+
+  const fiscalDocGuard = useModalUnsavedGuard({
+    isOpen: isCreateModalOpen,
+    resetKey: `${category}_${isCreateModalOpen}`,
+    snapshot: [
+      formNumber,
+      formSeries,
+      formDate,
+      formFirstDueDate,
+      formSupplierId,
+      formSupplierName,
+      formSupplierCnpj,
+      formVehicleId,
+      formDescription,
+      formPaymentMethod,
+      formInstallmentsCount,
+      formNotes,
+      formItems,
+      formIssRetained,
+      formIssRate,
+      itemDescription,
+    ],
+  });
+
+  const handleAttemptCloseCreateModal = () => {
+    fiscalDocGuard.confirmClose(() => setIsCreateModalOpen(false));
+  };
 
   // Carregar dados e documentos reativamente
   const loadData = () => {
@@ -1446,11 +1474,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       {/* ========================================================================= */}
       {isCreateModalOpen && (
         <div 
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-          onClick={() => setIsCreateModalOpen(false)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* CABEÇALHO */}
@@ -1471,7 +1498,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={handleAttemptCloseCreateModal}
                 className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1479,7 +1506,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             </div>
 
             {/* CORPO DO FORMULÁRIO SCROLLÁVEL */}
-            <form onSubmit={handleSaveDocument} id="form-fiscal-doc" className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5 bg-[#cad4e6] dark:bg-stone-950">
+            <form onSubmit={handleSaveDocument} id="form-fiscal-doc" {...fiscalDocGuard.captureProps} className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3.5 bg-[#cad4e6] dark:bg-stone-950">
               {/* BLOCO 1: DADOS PRINCIPAIS DO DOCUMENTO */}
               <div className="p-3 rounded-xl border border-black dark:border-stone-700 bg-[#e0e6f1] dark:bg-stone-800 space-y-2.5">
                 <h4 className="text-[11px] font-black uppercase text-black dark:text-stone-200 flex items-center space-x-1.5 border-b border-black/30 dark:border-stone-700 pb-1">
@@ -1903,7 +1930,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-between shrink-0 rounded-b-xl select-none">
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={handleAttemptCloseCreateModal}
                 className="px-4 py-1.5 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-white border border-gray-400 dark:border-stone-600 rounded-lg text-xs font-bold uppercase transition cursor-pointer"
               >
                 CANCELAR
@@ -1937,63 +1964,64 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       {/* ========================================================================= */}
       {viewingDoc && (
         <div 
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-          onClick={() => setViewingDoc(null)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 flex items-center justify-between text-slate-800 shrink-0">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black flex items-center justify-between text-black dark:text-stone-100 shrink-0">
               <div className="flex items-center space-x-2">
-                <IconComp className="w-4 h-4 text-emerald-700" />
-                <h3 className="text-xs font-black uppercase text-slate-800">
+                <div className="w-6 h-6 rounded bg-white dark:bg-stone-800 border border-black flex items-center justify-center shrink-0">
+                  <IconComp className="w-3.5 h-3.5 text-emerald-700" />
+                </div>
+                <h3 className="text-xs sm:text-sm font-black uppercase text-black dark:text-stone-100">
                   DETALHES DO DOCUMENTO: {viewingDoc.number} ({viewingDoc.documentTypeLabel})
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingDoc(null)}
-                className="p-1 rounded text-slate-600 hover:text-slate-900 cursor-pointer"
+                className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 dark:bg-stone-800 rounded-xl border border-slate-300 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 text-xs bg-[#cad4e6] dark:bg-stone-950">
+              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">NÚMERO</div>
+                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">NÚMERO</div>
                   <div className="font-mono font-black text-sm">{viewingDoc.number}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">DATA DE EMISSÃO</div>
+                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">DATA DE EMISSÃO</div>
                   <div className="font-bold">{formatDateBR(viewingDoc.issueDate)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">VALOR TOTAL</div>
-                  <div className="font-black text-emerald-700 text-sm">{formatCurrencyBRL(viewingDoc.totalAmount)}</div>
+                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">VALOR TOTAL</div>
+                  <div className="font-black text-emerald-800 dark:text-emerald-400 text-sm">{formatCurrencyBRL(viewingDoc.totalAmount)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">STATUS</div>
+                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">STATUS</div>
                   <div className="font-bold">{viewingDoc.status}</div>
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-50 dark:bg-stone-800 rounded-xl border border-slate-300 space-y-1">
+              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black space-y-1">
                 <div><strong>FORNECEDOR:</strong> {viewingDoc.supplierName}</div>
                 {viewingDoc.supplierCnpj && <div><strong>CNPJ/CPF:</strong> {viewingDoc.supplierCnpj}</div>}
                 {viewingDoc.vehiclePlate && (
-                  <div><strong>VEÍCULO VINCULADO:</strong> <span className="font-black text-sky-700">{viewingDoc.vehiclePlate}</span> ({viewingDoc.vehicleModel || 'FROTA'})</div>
+                  <div><strong>VEÍCULO VINCULADO:</strong> <span className="font-black text-sky-800 dark:text-sky-400">{viewingDoc.vehiclePlate}</span> ({viewingDoc.vehicleModel || 'FROTA'})</div>
                 )}
                 {viewingDoc.description && <div><strong>FINALIDADE:</strong> {viewingDoc.description}</div>}
               </div>
 
-              <div className="border border-slate-300 rounded-xl overflow-hidden">
-                <div className="bg-slate-200 px-3 py-1 text-[10px] font-black uppercase">ITENS DO DOCUMENTO</div>
+              <div className="border border-black rounded-xl overflow-hidden bg-white dark:bg-stone-900">
+                <div className="bg-[#e0e6f1] dark:bg-stone-800 px-3 py-1.5 border-b border-black text-[10px] font-black uppercase">ITENS DO DOCUMENTO</div>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-slate-100 text-[10px] font-bold border-b border-slate-300">
+                    <tr className="bg-slate-100 dark:bg-stone-800 text-[10px] font-bold border-b border-black/30">
                       <th className="py-1 px-2 text-left">DESCRIÇÃO</th>
                       <th className="py-1 px-2 text-center">QTD</th>
                       <th className="py-1 px-2 text-center">UN</th>
@@ -2016,11 +2044,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               </div>
             </div>
 
-            <div className="px-4 py-2 bg-slate-100 border-t border-slate-300 flex items-center justify-between shrink-0">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black flex items-center justify-between shrink-0">
               <button
                 type="button"
                 onClick={() => setViewingDoc(null)}
-                className="px-3.5 py-1.5 bg-slate-300 hover:bg-slate-400 text-slate-800 rounded-lg text-xs font-bold uppercase cursor-pointer"
+                className="px-4 py-1.5 bg-white hover:bg-gray-100 text-black border border-black rounded-lg text-xs font-bold uppercase cursor-pointer"
               >
                 FECHAR
               </button>
@@ -2028,7 +2056,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               <button
                 type="button"
                 onClick={() => handlePrintDocument(viewingDoc)}
-                className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-black uppercase cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold uppercase cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>IMPRIMIR FOLHA A4</span>
@@ -2040,7 +2068,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO CUSTOMIZADO ANTI-SANDBOX */}
       {deletingDocId && (
-        <div className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+        <div className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-slate-400 rounded-xl shadow-2xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-rose-600">
               <AlertTriangle className="w-5 h-5" />
@@ -2071,7 +2099,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       {/* MODAL DE EFETIVAÇÃO DE PEDIDO DE COMPRA */}
       {effectuatingDocId && (
-        <div className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
+        <div className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-emerald-400 rounded-xl shadow-2xl p-4 space-y-3">
             <div className="flex items-center space-x-2 text-emerald-700">
               <CheckCircle2 className="w-5 h-5" />

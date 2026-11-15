@@ -124,8 +124,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs`}
-      onClick={onClose}
+      className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-[2px]`}
     >
       <div
         className="bg-[#cad4e6] rounded-xl max-w-lg w-full shadow-2xl border border-black overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]"

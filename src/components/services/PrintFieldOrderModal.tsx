@@ -158,26 +158,26 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
   return createPortal(
     <div 
       id="printable-field-order-overlay" 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:!block print:!visible print:static print:w-full print:h-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden print:!block print:!visible print:static print:w-full print:h-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
     >
       <div 
         id="printable-field-order-container"
-        className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl text-black animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
       >
-        {/* Barra de Ações Superior (Não impressa) - Moldura Metálica 3D Acetinada */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 rounded-t-2xl print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Calendar className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+        {/* Barra de Ações Superior (Não impressa) */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-black bg-[#cad4e6] text-black shrink-0 print:hidden">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#e0e6f1] text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+              <Calendar className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black flex items-center gap-2">
                 <span>ORDEM DE CAMPO DA AGENDA</span>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white text-black font-bold border border-black shadow-2xs">
                   {appointment.appointmentNumber}
                 </span>
               </h2>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
+              <p className="text-[11px] text-slate-800 font-medium mt-0.5">
                 Via única A4 para escala de equipe, roteiro logístico e frotas em campo.
               </p>
             </div>
@@ -188,16 +188,16 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
               type="button"
               onClick={handleExportPdf}
               disabled={isGeneratingPdf}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-600 bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 dark:from-stone-800 dark:to-stone-750 text-slate-800 dark:text-stone-200 text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-black bg-white hover:bg-gray-100 text-black text-xs font-bold shadow-2xs transition cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
+              <Download className="w-3.5 h-3.5 text-black" />
               <span>{isGeneratingPdf ? 'Gerando...' : 'Baixar PDF'}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 text-white text-xs font-bold shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] border border-emerald-800 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border border-emerald-800 shadow-xs transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-white" />
               <span>Imprimir Ordem de Campo (A4)</span>
@@ -206,18 +206,19 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors ml-1 cursor-pointer"
+              className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition-colors ml-1 cursor-pointer"
             >
-              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+              <X className="w-4 h-4 text-black" />
             </button>
           </div>
         </div>
 
         {/* Folha de Impressão A4 de Via Única */}
-        <div 
-          id="printable-field-order"
-          className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-4 text-stone-900 dark:text-stone-100 print:!block print:!visible print:w-full print:p-0 print:space-y-3 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid text-xs leading-tight"
-        >
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#e0e6f1] print:bg-white print:p-0 print:overflow-visible">
+          <div 
+            id="printable-field-order"
+            className="max-w-4xl mx-auto bg-white border border-black rounded-lg p-6 sm:p-8 space-y-4 text-stone-900 shadow-sm print:!block print:!visible print:w-full print:max-w-none print:border-none print:rounded-none print:shadow-none print:p-0 print:space-y-3 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid text-xs leading-tight"
+          >
           {/* Cabeçalho Corporativo Padronizado */}
           <PrintReportHeader
             companyProfile={companyProfile}
@@ -463,12 +464,13 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
           </div>
 
           {/* Rodapé Corporativo Padronizado */}
-          <PrintReportFooter
-            customInstitutionalText="Documento operacional gerado automaticamente pelo Módulo de Agenda de Serviços — Silagem Fácil ERP."
-            pageText="Via Única de Campo • 1 de 1"
-            authCode={appointment.appointmentNumber}
-            className="mt-3 pt-2 text-[10px]"
-          />
+            <PrintReportFooter
+              customInstitutionalText="Documento operacional gerado automaticamente pelo Módulo de Agenda de Serviços — Silagem Fácil ERP."
+              pageText="Via Única de Campo • 1 de 1"
+              authCode={appointment.appointmentNumber}
+              className="mt-3 pt-2 text-[10px]"
+            />
+          </div>
         </div>
       </div>
     </div>,

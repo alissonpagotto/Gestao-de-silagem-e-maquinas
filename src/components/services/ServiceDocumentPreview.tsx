@@ -854,149 +854,146 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-sm overflow-hidden text-slate-100">
-      {/* BARRA SUPERIOR DE CONTROLE E NAVEGAÇÃO DA PRÉVIA */}
-      <header className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-bold rounded-lg shadow-sm transition cursor-pointer"
-            title="Voltar ao formulário para continuar editando"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Voltar ao Formulário</span>
-          </button>
-
-          <div className="hidden sm:block h-5 w-px bg-slate-700" />
-
-          {/* INDICADOR RESUMIDO */}
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
-            <span>Prévia:</span>
-            <span className="font-bold text-slate-200">{displayOrderNumber}</span>
-            <span>•</span>
-            <span className="text-slate-300 font-semibold">{company.tradeName || company.corporateName || 'Silagem Fácil'}</span>
-          </div>
-        </div>
-
-        {/* CONTROLES: FORMATO DE PAPEL & TIPO DE VIA */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* SELETOR 1: FORMATO DE PAPEL (80mm vs A4) */}
-          <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
-            <span className="text-[11px] font-semibold text-slate-400 px-2 hidden lg:inline">Formato:</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl text-black">
+        {/* BARRA SUPERIOR DE CONTROLE E NAVEGAÇÃO DA PRÉVIA */}
+        <header className="shrink-0 bg-[#cad4e6] border-b border-black px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setPaperFormat('thermal_80mm')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                paperFormat === 'thermal_80mm'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-              }`}
-              title="Formato Bobina / Cupom Térmico (80mm)"
+              onClick={onClose}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white hover:bg-gray-100 text-black border border-black text-xs sm:text-sm font-bold rounded-lg shadow-2xs transition cursor-pointer"
+              title="Voltar ao formulário para continuar editando"
             >
-              <Receipt className="w-3.5 h-3.5" />
-              <span>Cupom 80mm</span>
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar ao Formulário</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setPaperFormat('a4')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                paperFormat === 'a4'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-              }`}
-              title="Formato Folha A4 Corporativa"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Folha A4</span>
-            </button>
+            <div className="hidden sm:block h-5 w-px bg-black/30" />
+
+            {/* INDICADOR RESUMIDO */}
+            <div className="hidden md:flex items-center gap-2 text-xs text-slate-800">
+              <span>Prévia:</span>
+              <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-black text-black">{displayOrderNumber}</span>
+              <span>•</span>
+              <span className="text-black font-bold">{company.tradeName || company.corporateName || 'Silagem Fácil'}</span>
+            </div>
           </div>
 
-          {/* SELETOR 2: TIPO DE VIA (Via Cliente vs Via Completa) */}
-          <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
-            <span className="text-[11px] font-semibold text-slate-400 px-2 hidden lg:inline">Via:</span>
+          {/* CONTROLES: FORMATO DE PAPEL & TIPO DE VIA */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* SELETOR 1: FORMATO DE PAPEL (80mm vs A4) */}
+            <div className="flex items-center gap-1 bg-[#e0e6f1] p-1 rounded-lg border border-black">
+              <span className="text-[11px] font-bold text-black px-2 hidden lg:inline">Formato:</span>
+              <button
+                type="button"
+                onClick={() => setPaperFormat('thermal_80mm')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  paperFormat === 'thermal_80mm'
+                    ? 'bg-white text-black border border-black shadow-2xs'
+                    : 'text-slate-800 hover:bg-white/60'
+                }`}
+                title="Formato Bobina / Cupom Térmico (80mm)"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>Cupom 80mm</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaperFormat('a4')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  paperFormat === 'a4'
+                    ? 'bg-white text-black border border-black shadow-2xs'
+                    : 'text-slate-800 hover:bg-white/60'
+                }`}
+                title="Formato Folha A4 Corporativa"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Folha A4</span>
+              </button>
+            </div>
+
+            {/* SELETOR 2: TIPO DE VIA (Via Cliente vs Via Completa) */}
+            <div className="flex items-center gap-1 bg-[#e0e6f1] p-1 rounded-lg border border-black">
+              <span className="text-[11px] font-bold text-black px-2 hidden lg:inline">Via:</span>
+              <button
+                type="button"
+                onClick={() => setContentType('client')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  contentType === 'client'
+                    ? 'bg-white text-black border border-black shadow-2xs'
+                    : 'text-slate-800 hover:bg-white/60'
+                }`}
+                title="Via Cliente: Comissões e lucros 100% ocultos"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Via Cliente</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContentType('full')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  contentType === 'full'
+                    ? 'bg-white text-black border border-black shadow-2xs'
+                    : 'text-slate-800 hover:bg-white/60'
+                }`}
+                title="Via Completa: DRE discriminado e comissões nominais"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Via Completa (DRE)</span>
+              </button>
+            </div>
+
+            {/* BOTÃO PRINCIPAL DE IMPRESSÃO */}
             <button
               type="button"
-              onClick={() => setContentType('client')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                contentType === 'client'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-              }`}
-              title="Via Cliente: Comissões e lucros 100% ocultos"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 text-xs sm:text-sm font-bold rounded-lg transition cursor-pointer shadow-xs"
+              title="Abrir diálogo de impressão limpo em nova janela"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Via Cliente</span>
+              <Printer className="w-4 h-4" />
+              <span>Imprimir / Salvar PDF</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setContentType('full')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                contentType === 'full'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-              }`}
-              title="Via Completa: DRE discriminado e comissões nominais"
+              onClick={onClose}
+              className="p-1.5 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg transition cursor-pointer"
+              title="Fechar"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Via Completa (DRE)</span>
+              <X className="w-5 h-5" />
             </button>
           </div>
+        </header>
 
-          {/* BOTÃO PRINCIPAL DE IMPRESSÃO */}
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold rounded-lg transition cursor-pointer shadow-sm hover:shadow-md"
-            title="Abrir diálogo de impressão limpo em nova janela"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir / Salvar PDF</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-            title="Fechar"
-          >
-            <X className="w-5 h-5" />
-          </button>
+        {/* SUB-BARRA DE STATUS DA POLÍTICA DE PRIVACIDADE E FORMATO SELECIONADOS */}
+        <div className="px-4 sm:px-6 py-2 text-xs font-medium flex items-center justify-between border-b border-black bg-[#e0e6f1] text-black shrink-0">
+          <div className="flex items-center gap-2">
+            {contentType === 'client' ? (
+              <>
+                <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>
+                  <strong>Privacidade do Produtor Ativa:</strong> Comissões da forrageira, trator e motoristas estão completamente ocultas. Exibindo apenas medição de áreas, faturamento e total do pedido.
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-blue-800 shrink-0" />
+                <span>
+                  <strong>Visualização Gerencial Completa:</strong> Exibindo DRE, comissões discriminadas nominalmente de cada motorista/operador, despesas e margem operacional líquida.
+                </span>
+              </>
+            )}
+          </div>
+          <span className="text-[11px] font-bold hidden md:inline font-mono bg-white px-2 py-0.5 rounded border border-black">
+            {paperFormat === 'thermal_80mm' ? '📐 Bobina 80mm' : '📄 Folha A4'} • {contentType === 'client' ? 'Via Cliente' : 'Via Completa'}
+          </span>
         </div>
-      </header>
 
-      {/* SUB-BARRA DE STATUS DA POLÍTICA DE PRIVACIDADE E FORMATO SELECIONADOS */}
-      <div className={`px-4 sm:px-6 py-2 text-xs font-medium flex items-center justify-between border-b ${
-        contentType === 'client'
-          ? 'bg-emerald-950/40 text-emerald-200 border-emerald-800/40'
-          : 'bg-indigo-950/40 text-indigo-200 border-indigo-800/40'
-      }`}>
-        <div className="flex items-center gap-2">
-          {contentType === 'client' ? (
-            <>
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>
-                <strong>Privacidade do Produtor Ativa:</strong> Comissões da forrageira, trator e motoristas estão completamente ocultas. Exibindo apenas medição de áreas, faturamento e total do pedido.
-              </span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>
-                <strong>Visualização Gerencial Completa:</strong> Exibindo DRE, comissões discriminadas nominalmente de cada motorista/operador, despesas e margem operacional líquida.
-              </span>
-            </>
-          )}
-        </div>
-        <span className="text-[11px] opacity-80 hidden md:inline font-mono">
-          {paperFormat === 'thermal_80mm' ? '📐 Bobina 80mm' : '📄 Folha A4'} • {contentType === 'client' ? 'Via Cliente' : 'Via Completa'}
-        </span>
-      </div>
-
-      {/* ÁREA DE PRÉVIA CENTRALIZADA (PAPEL SOBRE MESA ESCURA) */}
-      <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center items-start bg-slate-900/70">
+        {/* ÁREA DE PRÉVIA CENTRALIZADA */}
+        <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 flex justify-center items-start bg-[#e0e6f1]">
         
         {/* DOCUMENTO PRINCIPAL RENDERIZADO */}
         <div id="printable-document-content">
@@ -1983,6 +1980,7 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
           )}
 
         </div>
+      </div>
       </div>
     </div>
   );

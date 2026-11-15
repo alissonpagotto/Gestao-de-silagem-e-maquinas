@@ -564,22 +564,22 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
       {/* 4. MODAL DETALHES DO MANIFESTO (TAMANHO PADRÃO OURO: MAX-W-4XL H-[95VH]) */}
       {/* ========================================================================= */}
       {isViewModalOpen && selectedMdfe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150">
-            {/* Header - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <Truck className="w-4 h-4 text-sky-700 dark:text-sky-400" />
+                <div className="w-7 h-7 rounded bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+                  <Truck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-white flex items-center gap-2">
                     <span>MDF-E Nº {selectedMdfe.numero} • SÉRIE {selectedMdfe.serie}</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-200 dark:bg-sky-900 text-sky-900 dark:text-sky-200 font-bold">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-white dark:bg-stone-800 border border-black/40 text-black dark:text-stone-200 font-bold">
                       {selectedMdfe.status}
                     </span>
                   </h3>
-                  <p className="text-[10px] text-slate-600 dark:text-stone-400 font-mono truncate max-w-lg">
+                  <p className="text-[10px] text-black/80 dark:text-stone-400 font-mono truncate max-w-lg">
                     CHAVE: {selectedMdfe.chaveAcesso}
                   </p>
                 </div>
@@ -589,7 +589,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleCopyKey(selectedMdfe.chaveAcesso)}
-                  className="p-1 rounded bg-white/80 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-white text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-white dark:bg-stone-800 border border-black dark:border-stone-700 text-black dark:text-stone-300 hover:bg-gray-100 text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
                   title="COPIAR CHAVE"
                 >
                   <Copy className="w-3 h-3" />
@@ -599,7 +599,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="p-1 rounded bg-white/80 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-white text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
                   title="IMPRIMIR DAMDFE"
                 >
                   <Printer className="w-3 h-3" />
@@ -609,7 +609,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsViewModalOpen(false)}
-                  className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 transition cursor-pointer"
+                  className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 transition cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -617,16 +617,16 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
             </div>
 
             {/* Sub-abas do Modal */}
-            <div className="bg-slate-200 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 px-3 py-1 flex items-center gap-1 shrink-0 overflow-x-auto scrollbar-none">
+            <div className="bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 px-3 py-1.5 flex items-center gap-1.5 shrink-0 overflow-x-auto scrollbar-none">
               {(['DAMDFE', 'DADOS', 'DOCUMENTOS', 'ROTA', 'SEGURO'] as const).map(tab => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setModalActiveTab(tab)}
-                  className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1 text-[10px] font-bold uppercase rounded border transition cursor-pointer whitespace-nowrap ${
                     modalActiveTab === tab
-                      ? 'bg-white text-slate-900 dark:bg-stone-900 dark:text-white shadow-xs'
-                      : 'text-slate-600 dark:text-stone-400 hover:text-slate-900'
+                      ? 'bg-[#e0e6f1] text-black border-black dark:bg-stone-900 dark:text-white shadow-xs'
+                      : 'bg-white/60 text-black/75 border-black/30 hover:bg-white dark:bg-stone-900/50 dark:text-stone-400'
                   }`}
                 >
                   {tab === 'DAMDFE' ? 'DAMDFE (DOCUMENTO AUXILIAR)' : tab}
@@ -635,7 +635,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
             </div>
 
             {/* Conteúdo do Modal */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 text-xs space-y-3 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 text-xs space-y-3 bg-[#cad4e6] dark:bg-stone-950 text-black dark:text-stone-200">
               {modalActiveTab === 'DAMDFE' && (
                 <div className="border border-slate-400 rounded p-4 bg-white text-slate-950 font-sans space-y-3 shadow-xs">
                   {/* Cabeçalho DAMDFE */}
@@ -856,8 +856,8 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="px-4 py-2 border-t border-slate-300 dark:border-stone-800 bg-slate-100 dark:bg-stone-850 flex items-center justify-between shrink-0">
-              <div className="text-[10px] font-bold text-slate-500 uppercase">
+            <div className="px-4 py-2.5 border-t border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-between shrink-0">
+              <div className="text-[10px] font-bold text-black/80 dark:text-stone-400 uppercase">
                 EMITIDO VIA AGROCONTROL Módulo MDF-E • INTEGRAÇÃO SEFAZ MOD. 58
               </div>
               <div className="flex items-center gap-2">
@@ -868,7 +868,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                       handleEncerrarMdfe(selectedMdfe.id);
                       setIsViewModalOpen(false);
                     }}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold uppercase transition cursor-pointer"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold uppercase transition cursor-pointer"
                   >
                     ENCERRAR MANIFESTO
                   </button>
@@ -876,7 +876,7 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsViewModalOpen(false)}
-                  className="px-3 py-1 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-200 rounded text-[10px] font-bold uppercase transition cursor-pointer"
+                  className="px-4 py-1.5 bg-white hover:bg-gray-100 border border-black dark:border-stone-700 text-black dark:text-stone-300 rounded-lg text-xs font-bold uppercase transition cursor-pointer"
                 >
                   FECHAR
                 </button>
@@ -887,22 +887,22 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 5. MODAL NOVO MDF-E (TAMANHO PADRÃO OURO: MAX-W-4XL H-[95VH]) */}
+      {/* 5. MODAL NOVO MDF-E */}
       {/* ========================================================================= */}
       {isNewModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150">
-            {/* Header - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <Truck className="w-4 h-4 text-sky-700 dark:text-sky-400" />
+                <div className="w-7 h-7 rounded bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+                  <Truck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-white">
                     EMISSÃO DE NOVO MDF-E (MANIFESTO ELETRÔNICO MOD. 58)
                   </h3>
-                  <p className="text-[10px] text-slate-600 dark:text-stone-400 uppercase">
+                  <p className="text-[10px] text-black/80 dark:text-stone-400 font-semibold uppercase">
                     VINCULAÇÃO DE CT-E / NF-E, CONDUTOR, VEÍCULO E ROTA DE CARGA
                   </p>
                 </div>
@@ -911,18 +911,18 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsNewModalOpen(false)}
-                className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 transition cursor-pointer"
+                className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Formulário Novo MDF-e */}
-            <form onSubmit={handleCreateNewMdfe} className="flex-1 flex flex-col justify-between overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 text-xs bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200">
+            <form onSubmit={handleCreateNewMdfe} className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 text-xs bg-[#cad4e6] dark:bg-stone-950 text-black dark:text-stone-200">
                 {/* 1. Dados Básicos */}
-                <div className="border border-slate-300 dark:border-stone-700 rounded p-3 bg-slate-50 dark:bg-stone-850 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase block">
+                <div className="border border-black dark:border-stone-700 rounded-xl p-3 bg-[#e0e6f1] dark:bg-stone-800 space-y-2">
+                  <span className="text-[11px] font-black text-black dark:text-stone-300 uppercase block border-b border-black/30 pb-1">
                     1. IDENTIFICAÇÃO DO MANIFESTO & ROTA
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -996,8 +996,8 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                 </div>
 
                 {/* 2. Veículo & Condutor */}
-                <div className="border border-slate-300 dark:border-stone-700 rounded p-3 bg-slate-50 dark:bg-stone-850 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase block">
+                <div className="border border-black dark:border-stone-700 rounded-xl p-3 bg-[#e0e6f1] dark:bg-stone-800 space-y-2">
+                  <span className="text-[11px] font-black text-black dark:text-stone-300 uppercase block border-b border-black/30 pb-1">
                     2. VEÍCULO DE TRAÇÃO E MOTORISTA
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1065,8 +1065,8 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
                 </div>
 
                 {/* 3. Carga e Totais */}
-                <div className="border border-slate-300 dark:border-stone-700 rounded p-3 bg-slate-50 dark:bg-stone-850 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase block">
+                <div className="border border-black dark:border-stone-700 rounded-xl p-3 bg-[#e0e6f1] dark:bg-stone-800 space-y-2">
+                  <span className="text-[11px] font-black text-black dark:text-stone-300 uppercase block border-b border-black/30 pb-1">
                     3. DADOS DA CARGA & DOCUMENTOS VINCULADOS
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1127,17 +1127,17 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
               </div>
 
               {/* Rodapé Form */}
-              <div className="px-4 py-2.5 border-t border-slate-300 dark:border-stone-800 bg-slate-100 dark:bg-stone-850 flex items-center justify-end gap-2 shrink-0">
+              <div className="px-4 py-2.5 border-t border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsNewModalOpen(false)}
-                  className="px-3 py-1.5 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-200 rounded text-xs font-bold uppercase transition cursor-pointer"
+                  className="px-4 py-1.5 bg-white hover:bg-gray-100 border border-black dark:border-stone-700 text-black dark:text-stone-300 rounded-lg text-xs font-bold uppercase transition cursor-pointer"
                 >
                   CANCELAR
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 text-white rounded text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer"
+                  className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold uppercase shadow-xs transition cursor-pointer"
                 >
                   AUTORIZAR MDF-E NA SEFAZ
                 </button>

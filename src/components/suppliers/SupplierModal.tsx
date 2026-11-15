@@ -59,6 +59,7 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { ClientOptionsManagerModal } from '../crm/ClientOptionsManagerModal';
 import { printSupplierRegistrationA4 } from './supplierPrintUtils';
 import { ReverseCepModal } from '../common/ReverseCepModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export interface SupplierModalProps {
   isOpen: boolean;
@@ -139,6 +140,38 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   const [city, setCity] = useState('');
   const [state, setState] = useState('PR');
   const [notes, setNotes] = useState('');
+
+  const supplierGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: activeSupplier?.id || editingSupplier?.id || (isOpen ? 'new' : 'closed'),
+    snapshot: [
+      code,
+      personType,
+      cnpjOrCpf,
+      name,
+      tradeName,
+      category,
+      stateRegistration,
+      municipalRegistration,
+      phone,
+      email,
+      salespersonName,
+      salespersonPhone,
+      defaultPaymentTerm,
+      zipCode,
+      address,
+      addressNumber,
+      addressComplement,
+      neighborhood,
+      city,
+      state,
+      notes,
+    ],
+  });
+
+  const handleAttemptClose = () => {
+    supplierGuard.confirmClose(onClose);
+  };
 
   const activeCategories = useMemo(
     () => categoriesCatalog.filter((item) => item.active),
@@ -689,6 +722,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
   const handleCancel = () => {
     loadSupplierIntoForm(activeSupplier || null, initialName);
+    supplierGuard.resetDirty();
     setFeedback({
       type: 'error',
       message: activeSupplier
@@ -951,9 +985,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden`}
+      className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden`}
     >
-      <div className="w-full max-w-[80vw] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header - Tema Oficial #cad4e6 + border-black */}
         <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] text-slate-900 flex items-center justify-between border-b border-black relative rounded-t-lg shrink-0">
           <div className="flex items-center space-x-2.5">
@@ -1065,7 +1099,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             {/* Fechar Modal no X */}
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-900 border border-black transition cursor-pointer"
               title="Fechar janela"
             >
@@ -1140,7 +1174,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
           <form
             id="supplier-modal-form"
             onSubmit={handleSubmit}
-            className="p-3 sm:p-4 space-y-2.5 bg-[#cad4e6] overflow-y-auto scrollbar-none flex-1 text-slate-900"
+            className="p-3 sm:p-4 space-y-2.5 bg-[#cad4e6] overflow-y-auto scrollbar-none flex-1 min-h-0 text-slate-900"
           >
             {/* Card 1: Identificação (PF/PJ + Código + Auto-Busca + Contato Principal) */}
             <div className="bg-[#e0e6f1] p-3 sm:p-3.5 rounded-xl border border-black shadow-2xs space-y-2.5">
@@ -1606,7 +1640,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
         {/* ABA 2: HISTÓRICO DE COMPRAS / NOTAS */}
         {activeTab === 'historico' && (
-          <div className="p-3 sm:p-4 bg-[#cad4e6] overflow-y-auto scrollbar-none flex-1 flex flex-col space-y-3">
+          <div className="p-3 sm:p-4 bg-[#cad4e6] overflow-y-auto scrollbar-none flex-1 min-h-0 flex flex-col justify-start space-y-3">
             {/* 4 Cards de Resumo */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
               <div className="bg-[#e0e6f1] p-3 rounded-xl border border-black shadow-2xs">
@@ -1912,7 +1946,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               title="Fechar janela de cadastro"
               className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-[11px] sm:text-xs font-bold shadow-2xs transition cursor-pointer border border-black uppercase"
             >

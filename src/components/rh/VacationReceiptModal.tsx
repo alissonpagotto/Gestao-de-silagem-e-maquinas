@@ -877,7 +877,7 @@ export function VacationReceiptModal({
 
   return (
     <div
-      className="vacation-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/70 backdrop-blur-xs overflow-y-auto print:p-0 print:m-0 print:static print:bg-white print:backdrop-filter-none print:overflow-visible"
+      className="vacation-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-[2px] overflow-y-auto print:p-0 print:m-0 print:static print:bg-white print:backdrop-filter-none print:overflow-visible"
     >
       {/* Estilos CSS Nativos de Impressão A4 Portrait em 1 Página */}
       <style>{`
@@ -912,25 +912,25 @@ export function VacationReceiptModal({
 
       {/* Janela Modal do Sistema - Compactada sem barra de rolagem vertical (overflow-y: hidden) */}
       <div
-        className="vacation-modal-wrapper bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto flex flex-col print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:my-0 print:p-0 print:overflow-visible"
+        className="vacation-modal-wrapper bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden mx-auto my-auto flex flex-col justify-between print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:h-auto print:max-h-none print:my-0 print:p-0 print:bg-white print:overflow-visible"
       >
         {/* Barra de Ações Superior (no-print) */}
-        <div className="no-print flex items-center justify-between px-4 py-2.5 bg-[#0963cb] text-white border-b border-blue-400/30 shrink-0">
+        <div className="no-print flex items-center justify-between px-4 py-2.5 bg-[#cad4e6] text-black border-b border-black shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-white/15">
-              <Palmtree className="w-4 h-4 text-white" />
+            <div className="p-1.5 rounded-lg bg-white border border-gray-400">
+              <Palmtree className="w-4 h-4 text-emerald-700" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-xs sm:text-sm font-black tracking-wide text-white uppercase">
+                <h3 className="text-xs sm:text-sm font-black tracking-wide text-black uppercase">
                   Aviso e Recibo de Férias
                 </h3>
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-100 border border-emerald-400/30">
-                  <Wifi className="w-2.5 h-2.5 text-emerald-300" />
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-400">
+                  <Wifi className="w-2.5 h-2.5 text-emerald-700" />
                   <span>Sincronizado em Tempo Real</span>
                 </span>
               </div>
-              <p className="text-[10px] text-white/80 font-medium">
+              <p className="text-[10px] text-slate-800 font-medium">
                 Documento legal consolidado (Art. 135 e Art. 145 da CLT) • {employeeName}
               </p>
             </div>
@@ -940,7 +940,7 @@ export function VacationReceiptModal({
             <button
               type="button"
               onClick={() => handlePrint()}
-              className="inline-flex items-center space-x-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
               title="Imprimir Aviso/Recibo de Férias (A4 em uma página)"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -949,7 +949,7 @@ export function VacationReceiptModal({
             <button
               type="button"
               onClick={handleCloseModal}
-              className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
+              className="p-1.5 text-black hover:bg-white/60 rounded-lg transition cursor-pointer"
               title="Fechar Janela"
             >
               <X className="w-4 h-4" />
@@ -957,10 +957,9 @@ export function VacationReceiptModal({
           </div>
         </div>
 
-        {/* Área de Visualização Compacta: padding 16px, gap 0.75rem, overflow-y hidden */}
+        {/* Área de Visualização Rolável */}
         <div
-          className="p-4 overflow-y-hidden bg-stone-100 dark:bg-stone-950 flex justify-center"
-          style={{ padding: '16px', overflowY: 'hidden' }}
+          className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto bg-[#cad4e6] dark:bg-stone-950 flex justify-center items-start print:p-0 print:overflow-visible print:bg-white"
         >
           {/* Documento Centralizado - Padding 16px e Gap 0.75rem entre blocos */}
           <div
@@ -1296,15 +1295,15 @@ export function VacationReceiptModal({
         </div>
 
         {/* Rodapé do Modal (no-print) */}
-        <div className="no-print flex items-center justify-between px-4 py-2 bg-stone-100 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 text-xs shrink-0">
-          <span className="text-[11px] text-stone-500 font-medium">
+        <div className="no-print flex items-center justify-between px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 text-xs shrink-0">
+          <span className="text-[11px] text-black font-bold">
             Padrão de Impressão: Folha A4 Retrato • Ajustado para 1 Página
           </span>
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => handlePrint()}
-              className="inline-flex items-center space-x-1 px-3 py-1 bg-[#0963cb] hover:bg-blue-700 text-white font-bold rounded-lg transition cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 font-bold rounded-lg transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimir</span>
@@ -1312,7 +1311,7 @@ export function VacationReceiptModal({
             <button
               type="button"
               onClick={handleCloseModal}
-              className="px-3 py-1 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold rounded-lg transition cursor-pointer"
+              className="px-3.5 py-1.5 bg-white hover:bg-gray-100 border border-gray-400 text-black font-bold rounded-lg transition cursor-pointer"
             >
               Fechar
             </button>

@@ -738,10 +738,10 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   return (
     <div 
       id="modal-cadastro-conta-bancaria"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-[2px] animate-in fade-in"
     >
       <div 
-        className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in"
       >
         {/* CABEÇALHO */}
         <div 
@@ -780,7 +780,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             {/* ======================================================== */}
             {/* COLUNA DA ESQUERDA (60% da Largura): DADOS DA CONTA */}
             {/* ======================================================== */}
-            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-transparent">
+            <div className="lg:col-span-7 flex flex-col overflow-y-auto p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-transparent">
               
               {/* Mensagem de Erro de Validação */}
               {validationError && (

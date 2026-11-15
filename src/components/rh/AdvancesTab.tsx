@@ -712,8 +712,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 
       {/* Modal Lançar / Editar Vale Refatorado - Moldura Metálica 3D Acetinada */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 transition-all flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden mx-auto my-auto animate-in fade-in zoom-in-95 duration-150 transition-all flex flex-col justify-between">
             
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 rounded-t-2xl shrink-0">
@@ -1144,43 +1144,45 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 
       {/* Modal de Prévia de Comprovante de Pagamento */}
       {viewingReceipt && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-black/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-4 py-3 bg-[#0963cb] text-white">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
+          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between mx-auto my-auto">
+            <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] text-black border-b border-black shrink-0">
               <div className="flex items-center space-x-2 overflow-hidden">
-                <Paperclip className="w-4 h-4 shrink-0" />
-                <h4 className="text-xs sm:text-sm font-bold truncate">
+                <Paperclip className="w-4 h-4 shrink-0 text-emerald-700" />
+                <h4 className="text-xs sm:text-sm font-bold uppercase truncate">
                   {viewingReceipt.name || 'Comprovante de Pagamento'}
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingReceipt(null)}
-                className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                className="p-1 text-black hover:bg-white/60 rounded-lg transition cursor-pointer"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="w-5 h-5 text-black" />
               </button>
             </div>
-            <div className="p-4 overflow-auto flex-1 flex items-center justify-center bg-stone-100">
+            <div className="p-4 overflow-auto flex-1 min-h-0 flex items-center justify-center bg-[#cad4e6]">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 w-full h-full flex items-center justify-center">
               {viewingReceipt.url.startsWith('data:application/pdf') || viewingReceipt.name?.endsWith('.pdf') ? (
                 <iframe
                   src={viewingReceipt.url}
                   title="Comprovante PDF"
-                  className="w-full h-[65vh] rounded-lg border border-stone-300 bg-white"
+                  className="w-full h-full rounded-lg border border-black bg-white"
                 />
               ) : (
                 <img
                   src={viewingReceipt.url}
                   alt="Comprovante"
-                  className="max-h-[70vh] max-w-full object-contain rounded-lg border border-stone-300 shadow-sm"
+                  className="max-h-full max-w-full object-contain rounded-lg border border-black bg-white shadow-sm"
                 />
               )}
+              </div>
             </div>
-            <div className="p-3 bg-white border-t border-stone-200 flex justify-end">
+            <div className="px-4 py-3 bg-[#cad4e6] border-t border-black flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setViewingReceipt(null)}
-                className="px-4 py-1.5 rounded-lg bg-[#0963cb] text-white font-bold text-xs hover:bg-[#0852a8] transition cursor-pointer"
+                className="px-4 py-1.5 rounded-lg bg-white hover:bg-gray-100 border border-gray-400 text-black font-bold text-xs transition cursor-pointer"
               >
                 Fechar
               </button>

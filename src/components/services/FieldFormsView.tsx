@@ -1952,7 +1952,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
       {showSuccessModal && (
         <div 
           id="modal-success-enviar-de-volta" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 space-y-4 text-center">
             <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 rounded-full flex items-center justify-center mx-auto text-[#188038]">
@@ -2004,7 +2004,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
       {loadToUncheck && (
         <div 
           id="modal-confirm-uncheck-load" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 border border-stone-200 text-stone-900 space-y-4">
             
@@ -2073,20 +2073,20 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
       {isBatchModalOpen && (
         <div
           id="modal-config-batch-print"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
-          <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black">
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-3">
+            <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-black bg-[#cad4e6] shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-[#188038] shrink-0 shadow-xs">
+                <div className="w-9 h-9 rounded-lg bg-[#e0e6f1] border border-black flex items-center justify-center text-black shrink-0 shadow-2xs">
                   <Printer className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-stone-900 dark:text-stone-100 tracking-tight">
+                  <h3 className="text-sm sm:text-base font-black text-black uppercase tracking-tight">
                     Imprimir Bloco de Formulários
                   </h3>
-                  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">
+                  <p className="text-xs font-semibold text-slate-800">
                     {activeFormTab === "corte" && "Formulário: 1. Pedido de Corte (Forrageira)"}
                     {activeFormTab === "compactacao" && "Formulário: 2. Controle de Compactação (Trator)"}
                     {activeFormTab === "cargas" && "Formulário: 3. Controle de Cargas (01 a 64)"}
@@ -2097,7 +2097,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               <button
                 type="button"
                 onClick={() => setIsBatchModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black p-1.5 rounded-lg transition cursor-pointer"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
@@ -2105,106 +2105,108 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
             </div>
 
             {/* Inputs de Configuração */}
-            <div className="space-y-4">
-              {/* Quantidade de Páginas */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
-                  Quantidade de Páginas a Imprimir:
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="500"
-                    step="1"
-                    value={batchQty}
-                    onChange={(e) => setBatchQty(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl px-3 py-2 text-sm font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#188038] focus:border-[#188038] outline-hidden"
-                    placeholder="50"
-                  />
-                  {/* Botões Rápidos */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {[25, 50, 100].map(qty => (
-                      <button
-                        key={qty}
-                        type="button"
-                        onClick={() => setBatchQty(qty)}
-                        className={`px-2.5 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                          batchQty === qty
-                            ? "bg-[#188038] text-white border-[#188038] shadow-xs"
-                            : "bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700"
-                        }`}
-                      >
-                        {qty} fls
-                      </button>
-                    ))}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 bg-[#cad4e6] space-y-4">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-5 space-y-4 shadow-xs">
+                {/* Quantidade de Páginas */}
+                <div>
+                  <label className="block text-xs font-bold text-black uppercase mb-1">
+                    Quantidade de Páginas a Imprimir:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="500"
+                      step="1"
+                      value={batchQty}
+                      onChange={(e) => setBatchQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full bg-white border border-black rounded-lg px-3 py-2 text-sm font-bold text-black focus:ring-1 focus:ring-black outline-hidden"
+                      placeholder="50"
+                    />
+                    {/* Botões Rápidos */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {[25, 50, 100].map(qty => (
+                        <button
+                          key={qty}
+                          type="button"
+                          onClick={() => setBatchQty(qty)}
+                          className={`px-3 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                            batchQty === qty
+                              ? "bg-emerald-600 text-white border-emerald-800 shadow-xs"
+                              : "bg-white hover:bg-gray-100 text-black border-black"
+                          }`}
+                        >
+                          {qty} fls
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 mt-1 block">
-                  Define quantas folhas numeradas serão geradas no lote (padrão 50 folhas para bloco físico).
-                </span>
-              </div>
-
-              {/* Grid: Número Inicial e Número Final */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Número Inicial */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
-                    Número Inicial do Pedido:
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={batchStartNum}
-                    onChange={(e) => setBatchStartNum(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl px-3 py-2 text-sm font-mono font-black text-rose-600 focus:ring-2 focus:ring-[#188038] focus:border-[#188038] outline-hidden"
-                  />
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 mt-1 block">
-                    Padrão: Último impresso + 1 (editável).
+                  <span className="text-[11px] text-slate-800 mt-1 block font-medium">
+                    Define quantas folhas numeradas serão geradas no lote (padrão 50 folhas para bloco físico).
                   </span>
                 </div>
 
-                {/* Número Final */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
-                    Número Final do Pedido:
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}
-                    className="w-full bg-stone-100 dark:bg-stone-800/60 border border-stone-300 dark:border-stone-700 rounded-xl px-3 py-2 text-sm font-mono font-black text-stone-600 dark:text-stone-400 cursor-not-allowed outline-hidden"
-                  />
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 mt-1 block">
-                    Calculado automaticamente (somente leitura).
-                  </span>
+                {/* Grid: Número Inicial e Número Final */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Número Inicial */}
+                  <div>
+                    <label className="block text-xs font-bold text-black uppercase mb-1">
+                      Número Inicial do Pedido:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={batchStartNum}
+                      onChange={(e) => setBatchStartNum(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full bg-white border border-black rounded-lg px-3 py-2 text-sm font-mono font-black text-rose-700 focus:ring-1 focus:ring-black outline-hidden"
+                    />
+                    <span className="text-[10px] text-slate-800 mt-1 block font-medium">
+                      Padrão: Último impresso + 1 (editável).
+                    </span>
+                  </div>
+
+                  {/* Número Final */}
+                  <div>
+                    <label className="block text-xs font-bold text-black uppercase mb-1">
+                      Número Final do Pedido:
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}
+                      className="w-full bg-slate-100 border border-black rounded-lg px-3 py-2 text-sm font-mono font-black text-black cursor-not-allowed outline-hidden"
+                    />
+                    <span className="text-[10px] text-slate-800 mt-1 block font-medium">
+                      Calculado automaticamente (somente leitura).
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Card de Resumo Visual */}
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800/60 rounded-xl p-3.5 space-y-1.5 text-xs text-stone-800 dark:text-stone-200">
-                <div className="flex items-center gap-1.5 font-bold text-[#188038]">
-                  <CheckCircle className="w-4 h-4 text-[#188038]" />
+              <div className="bg-emerald-50 border border-black rounded-xl p-4 space-y-1.5 text-xs text-black shadow-xs">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                  <CheckCircle className="w-4 h-4 text-emerald-700" />
                   <span>Resumo do Lote de Impressão</span>
                 </div>
-                <p className="text-[11px] leading-relaxed">
+                <p className="text-xs leading-relaxed">
                   Serão geradas <strong>{batchQty} páginas</strong> com o formulário espelho e badges numerados de{" "}
-                  <span className="font-mono font-bold text-rose-600">#{String(batchStartNum).padStart(4, "0")}</span> até{" "}
-                  <span className="font-mono font-bold text-rose-600">#{String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}</span>.
+                  <span className="font-mono font-bold text-rose-700">#{String(batchStartNum).padStart(4, "0")}</span> até{" "}
+                  <span className="font-mono font-bold text-rose-700">#{String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}</span>.
                 </p>
-                <p className="text-[10px] text-stone-500 dark:text-stone-400">
+                <p className="text-[11px] text-slate-800 font-medium">
                   Ao confirmar a impressão, o limite <strong>#{String(batchStartNum + Math.max(1, batchQty) - 1).padStart(4, "0")}</strong> será salvo na base para dar continuidade no próximo bloco sem repetições.
                 </p>
               </div>
             </div>
 
             {/* Ações do Rodapé */}
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-stone-200 dark:border-stone-800">
+            <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-black bg-[#cad4e6] shrink-0">
               <button
                 type="button"
                 onClick={() => setIsBatchModalOpen(false)}
-                className="px-4 py-2.5 text-xs font-semibold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -2212,7 +2214,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               <button
                 type="button"
                 onClick={handleConfirmBatchPrint}
-                className="px-5 py-2.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer transform hover:-translate-y-0.5 active:scale-95"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>Imprimir Lote ({batchQty} folhas)</span>

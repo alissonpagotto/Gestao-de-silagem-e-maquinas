@@ -952,16 +952,16 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 6. MODAL DE NOVO / EDITAR LANÇAMENTO DE COMISSÃO */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-200 overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden">
-            {/* Modal Header - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center text-slate-800 dark:text-stone-100 shrink-0 border border-slate-300 dark:border-stone-700 shadow-2xs">
-                  <Handshake className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-[2px] animate-in fade-in duration-200 overflow-hidden">
+          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] text-black border-b border-black flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-black shrink-0 border border-black shadow-2xs">
+                  <Handshake className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                  <h3 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
                     {editingItem ? 'EDITAR ACERTO DE AGENCIADOR' : 'NOVO LANÇAMENTO DE COMISSÃO / REPASSE'}
                   </h3>
                 </div>
@@ -969,14 +969,16 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-5 h-5 text-black" />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveModal} className="p-3 sm:p-4 overflow-y-auto space-y-2.5 text-xs max-h-[80vh] scrollbar-none">
+            <form onSubmit={handleSaveModal} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3">
               {/* Seleção do Agenciador */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-black uppercase">
@@ -1216,18 +1218,21 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                 />
               </div>
 
+              </div>
+              </div>
+
               {/* Footer Buttons */}
-              <div className="pt-3 border-t border-stone-200 flex items-center justify-end space-x-2">
+              <div className="px-4 sm:px-5 py-3 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 font-bold hover:bg-stone-100 transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-white border border-black text-black font-bold hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-black transition cursor-pointer shadow-xs"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-black transition cursor-pointer shadow-xs"
                 >
                   {editingItem ? 'Salvar Alterações' : 'Confirmar Lançamento'}
                 </button>
@@ -1239,12 +1244,14 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 7. MODAL DE BAIXA RÁPIDA / PAGAMENTO DO REPASSE */}
       {isSettleModalOpen && settleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-[2px] animate-in fade-in duration-200 overflow-hidden">
+          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] overflow-hidden shadow-2xl flex flex-col justify-between mx-auto my-auto">
             {/* Header */}
-            <div className="px-5 py-3.5 bg-emerald-700 text-white flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white border border-black flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                </div>
                 <h3 className="text-sm font-black uppercase tracking-wider">
                   Efetivar Baixa de Repasse
                 </h3>
@@ -1252,16 +1259,17 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSettleModalOpen(false)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+                className="text-black p-1.5 rounded-lg hover:bg-black/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleConfirmSettle} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleConfirmSettle} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4">
               {/* Card de Resumo do Repasse */}
-              <div className="p-3.5 bg-emerald-50/80 border border-emerald-300 rounded-xl space-y-2">
+              <div className="p-4 bg-[#e0e6f1] border border-black rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-emerald-950 uppercase">Agenciador:</span>
                   <span className="text-xs font-black text-black uppercase">{settleTarget.brokerName}</span>
@@ -1388,18 +1396,20 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                 />
               </div>
 
+              </div>
+
               {/* Footer */}
-              <div className="pt-3 border-t border-stone-200 flex items-center justify-end space-x-2">
+              <div className="px-4 sm:px-5 py-3 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSettleModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 font-bold hover:bg-stone-100 transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-white border border-black text-black font-bold hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black transition cursor-pointer shadow-xs"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-black transition cursor-pointer shadow-xs"
                 >
                   Confirmar Baixa & Efetivar
                 </button>
@@ -1411,12 +1421,14 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 8. MODAL DE IMPRESSÃO DE RECIBO DE REPASSE */}
       {isPrintModalOpen && printTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-stone-900 border border-stone-300 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-[2px] animate-in fade-in duration-200 overflow-hidden">
+          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="px-5 py-3.5 bg-stone-900 text-white flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Printer className="w-5 h-5 text-amber-400" />
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white border border-black flex items-center justify-center shrink-0">
+                  <Printer className="w-4 h-4 text-emerald-700" />
+                </div>
                 <h3 className="text-sm font-black uppercase tracking-wider">
                   Recibo de Quitação de Comissão de Agenciador
                 </h3>
@@ -1424,14 +1436,15 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsPrintModalOpen(false)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+                className="text-black p-1.5 rounded-lg hover:bg-black/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Receipt Body */}
-            <div className="p-6 overflow-y-auto space-y-4 text-black bg-white" id="broker-receipt-printable">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] flex flex-col items-center">
+            <div className="w-full max-w-3xl p-6 space-y-4 text-black bg-white border border-black rounded-xl shadow-sm" id="broker-receipt-printable">
               <div className="text-center border-b-2 border-stone-800 pb-3">
                 <h2 className="text-base font-black uppercase tracking-wider">
                   RECIBO DE REPASSE DE COMISSÃO
@@ -1531,20 +1544,21 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                 </div>
               </div>
             </div>
+            </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 bg-stone-100 border-t border-stone-200 flex items-center justify-end space-x-2">
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end space-x-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsPrintModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 font-bold hover:bg-stone-200 transition cursor-pointer text-xs"
+                className="px-4 py-2 rounded-xl bg-white border border-black text-black font-bold hover:bg-slate-100 transition cursor-pointer text-xs"
               >
                 Fechar
               </button>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-stone-900 hover:bg-black text-white font-bold transition cursor-pointer text-xs shadow-xs"
+                className="inline-flex items-center space-x-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-bold transition cursor-pointer text-xs shadow-xs"
               >
                 <Printer className="w-4 h-4" />
                 <span>Imprimir Recibo</span>

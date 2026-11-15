@@ -309,20 +309,20 @@ export const CentrosCustoTab: React.FC = () => {
 
       {/* Modal Criar / Editar - Tema Oficial de Alto Contraste */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-4xl h-auto max-h-[92vh] flex flex-col mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-y-auto">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden">
             
             {/* Cabeçalho */}
-            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0 select-none">
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black/40 dark:border-stone-700 shadow-2xs shrink-0">
-                  <FolderKanban className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+                  <FolderKanban className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black">
                     {editingCentro ? 'EDITAR CENTRO DE CUSTO' : 'NOVO CENTRO DE CUSTO'}
                   </h3>
-                  <p className="text-[11px] text-slate-800 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-slate-800 font-medium">
                     Classificação contábil de talhões, sede, oficina e operações
                   </p>
                 </div>
@@ -330,21 +330,21 @@ export const CentrosCustoTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {formError && (
-              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300 shrink-0">
+              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-400 text-xs font-bold text-rose-800 shrink-0">
                 {formError}
               </div>
             )}
 
-            <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950 text-xs">
-              <div className="p-4 overflow-y-auto">
-                <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-4 space-y-3">
+            <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] text-xs">
+              <div className="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto">
+                <div className="max-w-3xl mx-auto bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-5 space-y-3">
                   <div>
                     <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-1">
                       Nome do Centro de Custo <span className="text-rose-600">*</span>

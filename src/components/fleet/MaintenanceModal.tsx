@@ -70,6 +70,7 @@ import {
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
 import { ProductSearchModal } from './ProductSearchModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from '../nfe/NfeInstallmentsModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export const parseCleanPriceNumber = (val: any): number => {
   if (val === undefined || val === null || val === '') return 0;
@@ -161,6 +162,15 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 }) => {
   // Active subtab inside modal for clean navigation
   const [activeTab, setActiveTab] = useState<'geral' | 'pecas' | 'fiscal_financeiro'>('geral');
+
+  const maintenanceGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: editingLog?.id || (isOpen ? 'new' : 'closed'),
+  });
+
+  const handleAttemptClose = () => {
+    maintenanceGuard.confirmClose(onClose);
+  };
 
   // --- DADOS GERAIS ---
   const [osNumber, setOsNumber] = useState('');
@@ -1728,36 +1738,37 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overflow-y-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden overflow-y-hidden">
       <div 
-        className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#edf4ff] dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+        {...maintenanceGuard.captureProps}
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
-        {/* Header - Moldura Metálica 3D Acetinada */}
-        <div className="flex items-center justify-between bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 text-slate-700 font-bold p-3 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] shrink-0 rounded-t-lg">
+        {/* Header Oficial Alto Contraste */}
+        <div className="flex items-center justify-between bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 font-bold p-3 shrink-0 rounded-t-xl">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Wrench className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+              <Wrench className="w-4 h-4 text-black dark:text-stone-200" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
                   {editingLog ? `EDITAR ORDEM DE MANUTENÇÃO: ${editingLog.osNumber || editingLog.id}` : 'NOVA ORDEM DE MANUTENÇÃO'}
                 </h3>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-200 text-slate-800 border border-slate-300">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white text-black border border-black">
                   {osNumber}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+              <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
                 Manutenção na Roça, Estrada ou Oficina • Baixa de Estoque • NF-e • Contas a Pagar
               </p>
             </div>
           </div>
           {/* Canto superior direito: Seletor Global de Status da OS + Botão Fechar */}
           <div className="flex items-center space-x-2.5 sm:space-x-3">
-            <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-stone-800 px-2 py-0.5 rounded-lg border border-slate-300 dark:border-stone-700 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider whitespace-nowrap hidden sm:inline">
+            <div className="flex items-center space-x-1.5 bg-[#e0e6f1] dark:bg-stone-800 px-2 py-0.5 rounded-lg border border-black dark:border-stone-700 shadow-2xs">
+              <span className="text-[10px] font-bold text-black dark:text-stone-400 uppercase tracking-wider whitespace-nowrap hidden sm:inline">
                 Status:
               </span>
               <select
@@ -1776,35 +1787,35 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             </div>
 
             <button
-              onClick={onClose}
-              className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              onClick={handleAttemptClose}
+              className="p-1.5 text-black hover:bg-black/10 rounded-lg dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               title="Fechar janela"
             >
-              <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+              <X className="w-4 h-4 text-black dark:text-stone-200" />
             </button>
           </div>
         </div>
 
-        {/* Subtabs de Navegação do Formulário (3 Abas Unificadas - Barra em Cinza Gelo bg-zinc-200) */}
+        {/* Subtabs de Navegação do Formulário */}
         <div 
           aria-label="Abas de Manutenção"
-          className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-x-auto shrink-0"
+          className="flex items-center gap-1.5 p-2 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 overflow-x-auto shrink-0"
         >
           <button
             type="button"
             id="tab-diagnostico-equipe-local"
             onClick={() => setActiveTab('geral')}
-            className={`py-1 px-3 text-xs font-black uppercase transition rounded whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
+            className={`py-1.5 px-3 text-xs font-black uppercase rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer transition ${
               activeTab === 'geral'
-                ? 'bg-emerald-100/90 text-emerald-950 font-black shadow-xs border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                : 'text-zinc-700 hover:text-zinc-900 hover:bg-slate-300/60'
+                ? 'bg-white text-black shadow-xs border border-black'
+                : 'text-black/80 hover:text-black hover:bg-white/60'
             }`}
           >
             <Wrench className="w-3.5 h-3.5" />
             <span>1. DIAGNÓSTICO, EQUIPE & LOCAL</span>
             {laborItems.length > 0 && (
               <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                activeTab === 'geral' ? 'bg-emerald-200 text-emerald-900 font-bold' : 'bg-zinc-300 text-zinc-800'
+                activeTab === 'geral' ? 'bg-emerald-100 text-emerald-900 font-bold border border-emerald-400' : 'bg-white/80 text-black'
               }`}>
                 {laborItems.length}
               </span>
@@ -1815,17 +1826,17 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             type="button"
             id="tab-pecas-estoque"
             onClick={() => setActiveTab('pecas')}
-            className={`py-1 px-3 text-xs font-black uppercase transition rounded whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
+            className={`py-1.5 px-3 text-xs font-black uppercase rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer transition ${
               activeTab === 'pecas'
-                ? 'bg-emerald-100/90 text-emerald-950 font-black shadow-xs border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                : 'text-zinc-700 hover:text-zinc-900 hover:bg-slate-300/60'
+                ? 'bg-white text-black shadow-xs border border-black'
+                : 'text-black/80 hover:text-black hover:bg-white/60'
             }`}
           >
             <Package className="w-3.5 h-3.5" />
             <span>2. PEÇAS & ESTOQUE</span>
             {partsItems.length > 0 && (
               <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                activeTab === 'pecas' ? 'bg-emerald-200 text-emerald-900 font-bold' : 'bg-zinc-300 text-zinc-800'
+                activeTab === 'pecas' ? 'bg-emerald-100 text-emerald-900 font-bold border border-emerald-400' : 'bg-white/80 text-black'
               }`}>
                 {partsItems.length}
               </span>
@@ -1836,25 +1847,25 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             type="button"
             id="tab-nfe-financeiro"
             onClick={() => setActiveTab('fiscal_financeiro')}
-            className={`py-1 px-3 text-xs font-black uppercase transition rounded whitespace-nowrap flex items-center space-x-1.5 cursor-pointer ${
+            className={`py-1.5 px-3 text-xs font-black uppercase rounded-lg whitespace-nowrap flex items-center space-x-1.5 cursor-pointer transition ${
               activeTab === 'fiscal_financeiro'
-                ? 'bg-emerald-100/90 text-emerald-950 font-black shadow-xs border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)]'
-                : 'text-zinc-700 hover:text-zinc-900 hover:bg-slate-300/60'
+                ? 'bg-white text-black shadow-xs border border-black'
+                : 'text-black/80 hover:text-black hover:bg-white/60'
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
             <span>3. NF-E & FINANCEIRO</span>
             {(hasNfe || createExpense) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
             )}
           </button>
         </div>
 
-        {/* Form Body com Estrutura Flexível: Topo e Base Fixos, Centro Rolável em Modo Claro bg-[#edf4ff] */}
-        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#edf4ff] dark:bg-stone-900">
+        {/* Form Body com Estrutura Flexível */}
+        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-900">
           
           {/* Conteúdo Central com Rolagem Vertical Independente */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-[#edf4ff] dark:bg-stone-900">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-[#cad4e6] dark:bg-stone-900">
 
             {/* Banner de Feedback de Ação */}
             {feedbackBanner && (
@@ -3665,28 +3676,28 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           )}
           </div>
 
-          {/* Rodapé Fixo da Ordem de Manutenção - Gradiente MDI Tridimensional Acetinado */}
-          <div className="shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-t border-slate-400 p-2.5 flex flex-col sm:flex-row items-center justify-between gap-2.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] z-20">
+          {/* Rodapé Fixo da Ordem de Manutenção - Tema Oficial */}
+          <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 z-20">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="flex items-center space-x-1.5">
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                <span className="text-[11px] font-black uppercase tracking-wider text-black dark:text-stone-300">
                   TOTAL GERAL DA MANUTENÇÃO:
                 </span>
-                <span className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-tight">
+                <span className="text-base sm:text-lg font-black text-black dark:text-white font-mono tracking-tight">
                   {formatCurrencyBRL(grandTotal)}
                 </span>
               </div>
 
               {/* Sub-totais discriminados */}
-              <div className="hidden md:flex items-center space-x-2 text-[10px] font-black uppercase text-slate-700 bg-white/90 px-2.5 py-1 rounded border border-slate-300 shadow-2xs">
-                <span>PEÇAS: <strong className="text-slate-900 font-mono">{formatCurrencyBRL(totalPartsCalculated)}</strong></span>
+              <div className="hidden md:flex items-center space-x-2 text-[10px] font-black uppercase text-black bg-[#e0e6f1] px-2.5 py-1 rounded border border-black shadow-2xs">
+                <span>PEÇAS: <strong className="text-black font-mono">{formatCurrencyBRL(totalPartsCalculated)}</strong></span>
                 <span>•</span>
-                <span>M. OBRA: <strong className="text-slate-900 font-mono">{formatCurrencyBRL(totalLaborCalculated)}</strong></span>
+                <span>M. OBRA: <strong className="text-black font-mono">{formatCurrencyBRL(totalLaborCalculated)}</strong></span>
               </div>
 
               {saveSuccess && (
-                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 rounded text-[10px] font-black uppercase shadow-xs animate-in fade-in duration-150">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-100 border border-emerald-500 text-emerald-900 rounded text-[10px] font-black uppercase shadow-xs animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
                   <span>MANUTENÇÃO SALVA COM SUCESSO!</span>
                 </span>
               )}
@@ -3697,8 +3708,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
               <button
                 type="button"
                 id="btn-cancelar-os"
-                onClick={onClose}
-                className="px-3 py-1.5 rounded text-[11px] font-black uppercase border border-slate-400 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition active:scale-95 cursor-pointer shadow-xs"
+                onClick={handleAttemptClose}
+                className="px-3.5 py-1.5 rounded-lg text-[11px] font-black uppercase border border-gray-400 bg-white hover:bg-gray-100 text-black transition active:scale-95 cursor-pointer shadow-xs"
               >
                 CANCELAR
               </button>
@@ -3707,11 +3718,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
               <button
                 type="button"
                 id="btn-sair-fechar-os"
-                onClick={onClose}
-                className="inline-flex items-center justify-center space-x-1 px-3 py-1.5 rounded text-[11px] font-black uppercase border border-rose-300 hover:border-rose-400 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 transition active:scale-95 cursor-pointer shadow-xs"
+                onClick={handleAttemptClose}
+                className="inline-flex items-center justify-center space-x-1 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase border border-rose-400 hover:border-rose-500 bg-rose-50 hover:bg-rose-100 text-rose-800 transition active:scale-95 cursor-pointer shadow-xs"
                 title="Fechar formulário de Ordem de Manutenção"
               >
-                <X className="w-3.5 h-3.5 text-rose-600" />
+                <X className="w-3.5 h-3.5 text-rose-700" />
                 <span>✕ SAIR / FECHAR</span>
               </button>
 
@@ -3730,7 +3741,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     executeSave({ triggerExpense: false });
                   }
                 }}
-                className="inline-flex items-center justify-center space-x-1.5 px-4 py-1.5 text-white text-[11px] font-black uppercase rounded shadow-xs transition active:scale-95 cursor-pointer bg-emerald-700 hover:bg-emerald-800 border border-emerald-800 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.3)]"
+                className="inline-flex items-center justify-center space-x-1.5 px-4 py-1.5 text-white text-[11px] font-black uppercase rounded-lg shadow-xs transition active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-700 border border-emerald-800"
                 title={activeTab === 'fiscal_financeiro' ? 'Concluir a Ordem de Manutenção, liberar o veículo e fechar o formulário' : 'Salva o estado atual mantendo os itens na tela'}
               >
                 {saveSuccess ? (

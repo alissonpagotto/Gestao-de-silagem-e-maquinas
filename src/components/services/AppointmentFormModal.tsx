@@ -34,6 +34,7 @@ import {
   findLinkedOperator 
 } from './serviceHelpers';
 import { getStoredMachineries, formatDateBR } from '../../lib/storage';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 // Funções utilitárias de timestamp e cálculo de término sem timezone drift
 const getCurrentTimeString = (): string => {
@@ -101,6 +102,15 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   clients = [],
   nextAppointmentNumber = 'AG-2026-001',
 }) => {
+  const appointmentGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: editAppointment?.id || (isOpen ? 'new' : 'closed'),
+  });
+
+  const handleAttemptClose = () => {
+    appointmentGuard.confirmClose(onClose);
+  };
+
   // 1. Identificação Básica
   const [appointmentNumber, setAppointmentNumber] = useState('');
   const [clientId, setClientId] = useState('');
@@ -804,8 +814,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
         {/* Cabeçalho do Modal */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-black bg-[#cad4e6] text-black rounded-t-lg shrink-0">
@@ -828,7 +838,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAttemptClose}
             className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition-colors cursor-pointer"
           >
             <X className="w-4 h-4 text-black" />
@@ -836,7 +846,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         </div>
 
         {/* Corpo do Formulário */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[#cad4e6] text-black">
+        <div {...appointmentGuard.captureProps} className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[#cad4e6] text-black">
           
           {/* ALERTA CRÍTICO: Conflito de Horário para o Mesmo Veículo */}
           {vehicleScheduleConflicts.length > 0 && (
@@ -1445,7 +1455,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-t border-black bg-[#cad4e6] rounded-b-lg shrink-0">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAttemptClose}
             className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-gray-400 bg-white hover:bg-gray-100 text-black shadow-2xs transition-colors cursor-pointer"
           >
             Cancelar

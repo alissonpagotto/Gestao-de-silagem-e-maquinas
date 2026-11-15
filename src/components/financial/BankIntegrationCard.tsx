@@ -401,137 +401,143 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
 
       {/* MODAL 1: INSERIR CONTA / BOLETO DO BANCO VINCULADO */}
       {isBillModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto backdrop-blur-xs animate-in fade-in" style={{ backgroundColor: 'rgba(9, 99, 203, 0.45)' }}>
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-stone-300 my-auto flex flex-col max-h-[90vh]">
-            <div className="px-5 py-4 flex items-center justify-between text-white shrink-0" style={{ backgroundColor: '#0963cb' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-[2px] animate-in fade-in">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
+            <div className="px-4 sm:px-5 py-3 flex items-center justify-between bg-[#cad4e6] border-b border-black text-black shrink-0">
               <div className="flex items-center space-x-2.5">
-                <Barcode className="w-5 h-5" />
-                <h4 className="font-black text-sm sm:text-base">Inserir Conta / Boleto do Banco</h4>
+                <div className="w-8 h-8 rounded-lg bg-white border border-black flex items-center justify-center shrink-0">
+                  <Barcode className="w-4 h-4 text-black" />
+                </div>
+                <h4 className="font-black text-sm sm:text-base uppercase tracking-wide">Inserir Conta / Boleto do Banco</h4>
               </div>
               <button 
                 type="button" 
                 onClick={() => setIsBillModalOpen(false)} 
-                className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-black/10 text-black cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitBill} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1 text-black">
-              {/* Informação da conta vinculada */}
-              {activeAccount && (
-                <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200 flex items-center space-x-2 text-xs font-bold text-blue-900">
-                  <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={20} />
-                  <span>Vinculação Direta com a Conta: <strong>{activeAccount.name} ({activeAccount.bankName})</strong></span>
+            <form onSubmit={handleSubmitBill} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+                <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3.5">
+                  {/* Informação da conta vinculada */}
+                  {activeAccount && (
+                    <div className="p-3 bg-white rounded-xl border border-black flex items-center space-x-2 text-xs font-bold text-black">
+                      <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={20} />
+                      <span>Vinculação Direta com a Conta: <strong>{activeAccount.name} ({activeAccount.bankName})</strong></span>
+                    </div>
+                  )}
+
+                  {/* Código de barras / Linha digitável */}
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Linha Digitável / Código de Barras do Boleto
+                    </label>
+                    <input
+                      type="text"
+                      value={billBarcode}
+                      onChange={(e) => handleBarcodeChange(e.target.value)}
+                      placeholder="Cole ou digite a linha digitável do boleto bancário..."
+                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Fornecedor / Cedente */}
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Fornecedor / Beneficiário <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={billSupplier}
+                      onChange={(e) => setBillSupplier(e.target.value)}
+                      placeholder="Ex: Cooperativa de Insumos, Concessionária de Energia..."
+                      className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Descrição */}
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Descrição da Despesa
+                    </label>
+                    <input
+                      type="text"
+                      value={billDescription}
+                      onChange={(e) => setBillDescription(e.target.value)}
+                      placeholder="Ex: Adubo NPK 20-05-20 / Parcela 1..."
+                      className="w-full px-3 py-2 text-xs sm:text-sm font-semibold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Valor e Vencimento */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Valor do Título (R$) <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={billAmount}
+                        onChange={(e) => setBillAmount(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full px-3 py-2 text-xs sm:text-sm font-black bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Data de Vencimento <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={billDueDate}
+                        onChange={(e) => setBillDueDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Categoria */}
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Categoria de Despesa
+                    </label>
+                    <select
+                      value={billCategory}
+                      onChange={(e) => setBillCategory(e.target.value)}
+                      className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden shadow-2xs cursor-pointer"
+                    >
+                      {safeCategories.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                      <option value="Insumos Agrícolas">Insumos Agrícolas</option>
+                      <option value="Combustível">Combustível</option>
+                      <option value="Manutenção">Manutenção de Máquinas</option>
+                      <option value="Geral">Geral</option>
+                    </select>
+                  </div>
                 </div>
-              )}
-
-              {/* Código de barras / Linha digitável */}
-              <div>
-                <label className="block text-xs font-bold text-black mb-1">
-                  Linha Digitável / Código de Barras do Boleto
-                </label>
-                <input
-                  type="text"
-                  value={billBarcode}
-                  onChange={(e) => handleBarcodeChange(e.target.value)}
-                  placeholder="Cole ou digite a linha digitável do boleto bancário..."
-                  className="w-full px-3 py-2 text-xs font-mono font-bold bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
-                />
-              </div>
-
-              {/* Fornecedor / Cedente */}
-              <div>
-                <label className="block text-xs font-bold text-black mb-1">
-                  Fornecedor / Beneficiário <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={billSupplier}
-                  onChange={(e) => setBillSupplier(e.target.value)}
-                  placeholder="Ex: Cooperativa de Insumos, Concessionária de Energia..."
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
-                />
-              </div>
-
-              {/* Descrição */}
-              <div>
-                <label className="block text-xs font-bold text-black mb-1">
-                  Descrição da Despesa
-                </label>
-                <input
-                  type="text"
-                  value={billDescription}
-                  onChange={(e) => setBillDescription(e.target.value)}
-                  placeholder="Ex: Adubo NPK 20-05-20 / Parcela 1..."
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-semibold bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
-                />
-              </div>
-
-              {/* Valor e Vencimento */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Valor do Título (R$) <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={billAmount}
-                    onChange={(e) => setBillAmount(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full px-3 py-2 text-xs sm:text-sm font-black bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Data de Vencimento <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={billDueDate}
-                    onChange={(e) => setBillDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
-                  />
-                </div>
-              </div>
-
-              {/* Categoria */}
-              <div>
-                <label className="block text-xs font-bold text-black mb-1">
-                  Categoria de Despesa
-                </label>
-                <select
-                  value={billCategory}
-                  onChange={(e) => setBillCategory(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-stone-300 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
-                >
-                  {safeCategories.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                  <option value="Insumos Agrícolas">Insumos Agrícolas</option>
-                  <option value="Combustível">Combustível</option>
-                  <option value="Manutenção">Manutenção de Máquinas</option>
-                  <option value="Geral">Geral</option>
-                </select>
               </div>
 
               {/* Botões */}
-              <div className="flex justify-end space-x-2 pt-3 border-t border-stone-200">
+              <div className="flex justify-end space-x-2 px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsBillModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-white border border-black text-black hover:bg-slate-100 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+                  className="px-5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white cursor-pointer shadow-xs"
                 >
                   Confirmar Inserção e Vinculação
                 </button>
@@ -543,105 +549,109 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
 
       {/* MODAL 2: VINCULAR CONTAS A PAGAR EXISTENTES EM LOTE */}
       {isLinkBatchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto backdrop-blur-xs animate-in fade-in" style={{ backgroundColor: 'rgba(9, 99, 203, 0.45)' }}>
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-stone-300 my-auto flex flex-col max-h-[90vh]">
-            <div className="px-5 py-4 flex items-center justify-between text-white shrink-0" style={{ backgroundColor: '#0963cb' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-[2px] animate-in fade-in">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
+            <div className="px-4 sm:px-5 py-3 flex items-center justify-between bg-[#cad4e6] border-b border-black text-black shrink-0">
               <div className="flex items-center space-x-2.5">
-                <Layers className="w-5 h-5" />
-                <h4 className="font-black text-sm sm:text-base">Vincular Contas a Pagar em Lote</h4>
+                <div className="w-8 h-8 rounded-lg bg-white border border-black flex items-center justify-center shrink-0">
+                  <Layers className="w-4 h-4 text-black" />
+                </div>
+                <h4 className="font-black text-sm sm:text-base uppercase tracking-wide">Vincular Contas a Pagar em Lote</h4>
               </div>
               <button 
                 type="button" 
                 onClick={() => setIsLinkBatchModalOpen(false)} 
-                className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-black/10 text-black cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 space-y-3 overflow-y-auto flex-1 text-black">
-              {activeAccount && (
-                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs font-bold text-purple-900 flex items-center space-x-2">
-                  <Landmark className="w-4 h-4 text-purple-600 shrink-0" />
-                  <span>Selecione as despesas pendentes que serão debitadas da conta: <strong>{activeAccount.name} ({activeAccount.bankName})</strong></span>
-                </div>
-              )}
+            <div className="p-4 sm:p-5 space-y-3 flex-1 min-h-0 overflow-y-auto bg-[#cad4e6] text-black">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3">
+                {activeAccount && (
+                  <div className="p-3 bg-white rounded-xl border border-black text-xs font-bold text-black flex items-center space-x-2">
+                    <Landmark className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>Selecione as despesas pendentes que serão debitadas da conta: <strong>{activeAccount.name} ({activeAccount.bankName})</strong></span>
+                  </div>
+                )}
 
-              {pendingExpenses.length === 0 ? (
-                <div className="py-8 text-center text-stone-500 font-medium text-xs">
-                  Nenhuma conta a pagar pendente encontrada no momento.
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                  {pendingExpenses.map((exp) => {
-                    const isSelected = selectedExpenseIds.includes(exp.id);
-                    const isAlreadyLinked = exp.bankAccountId === activeAccount?.id;
+                {pendingExpenses.length === 0 ? (
+                  <div className="py-8 text-center text-slate-700 font-medium text-xs bg-white rounded-xl border border-black">
+                    Nenhuma conta a pagar pendente encontrada no momento.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1">
+                    {pendingExpenses.map((exp) => {
+                      const isSelected = selectedExpenseIds.includes(exp.id);
+                      const isAlreadyLinked = exp.bankAccountId === activeAccount?.id;
 
-                    return (
-                      <label
-                        key={exp.id}
-                        className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${isSelected ? 'bg-blue-50 border-[#0963cb]' : 'bg-stone-50/60 border-stone-200 hover:bg-stone-100/60'}`}
-                      >
-                        <div className="flex items-center space-x-2.5">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedExpenseIds((prev) => [...prev, exp.id]);
-                              } else {
-                                setSelectedExpenseIds((prev) => prev.filter((id) => id !== exp.id));
-                              }
-                            }}
-                            className="w-4 h-4 text-[#0963cb] rounded focus:ring-0 cursor-pointer"
-                          />
-                          <div>
-                            <div className="font-black text-black text-xs">
-                              {exp.supplier || 'Fornecedor'}
-                            </div>
-                            <div className="text-[11px] text-stone-500">
-                              {exp.description} • Venc: {formatDateBR(exp.dueDate || exp.date || '')}
+                      return (
+                        <label
+                          key={exp.id}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${isSelected ? 'bg-emerald-50 border-emerald-700' : 'bg-white border-gray-400 hover:border-black'}`}
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedExpenseIds((prev) => [...prev, exp.id]);
+                                } else {
+                                  setSelectedExpenseIds((prev) => prev.filter((id) => id !== exp.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-emerald-600 rounded focus:ring-0 cursor-pointer"
+                            />
+                            <div>
+                              <div className="font-black text-black text-xs">
+                                {exp.supplier || 'Fornecedor'}
+                              </div>
+                              <div className="text-[11px] text-slate-700">
+                                {exp.description} • Venc: {formatDateBR(exp.dueDate || exp.date || '')}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="text-right">
-                          <div className="font-black text-black text-xs font-['Outfit']">
-                            {formatCurrencyBRL(exp.amount)}
+                          <div className="text-right">
+                            <div className="font-black text-black text-xs font-['Outfit']">
+                              {formatCurrencyBRL(exp.amount)}
+                            </div>
+                            {isAlreadyLinked && (
+                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">
+                                Já Vinculada
+                              </span>
+                            )}
                           </div>
-                          {isAlreadyLinked && (
-                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">
-                              Já Vinculada
-                            </span>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-stone-200">
-                <span className="text-xs text-stone-600 font-bold">
-                  {selectedExpenseIds.length} conta(s) selecionada(s)
-                </span>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsLinkBatchModalOpen(false)}
-                    className="px-4 py-2 text-xs font-bold rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmBatchLink}
-                    disabled={selectedExpenseIds.length === 0}
-                    className="px-5 py-2 text-xs font-black rounded-xl bg-[#0963cb] hover:bg-blue-700 text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                  >
-                    Vincular à Conta
-                  </button>
-                </div>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
+              <span className="text-xs text-black font-bold">
+                {selectedExpenseIds.length} conta(s) selecionada(s)
+              </span>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLinkBatchModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-white border border-black text-black hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmBatchLink}
+                  disabled={selectedExpenseIds.length === 0}
+                  className="px-5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                >
+                  Vincular à Conta
+                </button>
               </div>
             </div>
           </div>

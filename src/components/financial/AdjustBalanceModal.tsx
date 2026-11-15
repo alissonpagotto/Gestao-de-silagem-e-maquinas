@@ -139,24 +139,24 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
       <div 
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-adjust-title"
-        className="w-full max-w-xl bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden"
       >
-        {/* CABEÇALHO METÁLICO ACETINADO */}
-        <div className="bg-gradient-to-r from-stone-100 via-stone-200 to-stone-100 dark:from-stone-800 dark:via-stone-750 dark:to-stone-800 border-b border-stone-300 dark:border-stone-700 px-4 py-2.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-lg bg-stone-700 text-white flex items-center justify-center shadow-xs">
+        {/* CABEÇALHO */}
+        <div className="bg-[#cad4e6] border-b border-black px-4 sm:px-5 py-3 flex items-center justify-between shrink-0 text-black">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white border border-black text-black flex items-center justify-center shrink-0">
               <SlidersHorizontal className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
-              <h3 id="modal-adjust-title" className="text-xs sm:text-sm font-black text-stone-900 dark:text-white uppercase tracking-wider">
+              <h3 id="modal-adjust-title" className="text-sm sm:text-base font-black text-black uppercase tracking-wide">
                 AJUSTE DE SALDO BANCÁRIO / CONCILIAÇÃO
               </h3>
-              <p className="text-[10px] text-stone-600 dark:text-stone-300 font-semibold uppercase">
+              <p className="text-[11px] text-black/80 font-medium uppercase">
                 RECONCILIAÇÃO CONTÁBIL E EQUALIZAÇÃO DE EXTRATO
               </p>
             </div>
@@ -164,25 +164,26 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-stone-500 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
             title="FECHAR"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* FORMULÁRIO COM ROLAGEM INTERNA */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
+        {/* FORMULÁRIO COM ROLAGEM INTERNA E RODAPÉ FIXO */}
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black text-xs">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5">
           {errorMessage && (
-            <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-lg flex items-center gap-2 text-rose-700 dark:text-rose-300 text-[11px] font-bold uppercase">
+            <div className="p-2.5 bg-rose-100 border border-black rounded-lg flex items-center gap-2 text-rose-800 text-[11px] font-bold uppercase">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {/* SELEÇÃO DA CONTA */}
-          <div className="space-y-1">
-            <label htmlFor="adjust-account-select" className="block text-[10.5px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+          <div className="space-y-1.5 bg-[#e0e6f1] border border-black rounded-xl p-3.5">
+            <label htmlFor="adjust-account-select" className="block text-[10.5px] font-black text-black uppercase tracking-wide">
               CONTA BANCÁRIA A SER AJUSTADA *
             </label>
             <select
@@ -208,8 +209,8 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
           </div>
 
           {/* MODO DE AJUSTE */}
-          <div className="space-y-1.5">
-            <span className="block text-[10.5px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+          <div className="space-y-2 bg-[#e0e6f1] border border-black rounded-xl p-3.5">
+            <span className="block text-[10.5px] font-black text-black uppercase tracking-wide">
               MODALIDADE DO AJUSTE *
             </span>
             <div className="grid grid-cols-2 gap-2">
@@ -246,7 +247,7 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
           </div>
 
           {/* ENTRADA DE VALORES */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#e0e6f1] border border-black rounded-xl p-3.5">
             {adjustMode === 'set_total' ? (
               <div className="space-y-1">
                 <label htmlFor="adjust-real-balance-input" className="block text-[10.5px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
@@ -381,30 +382,30 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
 
           {/* IMPACTO APURADO */}
           {numericAmount > 0 && selectedAccount && (
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1.5">
-              <div className="text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <div className="p-3.5 bg-[#e0e6f1] rounded-xl border border-black space-y-1.5">
+              <div className="text-[10px] font-black text-black uppercase tracking-wider">
                 RESUMO DO AJUSTE NO SALDO BANCÁRIO
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2 bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-750">
-                  <span className="text-[9.5px] font-bold text-stone-500 uppercase block">
+                <div className="p-2.5 bg-white rounded-lg border border-black">
+                  <span className="text-[9.5px] font-bold text-slate-700 uppercase block">
                     EVOLUÇÃO DO SALDO:
                   </span>
                   <div className="flex items-center gap-1 font-mono font-bold mt-0.5">
-                    <span className="line-through text-stone-400">{formatCurrencyBRL(currentBalance)}</span>
-                    <ArrowRight className="w-3 h-3 text-stone-400" />
-                    <span className={calculatedNewBalance < 0 ? 'text-rose-600 font-black' : 'text-stone-900 dark:text-white font-black'}>
+                    <span className="line-through text-slate-500">{formatCurrencyBRL(currentBalance)}</span>
+                    <ArrowRight className="w-3 h-3 text-slate-500" />
+                    <span className={calculatedNewBalance < 0 ? 'text-rose-600 font-black' : 'text-black font-black'}>
                       {formatCurrencyBRL(calculatedNewBalance)}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-2 bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-750">
-                  <span className="text-[9.5px] font-bold text-stone-500 uppercase block">
+                <div className="p-2.5 bg-white rounded-lg border border-black">
+                  <span className="text-[9.5px] font-bold text-slate-700 uppercase block">
                     LANÇAMENTO CONTÁBIL:
                   </span>
                   <div className="font-mono font-black mt-0.5">
-                    <span className={difference >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600'}>
+                    <span className={difference >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
                       {difference >= 0 ? `+ ${formatCurrencyBRL(difference)} (CRÉDITO)` : `- ${formatCurrencyBRL(Math.abs(difference))} (DÉBITO)`}
                     </span>
                   </div>
@@ -413,18 +414,20 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
             </div>
           )}
 
+          </div>
+
           {/* BOTÕES DE AÇÃO */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-stone-200 dark:border-stone-700">
+          <div className="px-4 sm:px-5 py-3 flex items-center justify-end gap-2 border-t border-black bg-[#cad4e6] shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-bold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase text-xs"
+              className="px-4 py-2 rounded-xl bg-white border border-black text-black font-bold hover:bg-slate-100 transition cursor-pointer uppercase text-xs"
             >
               CANCELAR
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-lg bg-stone-900 hover:bg-black text-white font-black transition cursor-pointer shadow-xs active:scale-95 inline-flex items-center gap-1.5 uppercase text-xs"
+              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-black transition cursor-pointer shadow-xs active:scale-95 inline-flex items-center gap-1.5 uppercase text-xs"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>CONFIRMAR AJUSTE DE SALDO</span>

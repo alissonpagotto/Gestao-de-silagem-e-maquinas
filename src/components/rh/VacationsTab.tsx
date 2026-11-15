@@ -3430,12 +3430,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       {/* ========================================================================= */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden"
-          style={{ overflowY: 'hidden' }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden"
         >
           <div
-            className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col"
-            style={{ overflowY: 'hidden' }}
+            className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden mx-auto my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between"
           >
             {/* 1. CABEÇALHO COMPACTO DO MODAL */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 rounded-t-2xl shrink-0">
@@ -3574,10 +3572,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             {/* FORMULÁRIO COMPACTADO */}
             <form
               onSubmit={handleSaveModal}
-              className="overflow-y-hidden flex flex-col bg-[#cad4e6] dark:bg-stone-950 flex-1"
-              style={{ overflowY: 'hidden' }}
+              className="overflow-hidden flex flex-col bg-[#cad4e6] dark:bg-stone-950 flex-1 min-h-0"
             >
-              <div className="p-3.5 flex flex-col gap-2.5 bg-[#cad4e6] dark:bg-stone-950 flex-1">
+              <div className="p-3.5 flex flex-col gap-2.5 bg-[#cad4e6] dark:bg-stone-950 flex-1 min-h-0 overflow-y-auto">
                 {/* 2. BLOCO 1: CONFIGURAÇÃO DO PERÍODO */}
                 <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl p-3 flex flex-col gap-2">
                   <div className="flex items-center justify-between border-b border-black/20 dark:border-stone-800 pb-1.5">

@@ -79,6 +79,7 @@ import {
   isThirdPartyTruck,
   getTruckFuelSubtotal
 } from './serviceHelpers';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export type ServiceTabType = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'venda' | 'faturamento';
 
@@ -318,6 +319,15 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   const [savedOrder, setSavedOrder] = useState<ServiceOrder | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [isSaveSuccessToast, setIsSaveSuccessToast] = useState(false);
+
+  const serviceGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: editRecord?.id || savedOrder?.id || (isOpen ? 'new' : 'closed'),
+  });
+
+  const handleAttemptClose = () => {
+    serviceGuard.confirmClose(onClose);
+  };
 
   // Conjunto de IDs de Maquinários já Selecionados (REGRA DE EXCLUSÃO)
   const selectedMachineryIds = useMemo(() => {
@@ -1954,6 +1964,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
     setSavedOrder(newService);
     setStatus(finalStatus);
+    serviceGuard.resetDirty();
 
     if (isSendingToReceivables) {
       setBillingStatus('faturado');
@@ -2662,11 +2673,11 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
       <div 
         id="printable-modal-overlay"
-        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-hidden"
+        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden"
       >
         <div 
           id="printable-service-order-modal"
-          className="relative w-full max-w-[80vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-lg overflow-hidden shadow-2xl text-black"
+          className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl text-black"
         >
           {/* Badge para Cupom Térmico (Visível apenas em impressão 80mm) */}
           <div className="hidden print:block thermal-receipt-badge text-center">
@@ -2710,7 +2721,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="p-1.5 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg transition-colors cursor-pointer print:hidden"
             >
               <X className="w-4 h-4 text-black" />
@@ -2719,7 +2730,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
 
           {/* CORPO DO FORMULÁRIO COM ROLAGEM (COMPACTO) */}
           <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 space-y-3 modal-body-scroll w-full bg-[#cad4e6] text-black"
+            {...serviceGuard.captureProps}
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 space-y-3 modal-body-scroll w-full bg-[#cad4e6] text-black"
           >
             
             {/* ALERTA DE CONFIRMAÇÃO / PERSISTÊNCIA AO SALVAR */}
@@ -4845,7 +4857,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             {/* BOTÃO SAIR */}
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-gray-400 rounded-lg shadow-2xs transition cursor-pointer"
               title="Fechar o formulário e voltar à tela anterior"
             >

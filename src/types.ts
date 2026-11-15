@@ -2150,6 +2150,8 @@ export type TipoDocumentoSaida =
 export interface NotaSaidaItem {
   id: string;
   inventoryItemId?: string;
+  fleetVehicleId?: string;
+  fleetAssetLabel?: string;
   codigo?: string;
   descricao: string;
   ncm?: string;

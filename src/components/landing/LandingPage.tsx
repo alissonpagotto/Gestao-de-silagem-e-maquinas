@@ -423,22 +423,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     };
   }, []);
 
-  // Controle de tecla Escape e bloqueio de scroll para o modal de vídeo lightbox
+  // Controle de bloqueio de scroll para o modal de vídeo lightbox
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isVideoModalOpen) {
-        setIsVideoModalOpen(false);
-      }
-    };
     if (isVideoModalOpen) {
       document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
     } else {
       document.body.style.overflow = '';
     }
     return () => {
       document.body.style.overflow = '';
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isVideoModalOpen]);
 
@@ -1081,8 +1074,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           id="modal-video-lightbox"
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setIsVideoModalOpen(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
         >
           <div
             className="relative w-full max-w-4xl bg-stone-900 border border-stone-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"

@@ -192,11 +192,10 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden"
-      onClick={onClose}
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden"
     >
       <div
-        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[93vh] animate-in fade-in zoom-in-95 duration-150"
+        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho Oficial AgroControl */}
@@ -230,7 +229,7 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
         <form
           id="aso-authorization-form"
           onSubmit={handleSubmit}
-          className="p-4 space-y-3 overflow-y-auto flex-1 bg-[#cad4e6] dark:bg-stone-950"
+          className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0 bg-[#cad4e6] dark:bg-stone-950"
         >
           {validationError && (
             <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-500 text-rose-900 text-xs font-bold">

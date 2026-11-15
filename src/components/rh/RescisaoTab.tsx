@@ -1317,14 +1317,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       {/* 6. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL CLT)             */}
       {/* ========================================================================= */}
       {viewingTRCT && (
-        <div className="modal-trct trct-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
-          <div className="modal-trct trct-modal-wrapper bg-white text-black w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 print:shadow-none print:border-none print:m-0 print:rounded-none">
+        <div className="modal-trct trct-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <div className="modal-trct trct-modal-wrapper bg-[#cad4e6] text-black w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between rounded-xl shadow-2xl overflow-hidden mx-auto my-auto border border-black print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:border-none print:m-0 print:rounded-none print:bg-white print:overflow-visible">
             
             {/* Barra Superior com Controles */}
-            <div className="no-print header-modal-trct bg-slate-900 text-white p-3 sm:p-4 flex items-center justify-between">
+            <div className="no-print header-modal-trct bg-[#cad4e6] text-black border-b border-black p-3 sm:p-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs sm:text-sm font-black">
+                <Printer className="w-4 h-4 text-emerald-700" />
+                <span className="text-xs sm:text-sm font-black uppercase">
                   Termo de Rescisão do Contrato de Trabalho (TRCT)
                 </span>
               </div>
@@ -1332,7 +1332,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 <button
                   type="button"
                   onClick={handlePrintTRCTIsolated}
-                  className="btn-print-action px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs relative z-20 pointer-events-auto"
+                  className="btn-print-action px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs relative z-20 pointer-events-auto"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir / Salvar PDF</span>
@@ -1345,7 +1345,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     }
                     setViewingTRCT(null);
                   }}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
+                  className="p-1.5 text-black hover:bg-white/60 rounded-lg transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1353,7 +1353,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             </div>
 
             {/* Documento Imprimível A4 */}
-            <div id="trct-print-area" className="modal-trct trct-print-document p-6 sm:p-8 space-y-3 text-xs font-sans bg-white print:p-0 print:space-y-1.5">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] flex justify-center items-start print:p-0 print:bg-white print:overflow-visible">
+            <div id="trct-print-area" className="modal-trct trct-print-document w-full max-w-4xl p-6 sm:p-8 space-y-3 text-xs font-sans bg-white border border-black rounded-xl shadow-md print:border-none print:shadow-none print:rounded-none print:max-w-none print:p-0 print:space-y-1.5">
               
               {/* Cabeçalho da Empresa */}
               <div className="block-rescisao trct-avoid-break flex items-start justify-between border-b-2 border-black pb-2.5 gap-3 print:pb-1.5">
@@ -1658,6 +1659,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
               </div>
 
+            </div>
             </div>
 
           </div>

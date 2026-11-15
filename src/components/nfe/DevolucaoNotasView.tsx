@@ -1055,7 +1055,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
       {/* Modal Rápido: Registrar NF-e de Devolução Emitida */}
       {nfeTarget && (
-        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-3 bg-black/60 backdrop-blur-[1px] animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-3 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
           <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-lg w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100">
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1181,7 +1181,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
       {/* Modal de Confirmação: Descartar / Baixar como Perda */}
       {discardTarget && (
-        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-3 bg-black/60 backdrop-blur-[1px] animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-3 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
           <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-lg w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100">
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
               <div className="flex items-center gap-2">

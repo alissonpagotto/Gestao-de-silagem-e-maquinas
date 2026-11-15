@@ -273,25 +273,25 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
   return (
     <div 
       id="modal-parcelas-geradas-ipva"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto backdrop-blur-xs bg-black/60 animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto backdrop-blur-[2px] bg-black/60 animate-in fade-in"
     >
       <div 
-        className="w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-stone-700 my-auto flex flex-col max-h-[92vh] bg-zinc-100 dark:bg-stone-900"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] rounded-xl shadow-2xl overflow-hidden border border-black mx-auto my-auto flex flex-col justify-between bg-[#cad4e6]"
       >
         {/* 1. CABEÇALHO E TÍTULO */}
         <div 
-          className="px-5 py-4 flex items-center justify-between shrink-0 shadow-sm bg-zinc-900 dark:bg-stone-800 text-white"
+          className="px-5 py-3.5 flex items-center justify-between shrink-0 border-b border-black bg-[#cad4e6] text-black"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shadow-inner text-white">
+            <div className="w-10 h-10 rounded-xl bg-white border border-black flex items-center justify-center shadow-xs text-black">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-black flex items-center gap-2">
                 Parcelas Geradas para IPVA
               </h2>
-              <p className="text-xs text-zinc-400 font-medium">
-                Veículo: <strong className="text-white font-bold">{vehicleName}</strong> • Identificador / Placa: <strong className="text-white font-bold">{vehicleIdentifier || 'S/N'}</strong> {year ? `• Exercício: ${year}` : ''}
+              <p className="text-xs text-slate-800 font-semibold">
+                Veículo: <strong className="text-black font-bold">{vehicleName}</strong> • Identificador / Placa: <strong className="text-black font-bold">{vehicleIdentifier || 'S/N'}</strong> {year ? `• Exercício: ${year}` : ''}
               </p>
             </div>
           </div>
@@ -300,36 +300,36 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
             type="button"
             id="btn-fechar-modal-ipva"
             onClick={onClose}
-            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-2 rounded-xl text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
             title="Fechar Janela de Parcelas"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* CORPO DO MODAL */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-zinc-900 dark:text-stone-100">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 text-black bg-[#cad4e6]">
           
           {/* 2. Topo do Bloco: Destaque do "Valor Consolidado" & Controles do Topo */}
-          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-stone-700 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="bg-[#e0e6f1] rounded-xl p-4 sm:p-5 border border-black shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Bloco de Destaque: Valor Total IPVA */}
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-stone-700 text-zinc-900 dark:text-stone-100 flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-white border border-black text-black flex items-center justify-center shrink-0">
                 <DollarSign className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-0.5">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 block mb-0.5">
                   Total IPVA (R$) Calculado
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-stone-100 font-mono tracking-tight">
+                <span className="text-2xl sm:text-3xl font-black text-black font-mono tracking-tight">
                   {formatCurrencyBRL(totalAmount)}
                 </span>
               </div>
             </div>
 
             {/* 3. Controles do Topo: Quantidade [-] [+], + Dividir Igualmente, + Linha */}
-            <div className="flex flex-wrap items-center gap-3 bg-zinc-100 dark:bg-stone-800/80 p-2.5 rounded-xl border border-zinc-200 dark:border-stone-700">
+            <div className="flex flex-wrap items-center gap-3 bg-white/80 p-2.5 rounded-xl border border-black">
               <div className="flex items-center space-x-2">
                 <label htmlFor="input-qtd-parcelas-ipva" className="text-xs font-black text-zinc-900 dark:text-stone-100">
                   Quantidade:
@@ -449,7 +449,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
           )}
 
           {/* 4. Estrutura da Tabela (Colunas) */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-800 overflow-hidden shadow-xs">
+          <div className="rounded-xl border border-black bg-[#e0e6f1] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-zinc-900 dark:text-stone-100 border-collapse">
                 <thead>
@@ -565,16 +565,16 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
 
         {/* 5. RODAPÉ: Botões Cancelar e Confirmar e Gravar Lançamentos */}
         <div 
-          className="px-5 py-3.5 bg-white dark:bg-stone-800 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
+          className="px-5 py-3 bg-[#cad4e6] border-t border-black flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
         >
-          <div className="flex items-center space-x-2 text-xs text-zinc-700 dark:text-stone-300 font-bold">
-            <span className="text-zinc-500 dark:text-stone-400">Status de Validação:</span>
+          <div className="flex items-center space-x-2 text-xs text-black font-bold">
+            <span className="text-slate-800">Status de Validação:</span>
             {isSumValid ? (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-700 rounded font-black text-[11px]">
                 Pronto para Gravar
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-300 dark:border-rose-800 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 border border-rose-700 rounded font-black text-[11px]">
                 Ajuste a soma antes de gravar
               </span>
             )}
@@ -585,7 +585,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
               type="button"
               id="btn-cancelar-modal-ipva"
               onClick={onClose}
-              className="px-4 py-2.5 bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-900 dark:text-stone-100 font-bold text-xs rounded-xl border border-zinc-300 dark:border-stone-700 transition cursor-pointer shadow-2xs min-h-[42px]"
+              className="px-4 py-2 bg-white hover:bg-gray-100 text-black font-bold text-xs rounded-xl border border-black transition cursor-pointer shadow-2xs"
             >
               Cancelar
             </button>
@@ -595,10 +595,10 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
               id="btn-confirmar-gravar-lancamentos-ipva"
               onClick={handleConfirm}
               disabled={!isSumValid}
-              className={`px-5 py-2.5 font-black text-xs rounded-xl shadow-md transition flex items-center space-x-2 min-h-[42px] ${
+              className={`px-5 py-2 font-bold text-xs rounded-xl shadow-md transition flex items-center space-x-2 border ${
                 isSumValid
-                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer active:scale-98'
-                  : 'bg-stone-300 text-stone-500 border border-stone-300 cursor-not-allowed opacity-60'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border-emerald-800 cursor-pointer'
+                  : 'bg-stone-300 text-stone-600 border-stone-500 cursor-not-allowed opacity-70'
               }`}
               title={isSumValid ? 'Confirmar e Gravar Lançamentos no Contas a Pagar' : 'Corrija a soma das parcelas para gravar'}
             >

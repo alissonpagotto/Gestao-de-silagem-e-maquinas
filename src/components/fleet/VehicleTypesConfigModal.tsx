@@ -418,7 +418,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
       <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-3xl w-full border border-stone-200 dark:border-stone-800 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden relative">
         
         {/* Header */}
@@ -835,7 +835,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
             MODAL INTERNO: NOVA / EDITAR CONFIGURAÇÃO DE EIXOS
             ======================================================== */}
         {isAxleModalOpen && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
             <div className="bg-white dark:bg-stone-900 rounded-xl max-w-md w-full border border-stone-200 dark:border-stone-800 shadow-2xl p-5 space-y-4 animate-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
                 <div className="flex items-center space-x-2">
@@ -940,7 +940,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
             MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE CONFIGURAÇÃO DE EIXOS
             ======================================================== */}
         {confirmDeleteAxleConfig && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
             <div className="bg-white dark:bg-stone-900 rounded-xl max-w-sm w-full border border-stone-200 dark:border-stone-800 shadow-2xl p-5 space-y-3.5 animate-in zoom-in-95 duration-150">
               <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
                 <AlertTriangle className="w-5 h-5" />
@@ -978,7 +978,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
             MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE TIPO DE VEÍCULO
             ======================================================== */}
         {confirmDeleteVehicleType && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
             <div className="bg-white dark:bg-stone-900 rounded-xl max-w-sm w-full border border-stone-200 dark:border-stone-800 shadow-2xl p-5 space-y-3.5 animate-in zoom-in-95 duration-150">
               <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
                 <AlertTriangle className="w-5 h-5" />

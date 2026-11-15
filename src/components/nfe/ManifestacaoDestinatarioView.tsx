@@ -814,22 +814,22 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
       {/* 4. MODAL DETALHES DA NOTA SEFAZ (TAMANHO PADRÃO OURO: MAX-W-4XL H-[95VH]) */}
       {/* ========================================================================= */}
       {isDetailModalOpen && selectedNota && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150">
-            {/* Header - Moldura Metálica 3D Acetinada */}
-            <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-7 h-7 rounded bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+                  <FileCheck2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-white flex items-center gap-2">
                     <span>DETALHES DA NOTA SEFAZ Nº {selectedNota.numero}</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 text-slate-800 dark:text-stone-200 font-bold">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-white dark:bg-stone-800 border border-black/40 text-black dark:text-stone-200 font-bold">
                       {selectedNota.statusManifestacao}
                     </span>
                   </h3>
-                  <p className="text-[10px] text-slate-600 dark:text-stone-400 font-mono truncate max-w-lg">
+                  <p className="text-[10px] text-black/80 dark:text-stone-400 font-mono truncate max-w-lg">
                     CHAVE: {selectedNota.chaveAcesso}
                   </p>
                 </div>
@@ -839,7 +839,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
                 <button
                   type="button"
                   onClick={() => handleCopyKey(selectedNota.chaveAcesso)}
-                  className="p-1 rounded bg-white/80 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-white text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-white dark:bg-stone-800 border border-black dark:border-stone-700 text-black dark:text-stone-300 hover:bg-gray-100 text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
                   title="COPIAR CHAVE"
                 >
                   <Copy className="w-3 h-3" />
@@ -850,7 +850,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
                   <button
                     type="button"
                     onClick={(e) => handleDownloadXml(selectedNota, e)}
-                    className="p-1 rounded bg-emerald-600 text-white text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer hover:bg-emerald-700"
+                    className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer"
                     title="BAIXAR XML"
                   >
                     <Download className="w-3 h-3" />
@@ -861,7 +861,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
                 <button
                   type="button"
                   onClick={() => setIsDetailModalOpen(false)}
-                  className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 transition cursor-pointer"
+                  className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 transition cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -869,16 +869,16 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
             </div>
 
             {/* Sub-abas do Modal */}
-            <div className="bg-slate-200 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 px-3 py-1 flex items-center gap-1 shrink-0 overflow-x-auto scrollbar-none">
+            <div className="bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 px-3 py-1.5 flex items-center gap-1.5 shrink-0 overflow-x-auto scrollbar-none">
               {(['DANFE', 'ITENS', 'MANIFESTACAO', 'SEFAZ'] as const).map(tab => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setModalTab(tab)}
-                  className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1 text-[10px] font-bold uppercase rounded border transition cursor-pointer whitespace-nowrap ${
                     modalTab === tab
-                      ? 'bg-white text-slate-900 dark:bg-stone-900 dark:text-white shadow-xs'
-                      : 'text-slate-600 dark:text-stone-400 hover:text-slate-900'
+                      ? 'bg-[#e0e6f1] text-black border-black dark:bg-stone-900 dark:text-white shadow-xs'
+                      : 'bg-white/60 text-black/75 border-black/30 hover:bg-white dark:bg-stone-900/50 dark:text-stone-400'
                   }`}
                 >
                   {tab === 'DANFE' ? 'ESPELHO DANFE' : tab === 'ITENS' ? 'ITENS DA NOTA' : tab === 'MANIFESTACAO' ? 'EVENTOS DE MANIFESTAÇÃO' : 'DADOS FISCAIS SEFAZ'}
@@ -887,7 +887,7 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
             </div>
 
             {/* Conteúdo do Modal */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 text-xs space-y-3 bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 text-xs space-y-3 bg-[#cad4e6] dark:bg-stone-950 text-black dark:text-stone-200">
               {modalTab === 'DANFE' && (
                 <div className="border border-slate-400 rounded p-4 bg-white text-slate-950 font-sans space-y-3 shadow-xs">
                   {/* Cabeçalho DANFE */}
@@ -1106,8 +1106,8 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="px-4 py-2 border-t border-slate-300 dark:border-stone-800 bg-slate-100 dark:bg-stone-850 flex items-center justify-between shrink-0">
-              <div className="text-[10px] font-bold text-slate-500 uppercase">
+            <div className="px-4 py-2.5 border-t border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-between shrink-0">
+              <div className="text-[10px] font-bold text-black/80 dark:text-stone-400 uppercase">
                 PORTAL FISCAL SEFAZ • MANIFESTAÇÃO ELETRÔNICA DO DESTINATÁRIO
               </div>
               <div className="flex items-center gap-2">
@@ -1115,16 +1115,16 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
                   <button
                     type="button"
                     onClick={(e) => handleDownloadXml(selectedNota, e)}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-black uppercase transition cursor-pointer flex items-center gap-1"
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold uppercase transition cursor-pointer flex items-center gap-1"
                   >
-                    <Download className="w-3 h-3" />
+                    <Download className="w-3.5 h-3.5" />
                     <span>BAIXAR XML</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setIsDetailModalOpen(false)}
-                  className="px-3 py-1 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-200 rounded text-[10px] font-bold uppercase transition cursor-pointer"
+                  className="px-4 py-1.5 bg-white hover:bg-gray-100 border border-black dark:border-stone-700 text-black dark:text-stone-300 rounded-lg text-xs font-bold uppercase transition cursor-pointer"
                 >
                   FECHAR
                 </button>

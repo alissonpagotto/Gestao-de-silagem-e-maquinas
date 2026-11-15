@@ -498,11 +498,11 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
 
       {/* Modal Acerto de Terceiro - Tema Oficial Alto Contraste */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col my-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between mx-auto my-auto">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 shrink-0 rounded-t-2xl">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 shrink-0">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shrink-0">
                   <Truck className="w-4 h-4 text-black dark:text-stone-200" />

@@ -873,68 +873,72 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           MODAL 1: SUPRIMENTO DE CAIXA (ENTRADA MANUAL)
          ========================================================================= */}
       {isSuprimentoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl overflow-hidden">
-            <div className="p-3 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                <PlusCircle className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
+              <span className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                <PlusCircle className="w-4 h-4 text-emerald-700" />
                 <span>📥 SUPRIMENTO DE CAIXA (INJETAR VALOR)</span>
               </span>
               <button
                 type="button"
                 onClick={() => setIsSuprimentoModalOpen(false)}
-                className="text-white/80 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmarSuprimento} className="p-4 space-y-3.5">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                  VALOR DO SUPRIMENTO (R$) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-sm">
-                    R$
-                  </span>
-                  <input
-                    type="text"
-                    value={inputValorSuprimento}
-                    onChange={(e) => setInputValorSuprimento(e.target.value)}
-                    placeholder="0,00"
-                    autoFocus
-                    required
-                    className="w-full pl-10 pr-3 py-1.5 text-base font-black rounded-lg border border-slate-300 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-cyan-500 font-mono"
-                  />
+            <form onSubmit={handleConfirmarSuprimento} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+                <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      VALOR DO SUPRIMENTO (R$) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-600 text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={inputValorSuprimento}
+                        onChange={(e) => setInputValorSuprimento(e.target.value)}
+                        placeholder="0,00"
+                        autoFocus
+                        required
+                        className="w-full pl-10 pr-3 py-2 text-base font-black rounded-lg border border-gray-400 bg-white text-black focus:ring-2 focus:ring-emerald-600 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      MOTIVO / JUSTIFICATIVA *
+                    </label>
+                    <input
+                      type="text"
+                      value={inputMotivoSuprimento}
+                      onChange={(e) => setInputMotivoSuprimento(e.target.value)}
+                      placeholder="EX: TROCO ADICIONAL, REFORÇO DE GAVETA"
+                      required
+                      className="w-full px-3 py-2 text-xs font-medium uppercase rounded-lg border border-gray-400 bg-white text-black focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                  MOTIVO / JUSTIFICATIVA *
-                </label>
-                <input
-                  type="text"
-                  value={inputMotivoSuprimento}
-                  onChange={(e) => setInputMotivoSuprimento(e.target.value)}
-                  placeholder="EX: TROCO ADICIONAL, REFORÇO DE GAVETA"
-                  required
-                  className="w-full px-3 py-1.5 text-xs font-medium uppercase rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+              <div className="flex items-center justify-end gap-2 px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSuprimentoModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 text-slate-600 hover:bg-slate-100 uppercase cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-black text-black hover:bg-slate-100 uppercase cursor-pointer"
                 >
                   CANCELAR
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer"
                 >
                   CONFIRMAR SUPRIMENTO
                 </button>
@@ -948,84 +952,88 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           MODAL 2: SANGRIA DE CAIXA (RETIRADA MANUAL)
          ========================================================================= */}
       {isSangriaModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl overflow-hidden">
-            <div className="p-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                <MinusCircle className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
+              <span className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                <MinusCircle className="w-4 h-4 text-rose-700" />
                 <span>📤 SANGRIA DE CAIXA (RETIRAR VALOR)</span>
               </span>
               <button
                 type="button"
                 onClick={() => setIsSangriaModalOpen(false)}
-                className="text-white/80 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmarSangria} className="p-4 space-y-3.5">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                  VALOR DA SANGRIA (R$) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-sm">
-                    R$
-                  </span>
-                  <input
-                    type="text"
-                    value={inputValorSangria}
-                    onChange={(e) => setInputValorSangria(e.target.value)}
-                    placeholder="0,00"
-                    autoFocus
-                    required
-                    className="w-full pl-10 pr-3 py-1.5 text-base font-black rounded-lg border border-slate-300 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500 font-mono"
-                  />
+            <form onSubmit={handleConfirmarSangria} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+                <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      VALOR DA SANGRIA (R$) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-600 text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={inputValorSangria}
+                        onChange={(e) => setInputValorSangria(e.target.value)}
+                        placeholder="0,00"
+                        autoFocus
+                        required
+                        className="w-full pl-10 pr-3 py-2 text-base font-black rounded-lg border border-gray-400 bg-white text-black focus:ring-2 focus:ring-emerald-600 font-mono"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-700 font-bold mt-1 block">
+                      Saldo disponível na gaveta: <strong>{formatCurrencyBRL(totais.saldoAtualDinheiro)}</strong>
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      DESPESA / MOTIVO DA RETIRADA *
+                    </label>
+                    <input
+                      type="text"
+                      value={inputMotivoSangria}
+                      onChange={(e) => setInputMotivoSangria(e.target.value)}
+                      placeholder="EX: DEPÓSITO BANCÁRIO, PAGAMENTO FORNECEDOR"
+                      required
+                      className="w-full px-3 py-2 text-xs font-medium uppercase rounded-lg border border-gray-400 bg-white text-black focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                      DESTINO / FAVORECIDO (OPCIONAL)
+                    </label>
+                    <input
+                      type="text"
+                      value={inputDestinoSangria}
+                      onChange={(e) => setInputDestinoSangria(e.target.value)}
+                      placeholder="EX: CONTA SICREDI, DIÁRIA TRATORISTA"
+                      className="w-full px-3 py-2 text-xs font-medium uppercase rounded-lg border border-gray-400 bg-white text-black focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5 block">
-                  Saldo disponível na gaveta: <strong>{formatCurrencyBRL(totais.saldoAtualDinheiro)}</strong>
-                </span>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                  DESPESA / MOTIVO DA RETIRADA *
-                </label>
-                <input
-                  type="text"
-                  value={inputMotivoSangria}
-                  onChange={(e) => setInputMotivoSangria(e.target.value)}
-                  placeholder="EX: DEPÓSITO BANCÁRIO, PAGAMENTO FORNECEDOR"
-                  required
-                  className="w-full px-3 py-1.5 text-xs font-medium uppercase rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                  DESTINO / FAVORECIDO (OPCIONAL)
-                </label>
-                <input
-                  type="text"
-                  value={inputDestinoSangria}
-                  onChange={(e) => setInputDestinoSangria(e.target.value)}
-                  placeholder="EX: CONTA SICREDI, DIÁRIA TRATORISTA"
-                  className="w-full px-3 py-1.5 text-xs font-medium uppercase rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+              <div className="flex items-center justify-end gap-2 px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSangriaModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 text-slate-600 hover:bg-slate-100 uppercase cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-black text-black hover:bg-slate-100 uppercase cursor-pointer"
                 >
                   CANCELAR
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer"
                 >
                   CONFIRMAR SANGRIA
                 </button>
@@ -1039,204 +1047,208 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           MODAL 3: FECHAMENTO DE CAIXA CONSOLIDADO & IMPRESSÃO (SLIM PRO)
          ========================================================================= */}
       {isFecharModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-xl max-h-[95vh] bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            {/* Cabeçalho Acetinado */}
-            <div className="p-3 bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden">
+            {/* Cabeçalho */}
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
               <div>
-                <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <Lock className="w-4 h-4" />
+                <span className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-4 h-4 text-black" />
                   <span>🔒 CONCILIAÇÃO E FECHAMENTO DE CAIXA: {caixa.id}</span>
                 </span>
-                {/* Linha Slim com fonte micro padrão ouro */}
-                <div className="text-[11px] font-semibold text-amber-100 uppercase tracking-wider mt-0.5 flex items-center gap-1">
+                <div className="text-[11px] font-semibold text-black/80 uppercase tracking-wider mt-0.5 flex items-center gap-1">
                   <span>👤 OPERADOR RESPONSÁVEL: {operadorLogado}</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFecharModalOpen(false)}
-                className="text-white/80 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmarFechamento} className="p-3.5 space-y-2.5 overflow-y-auto max-h-[calc(95vh-60px)]">
+            <form onSubmit={handleConfirmarFechamento} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3">
               {/* Linha Slim Adicional de Auditoria de Operador */}
-              <div className="py-1 px-3 rounded-lg bg-slate-100 dark:bg-stone-850 border border-slate-200 dark:border-stone-700 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider">
-                <span>👤 OPERADOR RESPONSÁVEL: <strong className="text-zinc-900 dark:text-white font-bold">{operadorLogado}</strong></span>
+              <div className="py-2 px-3 rounded-xl bg-[#e0e6f1] border border-black flex items-center justify-between text-[11px] font-semibold text-black uppercase tracking-wider">
+                <span>👤 OPERADOR RESPONSÁVEL: <strong className="text-black font-bold">{operadorLogado}</strong></span>
                 <span>ABERTURA: {caixa.operadorAbertura || caixa.operador || operadorLogado}</span>
               </div>
 
               {/* Grid de Conciliação Física vs Discriminação Eletrônica */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Bloco 1: Demonstrativo de Caixa Físico (Gaveta) */}
-                <div className="bg-slate-50 dark:bg-stone-800/80 p-2.5 rounded-xl border border-slate-300 dark:border-stone-700 space-y-1 text-xs">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-stone-300 pb-1 border-b border-slate-200 dark:border-stone-700">
+                <div className="bg-[#e0e6f1] p-3.5 rounded-xl border border-black space-y-1 text-xs">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-black pb-1 border-b border-black/20">
                     💰 GAVETA FÍSICA (EM DINHEIRO)
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) SALDO INICIAL:</span>
                     <span className="font-bold">{formatCurrencyBRL(totais.saldoInicial)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) SUPRIMENTOS DE CAIXA:</span>
-                    <span className="font-bold text-cyan-600">{formatCurrencyBRL(totais.totalSuprimentos)}</span>
+                    <span className="font-bold text-cyan-700">{formatCurrencyBRL(totais.totalSuprimentos)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) VENDAS EM DINHEIRO:</span>
-                    <span className="font-bold text-emerald-600">{formatCurrencyBRL(totais.vendasDinheiro)}</span>
+                    <span className="font-bold text-emerald-700">{formatCurrencyBRL(totais.vendasDinheiro)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(-) SANGRIAS / RETIRADAS:</span>
-                    <span className="font-bold text-rose-600">{formatCurrencyBRL(totais.totalSangrias)}</span>
+                    <span className="font-bold text-rose-700">{formatCurrencyBRL(totais.totalSangrias)}</span>
                   </div>
-                  <div className="border-t border-slate-200 dark:border-stone-700 pt-1.5 flex justify-between font-black text-xs text-zinc-900 dark:text-white">
+                  <div className="border-t border-black/20 pt-1.5 flex justify-between font-black text-xs text-black">
                     <span>(=) SALDO SISTEMA (ESPERADO):</span>
-                    <span className="text-amber-700 dark:text-amber-400 font-mono text-sm">
+                    <span className="text-amber-800 font-mono text-sm">
                       {formatCurrencyBRL(totais.saldoAtualDinheiro)}
                     </span>
                   </div>
                 </div>
 
                 {/* Bloco 2: Discriminação Completa por Modalidade de Pagamento */}
-                <div className="bg-slate-50 dark:bg-stone-800/80 p-2.5 rounded-xl border border-slate-300 dark:border-stone-700 space-y-1 text-xs">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-stone-300 pb-1 border-b border-slate-200 dark:border-stone-700 flex justify-between">
+                <div className="bg-[#e0e6f1] p-3.5 rounded-xl border border-black space-y-1 text-xs">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-black pb-1 border-b border-black/20 flex justify-between">
                     <span>💳 VENDAS POR MODALIDADE</span>
-                    <span className="text-[9.5px] text-emerald-600 font-bold">{formatCurrencyBRL(totais.totalVendasPdv)}</span>
+                    <span className="text-[9.5px] text-emerald-700 font-bold">{formatCurrencyBRL(totais.totalVendasPdv)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) VENDAS EM DINHEIRO:</span>
-                    <span className="font-bold text-emerald-600">{formatCurrencyBRL(totais.vendasDinheiro)}</span>
+                    <span className="font-bold text-emerald-700">{formatCurrencyBRL(totais.vendasDinheiro)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) VENDAS EM PIX:</span>
-                    <span className="font-bold text-blue-600">{formatCurrencyBRL(totais.vendasPix)}</span>
+                    <span className="font-bold text-blue-700">{formatCurrencyBRL(totais.vendasPix)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) VENDAS EM CARTÃO DE DÉBITO:</span>
-                    <span className="font-bold text-indigo-600">{formatCurrencyBRL(totais.vendasDebito)}</span>
+                    <span className="font-bold text-indigo-700">{formatCurrencyBRL(totais.vendasDebito)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) VENDAS EM CARTÃO DE CRÉDITO:</span>
-                    <span className="font-bold text-purple-600">{formatCurrencyBRL(totais.vendasCredito)}</span>
+                    <span className="font-bold text-purple-700">{formatCurrencyBRL(totais.vendasCredito)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-stone-400 py-0.5">
+                  <div className="flex justify-between text-slate-800 py-0.5">
                     <span>(+) VENDAS EM CARTEIRA / BOLETO:</span>
-                    <span className="font-bold text-amber-600">{formatCurrencyBRL(totais.vendasCarteiraBoleto)}</span>
+                    <span className="font-bold text-amber-700">{formatCurrencyBRL(totais.vendasCarteiraBoleto)}</span>
                   </div>
-                  <div className="border-t border-slate-200 dark:border-stone-700 pt-1 flex justify-between font-bold text-[10.5px] text-slate-700 dark:text-stone-300">
+                  <div className="border-t border-black/20 pt-1 flex justify-between font-bold text-[10.5px] text-black">
                     <span>CONFERÊNCIA MAQUININHA (PIX/CARTÕES):</span>
-                    <span className="text-emerald-700 dark:text-emerald-400 font-mono">
+                    <span className="text-emerald-700 font-mono">
                       {formatCurrencyBRL(totais.totalEletronicoMaquininha)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Input Valor Físico */}
-              <div>
-                <label className="block text-[11px] font-black text-zinc-900 dark:text-white uppercase mb-1">
-                  VALOR FÍSICO CONTADO NA GAVETA (EM MÃOS) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-base">
-                    R$
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3.5 space-y-2.5">
+                {/* Input Valor Físico */}
+                <div>
+                  <label className="block text-[11px] font-black text-black uppercase mb-1">
+                    VALOR FÍSICO CONTADO NA GAVETA (EM MÃOS) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-600 text-base">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={inputValorContado}
+                      onChange={(e) => setInputValorContado(e.target.value)}
+                      placeholder={totais.saldoAtualDinheiro.toFixed(2).replace('.', ',')}
+                      autoFocus
+                      required
+                      className="w-full pl-11 pr-3 py-2 text-lg font-black rounded-lg border border-black bg-white text-black focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Box Reativa de Situação do Fechamento */}
+                <div
+                  className={`p-2.5 rounded-lg border text-xs font-bold flex items-center justify-between transition-colors ${
+                    isConferido
+                      ? 'bg-emerald-100 border-emerald-700 text-emerald-900'
+                      : isSobra
+                        ? 'bg-blue-50 border-blue-700 text-blue-900'
+                        : isQuebra
+                          ? 'bg-rose-50 border-rose-700 text-rose-900'
+                          : 'bg-white border-black text-black'
+                  }`}
+                >
+                  <span>SITUAÇÃO DO FECHAMENTO:</span>
+                  <span className="font-black text-xs sm:text-sm font-mono">
+                    {isConferido
+                      ? '✅ CAIXA CONFERIDO - SEM DIVERGÊNCIAS'
+                      : isSobra
+                        ? `🟢 SOBRA: +${formatCurrencyBRL(diferencaCalculada)}`
+                        : isQuebra
+                          ? `🔴 QUEBRA: -${formatCurrencyBRL(Math.abs(diferencaCalculada))}`
+                          : 'DIGITE O VALOR CONTADO'}
                   </span>
+                </div>
+
+                {/* Observações */}
+                <div>
+                  <label className="block text-[11px] font-bold text-black uppercase mb-0.5">
+                    JUSTIFICATIVA / OBSERVAÇÕES
+                  </label>
                   <input
                     type="text"
-                    value={inputValorContado}
-                    onChange={(e) => setInputValorContado(e.target.value)}
-                    placeholder={totais.saldoAtualDinheiro.toFixed(2).replace('.', ',')}
-                    autoFocus
-                    required
-                    className="w-full pl-11 pr-3 py-1.5 text-lg font-black rounded-lg border-2 border-amber-500 bg-amber-50/40 dark:bg-stone-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                    value={inputObservacoesFechamento}
+                    onChange={(e) => setInputObservacoesFechamento(e.target.value)}
+                    placeholder="EX: CAIXA CONFERIDO SEM DIVERGÊNCIAS"
+                    className="w-full px-3 py-1.5 text-xs font-medium uppercase rounded-lg border border-gray-400 bg-white text-black"
                   />
                 </div>
-              </div>
 
-              {/* Box Reativa de Situação do Fechamento */}
-              <div
-                className={`p-2 rounded-lg border text-xs font-bold flex items-center justify-between transition-colors ${
-                  isConferido
-                    ? 'bg-emerald-100 border-emerald-400 text-emerald-900 dark:bg-emerald-950/60 dark:border-emerald-700 dark:text-emerald-200'
-                    : isSobra
-                      ? 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                      : isQuebra
-                        ? 'bg-rose-50 border-rose-300 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
-                        : 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-stone-800 dark:text-stone-300'
-                }`}
-              >
-                <span>SITUAÇÃO DO FECHAMENTO:</span>
-                <span className="font-black text-xs sm:text-sm font-mono">
-                  {isConferido
-                    ? '✅ CAIXA CONFERIDO - SEM DIVERGÊNCIAS'
-                    : isSobra
-                      ? `🟢 SOBRA: +${formatCurrencyBRL(diferencaCalculada)}`
-                      : isQuebra
-                        ? `🔴 QUEBRA: -${formatCurrencyBRL(Math.abs(diferencaCalculada))}`
-                        : 'DIGITE O VALOR CONTADO'}
-                </span>
-              </div>
-
-              {/* Observações */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-0.5">
-                  JUSTIFICATIVA / OBSERVAÇÕES
-                </label>
-                <input
-                  type="text"
-                  value={inputObservacoesFechamento}
-                  onChange={(e) => setInputObservacoesFechamento(e.target.value)}
-                  placeholder="EX: CAIXA CONFERIDO SEM DIVERGÊNCIAS"
-                  className="w-full px-3 py-1 text-xs font-medium uppercase rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-
-              {/* Seletor Formato Impressão */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
-                  FORMATO DE IMPRESSÃO DO RELATÓRIO:
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFormatoImpressao('a4')}
-                    className={`py-1.5 px-2 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer uppercase transition ${
-                      formatoImpressao === 'a4'
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200'
-                        : 'border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-400'
-                    }`}
-                  >
-                    <span>📄 FOLHA A4 RETRATO</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormatoImpressao('termica')}
-                    className={`py-1.5 px-2 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer uppercase transition ${
-                      formatoImpressao === 'termica'
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200'
-                        : 'border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-stone-800 dark:text-stone-400'
-                    }`}
-                  >
-                    <span>📟 TÉRMICA 80MM (CUPOM)</span>
-                  </button>
+                {/* Seletor Formato Impressão */}
+                <div>
+                  <label className="block text-[11px] font-bold text-black uppercase mb-1">
+                    FORMATO DE IMPRESSÃO DO RELATÓRIO:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormatoImpressao('a4')}
+                      className={`py-2 px-2 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer uppercase transition ${
+                        formatoImpressao === 'a4'
+                          ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
+                          : 'border-gray-400 bg-white text-black hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>📄 FOLHA A4 RETRATO</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormatoImpressao('termica')}
+                      className={`py-2 px-2 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer uppercase transition ${
+                        formatoImpressao === 'termica'
+                          ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
+                          : 'border-gray-400 bg-white text-black hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>📟 TÉRMICA 80MM (CUPOM)</span>
+                    </button>
+                  </div>
                 </div>
+              </div>
+
               </div>
 
               {/* Botões do Rodapé */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-stone-800">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-black bg-[#cad4e6] shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsFecharModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 text-slate-600 hover:bg-slate-100 uppercase cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-black text-black hover:bg-slate-100 uppercase cursor-pointer"
                 >
                   ✕ [ESC] CANCELAR
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer flex items-center gap-1.5"
                 >
                   <Printer className="w-4 h-4" />
                   <span>🔒 FINALIZAR FECHAMENTO E IMPRIMIR</span>

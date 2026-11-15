@@ -893,28 +893,29 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
           4. MODAL: REGISTRAR REAJUSTE SALARIAL (PADRÃO OURO)
          ===================================================================== */}
       {isSalaryModalOpen && selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-          <div className="w-full max-w-lg bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in zoom-in-95 duration-150">
-            {/* Header Acetinado 3D */}
-            <div className="px-4 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 mx-auto my-auto">
+            {/* Header Oficial */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-600" />
-                <h4 className="text-xs font-black uppercase tracking-wide text-slate-900 dark:text-white">
+                <DollarSign className="w-4 h-4 text-emerald-700" />
+                <h4 className="text-xs font-black uppercase tracking-wide text-black dark:text-white">
                   REGISTRAR ALTERAÇÃO SALARIAL • {selectedEmployee.name}
                 </h4>
               </div>
-              <button onClick={() => setIsSalaryModalOpen(false)} className="p-1 cursor-pointer">
+              <button onClick={() => setIsSalaryModalOpen(false)} className="p-1 text-black hover:bg-white/60 rounded cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSalaryChange} className="p-4 space-y-3 text-xs bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200">
+            <form id="salary-change-view-form" onSubmit={handleSaveSalaryChange} className="flex-1 min-h-0 overflow-y-auto p-4 text-xs bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-200">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3 max-w-2xl mx-auto">
               <div>
-                <label className="text-[10px] font-bold uppercase block text-slate-500 mb-0.5">TIPO DE ALTERAÇÃO</label>
+                <label className="text-[10px] font-bold uppercase block text-black mb-0.5">TIPO DE ALTERAÇÃO</label>
                 <select
                   value={newSalaryTipo}
                   onChange={e => setNewSalaryTipo(e.target.value as any)}
-                  className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-bold uppercase cursor-pointer"
+                  className="w-full px-2 py-1.5 bg-white text-black border border-gray-400 rounded font-bold uppercase cursor-pointer"
                 >
                   <option value="DISSIDIO">DISSÍDIO COLETIVO ANUAL</option>
                   <option value="PROMOCAO">PROMOÇÃO DE CARGO / FUNÇÃO</option>
@@ -924,71 +925,73 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase block text-slate-500 mb-0.5">NOVO SALÁRIO BASE (R$) *</label>
+                <label className="text-[10px] font-bold uppercase block text-black mb-0.5">NOVO SALÁRIO BASE (R$) *</label>
                 <input
                   type="number"
                   step="0.01"
                   value={newSalaryValor}
                   onChange={e => setNewSalaryValor(e.target.value)}
                   placeholder="EX: 3500.00"
-                  className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-black font-mono text-sm"
+                  className="w-full px-2 py-1.5 bg-white text-black border border-gray-400 rounded font-black font-mono text-sm"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold uppercase block text-slate-500 mb-0.5">COMISSÃO POR HORA (R$/H)</label>
+                  <label className="text-[10px] font-bold uppercase block text-black mb-0.5">COMISSÃO POR HORA (R$/H)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={newComissaoHora}
                     onChange={e => setNewComissaoHora(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-mono"
+                    className="w-full px-2 py-1.5 bg-white text-black border border-gray-400 rounded font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold uppercase block text-slate-500 mb-0.5">COMISSÃO HECTARE (R$/HA)</label>
+                  <label className="text-[10px] font-bold uppercase block text-black mb-0.5">COMISSÃO HECTARE (R$/HA)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={newComissaoHectare}
                     onChange={e => setNewComissaoHectare(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-mono"
+                    className="w-full px-2 py-1.5 bg-white text-black border border-gray-400 rounded font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase block text-slate-500 mb-0.5">MOTIVO / OBSERVAÇÕES</label>
+                <label className="text-[10px] font-bold uppercase block text-black mb-0.5">MOTIVO / OBSERVAÇÕES</label>
                 <input
                   type="text"
                   value={newSalaryMotivo}
                   onChange={e => setNewSalaryMotivo(e.target.value)}
                   placeholder="EX: ACORDO COLETIVO SINDICATO RURAL 2026"
-                  className="w-full px-2 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-medium uppercase"
+                  className="w-full px-2 py-1.5 bg-white text-black border border-gray-400 rounded font-medium uppercase"
                   required
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
-                <button
-                  type="button"
-                  onClick={() => setIsSalaryModalOpen(false)}
-                  className="px-3 py-1 border border-slate-300 dark:border-stone-700 rounded text-slate-700 dark:text-stone-300 font-bold uppercase cursor-pointer"
-                >
-                  CANCELAR
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold uppercase cursor-pointer shadow-xs"
-                >
-                  SALVAR REAJUSTE
-                </button>
               </div>
             </form>
+
+            <div className="px-4 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSalaryModalOpen(false)}
+                className="px-3.5 py-1.5 border border-gray-400 bg-white hover:bg-gray-100 rounded text-black text-xs font-bold uppercase cursor-pointer"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="submit"
+                form="salary-change-view-form"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded text-xs font-bold uppercase cursor-pointer shadow-xs"
+              >
+                SALVAR REAJUSTE
+              </button>
+            </div>
           </div>
         </div>
       )}

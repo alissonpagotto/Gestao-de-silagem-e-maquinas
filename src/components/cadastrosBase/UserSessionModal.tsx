@@ -115,20 +115,20 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
+      <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-stone-800">
+        <div className="px-5 py-3.5 bg-[#cad4e6] border-b border-black flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+            <div className="p-2 rounded-xl bg-white text-black border border-black">
               <UserCheck className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white tracking-tight">
+              <h3 className="text-sm sm:text-base font-extrabold text-black tracking-tight">
                 Simular Nível de Acesso (Sessão Ativa)
               </h3>
-              <p className="text-xs text-zinc-500 dark:text-stone-400">
+              <p className="text-xs text-slate-800 font-medium">
                 Selecione um cargo ou colaborador para testar o bloqueio visual e a restrição de menus da sidebar.
               </p>
             </div>
@@ -136,70 +136,75 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg"
+            className="text-black hover:bg-white/60 border border-transparent hover:border-black p-1.5 rounded-lg transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Perfil Atual */}
-        <div className="my-4 p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs">
-              {currentSession.type === 'admin' ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                Perfil Atual na Sessão
+        {/* Corpo Principal */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6]">
+          <div className="max-w-4xl mx-auto space-y-4">
+            {/* Perfil Atual */}
+            <div className="p-3.5 rounded-xl bg-[#e0e6f1] border border-black flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-xl bg-emerald-600 border border-emerald-800 text-white shadow-xs">
+                  {currentSession.type === 'admin' ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                    Perfil Atual na Sessão
+                  </div>
+                  <div className="text-xs sm:text-sm font-extrabold text-black">
+                    {currentSession.name} ({currentSession.cargoNome})
+                  </div>
+                </div>
               </div>
-              <div className="text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-white">
-                {currentSession.name} ({currentSession.cargoNome})
-              </div>
+
+              {currentSession.type !== 'admin' && (
+                <button
+                  type="button"
+                  onClick={handleSelectAdmin}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 shadow-xs transition cursor-pointer"
+                >
+                  Voltar p/ Admin
+                </button>
+              )}
             </div>
-          </div>
 
-          {currentSession.type !== 'admin' && (
-            <button
-              type="button"
-              onClick={handleSelectAdmin}
-              className="text-xs font-bold px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer"
-            >
-              Voltar p/ Admin
-            </button>
-          )}
-        </div>
+            {/* Container de Tabs + Lista */}
+            <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3">
+              {/* Tabs de Seleção */}
+              <div className="flex space-x-2 border-b border-black pb-2.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('cargos')}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                    activeTab === 'cargos'
+                      ? 'bg-emerald-600 text-white border-emerald-800'
+                      : 'bg-white text-black border-gray-400 hover:bg-gray-100'
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Por Cargo ({cargos.length})</span>
+                </button>
 
-        {/* Tabs de Seleção */}
-        <div className="flex space-x-2 border-b border-zinc-200 dark:border-stone-800 pb-2 mb-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('cargos')}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              activeTab === 'cargos'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                : 'text-zinc-600 dark:text-stone-400 hover:text-zinc-900'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            <span>Por Cargo ({cargos.length})</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('colaboradores')}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                    activeTab === 'colaboradores'
+                      ? 'bg-emerald-600 text-white border-emerald-800'
+                      : 'bg-white text-black border-gray-400 hover:bg-gray-100'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Por Colaborador Cadastrado ({employees.length})</span>
+                </button>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('colaboradores')}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              activeTab === 'colaboradores'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                : 'text-zinc-600 dark:text-stone-400 hover:text-zinc-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Por Colaborador Cadastrado ({employees.length})</span>
-          </button>
-        </div>
-
-        {/* Lista de Opções */}
-        <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+              {/* Lista de Opções */}
+              <div className="space-y-2">
           {activeTab === 'cargos' && (
             <>
               {/* Botão Admin Especial */}
@@ -348,14 +353,17 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
               )}
             </>
           )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Rodapé */}
-        <div className="pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end">
+        <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-xs font-bold text-zinc-800 dark:text-stone-200 cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-white hover:bg-gray-100 border border-black text-xs font-bold text-black cursor-pointer transition"
           >
             Fechar
           </button>

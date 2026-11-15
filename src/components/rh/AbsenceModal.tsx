@@ -157,8 +157,8 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
-      <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-black dark:border-stone-700 flex flex-col max-h-[95vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden border border-black dark:border-stone-700 flex flex-col justify-between mx-auto my-auto">
         <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 border-b border-black dark:border-stone-700 shrink-0">
           <h3 className="text-sm font-bold uppercase tracking-wider text-black dark:text-stone-100">
             {editingAbsence ? 'Editar Falta / Ocorrência' : 'Registrar Nova Falta / Ocorrência'}

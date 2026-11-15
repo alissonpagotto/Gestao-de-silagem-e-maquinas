@@ -1205,43 +1205,43 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
+      <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="p-4 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50 dark:bg-stone-950/40">
+        <div className="px-5 py-3.5 border-b border-black flex items-center justify-between bg-[#cad4e6] shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-white border border-black text-emerald-700 flex items-center justify-center">
               <Database className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-2">
+              <h2 className="text-sm font-bold text-black flex items-center space-x-2">
                 <span>Script SQL PostgreSQL (Supabase)</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 border border-emerald-700 text-emerald-950">
                   Estrutura Homologada
                 </span>
               </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
+              <p className="text-xs text-slate-800 font-medium">
                 Tabelas e políticas RLS para persistência em nuvem multi-inquilino
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition"
+            className="p-1.5 text-black hover:bg-white/60 border border-transparent hover:border-black rounded-lg transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Selector */}
-        <div className="px-4 pt-3 flex items-center space-x-2 border-b border-stone-200 dark:border-stone-800 bg-stone-100/50 dark:bg-stone-900/50">
+        <div className="px-4 pt-2.5 flex items-center space-x-2 border-b border-black bg-[#cad4e6] shrink-0">
           <button
             onClick={() => setActiveTab('full')}
-            className={`px-3 py-2 text-xs font-bold rounded-t-lg transition border-b-2 flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'full'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-stone-900'
-                : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                ? 'bg-[#e0e6f1] text-black border-t border-x border-black -mb-px'
+                : 'text-slate-800 hover:bg-white/40 border border-transparent'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
@@ -1250,42 +1250,42 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
 
           <button
             onClick={() => setActiveTab('rh_folhas')}
-            className={`px-3 py-2 text-xs font-bold rounded-t-lg transition border-b-2 flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition flex items-center space-x-1.5 cursor-pointer ${
               activeTab === 'rh_folhas'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-stone-900'
-                : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                ? 'bg-[#e0e6f1] text-black border-t border-x border-black -mb-px'
+                : 'text-slate-800 hover:bg-white/40 border border-transparent'
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
             <span>Corrigir RLS Folha de Pagamento</span>
-            <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] rounded-full">
+            <span className="px-1.5 py-0.2 bg-amber-100 border border-amber-500 text-amber-950 text-[10px] rounded-full">
               42501 Fix
             </span>
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto space-y-4 text-xs flex-1">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs flex-1 min-h-0 bg-[#cad4e6]">
           {/* Instruções Rápidas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200/60 dark:border-stone-700/60">
-              <p className="font-bold text-stone-800 dark:text-stone-200 text-xs mb-1">1. Copie o Script</p>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                Clique no botão verde <strong className="text-stone-700 dark:text-stone-300">Copiar SQL</strong> abaixo para carregar o script selecionado.
+            <div className="p-3 bg-[#e0e6f1] rounded-xl border border-black">
+              <p className="font-bold text-black text-xs mb-1">1. Copie o Script</p>
+              <p className="text-[11px] text-slate-800">
+                Clique no botão verde <strong className="text-black">Copiar SQL</strong> abaixo para carregar o script selecionado.
               </p>
             </div>
 
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200/60 dark:border-stone-700/60">
-              <p className="font-bold text-stone-800 dark:text-stone-200 text-xs mb-1">2. Abra o Supabase</p>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                No seu projeto Supabase, acesse o menu lateral <strong className="text-stone-700 dark:text-stone-300">SQL Editor</strong> e clique em <strong className="text-stone-700 dark:text-stone-300">+ New query</strong>.
+            <div className="p-3 bg-[#e0e6f1] rounded-xl border border-black">
+              <p className="font-bold text-black text-xs mb-1">2. Abra o Supabase</p>
+              <p className="text-[11px] text-slate-800">
+                No seu projeto Supabase, acesse o menu lateral <strong className="text-black">SQL Editor</strong> e clique em <strong className="text-black">+ New query</strong>.
               </p>
             </div>
 
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200/60 dark:border-stone-700/60">
-              <p className="font-bold text-stone-800 dark:text-stone-200 text-xs mb-1">3. Cole e Execute</p>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                Cole o código SQL e clique em <strong className="text-stone-700 dark:text-stone-300">Run</strong>. O banco e as políticas estarão 100% aplicados!
+            <div className="p-3 bg-[#e0e6f1] rounded-xl border border-black">
+              <p className="font-bold text-black text-xs mb-1">3. Cole e Execute</p>
+              <p className="text-[11px] text-slate-800">
+                Cole o código SQL e clique em <strong className="text-black">Run</strong>. O banco e as políticas estarão 100% aplicados!
               </p>
             </div>
           </div>
@@ -1349,21 +1349,21 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/40 flex items-center justify-between">
-          <p className="text-[11px] text-stone-400">
-            Arquivo: <code className="font-mono text-stone-500 dark:text-stone-300">/{currentFileName}</code>
+        <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex items-center justify-between shrink-0">
+          <p className="text-[11px] text-slate-800 font-semibold">
+            Arquivo: <code className="font-mono text-black">/{currentFileName}</code>
           </p>
           <div className="flex items-center space-x-2">
             <button
               onClick={handleCopy}
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer transition active:scale-95"
+              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer transition active:scale-95"
             >
               {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Código SQL Copiado!' : (activeTab === 'rh_folhas' ? 'Copiar Script RLS Folha' : 'Copiar Script SQL Completo')}</span>
             </button>
             <button
               onClick={onClose}
-              className="px-3 py-1.5 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="px-4 py-1.5 border border-black bg-white hover:bg-gray-100 text-black rounded-xl text-xs font-bold transition cursor-pointer"
             >
               Fechar
             </button>

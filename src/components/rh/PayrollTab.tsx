@@ -3421,9 +3421,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       {isModalOpen && (
         <div 
           id="payroll-edit-modal-overlay" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden print:hidden"
         >
-          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-[96vw] max-w-[1550px] shadow-2xl overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 h-[95vh] max-h-[95vh] flex flex-col print:hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] shadow-2xl overflow-hidden overflow-y-hidden mx-auto my-auto animate-in fade-in zoom-in-95 duration-150 h-[92vh] max-h-[92vh] flex flex-col justify-between print:hidden">
             
             {/* Header - Tema Oficial AgroControl */}
             <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 shrink-0 rounded-t-2xl">

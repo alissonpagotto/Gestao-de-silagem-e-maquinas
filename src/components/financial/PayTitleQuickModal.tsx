@@ -240,24 +240,24 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
       <div 
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-pay-title"
-        className="w-full max-w-2xl bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-2xl shadow-2xl flex flex-col max-h-[94vh] overflow-hidden"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden"
       >
-        {/* CABEÇALHO METÁLICO ACETINADO COM DESTAQUE VERDE PROFISSIONAL */}
-        <div className="bg-gradient-to-r from-emerald-950 via-[#1b5e20] to-[#164e28] text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xs border-b border-emerald-900">
-          <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center shadow-xs">
+        {/* CABEÇALHO */}
+        <div className="bg-[#cad4e6] text-black px-4 sm:px-5 py-3 flex items-center justify-between shrink-0 border-b border-black">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white border border-black text-emerald-700 flex items-center justify-center shrink-0">
               <ArrowUpRight className="w-4 h-4 stroke-[3]" />
             </div>
             <div>
-              <h3 id="modal-pay-title" className="text-xs sm:text-sm font-black uppercase tracking-wider text-white">
+              <h3 id="modal-pay-title" className="text-sm sm:text-base font-black uppercase tracking-wide text-black">
                 PAGAR TÍTULO — BAIXA OPERACIONAL
               </h3>
-              <p className="text-[10px] text-emerald-200 font-semibold uppercase">
+              <p className="text-[11px] text-black/80 font-medium uppercase">
                 DÉBITO BANCÁRIO E LIQUIDAÇÃO DE CONTAS A PAGAR
               </p>
             </div>
@@ -265,31 +265,32 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-emerald-200 hover:text-white hover:bg-emerald-800/80 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
             title="FECHAR"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* FORMULÁRIO COM ROLAGEM INTERNA */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
+        {/* FORMULÁRIO COM ROLAGEM INTERNA E RODAPÉ FIXO */}
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black text-xs">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5">
           {errorMessage && (
-            <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-lg flex items-center gap-2 text-rose-700 dark:text-rose-300 text-[11px] font-bold uppercase">
+            <div className="p-2.5 bg-rose-100 border border-black rounded-lg flex items-center gap-2 text-rose-800 text-[11px] font-bold uppercase">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {/* SELETOR DE MODALIDADE: TÍTULO EXISTENTE OU AVULSO */}
-          <div className="flex rounded-xl p-0.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+          <div className="flex rounded-xl p-1 bg-[#e0e6f1] border border-black gap-1">
             <button
               type="button"
               onClick={() => setMode('pending')}
-              className={`flex-1 py-1.5 px-3 rounded-lg font-black text-xs transition cursor-pointer uppercase ${
+              className={`flex-1 py-2 px-3 rounded-lg font-black text-xs transition cursor-pointer uppercase ${
                 mode === 'pending'
-                  ? 'bg-white dark:bg-stone-900 text-[#1b5e20] dark:text-emerald-400 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                  ? 'bg-white border border-black text-emerald-800 shadow-xs'
+                  : 'text-black/70 hover:text-black'
               }`}
             >
               SELECIONAR TÍTULO PENDENTE ({pendingExpenses.length})
@@ -297,10 +298,10 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
             <button
               type="button"
               onClick={() => setMode('direct')}
-              className={`flex-1 py-1.5 px-3 rounded-lg font-black text-xs transition cursor-pointer uppercase ${
+              className={`flex-1 py-2 px-3 rounded-lg font-black text-xs transition cursor-pointer uppercase ${
                 mode === 'direct'
-                  ? 'bg-white dark:bg-stone-900 text-[#1b5e20] dark:text-emerald-400 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                  ? 'bg-white border border-black text-emerald-800 shadow-xs'
+                  : 'text-black/70 hover:text-black'
               }`}
             >
               PAGAMENTO AVULSO / DIRETO
@@ -309,26 +310,26 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
 
           {/* MODO 1: SELEÇÃO DE TÍTULO PENDENTE */}
           {mode === 'pending' && (
-            <div className="space-y-2">
+            <div className="space-y-2.5 bg-[#e0e6f1] border border-black rounded-xl p-3.5">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600" />
                   <input
                     type="text"
                     placeholder="BUSCAR POR CREDOR, DESCRIÇÃO OU CATEGORIA..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg pl-8 pr-3 py-1.5 font-bold text-stone-900 dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#1b5e20] text-xs"
+                    className="w-full bg-white border border-gray-400 rounded-lg pl-8 pr-3 py-1.5 font-bold text-black uppercase outline-none focus:ring-1 focus:ring-emerald-700 text-xs"
                   />
                 </div>
               </div>
 
               {filteredPending.length === 0 ? (
-                <div className="p-4 text-center rounded-xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-500 uppercase text-[11px] font-bold">
+                <div className="p-4 text-center rounded-xl border border-dashed border-black bg-white text-black uppercase text-[11px] font-bold">
                   NENHUM TÍTULO PENDENTE ENCONTRADO. VOCÊ PODE ALTERNAR PARA "PAGAMENTO AVULSO / DIRETO".
                 </div>
               ) : (
-                <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl border border-stone-200 dark:border-stone-700 p-1 bg-stone-50/50 dark:bg-stone-850">
+                <div className="max-h-48 overflow-y-auto space-y-1.5 rounded-xl border border-black p-1.5 bg-white">
                   {filteredPending.map((exp) => {
                     const isSelected = exp.id === selectedExpenseId;
                     return (
@@ -337,27 +338,27 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
                         onClick={() => setSelectedExpenseId(exp.id)}
                         className={`p-2 rounded-lg border transition cursor-pointer flex items-center justify-between text-xs ${
                           isSelected
-                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200'
-                            : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 hover:border-emerald-300'
+                            ? 'bg-emerald-50 border-emerald-700 text-emerald-950'
+                            : 'bg-white border-gray-300 hover:border-black'
                         }`}
                       >
                         <div className="space-y-0.5 truncate pr-2">
                           <div className="font-black uppercase truncate flex items-center gap-1.5">
                             <span className="text-[11px]">{exp.supplier || 'CREDOR NÃO INFORMADO'}</span>
-                            <span className="text-[9px] px-1 py-0.2 rounded bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 font-semibold">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#e0e6f1] border border-black/30 text-black font-semibold">
                               {exp.categoryName || 'GERAL'}
                             </span>
                           </div>
-                          <div className="text-[10px] text-stone-500 dark:text-stone-400 font-semibold uppercase truncate">
+                          <div className="text-[10px] text-slate-700 font-semibold uppercase truncate">
                             {exp.description} • VENC: {formatDateBR(exp.dueDate || exp.date)}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className="font-mono font-black text-xs text-rose-700 dark:text-rose-400 block">
+                          <span className="font-mono font-black text-xs text-rose-700 block">
                             {formatCurrencyBRL(exp.amount)}
                           </span>
                           {isSelected && (
-                            <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase">
+                            <span className="text-[9px] font-black text-emerald-700 uppercase">
                               ✓ SELECIONADO
                             </span>
                           )}
@@ -372,9 +373,9 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
 
           {/* MODO 2: PAGAMENTO AVULSO / DIRETO */}
           {mode === 'direct' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-850">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3.5 rounded-xl border border-black bg-[#e0e6f1]">
               <div className="sm:col-span-2 space-y-1">
-                <label htmlFor="direct-desc-input" className="block text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase tracking-wide">
+                <label htmlFor="direct-desc-input" className="block text-[10px] font-black text-black uppercase tracking-wide">
                   DESCRIÇÃO DA DESPESA / TÍTULO *
                 </label>
                 <input
@@ -426,8 +427,8 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
           )}
 
           {/* DADOS DA BAIXA FINANCEIRA */}
-          <div className="space-y-2 pt-1 border-t border-stone-200 dark:border-stone-700">
-            <div className="text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+          <div className="space-y-2.5 p-3.5 bg-[#e0e6f1] border border-black rounded-xl">
+            <div className="text-[10px] font-black text-black uppercase tracking-wider">
               PARÂMETROS DA BAIXA BANCÁRIA
             </div>
 
@@ -555,35 +556,37 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
 
           {/* RESUMO DO VALOR A SER DEBITADO */}
           {effectiveAmount > 0 && selectedAccount && (
-            <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between">
+            <div className="p-3 bg-[#e0e6f1] rounded-xl border border-black flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black text-emerald-900 dark:text-emerald-300 uppercase block">
+                <span className="text-[10px] font-black text-black uppercase block">
                   TOTAL A LIQUIDAR DA CONTA:
                 </span>
-                <span className="text-[10px] text-stone-600 dark:text-stone-400 font-semibold uppercase">
+                <span className="text-[10px] text-slate-800 font-semibold uppercase">
                   CONTA: {selectedAccount.name} • SALDO RESTANTE: {formatCurrencyBRL(selectedAccount.balance - effectiveAmount)}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-base sm:text-lg font-black text-[#1b5e20] dark:text-emerald-400 font-['Outfit']">
+                <span className="text-base sm:text-lg font-black text-emerald-700 font-['Outfit']">
                   {formatCurrencyBRL(effectiveAmount)}
                 </span>
               </div>
             </div>
           )}
 
+          </div>
+
           {/* BOTÕES DE AÇÃO */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-stone-200 dark:border-stone-700">
+          <div className="px-4 sm:px-5 py-3 flex items-center justify-end gap-2 border-t border-black bg-[#cad4e6] shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-bold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase text-xs"
+              className="px-4 py-2 rounded-xl bg-white border border-black text-black font-bold hover:bg-slate-100 transition cursor-pointer uppercase text-xs"
             >
               CANCELAR
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-lg bg-[#1e5631] hover:bg-[#184627] text-white font-black transition cursor-pointer shadow-xs active:scale-95 inline-flex items-center gap-1.5 uppercase text-xs border border-[#164224]"
+              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black transition cursor-pointer shadow-xs active:scale-95 inline-flex items-center gap-1.5 uppercase text-xs border border-emerald-800"
             >
               <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
               <span>CONFIRMAR PAGAMENTO</span>

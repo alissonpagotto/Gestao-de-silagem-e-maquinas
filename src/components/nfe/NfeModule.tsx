@@ -138,6 +138,7 @@ import {
   getStoredLc116ServiceCodes,
   buildDefaultInformacoesComplementares,
 } from '../../lib/cfopCatalog';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 import { 
   CompetenceSelector, 
   getCurrentCompetence, 
@@ -1804,35 +1805,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
 
-  // Frota / Máquinas para vínculo opcional com DRE da Frota
+  // Frota / Máquinas para vínculo opcional com DRE da Frota e Remessa / Retorno
   const loadAvailableVehicles = useCallback((): Machinery[] => {
-    const stored = getStoredMachineries();
-    if (stored && stored.length > 0) return stored;
-    const fallbackKeys = ['agrocontrol_frotas_veiculos', 'agrocontrol_veiculos', 'colaca_silagem_frotas_veiculos'];
-    for (const key of fallbackKeys) {
+    const mergedMap = new Map<string, Machinery>();
+    const addList = (list: unknown) => {
+      if (!Array.isArray(list)) return;
+      list.forEach((item: any) => {
+        if (item && typeof item === 'object' && item.id && !mergedMap.has(item.id)) {
+          mergedMap.set(item.id, item as Machinery);
+        }
+      });
+    };
+
+    const priorityKeys = ['agrocontrol_frotas_veiculos', 'agrocontrol_veiculos', 'colaca_silagem_frotas_veiculos', 'agrocontrol_maquinas'];
+    for (const key of priorityKeys) {
       try {
         const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
+        if (raw) addList(JSON.parse(raw));
       } catch {}
     }
-    return [];
+    addList(getStoredMachineries());
+    return Array.from(mergedMap.values());
   }, []);
 
   const [availableVehicles, setAvailableVehicles] = useState<Machinery[]>(() => loadAvailableVehicles());
-
-  useEffect(() => {
-    const refreshVehicles = () => setAvailableVehicles(loadAvailableVehicles());
-    if (isManualEntryModalOpen) refreshVehicles();
-    window.addEventListener('silagem_machineries_updated', refreshVehicles);
-    window.addEventListener('storage', refreshVehicles);
-    return () => {
-      window.removeEventListener('silagem_machineries_updated', refreshVehicles);
-      window.removeEventListener('storage', refreshVehicles);
-    };
-  }, [isManualEntryModalOpen, loadAvailableVehicles]);
 
   const mapPaymentConditionToMethodKey = (cond: string): string => {
     const c = (cond || '').toLowerCase();
@@ -1859,6 +1855,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // MODAL DE LANÇAMENTO / REGISTRO DE NOTA DE SAÍDA (EMITIDAS PELA EMPRESA)
   // =========================================================================
   const [isNotaSaidaModalOpen, setIsNotaSaidaModalOpen] = useState(false);
+
+  useEffect(() => {
+    const refreshVehicles = () => setAvailableVehicles(loadAvailableVehicles());
+    if (isManualEntryModalOpen || isNotaSaidaModalOpen) refreshVehicles();
+    window.addEventListener('silagem_machineries_updated', refreshVehicles);
+    window.addEventListener('agrocontrol_frotas_veiculos_updated', refreshVehicles);
+    window.addEventListener('frotas_veiculos_updated', refreshVehicles);
+    window.addEventListener('machineries_updated', refreshVehicles);
+    window.addEventListener('storage', refreshVehicles);
+    return () => {
+      window.removeEventListener('silagem_machineries_updated', refreshVehicles);
+      window.removeEventListener('agrocontrol_frotas_veiculos_updated', refreshVehicles);
+      window.removeEventListener('frotas_veiculos_updated', refreshVehicles);
+      window.removeEventListener('machineries_updated', refreshVehicles);
+      window.removeEventListener('storage', refreshVehicles);
+    };
+  }, [isManualEntryModalOpen, isNotaSaidaModalOpen, loadAvailableVehicles]);
   const [editingNotaSaida, setEditingNotaSaida] = useState<NotaSaidaRecord | null>(null);
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(() => getStoredEmployees());
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(() => getStoredServices());
@@ -2015,6 +2028,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const createEmptySaidaItem = (defaultCfop = '5102'): NotaSaidaItem => ({
     id: `ns_item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     inventoryItemId: '',
+    fleetVehicleId: '',
+    fleetAssetLabel: '',
     codigo: '',
     descricao: '',
     ncm: '',
@@ -2164,6 +2179,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return cfopCatalog.filter((c) => c.codigo.startsWith(cfopUfPrefix));
   }, [cfopCatalog, cfopUfPrefix]);
 
+  const isRemessaRetornoSelected = saidaTipoDocumento.includes('Remessa');
+  const hasFleetAssetInSaidaItens = saidaItens.some((it) => Boolean(it.fleetVehicleId));
+  const fleetAssetLabelsInSaidaItens = useMemo(
+    () =>
+      saidaItens
+        .map((it) => it.fleetAssetLabel)
+        .filter((lbl): lbl is string => Boolean(lbl && lbl.trim())),
+    [saidaItens]
+  );
+
   useEffect(() => {
     if (!isNotaSaidaModalOpen || editingNotaSaida || isInformacoesComplementaresManual) return;
     const suggested = buildDefaultInformacoesComplementares({
@@ -2172,6 +2197,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       nfeReferenciada,
       veiculoPlaca: saidaVeiculoPlaca || nfeTransportadoraPlaca,
       motoristaNome: saidaMotoristaNome,
+      ativosImobilizados: isRemessaRetornoSelected ? fleetAssetLabelsInSaidaItens : undefined,
     });
     setSaidaInformacoesComplementares(suggested);
   }, [
@@ -2184,6 +2210,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     saidaVeiculoPlaca,
     nfeTransportadoraPlaca,
     saidaMotoristaNome,
+    isRemessaRetornoSelected,
+    fleetAssetLabelsInSaidaItens,
   ]);
 
 
@@ -2359,6 +2387,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         nfeReferenciada: nota.nfeReferenciada,
         veiculoPlaca: nota.veiculoPlaca || nota.nfeTransportadoraPlaca,
         motoristaNome: nota.motoristaNome,
+        ativosImobilizados: (nota.itens || [])
+          .map((it) => it.fleetAssetLabel)
+          .filter((lbl): lbl is string => Boolean(lbl)),
       });
     setSaidaInformacoesComplementares(editInfoComp);
     setIsInformacoesComplementaresManual(Boolean(nota.informacoesComplementares));
@@ -2664,7 +2695,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const cfopAuto = translateCfopByScope('5102', escopo);
       setNfeNaturezaOperacao('Venda a Consumidor Final');
       setNfeCfop(cfopAuto);
-      if (saidaItens.length === 0) setSaidaItens([createEmptySaidaItem(cfopAuto)]);
+      setSaidaItens(prev =>
+        prev.length > 0
+          ? prev.map(it => ({ ...it, fleetVehicleId: '', fleetAssetLabel: '', cfop: cfopAuto }))
+          : [createEmptySaidaItem(cfopAuto)]
+      );
     } else if (newTipo.includes('Remessa')) {
       const defaultNatureza = 'Remessa para Conserto ou Reparo';
       const cfopAuto = resolveRemessaCfop(defaultNatureza, escopo);
@@ -2672,6 +2707,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setNfeCfop(cfopAuto);
       setNfeFinalidade('Normal');
       setSaidaLancarContasReceber(false); // Notas de remessa/retorno desmarcadas por padrão
+      setAvailableVehicles(loadAvailableVehicles());
       setSaidaItens(prev =>
         prev.length > 0
           ? prev.map(it => ({ ...it, cfop: cfopAuto }))
@@ -2683,7 +2719,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setNfeCfop(cfopAuto);
       setSaidaItens(prev =>
         prev.length > 0
-          ? prev.map(it => ({ ...it, cfop: cfopAuto }))
+          ? prev.map(it => ({ ...it, fleetVehicleId: '', fleetAssetLabel: '', cfop: cfopAuto }))
           : [createEmptySaidaItem(cfopAuto)]
       );
     } else if (newTipo.includes('CT-e')) {
@@ -2777,15 +2813,90 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     });
   };
 
+  const formatFleetOptionLabel = (v: Machinery): string => {
+    const fleetCode = String(v.fleetNumber || v.fleet_number || v.numero_frota || '').trim().toUpperCase();
+    const plate = String(v.plate || v.licensePlateOrSerial || (v as any).placa_ou_serie || v.plateOrSerial || '').trim().toUpperCase();
+    const serial = String(v.serialNumber || (v as any).numero_serie || '').trim().toUpperCase();
+    const codePart = fleetCode
+      ? `FROTA ${fleetCode}${plate && plate !== fleetCode ? ` (${plate})` : ''}`
+      : (plate || serial || 'S/N');
+
+    const tipoRaw = String(v.categoriaVeiculo || v.categoria || v.categoryType || v.type || (v as any).tipo || '').trim().toUpperCase();
+    const brandUp = String(v.brand || '').trim().toUpperCase();
+    const modelUp = String(v.model || v.name || '').trim().toUpperCase();
+    const modelDisplay = brandUp && modelUp && !modelUp.includes(brandUp)
+      ? `${brandUp} ${modelUp}`
+      : (modelUp || brandUp || 'EQUIPAMENTO');
+    const tipoAndModel = tipoRaw && !modelDisplay.includes(tipoRaw)
+      ? `${tipoRaw} • ${modelDisplay}`
+      : modelDisplay;
+    return `${codePart} - ${tipoAndModel}`.toUpperCase();
+  };
+
+  const buildFleetAssetItemDetails = (v: Machinery) => {
+    const fleetCode = String(v.fleetNumber || v.fleet_number || v.numero_frota || '').trim().toUpperCase();
+    const plate = String(v.plate || v.licensePlateOrSerial || (v as any).placa_ou_serie || v.plateOrSerial || '').trim().toUpperCase();
+    const serial = String(v.serialNumber || (v as any).numero_serie || '').trim().toUpperCase();
+
+    const brandUp = String(v.brand || '').trim().toUpperCase();
+    const modelUp = String(v.model || v.name || '').trim().toUpperCase();
+    const fullModel = brandUp && modelUp && !modelUp.includes(brandUp)
+      ? `${brandUp} ${modelUp}`
+      : (modelUp || brandUp || String(v.categoriaVeiculo || v.type || 'EQUIPAMENTO DA FROTA').toUpperCase());
+
+    const descParts = [fullModel];
+    if (fleetCode) descParts.push(`FROTA: ${fleetCode}`);
+    if (plate && plate !== fleetCode && plate !== serial) descParts.push(`PLACA: ${plate}`);
+    if (serial && serial !== plate && serial !== fleetCode) descParts.push(`SÉRIE/CHASSI: ${serial}`);
+    const descricao = descParts.join(' - ');
+
+    const idParts = [
+      fleetCode ? `Frota ${fleetCode}` : '',
+      plate && plate !== fleetCode ? `Placa ${plate}` : '',
+    ].filter(Boolean);
+    const assetInfoLabel = idParts.length > 0
+      ? `${fullModel} - ${idParts.join(' / ')}`
+      : (serial ? `${fullModel} - Série/Chassi ${serial}` : fullModel);
+
+    const catText = [
+      v.categoryType,
+      v.categoriaVeiculo,
+      v.categoria,
+      v.type,
+      v.vehicleTypeDetailed,
+      v.model,
+      v.name,
+    ].filter(Boolean).join(' ').toLowerCase();
+    const isTruck =
+      catText.includes('caminh') ||
+      catText.includes('cavalo') ||
+      catText.includes('truck') ||
+      catText.includes('carreta') ||
+      catText.includes('reboque') ||
+      catText.includes('basculante') ||
+      catText.includes('utilit') ||
+      catText.includes('onibus') ||
+      catText.includes('ônibus');
+
+    return {
+      codigo: fleetCode || plate || serial || '',
+      descricao,
+      suggestedNcm: isTruck ? '87042210' : '84335990',
+      assetInfoLabel,
+    };
+  };
+
   const handleSelectSaidaInventoryProduct = (index: number, inventoryItemId: string) => {
     const prod = localInventory.find(p => p.id === inventoryItemId);
     if (!prod) {
-      handleUpdateSaidaItem(index, { inventoryItemId: '' });
+      handleUpdateSaidaItem(index, { inventoryItemId: '', fleetVehicleId: '', fleetAssetLabel: '' });
       return;
     }
     const unitPrice = Number(prod.salePrice || prod.preco_venda_varejo || prod.preco_venda || prod.unitCost || 0);
     handleUpdateSaidaItem(index, {
       inventoryItemId: prod.id,
+      fleetVehicleId: '',
+      fleetAssetLabel: '',
       codigo: prod.code || prod.codigo_produto || '',
       descricao: (prod.name || prod.nome_comercial || prod.nome || '').toUpperCase(),
       ncm: prod.ncm || prod.codigo_ncm || '',
@@ -2793,6 +2904,65 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       unidade: (prod.unit || prod.unidade_medida || 'UN').toUpperCase(),
       valorUnitario: unitPrice,
     });
+  };
+
+  const handleSelectSaidaUnifiedRemessaItem = (index: number, rawValue: string) => {
+    if (!rawValue) {
+      handleUpdateSaidaItem(index, {
+        inventoryItemId: '',
+        fleetVehicleId: '',
+        fleetAssetLabel: '',
+      });
+      return;
+    }
+
+    if (rawValue.startsWith('fleet:')) {
+      const vehId = rawValue.slice('fleet:'.length);
+      const veh = availableVehicles.find((v) => v.id === vehId);
+      if (!veh) return;
+
+      const details = buildFleetAssetItemDetails(veh);
+      const rowId = saidaItens[index]?.id;
+      if (rowId) {
+        setItemQtyInputMap((prev) => {
+          if (!(rowId in prev)) return prev;
+          const next = { ...prev };
+          delete next[rowId];
+          return next;
+        });
+      }
+
+      handleUpdateSaidaItem(index, {
+        inventoryItemId: '',
+        fleetVehicleId: veh.id,
+        fleetAssetLabel: details.assetInfoLabel,
+        codigo: details.codigo,
+        descricao: details.descricao,
+        ncm: details.suggestedNcm,
+        cfop: nfeCfop || resolveRemessaCfop(nfeNaturezaOperacao, nfeRemessaEscopo),
+        unidade: 'UN',
+        quantidade: 1,
+      });
+
+      // Proteção de Estoque: ativo imobilizado não pertence ao estoque
+      setSaidaBaixarEstoque(false);
+
+      // Se o usuário já editou manualmente as Informações Complementares, garante a inclusão da frase legal do ativo
+      if (isInformacoesComplementaresManual || editingNotaSaida) {
+        const legalAssetLine = `Remessa de bem do Ativo Imobilizado: ${details.assetInfoLabel}.`;
+        setSaidaInformacoesComplementares((prev) => {
+          const current = (prev || '').trim();
+          if (current.includes(legalAssetLine)) return prev;
+          return current ? `${current}\n${legalAssetLine}` : legalAssetLine;
+        });
+      }
+      return;
+    }
+
+    if (rawValue.startsWith('inv:')) {
+      const prodId = rawValue.slice('inv:'.length);
+      handleSelectSaidaInventoryProduct(index, prodId);
+    }
   };
 
   const handleAddSaidaItemRow = () => {
@@ -2914,14 +3084,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const resolvedModelo = selectedVeh ? `${selectedVeh.brand ? `${selectedVeh.brand} ` : ''}${selectedVeh.model || selectedVeh.name || ''}`.trim() : '';
 
     const validItens = isNfeOrNfce
-      ? saidaItens.filter(it => it.descricao.trim() !== '' || it.inventoryItemId)
+      ? saidaItens.filter(it => it.descricao.trim() !== '' || it.inventoryItemId || it.fleetVehicleId)
       : [];
 
+    const hasFleetAsset = validItens.some(it => Boolean(it.fleetVehicleId));
+    const effectiveBaixarEstoque = hasFleetAsset ? false : saidaBaixarEstoque;
+
     let estoqueFoiBaixado = Boolean(editingNotaSaida?.estoqueBaixado);
-    if (isNfeOrNfce && saidaBaixarEstoque && validItens.length > 0 && !estoqueFoiBaixado) {
+    if (isNfeOrNfce && effectiveBaixarEstoque && validItens.length > 0 && !estoqueFoiBaixado) {
       const qtyToDeductById = new Map<string, number>();
       validItens.forEach(it => {
-        if (it.inventoryItemId && it.quantidade > 0) {
+        if (it.inventoryItemId && !it.fleetVehicleId && it.quantidade > 0) {
           qtyToDeductById.set(
             it.inventoryItemId,
             (qtyToDeductById.get(it.inventoryItemId) || 0) + Number(it.quantidade)
@@ -3007,7 +3180,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       nfeTransportadoraPlaca: isNfeOrNfce ? nfeTransportadoraPlaca.trim().toUpperCase() || undefined : undefined,
       nfeReferenciada: isNfeOrNfce ? nfeReferenciada.trim() || undefined : undefined,
       itens: isNfeOrNfce && validItens.length > 0 ? validItens : undefined,
-      baixarEstoqueAutomatico: isNfeOrNfce ? saidaBaixarEstoque : undefined,
+      baixarEstoqueAutomatico: isNfeOrNfce ? effectiveBaixarEstoque : undefined,
       estoqueBaixado: isNfeOrNfce ? estoqueFoiBaixado : undefined,
 
       // CT-e
@@ -3169,6 +3342,103 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [itemUnitCostDisplay, setItemUnitCostDisplay] = useState('');
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [itemFormError, setItemFormError] = useState('');
+
+  const notaSaidaGuard = useModalUnsavedGuard({
+    isOpen: isNotaSaidaModalOpen,
+    resetKey: editingNotaSaida?.id || (isNotaSaidaModalOpen ? 'new' : 'closed'),
+    snapshot: [
+      saidaTipoDocumento,
+      saidaNumero,
+      saidaSerie,
+      saidaDataEmissao,
+      saidaDataVencimento,
+      saidaChaveAcesso,
+      saidaDestinatarioId,
+      saidaDestinatarioNome,
+      saidaDestinatarioCpfCnpj,
+      saidaDestinatarioIe,
+      saidaDestinatarioEndereco,
+      saidaDestinatarioCidadeUf,
+      saidaIsConsumidorAvulso,
+      saidaVeiculoId,
+      saidaVeiculoPlaca,
+      saidaDescricao,
+      saidaValorDisplay,
+      saidaCondicaoPagamento,
+      saidaLancarContasReceber,
+      nfseCodigoServico,
+      nfseMunicipioPrestacao,
+      nfseAliquotaIss,
+      nfseRetencaoIss,
+      nfseNaturezaOperacao,
+      nfsePedidoServicoId,
+      nfseQuantidadeAreaHoras,
+      nfseUnidadeAreaHoras,
+      nfseValorUnitarioDisplay,
+      nfseObservacoesFiscais,
+      nfeNaturezaOperacao,
+      nfeRemessaEscopo,
+      nfeCfop,
+      nfeFinalidade,
+      nfeModalidadeFrete,
+      nfeTransportadoraNome,
+      nfeTransportadoraPlaca,
+      nfeReferenciada,
+      saidaItens,
+      saidaBaixarEstoque,
+      saidaInformacoesComplementares,
+      saidaReservadoFisco,
+      cteCfop,
+      cteTipoServico,
+      cteMunicipioInicio,
+      cteMunicipioTermino,
+      cteTomador,
+      cteRemetenteNome,
+      cteTomadorTerceiroNome,
+      cteProdutoPredominante,
+      ctePesoBrutoKg,
+      cteValorCargaDisplay,
+      cteNfesVinculadas,
+      saidaMotoristaId,
+      saidaMotoristaNome,
+      mdfeUfCarregamento,
+      mdfeUfDescarregamento,
+      mdfeMunicipiosPercurso,
+      mdfeVeiculoRenavam,
+      mdfeReboquePlaca,
+      mdfeSeguradora,
+      mdfeApoliceSeguro,
+      mdfeDocumentosVinculados,
+      mdfePesoTotalKg,
+      mdfeValorTotalCargaDisplay,
+    ],
+  });
+
+  const handleAttemptCloseNotaSaidaModal = () => {
+    notaSaidaGuard.confirmClose(() => setIsNotaSaidaModalOpen(false));
+  };
+
+  const manualEntryGuard = useModalUnsavedGuard({
+    isOpen: isManualEntryModalOpen,
+    resetKey: `${currentManualDoc?.id || 'new'}_${isLoadingDocItems ? 'loading' : 'ready'}`,
+    snapshot: [
+      manualSupplier,
+      manualDate,
+      manualDueDate,
+      manualDocumentType,
+      manualPaymentCondition,
+      manualInstallmentsCount,
+      manualVehicleId,
+      manualAmountDisplay,
+      manualNotes,
+      manualDocItems,
+    ],
+  });
+
+  const handleAttemptCloseManualEntryModal = () => {
+    if (isSavingManualEntry || isAddingItem) return;
+    manualEntryGuard.confirmClose(() => setIsManualEntryModalOpen(false));
+  };
 
   // Fecha dropdown de produtos ao clicar fora
   useEffect(() => {
@@ -10336,8 +10606,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {notaParaExcluir && notaEmExclusao && (
         <div 
           id="modal-confirm-delete-nfe"
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
-          onClick={() => setNotaParaExcluir(null)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4"
@@ -10504,11 +10773,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isQuickCostCenterOpen && (
         <div 
           id="modal-criar-editar-centro-custo"
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => {
-            setIsQuickCostCenterOpen(false);
-            setCostCenterToEdit(null);
-          }}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95"
@@ -10613,12 +10878,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isDeleteCostCenterModalOpen && costCenterToDelete && (
         <div 
           id="modal-confirm-delete-centro-custo"
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => {
-            setIsDeleteCostCenterModalOpen(false);
-            setCostCenterToDelete(null);
-            setCostCenterIntegrityNotice(null);
-          }}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95"
@@ -10708,8 +10968,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isManageCostCentersListOpen && (
         <div 
           id="modal-gerenciar-centros-custo"
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setIsManageCostCentersListOpen(false)}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95"
@@ -10828,13 +11087,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isManualEntryModalOpen && (
         <div 
           id="modal-nova-entrada-manual"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-          onClick={() => {
-            if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
-          }}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 1. Cabeçalho Principal */}
@@ -10855,9 +11111,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
-                }}
+                onClick={handleAttemptCloseManualEntryModal}
                 disabled={isSavingManualEntry || isAddingItem}
                 className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
                 title="Fechar formulário"
@@ -11231,7 +11485,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     <button
                       type="button"
                       id="btn-cancelar-entrada-manual-step1"
-                      onClick={() => setIsManualEntryModalOpen(false)}
+                      onClick={handleAttemptCloseManualEntryModal}
                       disabled={isSavingManualEntry}
                       className="px-4 py-1.5 text-[11px] font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-gray-400 dark:border-stone-700 rounded-lg transition cursor-pointer disabled:opacity-50 uppercase"
                     >
@@ -11872,21 +12126,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {viewingManualDoc && (
         <div 
           id="modal-visualizar-entrada-manual"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
-          onClick={() => setViewingManualDoc(null)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 space-y-4 p-5"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-800 flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-2">
-                <Receipt className="w-5 h-5 text-emerald-600" />
+                <div className="w-7 h-7 rounded bg-white dark:bg-stone-800 border border-black flex items-center justify-center">
+                  <Receipt className="w-4 h-4 text-emerald-700" />
+                </div>
                 <div>
-                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-stone-100">
                     Documento de Entrada Manual
                   </h3>
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white dark:bg-stone-800 border border-black/40 text-emerald-800 dark:text-emerald-300 inline-block">
                     {viewingManualDoc.tipo_documento}
                   </span>
                 </div>
@@ -11895,30 +12150,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingManualDoc(null)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl space-y-1.5">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 text-xs bg-[#cad4e6] dark:bg-stone-950">
+              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-1.5">
                 <div className="flex justify-between">
-                  <span className="font-medium text-stone-500">Fornecedor / Emitente:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100 text-right">
+                  <span className="font-bold text-black/75 dark:text-stone-400">Fornecedor / Emitente:</span>
+                  <span className="font-black text-black dark:text-stone-100 text-right">
                     {viewingManualDoc.fornecedor || viewingManualDoc.fornecedor_nome || '-'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium text-stone-500">Data do Documento:</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">
+                  <span className="font-bold text-black/75 dark:text-stone-400">Data do Documento:</span>
+                  <span className="font-bold text-black dark:text-stone-100">
                     {formatDateBR(viewingManualDoc.data || viewingManualDoc.data_entrada)}
                   </span>
                 </div>
                 {viewingManualDoc.condicao_pagamento && (
                   <div className="flex justify-between">
-                    <span className="font-medium text-stone-500">Condição de Pagamento:</span>
-                    <span className="font-bold text-stone-900 dark:text-stone-100">
+                    <span className="font-bold text-black/75 dark:text-stone-400">Condição de Pagamento:</span>
+                    <span className="font-bold text-black dark:text-stone-100">
                       {viewingManualDoc.condicao_pagamento}
                       {viewingManualDoc.parcelas_qtd ? ` (${viewingManualDoc.parcelas_qtd}x)` : ''}
                     </span>
@@ -11926,15 +12181,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 )}
                 {(viewingManualDoc.machineryName || viewingManualDoc.vehiclePlate) && (
                   <div className="flex justify-between">
-                    <span className="font-medium text-stone-500">Veículo / Frota (DRE):</span>
-                    <span className="font-bold text-indigo-700 dark:text-indigo-400">
+                    <span className="font-bold text-black/75 dark:text-stone-400">Veículo / Frota (DRE):</span>
+                    <span className="font-bold text-indigo-800 dark:text-indigo-400">
                       {viewingManualDoc.machineryName || viewingManualDoc.vehiclePlate}
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between items-center pt-1 border-t border-stone-200/60 dark:border-stone-700/60">
-                  <span className="font-bold text-stone-700 dark:text-stone-300">Valor Total:</span>
-                  <span className="font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+                <div className="flex justify-between items-center pt-1.5 border-t border-black/20 dark:border-stone-700/60">
+                  <span className="font-black text-black dark:text-stone-300">Valor Total:</span>
+                  <span className="font-mono font-black text-sm text-emerald-800 dark:text-emerald-400">
                     {formatCurrencyBRL(viewingManualDoc.valor_total)}
                   </span>
                 </div>
@@ -11942,27 +12197,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
               {/* Lista de Itens do Documento */}
               {isLoadingViewingItems ? (
-                <div className="p-3 text-center text-xs text-stone-500 flex items-center justify-center space-x-2">
-                  <Clock className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                <div className="p-3 text-center text-xs text-black/70 flex items-center justify-center space-x-2">
+                  <Clock className="w-3.5 h-3.5 animate-spin text-emerald-700" />
                   <span>Carregando itens...</span>
                 </div>
               ) : viewingDocItems.length > 0 ? (
-                <div className="space-y-1.5">
-                  <span className="font-bold text-stone-700 dark:text-stone-300 block text-[11px] uppercase tracking-wider">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-2">
+                  <span className="font-black text-black dark:text-stone-300 block text-[11px] uppercase tracking-wider">
                     Itens da Entrada ({viewingDocItems.length}):
                   </span>
-                  <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden bg-stone-50/50 dark:bg-stone-800/40 max-h-40 overflow-y-auto divide-y divide-stone-200 dark:divide-stone-800">
+                  <div className="border border-black dark:border-stone-800 rounded-lg overflow-hidden bg-white dark:bg-stone-900 divide-y divide-gray-200 dark:divide-stone-800">
                     {viewingDocItems.map((it, itIdx) => (
                       <div key={`${it.id || 'view_item'}_${itIdx}`} className="p-2 text-[11px] flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                          <span className="font-bold text-black dark:text-stone-100 block">
                             {it.descricao}
                           </span>
-                          <span className="text-[10px] text-stone-500">
+                          <span className="text-[10px] text-gray-600 dark:text-stone-400">
                             {it.quantidade} {it.unidade || 'UN'} × {formatCurrencyBRL(it.valor_unitario)}
                           </span>
                         </div>
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
                           {formatCurrencyBRL(it.valor_total)}
                         </span>
                       </div>
@@ -11972,25 +12227,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               ) : null}
 
               {viewingManualDoc.observacoes && (
-                <div>
-                  <span className="font-bold text-stone-700 dark:text-stone-300 block mb-1">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl">
+                  <span className="font-black text-black dark:text-stone-300 block mb-1 uppercase text-[11px]">
                     Observações:
                   </span>
-                  <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl text-stone-700 dark:text-stone-300 whitespace-pre-line leading-relaxed">
+                  <div className="p-2.5 bg-white dark:bg-stone-900 border border-black/30 rounded-lg text-black dark:text-stone-300 whitespace-pre-line leading-relaxed">
                     {viewingManualDoc.observacoes}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
               <button
                 type="button"
                 id="btn-excluir-doc-detalhes"
                 onClick={() => {
                   setManualDocToDelete(viewingManualDoc);
                 }}
-                className="px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition cursor-pointer flex items-center space-x-1"
+                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Excluir Entrada</span>
@@ -12005,7 +12260,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     setViewingManualDoc(null);
                     handleOpenEditManualDoc(doc);
                   }}
-                  className="px-3.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
                   title="Editar dados ou continuar lançamento deste documento"
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -12015,7 +12270,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewingManualDoc(null)}
-                  className="px-4 py-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-black rounded-lg transition cursor-pointer"
                 >
                   Fechar
                 </button>
@@ -12031,8 +12286,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {manualDocToDelete && (
         <div 
           id="modal-confirmar-exclusao-entrada-manual"
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setManualDocToDelete(null)}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
@@ -12072,76 +12326,80 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* ========================================================================= */}
       {viewingLegacyDoc && (
         <div
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
-          onClick={() => setViewingLegacyDoc(null)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8 text-stone-900 dark:text-stone-100 space-y-4 p-5"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-between border-b border-black dark:border-stone-800 shrink-0">
               <div>
-                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                <h3 className="text-xs sm:text-sm font-black uppercase text-black dark:text-stone-100">
                   {viewingLegacyDoc.documentTypeLabel || 'Documento Fiscal'} Nº {viewingLegacyDoc.number}
                 </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white dark:bg-stone-800 border border-black/40 text-black dark:text-stone-200 inline-block">
                   {viewingLegacyDoc.status}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingLegacyDoc(null)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-stone-500">Fornecedor:</span>
-                <span className="font-bold">{viewingLegacyDoc.supplierName || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-500">Emissão:</span>
-                <span className="font-bold">{formatDateBR(viewingLegacyDoc.issueDate)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-500">Pagamento:</span>
-                <span className="font-bold">{viewingLegacyDoc.paymentMethod} ({viewingLegacyDoc.installmentsCount || 1}x)</span>
-              </div>
-              {(viewingLegacyDoc.vehiclePlate || viewingLegacyDoc.vehicleModel) && (
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
+              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-1.5 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-stone-500">Veículo / Frota:</span>
-                  <span className="font-bold text-indigo-700 dark:text-indigo-400">
-                    {viewingLegacyDoc.vehiclePlate || viewingLegacyDoc.vehicleModel}
+                  <span className="font-bold text-black/75 dark:text-stone-400">Fornecedor:</span>
+                  <span className="font-bold">{viewingLegacyDoc.supplierName || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold text-black/75 dark:text-stone-400">Emissão:</span>
+                  <span className="font-bold">{formatDateBR(viewingLegacyDoc.issueDate)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold text-black/75 dark:text-stone-400">Pagamento:</span>
+                  <span className="font-bold">{viewingLegacyDoc.paymentMethod} ({viewingLegacyDoc.installmentsCount || 1}x)</span>
+                </div>
+                {(viewingLegacyDoc.vehiclePlate || viewingLegacyDoc.vehicleModel) && (
+                  <div className="flex justify-between">
+                    <span className="font-bold text-black/75 dark:text-stone-400">Veículo / Frota:</span>
+                    <span className="font-bold text-indigo-800 dark:text-indigo-400">
+                      {viewingLegacyDoc.vehiclePlate || viewingLegacyDoc.vehicleModel}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-1.5 border-t border-black/20 dark:border-stone-700/60">
+                  <span className="font-black">Valor Total:</span>
+                  <span className="font-mono font-black text-sm text-emerald-800 dark:text-emerald-400">
+                    {formatCurrencyBRL(viewingLegacyDoc.totalAmount)}
                   </span>
                 </div>
-              )}
-              <div className="flex justify-between pt-1 border-t border-stone-200/60 dark:border-stone-700/60">
-                <span className="font-bold">Valor Total:</span>
-                <span className="font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-                  {formatCurrencyBRL(viewingLegacyDoc.totalAmount)}
-                </span>
               </div>
+
+              {viewingLegacyDoc.items && viewingLegacyDoc.items.length > 0 && (
+                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-2">
+                  <span className="text-[11px] font-black uppercase text-black dark:text-stone-200 block">Itens do Documento ({viewingLegacyDoc.items.length})</span>
+                  <div className="border border-black dark:border-stone-800 bg-white dark:bg-stone-900 rounded-lg divide-y divide-gray-200 dark:divide-stone-800">
+                    {viewingLegacyDoc.items.map((it, idx) => (
+                      <div key={`${it.id || 'leg_it'}_${idx}`} className="p-2 text-[11px] flex justify-between">
+                        <span className="font-bold truncate pr-2">{it.description} ({it.quantity} {it.unit})</span>
+                        <span className="font-mono font-bold text-emerald-700 shrink-0">{formatCurrencyBRL(it.totalPrice)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {viewingLegacyDoc.items && viewingLegacyDoc.items.length > 0 && (
-              <div className="border border-stone-200 dark:border-stone-800 rounded-xl max-h-40 overflow-y-auto divide-y divide-stone-200 dark:divide-stone-800">
-                {viewingLegacyDoc.items.map((it, idx) => (
-                  <div key={`${it.id || 'leg_it'}_${idx}`} className="p-2 text-[11px] flex justify-between">
-                    <span className="font-bold truncate pr-2">{it.description} ({it.quantity} {it.unit})</span>
-                    <span className="font-mono font-bold text-emerald-600 shrink-0">{formatCurrencyBRL(it.totalPrice)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
               <button
                 type="button"
                 onClick={() => setLegacyDocToDelete(viewingLegacyDoc)}
-                className="px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex items-center space-x-1"
+                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Excluir</span>
@@ -12149,7 +12407,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingLegacyDoc(null)}
-                className="px-4 py-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 rounded-xl transition cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 border border-black rounded-lg transition cursor-pointer"
               >
                 Fechar
               </button>
@@ -12160,8 +12418,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       {legacyDocToDelete && (
         <div
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setLegacyDocToDelete(null)}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 text-stone-900 dark:text-stone-100"
@@ -12200,57 +12457,58 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* ========================================================================= */}
       {viewingMdfeDoc && (
         <div
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
-          onClick={() => setViewingMdfeDoc(null)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8 text-stone-900 dark:text-stone-100 space-y-4 p-5"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-between border-b border-black dark:border-stone-800 shrink-0">
               <div>
-                <h3 className="text-sm font-bold">MDF-e Nº {viewingMdfeDoc.numero}</h3>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                <h3 className="text-xs sm:text-sm font-black uppercase">MDF-e Nº {viewingMdfeDoc.numero}</h3>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-white border border-black/40 text-black inline-block">
                   {viewingMdfeDoc.status}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingMdfeDoc(null)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 cursor-pointer"
+                className="p-1 rounded-lg text-black hover:bg-black/10 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-stone-500">Condutor:</span>
-                <span className="font-bold">{viewingMdfeDoc.motoristaNome || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-500">Veículo / Placa:</span>
-                <span className="font-bold">{viewingMdfeDoc.veiculoPlaca || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-500">Rota:</span>
-                <span className="font-bold">
-                  {viewingMdfeDoc.municipiosCarregamento || viewingMdfeDoc.ufCarregamento} → {viewingMdfeDoc.municipiosDescarregamento || viewingMdfeDoc.ufDescarregamento}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-stone-200/60 dark:border-stone-700/60">
-                <span className="font-bold">Valor da Carga:</span>
-                <span className="font-mono font-extrabold text-sm text-emerald-600">
-                  {formatCurrencyBRL(viewingMdfeDoc.valorTotalCarga)}
-                </span>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-[#cad4e6] dark:bg-stone-950">
+              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black rounded-xl space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="font-bold text-black/75">Condutor:</span>
+                  <span className="font-bold">{viewingMdfeDoc.motoristaNome || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold text-black/75">Veículo / Placa:</span>
+                  <span className="font-bold">{viewingMdfeDoc.veiculoPlaca || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold text-black/75">Rota:</span>
+                  <span className="font-bold">
+                    {viewingMdfeDoc.municipiosCarregamento || viewingMdfeDoc.ufCarregamento} → {viewingMdfeDoc.municipiosDescarregamento || viewingMdfeDoc.ufDescarregamento}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-1.5 border-t border-black/20 dark:border-stone-700/60">
+                  <span className="font-black">Valor da Carga:</span>
+                  <span className="font-mono font-black text-sm text-emerald-800">
+                    {formatCurrencyBRL(viewingMdfeDoc.valorTotalCarga)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
               <button
                 type="button"
                 onClick={() => setMdfeDocToDelete(viewingMdfeDoc)}
-                className="px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex items-center space-x-1"
+                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Excluir</span>
@@ -12258,7 +12516,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingMdfeDoc(null)}
-                className="px-4 py-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 rounded-xl transition cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 border border-black rounded-lg transition cursor-pointer"
               >
                 Fechar
               </button>
@@ -12269,8 +12527,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       {mdfeDocToDelete && (
         <div
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setMdfeDocToDelete(null)}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 text-stone-900 dark:text-stone-100"
@@ -12349,7 +12606,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* DIÁLOGO DE CONFIRMAÇÃO: DESEJA IMPRIMIR AS ETIQUETAS DE GÔNDOLA? */}
       {/* ========================================================================= */}
       {printPromptState && printPromptState.isOpen && (
-        <div className="fixed inset-0 z-[9999] bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
           <div 
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden p-5 animate-in zoom-in-95 duration-150 space-y-4"
             onClick={(e) => e.stopPropagation()}
@@ -12441,11 +12698,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isNotaSaidaModalOpen && (
         <div
           id="modal-lancar-nota-saida"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-1 sm:p-2 overflow-hidden animate-in fade-in"
-          onClick={() => setIsNotaSaidaModalOpen(false)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-1 sm:p-2 overflow-hidden animate-in fade-in"
         >
           <div
-            className="w-[96vw] max-w-[96vw] h-[96vh] max-h-[96vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Cabeçalho */}
@@ -12465,7 +12721,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setIsNotaSaidaModalOpen(false)}
+                onClick={handleAttemptCloseNotaSaidaModal}
                 className="p-1 rounded text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
                 title="Fechar"
               >
@@ -12474,7 +12730,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
 
             {/* Corpo */}
-            <form onSubmit={handleSaveNotaSaida} className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+            <form onSubmit={handleSaveNotaSaida} {...notaSaidaGuard.captureProps} className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
               <div ref={notaSaidaBodyRef} className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2 scrollbar-none">
                 {saidaFormError && (
                   <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-500 rounded-lg flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold uppercase">
@@ -13618,7 +13874,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       <table className="w-full text-[11px] border-collapse">
                         <thead>
                           <tr className="bg-slate-100 dark:bg-stone-800 border-b border-black/30 text-[10px] font-black uppercase">
-                            <th className="p-1.5 text-left min-w-[200px]">PRODUTO DO ESTOQUE / DESCRIÇÃO</th>
+                            <th className="p-1.5 text-left min-w-[200px]">
+                              {saidaTipoDocumento.includes('Remessa')
+                                ? 'ESTOQUE OU FROTA / DESCRIÇÃO DO ITEM'
+                                : 'PRODUTO DO ESTOQUE / DESCRIÇÃO'}
+                            </th>
                             <th className="p-1.5 text-center w-[85px]">NCM</th>
                             <th className="p-1.5 text-center w-[76px]">
                               <span className="inline-flex items-center justify-center gap-1">
@@ -13652,18 +13912,48 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             <tr key={item.id}>
                               <td className="p-1">
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-1">
-                                  <select
-                                    value={item.inventoryItemId || ''}
-                                    onChange={(e) => handleSelectSaidaInventoryProduct(idx, e.target.value)}
-                                    className="w-full px-1.5 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold uppercase"
-                                  >
-                                    <option value="">SELECIONAR DO ESTOQUE (OPCIONAL)...</option>
-                                    {localInventory.map(inv => (
-                                      <option key={inv.id} value={inv.id}>
-                                        {`${inv.name || inv.nome_comercial || inv.nome} (EST: ${inv.quantity ?? inv.quantidade_atual ?? 0} ${inv.unit || inv.unidade_medida || 'UN'})`.toUpperCase()}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {saidaTipoDocumento.includes('Remessa') ? (
+                                    <select
+                                      value={
+                                        item.fleetVehicleId
+                                          ? `fleet:${item.fleetVehicleId}`
+                                          : item.inventoryItemId
+                                            ? `inv:${item.inventoryItemId}`
+                                            : ''
+                                      }
+                                      onChange={(e) => handleSelectSaidaUnifiedRemessaItem(idx, e.target.value)}
+                                      className="w-full px-1.5 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold uppercase"
+                                    >
+                                      <option value="">Selecionar do Estoque ou Frota (Opcional)...</option>
+                                      <optgroup label="🚜 VEÍCULOS &amp; MÁQUINAS (GESTÃO DE FROTAS)">
+                                        {availableVehicles.map((veh) => (
+                                          <option key={`fleet_${veh.id}`} value={`fleet:${veh.id}`}>
+                                            {formatFleetOptionLabel(veh)}
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                      <optgroup label="📦 PRODUTOS &amp; PEÇAS (ESTOQUE)">
+                                        {localInventory.map(inv => (
+                                          <option key={`inv_${inv.id}`} value={`inv:${inv.id}`}>
+                                            {`${inv.name || inv.nome_comercial || inv.nome} (EST: ${inv.quantity ?? inv.quantidade_atual ?? 0} ${inv.unit || inv.unidade_medida || 'UN'})`.toUpperCase()}
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    </select>
+                                  ) : (
+                                    <select
+                                      value={item.inventoryItemId || ''}
+                                      onChange={(e) => handleSelectSaidaInventoryProduct(idx, e.target.value)}
+                                      className="w-full px-1.5 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold uppercase"
+                                    >
+                                      <option value="">SELECIONAR DO ESTOQUE (OPCIONAL)...</option>
+                                      {localInventory.map(inv => (
+                                        <option key={inv.id} value={inv.id}>
+                                          {`${inv.name || inv.nome_comercial || inv.nome} (EST: ${inv.quantity ?? inv.quantidade_atual ?? 0} ${inv.unit || inv.unidade_medida || 'UN'})`.toUpperCase()}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
                                   <input
                                     type="text"
                                     value={item.descricao}
@@ -13782,20 +14072,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       <div className="lg:col-span-6">
                         <label
                           htmlFor="saida-baixar-estoque-checkbox"
-                          className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 cursor-pointer"
+                          className={`flex items-center gap-2 p-2 rounded-lg border border-black/40 dark:border-stone-600 transition ${
+                            hasFleetAssetInSaidaItens || Boolean(editingNotaSaida?.estoqueBaixado)
+                              ? 'bg-slate-100 dark:bg-stone-800/80 opacity-75 cursor-not-allowed'
+                              : 'bg-white dark:bg-stone-900 cursor-pointer'
+                          }`}
                         >
                           <input
                             id="saida-baixar-estoque-checkbox"
                             type="checkbox"
-                            checked={saidaBaixarEstoque}
-                            disabled={Boolean(editingNotaSaida?.estoqueBaixado)}
+                            checked={hasFleetAssetInSaidaItens ? false : saidaBaixarEstoque}
+                            disabled={Boolean(editingNotaSaida?.estoqueBaixado) || hasFleetAssetInSaidaItens}
                             onChange={(e) => setSaidaBaixarEstoque(e.target.checked)}
-                            className="w-4 h-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                            className="w-4 h-4 accent-emerald-600 rounded cursor-pointer disabled:cursor-not-allowed shrink-0"
                           />
                           <span className="text-[11px] font-black text-black dark:text-stone-100 uppercase">
                             {editingNotaSaida?.estoqueBaixado
                               ? 'Baixa no Estoque já realizada para este documento'
-                              : 'Dar baixa automática destes itens no Estoque?'}
+                              : hasFleetAssetInSaidaItens
+                                ? 'Dar baixa automática destes itens no Estoque? (Desabilitado: Ativo Imobilizado da Frota)'
+                                : 'Dar baixa automática destes itens no Estoque?'}
                           </span>
                         </label>
                       </div>
@@ -14405,6 +14701,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 nfeReferenciada,
                                 veiculoPlaca: saidaVeiculoPlaca || nfeTransportadoraPlaca,
                                 motoristaNome: saidaMotoristaNome,
+                                ativosImobilizados: isRemessaRetornoSelected ? fleetAssetLabelsInSaidaItens : undefined,
                               })
                             );
                           }}
@@ -14566,7 +14863,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <div className="px-4 py-2 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsNotaSaidaModalOpen(false)}
+                  onClick={handleAttemptCloseNotaSaidaModal}
                   className="px-4 py-1.5 bg-white hover:bg-slate-100 text-black border border-black rounded-lg text-xs font-black uppercase transition cursor-pointer"
                 >
                   Cancelar
@@ -14602,18 +14899,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {viewingNotaSaida && (
         <div
           id="modal-espelho-nota-saida"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
-          onClick={() => setViewingNotaSaida(null)}
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div
             id="nota-saida-espelho-print"
-            className="bg-white dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl max-w-3xl w-full shadow-2xl overflow-hidden my-6 text-stone-900 dark:text-stone-100"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Cabeçalho do Espelho */}
-            <div className="px-5 py-3.5 bg-[#e0e6f1] dark:bg-stone-800 border-b border-black dark:border-stone-700 flex items-center justify-between">
+            <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-[#1e40af] text-white">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white border border-black/40 text-black">
                   ESPELHO DE DOCUMENTO FISCAL DE SAÍDA
                 </span>
                 <h3 className="text-sm sm:text-base font-black text-black dark:text-white mt-1 uppercase">
@@ -14624,13 +14920,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingNotaSaida(null)}
-                className="p-1 rounded-lg text-stone-500 hover:text-black dark:hover:text-white cursor-pointer"
+                className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-3 text-xs max-h-[75vh] overflow-y-auto">
+            <div className="p-5 space-y-3 text-xs flex-1 min-h-0 overflow-y-auto bg-[#cad4e6] dark:bg-stone-950">
               {/* Emitente */}
               <div className="p-3 bg-slate-50 dark:bg-stone-800/60 border border-slate-200 dark:border-stone-700 rounded-lg">
                 <span className="text-[10px] font-black uppercase text-slate-500 block mb-0.5">Emitente (Empresa)</span>
@@ -14882,11 +15178,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </div>
             </div>
 
-            <div className="px-5 py-3 bg-[#e0e6f1] dark:bg-stone-800 border-t border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2">
+            <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setNotaSaidaToDelete(viewingNotaSaida)}
-                className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Excluir</span>
@@ -14896,7 +15192,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handlePrintNotaSaida(viewingNotaSaida)}
-                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition cursor-pointer flex items-center space-x-1.5"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir Documento (DANFE/Espelho)</span>
@@ -14908,7 +15204,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     setViewingNotaSaida(null);
                     handleOpenEditNotaSaida(n);
                   }}
-                  className="px-3.5 py-1.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                  className="px-4 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer flex items-center space-x-1"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   <span>Editar</span>
@@ -14916,7 +15212,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewingNotaSaida(null)}
-                  className="px-4 py-1.5 text-xs font-bold text-black bg-white hover:bg-slate-100 border border-black/40 rounded-lg transition cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
                 >
                   Fechar
                 </button>
@@ -14932,8 +15228,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {notaSaidaToDelete && (
         <div
           id="modal-confirmar-exclusao-nota-saida"
-          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setNotaSaidaToDelete(null)}
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 text-stone-900 dark:text-stone-100"

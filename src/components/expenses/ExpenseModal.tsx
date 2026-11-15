@@ -29,6 +29,7 @@ import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCar
 import { formatCorporateCardDisplay, syncExpenseWithCardsAndBank } from '../../lib/cardFinancialSync';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
 import { SupplierModal } from '../suppliers/SupplierModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -612,9 +613,50 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setComplementaryPayments([]);
   }, [safeCategories, today, priorityBankAccountId]);
 
+  const expenseGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: editingExpense?.id || (isOpen ? 'new' : 'closed'),
+    snapshot: [
+      supplierId,
+      supplier,
+      amount,
+      categoryId,
+      dueDate,
+      paymentDate,
+      status,
+      paymentMethod,
+      bankAccountId,
+      corporateCardId,
+      paidByEmployeeId,
+      costCenterId,
+      machineryId,
+      readingKmOrHours,
+      invoiceNumber,
+      notes,
+      mealType,
+      selectedTargets,
+      expenseItems,
+      hasQuantity,
+      quantity,
+      unit,
+      unitPrice,
+      isInstallment,
+      installmentCount,
+      receiptName,
+      checkNumber,
+      checkIssuerName,
+      checkIssuerCpf,
+      checkBank,
+      checkAmount,
+      complementaryPayments,
+    ],
+  });
+
   const handleCloseModal = () => {
-    resetFormState();
-    onClose();
+    expenseGuard.confirmClose(() => {
+      resetFormState();
+      onClose();
+    });
   };
 
   // Load existing data if editing or reset completely if new/closed
@@ -1300,10 +1342,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div id="modal-nova-despesa" className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
+      <div id="modal-nova-despesa" className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
         <div
-          className="w-full max-w-4xl h-[95vh] flex flex-col mx-auto my-auto bg-[#cad4e6] border border-black rounded-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
-          style={{ height: '95vh' }}
+          className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
         
         {/* Header */}
@@ -1331,7 +1372,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         {/* Form - Altura Total 95vh com Scroll Interno e Rodapé Fixo */}
-        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col bg-[#cad4e6] text-black overflow-hidden">
+        <form onSubmit={handleSubmit} {...expenseGuard.captureProps} className="flex-1 min-h-0 flex flex-col bg-[#cad4e6] text-black overflow-hidden">
           {/* Bloco de Campos com Rolagem Vertical Reativa */}
           <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5 bg-[#cad4e6]">
           

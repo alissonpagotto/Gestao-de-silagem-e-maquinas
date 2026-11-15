@@ -3720,7 +3720,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           MODAL: REGISTRAR DEVOLUÇÃO DE FERRAMENTA (ABA 2)
          ===================================================================== */}
       {devolucaoTarget && (
-        <div className="no-print fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+        <div className="no-print fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl max-w-md w-full p-3.5 sm:p-4 shadow-2xl space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-stone-800">
               <div className="flex items-center gap-2">
@@ -3809,7 +3809,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           MODAL / DOCUMENTO A4: TERMO DE RESPONSABILIDADE E RETIRADA DE FERRAMENTA
          ===================================================================== */}
       {termoPrintItem && (
-        <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block">
           <style>{`
             @media print {
               body * {
@@ -3835,16 +3835,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             }
           `}</style>
 
-          <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:border-none">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between print:w-auto print:max-w-none print:h-auto print:max-h-none print:shadow-none print:border-none print:bg-white">
             {/* Barra de Topo do Modal (Oculta na Impressão) */}
-            <div className="no-print px-5 py-3.5 bg-zinc-900 text-white flex items-center justify-between shrink-0">
+            <div className="no-print px-5 py-3 bg-[#cad4e6] text-black border-b border-black flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <Printer className="w-5 h-5 text-amber-400" />
+                <Printer className="w-5 h-5 text-black" />
                 <div>
-                  <h3 className="text-sm sm:text-base font-black">
+                  <h3 className="text-sm sm:text-base font-black uppercase text-black">
                     Termo de Cautela — Visualização de Impressão (A4)
                   </h3>
-                  <p className="text-[11px] text-zinc-300">
+                  <p className="text-[11px] font-bold text-black/75">
                     Documento pronto para impressão em folha A4 ou salvamento em PDF
                   </p>
                 </div>
@@ -3854,7 +3854,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-stone-950 transition cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 transition cursor-pointer shadow-xs"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Imprimir / Gerar PDF (A4)</span>
@@ -3862,7 +3862,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setTermoPrintItem(null)}
-                  className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15 cursor-pointer"
+                  className="p-1.5 rounded-lg text-black hover:bg-black/10 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3870,7 +3870,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             </div>
 
             {/* Folha A4 Limpa */}
-            <div className="p-4 sm:p-8 overflow-y-auto bg-zinc-100 dark:bg-stone-950 print:p-0 print:bg-white">
+            <div className="p-4 sm:p-8 flex-1 min-h-0 overflow-y-auto bg-[#e0e6f1] dark:bg-stone-950 print:p-0 print:bg-white">
               <div
                 id="termo-cautela-a4-sheet"
                 className="bg-white text-black mx-auto max-w-[210mm] min-h-[260mm] p-8 sm:p-12 border border-zinc-300 shadow-md flex flex-col justify-between font-serif"
@@ -4035,7 +4035,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         createPortal(
           <div
             id="cupom-retirada-lote-overlay"
-            className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block"
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block"
           >
             <style>{`
               @media print {
@@ -4128,20 +4128,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
             <div
               id="cupom-retirada-lote-modal-box"
-              className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:border-none"
+              className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between print:w-auto print:max-w-none print:h-auto print:max-h-none print:shadow-none print:border-none print:bg-white"
             >
               {/* Barra de Topo do Modal (Oculta na Impressão via display: none) */}
               <div
                 id="cupom-retirada-lote-header-bar"
-                className="no-print print:hidden px-5 py-3.5 bg-zinc-900 text-white flex items-center justify-between shrink-0"
+                className="no-print print:hidden px-5 py-3 bg-[#cad4e6] text-black border-b border-black flex items-center justify-between shrink-0"
               >
                 <div className="flex items-center gap-2.5">
-                  <Printer className="w-5 h-5 text-amber-400" />
+                  <Printer className="w-5 h-5 text-black" />
                   <div>
-                    <h3 className="text-sm sm:text-base font-black">
+                    <h3 className="text-sm sm:text-base font-black uppercase text-black">
                       Cupom de Retirada / Cautela de Peças — Lote #{cupomLotePrint.loteId}
                     </h3>
-                    <p className="text-[11px] text-zinc-300">
+                    <p className="text-[11px] font-bold text-black/75">
                       Documento limpo com as peças vinculadas ao veículo e campo para assinatura física
                     </p>
                   </div>
@@ -4152,7 +4152,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     id="btn-imprimir-cupom-lote"
                     type="button"
                     onClick={() => handleDispararImpressaoCupomLote(cupomLotePrint)}
-                    className="no-print print:hidden inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-stone-950 transition cursor-pointer shadow-xs"
+                    className="no-print print:hidden inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 transition cursor-pointer shadow-xs"
                   >
                     <Printer className="w-4 h-4" />
                     <span>Imprimir Cupom (A4 / Térmica)</span>
@@ -4161,7 +4161,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     id="btn-fechar-cupom-lote"
                     type="button"
                     onClick={() => setCupomLotePrint(null)}
-                    className="no-print print:hidden p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15 cursor-pointer"
+                    className="no-print print:hidden p-1.5 rounded-lg text-black hover:bg-black/10 cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -4171,7 +4171,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               {/* Folha Limpa do Cupom de Retirada / Cautela */}
               <div
                 id="cupom-retirada-lote-scroll-wrap"
-                className="p-3 sm:p-6 overflow-y-auto bg-zinc-100 dark:bg-stone-950 print:p-0 print:bg-white"
+                className="p-3 sm:p-6 flex-1 min-h-0 overflow-y-auto bg-[#e0e6f1] dark:bg-stone-950 print:p-0 print:bg-white"
               >
                 <div
                   id="cupom-retirada-lote-a4-sheet"

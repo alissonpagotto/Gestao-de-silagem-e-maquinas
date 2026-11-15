@@ -62,23 +62,23 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4">
-      <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Cabeçalho do Modal - Moldura Metálica 3D Acetinada */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 sm:py-3 border-b border-slate-400 dark:border-stone-700 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-200 rounded-t-2xl">
+        {/* Cabeçalho do Modal */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-black bg-[#cad4e6] text-black shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <ForageHarvesterIcon className="w-5 h-4 text-slate-700 dark:text-stone-200" />
+            <div className="w-8 h-8 rounded-lg bg-[#e0e6f1] text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+              <ForageHarvesterIcon className="w-5 h-4 text-black" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black flex items-center gap-2">
                 <span>VINCULAR VEÍCULO DA FROTA</span>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/90 dark:bg-stone-800 text-slate-800 dark:text-stone-100 font-bold border border-slate-400 dark:border-stone-600 shadow-2xs">
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white text-black font-bold border border-black shadow-2xs">
                   {columnName}
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium mt-0.5">
+              <p className="text-[11px] text-slate-800 font-medium mt-0.5">
                 Selecione a máquina principal que operará nesta coluna da agenda.
               </p>
             </div>
@@ -86,29 +86,29 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4 text-black" />
           </button>
         </div>
 
         {/* Barra de Busca e Filtros de Categoria */}
-        <div className="p-3.5 bg-slate-50 dark:bg-stone-800/40 border-b border-slate-300 dark:border-stone-800 space-y-2.5">
+        <div className="p-3.5 sm:p-4 bg-[#e0e6f1] border-b border-black space-y-2.5 shrink-0">
           <div className="relative">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por prefixo (ex: FORR 05), modelo, placa ou nome..."
-              className="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+              className="w-full pl-9 pr-8 py-2 bg-white border border-black rounded-lg text-xs font-semibold text-black placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-black"
               autoFocus
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-black cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -119,10 +119,10 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             <button
               type="button"
               onClick={() => setSelectedCategory('todas')}
-              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer ${
+              className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer ${
                 selectedCategory === 'todas'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
+                  ? 'bg-white text-black font-bold border border-black shadow-2xs'
+                  : 'bg-[#cad4e6] border border-black/40 text-black hover:bg-white/70 font-semibold'
               }`}
             >
               Todas ({allAvailableVehicles.length})
@@ -130,48 +130,48 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             <button
               type="button"
               onClick={() => setSelectedCategory('forrageira')}
-              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
                 selectedCategory === 'forrageira'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
+                  ? 'bg-white text-black font-bold border border-black shadow-2xs'
+                  : 'bg-[#cad4e6] border border-black/40 text-black hover:bg-white/70 font-semibold'
               }`}
             >
-              <Scissors className="w-3 h-3 text-slate-600" />
+              <Scissors className="w-3 h-3 text-black" />
               <span>Forrageiras / Ensiladeiras</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedCategory('trator')}
-              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
                 selectedCategory === 'trator'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
+                  ? 'bg-white text-black font-bold border border-black shadow-2xs'
+                  : 'bg-[#cad4e6] border border-black/40 text-black hover:bg-white/70 font-semibold'
               }`}
             >
-              <Tractor className="w-3 h-3 text-slate-600" />
+              <Tractor className="w-3 h-3 text-black" />
               <span>Tratores</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedCategory('caminhao')}
-              className={`px-2.5 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer flex items-center gap-1 ${
                 selectedCategory === 'caminhao'
-                  ? 'bg-gradient-to-b from-slate-100 to-slate-200 dark:from-stone-800 dark:to-stone-750 text-slate-900 dark:text-white font-bold border border-slate-400 dark:border-stone-600 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 font-semibold'
+                  ? 'bg-white text-black font-bold border border-black shadow-2xs'
+                  : 'bg-[#cad4e6] border border-black/40 text-black hover:bg-white/70 font-semibold'
               }`}
             >
-              <Truck className="w-3 h-3 text-slate-600" />
+              <Truck className="w-3 h-3 text-black" />
               <span>Caminhões</span>
             </button>
           </div>
         </div>
 
         {/* Lista de Veículos para Seleção */}
-        <div className="flex-1 overflow-y-auto p-3.5 space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2.5 bg-[#cad4e6]">
           {filteredVehicles.length === 0 ? (
-            <div className="text-center py-10 text-xs text-stone-500 space-y-2">
-              <AlertCircle className="w-8 h-8 text-stone-400 mx-auto" />
-              <p className="font-semibold">Nenhum veículo encontrado com esse filtro.</p>
+            <div className="text-center py-10 text-xs text-black bg-[#e0e6f1] border border-black rounded-xl space-y-2">
+              <AlertCircle className="w-8 h-8 text-slate-700 mx-auto" />
+              <p className="font-bold">Nenhum veículo encontrado com esse filtro.</p>
             </div>
           ) : (
             filteredVehicles.map(veh => {
@@ -192,17 +192,17 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
                   }}
                   className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     isSelected
-                      ? 'border-[#2e65aa] bg-blue-50/70 dark:bg-blue-950/30 ring-2 ring-[#2e65aa]/30'
-                      : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50 shadow-2xs'
+                      ? 'border-black bg-white ring-2 ring-emerald-600/40 shadow-sm'
+                      : 'border-black bg-[#e0e6f1] hover:bg-white shadow-2xs'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`p-2 rounded-lg shrink-0 ${
+                    <div className={`p-2 rounded-lg border border-black shrink-0 ${
                       isForr 
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        ? 'bg-emerald-100 text-emerald-900'
                         : isTrat
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                        ? 'bg-amber-100 text-amber-900'
+                        : 'bg-blue-100 text-blue-900'
                     }`}>
                       {isForr ? (
                         <ForageHarvesterIcon className="w-6 h-5" />
@@ -215,20 +215,20 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-xs sm:text-sm text-stone-900 dark:text-stone-100 truncate">
+                        <span className="font-black text-xs sm:text-sm text-black truncate">
                           {veh.fleetNumber ? `[${veh.fleetNumber}] ` : ''}{veh.name}
                         </span>
                         {isSelected && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#2e65aa] text-white">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white border border-emerald-800">
                             Vinculado
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-stone-500 dark:text-stone-400 flex-wrap">
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-800 flex-wrap font-medium">
                         {veh.model && <span>{veh.model}</span>}
                         {veh.licensePlateOrSerial && (
-                          <span className="font-mono font-bold bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded text-stone-700 dark:text-stone-300">
+                          <span className="font-mono font-bold bg-white border border-black/40 px-1.5 py-0.5 rounded text-black">
                             Placa/Série: {veh.licensePlateOrSerial}
                           </span>
                         )}
@@ -239,10 +239,10 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
 
                   <button
                     type="button"
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black shrink-0 transition ${
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition border ${
                       isSelected
-                        ? 'bg-[#2e65aa] text-white'
-                        : 'bg-stone-100 hover:bg-[#2e65aa] hover:text-white text-stone-800 dark:bg-stone-800 dark:text-stone-200'
+                        ? 'bg-emerald-600 text-white border-emerald-800'
+                        : 'bg-white hover:bg-emerald-600 hover:text-white text-black border-black'
                     }`}
                   >
                     {isSelected ? 'Selecionado' : 'Selecionar'}
@@ -254,12 +254,12 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
         </div>
 
         {/* Rodapé */}
-        <div className="px-4 py-2.5 bg-stone-100 dark:bg-stone-800/80 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between text-xs text-stone-600 dark:text-stone-400">
-          <span>{filteredVehicles.length} veículos listados</span>
+        <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-between text-xs text-black shrink-0">
+          <span className="font-bold">{filteredVehicles.length} veículos listados</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200 hover:bg-stone-50 cursor-pointer"
+            className="px-4 py-1.5 bg-white border border-black rounded-lg text-xs font-bold text-black hover:bg-gray-100 cursor-pointer"
           >
             Fechar
           </button>

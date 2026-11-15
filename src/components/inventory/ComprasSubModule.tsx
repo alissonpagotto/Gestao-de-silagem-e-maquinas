@@ -1057,24 +1057,24 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
       {/* 1. MODAL DE SELEÇÃO DE ITENS CRÍTICOS (TAMANHO PADRÃO OURO DE JANELA AMPLA) */}
       {isCriticalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-100">
-          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 animate-in fade-in duration-100">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden global shadow-2xl text-black">
             
-            {/* CABEÇALHO MDI TRIDIMENSIONAL ACETINADO EM CAIXA ALTA */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-900 text-white px-4 py-3 border-b border-slate-700 shadow-md flex items-center justify-between shrink-0">
+            {/* CABEÇALHO OFICIAL ALTO CONTRASTE */}
+            <div className="bg-[#cad4e6] text-black px-4 py-3 border-b border-black flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <span className="text-base">📋</span>
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-100">
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-black">
                   SELECIONAR PRODUTOS COM ESTOQUE BAIXO
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-black border border-black">
                   {belowStockItems.length} ITENS CRÍTICOS
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCriticalModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/10 transition cursor-pointer"
+                className="text-black hover:bg-black/10 p-1 rounded transition cursor-pointer"
                 title="Fechar Janela"
               >
                 <X className="w-5 h-5" />
@@ -1082,7 +1082,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
             </div>
 
             {/* BARRA DE PESQUISA E SELEÇÃO RÁPIDA NO TOPO DO MIOLO */}
-            <div className="bg-slate-100 px-4 py-2 border-b border-slate-300 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="bg-[#e0e6f1] px-4 py-2 border-b border-black flex flex-wrap items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -1098,32 +1098,32 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
                     });
                     setCriticalSelectedMap(next);
                   }}
-                  className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase text-slate-700 hover:text-slate-900 select-none"
+                  className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase text-black hover:text-black/80 select-none"
                 >
                   {belowStockItems.length > 0 && belowStockItems.every(i => criticalSelectedMap[i.id || String(i.code || (i as any).codigo_produto)] === true) ? (
-                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    <CheckSquare className="w-4 h-4 text-emerald-700" />
                   ) : (
-                    <Square className="w-4 h-4 text-slate-400" />
+                    <Square className="w-4 h-4 text-black/60" />
                   )}
                   <span>SELECIONAR TODOS ({belowStockItems.length})</span>
                 </button>
               </div>
 
               <div className="relative w-64">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-black/60 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={criticalSearchTerm}
                   onChange={(e) => setCriticalSearchTerm(e.target.value)}
                   placeholder="FILTRAR CRÍTICOS..."
-                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-slate-300 bg-white text-slate-800 font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
+                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-black/50 bg-white text-black font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
                 />
               </div>
             </div>
 
             {/* MIOLO: TABELA DE PRODUTOS COM ESTOQUE BAIXO */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 bg-slate-50">
-              <table className="w-full text-left border-collapse text-xs border border-slate-300 rounded shadow-xs bg-white">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto p-3 sm:p-4 bg-[#cad4e6]">
+              <table className="w-full text-left border-collapse text-xs border border-black rounded shadow-xs bg-white">
                 <thead className="bg-slate-200 text-[10px] font-black text-slate-700 uppercase tracking-wide border-b border-slate-300 sticky top-0 z-10">
                   <tr>
                     <th className="py-2 px-3 w-12 text-center">SEL.</th>
@@ -1224,9 +1224,9 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
             </div>
 
             {/* RODAPÉ DO MODAL COM BOTÃO VERDE DE INSERÇÃO */}
-            <div className="bg-slate-100 px-4 py-3 border-t border-slate-300 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <div className="text-xs font-bold uppercase text-slate-600">
-                <span className="font-mono text-emerald-700 font-black text-sm">
+            <div className="bg-[#cad4e6] px-4 py-3 border-t border-black flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="text-xs font-bold uppercase text-black">
+                <span className="font-mono text-emerald-800 font-black text-sm">
                   {Object.values(criticalSelectedMap).filter(Boolean).length}
                 </span> PRODUTO(S) SELECIONADO(S) PARA O RASCUNHO
               </div>
@@ -1235,7 +1235,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCriticalModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold uppercase rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold uppercase rounded-lg bg-white hover:bg-gray-100 text-black border border-black transition cursor-pointer"
                 >
                   CANCELAR
                 </button>
@@ -1243,10 +1243,10 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
                   type="button"
                   onClick={handleInsertSelectedCritical}
                   disabled={Object.values(criticalSelectedMap).filter(Boolean).length === 0}
-                  className={`px-5 py-2 text-xs font-black uppercase rounded transition active:scale-95 flex items-center gap-1.5 tracking-wider shadow-md ${
+                  className={`px-5 py-2 text-xs font-black uppercase rounded-lg transition active:scale-95 flex items-center gap-1.5 tracking-wider shadow-md border ${
                     Object.values(criticalSelectedMap).filter(Boolean).length === 0
-                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                      ? 'bg-slate-300 text-slate-500 border-slate-400 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-800 cursor-pointer'
                   }`}
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
@@ -1277,7 +1277,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
       {/* 3. MODAL CUSTOMIZADO ANTI-SANDBOX DE CONFIRMAÇÃO PARA LIMPAR LISTA */}
       {showClearConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-100">
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl max-w-md w-full p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-2">
               <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
@@ -1326,7 +1326,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
       {/* 4. MODAL CUSTOMIZADO: SALVAMENTO DE LISTA DE COMPRAS NO HISTÓRICO POR NOME */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-100">
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl max-w-lg w-full p-5 space-y-4">
             
             {/* CABEÇALHO DO MODAL */}
@@ -1408,24 +1408,24 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
       {/* 5. MODAL 2: CENTRAL DE LISTAS DE COMPRAS ARQUIVADAS (PADRÃO OURO DE JANELA AMPLA) */}
       {isHistoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-100">
-          <div className="w-full max-w-5xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 animate-in fade-in duration-100">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl text-black dark:text-stone-100">
             
-            {/* CABEÇALHO MDI TRIDIMENSIONAL ACETINADO */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-900 text-white px-4 py-3 border-b border-slate-700 shadow-md flex items-center justify-between shrink-0">
+            {/* CABEÇALHO OFICIAL ALTO CONTRASTE */}
+            <div className="bg-[#cad4e6] text-black px-4 py-3 border-b border-black flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <FolderOpen className="w-5 h-5 text-amber-400" />
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-100">
+                <FolderOpen className="w-5 h-5 text-sky-700" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-black">
                   CENTRAL DE LISTAS DE COMPRAS ARQUIVADAS
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-black border border-black">
                   {historicoCompras.length} LISTAS NO BANCO
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/10 transition cursor-pointer"
+                className="text-black hover:bg-black/10 p-1 rounded transition cursor-pointer"
                 title="Fechar Janela"
               >
                 <X className="w-5 h-5" />
@@ -1433,24 +1433,24 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
             </div>
 
             {/* BARRA DE PESQUISA DENTRO DO MODAL */}
-            <div className="bg-slate-100 dark:bg-stone-850 px-4 py-2 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
-              <div className="text-xs font-bold uppercase text-slate-600 dark:text-stone-300">
+            <div className="bg-[#e0e6f1] dark:bg-stone-850 px-4 py-2 border-b border-black dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
+              <div className="text-xs font-bold uppercase text-black dark:text-stone-300">
                 SELECIONE UMA LISTA PARA RECUPERAR ITENS E QUANTIDADES NO BLOCO DE COMPRAS:
               </div>
               <div className="relative w-64">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-black/60 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value.toUpperCase())}
                   placeholder="FILTRAR LISTAS..."
-                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-slate-800 dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
+                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-black/50 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
                 />
               </div>
             </div>
 
             {/* MIOLO: LISTAGEM DE LISTAS ARQUIVADAS EM TABELA SLIM HORIZONTAL ZEBRADA */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto bg-slate-50 dark:bg-stone-900 border-b border-slate-300 dark:border-stone-700">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-white dark:bg-stone-900 border-b border-black dark:border-stone-700">
               {filteredHistory.length === 0 ? (
                 <div className="py-16 text-center text-slate-400 dark:text-stone-500 uppercase font-bold text-xs">
                   <FolderOpen className="w-10 h-10 text-slate-300 dark:text-stone-600 mx-auto mb-2" />
@@ -1552,14 +1552,14 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
             </div>
 
             {/* RODAPÉ DO MODAL COM BOTÃO FECHAR COLADO NA BASE */}
-            <div className="bg-slate-100 dark:bg-stone-850 px-4 py-2 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between shrink-0">
-              <div className="text-[11px] text-slate-500 dark:text-stone-400 font-bold uppercase">
+            <div className="bg-[#cad4e6] dark:bg-stone-850 px-4 py-2.5 border-t border-black dark:border-stone-700 flex items-center justify-between shrink-0">
+              <div className="text-[11px] text-black/75 dark:text-stone-400 font-bold uppercase">
                 * O BANCO DE LISTAS É PERMANENTE E INDEPENDENTE DO RASCUNHO TEMPORÁRIO.
               </div>
               <button
                 type="button"
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="px-5 py-1.5 text-xs font-black uppercase rounded bg-slate-800 hover:bg-slate-900 text-white transition active:scale-95 cursor-pointer shadow-xs"
+                className="px-5 py-1.5 text-xs font-black uppercase rounded-lg bg-white hover:bg-gray-100 text-black border border-black transition active:scale-95 cursor-pointer shadow-xs"
               >
                 FECHAR
               </button>

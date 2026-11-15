@@ -349,26 +349,25 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
-      onClick={onClose}
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
     >
       <div
-        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[95vh] max-h-[95vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ============================================================== */}
-        {/* 1. CABEÇALHO 3D METÁLICO ACETINADO COM ACABAMENTO TRIDIMENSIONAL */}
+        {/* 1. CABEÇALHO OFICIAL ALTO CONTRASTE */}
         {/* ============================================================== */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between shrink-0 rounded-t-2xl">
+        <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Printer className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+              <Printer className="w-4 h-4 text-sky-700 dark:text-sky-400 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                 GERENCIADOR DE FILA DE IMPRESSÃO
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+              <p className="text-[11px] text-black/75 dark:text-stone-400 font-bold">
                 Insira produtos na fila de impressão com a mesma agilidade e precisão do PDV Frente de Caixa
               </p>
             </div>
@@ -376,22 +375,22 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4 text-black dark:text-stone-200" />
           </button>
         </div>
 
         {/* ============================================================== */}
-        {/* CORPO DO MODAL - BLINDAGEM SLIM DESIGN (ZERO ROLAGEM GERAL)     */}
+        {/* CORPO DO MODAL                                                 */}
         {/* ============================================================== */}
-        <div className="p-3 sm:p-4 space-y-3 overflow-hidden flex-1 flex flex-col min-h-0">
+        <div className="p-3 sm:p-4 space-y-3 overflow-hidden flex-1 flex flex-col min-h-0 bg-[#cad4e6]">
           
           {/* ============================================================== */}
           {/* 2. CONJUNTO DE INPUTS DE ENTRADA SUPERIOR (IGUAL AO PDV)       */}
           {/* ============================================================== */}
-          <div className="bg-slate-50 dark:bg-stone-800/60 p-2.5 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+          <div className="bg-[#e0e6f1] dark:bg-stone-800/60 p-2.5 rounded-xl border border-black dark:border-stone-700 shadow-2xs shrink-0">
             <div className="grid grid-cols-12 gap-2 items-end">
               
               {/* Input 'QTDE ETIQUETAS' */}
@@ -568,7 +567,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
           {/* ============================================================== */}
           {/* 3. GRADE CENTRAL DE ITENS ADICIONADOS À FILA DE IMPRESSÃO       */}
           {/* ============================================================== */}
-          <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs flex-1 max-h-[calc(100vh-210px)] overflow-y-auto scrollbar-none flex flex-col min-h-0">
+          <div className="border border-black dark:border-stone-700 rounded-xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs flex-1 overflow-y-auto scrollbar-none flex flex-col min-h-0">
             <div className="overflow-x-auto overflow-y-auto scrollbar-none flex-1 min-h-0">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-100 dark:bg-stone-800/90 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-10">
@@ -696,19 +695,19 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
         </div>
 
         {/* ============================================================== */}
-        {/* 4. RODAPÉ 3D METÁLICO ACETINADO COM GATILHO DE IMPRESSÃO       */}
+        {/* 4. RODAPÉ OFICIAL ALTO CONTRASTE COM GATILHO DE IMPRESSÃO */}
         {/* ============================================================== */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0 rounded-b-2xl">
+        <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
           <div className="flex items-center space-x-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-stone-300">
-              FILA: <strong className="text-slate-900 dark:text-white font-mono">{totalProductsInQueue}</strong> {totalProductsInQueue === 1 ? 'PRODUTO' : 'PRODUTOS'} | TOTAL: <strong className="text-sky-600 dark:text-sky-400 font-mono">{totalLabelsToPrint}</strong> {totalLabelsToPrint === 1 ? 'ETIQUETA' : 'ETIQUETAS'}
+            <span className="text-xs font-bold uppercase tracking-wider text-black dark:text-stone-300">
+              FILA: <strong className="text-black dark:text-white font-mono">{totalProductsInQueue}</strong> {totalProductsInQueue === 1 ? 'PRODUTO' : 'PRODUTOS'} | TOTAL: <strong className="text-sky-800 dark:text-sky-400 font-mono">{totalLabelsToPrint}</strong> {totalLabelsToPrint === 1 ? 'ETIQUETA' : 'ETIQUETAS'}
             </span>
 
             {queue.length > 0 && (
               <button
                 type="button"
                 onClick={handleClearQueue}
-                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline cursor-pointer flex items-center space-x-1"
+                className="text-[11px] font-bold text-rose-700 hover:text-rose-800 dark:text-rose-400 hover:underline cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3 h-3" />
                 <span>LIMPAR FILA</span>
@@ -720,7 +719,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95"
+              className="px-3.5 py-1.5 text-xs font-bold text-black dark:text-stone-300 border border-black dark:border-stone-700 bg-white hover:bg-gray-100 rounded-lg transition cursor-pointer active:scale-95"
             >
               CANCELAR
             </button>
@@ -729,7 +728,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
               type="button"
               disabled={queue.length === 0}
               onClick={() => onAdvanceToPrint(queue)}
-              className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>AVANÇAR PARA IMPRESSÃO</span>

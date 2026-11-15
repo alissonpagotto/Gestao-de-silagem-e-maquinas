@@ -400,6 +400,110 @@ export interface ReverseCepSearchResult {
   message?: string;
 }
 
+export interface IbgeCitiesResult {
+  success: boolean;
+  cities: string[];
+  message?: string;
+}
+
+const ibgeCitiesCache = new Map<string, string[]>();
+
+export async function fetchCitiesByUf(uf: string): Promise<IbgeCitiesResult> {
+  const cleanUf = (uf || '').trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  if (cleanUf.length !== 2) {
+    return { success: false, cities: [], message: 'UF inválida.' };
+  }
+
+  const cached = ibgeCitiesCache.get(cleanUf);
+  if (cached && cached.length > 0) {
+    return { success: true, cities: cached };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const url = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${encodeURIComponent(cleanUf)}/municipios?orderBy=nome`;
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return {
+        success: false,
+        cities: [],
+        message: 'Não foi possível carregar os municípios do IBGE no momento.',
+      };
+    }
+
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      return { success: false, cities: [], message: 'Resposta inesperada do serviço do IBGE.' };
+    }
+
+    const cities = Array.from(
+      new Set(
+        data
+          .map((item: any) => String(item?.nome || '').trim())
+          .filter((name: string) => name.length > 0)
+      )
+    ).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+
+    ibgeCitiesCache.set(cleanUf, cities);
+    return { success: true, cities };
+  } catch {
+    return {
+      success: false,
+      cities: [],
+      message: 'Falha de conexão ao carregar municípios do IBGE. Você pode digitar o nome da cidade manualmente.',
+    };
+  }
+}
+
+function normalizeViaCepItems(data: any[], fallbackCity: string, fallbackUf: string): ReverseCepItem[] {
+  const seen = new Set<string>();
+  const normalized: ReverseCepItem[] = [];
+
+  for (const entry of data) {
+    if (!entry || !entry.cep) continue;
+    const item: ReverseCepItem = {
+      cep: formatCep(entry.cep),
+      logradouro: String(entry.logradouro || '').trim(),
+      complemento: String(entry.complemento || '').trim(),
+      bairro: String(entry.bairro || '').trim(),
+      localidade: String(entry.localidade || fallbackCity).trim(),
+      uf: String(entry.uf || fallbackUf).trim().toUpperCase(),
+    };
+    const key = `${item.cep}|${item.logradouro.toLowerCase()}|${item.bairro.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      normalized.push(item);
+    }
+  }
+
+  return normalized;
+}
+
+async function queryViaCepTerm(
+  cleanUf: string,
+  cleanCity: string,
+  term: string,
+  timeoutMs = 7000
+): Promise<{ ok: boolean; items: ReverseCepItem[] }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const url = `https://viacep.com.br/ws/${encodeURIComponent(cleanUf)}/${encodeURIComponent(cleanCity)}/${encodeURIComponent(term)}/json/`;
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return { ok: false, items: [] };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { ok: true, items: [] };
+    return { ok: true, items: normalizeViaCepItems(data, cleanCity, cleanUf) };
+  } catch {
+    return { ok: false, items: [] };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function searchCepByAddress(
   uf: string,
   city: string,
@@ -419,53 +523,90 @@ export async function searchCepByAddress(
     return { success: false, items: [], message: 'Informe ao menos 3 caracteres no campo Rua / Logradouro.' };
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-    const url = `https://viacep.com.br/ws/${encodeURIComponent(cleanUf)}/${encodeURIComponent(cleanCity)}/${encodeURIComponent(cleanStreet)}/json/`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+  const res = await queryViaCepTerm(cleanUf, cleanCity, cleanStreet, 7000);
+  if (!res.ok) {
+    return {
+      success: false,
+      items: [],
+      message: 'Não foi possível consultar o ViaCEP no momento. Tente novamente.',
+    };
+  }
 
-    if (!res.ok) {
-      return {
-        success: false,
-        items: [],
-        message: 'Não foi possível consultar o ViaCEP no momento. Tente novamente.',
-      };
-    }
-
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      return {
-        success: true,
-        items: [],
-        message: "Nenhum CEP encontrado. Verifique a grafia ou tente 'Centro' / avenida principal.",
-      };
-    }
-
-    const items: ReverseCepItem[] = data
-      .filter((entry: any) => entry && entry.cep)
-      .map((entry: any) => ({
-        cep: formatCep(entry.cep),
-        logradouro: String(entry.logradouro || '').trim(),
-        complemento: String(entry.complemento || '').trim(),
-        bairro: String(entry.bairro || '').trim(),
-        localidade: String(entry.localidade || cleanCity).trim(),
-        uf: String(entry.uf || cleanUf).trim().toUpperCase(),
-      }));
-
+  if (res.items.length === 0) {
     return {
       success: true,
-      items,
-      message: items.length === 0 ? 'Nenhum CEP encontrado para os critérios informados.' : undefined,
+      items: [],
+      message: "Nenhum CEP encontrado. Verifique a grafia ou limpe o campo Rua para listar vias principais da cidade.",
     };
-  } catch {
+  }
+
+  return {
+    success: true,
+    items: res.items,
+  };
+}
+
+export async function searchCepByCity(
+  uf: string,
+  city: string
+): Promise<ReverseCepSearchResult> {
+  const cleanUf = (uf || '').trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const cleanCity = (city || '').trim();
+
+  if (cleanUf.length !== 2) {
+    return { success: false, items: [], message: 'Selecione uma UF válida.' };
+  }
+  if (cleanCity.length < 3) {
+    return { success: false, items: [], message: 'Selecione ou informe o nome da Cidade / Município.' };
+  }
+
+  const fallbackTerms = ['Centro', 'Rua', 'Avenida'];
+  const responses = await Promise.all(
+    fallbackTerms.map((term) => queryViaCepTerm(cleanUf, cleanCity, term, 7500))
+  );
+
+  const anySuccess = responses.some((r) => r.ok);
+  if (!anySuccess) {
     return {
       success: false,
       items: [],
       message: 'Falha de conexão ao consultar ViaCEP. Verifique sua internet.',
     };
   }
+
+  const seen = new Set<string>();
+  const merged: ReverseCepItem[] = [];
+  for (const r of responses) {
+    for (const item of r.items) {
+      const key = `${item.cep}|${item.logradouro.toLowerCase()}|${item.bairro.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(item);
+      }
+    }
+  }
+
+  merged.sort((a, b) => {
+    const aIsGeneral = a.logradouro ? 1 : 0;
+    const bIsGeneral = b.logradouro ? 1 : 0;
+    if (aIsGeneral !== bIsGeneral) return aIsGeneral - bIsGeneral;
+    const byBairro = a.bairro.localeCompare(b.bairro, 'pt-BR', { sensitivity: 'base' });
+    if (byBairro !== 0) return byBairro;
+    return a.logradouro.localeCompare(b.logradouro, 'pt-BR', { sensitivity: 'base' });
+  });
+
+  if (merged.length === 0) {
+    return {
+      success: true,
+      items: [],
+      message: `Nenhum CEP encontrado automaticamente para ${cleanCity}/${cleanUf}. Tente informar parte da rua.`,
+    };
+  }
+
+  return {
+    success: true,
+    items: merged,
+  };
 }
 
 // ==========================================

@@ -426,8 +426,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
       {/* Modal Afastamento - Moldura Metálica 3D Acetinada */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden overflow-y-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden overflow-y-hidden mx-auto my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between">
             
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 rounded-t-2xl shrink-0">

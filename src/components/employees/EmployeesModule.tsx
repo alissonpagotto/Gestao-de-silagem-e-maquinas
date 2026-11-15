@@ -81,6 +81,7 @@ import {
   generateAsoGuideWhatsAppText,
 } from './asoGuideUtils';
 import { EmployeeListPrintModal } from './EmployeeListPrintModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 
 const STORAGE_KEYS = {
@@ -641,6 +642,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
+  const employeeGuard = useModalUnsavedGuard({
+    isOpen: isModalOpen,
+    resetKey: editingEmployee?.id || (isModalOpen ? 'new' : 'closed'),
+  });
 
   // Dynamic Options with persistence
   const [regTypeOptions, setRegTypeOptions] = useState<string[]>(() => {
@@ -2970,18 +2976,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   const handleCloseModal = () => {
-    setRoleSidePanelTarget(null);
-    setRoleSearchQuery('');
-    setAsoFile(null);
-    setContratoFile(null);
-    setCnhFile(null);
-    setFichaFile(null);
-    setAdmissionExamDoc(null);
-    setExperienceContractDoc(null);
-    setGeneralDocs(null);
-    setSignedRegistrationDoc(null);
-    setEditingEmployee(null);
-    setIsModalOpen(false);
+    employeeGuard.confirmClose(() => {
+      setRoleSidePanelTarget(null);
+      setRoleSearchQuery('');
+      setAsoFile(null);
+      setContratoFile(null);
+      setCnhFile(null);
+      setFichaFile(null);
+      setAdmissionExamDoc(null);
+      setExperienceContractDoc(null);
+      setGeneralDocs(null);
+      setSignedRegistrationDoc(null);
+      setEditingEmployee(null);
+      setIsModalOpen(false);
+    });
   };
 
   const getCnhBadge = (emp: Employee) => {
@@ -3815,10 +3823,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
       {/* Modal Cadastro/Edição de Colaborador - Padrão 3D Acetinado Slim */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden overflow-y-hidden">
-          <div className={`bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl w-full shadow-2xl overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[94vh] my-auto ${
-            roleSidePanelTarget ? 'max-w-6xl' : 'max-w-4xl'
-          } transition-all duration-300`}>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 no-print overflow-hidden overflow-y-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between my-auto transition-all duration-300">
             
             {/* Header - Tema Oficial AgroControl */}
             <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between shrink-0 rounded-t-2xl">
@@ -3912,7 +3918,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
             <div className="flex-1 flex overflow-hidden relative">
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <form id="employee-modal-form" onSubmit={handleSave} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#cad4e6] dark:bg-stone-900 text-xs">
+              <form id="employee-modal-form" onSubmit={handleSave} {...employeeGuard.captureProps} className="p-3 sm:p-4 space-y-3.5 overflow-y-auto flex-1 scrollbar-none bg-[#cad4e6] dark:bg-stone-900 text-xs">
               
               {/* SECTION 1: DADOS BÁSICOS & FOTO */}
               <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3 space-y-2.5">

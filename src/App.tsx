@@ -1689,26 +1689,46 @@ export default function App() {
   const [activeSession, setActiveSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
-  // Controle de Janela Desktop (Maximizar tela cheia e Minimizar painel - Modo Tela Cheia Padrão Obrigatório)
-  const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('agrocontrol_window_maximized');
-      return stored !== null ? stored === 'true' : true;
-    } catch {
-      return true;
-    }
+  // Controle de Exibição em 2 Modos Estritos: Tela Cheia do Monitor (requestFullscreen) ou 100% da Janela do Navegador
+  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState<boolean>(() => {
+    if (typeof document === 'undefined') return false;
+    return !!document.fullscreenElement;
   });
+  const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null);
 
-  const toggleWindowMaximize = () => {
-    setIsWindowMaximized(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('agrocontrol_window_maximized', String(next));
-      } catch {}
-      return next;
-    });
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsBrowserFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleEnterFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      setFullscreenNotice(null);
+    } catch {
+      setFullscreenNotice('O ambiente atual bloqueou a tela cheia automática. Pressione F11 no teclado para ativar a Tela Cheia Total.');
+      window.setTimeout(() => setFullscreenNotice(null), 5000);
+    }
   };
-  const [isWindowMinimized, setIsWindowMinimized] = useState(false);
+
+  const handleExitFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+      setFullscreenNotice(null);
+    } catch {
+      setFullscreenNotice('Pressione F11 para retornar ao modo janela padrão do navegador.');
+      window.setTimeout(() => setFullscreenNotice(null), 5000);
+    }
+  };
   // Controle do Modo Expansão Tela Cheia do PDV (Foco Total de Caixa)
   const [isPdvFullscreen, setIsPdvFullscreen] = useState(false);
 
@@ -3602,16 +3622,12 @@ export default function App() {
   return (
     <div 
       id="desktop-outer-frame-container"
-      className={`h-screen w-screen overflow-hidden bg-[#edf4ff] dark:bg-[#0c0d0e] ${isPdvFullscreen || isWindowMaximized ? 'p-0' : 'p-2.5 sm:p-3 lg:p-3.5'} flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100 transition-all duration-150`}
+      className="h-screen w-screen m-0 p-0 rounded-none overflow-hidden bg-[#edf4ff] dark:bg-[#0c0d0e] flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100"
     >
-      {/* Moldura da Janela Desktop (Container Principal de Software) */}
+      {/* Moldura Principal do Sistema (Sempre 100% da Área Disponível, sem margens ou bordas arredondadas) */}
       <div 
         id="desktop-window-mother-frame"
-        className={`flex-1 w-full h-full min-h-0 flex flex-col ${
-          isPdvFullscreen || isWindowMaximized 
-            ? 'rounded-none border-0 shadow-none' 
-            : 'rounded-lg border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15),0_12px_28px_-6px_rgba(0,0,0,0.25)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1),inset_-1px_-1px_0px_rgba(0,0,0,0.4),0_12px_28px_-6px_rgba(0,0,0,0.6)]'
-        } bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-925 dark:to-stone-950 overflow-hidden relative transition-all duration-150 ${isWindowMinimized ? 'max-h-[64px] flex-none' : ''}`}
+        className="flex-1 w-full h-full min-h-0 flex flex-col rounded-none border-0 shadow-none bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-925 dark:to-stone-950 overflow-hidden relative"
       >
         {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
         {!isPdvFullscreen && (
@@ -3702,43 +3718,32 @@ export default function App() {
             {/* Separador sutil */}
             <div className="h-3 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
 
-            {/* Trio Clássico de Mini-Botões de Controle da Janela Desktop */}
+            {/* Botões de Controle de Tela Cheia / Modo Navegador */}
             <div className="flex items-center space-x-0.5 shrink-0 -mr-1">
-              {/* Minimizar [ _ ] */}
+              {/* Sair da Tela Cheia / Modo Navegador [ — ] */}
               <button
                 type="button"
-                onClick={() => setIsWindowMinimized(prev => !prev)}
-                className={`w-5.5 h-4.5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
-                  isWindowMinimized
-                    ? 'bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200'
-                    : 'text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700'
-                }`}
-                title={isWindowMinimized ? "Restaurar Janela" : "Minimizar Janela"}
-                aria-label="Minimizar Janela"
+                onClick={handleExitFullscreen}
+                className="w-5.5 h-4.5 flex items-center justify-center rounded text-xs transition cursor-pointer text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700"
+                title="Sair da Tela Cheia (Modo Janela do Navegador)"
+                aria-label="Sair da Tela Cheia"
               >
                 <span className="leading-none pb-1 font-bold text-[11px]">—</span>
               </button>
 
-              {/* Maximizar [ ▢ ] */}
+              {/* Tela Cheia Absoluta do Monitor [ □ ] */}
               <button
                 type="button"
-                onClick={toggleWindowMaximize}
+                onClick={handleEnterFullscreen}
                 className={`w-5.5 h-4.5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
-                  isWindowMaximized
+                  isBrowserFullscreen
                     ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
                     : 'text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700'
                 }`}
-                title={isWindowMaximized ? "Restaurar Tamanho da Janela" : "Maximizar Janela (Tela Cheia)"}
-                aria-label="Maximizar Janela"
+                title="Tela Cheia Total do Monitor (F11)"
+                aria-label="Tela Cheia Total"
               >
-                {isWindowMaximized ? (
-                  <span className="relative w-2 h-2 inline-block">
-                    <span className="absolute -top-0.5 -right-0.5 border border-slate-600 dark:border-stone-400 w-1.5 h-1.5 rounded-[1px] inline-block"></span>
-                    <span className="absolute bottom-0 left-0 border border-slate-600 dark:border-stone-400 w-1.5 h-1.5 bg-slate-100 dark:bg-stone-850 rounded-[1px] inline-block"></span>
-                  </span>
-                ) : (
-                  <span className="border border-slate-600 dark:border-stone-400 w-2 h-2 rounded-[1px] inline-block"></span>
-                )}
+                <span className="border border-current w-2 h-2 rounded-[1px] inline-block"></span>
               </button>
 
               {/* Fechar [ X ] -> Encerra a Sessão Local e Desloga */}
@@ -3756,28 +3761,22 @@ export default function App() {
         </header>
         )}
 
-        {/* Barra de Restauração quando Minimizado */}
-        {isWindowMinimized && (
-          <div 
-            onClick={() => setIsWindowMinimized(false)}
-            className="px-3 py-1.5 bg-slate-200/90 dark:bg-stone-850 border-t border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 text-xs font-semibold flex items-center justify-between cursor-pointer select-none hover:bg-slate-300/70 dark:hover:bg-stone-800 transition"
-          >
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              <span>Painel minimizado • Clique aqui ou no botão acima para restaurar a janela</span>
-            </div>
-            <button 
-              type="button" 
-              className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 shadow-2xs cursor-pointer"
+        {/* Aviso Fallback F11 caso o iframe/navegador bloqueie requestFullscreen */}
+        {fullscreenNotice && (
+          <div className="fixed top-9 right-3 z-[9999] max-w-md bg-slate-900 text-white border border-slate-700 rounded-lg shadow-xl px-3.5 py-2.5 text-xs flex items-center gap-2.5 animate-in fade-in duration-150">
+            <span className="font-medium leading-snug">{fullscreenNotice}</span>
+            <button
+              type="button"
+              onClick={() => setFullscreenNotice(null)}
+              className="p-0.5 rounded hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer shrink-0"
+              aria-label="Fechar aviso"
             >
-              Restaurar Janela ▢
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        {/* Conteúdo Principal do Painel (Ocultado quando Minimizado) */}
-        {!isWindowMinimized && (
-          <>
+        {/* Conteúdo Principal do Painel */}
             {/* Barra Fixa Amarela de Personificação (Impersonate) no topo do ERP */}
         {isAdminImpersonating && (
           <div className="shrink-0 w-full bg-amber-400 text-stone-950 font-bold px-4 py-2 flex items-center justify-between shadow-xs border-b border-amber-500 z-40">
@@ -4347,8 +4346,6 @@ export default function App() {
       />
 
           </div>
-        </>
-      )}
       </div>
 
       {/* Global Modals */}
@@ -4492,7 +4489,7 @@ export default function App() {
 
       {/* Modal de Ajuda & Guia de Atalhos Global */}
       {isGlobalHelpModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-3 select-none">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 select-none">
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-2.5 px-3 flex items-center justify-between text-white shadow-2xs">
               <div className="flex items-center space-x-2">

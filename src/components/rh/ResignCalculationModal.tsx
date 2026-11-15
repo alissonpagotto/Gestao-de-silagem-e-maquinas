@@ -805,8 +805,8 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between overflow-hidden mx-auto my-auto animate-in fade-in zoom-in-95 duration-200">
         
       {/* Top Header do Modal */}
       <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 flex items-center justify-between border-b border-black dark:border-stone-700 shrink-0 rounded-t-2xl">
@@ -844,7 +844,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       </div>
 
         {/* Corpo com Scroll: Grid de Formulário (8 col) e Painel Resumo (4 col) */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#cad4e6] dark:bg-stone-950">
+        <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-4 bg-[#cad4e6] dark:bg-stone-950">
           
           {draftBannerMessage && (
             <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-400 dark:border-amber-800/70 rounded-xl text-xs text-amber-950 dark:text-amber-200">

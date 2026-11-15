@@ -269,25 +269,23 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
   return (
     <div 
       id="modal-extrato-bancario"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto backdrop-blur-xs animate-in fade-in"
-      style={{ backgroundColor: 'rgba(9, 99, 203, 0.45)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/60 backdrop-blur-[2px] animate-in fade-in"
     >
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-stone-300 my-auto flex flex-col max-h-[96vh]">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black">
         
         {/* CABEÇALHO DO EXTRATO */}
         <div 
-          className="px-5 py-4 flex flex-wrap items-center justify-between text-white shrink-0 shadow-sm gap-3"
-          style={{ backgroundColor: '#0963cb' }}
+          className="px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between bg-[#cad4e6] border-b border-black text-black shrink-0 gap-3"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
-              <FileText className="w-5 h-5 stroke-[2.5]" />
+            <div className="w-9 h-9 rounded-lg bg-white border border-black flex items-center justify-center text-black shrink-0">
+              <FileText className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-black uppercase tracking-wide text-black flex items-center gap-2">
                 Extrato de Contas Bancárias
               </h3>
-              <p className="text-xs text-sky-100 font-medium">
+              <p className="text-xs text-black/80 font-medium">
                 Movimentações financeiras, identificação de responsáveis e conciliação
               </p>
             </div>
@@ -295,12 +293,12 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
 
           <div className="flex items-center space-x-2">
             {/* Seletor de Conta */}
-            <div className="bg-white/10 rounded-xl p-1 flex items-center border border-white/20">
+            <div className="bg-white rounded-xl p-1 flex items-center border border-black">
               <select
                 id="select-conta-extrato-topo"
                 value={activeAccountId}
                 onChange={(e) => setActiveAccountId(e.target.value)}
-                className="bg-transparent text-white font-bold text-xs sm:text-sm px-2 py-1 outline-hidden cursor-pointer"
+                className="bg-white text-black font-bold text-xs sm:text-sm px-2 py-1 outline-hidden cursor-pointer"
               >
                 <option value="todas" className="text-black bg-white font-bold">
                   🏦 Todas as Contas ({accounts.length})
@@ -317,7 +315,7 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
               type="button"
               id="btn-imprimir-extrato"
               onClick={handlePrint}
-              className="p-2 rounded-xl text-white/90 hover:text-white hover:bg-white/20 transition cursor-pointer flex items-center gap-1 text-xs font-bold"
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
               title="Imprimir Extrato"
             >
               <Printer className="w-4 h-4" />
@@ -328,20 +326,20 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
               type="button"
               id="btn-fechar-modal-extrato"
               onClick={onClose}
-              className="p-1.5 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+              className="p-1.5 rounded-xl text-black hover:bg-black/10 transition cursor-pointer"
               title="Fechar"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* CORPO DO EXTRATO */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-black bg-stone-50/50">
+        <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-4 text-black bg-[#cad4e6]">
           
           {/* BANNER DA CONTA ATIVA */}
           {activeAccount && (
-            <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <div className="bg-[#e0e6f1] rounded-xl p-4 border border-black shadow-2xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center space-x-3">
                 <div 
                   className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner overflow-hidden"
@@ -378,7 +376,7 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
           )}
 
           {/* ÁREA DE FILTROS: INTERVALO DE DATAS (OBRIGATÓRIO) + BUSCA + ATALHOS */}
-          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-2xs space-y-3">
+          <div className="bg-[#e0e6f1] rounded-xl p-4 border border-black shadow-2xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
               <div className="flex items-center space-x-2">
                 <Calendar className="w-4 h-4 text-[#0963cb]" />
@@ -504,12 +502,12 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
           {/* CARDS DE RESUMO DO PERÍODO */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Total Entradas */}
-            <div className="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <div className="bg-[#e0e6f1] rounded-xl p-3.5 border border-black shadow-2xs flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 border border-black flex items-center justify-center shrink-0">
                 <TrendingUp className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-black block">
                   (+) Total Entradas (Período)
                 </span>
                 <span className="text-base sm:text-lg font-black text-emerald-700 font-['Outfit']">
@@ -519,12 +517,12 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
             </div>
 
             {/* Total Saídas */}
-            <div className="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+            <div className="bg-[#e0e6f1] rounded-xl p-3.5 border border-black shadow-2xs flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 border border-black flex items-center justify-center shrink-0">
                 <TrendingDown className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 block">
+                <span className="text-[10px] font-black uppercase tracking-wider text-black block">
                   (-) Total Saídas (Período)
                 </span>
                 <span className="text-base sm:text-lg font-black text-rose-600 font-['Outfit']">
@@ -534,8 +532,8 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
             </div>
 
             {/* Resultado do Período */}
-            <div className="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs flex items-center space-x-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${metrics.saldoPeriodo >= 0 ? 'bg-blue-100 text-[#0963cb]' : 'bg-amber-100 text-amber-700'}`}>
+            <div className="bg-[#e0e6f1] rounded-xl p-3.5 border border-black shadow-2xs flex items-center space-x-3">
+              <div className={`w-10 h-10 rounded-xl border border-black flex items-center justify-center shrink-0 ${metrics.saldoPeriodo >= 0 ? 'bg-blue-100 text-[#0963cb]' : 'bg-amber-100 text-amber-700'}`}>
                 <Landmark className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div>
@@ -791,7 +789,7 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
         </div>
 
         {/* RODAPÉ DO MODAL */}
-        <div className="px-5 py-3 bg-stone-100 border-t border-stone-200 flex items-center justify-between text-xs text-stone-600 shrink-0">
+        <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-between text-xs text-black shrink-0">
           <div className="font-bold">
             Intervalo ativo: <span className="text-black font-mono font-bold">{startDate ? formatDateBR(startDate) : 'Início'}</span> até <span className="text-black font-mono font-bold">{endDate ? formatDateBR(endDate) : 'Hoje'}</span>
           </div>
@@ -799,7 +797,7 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white border border-stone-300 font-bold text-stone-700 hover:bg-stone-50 cursor-pointer shadow-2xs"
+            className="px-4 py-2 rounded-xl bg-white border border-black font-bold text-black hover:bg-slate-100 cursor-pointer shadow-2xs"
           >
             Fechar Extrato
           </button>

@@ -1082,11 +1082,11 @@ export const CargosPermissoesTab: React.FC = () => {
       {/*    (ACIONADO APENAS AO CLICAR EM '+ NOVO CARGO' OU 'EDITAR')              */}
       {/* ========================================================================= */}
       {isEditorOpen && (
-        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden">
-          <div className="bg-[#cad4e6] border border-black rounded-2xl w-[95vw] max-w-[95%] h-[92vh] max-h-[92vh] flex flex-col shadow-2xl overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden">
+          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150">
             
             {/* Header */}
-            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0 rounded-t-2xl">
+            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-2.5 min-w-0 pr-3">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
                   <Shield className="w-4 h-4 text-indigo-700" />
@@ -1987,7 +1987,7 @@ export const CargosPermissoesTab: React.FC = () => {
 
                         <button
                           type="submit"
-                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white border border-black font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95 flex items-center space-x-1.5"
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95 flex items-center space-x-1.5"
                         >
                           <Save className="w-4 h-4" />
                           <span>{isCreatingNew ? 'Cadastrar Cargo' : 'Salvar Alterações'}</span>
@@ -2049,7 +2049,7 @@ export const CargosPermissoesTab: React.FC = () => {
       {/* MICRO MODAL DE CONFIRMAÇÃO DE SEGURANÇA: RESTAURAR PADRÃO */}
       {isResetConfirmOpen && (
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
           role="dialog"
           aria-modal="true"
         >

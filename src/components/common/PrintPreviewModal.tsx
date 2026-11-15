@@ -192,22 +192,22 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const defaultPdfFilename = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-zinc-950/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200">
       <div 
-        className={`bg-stone-100 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-t-3xl sm:rounded-2xl w-full ${options.orientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'} shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh] animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150`}
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Top Actions Bar - Moldura Metálica 3D Acetinada */}
-        <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 px-4 sm:px-5 py-2.5 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between gap-3 shrink-0 flex-wrap sm:flex-nowrap rounded-t-2xl shadow-xs">
+        {/* Modal Top Actions Bar - Cabeçalho Oficial Alto Contraste */}
+        <div className="bg-[#cad4e6] dark:bg-stone-900 px-4 sm:px-5 py-2.5 border-b border-black dark:border-stone-700 flex items-center justify-between gap-3 shrink-0 flex-wrap sm:flex-nowrap">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Printer className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+              <Printer className="w-4 h-4 text-black dark:text-stone-200" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 truncate">
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-stone-100 truncate">
                 VISUALIZAÇÃO DE IMPRESSÃO OFICIAL
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 truncate font-medium">
+              <p className="text-[11px] text-black/75 dark:text-stone-400 truncate font-bold">
                 Documento formatado com o logotipo e dados cadastrais da empresa
               </p>
             </div>
@@ -271,7 +271,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         </div>
 
         {/* Paper Sheet Preview Area */}
-        <div className="p-4 sm:p-6 overflow-y-auto bg-stone-200/70 dark:bg-stone-950/70 flex justify-center">
+        <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto bg-[#e0e6f1] dark:bg-stone-950/70 flex justify-center items-start">
           <div 
             ref={printDocRef}
             className={`bg-white text-stone-900 w-full ${options.orientation === 'landscape' ? 'max-w-[1060px]' : 'max-w-[800px]'} p-6 sm:p-8 rounded-lg shadow-lg border border-stone-300 font-sans text-xs space-y-4`}
@@ -363,9 +363,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         </div>
 
         {/* Modal Bottom Footer */}
-        <div className="bg-white dark:bg-stone-900 px-4 sm:px-5 py-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center space-x-1.5 text-xs text-stone-500">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+        <div className="bg-[#cad4e6] dark:bg-stone-900 px-4 sm:px-5 py-2.5 border-t border-black dark:border-stone-800 flex items-center justify-between flex-wrap gap-3 shrink-0">
+          <div className="flex items-center space-x-1.5 text-xs font-bold text-black">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
             <span>Layout otimizado para impressão A4 e exportação em PDF.</span>
           </div>
 
@@ -375,7 +375,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 setWhatsappMode('pdf');
                 setIsWhatsAppModalOpen(true);
               }}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs shadow-emerald-600/20 active:scale-95"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs active:scale-95"
             >
               <MessageCircle className="w-4 h-4" />
               <span>Enviar por WhatsApp</span>
@@ -384,21 +384,21 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <button
               onClick={handleDownloadPdfOnly}
               disabled={isGeneratingPdf}
-              className="px-3.5 py-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+              className="px-3.5 py-2 bg-white hover:bg-gray-100 text-black border border-black rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
             >
-              {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-rose-500" />}
+              {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-rose-600" />}
               <span>Baixar PDF</span>
             </button>
 
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="px-4 py-2 bg-white hover:bg-gray-100 text-black border border-black rounded-lg text-xs font-bold transition cursor-pointer"
             >
               Fechar
             </button>
             <button
               onClick={handlePrint}
-              className="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white dark:bg-stone-700 dark:hover:bg-stone-600 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir</span>
@@ -411,11 +411,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       {/* Enhanced WhatsApp Sending Modal (PDF vs Text Mode) */}
       {isWhatsAppModalOpen && (
         <div 
-          className="fixed inset-0 z-[70] bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-150"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsWhatsAppModalOpen(false);
-          }}
+          className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-150"
         >
           <div 
             className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-full max-w-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col max-h-[92vh]"

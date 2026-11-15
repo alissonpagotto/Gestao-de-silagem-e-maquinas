@@ -2210,19 +2210,19 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           MODAL HISTÓRICO DE BAIXAS / SUCATA
           ======================================================== */}
       {isDiscardHistoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-2xl w-full border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
+          <div className="bg-[#cad4e6] rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] border border-black shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
             
-            <div className="px-5 py-4 border-b border-stone-200 dark:border-stone-800 bg-rose-50/50 dark:bg-rose-950/20 flex items-center justify-between">
+            <div className="px-5 py-3.5 border-b border-black bg-[#cad4e6] flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-white border border-black text-rose-700 flex items-center justify-center">
                   <Trash2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 font-['Outfit']">
+                  <h3 className="text-sm font-black text-black font-['Outfit']">
                     Histórico de Pneus Descartados (Sucata)
                   </h3>
-                  <p className="text-[11px] text-stone-500">
+                  <p className="text-[11px] text-slate-800 font-semibold">
                     Registro de baixas definitivas da frota ({tiresDiscarded.length} registros)
                   </p>
                 </div>
@@ -2231,50 +2231,52 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsDiscardHistoryModalOpen(false)}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 space-y-2 overflow-y-auto flex-1">
-              {tiresDiscarded.length === 0 ? (
-                <div className="py-12 text-center text-stone-400 text-xs font-medium">
-                  Nenhum pneu foi descartado até o momento.
-                </div>
-              ) : (
-                tiresDiscarded.map((item, idx) => (
-                  <div
-                    key={`${item.id}_${idx}`}
-                    className="p-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/60 flex items-center justify-between"
-                  >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-black text-stone-900 dark:text-stone-100">
-                          {item.fireNumber} • {item.brand} {item.model || ''}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400">
-                          {item.motivo_descarte || item.discardReason || 'Baixa de carcaça'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-500">
-                        {item.discardDate ? `Data: ${formatDateBR(item.discardDate)}` : ''} {item.vehiclePlate ? `• Veículo: ${item.vehiclePlate}` : ''} {item.discardNotes && item.discardNotes !== item.motivo_descarte ? `• Obs: ${item.discardNotes}` : ''}
-                      </p>
-                    </div>
-
-                    <span className="text-xs font-bold text-stone-400 shrink-0">
-                      Sulco: {item.treadDepthMm.toFixed(1)} mm
-                    </span>
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 bg-[#cad4e6]">
+              <div className="max-w-4xl mx-auto bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-2.5">
+                {tiresDiscarded.length === 0 ? (
+                  <div className="py-12 text-center text-slate-700 text-xs font-bold bg-white border border-gray-300 rounded-xl">
+                    Nenhum pneu foi descartado até o momento.
                   </div>
-                ))
-              )}
+                ) : (
+                  tiresDiscarded.map((item, idx) => (
+                    <div
+                      key={`${item.id}_${idx}`}
+                      className="p-3 rounded-xl border border-black bg-white flex items-center justify-between"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-black text-black">
+                            {item.fireNumber} • {item.brand} {item.model || ''}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 border border-rose-300 text-rose-900">
+                            {item.motivo_descarte || item.discardReason || 'Baixa de carcaça'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-700 font-medium">
+                          {item.discardDate ? `Data: ${formatDateBR(item.discardDate)}` : ''} {item.vehiclePlate ? `• Veículo: ${item.vehiclePlate}` : ''} {item.discardNotes && item.discardNotes !== item.motivo_descarte ? `• Obs: ${item.discardNotes}` : ''}
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-bold text-black shrink-0">
+                        Sulco: {item.treadDepthMm.toFixed(1)} mm
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-            <div className="p-4 border-t border-stone-200 dark:border-stone-800 flex justify-end">
+            <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setIsDiscardHistoryModalOpen(false)}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 transition cursor-pointer"
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-white border border-black text-black hover:bg-gray-100 transition cursor-pointer"
               >
                 Fechar
               </button>
@@ -2288,19 +2290,19 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           DRAWER / MODAL DE GRAVAÇÃO DE ORDEM DE SERVIÇO DE RODÍZIO
           ======================================================== */}
       {isExecutionDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
+          <div className="bg-[#cad4e6] rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] border border-black shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto">
             
-            <div className="px-5 py-4 border-b border-stone-200 dark:border-stone-800 bg-sky-50/50 dark:bg-sky-950/20 flex items-center justify-between">
+            <div className="px-5 py-3.5 border-b border-black bg-[#cad4e6] flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-white border border-black text-emerald-700 flex items-center justify-center">
                   <Check className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 font-['Outfit']">
+                  <h3 className="text-sm font-black text-black font-['Outfit']">
                     Gravar Ordem de Serviço de Rodízio
                   </h3>
-                  <p className="text-[11px] text-stone-500">
+                  <p className="text-[11px] text-slate-800 font-semibold">
                     Veículo: {selectedVehicle?.licensePlateOrSerial || selectedVehicle?.name}
                   </p>
                 </div>
@@ -2309,130 +2311,132 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsExecutionDrawerOpen(false)}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleExecuteOrder} className="p-5 space-y-3.5 overflow-y-auto flex-1">
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Data da Execução *
-                  </label>
-                  <input
-                    type="date"
-                    value={execDate}
-                    onChange={(e) => setExecDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
+            <form onSubmit={handleExecuteOrder} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6]">
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0">
+                <div className="max-w-3xl mx-auto bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Data da Execução *
+                      </label>
+                      <input
+                        type="date"
+                        value={execDate}
+                        onChange={(e) => setExecDate(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    KM Atual na Execução
-                  </label>
-                  <input
-                    type="number"
-                    value={execKm}
-                    onChange={(e) => setExecKm(e.target.value)}
-                    placeholder="Ex: 148500"
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        KM Atual na Execução
+                      </label>
+                      <input
+                        type="number"
+                        value={execKm}
+                        onChange={(e) => setExecKm(e.target.value)}
+                        placeholder="Ex: 148500"
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Horímetro Atual (Horas)
-                  </label>
-                  <input
-                    type="number"
-                    value={execHourMeter}
-                    onChange={(e) => setExecHourMeter(e.target.value)}
-                    placeholder="Ex: 4500"
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Horímetro Atual (Horas)
+                      </label>
+                      <input
+                        type="number"
+                        value={execHourMeter}
+                        onChange={(e) => setExecHourMeter(e.target.value)}
+                        placeholder="Ex: 4500"
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Custo do Serviço (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={execCost}
-                    onChange={(e) => setExecCost(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Custo do Serviço (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={execCost}
+                        onChange={(e) => setExecCost(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Mecânico / Operador Responsável
-                  </label>
-                  <input
-                    type="text"
-                    value={execOperatorName}
-                    onChange={(e) => setExecOperatorName(e.target.value)}
-                    placeholder="Ex: João Mecânico / Borracheiro"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Mecânico / Operador Responsável
+                      </label>
+                      <input
+                        type="text"
+                        value={execOperatorName}
+                        onChange={(e) => setExecOperatorName(e.target.value)}
+                        placeholder="Ex: João Mecânico / Borracheiro"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Prestador / Borracharia
-                  </label>
-                  <input
-                    type="text"
-                    value={execServiceProvider}
-                    onChange={(e) => setExecServiceProvider(e.target.value)}
-                    placeholder="Ex: Borracharia Interna / São José"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-xs font-bold text-black mb-1">
+                        Prestador / Borracharia
+                      </label>
+                      <input
+                        type="text"
+                        value={execServiceProvider}
+                        onChange={(e) => setExecServiceProvider(e.target.value)}
+                        placeholder="Ex: Borracharia Interna / São José"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Observações e Laudo Técnico
-                </label>
-                <textarea
-                  value={execNotes}
-                  onChange={(e) => setExecNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Ex: Rodízio efetuado conforme programação, calibrados com 110 PSI e aperto dos parafusos verificado com torquímetro..."
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500 resize-none"
-                />
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">
+                      Observações e Laudo Técnico
+                    </label>
+                    <textarea
+                      value={execNotes}
+                      onChange={(e) => setExecNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Ex: Rodízio efetuado conforme programação, calibrados com 110 PSI e aperto dos parafusos verificado com torquímetro..."
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-gray-400 bg-white text-black outline-none focus:ring-2 focus:ring-emerald-600 resize-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Ações */}
-              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-stone-200 dark:border-stone-800">
+              <div className="px-5 py-3 flex items-center justify-end space-x-2 border-t border-black bg-[#cad4e6] shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsExecutionDrawerOpen(false)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 transition cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold rounded-xl border border-black bg-white text-black hover:bg-gray-100 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-xs transition cursor-pointer"
+                  className="inline-flex items-center space-x-1.5 px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 shadow-xs transition cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Gravar O.S. de Rodízio</span>
                 </button>
               </div>
-
             </form>
 
           </div>

@@ -68,6 +68,7 @@ import {
   printTrocaDevolucaoCupom80mm,
 } from './trocaDevolucaoPrintUtils';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 interface NovaTrocaDevolucaoModalProps {
   isOpen: boolean;
@@ -321,6 +322,35 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [autoPrintA4, setAutoPrintA4] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  const trocaGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: `${defaultTipoOperacao || ''}_${isOpen ? 'open' : 'closed'}`,
+    snapshot: [
+      tipoOperacao,
+      selectedClientId,
+      avulsoNome,
+      selectedSupplierId,
+      dataOperacao,
+      numeroOrigem,
+      selectedOriginDocId,
+      motivo,
+      observacoes,
+      retornarAoEstoque,
+      itensDevolvidos,
+      itensLevados,
+      modoCreditoOuEstorno,
+      formaEstorno,
+      formaPagamentoDiferenca,
+      destinoFornecedor,
+      selectedBoletoId,
+    ],
+  });
+
+  const handleAttemptClose = () => {
+    if (isSaving) return;
+    trocaGuard.confirmClose(onClose);
+  };
 
   // Fecha dropdowns ao clicar fora
   useEffect(() => {
@@ -1595,8 +1625,8 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     tipoOperacao === 'troca_direta' ? Math.max(0, -saldoFinal) : totalDevolvido;
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 backdrop-blur-[1px] p-2 sm:p-4 overflow-y-auto">
-      <div className="w-full max-w-5xl bg-[#cad4e6] border border-black rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[94vh] text-slate-900">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-slate-900">
         {/* CABEÇALHO OFICIAL (#cad4e6 + border-black) */}
         <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -1614,7 +1644,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAttemptClose}
             className="p-1.5 rounded bg-white/80 hover:bg-white border border-black text-slate-900 cursor-pointer transition"
             title="Fechar"
           >
@@ -1623,7 +1653,8 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         </div>
 
         {/* CORPO COM SCROLL */}
-        <form onSubmit={handleConfirmSave} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-[#cad4e6]">
+        <form onSubmit={handleConfirmSave} {...trocaGuard.captureProps} className="flex-1 min-h-0 flex flex-col justify-between bg-[#cad4e6]">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3">
           {errorMsg && (
             <div className="bg-rose-100 border border-rose-700 text-rose-950 px-3 py-2 rounded text-xs font-bold flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-700" />
@@ -2932,8 +2963,10 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             </div>
           </section>
 
+          </div>
+
           {/* RODAPÉ OFICIAL (#cad4e6 + border-black) */}
-          <div className="bg-[#cad4e6] border-t border-black pt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-[#cad4e6] border-t border-black px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
             <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer bg-white/80 border border-black/40 rounded px-2.5 py-1.5">
               <input
                 type="checkbox"
@@ -2948,7 +2981,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             <div className="flex items-center gap-2 ml-auto">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleAttemptClose}
                 disabled={isSaving}
                 className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-900 border border-black rounded text-xs font-bold uppercase cursor-pointer transition"
               >
@@ -3003,9 +3036,9 @@ export const TrocaDevolucaoDetailsModal: React.FC<TrocaDevolucaoDetailsModalProp
   if (!record) return null;
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 backdrop-blur-[1px] p-3">
-      <div className="w-full max-w-3xl bg-[#cad4e6] border border-black rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-900">
-        <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-slate-900">
+        <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 text-slate-900" />
             <h2 className="text-sm font-bold text-slate-900 uppercase">
@@ -3021,7 +3054,7 @@ export const TrocaDevolucaoDetailsModal: React.FC<TrocaDevolucaoDetailsModalProp
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#cad4e6]">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 bg-[#cad4e6]">
           <div className="bg-[#e0e6f1] border border-black rounded-md p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div>
               <span className="block text-[10px] font-bold uppercase text-slate-600">Data</span>

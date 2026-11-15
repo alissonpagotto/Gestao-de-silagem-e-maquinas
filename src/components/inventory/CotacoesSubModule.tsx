@@ -1461,7 +1461,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
       {/* MODAL 1: SALVAMENTO DE COTAÇÃO POR NOME (PADRÃO OURO AMPLO) */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-100">
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl max-w-lg w-full p-4 space-y-4">
             
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-2.5">
@@ -1542,24 +1542,24 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
       {/* MODAL 2: CENTRAL DE HISTÓRICO DE COTAÇÕES (PAINEL DE RECUPERAÇÃO) */}
       {isHistoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-100">
-          <div className="w-full max-w-5xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 animate-in fade-in duration-100">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden shadow-2xl text-black dark:text-stone-100">
             
-            {/* CABEÇALHO MDI TRIDIMENSIONAL ACETINADO */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-850 to-slate-900 text-white px-4 py-3 border-b border-slate-700 shadow-md flex items-center justify-between shrink-0">
+            {/* CABEÇALHO OFICIAL ALTO CONTRASTE */}
+            <div className="bg-[#cad4e6] text-black px-4 py-3 border-b border-black flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <FolderOpen className="w-5 h-5 text-amber-400" />
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-100">
+                <FolderOpen className="w-5 h-5 text-sky-700" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-black">
                   CENTRAL DE COTAÇÕES ARQUIVADAS
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-black border border-black">
                   {historicoCotacoes.length} SALVAMENTOS NO BANCO
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/10 transition cursor-pointer"
+                className="text-black hover:bg-black/10 p-1 rounded transition cursor-pointer"
                 title="Fechar Janela"
               >
                 <X className="w-5 h-5" />
@@ -1567,24 +1567,24 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
             </div>
 
             {/* BARRA DE PESQUISA DENTRO DO MODAL */}
-            <div className="bg-slate-100 dark:bg-stone-850 px-4 py-2 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
-              <div className="text-xs font-bold uppercase text-slate-600 dark:text-stone-300">
+            <div className="bg-[#e0e6f1] dark:bg-stone-850 px-4 py-2 border-b border-black dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
+              <div className="text-xs font-bold uppercase text-black dark:text-stone-300">
                 SELECIONE UMA COTAÇÃO PARA RECUPERAR PRODUTOS, FORNECEDORES E PREÇOS:
               </div>
               <div className="relative w-64">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-black/60 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value.toUpperCase())}
                   placeholder="FILTRAR HISTÓRICO..."
-                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-slate-800 dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
+                  className="w-full pl-8 pr-3 py-1 text-xs font-bold uppercase rounded border border-black/50 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 outline-none shadow-xs"
                 />
               </div>
             </div>
 
             {/* MIOLO: LISTAGEM DE COTAÇÕES ARQUIVADAS EM TABELA SLIM HORIZONTAL */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto bg-slate-50 dark:bg-stone-900 border-b border-slate-300 dark:border-stone-700">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-white dark:bg-stone-900 border-b border-black dark:border-stone-700">
               {filteredHistory.length === 0 ? (
                 <div className="py-16 text-center text-slate-400 dark:text-stone-500 uppercase font-bold text-xs">
                   <FolderOpen className="w-10 h-10 text-slate-300 dark:text-stone-600 mx-auto mb-2" />
@@ -1692,14 +1692,14 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
             </div>
 
             {/* RODAPÉ DO MODAL DE HISTÓRICO */}
-            <div className="bg-slate-100 dark:bg-stone-850 px-4 py-2.5 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between shrink-0">
-              <span className="text-xs text-slate-500 dark:text-stone-400 font-bold uppercase">
+            <div className="bg-[#cad4e6] dark:bg-stone-850 px-4 py-2.5 border-t border-black dark:border-stone-700 flex items-center justify-between shrink-0">
+              <span className="text-xs text-black/75 dark:text-stone-400 font-bold uppercase">
                 * Os salvamentos são permanentes e independentes no LocalStorage.
               </span>
               <button
                 type="button"
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="px-4 py-1.5 text-xs font-bold uppercase rounded bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-stone-800 dark:text-stone-300 transition cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold uppercase rounded bg-white hover:bg-gray-100 text-black border border-black dark:bg-stone-800 dark:text-stone-300 transition cursor-pointer"
               >
                 FECHAR
               </button>
@@ -1711,7 +1711,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
       {/* MODAL 3: CONFIRMAÇÃO DE LIMPEZA DE TELA / EXCLUSÃO (ANTI-SANDBOX) */}
       {isClearDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-100">
           <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg shadow-2xl max-w-md w-full p-4 space-y-3">
             
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-2">

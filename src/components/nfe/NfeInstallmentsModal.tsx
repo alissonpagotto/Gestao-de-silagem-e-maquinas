@@ -394,7 +394,7 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
   return (
     <div 
       id="modal-janela-2-parcelas-nfe"
-      className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-black/70 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-black/60 backdrop-blur-[2px] animate-in fade-in"
     >
       {/* Input de arquivo invisível para anexos de boleto/recibo */}
       <input 
@@ -406,21 +406,21 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
       />
 
       <div 
-        className="w-full max-w-6xl rounded-2xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden border border-slate-400 dark:border-stone-700 bg-slate-100 dark:bg-stone-900 my-auto flex flex-col max-h-[92vh]"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto rounded-xl shadow-2xl overflow-hidden border border-black dark:border-stone-700 bg-[#cad4e6] dark:bg-stone-900"
       >
-        {/* 1. TÍTULO DO CABEÇALHO - Moldura Metálica 3D Acetinada */}
+        {/* 1. TÍTULO DO CABEÇALHO */}
         <div 
-          className="px-4 sm:px-5 py-2.5 flex items-center justify-between shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 text-slate-800 dark:text-stone-100 border-b border-slate-400 dark:border-stone-700 rounded-t-2xl shadow-xs"
+          className="px-4 sm:px-5 py-2.5 flex items-center justify-between shrink-0 bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 border-b border-black dark:border-stone-700"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs text-slate-800 dark:text-stone-100">
-              <Receipt className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs text-black dark:text-stone-100">
+              <Receipt className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 flex items-center gap-1.5">
+              <h2 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-stone-100 flex items-center gap-1.5">
                 {customTitle || 'PARCELAS GERADAS COM BASE NO XML'}
               </h2>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+              <p className="text-[11px] text-black/80 dark:text-stone-400 font-semibold">
                 {customSubtitle || `NF-e Nº ${invoiceNumber} • Fornecedor: ${supplierName}`}
               </p>
             </div>
@@ -430,18 +430,18 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
             type="button"
             id="btn-fechar-janela-2-parcelas"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar Janela de Parcelas"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* CORPO DO MODAL */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-zinc-900 dark:text-stone-100">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 bg-[#cad4e6] dark:bg-stone-950 text-black dark:text-stone-100">
           
           {/* 2. Topo do Bloco: Destaque do "Valor Total" Consolidado & Controles de Divisão */}
-          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-stone-700 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="bg-[#e0e6f1] dark:bg-stone-800 rounded-xl p-4 sm:p-5 border border-black dark:border-stone-700 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Bloco de Destaque: Valor Total */}
             <div className="flex items-center space-x-4">
@@ -573,12 +573,12 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
           )}
 
           {/* Grade / Tabela de Parcelas */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-900 overflow-hidden shadow-xs">
+          <div className="rounded-xl border border-black dark:border-stone-700 bg-white dark:bg-stone-900 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-900 dark:text-stone-100 border-collapse">
+              <table className="w-full text-left text-xs text-black dark:text-stone-100 border-collapse">
                 {/* Títulos das Colunas */}
                 <thead>
-                  <tr className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 font-black uppercase tracking-wider text-[11px]">
+                  <tr className="bg-[#e0e6f1] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-stone-300 font-black uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-3 w-16 text-center">Nº</th>
                     <th className="py-3 px-3 min-w-[140px]">Valor (R$)</th>
                     <th className="py-3 px-3 min-w-[90px]">Prazo (Dias)</th>
@@ -772,16 +772,16 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
 
         {/* 3. BOTÕES DO RODAPÉ E VALIDAÇÃO FINAL (Canto inferior direito) */}
         <div 
-          className="px-5 py-3.5 bg-white dark:bg-stone-900 border-t border-zinc-200 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
+          className="px-5 py-3.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
         >
-          <div className="flex items-center space-x-2 text-xs text-zinc-800 dark:text-stone-200 font-bold">
-            <span className="text-zinc-500 dark:text-stone-400">Status de Validação:</span>
+          <div className="flex items-center space-x-2 text-xs text-black dark:text-stone-200 font-bold">
+            <span className="text-black/80 dark:text-stone-400">Status de Validação:</span>
             {isSumValid ? (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-700 rounded font-black text-[11px]">
                 Pronto para Gravar
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 border border-rose-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 border border-rose-700 rounded font-black text-[11px]">
                 Ajuste a soma antes de gravar
               </span>
             )}
@@ -793,7 +793,7 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
               type="button"
               id="btn-cancelar-janela-2-parcelas"
               onClick={onClose}
-              className="px-4 py-2.5 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 font-bold text-xs rounded-xl border border-zinc-300 dark:border-stone-600 transition cursor-pointer shadow-2xs min-h-[42px]"
+              className="px-4 py-2 bg-white dark:bg-stone-800 hover:bg-gray-100 dark:hover:bg-stone-700 text-black dark:text-stone-200 font-bold text-xs rounded-lg border border-black dark:border-stone-600 transition cursor-pointer shadow-2xs"
             >
               Cancelar
             </button>
@@ -803,10 +803,10 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
               id="btn-confirmar-gravar-lancamentos-janela-2"
               onClick={handleConfirm}
               disabled={!isSumValid}
-              className={`px-5 py-2.5 font-black text-xs rounded-xl shadow-md transition flex items-center space-x-2 min-h-[42px] ${
+              className={`px-5 py-2 font-bold text-xs rounded-lg shadow-md transition flex items-center space-x-2 ${
                 isSumValid
-                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer active:scale-98'
-                  : 'bg-zinc-200 text-zinc-400 border border-zinc-200 cursor-not-allowed opacity-60'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-800 cursor-pointer active:scale-98'
+                  : 'bg-zinc-200 text-zinc-500 border border-gray-400 cursor-not-allowed opacity-70'
               }`}
               title={isSumValid ? 'Confirmar e Gravar Lançamentos no Contas a Pagar' : 'Corrija a soma das parcelas para gravar'}
             >
@@ -818,44 +818,46 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
 
       </div>
 
-      {/* Modal Simples de Visualização de Arquivo / Documento */}
+      {/* Modal de Visualização de Arquivo / Documento */}
       {previewFile && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-stone-300 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-sm font-black text-black truncate">
+        <div className="fixed inset-0 z-90 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 rounded-xl shadow-2xl border border-black dark:border-stone-700 overflow-hidden">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-stone-100 truncate">
                 Visualização: {previewFile.name}
               </h3>
               <button
                 type="button"
                 onClick={() => setPreviewFile(null)}
-                className="p-1 text-stone-400 hover:text-black rounded cursor-pointer"
+                className="p-1 text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 rounded cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-auto flex items-center justify-center bg-stone-100 rounded-xl p-4">
-              {previewFile.url.startsWith('data:image/') ? (
-                <img src={previewFile.url} alt={previewFile.name} className="max-h-[50vh] object-contain rounded-lg" />
-              ) : (
-                <div className="text-center p-6 space-y-3">
-                  <FileText className="w-12 h-12 text-[#0963cb] mx-auto" />
-                  <p className="text-xs font-bold text-black">Documento PDF ou arquivo vinculado</p>
-                  <a 
-                    href={previewFile.url} 
-                    download={previewFile.name}
-                    className="inline-block px-4 py-2 bg-[#0963cb] text-white rounded-xl text-xs font-black shadow cursor-pointer"
-                  >
-                    Baixar / Abrir Arquivo
-                  </a>
-                </div>
-              )}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-[#cad4e6] dark:bg-stone-950 flex flex-col">
+              <div className="flex-1 bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-4 flex items-center justify-center">
+                {previewFile.url.startsWith('data:image/') ? (
+                  <img src={previewFile.url} alt={previewFile.name} className="max-h-full max-w-full object-contain rounded-lg border border-black/30 bg-white" />
+                ) : (
+                  <div className="text-center p-6 space-y-3 bg-white dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl">
+                    <FileText className="w-12 h-12 text-emerald-700 mx-auto" />
+                    <p className="text-xs font-bold text-black dark:text-stone-100">Documento PDF ou arquivo vinculado</p>
+                    <a 
+                      href={previewFile.url} 
+                      download={previewFile.name}
+                      className="inline-block px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-lg text-xs font-bold shadow cursor-pointer"
+                    >
+                      Baixar / Abrir Arquivo
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex justify-end pt-2">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setPreviewFile(null)}
-                className="px-4 py-2 bg-stone-200 hover:bg-stone-300 text-black font-bold text-xs rounded-xl cursor-pointer"
+                className="px-4 py-1.5 bg-white hover:bg-gray-100 text-black font-bold text-xs rounded-lg border border-black cursor-pointer"
               >
                 Fechar Visualização
               </button>

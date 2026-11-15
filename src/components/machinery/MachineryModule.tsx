@@ -523,146 +523,149 @@ export const MachineryModule: React.FC<MachineryModuleProps> = ({
 
       {/* Add / Edit Vehicle Modal - Standardized */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black animate-in fade-in zoom-in-95 duration-150">
             
-            {/* Header - Standardized Solid Teal Bar */}
-            <div className="px-5 py-3.5 bg-[#009688] text-white flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-bold tracking-tight">
+            {/* Header */}
+            <div className="px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
+              <h3 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
                 {editingMachine ? 'Editar Veículo / Frota' : 'Cadastrar Novo Veículo / Frota'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-black" />
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form id="machinery-vehicle-form" onSubmit={handleSave} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 bg-[#cad4e6] space-y-4">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      IDENTIFICAÇÃO / PLACA <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={plate}
+                      onChange={(e) => setPlate(e.target.value)}
+                      placeholder="Ex: AKU-1C96 ou FORR 02 0799"
+                      className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black font-mono text-xs sm:text-sm font-bold focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      TIPO DE VEÍCULO
+                    </label>
+                    <select
+                      value={categoryType}
+                      onChange={(e) => setCategoryType(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-black"
+                    >
+                      <option value="caminhao">Caminhão</option>
+                      <option value="ensiladeira">Ensiladeira</option>
+                      <option value="trator">Trator</option>
+                      <option value="utilitario">Utilitário / Apoio</option>
+                      <option value="onibus">Ônibus</option>
+                      <option value="outro">Outro / Oficina</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    IDENTIFICAÇÃO / PLACA <span className="text-rose-500">*</span>
+                  <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                    MODELO / MARCA COMPLETO <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    value={plate}
-                    onChange={(e) => setPlate(e.target.value)}
-                    placeholder="Ex: AKU-1C96 ou FORR 02 0799"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-mono text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#009688]"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="Ex: FORD CARGO 2622 (2003) ou CLAAS JAGUAR 860"
+                    className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    TIPO DE VEÍCULO
-                  </label>
-                  <select
-                    value={categoryType}
-                    onChange={(e) => setCategoryType(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  >
-                    <option value="caminhao">Caminhão</option>
-                    <option value="ensiladeira">Ensiladeira</option>
-                    <option value="trator">Trator</option>
-                    <option value="utilitario">Utilitário / Apoio</option>
-                    <option value="onibus">Ônibus</option>
-                    <option value="outro">Outro / Oficina</option>
-                  </select>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                  MODELO / MARCA COMPLETO <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="Ex: FORD CARGO 2622 (2003) ou CLAAS JAGUAR 860"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                />
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      MOTORISTA / RESPONSÁVEL (REAL)
+                    </label>
+                    <input
+                      type="text"
+                      value={operator}
+                      onChange={(e) => setOperator(e.target.value)}
+                      placeholder="Ex: Nilton Pandolfi"
+                      className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      STATUS OPERACIONAL
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-black"
+                    >
+                      <option value="disponivel">Disponível</option>
+                      <option value="operacional">Operacional</option>
+                      <option value="em_manutencao">Em Manutenção</option>
+                      <option value="parado">Parado</option>
+                    </select>
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    MOTORISTA / RESPONSÁVEL (REAL)
-                  </label>
-                  <input
-                    type="text"
-                    value={operator}
-                    onChange={(e) => setOperator(e.target.value)}
-                    placeholder="Ex: Nilton Pandolfi"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      HORÍMETRO / KM
+                    </label>
+                    <input
+                      type="number"
+                      value={hourMeter}
+                      onChange={(e) => setHourMeter(e.target.value)}
+                      placeholder="5400"
+                      className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      CONSUMO MÉDIO (L/H)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={avgConsumption}
+                      onChange={(e) => setAvgConsumption(e.target.value)}
+                      placeholder="18.0"
+                      className="w-full px-3.5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    STATUS OPERACIONAL
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  >
-                    <option value="disponivel">Disponível</option>
-                    <option value="operacional">Operacional</option>
-                    <option value="em_manutencao">Em Manutenção</option>
-                    <option value="parado">Parado</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    HORÍMETRO / KM
-                  </label>
-                  <input
-                    type="number"
-                    value={hourMeter}
-                    onChange={(e) => setHourMeter(e.target.value)}
-                    placeholder="5400"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    CONSUMO MÉDIO (L/H)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={avgConsumption}
-                    onChange={(e) => setAvgConsumption(e.target.value)}
-                    placeholder="18.0"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
-                </div>
-              </div>
-
-              {/* Footer - Standardized */}
-              <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 rounded-xl bg-[#156f33] hover:bg-[#0e5224] text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
-                >
-                  {editingMachine ? 'Salvar Alterações' : 'Cadastrar Veículo'}
-                </button>
               </div>
             </form>
+
+            {/* Footer - Standardized Pinned */}
+            <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end items-center space-x-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2 rounded-lg border border-black bg-white text-black text-xs sm:text-sm font-bold hover:bg-gray-100 transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form="machinery-vehicle-form"
+                className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold border border-emerald-800 shadow-xs transition cursor-pointer"
+              >
+                {editingMachine ? 'Salvar Alterações' : 'Cadastrar Veículo'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -530,20 +530,20 @@ export const PlanoContasTab: React.FC = () => {
 
       {/* Modal Categoria - Tema Oficial de Alto Contraste */}
       {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-4xl h-auto max-h-[92vh] flex flex-col mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-y-auto">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden">
             
             {/* Cabeçalho */}
-            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0 select-none">
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black/40 dark:border-stone-700 shadow-2xs shrink-0">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black">
                     {editingCat ? 'EDITAR CONTA / CATEGORIA' : 'NOVA CONTA NO PLANO'}
                   </h3>
-                  <p className="text-[11px] text-slate-800 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-slate-800 font-medium">
                     Estruturação de receitas, despesas e centros financeiros
                   </p>
                 </div>
@@ -551,21 +551,21 @@ export const PlanoContasTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCatModalOpen(false)}
-                className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {catError && (
-              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300 shrink-0">
+              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-400 text-xs font-bold text-rose-800 shrink-0">
                 {catError}
               </div>
             )}
 
-            <form onSubmit={handleSaveCat} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] dark:bg-stone-950 text-xs">
-              <div className="p-4 overflow-y-auto">
-                <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-4 space-y-3">
+            <form onSubmit={handleSaveCat} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] text-xs">
+              <div className="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto">
+                <div className="max-w-3xl mx-auto bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-5 space-y-3">
                   <div className="grid grid-cols-3 gap-2.5">
                     <div className="col-span-1">
                       <label className="block text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider mb-1">
@@ -660,22 +660,22 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Forma Pagamento - Tamanho Padrão Ouro */}
+      {/* Modal Forma Pagamento - Tema Oficial de Alto Contraste */}
       {isFormaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden">
-          <div className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 border border-slate-400 rounded-lg overflow-hidden global">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl">
             
-            {/* Header 3D Metálico Acetinado */}
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex items-center justify-between shrink-0 select-none">
+            {/* Header */}
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-                  <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
+                  <CreditCard className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black">
                     {editingForma ? 'EDITAR FORMA DE PAGAMENTO' : 'NOVA FORMA DE PAGAMENTO'}
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-slate-800 font-medium">
                     Modalidade de quitação, prazos médios e taxas financeiras
                   </p>
                 </div>
@@ -683,120 +683,124 @@ export const PlanoContasTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsFormaModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-4 h-4 text-black" />
               </button>
             </div>
 
             {formaError && (
-              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300">
+              <div className="mx-4 mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-400 text-xs font-bold text-rose-800 shrink-0">
                 {formaError}
               </div>
             )}
 
-            <form onSubmit={handleSaveForma} className="p-3 sm:p-4 space-y-2.5 text-xs bg-white dark:bg-stone-900 max-h-[82vh] overflow-y-auto scrollbar-none flex-1">
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="col-span-1">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Sigla / Cód. <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: PIX, BOL"
-                    value={formaCodigo}
-                    onChange={(e) => setFormaCodigo(e.target.value.toUpperCase())}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 uppercase"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Nome da Modalidade <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Boleto Bancário 30DD"
-                    value={formaNome}
-                    onChange={(e) => setFormaNome(e.target.value)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
-                  />
+            <form onSubmit={handleSaveForma} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#cad4e6] text-xs">
+              <div className="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto">
+                <div className="max-w-3xl mx-auto bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className="col-span-1">
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                        Sigla / Cód. <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: PIX, BOL"
+                        value={formaCodigo}
+                        onChange={(e) => setFormaCodigo(e.target.value.toUpperCase())}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-emerald-600 uppercase"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                        Nome da Modalidade <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Boleto Bancário 30DD"
+                        value={formaNome}
+                        onChange={(e) => setFormaNome(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                      Tipo Base
+                    </label>
+                    <select
+                      value={formaTipo}
+                      onChange={(e) => setFormaTipo(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+                    >
+                      <option value="pix">PIX Instantâneo</option>
+                      <option value="boleto">Boleto Bancário</option>
+                      <option value="transferencia">Transferência Bancária (TED/DOC)</option>
+                      <option value="cartao_credito">Cartão de Crédito</option>
+                      <option value="cartao_debito">Cartão de Débito</option>
+                      <option value="dinheiro">Dinheiro em Espécie</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="outro">Outro / Negociado</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                        Prazo Médio (Dias)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formaPrazo}
+                        onChange={(e) => setFormaPrazo(Number(e.target.value) || 0)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                        Taxa Estimada (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formaTaxa}
+                        onChange={(e) => setFormaTaxa(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-xs font-semibold text-black focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="forma-ativo"
+                      checked={formaAtivo}
+                      onChange={(e) => setFormaAtivo(e.target.checked)}
+                      className="w-4 h-4 rounded bg-white text-emerald-600 focus:ring-emerald-600 border border-gray-400 cursor-pointer accent-emerald-600"
+                    />
+                    <label htmlFor="forma-ativo" className="text-xs font-bold text-black cursor-pointer">
+                      Forma de Pagamento Ativa
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                  Tipo Base
-                </label>
-                <select
-                  value={formaTipo}
-                  onChange={(e) => setFormaTipo(e.target.value)}
-                  className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
-                >
-                  <option value="pix">PIX Instantâneo</option>
-                  <option value="boleto">Boleto Bancário</option>
-                  <option value="transferencia">Transferência Bancária (TED/DOC)</option>
-                  <option value="cartao_credito">Cartão de Crédito</option>
-                  <option value="cartao_debito">Cartão de Débito</option>
-                  <option value="dinheiro">Dinheiro em Espécie</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="outro">Outro / Negociado</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Prazo Médio (Dias)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formaPrazo}
-                    onChange={(e) => setFormaPrazo(Number(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
-                    Taxa Estimada (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formaTaxa}
-                    onChange={(e) => setFormaTaxa(parseFloat(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1 sm:py-1.5 bg-zinc-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="forma-ativo"
-                  checked={formaAtivo}
-                  onChange={(e) => setFormaAtivo(e.target.checked)}
-                  className="w-4 h-4 rounded text-slate-800 focus:ring-slate-400 border-slate-300 dark:border-stone-700 cursor-pointer"
-                />
-                <label htmlFor="forma-ativo" className="text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
-                  Forma de Pagamento Ativa
-                </label>
-              </div>
-
-              <div className="pt-2 border-t border-slate-200 dark:border-stone-700 flex items-center justify-end space-x-2">
+              <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsFormaModalOpen(false)}
-                  className="px-3.5 py-1 sm:py-1.5 rounded-lg border border-slate-300 dark:border-stone-700 text-xs font-semibold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer transition"
+                  className="px-4 py-1.5 rounded-lg border border-black bg-white text-xs font-bold text-black hover:bg-gray-100 cursor-pointer transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1 sm:py-1.5 rounded-lg bg-gradient-to-b from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white text-xs font-bold shadow-xs cursor-pointer border border-teal-800"
+                  className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer border border-emerald-800 transition"
                 >
                   {editingForma ? 'Salvar' : 'Cadastrar'}
                 </button>

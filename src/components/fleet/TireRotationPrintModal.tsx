@@ -28,19 +28,19 @@ export const TireRotationPrintModal: React.FC<TireRotationPrintModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200 print:p-0 print:bg-white print:static">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200 print:p-0 print:bg-white print:static">
       <div 
         id="printable-tire-rotation"
-        className="bg-white dark:bg-stone-900 rounded-2xl max-w-3xl w-full border border-stone-200 dark:border-stone-800 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden print:max-h-none print:shadow-none print:border-none print:rounded-none print:w-full"
+        className="bg-[#cad4e6] rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] border border-black shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden print:h-auto print:max-h-none print:max-w-none print:shadow-none print:border-none print:rounded-none print:w-full print:bg-white"
       >
         
         {/* Header - Not printed */}
-        <div className="px-5 py-3 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/80 dark:bg-stone-800/50 print:hidden">
+        <div className="px-5 py-3 border-b border-black flex items-center justify-between bg-[#cad4e6] shrink-0 print:hidden">
           <div className="flex items-center space-x-2">
-            <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+            <h3 className="text-sm font-black text-black font-['Outfit']">
               Comprovante de Rodízio de Pneus
             </h3>
-            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-100 text-sky-800">
+            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-white border border-black text-black">
               {rotationLog.vehiclePlate}
             </span>
           </div>
@@ -48,7 +48,7 @@ export const TireRotationPrintModal: React.FC<TireRotationPrintModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0963cb] hover:bg-blue-700 text-white shadow-xs transition cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 shadow-xs transition cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir Documento</span>
@@ -56,7 +56,7 @@ export const TireRotationPrintModal: React.FC<TireRotationPrintModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -64,7 +64,8 @@ export const TireRotationPrintModal: React.FC<TireRotationPrintModalProps> = ({
         </div>
 
         {/* Printable Area */}
-        <div className="p-6 sm:p-8 overflow-y-auto space-y-5 text-stone-900 bg-white print:p-2 print:overflow-visible">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] print:p-0 print:bg-white print:overflow-visible">
+          <div className="max-w-4xl mx-auto p-6 sm:p-8 space-y-5 text-stone-900 bg-white border border-black rounded-xl shadow-md print:max-w-none print:border-none print:rounded-none print:shadow-none print:p-2">
           
           {/* Cabeçalho Corporativo Padronizado */}
           <PrintReportHeader
@@ -163,6 +164,7 @@ export const TireRotationPrintModal: React.FC<TireRotationPrintModalProps> = ({
             authCode={`ROD-${rotationLog.id.slice(-6).toUpperCase()}`}
           />
 
+          </div>
         </div>
 
       </div>

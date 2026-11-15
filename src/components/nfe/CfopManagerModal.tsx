@@ -197,8 +197,7 @@ export const CfopManagerModal: React.FC<CfopManagerModalProps> = ({
   return (
     <div
       id="modal-gerenciar-cfop"
-      className="fixed inset-0 z-[9999] bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
-      onClick={onClose}
+      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
     >
       <div
         className="w-full max-w-4xl bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-150 text-black"

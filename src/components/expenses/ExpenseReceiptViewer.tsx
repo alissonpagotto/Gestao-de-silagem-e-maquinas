@@ -18,76 +18,80 @@ export const ExpenseReceiptViewer: React.FC<ExpenseReceiptViewerProps> = ({
     expense.receiptUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header - Standardized Solid Teal Bar */}
-        <div className="px-5 py-3.5 bg-[#009688] text-white flex items-center justify-between">
+        {/* Header */}
+        <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-base sm:text-lg font-bold tracking-tight">
+            <h3 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
               Comprovante / Recibo de Despesa
             </h3>
-            <p className="text-xs text-white/80">
+            <p className="text-xs text-black/80 font-medium">
               {expense.description} &bull; {formatCurrencyBRL(expense.amount)}
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center bg-stone-100/50 dark:bg-stone-800/30">
-          {isImage ? (
-            <img
-              src={expense.receiptUrl}
-              alt="Comprovante"
-              className="max-h-[55vh] max-w-full rounded-xl shadow-sm border border-stone-300 dark:border-stone-700 object-contain"
-            />
-          ) : (
-            <div className="text-center p-8 bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-xs max-w-md">
-              <FileText className="w-16 h-16 text-[#009688] mx-auto mb-3" />
-              <p className="font-bold text-stone-900 dark:text-stone-100 text-sm mb-1">
-                {expense.receiptName || 'Documento / NF-e'}
-              </p>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mb-4">
-                Arquivo anexado ao lançamento de {formatDateBR(expense.dueDate)}
-              </p>
-              <a
-                href={expense.receiptUrl}
-                download={expense.receiptName || 'comprovante.pdf'}
-                className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#156f33] hover:bg-[#0e5224] text-white text-xs font-bold shadow-xs cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Baixar Documento</span>
-              </a>
-            </div>
-          )}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] flex flex-col items-center justify-start">
+          <div className="w-full flex-1 flex flex-col items-center justify-center bg-[#e0e6f1] border border-black rounded-xl p-4 sm:p-6">
+            {isImage ? (
+              <img
+                src={expense.receiptUrl}
+                alt="Comprovante"
+                className="max-h-[68vh] max-w-full rounded-xl shadow-sm border border-black bg-white object-contain"
+              />
+            ) : (
+              <div className="text-center p-8 bg-white rounded-xl border border-black shadow-xs max-w-md">
+                <FileText className="w-16 h-16 text-emerald-700 mx-auto mb-3" />
+                <p className="font-bold text-black text-sm mb-1">
+                  {expense.receiptName || 'Documento / NF-e'}
+                </p>
+                <p className="text-xs text-slate-700 mb-4">
+                  Arquivo anexado ao lançamento de {formatDateBR(expense.dueDate)}
+                </p>
+                <a
+                  href={expense.receiptUrl}
+                  download={expense.receiptName || 'comprovante.pdf'}
+                  className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Baixar Documento</span>
+                </a>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Footer info - Standardized */}
-        <div className="px-5 py-3.5 bg-stone-50 dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-600 dark:text-stone-300">
+        {/* Footer info */}
+        <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-between text-xs text-black shrink-0">
           <div>
-            <span>Fornecedor: <strong className="text-stone-900 dark:text-stone-100">{expense.supplier || 'Não informado'}</strong></span>
-            {expense.invoiceNumber && <span className="ml-3">NF: <strong className="text-stone-900 dark:text-stone-100">{expense.invoiceNumber}</strong></span>}
+            <span>Fornecedor: <strong className="text-black">{expense.supplier || 'Não informado'}</strong></span>
+            {expense.invoiceNumber && <span className="ml-3">NF: <strong className="text-black">{expense.invoiceNumber}</strong></span>}
           </div>
           <div className="flex items-center space-x-2">
             {isImage && (
               <a
                 href={expense.receiptUrl}
                 download={expense.receiptName || `comprovante_${expense.id}.png`}
-                className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-xl bg-[#156f33] hover:bg-[#0e5224] text-white font-bold text-xs shadow-xs cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 font-bold text-xs shadow-xs cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Salvar Imagem</span>
               </a>
             )}
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-white border border-black text-black font-bold hover:bg-slate-100 transition cursor-pointer"
             >
               Fechar
             </button>

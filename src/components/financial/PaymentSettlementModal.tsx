@@ -399,11 +399,11 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   return (
     <div
       id="modal-baixa-pagamento"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden animate-in fade-in"
     >
-      <div className="w-[80vw] max-w-[80vw] bg-[#cad4e6] rounded-2xl shadow-2xl overflow-hidden overflow-y-hidden border border-black my-auto flex flex-col max-h-[92vh]">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
         {/* CABEÇALHO */}
-        <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between text-slate-900 shrink-0 bg-[#cad4e6] border-b border-black rounded-t-2xl">
+        <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between text-slate-900 shrink-0 bg-[#cad4e6] border-b border-black">
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white flex items-center justify-center text-slate-900 shrink-0 border border-black shadow-2xs">
               <FileCheck2 className="w-4 h-4 text-emerald-600" />
@@ -432,8 +432,9 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
         {/* FORMULÁRIO */}
         <form
           onSubmit={handleSubmit}
-          className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 bg-[#cad4e6] text-black max-h-[82vh] scrollbar-none"
+          className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black"
         >
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3">
           {/* Alerta de Validação */}
           {errorMessage && (
             <div
@@ -937,20 +938,22 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
             />
           </div>
 
+          </div>
+
           {/* BOTÕES DE AÇÃO */}
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-black bg-[#cad4e6] shrink-0">
+          <div className="flex items-center justify-end space-x-2 px-4 sm:px-5 py-3 border-t border-black bg-[#cad4e6] shrink-0">
             <button
               type="button"
               id="btn-cancelar-baixa"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-white border border-black text-black hover:bg-slate-100 cursor-pointer transition shadow-2xs min-h-[40px]"
+              className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-white border border-black text-black hover:bg-slate-100 cursor-pointer transition shadow-2xs"
             >
               Cancelar
             </button>
             <button
               type="submit"
               id="btn-confirmar-baixa-pagamento"
-              className="px-6 py-2.5 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-black shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[40px]"
+              className="px-6 py-2 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5"
             >
               <Check className="w-4 h-4 stroke-[3]" />
               <span>

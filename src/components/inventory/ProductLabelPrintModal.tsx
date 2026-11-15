@@ -1051,26 +1051,25 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150`}
-      onClick={onClose}
+      className={`fixed inset-0 ${zIndexClass} bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150`}
     >
       <div 
-        className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl w-[75vw] max-w-5xl h-[95vh] max-h-[95vh] shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-slate-800 dark:text-stone-100"
+        className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col justify-between mx-auto my-auto animate-in zoom-in-95 duration-150 text-black dark:text-stone-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ============================================================== */}
-        {/* CABEÇALHO 3D METÁLICO ACETINADO COM ACABAMENTO TRIDIMENSIONAL */}
+        {/* CABEÇALHO OFICIAL ALTO CONTRASTE */}
         {/* ============================================================== */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 flex items-center justify-between shrink-0 rounded-t-2xl">
+        <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
-              <Barcode className="w-4 h-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
+              <Barcode className="w-4 h-4 text-sky-700 dark:text-sky-400 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                 IMPRESSÃO DE ETIQUETAS DE GÔNDOLA / ALMOXARIFADO
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+              <p className="text-[11px] text-black/75 dark:text-stone-400 font-bold">
                 {entryTitle ? `${entryTitle.toUpperCase()} • ` : ''}{itemsToPrint.length} PRODUTO(S) • TOTAL: {totalLabelsCount} ETIQUETAS • {currentPreset.badge.toUpperCase()}
               </p>
             </div>
@@ -1078,18 +1077,18 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
             title="Fechar"
           >
-            <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+            <X className="w-4 h-4 text-black dark:text-stone-200" />
           </button>
         </div>
 
         {/* Corpo do Modal com Slim Design */}
-        <div className="p-3 sm:p-4 space-y-2.5 overflow-y-auto scrollbar-none flex-1 min-h-0">
+        <div className="p-3 sm:p-4 space-y-2.5 overflow-y-auto scrollbar-none flex-1 min-h-0 bg-[#cad4e6]">
           
           {/* Seletor Principal: Modelo e Tamanho da Etiqueta */}
-          <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs space-y-2">
+          <div className="p-2.5 sm:p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-700 shadow-2xs space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
               
               {/* Dropdown com os 12 modelos exatos */}
@@ -1349,7 +1348,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
           {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4 Completa */}
           {previewTab === 'label' || !isA4 ? (
-            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center justify-between min-h-[380px] h-[62vh] max-h-[65vh] overflow-hidden">
+            <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-700 shadow-2xs flex flex-col items-center justify-between min-h-[340px] h-[56vh] max-h-[60vh] overflow-hidden">
               <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-slate-700 dark:text-stone-300 shrink-0">
                 <span className="uppercase text-[10px] sm:text-[11px] font-black text-slate-600 dark:text-stone-400">Total de etiquetas geradas: {flatLabelsList.length}</span>
                 <span className="text-[11px] font-mono font-bold text-sky-600 dark:text-sky-400">
@@ -1377,7 +1376,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             </div>
           ) : (
             /* Visualização Interativa da Grade A4 com clique na posição inicial */
-            <div className="p-3 bg-slate-50 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs flex flex-col items-center min-h-[380px] h-[62vh] max-h-[65vh] overflow-hidden">
+            <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-700 shadow-2xs flex flex-col items-center min-h-[340px] h-[56vh] max-h-[60vh] overflow-hidden">
               <div className="w-full max-w-xl flex items-center justify-between text-xs mb-2 shrink-0">
                 <span className="font-bold text-slate-700 dark:text-stone-300 flex items-center space-x-1.5 uppercase text-[10px] sm:text-[11px]">
                   <LayoutGrid className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
@@ -1527,15 +1526,15 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         </div>
 
         {/* ============================================================== */}
-        {/* RODAPÉ 3D METÁLICO ACETINADO COM GATILHO DE IMPRESSÃO          */}
+        {/* RODAPÉ OFICIAL ALTO CONTRASTE COM GATILHO DE IMPRESSÃO */}
         {/* ============================================================== */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex items-center justify-between gap-2 shrink-0 rounded-b-2xl">
+        <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center space-x-2">
             {onBackToQueue && (
               <button
                 type="button"
                 onClick={onBackToQueue}
-                className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 uppercase"
+                className="px-3.5 py-1.5 text-xs font-bold text-black dark:text-stone-300 border border-black dark:border-stone-700 bg-white hover:bg-gray-100 rounded-lg transition flex items-center space-x-1.5 cursor-pointer active:scale-95 uppercase"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Voltar à Fila</span>
@@ -1544,7 +1543,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] rounded-xl transition cursor-pointer active:scale-95 uppercase"
+              className="px-3.5 py-1.5 text-xs font-bold text-black dark:text-stone-300 border border-black dark:border-stone-700 bg-white hover:bg-gray-100 rounded-lg transition cursor-pointer active:scale-95 uppercase"
             >
               Fechar
             </button>
@@ -1554,7 +1553,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             type="button"
             onClick={handlePrint}
             disabled={isPrinting}
-            className="px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] rounded-xl transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none uppercase"
+            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition flex items-center space-x-1.5 cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none uppercase"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>{isPrinting ? 'Preparando Impressão...' : `Imprimir ${totalLabelsCount} Etiqueta(s)`}</span>

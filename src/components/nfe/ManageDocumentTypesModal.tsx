@@ -146,8 +146,7 @@ export const ManageDocumentTypesModal: React.FC<ManageDocumentTypesModalProps> =
   return (
     <div 
       id="modal-gerenciar-tipos-documento"
-      className="fixed inset-0 z-[9999] bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in"
-      onClick={onClose}
+      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in"
     >
       <div 
         className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[85vh]"

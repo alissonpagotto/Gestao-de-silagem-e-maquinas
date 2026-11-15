@@ -8,6 +8,7 @@ import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, fetchPrecoCombustivelEstoque, extractProductUnitPrice, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
 import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, getStoredInventory, ensureDieselProductsInInventory, calculateDefaultDueDate, formatCurrencyBRL, CANONICAL_TANK_UUIDS, CANONICAL_FUEL_PROD_UUIDS, normalizeTankIdToUUID, normalizeFuelProdIdToUUID } from '../../lib/storage';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -72,6 +73,15 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
   const [vehicleSearchText, setVehicleSearchText] = useState('');
   const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+
+  const fuelGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: editingLog?.id || (isOpen ? 'new' : 'closed'),
+  });
+
+  const handleAttemptClose = () => {
+    fuelGuard.confirmClose(onClose);
+  };
 
   // Listas de Fornecedores e Contas Bancárias com fallback para o storage local
   const availableSuppliers = useMemo(() => {
@@ -944,43 +954,43 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-2.5 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
-      <div className="w-full max-w-[90vw] h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-zinc-900 dark:text-zinc-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-2.5 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden animate-in fade-in duration-150">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl overflow-hidden global shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-black dark:text-zinc-100">
         
-        {/* Header - Moldura Metálica 3D Acetinada */}
-        <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 text-slate-800 dark:text-stone-100 flex items-center justify-between border-b border-slate-400 dark:border-stone-700 shrink-0 rounded-t-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        {/* Header Oficial Alto Contraste */}
+        <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 text-black dark:text-stone-100 flex items-center justify-between border-b border-black dark:border-stone-700 shrink-0 rounded-t-xl">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-100 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs shrink-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-stone-100 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs shrink-0">
               <Fuel className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100">
                 {editingLog ? 'EDITAR ABASTECIMENTO' : 'NOVO REGISTRO DE ABASTECIMENTO'}
               </h3>
-              <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+              <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
                 Controle de combustível com cálculo de consumo em tempo real
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={() => onClose()}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+            onClick={handleAttemptClose}
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Corpo do Modal com Respiro Elegante e Simetria */}
-        <div className="overflow-y-auto flex-1 bg-[#edf4ff] dark:bg-zinc-900">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full bg-[#edf4ff] dark:bg-zinc-900">
+        <div className="overflow-y-auto flex-1 min-h-0 bg-[#cad4e6] dark:bg-zinc-900">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full bg-[#cad4e6] dark:bg-zinc-900">
             
             {/* Coluna Esquerda: Formulário com Cards e Inputs Bem Definidos */}
             <div className="lg:col-span-7 flex flex-col">
-              <form id="fuel-form" noValidate onSubmit={handleSubmit} className="flex flex-col justify-between h-full gap-2.5">
+              <form id="fuel-form" noValidate onSubmit={handleSubmit} {...fuelGuard.captureProps} className="flex flex-col justify-between h-full gap-2.5">
                 
                 {/* 1. Veículo / Máquina e Data do Abastecimento */}
-                <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs">
+                <div className="p-3 bg-[#e0e6f1] dark:bg-zinc-800 rounded-xl border border-black dark:border-zinc-700 shadow-xs">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                     <div className="sm:col-span-8 relative" ref={vehicleDropdownRef}>
                       <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
@@ -1807,16 +1817,16 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Rodapé com Ações Bem Definido */}
-        <div className="px-4 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-900 border-t border-slate-400 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto rounded-b-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)]">
+        <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto rounded-b-xl">
           <div className="w-full sm:w-auto">
             {validationError ? (
-              <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-500 animate-in fade-in">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-700 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-700" />
                 <span>{validationError}</span>
               </div>
             ) : isOverCapacity ? (
-              <div className="flex items-center space-x-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-500/40 animate-in fade-in">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
+              <div className="flex items-center space-x-1.5 text-[11px] font-medium text-amber-900 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-400 dark:border-amber-500/40 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>Alerta visual: Projeção excede a capacidade (+{latestCalculation?.excessoLitros?.toFixed(1) || '0.0'} L). Salvamento liberado.</span>
               </div>
             ) : null}
@@ -1825,8 +1835,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
             <button
               type="button"
-              onClick={() => onClose()}
-              className="pointer-events-auto cursor-pointer px-3.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-200 text-xs font-bold uppercase tracking-wider hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white transition shadow-2xs"
+              onClick={handleAttemptClose}
+              className="pointer-events-auto cursor-pointer px-4 py-1.5 rounded-lg border border-gray-400 dark:border-zinc-600 bg-white dark:bg-zinc-700/60 text-black dark:text-zinc-200 text-xs font-bold uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-zinc-700 transition shadow-2xs"
             >
               CANCELAR
             </button>
@@ -1835,10 +1845,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               type="submit"
               form="fuel-form"
               disabled={isLoading}
-              className={`px-4 py-1.5 rounded-xl text-white text-xs font-bold uppercase tracking-wider shadow-xs transition flex items-center space-x-1.5 ${
+              className={`px-5 py-1.5 rounded-lg text-white text-xs font-bold uppercase tracking-wider shadow-xs transition flex items-center space-x-1.5 border ${
                 isLoading
-                  ? 'opacity-50 cursor-not-allowed bg-zinc-400 dark:bg-zinc-600 pointer-events-none select-none'
-                  : 'pointer-events-auto cursor-pointer bg-amber-600 hover:bg-amber-500 active:bg-amber-700'
+                  ? 'opacity-50 cursor-not-allowed bg-zinc-400 border-zinc-500 dark:bg-zinc-600 pointer-events-none select-none'
+                  : 'pointer-events-auto cursor-pointer bg-emerald-600 hover:bg-emerald-700 border-emerald-800'
               }`}
             >
               <Save className="w-3.5 h-3.5 pointer-events-none" />
@@ -1851,7 +1861,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
       {/* Sub-modal: Gerenciamento da Capacidade do Tanque (Supabase 'tanques_combustivel') */}
       {isTankConfigModalOpen && tankConfigTarget && (
-        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
           <div className="bg-white dark:bg-zinc-800 rounded-2xl max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-zinc-900 dark:text-zinc-100">
             
             {/* Cabeçalho */}

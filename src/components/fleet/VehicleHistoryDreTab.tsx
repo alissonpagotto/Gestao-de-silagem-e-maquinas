@@ -1325,19 +1325,19 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       {/* MODAL RÁPIDO: LANÇAR DESPESA DO MOTORISTA                   */}
       {/* ============================================================ */}
       {isAddingDriverExpense && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-stone-950/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden animate-in fade-in">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto shadow-2xl border border-black dark:border-stone-800 overflow-hidden">
             
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-stone-800">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+            <div className="px-5 py-3 bg-[#cad4e6] flex items-center justify-between border-b border-black dark:border-stone-800 shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white border border-black text-emerald-700 flex items-center justify-center">
                   <Utensils className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-stone-900 dark:text-stone-100">
+                  <h4 className="text-sm font-black uppercase text-black dark:text-stone-100">
                     Lançar Despesa do Motorista
                   </h4>
-                  <p className="text-[11px] text-stone-500">
+                  <p className="text-[11px] text-black/75 font-medium">
                     Alimentação, Salários, Rescisões e Diárias ligadas ao veículo {vehicle.licensePlateOrSerial || vehicle.name}
                   </p>
                 </div>
@@ -1345,23 +1345,25 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAddingDriverExpense(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveQuickDriverExpense} className="space-y-3">
+            <form onSubmit={handleSaveQuickDriverExpense} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6]">
+                <div className="max-w-3xl mx-auto p-4 bg-[#e0e6f1] border border-black rounded-xl space-y-3">
               
               {/* Motorista */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1">
                   Motorista / Operador Beneficiário *
                 </label>
                 <select
                   value={expenseDriverId}
                   onChange={(e) => setExpenseDriverId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-200"
                   required
                 >
                   {employees.map((emp) => (
@@ -1523,18 +1525,21 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                 />
               </div>
 
+                </div>
+              </div>
+
               {/* Buttons */}
-              <div className="pt-2 flex justify-end space-x-2">
+              <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddingDriverExpense(false)}
-                  className="px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-bold hover:bg-stone-200 transition cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-white border border-gray-400 text-black text-xs font-bold hover:bg-gray-100 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition flex items-center space-x-1.5 cursor-pointer"
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Confirmar e Lançar</span>

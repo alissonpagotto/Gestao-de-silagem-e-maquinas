@@ -2009,8 +2009,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
           {/* Modal de Cadastro/Edição Mestre Largo (SLIM DESIGN PRO) */}
           {isItemModalOpen && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-150">
-              <div className="w-full max-w-4xl h-[95vh] bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150">
+              <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden">
                 
                 {/* Cabeçalho */}
                 <div className="px-6 py-3.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
@@ -3260,38 +3260,42 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
       {/* Quick Meter Reading Modal */}
       {quickMeterVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 shadow-2xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             
-            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
+            <div className="px-5 py-3 border-b border-black dark:border-stone-800 bg-[#cad4e6] flex items-center justify-between shrink-0">
               <div>
-                <h3 className="font-bold text-base text-stone-900 dark:text-stone-100 flex items-center space-x-2">
-                  <Gauge className="w-5 h-5 text-sky-600" />
+                <h3 className="font-bold text-sm sm:text-base uppercase text-black dark:text-stone-100 flex items-center space-x-2">
+                  <Gauge className="w-5 h-5 text-sky-700" />
                   <span>Atualizar Leitura do Medidor</span>
                 </h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                <p className="text-xs text-black/75 dark:text-stone-400 mt-0.5 font-medium">
                   <span className="uppercase font-semibold">{(quickMeterVehicle.model || quickMeterVehicle.name || '').toUpperCase()}</span> • Placa: {(quickMeterVehicle.licensePlateOrSerial || quickMeterVehicle.serialNumber || '--').toUpperCase()}
                 </p>
               </div>
               <button
                 onClick={() => setQuickMeterVehicle(null)}
-                className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-lg"
+                className="p-1.5 text-black hover:bg-black/10 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {quickMeterFeedback ? (
-              <div className="p-4 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-sm text-center border border-emerald-200">
-                {quickMeterFeedback}
+              <div className="flex-1 flex items-center justify-center p-6 bg-[#cad4e6]">
+                <div className="p-5 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-sm text-center border border-emerald-500 max-w-md w-full">
+                  {quickMeterFeedback}
+                </div>
               </div>
             ) : (
-              <form onSubmit={handleSaveQuickMeter} className="space-y-4">
+              <form onSubmit={handleSaveQuickMeter} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6]">
+                  <div className="max-w-2xl mx-auto p-4 sm:p-5 bg-[#e0e6f1] border border-black rounded-xl space-y-4">
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1 flex items-center space-x-1">
-                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1 flex items-center space-x-1">
+                      <Clock className="w-3.5 h-3.5 text-amber-700" />
                       <span>Horímetro Atual (h)</span>
                     </label>
                     <input
@@ -3300,14 +3304,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                       placeholder="Ex: 1450.5"
                       value={quickHourMeter}
                       onChange={(e) => setQuickHourMeter(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-mono font-bold focus:ring-2 focus:ring-sky-600"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 text-sm font-mono font-bold focus:ring-2 focus:ring-sky-600"
                     />
-                    <span className="text-[10px] text-stone-400">Tratores, Ensiladeiras, Pás</span>
+                    <span className="text-[10px] text-black/70 font-medium">Tratores, Ensiladeiras, Pás</span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1 flex items-center space-x-1">
-                      <Gauge className="w-3.5 h-3.5 text-emerald-600" />
+                    <label className="block text-xs font-bold text-black dark:text-stone-300 mb-1 flex items-center space-x-1">
+                      <Gauge className="w-3.5 h-3.5 text-emerald-700" />
                       <span>Odômetro Atual (km)</span>
                     </label>
                     <input
@@ -3316,23 +3320,25 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                       placeholder="Ex: 85200"
                       value={quickKm}
                       onChange={(e) => setQuickKm(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-mono font-bold focus:ring-2 focus:ring-sky-600"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 text-sm font-mono font-bold focus:ring-2 focus:ring-sky-600"
                     />
-                    <span className="text-[10px] text-stone-400">Caminhões, Camionetes</span>
+                    <span className="text-[10px] text-black/70 font-medium">Caminhões, Camionetes</span>
+                  </div>
+                </div>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-end space-x-2">
+                <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setQuickMeterVehicle(null)}
-                    className="px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-800"
+                    className="px-4 py-2 rounded-lg border border-gray-400 bg-white text-black text-xs font-bold hover:bg-gray-100 cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20"
+                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white text-xs font-bold shadow-xs cursor-pointer"
                   >
                     Salvar Leitura
                   </button>

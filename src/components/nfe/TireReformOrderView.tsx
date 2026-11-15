@@ -1669,7 +1669,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
       {/* Modal de Confirmação de Exclusão (Customizado para contornar Sandbox/Iframe) */}
       {orderToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in print:hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in print:hidden">
           <div className="bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
             {/* Cabeçalho acetinado 3D obrigatório do contrato */}
             <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 text-slate-700 font-bold text-xs p-2 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] flex items-center justify-between">
@@ -1743,26 +1743,26 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
       {/* Modal de Visualização da Ordem de Envio de Reforma */}
       {selectedOrderForView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in print:hidden">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in print:hidden overflow-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto overflow-hidden animate-in zoom-in-95">
             
             {/* Header do Modal */}
-            <div className="flex items-center justify-between p-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/50">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-900 shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold shrink-0">
-                  <FileText className="w-5 h-5 stroke-[2.2]" />
+                <div className="w-8 h-8 rounded-lg bg-white dark:bg-stone-800 border border-black text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                  <FileText className="w-4 h-4 stroke-[2.2]" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-wide">
+                    <h3 className="text-xs sm:text-sm font-black text-black dark:text-stone-100 uppercase tracking-wide">
                       ORDEM DE ENVIO DE PNEUS PARA REFORMA
                     </h3>
-                    <span className="font-mono text-xs font-black text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
+                    <span className="font-mono text-xs font-black text-black bg-white border border-black/40 px-2 py-0.5 rounded-md">
                       {selectedOrderForView.orderNumber}
                     </span>
                   </div>
-                  <p className="text-[11px] text-stone-500">
-                    Emissão: {formatDateBR(selectedOrderForView.createdAt)} • Status: <strong className="text-amber-600">{selectedOrderForView.status}</strong>
+                  <p className="text-[11px] text-black/80 dark:text-stone-400 font-semibold">
+                    Emissão: {formatDateBR(selectedOrderForView.createdAt)} • Status: <strong className="text-black dark:text-white">{selectedOrderForView.status}</strong>
                   </p>
                 </div>
               </div>
@@ -1770,7 +1770,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedOrderForView(null)}
-                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1795,32 +1795,32 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             )}
 
             {/* Informações da Ordem */}
-            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+            <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0 bg-[#cad4e6] dark:bg-stone-950">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase block mb-0.5">Destinatário / Recapadora</span>
-                  <p className="font-black text-stone-900 dark:text-stone-100">{selectedOrderForView.supplierName}</p>
+                <div className="p-3 rounded-xl border border-black dark:border-stone-800 bg-[#e0e6f1] dark:bg-stone-800/50">
+                  <span className="text-[10px] font-black text-black/80 dark:text-stone-400 uppercase block mb-0.5">Destinatário / Recapadora</span>
+                  <p className="font-black text-black dark:text-stone-100">{selectedOrderForView.supplierName}</p>
                   {selectedOrderForView.supplierCnpj && (
-                    <p className="text-[11px] text-stone-500">CNPJ: {selectedOrderForView.supplierCnpj}</p>
+                    <p className="text-[11px] text-black/80 dark:text-stone-400">CNPJ: {selectedOrderForView.supplierCnpj}</p>
                   )}
                   {selectedOrderForView.supplierPhone && (
-                    <p className="text-[11px] text-stone-500">Tel: {selectedOrderForView.supplierPhone}</p>
+                    <p className="text-[11px] text-black/80 dark:text-stone-400">Tel: {selectedOrderForView.supplierPhone}</p>
                   )}
                 </div>
 
-                <div className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase block mb-0.5">Transporte & Retorno</span>
-                  <p className="font-bold text-stone-900 dark:text-stone-100">
+                <div className="p-3 rounded-xl border border-black dark:border-stone-800 bg-[#e0e6f1] dark:bg-stone-800/50">
+                  <span className="text-[10px] font-black text-black/80 dark:text-stone-400 uppercase block mb-0.5">Transporte & Retorno</span>
+                  <p className="font-bold text-black dark:text-stone-100">
                     Motorista: {selectedOrderForView.driverName || 'Motorista da Frota'}
                   </p>
-                  <p className="text-[11px] text-stone-500">
+                  <p className="text-[11px] text-black/80 dark:text-stone-400">
                     Previsão de Retorno: {formatDateBR(selectedOrderForView.expectedReturnDate)}
                   </p>
                 </div>
               </div>
 
               {/* Tabela de Itens Enviados */}
-              <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
+              <div className="border border-black dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs bg-white dark:bg-stone-900">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[10px] font-black uppercase border-b border-stone-200 dark:border-stone-800">
                     <tr>
@@ -1910,13 +1910,13 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             </div>
 
             {/* Footer do Modal */}
-            <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/50 flex flex-row items-center justify-between gap-2 overflow-y-hidden shrink-0">
+            <div className="px-4 py-2.5 border-t border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-900 flex flex-row items-center justify-between gap-2 overflow-y-hidden shrink-0">
               <div className="flex items-center space-x-2">
-                <span className="text-xs text-stone-500">
-                  Total Acumulado: <strong className="font-mono text-stone-900 dark:text-stone-100">R$ {formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}</strong>
+                <span className="text-xs text-black/80 dark:text-stone-300 font-semibold">
+                  Total Acumulado: <strong className="font-mono text-black dark:text-stone-100">R$ {formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}</strong>
                 </span>
                 {orderSavedToast && (
-                  <span className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
+                  <span className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-700 animate-in fade-in">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Ordem salva com sucesso!</span>
                   </span>
@@ -1924,28 +1924,25 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
               </div>
 
               <div className="flex flex-row items-center justify-end gap-2 shrink-0">
-                {/* Botão Sair (Requisito 2) */}
                 <button
                   type="button"
                   id="btn-sair-ordem-reforma"
                   onClick={() => setSelectedOrderForView(null)}
-                  className="border border-gray-300 dark:border-stone-700 text-gray-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-50 dark:hover:bg-stone-700 px-4 py-1.5 rounded-lg text-sm font-medium transition cursor-pointer"
+                  className="border border-black dark:border-stone-700 text-black dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-100 dark:hover:bg-stone-700 px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
                 >
                   Sair
                 </button>
 
-                {/* Botão Salvar Ordem (Requisito 1) */}
                 <button
                   type="button"
                   id="btn-salvar-ordem-reforma"
                   onClick={handleSaveViewedOrder}
-                  className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium px-4 py-1.5 rounded-lg text-sm shadow-xs transition cursor-pointer inline-flex items-center space-x-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-800 font-bold px-4 py-1.5 rounded-lg text-xs shadow-xs transition cursor-pointer inline-flex items-center space-x-1.5"
                 >
                   <Save className="w-4 h-4" />
                   <span>Salvar Ordem</span>
                 </button>
 
-                {/* Botão Efetivar Retorno no Modal */}
                 {selectedOrderForView.status !== 'Concluído' && (
                   <button
                     type="button"
@@ -1955,7 +1952,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       setSelectedOrderForView(null);
                       handleEfetivarRetorno(toReturn);
                     }}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-bold shadow-xs transition cursor-pointer"
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-800 text-xs font-bold shadow-xs transition cursor-pointer"
                     title="Efetivar retorno do pedido de reforma"
                   >
                     <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1963,12 +1960,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   </button>
                 )}
 
-                {/* Botão Editar Pedido */}
                 {selectedOrderForView.status === 'Concluído' ? (
                   <button
                     type="button"
                     disabled
-                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-800 text-stone-400 dark:text-stone-600 text-sm font-bold cursor-not-allowed opacity-50"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-black/30 text-black/40 bg-white/60 text-xs font-bold cursor-not-allowed opacity-50"
                     title="Pedido Concluído - Bloqueado contra edições"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -1983,7 +1979,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       setSelectedOrderForView(null);
                       handleStartEditOrder(toEdit);
                     }}
-                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-sm font-bold transition cursor-pointer"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-black bg-white hover:bg-gray-100 text-black text-xs font-bold transition cursor-pointer"
                     title="Editar dados e valores deste pedido"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -1991,12 +1987,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   </button>
                 )}
 
-                {/* Botão Imprimir Pedido */}
                 <button
                   type="button"
                   id="btn-imprimir-pedido-reforma-modal"
                   onClick={() => handlePrintOrder(selectedOrderForView)}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-sm font-bold shadow-xs transition cursor-pointer"
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 text-xs font-bold shadow-xs transition cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir Pedido (A4)</span>

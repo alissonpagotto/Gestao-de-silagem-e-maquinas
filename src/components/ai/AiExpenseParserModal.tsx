@@ -154,121 +154,141 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-xl w-full shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden">
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header - Standardized Solid Teal Bar */}
-        <div className="px-5 py-3.5 bg-[#009688] text-white flex items-center justify-between">
+        {/* Header */}
+        <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black text-black flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
-            <Sparkles className="w-5 h-5 text-amber-300" />
-            <h3 className="text-base sm:text-lg font-bold tracking-tight">
-              Lançamento Rápido com IA
-            </h3>
+            <div className="w-8 h-8 rounded-lg bg-white border border-black flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-emerald-700" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
+                Lançamento Rápido com IA
+              </h3>
+              <p className="text-[11px] text-black/80 font-medium">
+                Interpretação automática de texto para lançamento financeiro
+              </p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#cad4e6] text-black">
           
-          <div>
-            <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-              O QUE VOCÊ GASTOU?
-            </label>
-            <textarea
-              rows={3}
-              value={inputPrompt}
-              onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="Ex: Abasteci 300 litros de diesel no trator ontem por R$ 1.860 via pix..."
-              className="w-full p-3.5 text-xs sm:text-sm rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-[#009688] focus:outline-none resize-none font-medium"
-            />
-          </div>
-
-          {/* Sample Prompts */}
-          <div>
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 flex items-center gap-1 mb-1.5">
-              <Lightbulb className="w-3.5 h-3.5 text-amber-500" /> Exemplos rápidos (clique para testar):
-            </span>
-            <div className="space-y-1.5">
-              {samplePrompts.map((p, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setInputPrompt(p)}
-                  className="w-full text-left p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 hover:bg-teal-50 dark:hover:bg-teal-950/20 text-xs text-stone-600 dark:text-stone-300 hover:text-[#009688] dark:hover:text-teal-400 border border-stone-200 dark:border-stone-700/60 transition truncate cursor-pointer"
-                >
-                  "{p}"
-                </button>
-              ))}
+          <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 space-y-3">
+            <div>
+              <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1.5">
+                O QUE VOCÊ GASTOU?
+              </label>
+              <textarea
+                rows={3}
+                value={inputPrompt}
+                onChange={(e) => setInputPrompt(e.target.value)}
+                placeholder="Ex: Abasteci 300 litros de diesel no trator ontem por R$ 1.860 via pix..."
+                className="w-full p-3.5 text-xs sm:text-sm rounded-xl border border-gray-400 bg-white text-black focus:ring-2 focus:ring-emerald-600 focus:outline-none resize-none font-medium"
+              />
             </div>
-          </div>
 
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleParse}
-              disabled={!inputPrompt.trim() || isProcessing}
-              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#009688] hover:bg-[#00796b] text-white text-xs sm:text-sm font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{isProcessing ? 'Analisando...' : 'Interpretar Lançamento'}</span>
-            </button>
+            {/* Sample Prompts */}
+            <div>
+              <span className="text-[11px] font-bold text-black flex items-center gap-1 mb-1.5">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-600" /> Exemplos rápidos (clique para testar):
+              </span>
+              <div className="space-y-1.5">
+                {samplePrompts.map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setInputPrompt(p)}
+                    className="w-full text-left p-2.5 rounded-xl bg-white hover:bg-emerald-50 text-xs text-black border border-gray-400 transition truncate cursor-pointer font-medium"
+                  >
+                    "{p}"
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleParse}
+                disabled={!inputPrompt.trim() || isProcessing}
+                className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 text-xs sm:text-sm font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{isProcessing ? 'Analisando...' : 'Interpretar Lançamento'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Parsed Result Preview */}
           {parsedPreview && (
-            <div className="mt-4 p-4 rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 space-y-2 animate-in fade-in">
+            <div className="p-4 rounded-xl bg-[#e0e6f1] border border-black space-y-2 animate-in fade-in">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-teal-900 dark:text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Check className="w-4 h-4 text-[#009688]" />
+                <span className="text-xs font-bold text-black uppercase tracking-wider flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-700" />
                   Lançamento Identificado
                 </span>
-                <span className="text-base font-extrabold text-[#156f33] dark:text-emerald-400">
+                <span className="text-base font-extrabold text-emerald-700">
                   R$ {(parsedPreview.amount || 0).toFixed(2)}
                 </span>
               </div>
 
-              <p className="text-xs font-semibold text-stone-800 dark:text-stone-200">{parsedPreview.description}</p>
+              <p className="text-xs font-semibold text-black">{parsedPreview.description}</p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-teal-200 dark:border-teal-800/60 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-black/20 text-xs">
                 <div>
-                  <span className="text-stone-500 dark:text-stone-400 block text-[10px]">Categoria</span>
-                  <strong className="text-stone-800 dark:text-stone-200">{parsedPreview.categoryName}</strong>
+                  <span className="text-slate-700 block text-[10px] font-bold uppercase">Categoria</span>
+                  <strong className="text-black">{parsedPreview.categoryName}</strong>
                 </div>
                 <div>
-                  <span className="text-stone-500 dark:text-stone-400 block text-[10px]">Forma</span>
-                  <strong className="text-stone-800 dark:text-stone-200 uppercase">{parsedPreview.paymentMethod}</strong>
+                  <span className="text-slate-700 block text-[10px] font-bold uppercase">Forma</span>
+                  <strong className="text-black uppercase">{parsedPreview.paymentMethod}</strong>
                 </div>
                 <div>
-                  <span className="text-stone-500 dark:text-stone-400 block text-[10px]">Status</span>
-                  <strong className="text-[#156f33] dark:text-emerald-400 capitalize">{parsedPreview.status}</strong>
+                  <span className="text-slate-700 block text-[10px] font-bold uppercase">Status</span>
+                  <strong className="text-emerald-700 capitalize">{parsedPreview.status}</strong>
                 </div>
                 {parsedPreview.machineryName && (
                   <div>
-                    <span className="text-stone-500 dark:text-stone-400 block text-[10px]">Máquina</span>
-                    <strong className="text-blue-700 dark:text-blue-400">{parsedPreview.machineryName}</strong>
+                    <span className="text-slate-700 block text-[10px] font-bold uppercase">Máquina</span>
+                    <strong className="text-blue-800">{parsedPreview.machineryName}</strong>
                   </div>
                 )}
-              </div>
-
-              <div className="pt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleConfirm}
-                  className="inline-flex items-center space-x-2 px-6 py-2 rounded-xl bg-[#156f33] hover:bg-[#0e5224] text-white text-xs sm:text-sm font-bold shadow-xs cursor-pointer transition"
-                >
-                  <span>Confirmar & Salvar Despesa</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
               </div>
             </div>
           )}
 
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-white border border-black text-black text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+          >
+            Cancelar
+          </button>
+          {parsedPreview && (
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="inline-flex items-center space-x-2 px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 text-xs sm:text-sm font-bold shadow-xs cursor-pointer transition"
+            >
+              <span>Confirmar & Salvar Despesa</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
       </div>

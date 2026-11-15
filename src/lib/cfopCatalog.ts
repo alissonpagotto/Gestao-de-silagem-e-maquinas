@@ -515,6 +515,7 @@ export interface InformacoesComplementaresParams {
   nfeReferenciada?: string;
   veiculoPlaca?: string;
   motoristaNome?: string;
+  ativosImobilizados?: string[];
 }
 
 export function buildDefaultInformacoesComplementares(params: InformacoesComplementaresParams): string {
@@ -527,6 +528,13 @@ export function buildDefaultInformacoesComplementares(params: InformacoesComplem
   const ref = String(params.nfeReferenciada || '').trim();
   const placa = String(params.veiculoPlaca || '').trim().toUpperCase();
   const motorista = String(params.motoristaNome || '').trim().toUpperCase();
+  const ativos = Array.from(
+    new Set(
+      (params.ativosImobilizados || [])
+        .map((a) => String(a || '').trim())
+        .filter(Boolean)
+    )
+  );
 
   const isRemessaOuRetorno =
     t.includes('remessa') ||
@@ -541,6 +549,9 @@ export function buildDefaultInformacoesComplementares(params: InformacoesComplem
     parts.push(
       `Operação de Remessa/Retorno${refText} - Suspensão/Não incidência de ICMS conforme RICMS.`
     );
+    ativos.forEach((assetLabel) => {
+      parts.push(`Remessa de bem do Ativo Imobilizado: ${assetLabel}.`);
+    });
   }
 
   const isTransporte = t.includes('ct-e') || t.includes('cte') || t.includes('mdf-e') || t.includes('mdfe');

@@ -190,24 +190,24 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
   return createPortal(
     <div 
       id="printable-os-overlay" 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:!block print:!visible print:static print:w-full print:h-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden print:!block print:!visible print:static print:w-full print:h-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
     >
       <div 
         id="printable-os-container"
-        className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
       >
         
         {/* Header - Não impresso */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/40 print:hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-800/40 shrink-0 print:hidden">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-800 flex items-center justify-center border border-zinc-200">
-              <FileText className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-white text-black flex items-center justify-center border border-black shadow-2xs">
+              <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+              <h3 className="text-sm sm:text-base font-bold text-black dark:text-stone-100 uppercase tracking-wide font-['Outfit']">
                 Ordem de Serviço: {log.osNumber || log.id}
               </h3>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-black/75 dark:text-stone-400 font-medium">
                 Laudo Técnico & Detalhamento da Manutenção
               </p>
             </div>
@@ -217,7 +217,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
             <button
               onClick={handleExportPdf}
               disabled={isGeneratingPdf}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-white hover:bg-gray-100 text-black border border-gray-400 rounded-lg text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
               title="Exportar PDF em 1 Via Única A4"
             >
               {isGeneratingPdf ? (
@@ -229,14 +229,14 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
             </button>
             <button
               onClick={handlePrint}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir OS</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              className="p-2 text-black hover:bg-black/10 rounded-lg dark:text-stone-300 dark:hover:bg-stone-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -244,7 +244,8 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
         </div>
 
         {/* Conteúdo Imprimível / Visualizável */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-stone-900 dark:text-stone-100 print:!block print:!visible print:w-full print:p-0 print:space-y-3.5 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid print:page-break-after-avoid" id="printable-os">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] flex justify-center items-start print:!block print:!visible print:w-full print:p-0 print:bg-white print:overflow-visible">
+          <div className="w-full max-w-4xl bg-white dark:bg-stone-900 border border-black rounded-xl p-6 sm:p-8 space-y-6 text-stone-900 dark:text-stone-100 shadow-lg print:!block print:!visible print:w-full print:max-w-none print:border-none print:rounded-none print:shadow-none print:p-0 print:space-y-3.5 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid print:page-break-after-avoid" id="printable-os">
           
           {/* Cabeçalho Corporativo Padronizado */}
           <PrintReportHeader
@@ -433,6 +434,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
             authCode={`OS-${(log.osNumber || log.id).toString().replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
           />
 
+          </div>
         </div>
 
       </div>

@@ -2741,12 +2741,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
         e.preventDefault();
         handleOpenCheckoutModal();
       }
-      // Esc: Fechar Comprovante ou sair da Tela Cheia
+      // Esc: Sair da Tela Cheia do PDV
       else if (e.key === 'Escape') {
-        if (isReceiptOpen) {
-          e.preventDefault();
-          setIsReceiptOpen(false);
-        } else if (isPdvFullscreen) {
+        if (isPdvFullscreen) {
           e.preventDefault();
           exitPdvFullscreen();
         }
@@ -2804,16 +2801,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
         e.preventDefault();
         handleConfirmarEImprimir();
       }
-      // [ESC] CANCELAR / VOLTAR AO PDV
-      else if (e.key === 'Escape') {
-        e.preventDefault();
-        if (isSaveDraftModalOpen) {
-          setIsSaveDraftModalOpen(false);
-        } else {
-          setIsCheckoutModalOpen(false);
-        }
-      }
-      // [F4] SALVAR RASCUNHO VENDA
+      // [F4] SALVAR RASCUNHO VENDA (ESC não fecha mais o modal)
       else if (e.key === 'F4') {
         e.preventDefault();
         handleSaveVendaRascunho();
@@ -3791,37 +3779,36 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
       {isCheckoutModalOpen && (
         <div 
           id="modal-fechamento-pdv-overlay"
-          className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
-          onClick={() => setIsCheckoutModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
         >
           <div 
             id="modal-fechamento-pdv"
-            className="w-full max-w-4xl h-[95vh] flex flex-col justify-between mx-auto my-auto bg-slate-50 dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg overflow-hidden global select-none shadow-2xl"
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden select-none shadow-2xl text-slate-900"
             onClick={e => e.stopPropagation()}
           >
-            {/* Cabeçalho Metálico Acetinado Padrão Ouro em CAIXA ALTA */}
-            <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 px-4 py-2.5 text-white flex items-center justify-between shadow-xs border-b border-amber-700/60 shrink-0">
+            {/* Cabeçalho Oficial (#cad4e6 + border-black) */}
+            <div className="bg-[#cad4e6] px-4 py-2.5 text-slate-900 flex items-center justify-between border-b border-black shrink-0">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-amber-100 shrink-0" />
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider font-['Outfit']">
+                <Printer className="w-4 h-4 text-slate-900 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider font-['Outfit'] text-slate-900">
                   🖨️ CONCLUIR E EMITIR COMPROVANTE DE VENDA
                 </h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-black/20 text-white border border-white/20">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-white text-slate-900 border border-black">
                   {items.length} {items.length === 1 ? 'ITEM' : 'ITENS'} • {operacaoTipo === 'contrato_silagem' ? 'CONTRATO DE SILAGEM' : 'VENDA BALCÃO'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCheckoutModalOpen(false)}
-                className="p-1 hover:bg-black/20 rounded transition text-amber-100 hover:text-white cursor-pointer"
+                className="p-1 bg-white hover:bg-slate-100 rounded border border-black transition text-slate-900 cursor-pointer"
                 title="Fechar (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Conteúdo Central do Modal com Trava Anti-Rolagem e Organização Limpa */}
-            <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto no-scrollbar space-y-3 bg-slate-100/70 dark:bg-stone-950/60">
+            {/* Conteúdo Central do Modal */}
+            <div className="flex-1 min-h-0 p-3.5 sm:p-4 overflow-y-auto space-y-3 bg-[#cad4e6]">
               
               {/* 1. BLOCOS DE VALORES MACRO: CARDS DESTACADOS COM CONTORNOS FINOS DE AÇO */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -3906,7 +3893,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               {/* =====================================================================
                   NOVO: SEÇÃO DE FRETE DINÂMICO MULTIVEÍCULO (LOGÍSTICA DE TRANSPORTE)
                  ===================================================================== */}
-              <div className="bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -4123,7 +4110,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               </div>
 
               {/* 2. GRADE DE BOTÕES DE FORMA DE PAGAMENTO REATIVOS */}
-              <div className="bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2.5">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-2xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
                     <CreditCard className="w-3.5 h-3.5 text-slate-500" />
@@ -4284,7 +4271,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               </div>
 
               {/* 3. SELETOR DE IMPRESSÃO FIXO */}
-              <div className="bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl p-3 shadow-2xs space-y-2">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 shadow-2xs space-y-2">
                 <span className="text-[10px] sm:text-[11px] font-black uppercase text-slate-700 dark:text-stone-300 tracking-wider flex items-center gap-1.5">
                   <Printer className="w-3.5 h-3.5 text-slate-500" />
                   <span>SELETOR DE FORMATO DE SAÍDA / IMPRESSÃO *:</span>
@@ -4345,13 +4332,13 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
 
             </div>
 
-            {/* 4. BOTÕES NO RODAPÉ ACETINADO (CANCELAR, SALVAR RASCUNHO E CONFIRMAR) */}
-            <div className="p-2.5 sm:p-3 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-200 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-t border-slate-300 dark:border-stone-700 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+            {/* 4. RODAPÉ OFICIAL (#cad4e6 + border-black) */}
+            <div className="px-4 py-2.5 bg-[#cad4e6] border-t border-black flex flex-wrap items-center justify-between gap-2.5 shrink-0">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCheckoutModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer uppercase tracking-wider"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-black bg-white text-slate-900 hover:bg-slate-100 transition cursor-pointer uppercase tracking-wider"
                 >
                   ✕ [ESC] CANCELAR
                 </button>
@@ -4359,7 +4346,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 <button
                   type="button"
                   onClick={handleSaveVendaRascunho}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400 font-bold text-xs uppercase px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] cursor-pointer whitespace-nowrap"
+                  className="bg-white hover:bg-slate-100 text-slate-900 border border-black font-bold text-xs uppercase px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer whitespace-nowrap"
                   title="Salvar venda temporária e liberar PDV"
                 >
                   <span>💾 [F4] SALVAR RASCUNHO</span>
@@ -4370,10 +4357,10 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 type="button"
                 onClick={handleConfirmarEImprimir}
                 disabled={formaPagamento === 'prazo' && clientOverdueBlock.blocked}
-                className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-black border transition uppercase tracking-wider ml-auto ${
+                className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs sm:text-sm font-bold border transition uppercase tracking-wider ml-auto ${
                   formaPagamento === 'prazo' && clientOverdueBlock.blocked
                     ? 'bg-rose-200 text-rose-800 border-rose-400 cursor-not-allowed opacity-80'
-                    : 'bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white border-emerald-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.2)] active:scale-95 cursor-pointer'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-900 shadow-xs active:scale-95 cursor-pointer'
                 }`}
               >
                 <span>🖨️ [F2] FINALIZAR VENDA E IMPRIMIR</span>
@@ -4389,8 +4376,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
          ===================================================================== */}
       {isSaveDraftModalOpen && (
         <div 
-          className="fixed inset-0 z-[60] bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 overflow-hidden animate-in fade-in duration-150"
-          onClick={() => setIsSaveDraftModalOpen(false)}
+          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 overflow-hidden animate-in fade-in duration-150"
         >
           <div 
             className="w-full max-w-md bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-lg shadow-2xl overflow-hidden select-none"
@@ -4472,36 +4458,33 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
          ===================================================================== */}
       {isReceiptOpen && lastFinishedSale && (
         <div 
-          className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-y-auto"
-          onClick={() => setIsReceiptOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150 overflow-y-auto"
         >
           <div 
-            className={`bg-white dark:bg-stone-900 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xl flex flex-col my-auto transition-all duration-200 overflow-hidden ${
-              activePrintFormat === 'a4' ? 'max-w-4xl w-full' : 'max-w-md w-full'
-            }`}
+            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] rounded-xl border border-black shadow-2xl overflow-hidden text-slate-900"
             onClick={e => e.stopPropagation()}
           >
             {/* Header do Modal com Seletor de Formato */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-[#cad4e6] border-b border-black shrink-0">
               <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-600 shrink-0" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                <Receipt className="w-4 h-4 text-slate-900 shrink-0" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
                   COMPROVANTE DE VENDA • PDV
                 </h3>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 dark:bg-stone-700 text-slate-700 dark:text-stone-300">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-black text-slate-900">
                   {lastFinishedSale.orderNumber}
                 </span>
               </div>
 
               {/* Seletor Rápido de Formato (Térmica 80mm vs Folha A4 Retrato) */}
-              <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-stone-900 p-0.5 rounded-lg border border-slate-300 dark:border-stone-700">
+              <div className="flex items-center gap-1 bg-white/80 p-0.5 rounded-lg border border-black">
                 <button
                   type="button"
                   onClick={() => setActivePrintFormat('termica')}
                   className={`px-2.5 py-1 rounded text-[10px] font-black uppercase transition cursor-pointer flex items-center gap-1 ${
                     activePrintFormat === 'termica'
-                      ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-stone-400 hover:text-black dark:hover:text-white'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'text-slate-700 hover:text-black'
                   }`}
                   title="Formato Bobina Térmica 80mm"
                 >
@@ -4513,8 +4496,8 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   onClick={() => setActivePrintFormat('a4')}
                   className={`px-2.5 py-1 rounded text-[10px] font-black uppercase transition cursor-pointer flex items-center gap-1 ${
                     activePrintFormat === 'a4'
-                      ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-stone-400 hover:text-black dark:hover:text-white'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'text-slate-700 hover:text-black'
                   }`}
                   title="Formato Folha A4 Retrato"
                 >
@@ -4526,7 +4509,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               <button
                 type="button"
                 onClick={() => setIsReceiptOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-black dark:hover:text-white cursor-pointer"
+                className="p-1 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black cursor-pointer"
                 title="Fechar (Esc)"
               >
                 <X className="w-4 h-4" />
@@ -4534,13 +4517,13 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
             </div>
 
             {/* Faixa Informativa Anti-Sandbox */}
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-900/60 px-4 py-1.5 flex items-center justify-between text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold">
+            <div className="bg-[#e0e6f1] border-b border-black px-4 py-1.5 flex items-center justify-between text-[10px] text-slate-900 font-semibold shrink-0">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                 <span>PROTEÇÃO ANTI-SANDBOX: Visualização na tela com opções de impressão direta, cópia para WhatsApp/e-mail e download do espelho de venda.</span>
               </span>
               {copiedFeedback && (
-                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-black uppercase animate-in fade-in">
+                <span className="inline-flex items-center gap-1 text-emerald-800 font-black uppercase animate-in fade-in">
                   <CheckCheck className="w-3.5 h-3.5" />
                   COPIADO COM SUCESSO!
                 </span>
@@ -4548,7 +4531,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
             </div>
 
             {/* Área de Conteúdo Scrollável */}
-            <div className="p-3 sm:p-4 max-h-[75vh] overflow-y-auto bg-slate-100 dark:bg-stone-950">
+            <div className="p-3 sm:p-4 flex-1 min-h-0 overflow-y-auto bg-[#cad4e6]">
               {/* =============================================================
                   FORMATO 1: FOLHA A4 RETRATO (ESPELHO DE PEDIDO / NOTA DE VENDA)
                  ============================================================= */}
@@ -4846,25 +4829,25 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
             </div>
 
             {/* Ações do Modal com Suporte Anti-Sandbox */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-slate-50 dark:bg-stone-850 border-t border-slate-300 dark:border-stone-700 rounded-b-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-[#cad4e6] border-t border-black shrink-0">
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={handleCopyComprovante}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-black text-slate-900 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
                   title="Copiar dados do comprovante para enviar no WhatsApp ou e-mail"
                 >
-                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  <Copy className="w-3.5 h-3.5 text-slate-700" />
                   <span>{copiedFeedback ? 'COPIADO!' : 'COPIAR DADOS'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleDownloadComprovante}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-black text-slate-900 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
                   title="Baixar espelho ou cupom de venda em arquivo texto"
                 >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <Download className="w-3.5 h-3.5 text-slate-700" />
                   <span>BAIXAR ARQUIVO</span>
                 </button>
               </div>
@@ -4873,14 +4856,14 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                 <button
                   type="button"
                   onClick={() => setIsReceiptOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-800 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-black bg-white text-slate-900 hover:bg-slate-100 cursor-pointer"
                 >
                   FECHAR
                 </button>
                 <button
                   type="button"
                   onClick={handlePrintSafe}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-black dark:bg-stone-100 dark:text-zinc-900 dark:hover:bg-white transition cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-900 transition cursor-pointer shadow-xs"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>IMPRIMIR {activePrintFormat === 'a4' ? 'ESPELHO A4' : 'CUPOM 80MM'}</span>
@@ -4896,12 +4879,7 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
          ===================================================================== */}
       {isMasterAuthModalOpen && (
         <div 
-          className="fixed inset-0 z-[9999] bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150"
-          onClick={() => {
-            setIsMasterAuthModalOpen(false);
-            setMasterAuthError('');
-            setMasterPasswordInput('');
-          }}
+          className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 animate-in fade-in duration-150"
         >
           <div 
             className="bg-white dark:bg-stone-900 border-2 border-amber-500/90 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden select-none animate-in zoom-in-95 duration-150"

@@ -749,8 +749,7 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
   return (
     <div 
       id="modal-parcelas-compra-financiamento"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto backdrop-blur-xs animate-in fade-in"
-      style={{ backgroundColor: 'rgba(10, 139, 193, 0.75)' }} // Azul intermediário com transparência (idêntico à referência)
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-[2px] animate-in fade-in"
     >
       {/* Datalists para plano de contas */}
       <datalist id="credit-accounts-list">
@@ -774,23 +773,21 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
       />
 
       <div 
-        className="w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-sky-300 dark:border-sky-700 my-auto flex flex-col max-h-[92vh]"
-        style={{ backgroundColor: '#b0d2ed' }} // Fundo do bloco da grade: Azul claro #b0d2ed
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] rounded-xl shadow-2xl overflow-hidden border border-black mx-auto my-auto flex flex-col justify-between bg-[#cad4e6]"
       >
-        {/* 1. CABEÇALHO E DADOS INICIAIS: Azul forte #0963cb com texto em branco */}
+        {/* 1. CABEÇALHO E DADOS INICIAIS */}
         <div 
-          className="px-5 py-4 flex items-center justify-between shrink-0 shadow-sm"
-          style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+          className="px-5 py-3.5 flex items-center justify-between shrink-0 border-b border-black bg-[#cad4e6] text-black"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner text-white">
+            <div className="w-10 h-10 rounded-xl bg-white border border-black flex items-center justify-center shadow-xs text-black">
               <CreditCard className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-black flex items-center gap-2">
                 Parcelas Geradas para Compra / Financiamento
               </h2>
-              <p className="text-xs text-sky-100 font-medium flex items-center gap-1.5 flex-wrap">
+              <p className="text-xs text-slate-800 font-semibold flex items-center gap-1.5 flex-wrap">
                 <span>{vehicleName || 'Veículo da Frota'}</span>
                 <span>•</span>
                 <span className="font-mono">{vehicleIdentifier || 'S/PLACA'}</span>
@@ -820,22 +817,22 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
             type="button"
             id="btn-fechar-modal-parcelas-compra"
             onClick={onClose}
-            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-2 rounded-xl text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer"
             title="Fechar Janela de Parcelas"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* CORPO DO MODAL: Fundo Azul Claro #b0d2ed com textos e rótulos em Preto #000000 */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-black">
+        {/* CORPO DO MODAL */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 text-black bg-[#cad4e6]">
           
           {/* 2. Topo do Bloco: Valor de Compra Consolidado & Controles de Geração Automática */}
-          <div className="bg-white/95 rounded-2xl p-4 sm:p-5 border border-[#96c1e5] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="bg-[#e0e6f1] rounded-xl p-4 sm:p-5 border border-black shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Bloco de Destaque: Valor Consolidado puxado da tela anterior */}
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-xl bg-[#0963cb]/10 text-[#0963cb] flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-white border border-black text-black flex items-center justify-center shrink-0">
                 <DollarSign className="w-6 h-6" />
               </div>
               <div>
@@ -849,7 +846,7 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
             </div>
 
             {/* Controles de Geração Automática: Quantidade [-] [+], + Dividir Igualmente, + Linha */}
-            <div className="flex flex-wrap items-center gap-3 bg-[#b0d2ed]/60 p-2.5 rounded-xl border border-[#96c1e5]">
+            <div className="flex flex-wrap items-center gap-3 bg-white/80 p-2.5 rounded-xl border border-black">
               
               {/* Seletor de Quantidade com [-] e [+] */}
               <div className="flex items-center space-x-2">
@@ -1041,13 +1038,12 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
             </div>
           )}
 
-          {/* 3. ESTRUTURA DE COLUNAS DA TABELA (Idêntica à Imagem) */}
-          <div className="rounded-2xl border border-[#96c1e5] bg-white/70 overflow-hidden shadow-xs">
+          {/* 3. ESTRUTURA DE COLUNAS DA TABELA */}
+          <div className="rounded-xl border border-black bg-[#e0e6f1] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-black border-collapse">
-                {/* Títulos das Colunas: Todas as fontes internas, títulos das colunas e rótulos na cor preta (#000000) */}
                 <thead>
-                  <tr className="bg-[#b0d2ed] border-b border-[#96c1e5] text-black font-black uppercase tracking-wider text-[11px]">
+                  <tr className="bg-[#cad4e6] border-b border-black text-black font-black uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-3 w-16 text-center">Nº</th>
                     <th className="py-3 px-3 min-w-[140px]">Valor (R$)</th>
                     <th className="py-3 px-3 min-w-[90px]">Prazo (Dias)</th>
@@ -1240,28 +1236,28 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
 
         {/* 4. RODAPÉ E SALVAMENTO: Canto inferior direito */}
         <div 
-          className="px-5 py-3.5 bg-white/95 border-t border-[#96c1e5] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
+          className="px-5 py-3 bg-[#cad4e6] border-t border-black flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
         >
           <div className="flex items-center space-x-2 text-xs text-black font-bold">
-            <span className="text-black/80">Status de Validação:</span>
+            <span className="text-slate-800">Status de Validação:</span>
             {isSumValid ? (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-700 rounded font-black text-[11px]">
                 Pronto para Gravar
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 border border-rose-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 border border-rose-700 rounded font-black text-[11px]">
                 Ajuste a soma antes de gravar
               </span>
             )}
           </div>
 
-          {/* Canto inferior direito: [Cancelar] e [✓ Confirmar e Gravar Lançamentos] */}
+          {/* Canto inferior direito: [Cancelar] e [Confirmar e Gravar Lançamentos] */}
           <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
             <button
               type="button"
               id="btn-cancelar-modal-parcelas-compra"
               onClick={onClose}
-              className="px-4 py-2.5 bg-white hover:bg-stone-100 text-black font-bold text-xs rounded-xl border border-[#96c1e5] transition cursor-pointer shadow-2xs min-h-[42px]"
+              className="px-4 py-2 bg-white hover:bg-gray-100 text-black font-bold text-xs rounded-xl border border-black transition cursor-pointer shadow-2xs"
             >
               Cancelar
             </button>
@@ -1271,59 +1267,61 @@ export const VehiclePurchaseInstallmentsModal: React.FC<VehiclePurchaseInstallme
               id="btn-confirmar-gravar-lancamentos-compra"
               onClick={handleConfirm}
               disabled={!isSumValid}
-              className={`px-5 py-2.5 font-black text-xs rounded-xl shadow-md transition flex items-center space-x-2 min-h-[42px] ${
+              className={`px-5 py-2 font-bold text-xs rounded-xl shadow-md transition flex items-center space-x-2 border ${
                 isSumValid
-                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer active:scale-98'
-                  : 'bg-stone-300 text-stone-500 border border-stone-300 cursor-not-allowed opacity-60'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border-emerald-800 cursor-pointer'
+                  : 'bg-stone-300 text-stone-600 border-stone-500 cursor-not-allowed opacity-70'
               }`}
               title={isSumValid ? 'Confirmar e Gravar Lançamentos no Contas a Pagar deste veículo' : 'Corrija a soma das parcelas para gravar'}
             >
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>✓ Confirmar e Gravar Lançamentos</span>
+              <span>Confirmar e Gravar Lançamentos</span>
             </button>
           </div>
         </div>
 
       </div>
 
-      {/* Modal Simples de Visualização de Arquivo / Comprovante */}
+      {/* Modal de Visualização de Arquivo / Comprovante */}
       {previewFile && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-stone-300 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-[#cad4e6] rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] shadow-2xl border border-black flex flex-col justify-between mx-auto my-auto overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-black bg-[#cad4e6] flex items-center justify-between shrink-0">
               <h3 className="text-sm font-black text-black truncate">
                 Visualização: {previewFile.name}
               </h3>
               <button
                 type="button"
                 onClick={() => setPreviewFile(null)}
-                className="p-1 text-stone-400 hover:text-black rounded cursor-pointer"
+                className="p-1.5 text-black hover:bg-white/60 border border-transparent hover:border-black rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-auto flex items-center justify-center bg-stone-100 rounded-xl p-4">
-              {previewFile.url.startsWith('data:image/') ? (
-                <img src={previewFile.url} alt={previewFile.name} className="max-h-[50vh] object-contain rounded-lg" />
-              ) : (
-                <div className="text-center p-6 space-y-3">
-                  <FileText className="w-12 h-12 text-[#0963cb] mx-auto" />
-                  <p className="text-xs font-bold text-black">Documento PDF ou comprovante vinculado</p>
-                  <a 
-                    href={previewFile.url} 
-                    download={previewFile.name}
-                    className="inline-block px-4 py-2 bg-[#0963cb] text-white rounded-xl text-xs font-black shadow cursor-pointer"
-                  >
-                    Baixar / Abrir Arquivo
-                  </a>
-                </div>
-              )}
+            <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 bg-[#cad4e6] flex items-center justify-center">
+              <div className="w-full h-full max-w-4xl bg-[#e0e6f1] border border-black rounded-xl p-4 flex items-center justify-center">
+                {previewFile.url.startsWith('data:image/') ? (
+                  <img src={previewFile.url} alt={previewFile.name} className="max-h-full object-contain rounded-lg bg-white border border-black p-1" />
+                ) : (
+                  <div className="text-center p-6 space-y-3 bg-white border border-black rounded-xl">
+                    <FileText className="w-12 h-12 text-emerald-700 mx-auto" />
+                    <p className="text-xs font-bold text-black">Documento PDF ou comprovante vinculado</p>
+                    <a 
+                      href={previewFile.url} 
+                      download={previewFile.name}
+                      className="inline-block px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-xl text-xs font-bold shadow cursor-pointer"
+                    >
+                      Baixar / Abrir Arquivo
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex justify-end pt-2">
+            <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setPreviewFile(null)}
-                className="px-4 py-2 bg-stone-200 hover:bg-stone-300 text-black font-bold text-xs rounded-xl cursor-pointer"
+                className="px-4 py-2 bg-white hover:bg-gray-100 border border-black text-black font-bold text-xs rounded-xl cursor-pointer"
               >
                 Fechar Visualização
               </button>

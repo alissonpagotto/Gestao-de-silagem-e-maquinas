@@ -165,8 +165,7 @@ export const ClassificationListManagerModal: React.FC<
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150`}
-      onClick={onClose}
+      className={`fixed inset-0 ${zIndexClass} bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150`}
     >
       <div
         className="w-full max-w-lg bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150 text-black"
@@ -218,8 +217,6 @@ export const ClassificationListManagerModal: React.FC<
                     e.preventDefault();
                     e.stopPropagation();
                     handleAddItem();
-                  } else if (e.key === 'Escape') {
-                    onClose();
                   }
                 }}
                 placeholder={placeholder}

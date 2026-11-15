@@ -1306,18 +1306,18 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
 
       {/* MODAL 1: CRIAR / EDITAR EQUIPE - MOLDURA METÁLICA 3D ACETINADA */}
       {isTeamModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between rounded-t-2xl shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto border border-black dark:border-stone-700 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between rounded-t-xl shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs text-slate-800 dark:text-stone-100">
-                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs text-black dark:text-stone-100">
+                  <Users className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                     {editingTeam ? `EDITAR EQUIPE: ${editingTeam.name}` : 'CRIAR NOVA EQUIPE'}
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                  <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
                     Atribuição de operadores, máquinas e identificação visual
                   </p>
                 </div>
@@ -1325,13 +1325,15 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsTeamModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-4 h-4 text-black dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTeamForm} className="p-3 sm:p-4 space-y-2.5 text-xs flex-1 overflow-y-auto scrollbar-none">
+            <form onSubmit={handleSaveTeamForm} className="text-xs flex-1 min-h-0 flex flex-col justify-between overflow-hidden bg-[#cad4e6]">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
+                <div className="max-w-3xl mx-auto p-4 sm:p-5 bg-[#e0e6f1] border border-black rounded-xl space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Nome da Equipe <span className="text-rose-500">*</span>
@@ -1416,17 +1418,20 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
                 />
               </div>
 
-              <div className="pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-end space-x-3">
+                </div>
+              </div>
+
+              <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsTeamModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold"
+                  className="px-4 py-2 rounded-lg border border-gray-400 bg-white hover:bg-gray-100 text-black text-xs font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-2"
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 text-white text-xs font-bold shadow-xs flex items-center space-x-2 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>{editingTeam ? 'Salvar Alterações' : 'Criar Equipe'}</span>
@@ -1437,29 +1442,31 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: CRIAR / EDITAR FUNCIONÁRIO - MOLDURA METÁLICA 3D ACETINADA */}
+      {/* MODAL 2: CRIAR / EDITAR FUNCIONÁRIO */}
       {isEmployeeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden overflow-y-hidden">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-md w-full shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] border border-slate-400 dark:border-stone-700 overflow-hidden overflow-y-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
-            <div className="px-4 sm:px-5 py-2.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 border-b border-slate-400 dark:border-stone-700 text-slate-800 dark:text-stone-100 flex items-center justify-between rounded-t-2xl shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden overflow-y-hidden">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto border border-black dark:border-stone-700 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 text-black dark:text-stone-100 flex items-center justify-between rounded-t-xl shrink-0">
               <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800 flex items-center justify-center border border-slate-300 dark:border-stone-700 shadow-2xs text-slate-800 dark:text-stone-100">
-                  <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-stone-800 flex items-center justify-center border border-black dark:border-stone-700 shadow-2xs text-black dark:text-stone-100">
+                  <UserPlus className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-stone-100 font-['Outfit']">
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                   {editingEmployee ? `EDITAR: ${editingEmployee.name}` : 'NOVO FUNCIONÁRIO'}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEmployeeModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-300/60 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-black/10 dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
               >
-                <X className="w-4 h-4 text-slate-700 dark:text-stone-200" />
+                <X className="w-4 h-4 text-black dark:text-stone-200" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEmployeeForm} className="p-3 sm:p-4 space-y-2.5 text-xs flex-1 overflow-y-auto scrollbar-none">
+            <form onSubmit={handleSaveEmployeeForm} className="text-xs flex-1 min-h-0 flex flex-col justify-between overflow-hidden bg-[#cad4e6]">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
+                <div className="max-w-3xl mx-auto p-4 sm:p-5 bg-[#e0e6f1] border border-black rounded-xl space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider mb-0.5">
                   Nome Completo <span className="text-rose-500">*</span>
@@ -1547,12 +1554,15 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2.5 border-t border-slate-200 dark:border-stone-800 flex items-center justify-between">
+                </div>
+              </div>
+
+              <div className="px-5 py-3 border-t border-black bg-[#cad4e6] flex items-center justify-between shrink-0">
                 {editingEmployee ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteEmployee(editingEmployee.id, editingEmployee.name)}
-                    className="text-rose-600 hover:text-rose-700 text-xs font-bold flex items-center space-x-1"
+                    className="text-rose-700 hover:text-rose-800 bg-white border border-rose-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Excluir</span>
@@ -1563,13 +1573,13 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsEmployeeModalOpen(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold shadow-[inset_0_1px_0px_rgba(255,255,255,0.8)]"
+                    className="px-4 py-2 rounded-lg bg-white hover:bg-gray-100 border border-gray-400 text-black text-xs font-bold cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-lg bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white text-xs font-bold uppercase border border-emerald-500/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.15)] flex items-center space-x-1.5 cursor-pointer"
+                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase border border-emerald-800 flex items-center space-x-1.5 cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{editingEmployee ? 'Salvar' : 'Criar Funcionário'}</span>

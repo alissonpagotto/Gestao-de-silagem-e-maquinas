@@ -76,20 +76,20 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 dark:border-stone-800 bg-amber-50/50 dark:bg-amber-950/20">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-amber-950/20 shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-600/10 text-amber-600 flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-white border border-black text-amber-700 flex items-center justify-center">
+              <ShoppingCart className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+              <h3 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black dark:text-stone-100 font-['Outfit']">
                 Solicitações de Compra & Cotações da Roça
               </h3>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-black/75 dark:text-stone-400 font-medium">
                 Peças identificadas em manutenções e quebras de campo para o setor de compras cotar
               </p>
             </div>
@@ -97,22 +97,22 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
 
           <button
             onClick={onClose}
-            className="p-2 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+            className="p-2 text-black hover:bg-black/10 rounded-lg dark:hover:bg-stone-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Filters */}
-        <div className="p-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+        <div className="p-3.5 border-b border-black dark:border-stone-800 bg-[#e0e6f1] dark:bg-stone-800/40 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar peça, veículo, OS..."
-              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-semibold"
+              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-stone-800 text-black border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-semibold"
             />
           </div>
 
@@ -120,7 +120,7 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-semibold"
+              className="px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black text-xs font-semibold"
             >
               <option value="todos">Todos Status</option>
               <option value="cotacao">Em Cotação</option>
@@ -132,7 +132,7 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
             <select
               value={selectedUrgency}
               onChange={(e) => setSelectedUrgency(e.target.value)}
-              className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs font-semibold"
+              className="px-3 py-1.5 rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black text-xs font-semibold"
             >
               <option value="todos">Todas Urgências</option>
               <option value="urgente_veiculo_parado">🚨 Veículo Parado</option>
@@ -143,12 +143,12 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
         </div>
 
         {/* Body / List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-3 bg-[#cad4e6]">
           {filteredRequests.length === 0 ? (
-            <div className="py-12 text-center text-stone-400 space-y-2">
-              <Package className="w-10 h-10 mx-auto opacity-40" />
-              <p className="text-xs">Nenhuma solicitação de compra cadastrada no momento.</p>
-              <p className="text-[11px] text-stone-500">
+            <div className="py-12 text-center text-black/75 space-y-2 bg-[#e0e6f1] border border-black rounded-xl">
+              <Package className="w-10 h-10 mx-auto opacity-50" />
+              <p className="text-xs font-bold">Nenhuma solicitação de compra cadastrada no momento.</p>
+              <p className="text-[11px] text-black/70">
                 Ao abrir uma Ordem de Serviço e marcar peças para cotação, elas aparecerão aqui automaticamente.
               </p>
             </div>
@@ -158,7 +158,7 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
               return (
                 <div 
                   key={req.id}
-                  className="p-4 bg-white dark:bg-stone-800/70 rounded-2xl border border-stone-200 dark:border-stone-700/80 shadow-xs space-y-3"
+                  className="p-4 bg-[#e0e6f1] dark:bg-stone-800/70 rounded-xl border border-black dark:border-stone-700/80 shadow-xs space-y-3"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-700 pb-2.5">
                     <div className="flex items-center space-x-2">
@@ -231,10 +231,10 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 flex justify-end">
+        <div className="px-5 py-3 border-t border-black dark:border-stone-800 bg-[#cad4e6] dark:bg-stone-800/50 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-xs font-bold rounded-xl transition"
+            className="px-5 py-2 bg-white hover:bg-gray-100 border border-gray-400 text-black text-xs font-bold rounded-lg transition cursor-pointer"
           >
             Fechar
           </button>

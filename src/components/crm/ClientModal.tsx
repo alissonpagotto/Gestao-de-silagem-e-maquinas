@@ -75,6 +75,7 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { ClientOptionsManagerModal } from './ClientOptionsManagerModal';
 import { printClientRegistrationA4 } from './clientPrintUtils';
 import { ReverseCepModal } from '../common/ReverseCepModal';
+import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 export const ATIVIDADES_PADRAO = DEFAULT_ATIVIDADES;
 
@@ -536,6 +537,49 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   const [isImportDropdownOpen, setIsImportDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'cadastro' | 'financeiro' | 'historico'>('cadastro');
   const [historicoSearch, setHistoricoSearch] = useState('');
+
+  const clientGuard = useModalUnsavedGuard({
+    isOpen,
+    resetKey: currentClient?.id || editingClient?.id || (isOpen ? 'new' : 'closed'),
+    snapshot: [
+      code,
+      personType,
+      name,
+      farmName,
+      cpfCnpj,
+      stateRegistration,
+      zipCode,
+      address,
+      addressNumber,
+      addressComplement,
+      neighborhood,
+      city,
+      state,
+      phone,
+      birthDate,
+      secondaryContact,
+      email,
+      contribuinteIcms,
+      cattleType,
+      atividade,
+      headCount,
+      monthlyDemandTons,
+      interestedServices,
+      creditLimitInput,
+      preferredPaymentTerm,
+      defaultPriceTable,
+      blockOverdueCredit,
+      authorizedBuyers,
+      status,
+      notes,
+      pendingAvatarDataUrl,
+      avatarRemoved,
+    ],
+  });
+
+  const handleAttemptClose = () => {
+    clientGuard.confirmClose(onClose);
+  };
 
   useEffect(() => {
     const refreshClientsSnapshot = () => {
@@ -1184,6 +1228,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
   const handleCancel = () => {
     loadClientIntoForm(activeClient || null, initialName);
+    clientGuard.resetDirty();
     setFeedback({ type: 'error', message: 'Alterações não salvas foram descartadas.' });
     setTimeout(() => setFeedback(null), 3000);
   };
@@ -1507,8 +1552,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-hidden`}>
-      <div className="w-full max-w-[80vw] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] overflow-hidden`}>
+      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header - Tema Oficial #cad4e6 + border-black */}
         <div className="px-4 sm:px-5 py-2.5 bg-[#cad4e6] border-b border-black text-slate-900 flex items-center justify-between relative shrink-0 rounded-t-lg">
@@ -1620,7 +1665,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
             {/* Fechar Modal */}
             <button
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-900 border border-black transition cursor-pointer"
               title="Fechar janela"
             >
@@ -2524,7 +2569,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
         )}
 
         {activeTab === 'historico' && (
-          <div className="p-3.5 sm:p-5 space-y-3 bg-[#cad4e6] overflow-y-auto flex-1 flex flex-col justify-between text-slate-900">
+          <div className="p-3.5 sm:p-5 space-y-3 bg-[#cad4e6] overflow-y-auto flex-1 min-h-0 flex flex-col justify-start text-slate-900">
             <div className="space-y-3">
               {/* 4 Cards de Resumo */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -2820,7 +2865,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               title="Fechar janela de cadastro"
               className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-[11px] sm:text-xs font-bold shadow-2xs transition cursor-pointer border border-black uppercase"
             >

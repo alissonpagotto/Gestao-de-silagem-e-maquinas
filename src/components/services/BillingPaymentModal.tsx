@@ -1177,32 +1177,32 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   if (!isOpen || !activeRecord) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
       <div 
         id="billing-payment-modal-container"
-        className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-slate-300 dark:border-stone-700 w-full max-w-5xl lg:max-w-6xl overflow-hidden flex flex-col my-auto h-[95vh] max-h-[95vh]"
+        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black"
       >
         {/* CABEÇALHO DO MODAL */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 shrink-0">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3 bg-[#cad4e6] border-b border-black text-black shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-[#e0e6f1] border border-black text-black flex items-center justify-center shadow-xs shrink-0">
               <Building2 className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight truncate">
+                <h3 className="text-xs sm:text-sm font-black text-black uppercase tracking-tight truncate">
                   {isServiceMode ? 'DEFINIÇÃO DE RECEBIMENTO E CONDIÇÕES COMERCIAIS' : 'BAIXAR / QUITAR CONTA A RECEBER'}
                 </h3>
                 {targetOrderNumber && (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-200 dark:bg-stone-700 text-slate-800 dark:text-stone-200 shrink-0">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-white border border-black text-black shrink-0">
                     #{targetOrderNumber}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium truncate">
-                Cliente: <span className="font-bold text-zinc-900 dark:text-white">{clientName}</span>
+              <p className="text-[11px] sm:text-xs text-slate-800 font-medium truncate">
+                Cliente: <span className="font-bold text-black">{clientName}</span>
                 {farmOrOrigin ? ` • ${farmOrOrigin}` : ''} • Serviço/Origem:{' '}
-                <span className="font-bold text-zinc-800 dark:text-stone-200 uppercase">
+                <span className="font-bold text-black uppercase">
                   {serviceOrType}
                 </span>
               </p>
@@ -1211,7 +1211,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-stone-200 hover:bg-slate-200 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer shrink-0"
+            className="p-1.5 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg transition cursor-pointer shrink-0"
             title="Fechar"
           >
             <X className="w-5 h-5" />
@@ -1219,7 +1219,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
         </div>
 
         {/* CORPO DO MODAL (ROLAGEM FLUIDA E ALTURA INTEGRAL) */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 flex-1 scrollbar-thin">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 bg-[#cad4e6] scrollbar-thin">
           
           {/* MENSAGEM TOAST DE SUCESSO TEMPORÁRIA */}
           {successToast && (
@@ -1283,9 +1283,9 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           )}
 
           {/* PAINEL DE RESUMO E SALDO EM TEMPO REAL */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 sm:p-4 bg-slate-50 dark:bg-stone-850 rounded-xl border border-slate-200 dark:border-stone-750">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 sm:p-4 bg-[#e0e6f1] rounded-xl border border-black">
             {/* Valor Total Auditado */}
-            <div className="bg-white dark:bg-stone-800 p-3 rounded-lg border border-slate-200 dark:border-stone-700 shadow-2xs">
+            <div className="bg-white p-3 rounded-lg border border-black shadow-2xs">
               <span className="text-[10px] font-black text-zinc-500 dark:text-stone-400 uppercase tracking-wider block">
                 {isServiceMode ? 'Valor Total Auditado' : 'Valor Total do Título'}
               </span>
@@ -1383,9 +1383,9 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           )}
 
           {/* LINHA DE CONTA BANCÁRIA E DATA DE LIQUIDAÇÃO */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-stone-850 rounded-xl border border-slate-200 dark:border-stone-750">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#e0e6f1] rounded-xl border border-black">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 mb-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                 Data do Recebimento / Faturamento <span className="text-rose-600">*</span>
               </label>
               <div className="relative">
@@ -1393,7 +1393,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                   type="date"
                   value={receiptDate}
                   onChange={(e) => setReceiptDate(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-800 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-sky-600"
+                  className="w-full px-3 py-1.5 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black"
                 />
               </div>
             </div>
@@ -1412,7 +1412,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                   hasUserManuallyChangedBankRef.current = true;
                   setSelectedBankAccountId(e.target.value);
                 }}
-                className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-800 text-black dark:text-white font-semibold outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
+                className="w-full px-3 py-1.5 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black cursor-pointer"
               >
                 <option value="">Caixa Geral da Empresa</option>
                 {effectiveBankAccounts.map((acc) => {
@@ -1474,7 +1474,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 return (
                   <div
                     key={line.id}
-                    className="p-4 bg-white dark:bg-stone-850 rounded-xl border border-slate-300 dark:border-stone-700 shadow-2xs space-y-3.5"
+                    className="p-4 bg-[#e0e6f1] rounded-xl border border-black shadow-2xs space-y-3.5"
                   >
                     {/* Linha Principal de Dados */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -1998,8 +1998,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           </div>
 
           {/* OBSERVAÇÕES / ANOTAÇÕES DO FATURAMENTO */}
-          <div>
-            <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
+          <div className="p-3.5 bg-[#e0e6f1] border border-black rounded-xl">
+            <label className="block text-[11px] font-bold text-black uppercase mb-1">
               Anotações Gerais do Faturamento (Opcional)
             </label>
             <textarea
@@ -2007,21 +2007,21 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
               value={billingNotesExtra}
               onChange={(e) => setBillingNotesExtra(e.target.value.toUpperCase())}
               placeholder="OBSERVAÇÕES INTERNAS, ACORDOS DE PAGAMENTO OU REFERÊNCIAS..."
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded-lg text-xs font-medium text-zinc-900 dark:text-white uppercase placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 bg-white border border-black rounded-lg text-xs font-medium text-black uppercase placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-black"
             />
           </div>
         </div>
 
         {/* RODAPÉ COM AÇÕES */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 bg-slate-100 dark:bg-stone-800 border-t border-slate-300 dark:border-stone-700 shrink-0">
-          <div className="text-xs text-zinc-500 dark:text-stone-400 font-semibold truncate mr-2">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3 bg-[#cad4e6] border-t border-black shrink-0">
+          <div className="text-xs text-black font-semibold truncate mr-2">
             {isBalanced ? (
-              <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+              <span className="text-emerald-800 font-bold">
                 ✓ Saldo validado com sucesso.
                 {totalInterestAdded > 0 && ` (+ ${formatCurrencyBRL(totalInterestAdded)} em juros aplicados)`}
               </span>
             ) : (
-              <span className="text-rose-600 dark:text-rose-400 font-bold">
+              <span className="text-rose-700 font-bold">
                 Ajuste os valores para habilitar a confirmação.
               </span>
             )}
@@ -2031,13 +2031,13 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-200 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
             {lines.some((l) => !l.paymentMethod) && isBalanced && (
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 flex items-center gap-1.5 shadow-2xs">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+              <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1.5 rounded-lg border border-black flex items-center gap-1.5 shadow-2xs">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-700" />
                 <span>Selecione a Forma de Pagamento</span>
               </span>
             )}
@@ -2045,10 +2045,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
               type="button"
               onClick={handleConfirm}
               disabled={!isBalanced || lines.some((l) => !l.paymentMethod)}
-              className={`inline-flex items-center gap-2 px-5 py-2 text-xs font-black rounded-xl shadow-xs transition uppercase active:scale-95 ${
+              className={`inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
                 isBalanced && lines.every((l) => Boolean(l.paymentMethod))
-                  ? 'text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 cursor-pointer'
-                  : 'text-slate-400 bg-slate-200 dark:bg-stone-700 dark:text-stone-500 cursor-not-allowed'
+                  ? 'text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 cursor-pointer'
+                  : 'text-slate-600 bg-slate-200 border border-slate-400 cursor-not-allowed'
               }`}
               title={
                 !isBalanced
@@ -2078,29 +2078,38 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
       {/* MODAL ZOOM DE FOTO DE CHEQUE */}
       {zoomImageUrl && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative max-w-3xl w-full bg-white dark:bg-stone-900 rounded-2xl overflow-hidden border border-slate-300 dark:border-stone-700 p-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-stone-700 mb-3">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in">
+          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl text-black">
+            <div className="flex items-center justify-between px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0">
               <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-sky-600" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                <FileText className="w-4 h-4 text-black" />
+                <h4 className="text-sm font-bold uppercase text-black">
                   Visualização da Folha de Cheque
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setZoomImageUrl(null)}
-                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex items-center justify-center bg-slate-950/10 dark:bg-black/40 rounded-xl overflow-hidden max-h-[70vh] p-2">
+            <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 bg-[#e0e6f1] flex items-center justify-center">
               <img 
                 src={zoomImageUrl} 
                 alt="Cheque ampliado" 
-                className="max-h-[68vh] w-auto object-contain rounded-lg shadow-md"
+                className="max-h-full max-w-full object-contain rounded-lg border border-black bg-white shadow-md"
               />
+            </div>
+            <div className="px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setZoomImageUrl(null)}
+                className="px-4 py-2 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
@@ -2108,7 +2117,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
       {/* MODAL DE AUTORIZAÇÃO ADMINISTRATIVA PARA DESTRAVAMENTO DE CHEQUE */}
       {showUnlockPasswordModal && (
-        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs">
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-[2px]">
           <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Cabeçalho */}
             <div className="px-4 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white flex items-center justify-between">
