@@ -19,13 +19,15 @@ import {
 } from '../../lib/cfopCatalog';
 import { cleanDigits } from '../../lib/formatters';
 
+export type CfopManagerScopeFilter = 'all' | 'estadual' | 'interestadual' | '1' | '2' | '5' | '6';
+
 export interface CfopManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   catalog: CfopCatalogEntry[];
   onSaveCatalog: (updated: CfopCatalogEntry[]) => void;
   onSelectCfop?: (codigo: string) => void;
-  initialScopeFilter?: 'all' | '5' | '6';
+  initialScopeFilter?: CfopManagerScopeFilter;
   initialTipoFilter?: 'all' | CfopOperacaoTipo;
 }
 
@@ -47,7 +49,7 @@ export const CfopManagerModal: React.FC<CfopManagerModalProps> = ({
   const [editingTipo, setEditingTipo] = useState<CfopOperacaoTipo>('venda');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [scopeFilter, setScopeFilter] = useState<'all' | '5' | '6'>(initialScopeFilter);
+  const [scopeFilter, setScopeFilter] = useState<CfopManagerScopeFilter>(initialScopeFilter);
   const [tipoFilter, setTipoFilter] = useState<'all' | CfopOperacaoTipo>(initialTipoFilter);
 
   const [showBatchPanel, setShowBatchPanel] = useState(false);
@@ -76,7 +78,18 @@ export const CfopManagerModal: React.FC<CfopManagerModalProps> = ({
   const filteredCatalog = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return catalog.filter((item) => {
-      if (scopeFilter !== 'all' && !item.codigo.startsWith(scopeFilter)) return false;
+      if (scopeFilter === 'estadual' && !item.codigo.startsWith('1') && !item.codigo.startsWith('5')) {
+        return false;
+      }
+      if (scopeFilter === 'interestadual' && !item.codigo.startsWith('2') && !item.codigo.startsWith('6')) {
+        return false;
+      }
+      if (
+        (scopeFilter === '1' || scopeFilter === '2' || scopeFilter === '5' || scopeFilter === '6') &&
+        !item.codigo.startsWith(scopeFilter)
+      ) {
+        return false;
+      }
       if (tipoFilter !== 'all' && item.tipo !== tipoFilter) return false;
       if (!q) return true;
       return (
@@ -386,12 +399,16 @@ export const CfopManagerModal: React.FC<CfopManagerModalProps> = ({
                 </div>
                 <select
                   value={scopeFilter}
-                  onChange={(e) => setScopeFilter(e.target.value as 'all' | '5' | '6')}
+                  onChange={(e) => setScopeFilter(e.target.value as CfopManagerScopeFilter)}
                   className="h-7 px-2 text-[11px] font-bold rounded-lg border border-black/40 bg-white text-black uppercase cursor-pointer"
                 >
-                  <option value="all">UF: TODOS (5XXX + 6XXX)</option>
-                  <option value="5">ESTADUAL (5XXX)</option>
-                  <option value="6">INTERESTADUAL (6XXX)</option>
+                  <option value="all">UF: TODOS (1XXX / 2XXX / 5XXX / 6XXX)</option>
+                  <option value="estadual">ESTADUAL (1XXX / 5XXX)</option>
+                  <option value="interestadual">INTERESTADUAL (2XXX / 6XXX)</option>
+                  <option value="1">ENTRADA ESTADUAL (1XXX)</option>
+                  <option value="2">ENTRADA INTERESTADUAL (2XXX)</option>
+                  <option value="5">SAÍDA ESTADUAL (5XXX)</option>
+                  <option value="6">SAÍDA INTERESTADUAL (6XXX)</option>
                 </select>
                 <select
                   value={tipoFilter}

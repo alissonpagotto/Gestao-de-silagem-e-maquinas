@@ -215,7 +215,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     };
 
     return localNotasSaida
-      .filter((n) => n.lancarContasReceber && n.status !== 'CANCELADA')
+      .filter((n) => n.lancarContasReceber && n.status !== 'CANCELADA' && n.status !== 'RASCUNHO')
       .map((n) => {
         const isCte = (n.tipoDocumento || '').toLowerCase().includes('ct-e') || (n.tipoDocumento || '').toLowerCase().includes('cte');
         let resolvedClientName = n.destinatarioNome || 'Consumidor Avulso';

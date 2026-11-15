@@ -8,6 +8,7 @@ export interface CompanyProfile {
   cnpj?: string; // CNPJ (compatibilidade)
   cnpjCpf: string; // CNPJ / CPF (ex: 578.722.222-2)
   stateRegistration?: string; // Inscrição Estadual
+  municipalRegistration?: string; // Inscrição Municipal (IM) - NFS-e
   phone: string; // Telefone de Contato (ex: (22) 22222-2888)
   email: string; // E-mail Comercial (ex: silagemteste02@gmail.com)
   loginEmail?: string; // E-mail de Login
@@ -21,6 +22,7 @@ export interface CompanyProfile {
   planName?: string; // Nome do Plano (ex: Produtor Essencial)
   logoUrl?: string; // Logotipo da Empresa (data URL or image URL)
   activitySector?: string; // GESTÃO AGRÍCOLA
+  cnaePrincipal?: string; // CNAE Principal (ex: 0161-0/03)
   representativeName?: string; // Nome do Representante Responsável
   representativeCpf?: string; // CPF do Representante Responsável
   bankName?: string; // Nome do Banco
@@ -29,6 +31,21 @@ export interface CompanyProfile {
   pixKeyType?: 'cnpj' | 'cpf' | 'email' | 'telefone' | 'aleatoria' | string; // Tipo de Chave PIX
   pixKey?: string; // Chave PIX
   adminPassword?: string; // Senha Mestre do Administrador
+  // Certificado Digital A1 & Parâmetros Fiscais (SEFAZ)
+  certificadoDigitalAtivo?: boolean;
+  certificadoArquivoNome?: string;
+  certificadoIndexedDbRef?: string;
+  certificadoTitular?: string;
+  certificadoCnpj?: string;
+  certificadoValidade?: string; // YYYY-MM-DD
+  certificadoSenhaArmazenada?: string;
+  certificadoSimulado?: boolean;
+  ambienteSefaz?: 'homologacao' | 'producao';
+  regimeTributario?: 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' | string;
+  seriePadraoNotas?: string;
+  rntrc?: string; // RNTRC (ANTT) para CT-e / MDF-e
+  cscId?: string; // ID Token CSC para NFC-e (ex: 000001)
+  cscToken?: string; // Código CSC para NFC-e (PDV)
 }
 
 export type ExpenseStatus =
@@ -2157,6 +2174,8 @@ export interface DocumentoEntradaItem {
 export type TipoDocumentoSaida =
   | 'NFS-e (Prestação de Serviço)'
   | 'NF-e (Venda de Mercadoria)'
+  | 'NF-e (Remessa)'
+  | 'NF-e (Retorno / Devolução)'
   | 'NF-e (Remessa / Retorno)'
   | 'CT-e (Conhecimento de Transporte / Frete)'
   | 'NFC-e (Consumidor)'
@@ -2217,7 +2236,11 @@ export interface NotaSaidaRecord {
   receberStatus?: 'pendente' | 'pago';
   receberPaymentDate?: string;
   receberPaymentMethod?: string;
-  status?: 'EMITIDA' | 'AUTORIZADA' | 'CANCELADA' | string;
+  status?: 'RASCUNHO' | 'AUTORIZADA' | 'EMITIDA' | 'CANCELADA' | string;
+  protocoloAutorizacao?: string;
+  dataAutorizacao?: string;
+  ambienteSefaz?: 'homologacao' | 'producao';
+  transmitidaEmModoSimulacao?: boolean;
   observacoes?: string;
 
   // A) Campos específicos de NFS-e

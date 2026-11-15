@@ -609,6 +609,19 @@ export async function searchCepByCity(
   };
 }
 
+export function formatCnae(value: string | number | undefined | null, padFromApi = false): string {
+  if (value === undefined || value === null) return '';
+  let digits = String(value).replace(/\D/g, '');
+  if (!digits) return '';
+  if (padFromApi && digits.length < 7) {
+    digits = digits.padStart(7, '0');
+  }
+  digits = digits.slice(0, 7);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 5)}/${digits.slice(5)}`;
+}
+
 // ==========================================
 // 7. Online CNPJ Lookup (BrasilAPI + Fallback)
 // ==========================================
@@ -629,6 +642,7 @@ export interface CnpjLookupResult {
   state?: string;
   status?: string;
   activitySector?: string;
+  cnaePrincipal?: string;
   message?: string;
 }
 
@@ -674,6 +688,7 @@ export async function fetchCompanyByCnpj(cnpj: string): Promise<CnpjLookupResult
           state: data.uf || '',
           status: data.descricao_situacao_cadastral || 'ATIVA',
           activitySector: data.cnae_fiscal_descricao || 'GESTÃO AGRÍCOLA',
+          cnaePrincipal: data.cnae_fiscal ? formatCnae(data.cnae_fiscal, true) : '',
         };
       }
     } catch {
@@ -706,6 +721,8 @@ export async function fetchCompanyByCnpj(cnpj: string): Promise<CnpjLookupResult
           city: data.municipio || '',
           state: data.uf || '',
           status: data.descricao_situacao_cadastral || 'ATIVA',
+          activitySector: data.cnae_fiscal_descricao || undefined,
+          cnaePrincipal: data.cnae_fiscal ? formatCnae(data.cnae_fiscal, true) : '',
         };
       }
     } catch {

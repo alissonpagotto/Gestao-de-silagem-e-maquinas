@@ -51,6 +51,10 @@ export const DEFAULT_CFOP_CATALOG: CfopCatalogEntry[] = [
   { codigo: '6920', descricao: 'Remessa de vasilhame ou sacaria', tipo: 'remessa_retorno', isDefault: true },
   { codigo: '5921', descricao: 'Devolução de vasilhame ou sacaria', tipo: 'remessa_retorno', isDefault: true },
   { codigo: '6921', descricao: 'Devolução de vasilhame ou sacaria', tipo: 'remessa_retorno', isDefault: true },
+  { codigo: '5554', descricao: 'Remessa de bem do ativo imobilizado para uso fora do estabelecimento (Estadual)', tipo: 'remessa_retorno', isDefault: true },
+  { codigo: '6554', descricao: 'Remessa de bem do ativo imobilizado para uso fora do estabelecimento (Interestadual)', tipo: 'remessa_retorno', isDefault: true },
+  { codigo: '1554', descricao: 'Retorno de bem do ativo imobilizado remetido para uso fora do estabelecimento (Entrada Estadual)', tipo: 'remessa_retorno', isDefault: true },
+  { codigo: '2554', descricao: 'Retorno de bem do ativo imobilizado remetido para uso fora do estabelecimento (Entrada Interestadual)', tipo: 'remessa_retorno', isDefault: true },
   { codigo: '5949', descricao: 'Outra saída de mercadoria ou prestação de serviço não especificada (Simples Remessa / Garantia)', tipo: 'remessa_retorno', isDefault: true },
   { codigo: '6949', descricao: 'Outra saída de mercadoria ou prestação de serviço não especificada (Simples Remessa / Garantia)', tipo: 'remessa_retorno', isDefault: true },
 
@@ -61,6 +65,8 @@ export const DEFAULT_CFOP_CATALOG: CfopCatalogEntry[] = [
   { codigo: '6202', descricao: 'Devolução de compra para comercialização', tipo: 'devolucao', isDefault: true },
   { codigo: '5411', descricao: 'Devolução de compra para comercialização em operação com ST', tipo: 'devolucao', isDefault: true },
   { codigo: '6411', descricao: 'Devolução de compra para comercialização em operação com ST', tipo: 'devolucao', isDefault: true },
+  { codigo: '5555', descricao: 'Devolução de bem do ativo imobilizado de terceiro, recebido para uso no estabelecimento (Estadual)', tipo: 'devolucao', isDefault: true },
+  { codigo: '6555', descricao: 'Devolução de bem do ativo imobilizado de terceiro, recebido para uso no estabelecimento (Interestadual)', tipo: 'devolucao', isDefault: true },
   { codigo: '5556', descricao: 'Devolução de compra de material de uso ou consumo', tipo: 'devolucao', isDefault: true },
   { codigo: '6556', descricao: 'Devolução de compra de material de uso ou consumo', tipo: 'devolucao', isDefault: true },
 
@@ -120,10 +126,6 @@ export const OFFICIAL_SEFAZ_EXPANDED_CFOP_CATALOG: CfopCatalogEntry[] = [
   { codigo: '6552', descricao: 'Transferência de bem do ativo imobilizado', tipo: 'outros', isDefault: true },
   { codigo: '5553', descricao: 'Devolução de compra de bem para o ativo imobilizado', tipo: 'devolucao', isDefault: true },
   { codigo: '6553', descricao: 'Devolução de compra de bem para o ativo imobilizado', tipo: 'devolucao', isDefault: true },
-  { codigo: '5554', descricao: 'Remessa de bem do ativo imobilizado para uso fora do estabelecimento', tipo: 'remessa_retorno', isDefault: true },
-  { codigo: '6554', descricao: 'Remessa de bem do ativo imobilizado para uso fora do estabelecimento', tipo: 'remessa_retorno', isDefault: true },
-  { codigo: '5555', descricao: 'Devolução de bem do ativo imobilizado de terceiro recebido para uso no estabelecimento', tipo: 'devolucao', isDefault: true },
-  { codigo: '6555', descricao: 'Devolução de bem do ativo imobilizado de terceiro recebido para uso no estabelecimento', tipo: 'devolucao', isDefault: true },
   { codigo: '5653', descricao: 'Venda de combustível ou lubrificante adquirido para consumo do consumidor final', tipo: 'venda', isDefault: true },
   { codigo: '6653', descricao: 'Venda de combustível ou lubrificante adquirido para consumo do consumidor final', tipo: 'venda', isDefault: true },
   { codigo: '5911', descricao: 'Remessa de amostra grátis', tipo: 'remessa_retorno', isDefault: true },
@@ -206,6 +208,13 @@ export function getStoredCfopCatalog(): CfopCatalogEntry[] {
     if (map.size === 0) {
       return sortCfopCatalog(DEFAULT_CFOP_CATALOG);
     }
+    // Garante que a família completa de Ativo Imobilizado (5554, 6554, 5555, 6555, 1554, 2554) apareça automaticamente para usuários existentes
+    const essentialAtivoImobilizadoCodes = ['5554', '6554', '5555', '6555', '1554', '2554'];
+    DEFAULT_CFOP_CATALOG.forEach((entry) => {
+      if (essentialAtivoImobilizadoCodes.includes(entry.codigo) && !map.has(entry.codigo)) {
+        map.set(entry.codigo, { ...entry });
+      }
+    });
     return sortCfopCatalog(Array.from(map.values()));
   } catch {
     return sortCfopCatalog(DEFAULT_CFOP_CATALOG);
@@ -322,8 +331,14 @@ export function translateCfopByScope(cfop: string, escopo: 'estadual' | 'interes
   const digits = cleanDigits(cfop);
   if (digits.length !== 4) return cfop;
   const first = digits[0];
-  if (escopo === 'estadual' && first === '6') return `5${digits.slice(1)}`;
-  if (escopo === 'interestadual' && first === '5') return `6${digits.slice(1)}`;
+  if (escopo === 'estadual') {
+    if (first === '6') return `5${digits.slice(1)}`;
+    if (first === '2') return `1${digits.slice(1)}`;
+  }
+  if (escopo === 'interestadual') {
+    if (first === '5') return `6${digits.slice(1)}`;
+    if (first === '1') return `2${digits.slice(1)}`;
+  }
   return digits;
 }
 
@@ -345,6 +360,8 @@ const normalizeSerie = (serie?: string): string => {
   return s !== '' ? s : '1';
 };
 
+export const NOTA_SAIDA_SEQUENCE_MANUAL_KEY = 'agrocontrol_sequencia_notas_manual';
+
 export function getStoredNotaSaidaSequences(): Record<string, number> {
   try {
     const raw = localStorage.getItem(NOTA_SAIDA_SEQUENCE_STORAGE_KEY);
@@ -364,22 +381,51 @@ export function getStoredNotaSaidaSequences(): Record<string, number> {
   }
 }
 
+export function getStoredNotaSaidaManualOverrides(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(NOTA_SAIDA_SEQUENCE_MANUAL_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, boolean> = {};
+    Object.entries(parsed as Record<string, unknown>).forEach(([k, v]) => {
+      if (v === true) out[k] = true;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export function formatNotaSaidaNumber(num: number): string {
   const safe = Math.max(1, Math.floor(num));
   return String(safe).padStart(6, '0');
 }
 
-export function getNextNotaSaidaNumber(
-  tipoDocumento: TipoDocumentoSaida | string,
+export function getNextNotaSaidaNumberInt(
+  tipoDocumentoOrModel: TipoDocumentoSaida | NotaSaidaModelKey | string,
   serie: string | undefined,
   existingNotas: NotaSaidaRecord[]
-): string {
-  const modelKey = getNotaSaidaModelKey(tipoDocumento);
+): number {
+  const modelKey: NotaSaidaModelKey =
+    tipoDocumentoOrModel === 'NFE' ||
+    tipoDocumentoOrModel === 'NFSE' ||
+    tipoDocumentoOrModel === 'CTE' ||
+    tipoDocumentoOrModel === 'NFCE' ||
+    tipoDocumentoOrModel === 'MDFE'
+      ? tipoDocumentoOrModel
+      : getNotaSaidaModelKey(tipoDocumentoOrModel);
   const serieKey = normalizeSerie(serie);
   const compositeKey = `${modelKey}::${serieKey}`;
 
   const stored = getStoredNotaSaidaSequences();
+  const manualOverrides = getStoredNotaSaidaManualOverrides();
+  const hasStoredValue = Object.prototype.hasOwnProperty.call(stored, compositeKey);
   const storedLast = stored[compositeKey] || 0;
+
+  if (hasStoredValue && manualOverrides[compositeKey]) {
+    return Math.max(1, storedLast + 1);
+  }
 
   let maxExisting = 0;
   existingNotas.forEach((n) => {
@@ -394,7 +440,55 @@ export function getNextNotaSaidaNumber(
   });
 
   const lastUsed = Math.max(storedLast, maxExisting);
-  return formatNotaSaidaNumber(lastUsed + 1);
+  return Math.max(1, lastUsed + 1);
+}
+
+export function getNextNotaSaidaNumber(
+  tipoDocumento: TipoDocumentoSaida | string,
+  serie: string | undefined,
+  existingNotas: NotaSaidaRecord[]
+): string {
+  return formatNotaSaidaNumber(getNextNotaSaidaNumberInt(tipoDocumento, serie, existingNotas));
+}
+
+export function getAllNextNotaSaidaNumbers(
+  serie: string | undefined,
+  existingNotas: NotaSaidaRecord[]
+): Record<NotaSaidaModelKey, number> {
+  return {
+    NFE: getNextNotaSaidaNumberInt('NFE', serie, existingNotas),
+    NFSE: getNextNotaSaidaNumberInt('NFSE', serie, existingNotas),
+    CTE: getNextNotaSaidaNumberInt('CTE', serie, existingNotas),
+    NFCE: getNextNotaSaidaNumberInt('NFCE', serie, existingNotas),
+    MDFE: getNextNotaSaidaNumberInt('MDFE', serie, existingNotas),
+  };
+}
+
+export function saveNextNotaSaidaSequencesForSerie(
+  serie: string | undefined,
+  nextNumbers: Record<NotaSaidaModelKey, number>
+): void {
+  const serieKey = normalizeSerie(serie);
+  const current = getStoredNotaSaidaSequences();
+  const manual = getStoredNotaSaidaManualOverrides();
+
+  (['NFE', 'NFSE', 'CTE', 'NFCE', 'MDFE'] as NotaSaidaModelKey[]).forEach((modelKey) => {
+    const rawNext = Number(nextNumbers[modelKey]);
+    const safeNext = Number.isFinite(rawNext) && rawNext >= 1 ? Math.floor(rawNext) : 1;
+    const compositeKey = `${modelKey}::${serieKey}`;
+    current[compositeKey] = Math.max(0, safeNext - 1);
+    manual[compositeKey] = true;
+  });
+
+  try {
+    localStorage.setItem(NOTA_SAIDA_SEQUENCE_STORAGE_KEY, JSON.stringify(current));
+    localStorage.setItem(NOTA_SAIDA_SEQUENCE_MANUAL_KEY, JSON.stringify(manual));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_sequencia_notas_updated', { detail: current }));
+    }
+  } catch (e) {
+    console.error('Erro ao salvar sequência manual de notas:', e);
+  }
 }
 
 export function updateNotaSaidaSequenceCounter(
@@ -417,6 +511,9 @@ export function updateNotaSaidaSequenceCounter(
     current[compositeKey] = parsedNum;
     try {
       localStorage.setItem(NOTA_SAIDA_SEQUENCE_STORAGE_KEY, JSON.stringify(current));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrocontrol_sequencia_notas_updated', { detail: current }));
+      }
     } catch (e) {
       console.error('Erro ao salvar sequência de notas:', e);
     }
@@ -536,22 +633,40 @@ export function buildDefaultInformacoesComplementares(params: InformacoesComplem
     )
   );
 
+  const isRetornoOuDevolucao =
+    t.includes('retorno') ||
+    t.includes('devolu') ||
+    nat.startsWith('retorno') ||
+    nat.startsWith('devolu');
+
   const isRemessaOuRetorno =
     t.includes('remessa') ||
-    t.includes('retorno') ||
+    isRetornoOuDevolucao ||
     nat.includes('remessa') ||
-    nat.includes('retorno') ||
     nat.includes('conserto') ||
-    nat.includes('comodato');
+    nat.includes('comodato') ||
+    nat.includes('ativo') ||
+    nat.includes('máquina') ||
+    nat.includes('maquina');
 
   if (isRemessaOuRetorno) {
-    const refText = ref ? ` referente à NF-e nº ${ref}` : '';
-    parts.push(
-      `Operação de Remessa/Retorno${refText} - Suspensão/Não incidência de ICMS conforme RICMS.`
-    );
-    ativos.forEach((assetLabel) => {
-      parts.push(`Remessa de bem do Ativo Imobilizado: ${assetLabel}.`);
-    });
+    if (isRetornoOuDevolucao) {
+      const refLine = ref
+        ? `Retorno referente à NF-e de Remessa nº ${ref}.`
+        : 'Operação de Retorno / Devolução de mercadoria ou bem.';
+      parts.push(`${refLine} Suspensão/Não incidência de ICMS conforme RICMS.`);
+      ativos.forEach((assetLabel) => {
+        parts.push(`Retorno de bem do Ativo Imobilizado: ${assetLabel}.`);
+      });
+    } else {
+      const refText = ref ? ` referente à NF-e nº ${ref}` : '';
+      parts.push(
+        `Operação de Remessa${refText} - Suspensão/Não incidência de ICMS conforme RICMS.`
+      );
+      ativos.forEach((assetLabel) => {
+        parts.push(`Remessa de bem do Ativo Imobilizado: ${assetLabel}.`);
+      });
+    }
   }
 
   const isTransporte = t.includes('ct-e') || t.includes('cte') || t.includes('mdf-e') || t.includes('mdfe');

@@ -8,6 +8,7 @@ import {
   ShieldCheck, 
   Save, 
   Lock, 
+  Unlock,
   KeyRound, 
   Image as ImageIcon, 
   Check, 
@@ -25,9 +26,15 @@ import {
   CheckCircle2,
   CreditCard,
   UserCheck,
-  PhoneCall
+  PhoneCall,
+  Eye,
+  EyeOff,
+  FileKey2,
+  AlertTriangle,
+  Trash2,
+  Upload
 } from 'lucide-react';
-import { CompanyProfile, ExpenseCategory, CostCenter } from '../../types';
+import { CompanyProfile, ExpenseCategory, CostCenter, NotaSaidaModelKey } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { SupabaseSqlModal } from './SupabaseSqlModal';
 import { DataBackupSecurityBlock } from './DataBackupSecurityBlock';
@@ -37,12 +44,18 @@ import {
   formatIE, 
   formatCep, 
   formatPhone, 
+  formatCnae,
   cleanDigits, 
   fetchAddressByCep, 
   fetchCompanyByCnpj 
 } from '../../lib/formatters';
 import { saveCloudCompanyProfile, fetchCloudCompanyProfile } from '../../lib/supabaseService';
-import { getStoredCompanyProfile, saveStoredCompanyProfile, safeLocalStorageSetItem } from '../../lib/storage';
+import {
+  getStoredCompanyProfile,
+  saveStoredCompanyProfile,
+  safeLocalStorageSetItem,
+  getStoredNotasSaida,
+} from '../../lib/storage';
 import { compressLogoToLocalDataUrl } from '../../lib/localPhotoUtils';
 import {
   COMPANY_LOGO_REF,
@@ -51,6 +64,17 @@ import {
   saveCompanyLogo,
   useResolvedMediaUrl,
 } from '../../lib/imageStorage';
+import {
+  activateSimulatedCertificate,
+  getCertificateStatusInfo,
+  getStoredCertificateMeta,
+  removeStoredCertificate,
+  validateAndStorePfxCertificate,
+} from '../../lib/fiscalCertificate';
+import {
+  getAllNextNotaSaidaNumbers,
+  saveNextNotaSaidaSequencesForSerie,
+} from '../../lib/cfopCatalog';
 
 interface CompanySettingsViewProps {
   companyProfile: CompanyProfile;
@@ -95,12 +119,46 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
   const initialCleaned = sanitizeProfile(companyProfile);
 
+  const resolveAutoPixKey = (pixKeyType: string, data: Partial<CompanyProfile>): string => {
+    const normalizedType = String(pixKeyType || 'cnpj').trim().toLowerCase();
+    const cnpjCpfDigits = cleanDigits(data.cnpjCpf || data.cnpj || '');
+    const repCpfDigits = cleanDigits(data.representativeCpf || '');
+
+    if (normalizedType === 'cnpj') {
+      return cnpjCpfDigits.length === 14 ? formatCpfCnpj(cnpjCpfDigits) : '';
+    }
+    if (normalizedType === 'cpf') {
+      if (repCpfDigits.length === 11) return formatCpfCnpj(repCpfDigits);
+      if (cnpjCpfDigits.length === 11) return formatCpfCnpj(cnpjCpfDigits);
+      return '';
+    }
+    if (normalizedType === 'email') {
+      return String(data.email || '').trim();
+    }
+    if (normalizedType === 'telefone') {
+      return String(data.phone || '').trim();
+    }
+    if (normalizedType === 'aleatoria') {
+      return '';
+    }
+    return '';
+  };
+
+  const cachedCertMeta = getStoredCertificateMeta();
+
+  const initialPixType = initialCleaned.pixKeyType || 'cnpj';
+  const initialPixKey =
+    (initialCleaned.pixKey || '').trim() ||
+    (initialPixType === 'cnpj' ? resolveAutoPixKey('cnpj', initialCleaned) : '');
+
   // Form State initialized from props
   const [formData, setFormData] = useState<CompanyProfile>({
     ...initialCleaned,
     logoUrl: cleanLogoUrl(initialCleaned.logoUrl),
     cnpjCpf: formatCpfCnpj(initialCleaned.cnpjCpf || ''),
     stateRegistration: formatIE(initialCleaned.stateRegistration || ''),
+    municipalRegistration: initialCleaned.municipalRegistration || '',
+    cnaePrincipal: initialCleaned.cnaePrincipal || '',
     phone: formatPhone(initialCleaned.phone || ''),
     zipCode: formatCep(initialCleaned.zipCode || ''),
     representativeName: initialCleaned.representativeName || '',
@@ -108,18 +166,39 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     bankName: initialCleaned.bankName || '',
     bankAgency: initialCleaned.bankAgency || '',
     bankAccount: initialCleaned.bankAccount || '',
-    pixKeyType: initialCleaned.pixKeyType || 'cnpj',
-    pixKey: initialCleaned.pixKey || '',
+    pixKeyType: initialPixType,
+    pixKey: initialPixKey,
+    certificadoDigitalAtivo: initialCleaned.certificadoDigitalAtivo ?? cachedCertMeta?.certificadoDigitalAtivo ?? false,
+    certificadoArquivoNome: initialCleaned.certificadoArquivoNome || cachedCertMeta?.certificadoArquivoNome || '',
+    certificadoIndexedDbRef: initialCleaned.certificadoIndexedDbRef || cachedCertMeta?.certificadoIndexedDbRef || '',
+    certificadoTitular: initialCleaned.certificadoTitular || cachedCertMeta?.certificadoTitular || '',
+    certificadoCnpj: initialCleaned.certificadoCnpj || cachedCertMeta?.certificadoCnpj || '',
+    certificadoValidade: initialCleaned.certificadoValidade || cachedCertMeta?.certificadoValidade || '',
+    certificadoSenhaArmazenada: initialCleaned.certificadoSenhaArmazenada || cachedCertMeta?.certificadoSenhaArmazenada || '',
+    certificadoSimulado: initialCleaned.certificadoSimulado ?? cachedCertMeta?.certificadoSimulado ?? false,
+    ambienteSefaz: initialCleaned.ambienteSefaz || 'homologacao',
+    regimeTributario: initialCleaned.regimeTributario || 'Simples Nacional',
+    seriePadraoNotas: initialCleaned.seriePadraoNotas || '1',
+    rntrc: initialCleaned.rntrc || '',
+    cscId: initialCleaned.cscId || '',
+    cscToken: initialCleaned.cscToken || '',
   });
 
   // Mantém os campos do formulário sempre reativos e preenchidos quando o perfil for atualizado/cadastrado
   useEffect(() => {
     const cleaned = sanitizeProfile(companyProfile);
+    const storedCert = getStoredCertificateMeta();
+    const resolvedPixType = cleaned.pixKeyType || 'cnpj';
+    const resolvedPixKey =
+      (cleaned.pixKey || '').trim() ||
+      (resolvedPixType === 'cnpj' ? resolveAutoPixKey('cnpj', cleaned) : '');
     setFormData({
       ...cleaned,
       logoUrl: cleanLogoUrl(cleaned.logoUrl),
       cnpjCpf: formatCpfCnpj(cleaned.cnpjCpf || ''),
       stateRegistration: formatIE(cleaned.stateRegistration || ''),
+      municipalRegistration: cleaned.municipalRegistration || '',
+      cnaePrincipal: cleaned.cnaePrincipal || '',
       phone: formatPhone(cleaned.phone || ''),
       zipCode: formatCep(cleaned.zipCode || ''),
       representativeName: cleaned.representativeName || '',
@@ -127,8 +206,22 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       bankName: cleaned.bankName || '',
       bankAgency: cleaned.bankAgency || '',
       bankAccount: cleaned.bankAccount || '',
-      pixKeyType: cleaned.pixKeyType || 'cnpj',
-      pixKey: cleaned.pixKey || '',
+      pixKeyType: resolvedPixType,
+      pixKey: resolvedPixKey,
+      certificadoDigitalAtivo: cleaned.certificadoDigitalAtivo ?? storedCert?.certificadoDigitalAtivo ?? false,
+      certificadoArquivoNome: cleaned.certificadoArquivoNome || storedCert?.certificadoArquivoNome || '',
+      certificadoIndexedDbRef: cleaned.certificadoIndexedDbRef || storedCert?.certificadoIndexedDbRef || '',
+      certificadoTitular: cleaned.certificadoTitular || storedCert?.certificadoTitular || '',
+      certificadoCnpj: cleaned.certificadoCnpj || storedCert?.certificadoCnpj || '',
+      certificadoValidade: cleaned.certificadoValidade || storedCert?.certificadoValidade || '',
+      certificadoSenhaArmazenada: cleaned.certificadoSenhaArmazenada || storedCert?.certificadoSenhaArmazenada || '',
+      certificadoSimulado: cleaned.certificadoSimulado ?? storedCert?.certificadoSimulado ?? false,
+      ambienteSefaz: cleaned.ambienteSefaz || 'homologacao',
+      regimeTributario: cleaned.regimeTributario || 'Simples Nacional',
+      seriePadraoNotas: cleaned.seriePadraoNotas || '1',
+      rntrc: cleaned.rntrc || '',
+      cscId: cleaned.cscId || '',
+      cscToken: cleaned.cscToken || '',
     });
   }, [companyProfile]);
 
@@ -138,15 +231,27 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     fetchCloudCompanyProfile().then((cloudProfile) => {
       if (cloudProfile && isMounted) {
         const cleanedCloud = sanitizeProfile(cloudProfile);
-        setFormData(prev => ({
-          ...prev,
-          ...cleanedCloud,
-          logoUrl: cleanLogoUrl(cleanedCloud.logoUrl || prev.logoUrl),
-          cnpjCpf: formatCpfCnpj(cleanedCloud.cnpjCpf || prev.cnpjCpf || ''),
-          stateRegistration: formatIE(cleanedCloud.stateRegistration || prev.stateRegistration || ''),
-          phone: formatPhone(cleanedCloud.phone || prev.phone || ''),
-          zipCode: formatCep(cleanedCloud.zipCode || prev.zipCode || ''),
-        }));
+        setFormData(prev => {
+          const merged: CompanyProfile = {
+            ...prev,
+            ...cleanedCloud,
+            logoUrl: cleanLogoUrl(cleanedCloud.logoUrl || prev.logoUrl),
+            cnpjCpf: formatCpfCnpj(cleanedCloud.cnpjCpf || prev.cnpjCpf || ''),
+            stateRegistration: formatIE(cleanedCloud.stateRegistration || prev.stateRegistration || ''),
+            municipalRegistration: cleanedCloud.municipalRegistration || prev.municipalRegistration || '',
+            cnaePrincipal: cleanedCloud.cnaePrincipal || prev.cnaePrincipal || '',
+            phone: formatPhone(cleanedCloud.phone || prev.phone || ''),
+            zipCode: formatCep(cleanedCloud.zipCode || prev.zipCode || ''),
+            rntrc: cleanedCloud.rntrc || prev.rntrc || '',
+            cscId: cleanedCloud.cscId || prev.cscId || '',
+            cscToken: cleanedCloud.cscToken || prev.cscToken || '',
+          };
+          const activePixType = merged.pixKeyType || 'cnpj';
+          if (!(merged.pixKey || '').trim() && activePixType === 'cnpj') {
+            merged.pixKey = resolveAutoPixKey('cnpj', merged);
+          }
+          return merged;
+        });
       }
     });
     return () => {
@@ -176,7 +281,181 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   // Test Print modal
   const [isTestPrintOpen, setIsTestPrintOpen] = useState(false);
 
+  // Certificado Digital A1 State
+  const [pendingCertFile, setPendingCertFile] = useState<File | null>(null);
+  const [certPasswordInput, setCertPasswordInput] = useState('');
+  const [showCertPassword, setShowCertPassword] = useState(false);
+  const [isValidatingCert, setIsValidatingCert] = useState(false);
+  const [certFeedback, setCertFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isReplacingCert, setIsReplacingCert] = useState(false);
+  const certFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Controle de Numeração Sequencial (Com Proteção por Cadeado)
+  const [isSequenciaUnlocked, setIsSequenciaUnlocked] = useState(false);
+  const [isSequenceUnlockConfirmOpen, setIsSequenceUnlockConfirmOpen] = useState(false);
+  const [sequenceNumbers, setSequenceNumbers] = useState<Record<NotaSaidaModelKey, string>>(() => {
+    const initial = getAllNextNotaSaidaNumbers(
+      initialCleaned.seriePadraoNotas || '1',
+      getStoredNotasSaida()
+    );
+    return {
+      NFE: String(initial.NFE),
+      NFSE: String(initial.NFSE),
+      CTE: String(initial.CTE),
+      NFCE: String(initial.NFCE),
+      MDFE: String(initial.MDFE),
+    };
+  });
+
+  useEffect(() => {
+    const syncSequencesFromStorage = () => {
+      if (isSequenciaUnlocked) return;
+      const current = getAllNextNotaSaidaNumbers(
+        formData.seriePadraoNotas || '1',
+        getStoredNotasSaida()
+      );
+      setSequenceNumbers({
+        NFE: String(current.NFE),
+        NFSE: String(current.NFSE),
+        CTE: String(current.CTE),
+        NFCE: String(current.NFCE),
+        MDFE: String(current.MDFE),
+      });
+    };
+
+    syncSequencesFromStorage();
+    window.addEventListener('agrocontrol_sequencia_notas_updated', syncSequencesFromStorage);
+    window.addEventListener('storage', syncSequencesFromStorage);
+    return () => {
+      window.removeEventListener('agrocontrol_sequencia_notas_updated', syncSequencesFromStorage);
+      window.removeEventListener('storage', syncSequencesFromStorage);
+    };
+  }, [formData.seriePadraoNotas, isSequenciaUnlocked]);
+
+  const handleToggleSequenceLock = () => {
+    if (isSequenciaUnlocked) {
+      const current = getAllNextNotaSaidaNumbers(
+        formData.seriePadraoNotas || '1',
+        getStoredNotasSaida()
+      );
+      setSequenceNumbers({
+        NFE: String(current.NFE),
+        NFSE: String(current.NFSE),
+        CTE: String(current.CTE),
+        NFCE: String(current.NFCE),
+        MDFE: String(current.MDFE),
+      });
+      setIsSequenciaUnlocked(false);
+      return;
+    }
+
+    setIsSequenceUnlockConfirmOpen(true);
+  };
+
+  const handleConfirmUnlockSequence = () => {
+    setIsSequenciaUnlocked(true);
+    setIsSequenceUnlockConfirmOpen(false);
+  };
+
+  const handleSequenceFieldChange = (model: NotaSaidaModelKey, rawValue: string) => {
+    const onlyDigits = rawValue.replace(/\D/g, '');
+    setSequenceNumbers((prev) => ({
+      ...prev,
+      [model]: onlyDigits,
+    }));
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const certStatusInfo = getCertificateStatusInfo(formData);
+
+  const persistCertificateStateOnProfile = (nextProfile: CompanyProfile) => {
+    setFormData(nextProfile);
+    saveStoredCompanyProfile(nextProfile);
+    onSaveCompanyProfile(nextProfile);
+  };
+
+  const handleCertFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingCertFile(file);
+    setCertFeedback(null);
+  };
+
+  const handleValidateAndActivateCert = async () => {
+    if (!pendingCertFile) {
+      setCertFeedback({
+        type: 'error',
+        message: 'Selecione o arquivo .pfx ou .p12 do Certificado Digital A1 antes de validar.',
+      });
+      return;
+    }
+    setIsValidatingCert(true);
+    setCertFeedback(null);
+    try {
+      const res = await validateAndStorePfxCertificate(pendingCertFile, certPasswordInput, formData);
+      if (!res.success || !res.meta) {
+        setCertFeedback({ type: 'error', message: res.message });
+        return;
+      }
+      const nextProfile: CompanyProfile = {
+        ...formData,
+        ...res.meta,
+      };
+      persistCertificateStateOnProfile(nextProfile);
+      setPendingCertFile(null);
+      setCertPasswordInput('');
+      setIsReplacingCert(false);
+      if (certFileInputRef.current) certFileInputRef.current.value = '';
+      setCertFeedback({ type: 'success', message: res.message });
+      setTimeout(() => setCertFeedback(null), 5000);
+    } finally {
+      setIsValidatingCert(false);
+    }
+  };
+
+  const handleSimulateCertificateActivation = () => {
+    const meta = activateSimulatedCertificate(formData, pendingCertFile?.name);
+    const nextProfile: CompanyProfile = {
+      ...formData,
+      ...meta,
+    };
+    persistCertificateStateOnProfile(nextProfile);
+    setPendingCertFile(null);
+    setCertPasswordInput('');
+    setIsReplacingCert(false);
+    if (certFileInputRef.current) certFileInputRef.current.value = '';
+    setCertFeedback({
+      type: 'success',
+      message: 'Certificado Digital A1 ativado em modo Homologação / Testes!',
+    });
+    setTimeout(() => setCertFeedback(null), 5000);
+  };
+
+  const handleRemoveCertificate = async () => {
+    await removeStoredCertificate();
+    const nextProfile: CompanyProfile = {
+      ...formData,
+      certificadoDigitalAtivo: false,
+      certificadoArquivoNome: '',
+      certificadoIndexedDbRef: '',
+      certificadoTitular: '',
+      certificadoCnpj: '',
+      certificadoValidade: '',
+      certificadoSenhaArmazenada: '',
+      certificadoSimulado: false,
+    };
+    persistCertificateStateOnProfile(nextProfile);
+    setPendingCertFile(null);
+    setCertPasswordInput('');
+    setIsReplacingCert(false);
+    if (certFileInputRef.current) certFileInputRef.current.value = '';
+    setCertFeedback({
+      type: 'success',
+      message: 'Certificado Digital A1 removido deste terminal.',
+    });
+    setTimeout(() => setCertFeedback(null), 3500);
+  };
 
   const handleChange = (field: keyof CompanyProfile, value: string) => {
     setFormData(prev => ({
@@ -248,6 +527,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           city: res.city || prev.city,
           state: res.state || prev.state,
           activitySector: res.activitySector || prev.activitySector,
+          cnaePrincipal: res.cnaePrincipal || prev.cnaePrincipal,
+          pixKey:
+            !(prev.pixKey || '').trim() && (prev.pixKeyType || 'cnpj') === 'cnpj'
+              ? res.cnpj || formatCpfCnpj(digits)
+              : prev.pixKey,
         }));
         setLookupFeedback({ type: 'success', message: `✅ CNPJ Encontrado: ${res.corporateName || 'Dados da empresa importados!'}` });
       } else {
@@ -395,8 +679,28 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       logoUrl: persistedLogoUrl,
     };
 
+    if (isSequenciaUnlocked) {
+      const parsedNextNumbers: Record<NotaSaidaModelKey, number> = {
+        NFE: Math.max(1, parseInt(sequenceNumbers.NFE || '1', 10) || 1),
+        NFSE: Math.max(1, parseInt(sequenceNumbers.NFSE || '1', 10) || 1),
+        CTE: Math.max(1, parseInt(sequenceNumbers.CTE || '1', 10) || 1),
+        NFCE: Math.max(1, parseInt(sequenceNumbers.NFCE || '1', 10) || 1),
+        MDFE: Math.max(1, parseInt(sequenceNumbers.MDFE || '1', 10) || 1),
+      };
+      saveNextNotaSaidaSequencesForSerie(profileToSave.seriePadraoNotas || '1', parsedNextNumbers);
+      setSequenceNumbers({
+        NFE: String(parsedNextNumbers.NFE),
+        NFSE: String(parsedNextNumbers.NFSE),
+        CTE: String(parsedNextNumbers.CTE),
+        NFCE: String(parsedNextNumbers.NFCE),
+        MDFE: String(parsedNextNumbers.MDFE),
+      });
+      setIsSequenciaUnlocked(false);
+    }
+
     try {
       const activeSector = profileToSave.activitySector || '';
+      saveStoredCompanyProfile(profileToSave);
       if (typeof localStorage !== 'undefined') {
         const existingRaw = localStorage.getItem('dadosEmpresa');
         const existing = existingRaw ? JSON.parse(existingRaw) : {};
@@ -408,6 +712,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           tradeName: profileToSave.tradeName || '',
           ramoAtividade: activeSector,
           activitySector: activeSector,
+          setor: activeSector,
           logoUrl: persistedLogoUrl
         }));
         if (persistedLogoUrl) {
@@ -420,8 +725,8 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         window.dispatchEvent(new CustomEvent('agrocontrol_empresa_logo_updated', { detail: persistedLogoUrl }));
         window.dispatchEvent(new CustomEvent('agrocontrol_logo_updated', { detail: persistedLogoUrl }));
       }
-      await saveCloudCompanyProfile(profileToSave);
       onSaveCompanyProfile(profileToSave);
+      await saveCloudCompanyProfile(profileToSave);
       setSavedSuccess(true);
       setTimeout(() => {
         setSavedSuccess(false);
@@ -639,7 +944,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
             </div>
 
             {/* Campos Cadastrais */}
-            <div className="col-span-12 sm:col-span-9 lg:col-span-10 grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="col-span-12 sm:col-span-9 lg:col-span-10 grid grid-cols-1 sm:grid-cols-5 gap-2">
               {/* CNPJ / CPF */}
               <div>
                 <div className="flex items-center justify-between mb-0.5">
@@ -693,6 +998,21 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 />
               </div>
 
+              {/* Inscrição Municipal (IM) */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                  Inscrição Municipal (IM)
+                </label>
+                <input
+                  type="text"
+                  value={formData.municipalRegistration || ''}
+                  onChange={(e) => handleChange('municipalRegistration', e.target.value)}
+                  placeholder="Isento ou nº IM (NFS-e)"
+                  maxLength={24}
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                />
+              </div>
+
               {/* Razão Social */}
               <div>
                 <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
@@ -721,18 +1041,34 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 />
               </div>
 
-              {/* Setor / Ramo de Atividade */}
-              <div className="sm:col-span-4">
-                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                  Setor / Ramo de Atividade
-                </label>
-                <input
-                  type="text"
-                  value={formData.activitySector || ''}
-                  onChange={(e) => handleChange('activitySector', e.target.value)}
-                  placeholder="Ex: Prestação de serviço de Silagem"
-                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
-                />
+              {/* Setor / Ramo de Atividade & CNAE Principal */}
+              <div className="sm:col-span-5 grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-9">
+                  <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                    Setor / Ramo de Atividade
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.activitySector || ''}
+                    onChange={(e) => handleChange('activitySector', e.target.value)}
+                    placeholder="Ex: Prestação de serviço de Silagem"
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                    CNAE Principal
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cnaePrincipal || ''}
+                    onChange={(e) => handleChange('cnaePrincipal', formatCnae(e.target.value))}
+                    placeholder="Ex: 0161-0/03"
+                    maxLength={10}
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -986,7 +1322,14 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
               </label>
               <select
                 value={formData.pixKeyType || 'cnpj'}
-                onChange={(e) => handleChange('pixKeyType', e.target.value)}
+                onChange={(e) => {
+                  const nextType = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    pixKeyType: nextType,
+                    pixKey: resolveAutoPixKey(nextType, prev),
+                  }));
+                }}
                 className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
                 <option value="cnpj">CNPJ</option>
@@ -1013,7 +1356,469 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           </div>
         </div>
 
-        {/* BLOCO 5: CENTRAL DE SEGURANÇA E BACKUP DE DADOS (100% OFFLINE / LOCALSTORAGE) */}
+        {/* BLOCO 5: CERTIFICADO DIGITAL A1 & CONFIGURAÇÃO FISCAL (SEFAZ) */}
+        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-zinc-900 dark:text-emerald-400 border-b border-zinc-200 dark:border-stone-800 pb-1">
+            <div className="flex items-center space-x-2">
+              <FileKey2 className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+              <h2 className="text-xs font-extrabold uppercase tracking-wider">
+                5. CERTIFICADO DIGITAL A1 &amp; CONFIGURAÇÃO FISCAL (SEFAZ)
+              </h2>
+            </div>
+
+            {certStatusInfo.hasCertificate ? (
+              <span
+                className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-wider ${
+                  certStatusInfo.isExpired
+                    ? 'bg-rose-100 text-rose-800 border-rose-400'
+                    : certStatusInfo.isExpiringSoon
+                      ? 'bg-amber-100 text-amber-900 border-amber-400'
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-400'
+                }`}
+              >
+                <span>{certStatusInfo.badgeLabel}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md border border-zinc-300 bg-white text-zinc-600 text-[10px] font-bold uppercase tracking-wider">
+                <span>NENHUM CERTIFICADO A1 IMPORTADO</span>
+              </span>
+            )}
+          </div>
+
+          {certFeedback && (
+            <div
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center space-x-2 ${
+                certFeedback.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  : 'bg-rose-50 border-rose-300 text-rose-900'
+              }`}
+            >
+              {certFeedback.type === 'success' ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              )}
+              <span>{certFeedback.message}</span>
+            </div>
+          )}
+
+          {/* Painel de Status quando Certificado A1 já estiver ativo */}
+          {certStatusInfo.hasCertificate && !isReplacingCert && (
+            <div
+              className={`rounded-lg border p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                certStatusInfo.isExpired
+                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800'
+                  : certStatusInfo.isExpiringSoon
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                    : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+              }`}
+            >
+              <div className="space-y-0.5 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                      certStatusInfo.isExpired
+                        ? 'bg-rose-600 text-white'
+                        : certStatusInfo.isExpiringSoon
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    <span>{certStatusInfo.badgeLabel}</span>
+                  </span>
+                  {certStatusInfo.simulado && (
+                    <span className="px-1.5 py-0.5 rounded bg-white border border-zinc-300 text-[10px] font-bold text-zinc-700 uppercase">
+                      Modo Homologação / Simulado
+                    </span>
+                  )}
+                  <span className="text-[11px] font-mono text-zinc-600 dark:text-stone-400 truncate">
+                    Arquivo: {certStatusInfo.arquivoNome || 'certificado_a1.pfx'}
+                  </span>
+                </div>
+                <p className="text-xs font-extrabold text-zinc-900 dark:text-stone-100 uppercase truncate">
+                  {certStatusInfo.titular}
+                  {certStatusInfo.cnpj ? ` — CNPJ: ${certStatusInfo.cnpj}` : ''}
+                </p>
+                <p
+                  className={`text-[11px] font-bold ${
+                    certStatusInfo.isExpired
+                      ? 'text-rose-700 dark:text-rose-300'
+                      : certStatusInfo.isExpiringSoon
+                        ? 'text-amber-800 dark:text-amber-300'
+                        : 'text-emerald-800 dark:text-emerald-300'
+                  }`}
+                >
+                  {certStatusInfo.isExpired
+                    ? `Certificado vencido em ${certStatusInfo.formattedValidade}. Substitua o arquivo .pfx/.p12 para emitir em Produção.`
+                    : certStatusInfo.isExpiringSoon
+                      ? `Atenção: Válido até ${certStatusInfo.formattedValidade} (faltam ${certStatusInfo.daysRemaining} dias para vencer).`
+                      : `Válido até ${certStatusInfo.formattedValidade} (${certStatusInfo.daysRemaining ?? 365} dias restantes)`}
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsReplacingCert(true)}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-50 border border-zinc-400 text-zinc-800 text-[11px] font-bold transition cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Substituir</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveCertificate()}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 text-[11px] font-bold transition cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Remover</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Upload .pfx / .p12 + Senha do Certificado */}
+          {(!certStatusInfo.hasCertificate || isReplacingCert) && (
+            <div className="bg-white dark:bg-stone-800/60 rounded-lg border border-zinc-300 dark:border-stone-700 p-2.5 space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+                {/* Arquivo .pfx / .p12 */}
+                <div className="md:col-span-5">
+                  <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                    Arquivo Certificado Digital A1 (.pfx / .p12)
+                  </label>
+                  <input
+                    ref={certFileInputRef}
+                    type="file"
+                    accept=".pfx,.p12"
+                    onChange={handleCertFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => certFileInputRef.current?.click()}
+                    className="w-full px-2.5 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-dashed border-zinc-400 dark:border-stone-600 rounded-lg text-xs text-zinc-800 dark:text-stone-200 font-medium flex items-center justify-between gap-2 transition cursor-pointer"
+                  >
+                    <span className="truncate flex items-center space-x-1.5">
+                      <Upload className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span className="truncate">
+                        {pendingCertFile ? pendingCertFile.name : 'Selecionar arquivo .pfx ou .p12...'}
+                      </span>
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-white border border-zinc-300 text-[10px] font-bold text-zinc-700 shrink-0">
+                      Procurar
+                    </span>
+                  </button>
+                </div>
+
+                {/* Senha do Certificado */}
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                    Senha do Certificado
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCertPassword ? 'text' : 'password'}
+                      value={certPasswordInput}
+                      onChange={(e) => setCertPasswordInput(e.target.value)}
+                      placeholder="Digite a senha do .pfx"
+                      autoComplete="new-password"
+                      className="w-full pl-2.5 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCertPassword((prev) => !prev)}
+                      title={showCertPassword ? 'Ocultar senha' : 'Exibir senha'}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-900 cursor-pointer"
+                    >
+                      {showCertPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Botões de Ação */}
+                <div className="md:col-span-4 flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={isValidatingCert}
+                    onClick={() => void handleValidateAndActivateCert()}
+                    className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    {isValidatingCert ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    )}
+                    <span>Validar &amp; Ativar Certificado</span>
+                  </button>
+
+                  {isReplacingCert && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsReplacingCert(false);
+                        setPendingCertFile(null);
+                        setCertPasswordInput('');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {!certStatusInfo.hasCertificate && (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-zinc-200 dark:border-stone-700">
+                  <span className="text-[11px] text-zinc-600 dark:text-stone-400">
+                    O arquivo .pfx/.p12 é salvo localmente com segurança no IndexedDB deste navegador.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSimulateCertificateActivation}
+                    className="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Simular Ativação A1 (Homologação / Testes)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Parâmetros Fiscais Padrão */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5">
+            {/* Ambiente de Emissão SEFAZ */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Ambiente de Emissão SEFAZ
+              </label>
+              <select
+                value={formData.ambienteSefaz || 'homologacao'}
+                onChange={(e) =>
+                  handleChange('ambienteSefaz', e.target.value as 'homologacao' | 'producao')
+                }
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+              >
+                <option value="homologacao">Homologação (Testes / Sem Valor Fiscal)</option>
+                <option value="producao">Produção (Validade Jurídica)</option>
+              </select>
+            </div>
+
+            {/* Regime Tributário */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Regime Tributário
+              </label>
+              <select
+                value={formData.regimeTributario || 'Simples Nacional'}
+                onChange={(e) => handleChange('regimeTributario', e.target.value)}
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+              >
+                <option value="Simples Nacional">Simples Nacional</option>
+                <option value="Lucro Presumido">Lucro Presumido</option>
+                <option value="Lucro Real">Lucro Real</option>
+              </select>
+            </div>
+
+            {/* Série Padrão das Notas */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Série Padrão das Notas
+              </label>
+              <input
+                type="text"
+                value={formData.seriePadraoNotas || '1'}
+                onChange={(e) => handleChange('seriePadraoNotas', cleanDigits(e.target.value).slice(0, 3) || '')}
+                placeholder="Ex: 1"
+                maxLength={3}
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+              />
+            </div>
+          </div>
+
+          {/* Linha Complementar: Credenciais Específicas (CT-e / MDF-e / NFC-e PDV) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* RNTRC (ANTT) */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                RNTRC (ANTT) <span className="text-[10px] font-normal text-zinc-500">(Opcional — CT-e / MDF-e)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.rntrc || ''}
+                onChange={(e) => handleChange('rntrc', cleanDigits(e.target.value).slice(0, 12))}
+                placeholder="Ex: 12345678"
+                maxLength={12}
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+              />
+            </div>
+
+            {/* ID Token CSC (NFC-e) */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                ID Token CSC (NFC-e) <span className="text-[10px] font-normal text-zinc-500">(Opcional — PDV)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.cscId || ''}
+                onChange={(e) => handleChange('cscId', cleanDigits(e.target.value).slice(0, 6))}
+                placeholder="Ex: 000001"
+                maxLength={6}
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+              />
+            </div>
+
+            {/* Código CSC (NFC-e) */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Código CSC (NFC-e) <span className="text-[10px] font-normal text-zinc-500">(Token SEFAZ PDV)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.cscToken || ''}
+                onChange={(e) => handleChange('cscToken', e.target.value.trim())}
+                placeholder="Token alfanumérico fornecido pela SEFAZ"
+                maxLength={64}
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+              />
+            </div>
+          </div>
+
+          {/* Controle de Numeração Sequencial (Com Proteção por Cadeado) */}
+          <div className="pt-2 mt-1 border-t border-zinc-200 dark:border-stone-800 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-800 dark:text-stone-200">
+                  PRÓXIMO NÚMERO A EMITIR POR TIPO DE DOCUMENTO (CONTINUIDADE DE SEQUÊNCIA)
+                </span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-300">
+                  Série {formData.seriePadraoNotas || '1'}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                id="btn-toggle-sequence-lock"
+                onClick={handleToggleSequenceLock}
+                className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition cursor-pointer ${
+                  isSequenciaUnlocked
+                    ? 'bg-amber-100 hover:bg-amber-200 border-amber-500 text-amber-950'
+                    : 'bg-white hover:bg-zinc-50 border-zinc-400 text-zinc-800 dark:bg-stone-800 dark:border-stone-600 dark:text-stone-200'
+                }`}
+              >
+                {isSequenciaUnlocked ? (
+                  <>
+                    <Unlock className="w-3 h-3 text-amber-700 shrink-0" />
+                    <span>🔓 Numeração Destravada (Clique para Travar)</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3 h-3 text-zinc-700 dark:text-stone-300 shrink-0" />
+                    <span>🔒 Liberar Edição de Numeração</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-800 dark:text-stone-300 mb-0.5 truncate" title="NF-e (Mercadorias / Remessa)">
+                  NF-e (Mercadorias / Remessa)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  disabled={!isSequenciaUnlocked}
+                  value={sequenceNumbers.NFE}
+                  onChange={(e) => handleSequenceFieldChange('NFE', e.target.value)}
+                  className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
+                    isSequenciaUnlocked
+                      ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
+                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-800 dark:text-stone-300 mb-0.5 truncate" title="NFS-e (Prestação de Serviço)">
+                  NFS-e (Prestação de Serviço)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  disabled={!isSequenciaUnlocked}
+                  value={sequenceNumbers.NFSE}
+                  onChange={(e) => handleSequenceFieldChange('NFSE', e.target.value)}
+                  className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
+                    isSequenciaUnlocked
+                      ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
+                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-800 dark:text-stone-300 mb-0.5 truncate" title="CT-e (Transporte / Frete)">
+                  CT-e (Transporte / Frete)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  disabled={!isSequenciaUnlocked}
+                  value={sequenceNumbers.CTE}
+                  onChange={(e) => handleSequenceFieldChange('CTE', e.target.value)}
+                  className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
+                    isSequenciaUnlocked
+                      ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
+                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-800 dark:text-stone-300 mb-0.5 truncate" title="NFC-e (Consumidor)">
+                  NFC-e (Consumidor)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  disabled={!isSequenciaUnlocked}
+                  value={sequenceNumbers.NFCE}
+                  onChange={(e) => handleSequenceFieldChange('NFCE', e.target.value)}
+                  className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
+                    isSequenciaUnlocked
+                      ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
+                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-800 dark:text-stone-300 mb-0.5 truncate" title="MDF-e (Manifesto)">
+                  MDF-e (Manifesto)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  disabled={!isSequenciaUnlocked}
+                  value={sequenceNumbers.MDFE}
+                  onChange={(e) => handleSequenceFieldChange('MDFE', e.target.value)}
+                  className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
+                    isSequenciaUnlocked
+                      ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
+                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                  }`}
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-500 dark:text-stone-400 italic">
+              Se você já emitia notas em outro sistema, destrave o cadeado e informe o próximo número da sua sequência (ex: 1451). O sistema atualizará automaticamente a cada nova nota transmitida.
+            </p>
+          </div>
+        </div>
+
+        {/* BLOCO 6: CENTRAL DE SEGURANÇA E BACKUP DE DADOS (100% OFFLINE / LOCALSTORAGE) */}
         <DataBackupSecurityBlock 
           subscriberName={formData.tradeName || formData.corporateName || 'SUA EMPRESA AQUI'} 
         />
@@ -1212,6 +2017,63 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         isOpen={isSqlModalOpen}
         onClose={() => setIsSqlModalOpen(false)}
       />
+
+      {/* Mini-Modal Interno de Confirmação para Destravar Numeração Sequencial */}
+      {isSequenceUnlockConfirmOpen && (
+        <div
+          id="modal-confirm-unlock-sequence"
+          className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setIsSequenceUnlockConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 bg-[#cad4e6] border-b border-black flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 rounded-lg bg-amber-100 border border-black">
+                  <AlertTriangle className="w-4 h-4 text-amber-700" />
+                </div>
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black">
+                  Confirmar Desbloqueio de Numeração
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSequenceUnlockConfirmOpen(false)}
+                className="px-1.5 py-0.5 rounded-lg text-black hover:bg-white/60 border border-transparent hover:border-black transition cursor-pointer font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 bg-[#cad4e6]">
+              <div className="p-3.5 bg-[#e0e6f1] border border-black rounded-lg text-xs font-semibold text-black leading-relaxed">
+                Atenção: Alterar a numeração sequencial pode causar rejeição na SEFAZ se o número já tiver sido utilizado. Deseja realmente destravar os campos?
+              </div>
+            </div>
+
+            <div className="px-4 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end gap-2">
+              <button
+                type="button"
+                id="btn-cancel-unlock-sequence"
+                onClick={() => setIsSequenceUnlockConfirmOpen(false)}
+                className="px-4 py-1.5 bg-white hover:bg-gray-100 text-black border border-black rounded-lg text-xs font-bold cursor-pointer transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-unlock-sequence"
+                onClick={handleConfirmUnlockSequence}
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold border border-amber-800 rounded-lg text-xs shadow-xs cursor-pointer transition"
+              >
+                🔓 Sim, Destravar Campos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

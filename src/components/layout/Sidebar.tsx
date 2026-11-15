@@ -66,10 +66,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const resolveCompanyInfo = (
     propProfile?: CompanyProfile,
-    explicitLogoOverride?: string
+    explicitLogoOverride?: string,
+    preferPropExplicitly = false
   ): ResolvedCompanyInfo => {
     let propTrade = '';
     let propCorp = '';
+    let propSector = '';
     let propLogo = '';
 
     if (propProfile) {
@@ -82,23 +84,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
           propProfile.companyName ||
           ''
       ).trim();
+      propSector = String(
+        propProfile.activitySector ||
+          (propProfile as any).ramoAtividade ||
+          (propProfile as any).setor ||
+          ''
+      ).trim();
       propLogo = String(propProfile.logoUrl || '').trim();
     }
 
     let storedTrade = '';
     let storedCorp = '';
+    let storedSector = '';
     let storedLogo = '';
     try {
       const stored = getStoredCompanyProfile();
       if (stored) {
-        storedTrade = String(stored.tradeName || '').trim();
-        storedCorp = String(stored.corporateName || stored.companyName || '').trim();
+        storedTrade = String(stored.tradeName || (stored as any).nomeFantasia || '').trim();
+        storedCorp = String(
+          stored.corporateName || (stored as any).razaoSocial || stored.companyName || ''
+        ).trim();
+        storedSector = String(
+          stored.activitySector || (stored as any).ramoAtividade || (stored as any).setor || ''
+        ).trim();
         storedLogo = String(stored.logoUrl || '').trim();
       }
     } catch (_) {}
 
     let dadosTrade = '';
     let dadosCorp = '';
+    let dadosSector = '';
     let dadosLogo = '';
     let lsLogo = '';
     try {
@@ -108,14 +123,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const parsed = JSON.parse(rawDados);
           dadosTrade = String(parsed?.nomeFantasia || parsed?.tradeName || '').trim();
           dadosCorp = String(parsed?.razaoSocial || parsed?.corporateName || '').trim();
+          dadosSector = String(parsed?.ramoAtividade || parsed?.activitySector || parsed?.setor || '').trim();
           dadosLogo = String(parsed?.logoUrl || '').trim();
         }
         lsLogo = String(localStorage.getItem('agrocontrol_empresa_logo') || '').trim();
       }
     } catch (_) {}
 
-    const rawTrade = propTrade || storedTrade || dadosTrade;
-    const rawCorp = propCorp || storedCorp || dadosCorp;
+    const rawTrade = preferPropExplicitly && propProfile && ('tradeName' in propProfile || 'nomeFantasia' in propProfile)
+      ? propTrade
+      : propTrade || storedTrade || dadosTrade;
+    const rawCorp = preferPropExplicitly && propProfile && ('corporateName' in propProfile || 'razaoSocial' in propProfile)
+      ? propCorp
+      : propCorp || storedCorp || dadosCorp;
+    const rawSector = preferPropExplicitly && propProfile && ('activitySector' in propProfile || 'ramoAtividade' in propProfile || 'setor' in propProfile)
+      ? propSector
+      : propSector || storedSector || dadosSector;
 
     const sanitizePlaceholder = (val: string, placeholders: string[]) => {
       const clean = val.trim();
@@ -126,11 +149,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const cleanTrade = sanitizePlaceholder(rawTrade, ['SUA EMPRESA AQUI', 'SISTEMA ERP OPERACIONAL']);
     const cleanCorp = sanitizePlaceholder(rawCorp, ['SUA EMPRESA AQUI', 'SISTEMA ERP OPERACIONAL']);
+    const cleanSector = sanitizePlaceholder(rawSector, ['SUA EMPRESA AQUI', 'SISTEMA ERP OPERACIONAL']);
 
-    // Título: Nome Fantasia cadastrado; fallback para Razão Social; fallback genérico apenas se ambos vazios
+    // Linha Superior: Nome Fantasia cadastrado; fallback para Razão Social; fallback genérico apenas se ambos vazios
     const finalTitle = (cleanTrade || cleanCorp || 'SUA EMPRESA AQUI').toUpperCase();
-    // Subtítulo: Razão Social cadastrada; fallback padrão apenas se vazia
-    const finalSubtitle = (cleanCorp || 'SISTEMA ERP OPERACIONAL').toUpperCase();
+    // Linha Inferior: Setor / Ramo de Atividade cadastrado; fallback padrão apenas se vazio
+    const finalSubtitle = (cleanSector || 'SISTEMA ERP OPERACIONAL').toUpperCase();
 
     // Iniciais dinâmicas baseadas no título exibido
     let initials = 'SE';
@@ -205,7 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           logoUrl: detail.logoUrl !== undefined ? detail.logoUrl : companyProfile?.logoUrl,
         } as CompanyProfile;
         const explicitLogo = detail.logoUrl !== undefined ? String(detail.logoUrl || '') : undefined;
-        setCompanyInfo(resolveCompanyInfo(simulatedProfile, explicitLogo));
+        setCompanyInfo(resolveCompanyInfo(simulatedProfile, explicitLogo, true));
         setLogoError(false);
       } else {
         syncCompany();
@@ -225,6 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
     window.addEventListener('agrocontrol_company_profile_updated', handleLiveCompanySync);
+    window.addEventListener('company_profile_updated', handleLiveCompanySync);
     window.addEventListener('agrocontrol_empresa_logo_updated', handleLogoSync);
     window.addEventListener('agrocontrol_logo_updated', handleLogoSync);
     window.addEventListener('storage', syncCompany);
@@ -232,6 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       isMounted = false;
       window.removeEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
       window.removeEventListener('agrocontrol_company_profile_updated', handleLiveCompanySync);
+      window.removeEventListener('company_profile_updated', handleLiveCompanySync);
       window.removeEventListener('agrocontrol_empresa_logo_updated', handleLogoSync);
       window.removeEventListener('agrocontrol_logo_updated', handleLogoSync);
       window.removeEventListener('storage', syncCompany);

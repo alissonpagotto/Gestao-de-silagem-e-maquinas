@@ -46,7 +46,8 @@ import {
   FileCheck2,
   ArrowDownLeft,
   ArrowUpRight,
-  User
+  User,
+  Send
 } from 'lucide-react';
 import { 
   Expense, 
@@ -130,8 +131,17 @@ import { openNotaSaidaPrintWindow } from './notaSaidaPrint';
 import { preloadAllMediaFromIndexedDB } from '../../lib/imageStorage';
 import { CfopManagerModal } from './CfopManagerModal';
 import { Lc116ServiceCodeManagerModal } from './Lc116ServiceCodeManagerModal';
+import { SaidaItemSearchCombobox } from './SaidaItemSearchCombobox';
+import { FiscalCodeSearchCombobox, FiscalCodeOption } from './FiscalCodeSearchCombobox';
+import { SefazTransmissionModal, SefazModalStage } from './SefazTransmissionModal';
+import {
+  generateSefazChaveAcesso44,
+  generateSefazProtocoloAutorizacao,
+  getCertificateStatusInfo,
+} from '../../lib/fiscalCertificate';
 import {
   getStoredCfopCatalog,
+  CFOP_TIPO_LABELS,
   translateCfopByScope,
   getNextNotaSaidaNumber,
   updateNotaSaidaSequenceCounter,
@@ -1900,6 +1910,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [viewingNotaSaida, setViewingNotaSaida] = useState<NotaSaidaRecord | null>(null);
   const [notaSaidaToDelete, setNotaSaidaToDelete] = useState<NotaSaidaRecord | null>(null);
 
+  // Fluxo de Transmissão e Autorização SEFAZ
+  const [sefazModalStage, setSefazModalStage] = useState<SefazModalStage>('closed');
+  const [sefazStep, setSefazStep] = useState<number>(1);
+  const [sefazTargetNota, setSefazTargetNota] = useState<NotaSaidaRecord | null>(null);
+  const [sefazSimulationMode, setSefazSimulationMode] = useState<boolean>(false);
+  const sefazTimersRef = useRef<number[]>([]);
+
   // A) Campos específicos NFS-e
   const [nfseCodigoServico, setNfseCodigoServico] = useState('17.05');
   const [nfseMunicipioPrestacao, setNfseMunicipioPrestacao] = useState('');
@@ -2143,21 +2160,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     );
   }, [cfopCatalog, cfopUfPrefix, nfeNaturezaOperacao]);
 
+  const isNfeRetornoMode = saidaTipoDocumento.includes('Retorno');
+  const isRemessaRetornoSelected = saidaTipoDocumento.includes('Remessa') || isNfeRetornoMode;
+
   const cfopsNfeRemessaByScope = useMemo(() => {
+    const retornoEntradaPrefix = nfeRemessaEscopo === 'interestadual' ? '2' : '1';
     const list = cfopCatalog.filter(
-      (c) => c.codigo.startsWith(cfopUfPrefix) && c.tipo !== 'transporte'
+      (c) =>
+        (c.codigo.startsWith(cfopUfPrefix) ||
+          (isNfeRetornoMode && c.codigo.startsWith(retornoEntradaPrefix))) &&
+        c.tipo !== 'transporte'
     );
-    const priorityOrder: Record<CfopOperacaoTipo, number> = {
-      remessa_retorno: 0,
-      devolucao: 1,
-      outros: 2,
-      venda: 3,
-      transporte: 4,
-    };
+    const isDevolucaoSelected = nfeNaturezaOperacao.toLowerCase().startsWith('devolu');
+    const priorityOrder: Record<CfopOperacaoTipo, number> = isDevolucaoSelected
+      ? {
+          devolucao: 0,
+          remessa_retorno: 1,
+          outros: 2,
+          venda: 3,
+          transporte: 4,
+        }
+      : {
+          remessa_retorno: 0,
+          devolucao: 1,
+          outros: 2,
+          venda: 3,
+          transporte: 4,
+        };
     return [...list].sort(
       (a, b) => priorityOrder[a.tipo] - priorityOrder[b.tipo] || a.codigo.localeCompare(b.codigo)
     );
-  }, [cfopCatalog, cfopUfPrefix]);
+  }, [cfopCatalog, cfopUfPrefix, isNfeRetornoMode, nfeRemessaEscopo, nfeNaturezaOperacao]);
 
   const cfopsNfceByScope = useMemo(() => {
     const list = cfopCatalog.filter(
@@ -2176,10 +2209,38 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   }, [cfopCatalog, cfopUfPrefix]);
 
   const cfopsAllByScope = useMemo(() => {
-    return cfopCatalog.filter((c) => c.codigo.startsWith(cfopUfPrefix));
-  }, [cfopCatalog, cfopUfPrefix]);
+    const retornoEntradaPrefix = nfeRemessaEscopo === 'interestadual' ? '2' : '1';
+    return cfopCatalog.filter(
+      (c) =>
+        c.codigo.startsWith(cfopUfPrefix) ||
+        (isNfeRetornoMode && c.codigo.startsWith(retornoEntradaPrefix))
+    );
+  }, [cfopCatalog, cfopUfPrefix, isNfeRetornoMode, nfeRemessaEscopo]);
 
-  const isRemessaRetornoSelected = saidaTipoDocumento.includes('Remessa');
+  const toCfopOptions = useCallback(
+    (list: CfopCatalogEntry[]): FiscalCodeOption[] =>
+      list.map((c) => ({
+        codigo: c.codigo,
+        descricao: c.descricao,
+        badge: CFOP_TIPO_LABELS[c.tipo] || 'Outros',
+      })),
+    []
+  );
+
+  const cfopVendaOptions = useMemo(() => toCfopOptions(cfopsNfeVendaByScope), [toCfopOptions, cfopsNfeVendaByScope]);
+  const cfopRemessaOptions = useMemo(() => toCfopOptions(cfopsNfeRemessaByScope), [toCfopOptions, cfopsNfeRemessaByScope]);
+  const cfopNfceOptions = useMemo(() => toCfopOptions(cfopsNfceByScope), [toCfopOptions, cfopsNfceByScope]);
+  const cfopCteOptions = useMemo(() => toCfopOptions(cfopsCteByScope), [toCfopOptions, cfopsCteByScope]);
+  const lc116ComboboxOptions = useMemo<FiscalCodeOption[]>(
+    () =>
+      lc116Codes.map((c) => ({
+        codigo: c.codigo,
+        descricao: c.descricao,
+        badge: 'LC 116/03',
+      })),
+    [lc116Codes]
+  );
+
   const hasFleetAssetInSaidaItens = saidaItens.some((it) => Boolean(it.fleetVehicleId));
   const fleetAssetLabelsInSaidaItens = useMemo(
     () =>
@@ -2218,8 +2279,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const handleOpenNotaSaidaModal = () => {
     const today = new Date().toISOString().split('T')[0];
     const freshNotas = getStoredNotasSaida();
+    const resolvedProfile = companyProfile || getStoredCompanyProfile();
     const defaultTipo: TipoDocumentoSaida = 'NFS-e (Prestação de Serviço)';
-    const defaultSerie = '1';
+    const defaultSerie = (resolvedProfile?.seriePadraoNotas || '1').trim() || '1';
     setNotasSaida(freshNotas);
     setLocalClients(getStoredClients());
     if (!suppliers || suppliers.length === 0) {
@@ -2262,6 +2324,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const handleOpenEditNotaSaida = (nota: NotaSaidaRecord) => {
+    if (nota.status === 'AUTORIZADA') {
+      setViewingNotaSaida(nota);
+      return;
+    }
     setLocalClients(getStoredClients());
     if (!suppliers || suppliers.length === 0) {
       setLocalSuppliers(getStoredSuppliers());
@@ -2270,7 +2336,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setLocalEmployees(getStoredEmployees());
     setLocalServices(getStoredServices());
     setEditingNotaSaida(nota);
-    setSaidaTipoDocumento(nota.tipoDocumento || 'NFS-e (Prestação de Serviço)');
+    const rawTipoEdit = nota.tipoDocumento || 'NFS-e (Prestação de Serviço)';
+    const natEditLower = (nota.nfeNaturezaOperacao || '').toLowerCase();
+    const normalizedTipoEdit: TipoDocumentoSaida =
+      rawTipoEdit === 'NF-e (Remessa / Retorno)'
+        ? natEditLower.startsWith('retorno') || natEditLower.startsWith('devolu')
+          ? 'NF-e (Retorno / Devolução)'
+          : 'NF-e (Remessa)'
+        : rawTipoEdit;
+    setSaidaTipoDocumento(normalizedTipoEdit);
     setSaidaNumero(nota.numero || '');
     setSaidaSerie(nota.serie || '1');
     setSaidaDataEmissao(nota.dataEmissao || new Date().toISOString().split('T')[0]);
@@ -2304,9 +2378,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfseObservacoesFiscais(nota.nfseObservacoesFiscais || '');
 
     // NF-e / NFC-e
-    setNfeNaturezaOperacao(nota.nfeNaturezaOperacao || 'Venda de Mercadoria');
+    const rawNaturezaEdit = nota.nfeNaturezaOperacao || 'Venda de Mercadoria';
+    const normalizedNaturezaEdit =
+      rawNaturezaEdit === 'Remessa de Máquina / Ativo Imobilizado para Serviço'
+        ? 'Remessa de Bem do Ativo Imobilizado'
+        : rawNaturezaEdit === 'Retorno de Máquina / Ativo Imobilizado de Serviço'
+          ? 'Retorno de Bem do Ativo Imobilizado'
+          : rawNaturezaEdit;
+    setNfeNaturezaOperacao(normalizedNaturezaEdit);
+    const editCfopRef = nota.cteCfop || nota.nfeCfop || '';
     const inferredEditEscopo: 'estadual' | 'interestadual' =
-      (nota.cteCfop || nota.nfeCfop || '').startsWith('6') ? 'interestadual' : 'estadual';
+      editCfopRef.startsWith('6') || editCfopRef.startsWith('2') ? 'interestadual' : 'estadual';
     setNfeRemessaEscopo(inferredEditEscopo);
     setNfeCfop(nota.nfeCfop || '5102');
     setNfeFinalidade(nota.nfeFinalidade || 'Normal');
@@ -2602,9 +2684,31 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   const resolveRemessaCfop = (natureza: string, escopo: 'estadual' | 'interestadual'): string => {
     const isInter = escopo === 'interestadual';
+    // Remessas
     if (natureza === 'Remessa para Conserto ou Reparo') return isInter ? '6915' : '5915';
-    if (natureza === 'Retorno de Conserto ou Reparo') return isInter ? '6916' : '5916';
+    if (
+      natureza === 'Remessa de Bem do Ativo Imobilizado' ||
+      natureza === 'Remessa de Máquina / Ativo Imobilizado para Serviço'
+    ) {
+      return isInter ? '6554' : '5554';
+    }
     if (natureza === 'Remessa em Comodato / Locação') return isInter ? '6908' : '5908';
+    if (natureza === 'Remessa em Garantia / Troca') return isInter ? '6949' : '5949';
+    if (natureza === 'Remessa para Demonstração') return isInter ? '6912' : '5912';
+    if (natureza === 'Simples Remessa / Outras Saídas') return isInter ? '6949' : '5949';
+    // Retornos / Devoluções
+    if (natureza === 'Retorno de Conserto ou Reparo') return isInter ? '6916' : '5916';
+    if (
+      natureza === 'Retorno de Bem do Ativo Imobilizado' ||
+      natureza === 'Retorno de Máquina / Ativo Imobilizado de Serviço'
+    ) {
+      return isInter ? '2554' : '1554';
+    }
+    if (natureza === 'Retorno de Simples Remessa / Outras Saídas') return isInter ? '6949' : '5949';
+    if (natureza === 'Retorno de Comodato / Locação') return isInter ? '6909' : '5909';
+    if (natureza === 'Retorno de Garantia / Troca') return isInter ? '6949' : '5949';
+    if (natureza === 'Devolução de Compra / Mercadoria') return isInter ? '6202' : '5202';
+    if (natureza === 'Retorno de Demonstração') return isInter ? '6913' : '5913';
     return isInter ? '6949' : '5949';
   };
 
@@ -2676,6 +2780,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfeNaturezaOperacao(natureza);
     setNfeRemessaEscopo(escopo);
     setNfeCfop(cfopAuto);
+    setNfeFinalidade(natureza.toLowerCase().startsWith('devolu') ? 'Devolução' : 'Normal');
     setSaidaItens(prev =>
       prev.length > 0
         ? prev.map(it => ({ ...it, cfop: cfopAuto }))
@@ -2700,13 +2805,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           ? prev.map(it => ({ ...it, fleetVehicleId: '', fleetAssetLabel: '', cfop: cfopAuto }))
           : [createEmptySaidaItem(cfopAuto)]
       );
+    } else if (newTipo.includes('Retorno')) {
+      const defaultNatureza = 'Retorno de Conserto ou Reparo';
+      const cfopAuto = resolveRemessaCfop(defaultNatureza, escopo);
+      setNfeNaturezaOperacao(defaultNatureza);
+      setNfeCfop(cfopAuto);
+      setNfeFinalidade('Normal');
+      setSaidaLancarContasReceber(false); // Notas de retorno/devolução desmarcadas por padrão
+      setAvailableVehicles(loadAvailableVehicles());
+      setSaidaItens(prev =>
+        prev.length > 0
+          ? prev.map(it => ({ ...it, cfop: cfopAuto }))
+          : [createEmptySaidaItem(cfopAuto)]
+      );
     } else if (newTipo.includes('Remessa')) {
       const defaultNatureza = 'Remessa para Conserto ou Reparo';
       const cfopAuto = resolveRemessaCfop(defaultNatureza, escopo);
       setNfeNaturezaOperacao(defaultNatureza);
       setNfeCfop(cfopAuto);
       setNfeFinalidade('Normal');
-      setSaidaLancarContasReceber(false); // Notas de remessa/retorno desmarcadas por padrão
+      setSaidaLancarContasReceber(false); // Notas de remessa desmarcadas por padrão
       setAvailableVehicles(loadAvailableVehicles());
       setSaidaItens(prev =>
         prev.length > 0
@@ -2717,6 +2835,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const cfopAuto = translateCfopByScope('5102', escopo);
       setNfeNaturezaOperacao('Venda de Mercadoria');
       setNfeCfop(cfopAuto);
+      setNfeFinalidade('Normal');
       setSaidaItens(prev =>
         prev.length > 0
           ? prev.map(it => ({ ...it, fleetVehicleId: '', fleetAssetLabel: '', cfop: cfopAuto }))
@@ -2949,7 +3068,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // Se o usuário já editou manualmente as Informações Complementares, garante a inclusão da frase legal do ativo
       if (isInformacoesComplementaresManual || editingNotaSaida) {
-        const legalAssetLine = `Remessa de bem do Ativo Imobilizado: ${details.assetInfoLabel}.`;
+        const prefixAtivo = isNfeRetornoMode ? 'Retorno' : 'Remessa';
+        const legalAssetLine = `${prefixAtivo} de bem do Ativo Imobilizado: ${details.assetInfoLabel}.`;
         setSaidaInformacoesComplementares((prev) => {
           const current = (prev || '').trim();
           if (current.includes(legalAssetLine)) return prev;
@@ -3028,7 +3148,52 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     });
   };
 
-  const persistNotaSaidaRecord = (): NotaSaidaRecord | null => {
+  const clearSefazTimers = useCallback(() => {
+    sefazTimersRef.current.forEach((tid) => window.clearTimeout(tid));
+    sefazTimersRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => clearSefazTimers();
+  }, [clearSefazTimers]);
+
+  const applyStockDeductionForNota = (nota: NotaSaidaRecord): boolean => {
+    const isNfeOrNfce = nota.tipoDocumento.includes('NF-e') || nota.tipoDocumento.includes('NFC-e');
+    const validItens = Array.isArray(nota.itens) ? nota.itens : [];
+    const hasFleetAsset = validItens.some((it) => Boolean(it.fleetVehicleId));
+    const effectiveBaixarEstoque = hasFleetAsset ? false : Boolean(nota.baixarEstoqueAutomatico);
+    let estoqueFoiBaixado = Boolean(nota.estoqueBaixado);
+
+    if (isNfeOrNfce && effectiveBaixarEstoque && validItens.length > 0 && !estoqueFoiBaixado) {
+      const qtyToDeductById = new Map<string, number>();
+      validItens.forEach((it) => {
+        if (it.inventoryItemId && !it.fleetVehicleId && it.quantidade > 0) {
+          qtyToDeductById.set(
+            it.inventoryItemId,
+            (qtyToDeductById.get(it.inventoryItemId) || 0) + Number(it.quantidade)
+          );
+        }
+      });
+      if (qtyToDeductById.size > 0) {
+        const updatedInv = localInventory.map((inv) => {
+          const deduct = qtyToDeductById.get(inv.id);
+          if (!deduct) return inv;
+          const currentQty = Number(inv.quantity ?? inv.quantidade_atual ?? 0);
+          const nextQty = Math.max(0, Number((currentQty - deduct).toFixed(4)));
+          return {
+            ...inv,
+            quantity: nextQty,
+            quantidade_atual: nextQty,
+          };
+        });
+        saveInventory(updatedInv);
+        estoqueFoiBaixado = true;
+      }
+    }
+    return estoqueFoiBaixado;
+  };
+
+  const buildValidatedNotaSaidaRecord = (targetStatus: 'RASCUNHO' | 'AUTORIZADA'): NotaSaidaRecord | null => {
     setSaidaFormError('');
 
     const isNfse = saidaTipoDocumento.includes('NFS-e');
@@ -3090,40 +3255,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const hasFleetAsset = validItens.some(it => Boolean(it.fleetVehicleId));
     const effectiveBaixarEstoque = hasFleetAsset ? false : saidaBaixarEstoque;
 
-    let estoqueFoiBaixado = Boolean(editingNotaSaida?.estoqueBaixado);
-    if (isNfeOrNfce && effectiveBaixarEstoque && validItens.length > 0 && !estoqueFoiBaixado) {
-      const qtyToDeductById = new Map<string, number>();
-      validItens.forEach(it => {
-        if (it.inventoryItemId && !it.fleetVehicleId && it.quantidade > 0) {
-          qtyToDeductById.set(
-            it.inventoryItemId,
-            (qtyToDeductById.get(it.inventoryItemId) || 0) + Number(it.quantidade)
-          );
-        }
-      });
-      if (qtyToDeductById.size > 0) {
-        const updatedInv = localInventory.map(inv => {
-          const deduct = qtyToDeductById.get(inv.id);
-          if (!deduct) return inv;
-          const currentQty = Number(inv.quantity ?? inv.quantidade_atual ?? 0);
-          const nextQty = Math.max(0, Number((currentQty - deduct).toFixed(4)));
-          return {
-            ...inv,
-            quantity: nextQty,
-            quantidade_atual: nextQty,
-          };
-        });
-        saveInventory(updatedInv);
-        estoqueFoiBaixado = true;
-      }
-    }
-
     const linkedOs = isNfse && nfsePedidoServicoId
       ? localServices.find(s => s.id === nfsePedidoServicoId)
       : undefined;
 
     const nowIso = new Date().toISOString();
-    const newRecord: NotaSaidaRecord = {
+    const record: NotaSaidaRecord = {
       id: editingNotaSaida?.id || `ns_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       companyId: companyProfile?.id || getActiveCompanyId(),
       tipoDocumento: saidaTipoDocumento,
@@ -3153,7 +3290,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       receberStatus: editingNotaSaida?.receberStatus || 'pendente',
       receberPaymentDate: editingNotaSaida?.receberPaymentDate,
       receberPaymentMethod: editingNotaSaida?.receberPaymentMethod,
-      status: editingNotaSaida?.status || 'EMITIDA',
+      status: targetStatus,
+      protocoloAutorizacao: targetStatus === 'RASCUNHO' ? undefined : editingNotaSaida?.protocoloAutorizacao,
+      dataAutorizacao: targetStatus === 'RASCUNHO' ? undefined : editingNotaSaida?.dataAutorizacao,
 
       // NFS-e
       nfseCodigoServico: isNfse ? nfseCodigoServico.trim() : undefined,
@@ -3181,7 +3320,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       nfeReferenciada: isNfeOrNfce ? nfeReferenciada.trim() || undefined : undefined,
       itens: isNfeOrNfce && validItens.length > 0 ? validItens : undefined,
       baixarEstoqueAutomatico: isNfeOrNfce ? effectiveBaixarEstoque : undefined,
-      estoqueBaixado: isNfeOrNfce ? estoqueFoiBaixado : undefined,
+      estoqueBaixado: Boolean(editingNotaSaida?.estoqueBaixado),
 
       // CT-e
       cteCfop: isCte ? cteCfop.trim() : undefined,
@@ -3261,36 +3400,111 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       updatedAt: nowIso,
     };
 
-    saveLocalNotaSaida(newRecord);
-    updateNotaSaidaSequenceCounter(newRecord.tipoDocumento, newRecord.serie, newRecord.numero);
+    return record;
+  };
+
+  const handleSaveNotaSaidaAsDraft = () => {
+    const draft = buildValidatedNotaSaidaRecord('RASCUNHO');
+    if (!draft) return;
+
+    saveLocalNotaSaida(draft);
+    updateNotaSaidaSequenceCounter(draft.tipoDocumento, draft.serie, draft.numero);
     setNotasSaida(getStoredNotasSaida());
     setIsNotaSaidaModalOpen(false);
     setActiveMainFiscalTab('notas');
     setActiveDocDirection('saida');
     setSuccessMessage(
-      `${editingNotaSaida ? 'Nota de saída atualizada' : 'Nota de saída registrada'} com sucesso (${newRecord.tipoDocumento.split(' ')[0]} Nº ${newRecord.numero})${newRecord.lancarContasReceber ? ' e integrada ao Contas a Receber' : ''}${estoqueFoiBaixado && saidaBaixarEstoque && !editingNotaSaida?.estoqueBaixado ? ' com baixa no Estoque' : ''}!`
+      `Rascunho salvo com sucesso (${draft.tipoDocumento.split(' ')[0]} Nº ${draft.numero}) — Pendente de envio à SEFAZ.`
     );
     setTimeout(() => setSuccessMessage(''), 5000);
-    return newRecord;
+  };
+
+  const runSefazTransmissionPipeline = (notaBase: NotaSaidaRecord, isSimulation: boolean) => {
+    clearSefazTimers();
+    const resolvedProfile = companyProfile || getStoredCompanyProfile();
+    const ambiente: 'homologacao' | 'producao' = isSimulation
+      ? 'homologacao'
+      : resolvedProfile?.ambienteSefaz === 'producao'
+        ? 'producao'
+        : 'homologacao';
+
+    setSefazSimulationMode(isSimulation);
+    setSefazTargetNota(notaBase);
+    setSefazStep(1);
+    setSefazModalStage('transmitting');
+
+    const t1 = window.setTimeout(() => setSefazStep(2), 450);
+    const t2 = window.setTimeout(() => setSefazStep(3), 950);
+    const t3 = window.setTimeout(() => setSefazStep(4), 1450);
+    const t4 = window.setTimeout(() => {
+      const chave44 = generateSefazChaveAcesso44(notaBase, resolvedProfile);
+      const { protocoloCompleto } = generateSefazProtocoloAutorizacao(resolvedProfile);
+      const estoqueBaixadoAgora = applyStockDeductionForNota(notaBase);
+
+      const authorizedNota: NotaSaidaRecord = {
+        ...notaBase,
+        status: 'AUTORIZADA',
+        chaveAcesso: chave44,
+        protocoloAutorizacao: protocoloCompleto,
+        dataAutorizacao: new Date().toISOString(),
+        ambienteSefaz: ambiente,
+        transmitidaEmModoSimulacao: isSimulation,
+        estoqueBaixado: estoqueBaixadoAgora,
+        updatedAt: new Date().toISOString(),
+      };
+
+      saveLocalNotaSaida(authorizedNota);
+      updateNotaSaidaSequenceCounter(authorizedNota.tipoDocumento, authorizedNota.serie, authorizedNota.numero);
+      setNotasSaida(getStoredNotasSaida());
+      setIsNotaSaidaModalOpen(false);
+      setActiveMainFiscalTab('notas');
+      setActiveDocDirection('saida');
+      setSefazTargetNota(authorizedNota);
+      setSefazModalStage('authorized');
+
+      setSuccessMessage(
+        `✅ ${authorizedNota.tipoDocumento.split(' ')[0]} Nº ${authorizedNota.numero} AUTORIZADA pela SEFAZ${authorizedNota.lancarContasReceber ? ' e integrada ao Contas a Receber' : ''}${estoqueBaixadoAgora && !notaBase.estoqueBaixado ? ' com baixa no Estoque' : ''}!`
+      );
+      setTimeout(() => setSuccessMessage(''), 6000);
+    }, 1850);
+
+    sefazTimersRef.current = [t1, t2, t3, t4];
+  };
+
+  const initiateSefazTransmission = (notaBase: NotaSaidaRecord) => {
+    const resolvedProfile = companyProfile || getStoredCompanyProfile();
+    const certInfo = getCertificateStatusInfo(resolvedProfile);
+    if (!certInfo.isActive) {
+      setSefazTargetNota(notaBase);
+      setSefazSimulationMode(true);
+      setSefazModalStage('cert_warning');
+      return;
+    }
+    runSefazTransmissionPipeline(notaBase, Boolean(certInfo.simulado));
+  };
+
+  const handleTransmitNotaSaidaFromModal = () => {
+    const record = buildValidatedNotaSaidaRecord('RASCUNHO');
+    if (!record) return;
+    initiateSefazTransmission(record);
   };
 
   const handleSaveNotaSaida = (e: React.FormEvent) => {
     e.preventDefault();
-    persistNotaSaidaRecord();
+    handleTransmitNotaSaidaFromModal();
   };
 
   const handlePrintNotaSaida = (nota: NotaSaidaRecord) => {
-    const profile = companyProfile || getStoredCompanyProfile();
+    const storedProfile = getStoredCompanyProfile();
+    const profile = companyProfile
+      ? {
+          ...companyProfile,
+          ambienteSefaz: storedProfile?.ambienteSefaz ?? companyProfile.ambienteSefaz,
+        }
+      : storedProfile;
     openNotaSaidaPrintWindow(nota, profile, () => {
       setViewingNotaSaida(nota);
     });
-  };
-
-  const handleSaveAndPrintNotaSaida = () => {
-    const saved = persistNotaSaidaRecord();
-    if (saved) {
-      handlePrintNotaSaida(saved);
-    }
   };
 
   const handleDeleteNotaSaida = (nota: NotaSaidaRecord) => {
@@ -5420,10 +5634,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (seenKeys.has(sig)) return;
       seenKeys.add(sig);
       const natLower = (n.nfeNaturezaOperacao || '').toLowerCase();
-      const isRemessa = tipo.includes('remessa') || tipo.includes('retorno') || natLower.includes('remessa') || natLower.includes('retorno');
-      const naturezaBadge = isRemessa
-        ? `Remessa: ${n.nfeNaturezaOperacao || 'Remessa / Retorno'}`
-        : `Venda: ${n.nfeNaturezaOperacao || 'Venda de Mercadoria'}`;
+      const isRetorno = tipo.includes('retorno') || natLower.startsWith('retorno') || natLower.startsWith('devolu');
+      const isRemessa = !isRetorno && (tipo.includes('remessa') || natLower.includes('remessa'));
+      const naturezaBadge = isRetorno
+        ? `Retorno: ${n.nfeNaturezaOperacao || 'Retorno / Devolução'}`
+        : isRemessa
+          ? `Remessa: ${n.nfeNaturezaOperacao || 'Remessa'}`
+          : `Venda: ${n.nfeNaturezaOperacao || 'Venda de Mercadoria'}`;
       options.push({
         id: `saida:${n.id}`,
         label: `NF-e ${num}${serie ? `/${serie}` : ''} (${naturezaBadge}) - ${n.destinatarioNome} - ${formatCurrencyBRL(val)}`,
@@ -10266,6 +10483,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   </th>
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
+                  {activeDocDirection === 'saida' && (
+                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[135px] text-center shrink-0 whitespace-nowrap">STATUS SEFAZ</th>
+                  )}
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
                   <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
                 </tr>
@@ -10273,7 +10493,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={6} className="py-6 text-center text-stone-500 font-semibold uppercase text-xs">
+                    <td colSpan={activeDocDirection === 'saida' ? 7 : 6} className="py-6 text-center text-stone-500 font-semibold uppercase text-xs">
                       {activeDocDirection === 'saida'
                         ? 'NENHUMA NOTA DE SAÍDA REGISTRADA NESTA COMPETÊNCIA. CLIQUE EM "+ LANÇAR NOTA DE SAÍDA" PARA EMITIR/REGISTRAR.'
                         : 'NENHUM REGISTRO ENCONTRADO'}
@@ -10351,6 +10571,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       <td className="py-1 px-2 text-stone-500 text-center whitespace-nowrap text-xs font-mono">
                         {formatDateBR(entry.date)}
                       </td>
+                      {activeDocDirection === 'saida' && (
+                        <td className="py-1 px-2.5 text-center whitespace-nowrap">
+                          {rawNotaSaida?.status === 'AUTORIZADA' ? (
+                            <span
+                              className="h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400 dark:border-emerald-700 uppercase tracking-wider whitespace-nowrap"
+                              title={rawNotaSaida.protocoloAutorizacao ? `Protocolo: ${rawNotaSaida.protocoloAutorizacao}` : 'Autorizada pela SEFAZ'}
+                            >
+                              <span>✅ AUTORIZADA</span>
+                            </span>
+                          ) : rawNotaSaida?.status === 'RASCUNHO' ? (
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 dark:border-amber-700 uppercase tracking-wider whitespace-nowrap">
+                              RASCUNHO
+                            </span>
+                          ) : rawNotaSaida?.status === 'CANCELADA' ? (
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-400 uppercase tracking-wider whitespace-nowrap">
+                              CANCELADA
+                            </span>
+                          ) : (
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 uppercase tracking-wider whitespace-nowrap">
+                              {entry.status || 'EMITIDA'}
+                            </span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-1 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
                         {formatCurrencyBRL(entry.amount)}
                       </td>
@@ -10382,7 +10626,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 </span>
                               )}
                               <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
-                                {(entry.documentType || 'SAÍDA').toUpperCase()} / {entry.status}
+                                {(entry.documentType || 'SAÍDA').toUpperCase()}
                               </span>
                             </>
                           ) : isXml && entry.rawExpense ? (
@@ -10407,21 +10651,40 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             </span>
                           )}
 
-                          {/* 2. Botão Editar (Lápis) */}
+                          {/* 2. Ações de Transmissão / Edição conforme Status SEFAZ */}
                           {rawNotaSaida ? (
-                            <button
-                              type="button"
-                              id={`btn-edit-nota-saida-${entry.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditNotaSaida(rawNotaSaida);
-                              }}
-                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                              title={`Editar nota de saída ${entry.documentNumber}`}
-                            >
-                              <Pencil className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" />
-                              <span>EDITAR</span>
-                            </button>
+                            <>
+                              {rawNotaSaida.status !== 'AUTORIZADA' && rawNotaSaida.status !== 'CANCELADA' && (
+                                <button
+                                  type="button"
+                                  id={`btn-enviar-sefaz-${entry.id}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    initiateSefazTransmission(rawNotaSaida);
+                                  }}
+                                  className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap"
+                                  title={`Transmitir ${entry.documentNumber} para SEFAZ`}
+                                >
+                                  <Send className="w-3 h-3 shrink-0" />
+                                  <span>📤 Enviar SEFAZ</span>
+                                </button>
+                              )}
+                              {rawNotaSaida.status !== 'AUTORIZADA' && (
+                                <button
+                                  type="button"
+                                  id={`btn-edit-nota-saida-${entry.id}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditNotaSaida(rawNotaSaida);
+                                  }}
+                                  className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                  title={`Editar nota de saída ${entry.documentNumber}`}
+                                >
+                                  <Pencil className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" />
+                                  <span>EDITAR</span>
+                                </button>
+                              )}
+                            </>
                           ) : entry.rawExpense ? (
                             <button
                               type="button"
@@ -10468,19 +10731,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span>VER</span>
                               </button>
-                              <button
-                                type="button"
-                                id={`btn-print-nota-saida-${entry.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePrintNotaSaida(rawNotaSaida);
-                                }}
-                                className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-900 text-white border border-slate-900 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                                title={`Imprimir DANFE / Documento auxiliar ${entry.documentNumber}`}
-                              >
-                                <Printer className="w-3 h-3 shrink-0" />
-                                <span>IMPRIMIR</span>
-                              </button>
+                              {rawNotaSaida.status !== 'RASCUNHO' && (
+                                <button
+                                  type="button"
+                                  id={`btn-print-nota-saida-${entry.id}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePrintNotaSaida(rawNotaSaida);
+                                  }}
+                                  className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-900 text-white border border-slate-900 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                  title={`Imprimir DANFE / Documento auxiliar ${entry.documentNumber}`}
+                                >
+                                  <Printer className="w-3 h-3 shrink-0" />
+                                  <span>IMPRIMIR</span>
+                                </button>
+                              )}
                             </>
                           ) : entry.rawExpense ? (
                             <button
@@ -12760,7 +13025,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       >
                         <option value="NFS-e (Prestação de Serviço)">NFS-e (PRESTAÇÃO DE SERVIÇO)</option>
                         <option value="NF-e (Venda de Mercadoria)">NF-e (VENDA DE MERCADORIA / PRODUTO)</option>
-                        <option value="NF-e (Remessa / Retorno)">NF-e (REMESSA / RETORNO)</option>
+                        <option value="NF-e (Remessa)">NF-e (REMESSA)</option>
+                        <option value="NF-e (Retorno / Devolução)">NF-e (RETORNO / DEVOLUÇÃO)</option>
                         <option value="CT-e (Conhecimento de Transporte / Frete)">CT-e (CONHECIMENTO DE TRANSPORTE / FRETE)</option>
                         <option value="NFC-e (Consumidor)">NFC-e (CONSUMIDOR FINAL)</option>
                         <option value="MDF-e (Manifesto)">MDF-e (MANIFESTO ELETRÔNICO DE DOCUMENTOS)</option>
@@ -13327,29 +13593,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           CÓD. SERVIÇO (LC 116/03)
                         </label>
                         <div className="flex items-center gap-1">
-                          <select
+                          <FiscalCodeSearchCombobox
                             id="nfse-codigo-servico-select"
                             value={nfseCodigoServico}
-                            onChange={(e) => {
-                              if (e.target.value === '__manage__') {
-                                setIsLc116ManagerOpen(true);
-                              } else {
-                                setNfseCodigoServico(e.target.value);
-                              }
-                            }}
-                            className="flex-1 min-w-0 h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 cursor-pointer"
-                          >
-                            {nfseCodigoServico && !lc116Codes.some((c) => c.codigo === nfseCodigoServico) && (
-                              <option value={nfseCodigoServico}>{nfseCodigoServico}</option>
-                            )}
-                            {lc116Codes.map((c) => (
-                              <option key={c.codigo} value={c.codigo}>
-                                {c.codigo} — {c.descricao}
-                              </option>
-                            ))}
-                            <option disabled value="">──────────</option>
-                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar códigos LC 116/03...</option>
-                          </select>
+                            options={lc116ComboboxOptions}
+                            onSelect={(codigo) => setNfseCodigoServico(codigo)}
+                            onManageClick={() => setIsLc116ManagerOpen(true)}
+                            manageLabel="Gerenciar códigos LC 116/03..."
+                            placeholder="DIGITE CÓDIGO OU SERVIÇO (EX: 17.05, SILAGEM)..."
+                            borderColorClass="border-black/40 dark:border-stone-600"
+                            dropdownMinWidth={460}
+                          />
                           <button
                             type="button"
                             id="btn-gerenciar-lc116"
@@ -13526,14 +13780,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 {(saidaTipoDocumento.includes('NF-e') || saidaTipoDocumento.includes('NFC-e')) && (
                   <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-2.5 space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-black/20 dark:border-stone-700">
-                      <span className={`text-[11px] font-black uppercase tracking-wide flex items-center gap-1.5 ${saidaTipoDocumento.includes('Remessa') ? 'text-amber-700 dark:text-amber-300' : 'text-[#1e40af] dark:text-blue-300'}`}>
+                      <span className={`text-[11px] font-black uppercase tracking-wide flex items-center gap-1.5 ${isRemessaRetornoSelected ? 'text-amber-800 dark:text-amber-300' : 'text-[#1e40af] dark:text-blue-300'}`}>
                         <Package className="w-3.5 h-3.5" />
                         <span>
                           {saidaTipoDocumento.includes('NFC-e')
                             ? 'DADOS RÁPIDOS DE CUPOM FISCAL (NFC-E) E PRODUTOS'
-                            : saidaTipoDocumento.includes('Remessa')
-                              ? 'DADOS FISCAIS DE REMESSA / RETORNO (NF-E) E GRADE DE ITENS / EQUIPAMENTOS'
-                              : 'DADOS FISCAIS DA NF-E E GRADE DE PRODUTOS (CONECTADA AO ESTOQUE)'}
+                            : isNfeRetornoMode
+                              ? 'DADOS FISCAIS DE RETORNO / DEVOLUÇÃO (NF-E) E GRADE DE ITENS'
+                              : isRemessaRetornoSelected
+                                ? 'DADOS FISCAIS DE REMESSA (NF-E) E GRADE DE ITENS / EQUIPAMENTOS'
+                                : 'DADOS FISCAIS DA NF-E E GRADE DE PRODUTOS (CONECTADA AO ESTOQUE)'}
                         </span>
                       </span>
                       <button
@@ -13546,12 +13802,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </button>
                     </div>
 
-                    {saidaTipoDocumento.includes('Remessa') ? (
+                    {isRemessaRetornoSelected ? (
                       <div className="space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2">
                           <div className="lg:col-span-3">
                             <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                              NATUREZA DA REMESSA / RETORNO <span className="text-rose-600">*</span>
+                              {isNfeRetornoMode ? 'NATUREZA DO RETORNO / DEVOLUÇÃO' : 'NATUREZA DA REMESSA'} <span className="text-rose-600">*</span>
                             </label>
                             <select
                               id="saida-remessa-natureza-select"
@@ -13559,11 +13815,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               onChange={(e) => handleRemessaNaturezaChange(e.target.value)}
                               className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase cursor-pointer"
                             >
-                              <option value="Remessa para Conserto ou Reparo">REMESSA PARA CONSERTO OU REPARO</option>
-                              <option value="Retorno de Conserto ou Reparo">RETORNO DE CONSERTO OU REPARO</option>
-                              <option value="Remessa em Garantia / Troca">REMESSA EM GARANTIA / TROCA</option>
-                              <option value="Remessa em Comodato / Locação">REMESSA EM COMODATO / LOCAÇÃO</option>
-                              <option value="Simples Remessa / Outras Saídas">SIMPLES REMESSA / OUTRAS SAÍDAS</option>
+                              {isNfeRetornoMode ? (
+                                <>
+                                  <option value="Retorno de Conserto ou Reparo">RETORNO DE CONSERTO OU REPARO</option>
+                                  <option value="Retorno de Bem do Ativo Imobilizado">RETORNO DE BEM DO ATIVO IMOBILIZADO</option>
+                                  <option value="Retorno de Comodato / Locação">RETORNO DE COMODATO / LOCAÇÃO</option>
+                                  <option value="Retorno de Garantia / Troca">RETORNO DE GARANTIA / TROCA</option>
+                                  <option value="Devolução de Compra / Mercadoria">DEVOLUÇÃO DE COMPRA / MERCADORIA</option>
+                                  <option value="Retorno de Simples Remessa / Outras Saídas">RETORNO DE SIMPLES REMESSA / OUTRAS SAÍDAS</option>
+                                  <option value="Retorno de Demonstração">RETORNO DE DEMONSTRAÇÃO</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value="Remessa para Conserto ou Reparo">REMESSA PARA CONSERTO OU REPARO</option>
+                                  <option value="Remessa de Bem do Ativo Imobilizado">REMESSA DE BEM DO ATIVO IMOBILIZADO</option>
+                                  <option value="Remessa em Comodato / Locação">REMESSA EM COMODATO / LOCAÇÃO</option>
+                                  <option value="Remessa em Garantia / Troca">REMESSA EM GARANTIA / TROCA</option>
+                                  <option value="Remessa para Demonstração">REMESSA PARA DEMONSTRAÇÃO</option>
+                                  <option value="Simples Remessa / Outras Saídas">SIMPLES REMESSA / OUTRAS SAÍDAS</option>
+                                </>
+                              )}
                             </select>
                           </div>
                           <div className="lg:col-span-2">
@@ -13575,8 +13846,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               onChange={(e) => handleRemessaNaturezaChange(nfeNaturezaOperacao, e.target.value as 'estadual' | 'interestadual')}
                               className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 uppercase cursor-pointer"
                             >
-                              <option value="estadual">ESTADUAL (5XXX)</option>
-                              <option value="interestadual">INTERESTADUAL (6XXX)</option>
+                              <option value="estadual">{isNfeRetornoMode ? 'ESTADUAL (1XXX / 5XXX)' : 'ESTADUAL (5XXX)'}</option>
+                              <option value="interestadual">{isNfeRetornoMode ? 'INTERESTADUAL (2XXX / 6XXX)' : 'INTERESTADUAL (6XXX)'}</option>
                             </select>
                           </div>
                           <div className="lg:col-span-2">
@@ -13584,23 +13855,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               CFOP
                             </label>
                             <div className="flex items-center gap-1">
-                              <select
+                              <FiscalCodeSearchCombobox
                                 id="saida-remessa-cfop-select"
                                 value={nfeCfop}
-                                onChange={(e) => handleHeaderNfeCfopChange(e.target.value)}
-                                className="flex-1 min-w-0 h-8 px-1.5 py-1 bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-600 rounded-lg text-xs font-mono font-black text-[#b45309] dark:text-amber-300 cursor-pointer"
-                              >
-                                {nfeCfop && !cfopsNfeRemessaByScope.some((c) => c.codigo === nfeCfop) && (
-                                  <option value={nfeCfop}>{nfeCfop}</option>
-                                )}
-                                {cfopsNfeRemessaByScope.map((c) => (
-                                  <option key={c.codigo} value={c.codigo}>
-                                    {c.codigo} — {c.descricao}
-                                  </option>
-                                ))}
-                                <option disabled value="">──────────</option>
-                                <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar catálogo CFOP...</option>
-                              </select>
+                                options={cfopRemessaOptions}
+                                onSelect={(codigo) => handleHeaderNfeCfopChange(codigo)}
+                                onManageClick={() => {
+                                  setCfopManagerTarget('nfe');
+                                  setIsCfopManagerOpen(true);
+                                }}
+                                manageLabel="Gerenciar catálogo CFOP..."
+                                placeholder={
+                                  isNfeRetornoMode
+                                    ? 'DIGITE CFOP OU DESCRIÇÃO (EX: 1554, 5916, ATIVO)...'
+                                    : 'DIGITE CFOP OU DESCRIÇÃO (EX: 5554, CONSERTO)...'
+                                }
+                                codeColorClass="font-black text-[#b45309] dark:text-amber-300"
+                                borderColorClass="border-black/50 dark:border-stone-600"
+                                dropdownMinWidth={480}
+                              />
                               <button
                                 type="button"
                                 onClick={() => {
@@ -13615,16 +13888,33 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             </div>
                           </div>
                           <div className="lg:col-span-3">
-                            <label className="block text-[10px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
-                              CHAVE / Nº DA NF-E REFERENCIADA (OPCIONAL)
+                            <label
+                              htmlFor="saida-nfe-referenciada-input"
+                              className={`block text-[10px] font-black uppercase mb-0.5 ${
+                                isNfeRetornoMode
+                                  ? 'text-amber-900 dark:text-amber-300'
+                                  : 'text-black/80 dark:text-stone-300'
+                              }`}
+                            >
+                              {isNfeRetornoMode
+                                ? 'NF-E DE REMESSA ORIGINAL REFERENCIADA *'
+                                : 'CHAVE / Nº DA NF-E REFERENCIADA (OPCIONAL)'}
                             </label>
                             <input
                               id="saida-nfe-referenciada-input"
                               type="text"
                               value={nfeReferenciada}
                               onChange={(e) => setNfeReferenciada(e.target.value)}
-                              placeholder="Nº OU CHAVE DA REMESSA ORIGINAL (PARA RETORNO)..."
-                              className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100"
+                              placeholder={
+                                isNfeRetornoMode
+                                  ? 'INFORME O Nº OU CHAVE DA NF-E DE REMESSA ORIGINAL...'
+                                  : 'Nº OU CHAVE DE NF-E REFERENCIADA (SE HOUVER)...'
+                              }
+                              className={`w-full h-8 px-2 py-1 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 ${
+                                isNfeRetornoMode
+                                  ? 'bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-600 dark:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500'
+                                  : 'bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600'
+                              }`}
                             />
                           </div>
                           <div className="lg:col-span-2">
@@ -13706,23 +13996,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             CFOP
                           </label>
                           <div className="flex items-center gap-1">
-                            <select
+                            <FiscalCodeSearchCombobox
                               id="saida-nfe-cfop-select"
                               value={nfeCfop}
-                              onChange={(e) => handleHeaderNfeCfopChange(e.target.value)}
-                              className="flex-1 min-w-0 h-8 px-1.5 py-1 bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 cursor-pointer"
-                            >
-                              {nfeCfop && !cfopsNfeVendaByScope.some((c) => c.codigo === nfeCfop) && (
-                                <option value={nfeCfop}>{nfeCfop}</option>
-                              )}
-                              {cfopsNfeVendaByScope.map((c) => (
-                                <option key={c.codigo} value={c.codigo}>
-                                  {c.codigo} — {c.descricao}
-                                </option>
-                              ))}
-                              <option disabled value="">──────────</option>
-                              <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar catálogo CFOP...</option>
-                            </select>
+                              options={cfopVendaOptions}
+                              onSelect={(codigo) => handleHeaderNfeCfopChange(codigo)}
+                              onManageClick={() => {
+                                setCfopManagerTarget('nfe');
+                                setIsCfopManagerOpen(true);
+                              }}
+                              manageLabel="Gerenciar catálogo CFOP..."
+                              placeholder="DIGITE CFOP OU DESCRIÇÃO..."
+                              borderColorClass="border-black/50 dark:border-stone-600"
+                              dropdownMinWidth={480}
+                            />
                             <button
                               type="button"
                               onClick={() => {
@@ -13819,23 +14106,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             CFOP CUPOM
                           </label>
                           <div className="flex items-center gap-1">
-                            <select
+                            <FiscalCodeSearchCombobox
                               id="saida-nfce-cfop-select"
                               value={nfeCfop}
-                              onChange={(e) => handleHeaderNfeCfopChange(e.target.value)}
-                              className="flex-1 min-w-0 h-8 px-1.5 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 cursor-pointer"
-                            >
-                              {nfeCfop && !cfopsNfceByScope.some((c) => c.codigo === nfeCfop) && (
-                                <option value={nfeCfop}>{nfeCfop}</option>
-                              )}
-                              {cfopsNfceByScope.map((c) => (
-                                <option key={c.codigo} value={c.codigo}>
-                                  {c.codigo} — {c.descricao}
-                                </option>
-                              ))}
-                              <option disabled value="">──────────</option>
-                              <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar catálogo CFOP...</option>
-                            </select>
+                              options={cfopNfceOptions}
+                              onSelect={(codigo) => handleHeaderNfeCfopChange(codigo)}
+                              onManageClick={() => {
+                                setCfopManagerTarget('nfe');
+                                setIsCfopManagerOpen(true);
+                              }}
+                              manageLabel="Gerenciar catálogo CFOP..."
+                              placeholder="DIGITE CFOP OU DESCRIÇÃO..."
+                              borderColorClass="border-black/40 dark:border-stone-600"
+                              dropdownMinWidth={460}
+                            />
                             <button
                               type="button"
                               onClick={() => {
@@ -13881,7 +14165,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <thead>
                           <tr className="bg-slate-100 dark:bg-stone-800 border-b border-black/30 text-[10px] font-black uppercase">
                             <th className="p-1.5 text-left min-w-[200px]">
-                              {saidaTipoDocumento.includes('Remessa')
+                              {isRemessaRetornoSelected
                                 ? 'ESTOQUE OU FROTA / DESCRIÇÃO DO ITEM'
                                 : 'PRODUTO DO ESTOQUE / DESCRIÇÃO'}
                             </th>
@@ -13918,8 +14202,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             <tr key={item.id}>
                               <td className="p-1">
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-1">
-                                  {saidaTipoDocumento.includes('Remessa') ? (
-                                    <select
+                                  {isRemessaRetornoSelected ? (
+                                    <SaidaItemSearchCombobox
+                                      includeFleet={true}
                                       value={
                                         item.fleetVehicleId
                                           ? `fleet:${item.fleetVehicleId}`
@@ -13927,38 +14212,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                             ? `inv:${item.inventoryItemId}`
                                             : ''
                                       }
-                                      onChange={(e) => handleSelectSaidaUnifiedRemessaItem(idx, e.target.value)}
-                                      className="w-full px-1.5 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold uppercase"
-                                    >
-                                      <option value="">Selecionar do Estoque ou Frota (Opcional)...</option>
-                                      <optgroup label="🚜 VEÍCULOS &amp; MÁQUINAS (GESTÃO DE FROTAS)">
-                                        {availableVehicles.map((veh) => (
-                                          <option key={`fleet_${veh.id}`} value={`fleet:${veh.id}`}>
-                                            {formatFleetOptionLabel(veh)}
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                      <optgroup label="📦 PRODUTOS &amp; PEÇAS (ESTOQUE)">
-                                        {localInventory.map(inv => (
-                                          <option key={`inv_${inv.id}`} value={`inv:${inv.id}`}>
-                                            {`${inv.name || inv.nome_comercial || inv.nome} (EST: ${inv.quantity ?? inv.quantidade_atual ?? 0} ${inv.unit || inv.unidade_medida || 'UN'})`.toUpperCase()}
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    </select>
+                                      vehicles={availableVehicles}
+                                      inventory={localInventory}
+                                      formatFleetOptionLabel={formatFleetOptionLabel}
+                                      onSelect={(val) => handleSelectSaidaUnifiedRemessaItem(idx, val)}
+                                      placeholder="BUSCAR ESTOQUE OU FROTA..."
+                                    />
                                   ) : (
-                                    <select
+                                    <SaidaItemSearchCombobox
+                                      includeFleet={false}
                                       value={item.inventoryItemId || ''}
-                                      onChange={(e) => handleSelectSaidaInventoryProduct(idx, e.target.value)}
-                                      className="w-full px-1.5 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-600 rounded text-[11px] font-bold uppercase"
-                                    >
-                                      <option value="">SELECIONAR DO ESTOQUE (OPCIONAL)...</option>
-                                      {localInventory.map(inv => (
-                                        <option key={inv.id} value={inv.id}>
-                                          {`${inv.name || inv.nome_comercial || inv.nome} (EST: ${inv.quantity ?? inv.quantidade_atual ?? 0} ${inv.unit || inv.unidade_medida || 'UN'})`.toUpperCase()}
-                                        </option>
-                                      ))}
-                                    </select>
+                                      vehicles={availableVehicles}
+                                      inventory={localInventory}
+                                      formatFleetOptionLabel={formatFleetOptionLabel}
+                                      onSelect={(val) => handleSelectSaidaInventoryProduct(idx, val)}
+                                      placeholder="BUSCAR PRODUTO DO ESTOQUE..."
+                                    />
                                   )}
                                   <input
                                     type="text"
@@ -14144,23 +14413,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           CFOP TRANSPORTE
                         </label>
                         <div className="flex items-center gap-1">
-                          <select
+                          <FiscalCodeSearchCombobox
                             id="saida-cte-cfop-select"
                             value={cteCfop}
-                            onChange={(e) => handleHeaderCteCfopChange(e.target.value)}
-                            className="flex-1 min-w-0 h-8 px-1.5 py-1 bg-white dark:bg-stone-900 border border-black/40 rounded-lg text-xs font-mono font-bold cursor-pointer"
-                          >
-                            {cteCfop && !cfopsCteByScope.some((c) => c.codigo === cteCfop) && (
-                              <option value={cteCfop}>{cteCfop}</option>
-                            )}
-                            {cfopsCteByScope.map((c) => (
-                              <option key={c.codigo} value={c.codigo}>
-                                {c.codigo} — {c.descricao}
-                              </option>
-                            ))}
-                            <option disabled value="">──────────</option>
-                            <option value="__manage__" className="text-sky-700 font-bold">⚙️ Gerenciar catálogo CFOP...</option>
-                          </select>
+                            options={cfopCteOptions}
+                            onSelect={(codigo) => handleHeaderCteCfopChange(codigo)}
+                            onManageClick={() => {
+                              setCfopManagerTarget('cte');
+                              setIsCfopManagerOpen(true);
+                            }}
+                            manageLabel="Gerenciar catálogo CFOP..."
+                            placeholder="DIGITE CFOP TRANSPORTE..."
+                            borderColorClass="border-black/40 dark:border-stone-600"
+                            dropdownMinWidth={460}
+                          />
                           <button
                             type="button"
                             onClick={() => {
@@ -14877,20 +15143,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    id="btn-salvar-e-imprimir-nota-saida"
-                    onClick={handleSaveAndPrintNotaSaida}
-                    className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white border border-black rounded-lg text-xs font-black uppercase tracking-wide shadow-sm transition cursor-pointer"
+                    id="btn-salvar-rascunho-nota-saida"
+                    onClick={handleSaveNotaSaidaAsDraft}
+                    className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-600 rounded-lg text-xs font-bold uppercase tracking-wide shadow-sm transition cursor-pointer"
                   >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>🖨️ Salvar e Imprimir Espelho/Documento</span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>💾 Salvar Rascunho</span>
                   </button>
                   <button
                     type="submit"
-                    id="btn-salvar-nota-saida"
+                    id="btn-transmitir-sefaz-nota-saida"
                     className="inline-flex items-center space-x-1.5 px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-emerald-800 rounded-lg text-xs uppercase tracking-wide shadow-sm transition cursor-pointer"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{editingNotaSaida ? 'Salvar Alterações' : 'REGISTRAR NOTA DE SAÍDA'}</span>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>📤 ENVIAR / TRANSMITIR NOTA (SEFAZ)</span>
                   </button>
                 </div>
               </div>
@@ -14916,9 +15182,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             {/* Cabeçalho do Espelho */}
             <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between shrink-0">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white border border-black/40 text-black">
-                  ESPELHO DE DOCUMENTO FISCAL DE SAÍDA
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white border border-black/40 text-black">
+                    ESPELHO DE DOCUMENTO FISCAL DE SAÍDA
+                  </span>
+                  {viewingNotaSaida.status === 'AUTORIZADA' ? (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 border border-emerald-600 text-emerald-900">
+                      ✅ AUTORIZADA SEFAZ ({viewingNotaSaida.ambienteSefaz === 'producao' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'})
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 border border-amber-500 text-amber-900">
+                      RASCUNHO (NÃO TRANSMITIDA)
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-sm sm:text-base font-black text-black dark:text-white mt-1 uppercase">
                   {viewingNotaSaida.tipoDocumento} — Nº {viewingNotaSaida.numero}
                   {viewingNotaSaida.serie ? ` / SÉRIE ${viewingNotaSaida.serie}` : ''}
@@ -15077,10 +15354,29 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </div>
               )}
 
-              {viewingNotaSaida.chaveAcesso && (
-                <div className="p-2.5 bg-slate-50 dark:bg-stone-800/60 border border-slate-200 dark:border-stone-700 rounded-lg">
-                  <span className="text-[10px] font-black uppercase text-slate-500 block">Chave de Acesso</span>
-                  <span className="font-mono font-bold text-[11px] break-all">{viewingNotaSaida.chaveAcesso}</span>
+              {(viewingNotaSaida.chaveAcesso || viewingNotaSaida.protocoloAutorizacao) && (
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  {viewingNotaSaida.chaveAcesso && (
+                    <div className={`${viewingNotaSaida.protocoloAutorizacao ? 'sm:col-span-7' : 'sm:col-span-12'} p-2.5 bg-slate-50 dark:bg-stone-800/60 border border-slate-200 dark:border-stone-700 rounded-lg`}>
+                      <span className="text-[10px] font-black uppercase text-slate-500 block">Chave de Acesso (44 dígitos)</span>
+                      <span className="font-mono font-bold text-[11px] break-all">{viewingNotaSaida.chaveAcesso}</span>
+                    </div>
+                  )}
+                  {viewingNotaSaida.protocoloAutorizacao && (
+                    <div className={`${viewingNotaSaida.chaveAcesso ? 'sm:col-span-5' : 'sm:col-span-12'} p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 rounded-lg`}>
+                      <span className="text-[10px] font-black uppercase text-emerald-800 dark:text-emerald-300 block">
+                        Protocolo de Autorização SEFAZ
+                      </span>
+                      <span className="font-mono font-black text-[11px] text-emerald-950 dark:text-emerald-100 block">
+                        {viewingNotaSaida.protocoloAutorizacao}
+                      </span>
+                      {viewingNotaSaida.dataAutorizacao && (
+                        <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 block mt-0.5">
+                          Autorizada em: {new Date(viewingNotaSaida.dataAutorizacao).toLocaleString('pt-BR')}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -15196,6 +15492,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </button>
 
               <div className="flex items-center gap-2">
+                {viewingNotaSaida.status !== 'AUTORIZADA' && viewingNotaSaida.status !== 'CANCELADA' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const n = viewingNotaSaida;
+                      setViewingNotaSaida(null);
+                      initiateSefazTransmission(n);
+                    }}
+                    className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>📤 Enviar SEFAZ</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handlePrintNotaSaida(viewingNotaSaida)}
@@ -15204,18 +15514,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir Documento (DANFE/Espelho)</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const n = viewingNotaSaida;
-                    setViewingNotaSaida(null);
-                    handleOpenEditNotaSaida(n);
-                  }}
-                  className="px-4 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer flex items-center space-x-1"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  <span>Editar</span>
-                </button>
+                {viewingNotaSaida.status !== 'AUTORIZADA' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const n = viewingNotaSaida;
+                      setViewingNotaSaida(null);
+                      handleOpenEditNotaSaida(n);
+                    }}
+                    className="px-4 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer flex items-center space-x-1"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Editar</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewingNotaSaida(null)}
@@ -15276,20 +15588,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         onClose={() => setIsCfopManagerOpen(false)}
         catalog={cfopCatalog}
         onSaveCatalog={(updated) => setCfopCatalog(updated)}
-        initialScopeFilter={nfeRemessaEscopo === 'interestadual' ? '6' : '5'}
+        initialScopeFilter={nfeRemessaEscopo === 'interestadual' ? 'interestadual' : 'estadual'}
         initialTipoFilter={
           cfopManagerTarget === 'cte'
             ? 'transporte'
-            : saidaTipoDocumento.includes('Remessa')
-              ? 'remessa_retorno'
+            : isRemessaRetornoSelected
+              ? nfeNaturezaOperacao.toLowerCase().startsWith('devolu')
+                ? 'devolucao'
+                : 'remessa_retorno'
               : 'venda'
         }
         onSelectCfop={(codigo) => {
-          const escopoSelecionado: 'estadual' | 'interestadual' = codigo.startsWith('6')
-            ? 'interestadual'
-            : codigo.startsWith('5')
-              ? 'estadual'
-              : nfeRemessaEscopo;
+          const escopoSelecionado: 'estadual' | 'interestadual' =
+            codigo.startsWith('6') || codigo.startsWith('2')
+              ? 'interestadual'
+              : codigo.startsWith('5') || codigo.startsWith('1')
+                ? 'estadual'
+                : nfeRemessaEscopo;
           setNfeRemessaEscopo(escopoSelecionado);
           if (cfopManagerTarget === 'cte') {
             setCteCfop(codigo);
@@ -15307,6 +15622,41 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         codes={lc116Codes}
         onSaveCodes={(updated) => setLc116Codes(updated)}
         onSelectCode={(codigo) => setNfseCodigoServico(codigo)}
+      />
+
+      <SefazTransmissionModal
+        stage={sefazModalStage}
+        currentStep={sefazStep}
+        targetNota={sefazTargetNota}
+        certInfo={getCertificateStatusInfo(companyProfile || getStoredCompanyProfile())}
+        ambienteEfetivo={
+          sefazSimulationMode
+            ? 'homologacao'
+            : (companyProfile || getStoredCompanyProfile())?.ambienteSefaz === 'producao'
+              ? 'producao'
+              : 'homologacao'
+        }
+        simulationMode={sefazSimulationMode}
+        onClose={() => {
+          clearSefazTimers();
+          setSefazModalStage('closed');
+        }}
+        onGoToCompanySettings={() => {
+          clearSefazTimers();
+          setSefazModalStage('closed');
+          setIsNotaSaidaModalOpen(false);
+          if (onNavigate) {
+            onNavigate('configuracoes');
+          }
+        }}
+        onConfirmSimulation={() => {
+          if (sefazTargetNota) {
+            runSefazTransmissionPipeline(sefazTargetNota, true);
+          }
+        }}
+        onPrintAuthorized={(notaAutorizada) => {
+          handlePrintNotaSaida(notaAutorizada);
+        }}
       />
 
     </div>
