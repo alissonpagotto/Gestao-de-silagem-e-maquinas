@@ -592,3 +592,248 @@ export function migrateAndCleanLocalStorageMedia(force = false): {
 
   return { migratedAvatars, migratedLogo, removedGarbageKeys };
 }
+
+export interface IndexedDbMediaExportItem {
+  key: string;
+  dataUrl: string;
+  updatedAt: string;
+}
+
+export interface IndexedDbIntegrityStats {
+  supported: boolean;
+  ok: boolean;
+  count: number;
+  totalBytes: number;
+  invalidCount: number;
+  keys: string[];
+}
+
+/**
+ * Lê assincronamente todos os registros armazenados no IndexedDB (AgroControlMediaDB),
+ * complementando com eventuais itens ainda pendentes apenas no cache em memória.
+ */
+export async function getAllIndexedDbMediaRecords(): Promise<IndexedDbMediaExportItem[]> {
+  const byKey = new Map<string, IndexedDbMediaExportItem>();
+  const nowIso = new Date().toISOString();
+
+  // Inclui itens já carregados no cache em memória (caso algum ainda esteja sendo gravado)
+  mediaCache.forEach((dataUrl, key) => {
+    if (key && dataUrl && !deletedKeys.has(key)) {
+      byKey.set(key, { key, dataUrl, updatedAt: nowIso });
+    }
+  });
+
+  const db = await openMediaDatabase();
+  if (!db) {
+    return Array.from(byKey.values());
+  }
+
+  const dbItems = await new Promise<MediaRecord[]>((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result || []) as MediaRecord[]);
+      req.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
+  });
+
+  for (const item of dbItems) {
+    if (item?.key && typeof item.dataUrl === 'string' && item.dataUrl.length > 0 && !deletedKeys.has(item.key)) {
+      byKey.set(item.key, {
+        key: item.key,
+        dataUrl: item.dataUrl,
+        updatedAt: item.updatedAt || nowIso,
+      });
+      mediaCache.set(item.key, item.dataUrl);
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
+/**
+ * Restaura em lote todos os registros de mídia/documentos para o IndexedDB (AgroControlMediaDB)
+ * e atualiza imediatamente o cache síncrono em memória.
+ */
+export async function restoreAllIndexedDbMediaRecords(
+  rawMedia: IndexedDbMediaExportItem[] | Record<string, any> | undefined | null,
+  options: { clearExisting?: boolean } = {}
+): Promise<{ restoredCount: number; failedCount: number }> {
+  const normalized: IndexedDbMediaExportItem[] = [];
+  const nowIso = new Date().toISOString();
+
+  if (Array.isArray(rawMedia)) {
+    for (const entry of rawMedia) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        typeof entry.key === 'string' &&
+        entry.key.trim() &&
+        typeof entry.dataUrl === 'string' &&
+        entry.dataUrl.trim()
+      ) {
+        normalized.push({
+          key: entry.key.trim(),
+          dataUrl: entry.dataUrl.trim(),
+          updatedAt: typeof entry.updatedAt === 'string' && entry.updatedAt ? entry.updatedAt : nowIso,
+        });
+      }
+    }
+  } else if (rawMedia && typeof rawMedia === 'object') {
+    for (const [key, val] of Object.entries(rawMedia)) {
+      const cleanKey = key.trim();
+      if (!cleanKey) continue;
+      if (typeof val === 'string' && val.trim()) {
+        normalized.push({ key: cleanKey, dataUrl: val.trim(), updatedAt: nowIso });
+      } else if (val && typeof val === 'object' && typeof val.dataUrl === 'string' && val.dataUrl.trim()) {
+        normalized.push({
+          key: cleanKey,
+          dataUrl: val.dataUrl.trim(),
+          updatedAt: typeof val.updatedAt === 'string' && val.updatedAt ? val.updatedAt : nowIso,
+        });
+      }
+    }
+  }
+
+  const clearExisting = options.clearExisting !== false;
+
+  if (clearExisting) {
+    mediaCache.clear();
+    deletedKeys.clear();
+  }
+
+  for (const item of normalized) {
+    deletedKeys.delete(item.key);
+    mediaCache.set(item.key, item.dataUrl);
+  }
+
+  const db = await openMediaDatabase();
+  if (!db) {
+    dispatchMediaUpdated();
+    return { restoredCount: normalized.length, failedCount: 0 };
+  }
+
+  const txOk = await new Promise<boolean>((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      if (clearExisting) {
+        store.clear();
+      }
+      for (const item of normalized) {
+        store.put(item);
+      }
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+
+  preloadPromise = null;
+  dispatchMediaUpdated();
+
+  if (!txOk) {
+    return { restoredCount: 0, failedCount: normalized.length };
+  }
+
+  return { restoredCount: normalized.length, failedCount: 0 };
+}
+
+/**
+ * Verifica integridade e estatísticas do IndexedDB (AgroControlMediaDB).
+ */
+export async function verifyIndexedDbIntegrity(): Promise<IndexedDbIntegrityStats> {
+  if (!isIndexedDbSupported()) {
+    return {
+      supported: false,
+      ok: false,
+      count: mediaCache.size,
+      totalBytes: 0,
+      invalidCount: 0,
+      keys: Array.from(mediaCache.keys()),
+    };
+  }
+
+  const db = await openMediaDatabase();
+  if (!db) {
+    return {
+      supported: true,
+      ok: false,
+      count: mediaCache.size,
+      totalBytes: 0,
+      invalidCount: 0,
+      keys: Array.from(mediaCache.keys()),
+    };
+  }
+
+  return new Promise<IndexedDbIntegrityStats>((resolve) => {
+    try {
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        resolve({
+          supported: true,
+          ok: false,
+          count: 0,
+          totalBytes: 0,
+          invalidCount: 0,
+          keys: [],
+        });
+        return;
+      }
+
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const items = (req.result || []) as MediaRecord[];
+        let totalBytes = 0;
+        let invalidCount = 0;
+        const keys: string[] = [];
+
+        for (const item of items) {
+          if (!item || typeof item.key !== 'string' || !item.key.trim() || typeof item.dataUrl !== 'string' || !item.dataUrl.trim()) {
+            invalidCount++;
+            continue;
+          }
+          keys.push(item.key);
+          totalBytes += item.dataUrl.length;
+        }
+
+        resolve({
+          supported: true,
+          ok: invalidCount === 0,
+          count: keys.length,
+          totalBytes,
+          invalidCount,
+          keys,
+        });
+      };
+
+      req.onerror = () => {
+        resolve({
+          supported: true,
+          ok: false,
+          count: 0,
+          totalBytes: 0,
+          invalidCount: 0,
+          keys: [],
+        });
+      };
+    } catch {
+      resolve({
+        supported: true,
+        ok: false,
+        count: 0,
+        totalBytes: 0,
+        invalidCount: 0,
+        keys: [],
+      });
+    }
+  });
+}
+

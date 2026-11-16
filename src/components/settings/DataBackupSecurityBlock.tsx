@@ -9,10 +9,18 @@ import {
   X, 
   FileJson, 
   RefreshCw,
-  HardDrive
+  HardDrive,
+  SearchCheck
 } from 'lucide-react';
 import { executeGlobalStorageAudit } from '../../lib/globalStorageAudit';
 import { safeLocalStorageSetItem } from '../../lib/storage';
+import {
+  getAllIndexedDbMediaRecords,
+  IndexedDbMediaExportItem,
+  MEDIA_UPDATED_EVENT,
+  restoreAllIndexedDbMediaRecords,
+  verifyIndexedDbIntegrity,
+} from '../../lib/imageStorage';
 
 export interface DataBackupSecurityBlockProps {
   className?: string;
@@ -52,6 +60,66 @@ const AGROCONTROL_SYNC_ENTITIES: Record<string, string[]> = {
   agrocontrol_historico_caixas: [],
 };
 
+const RESTORE_SUMMARY_SESSION_KEY = 'agrocontrol_restore_summary_toast';
+
+const TEMPORARY_SESSION_EXACT_KEYS = new Set<string>([
+  'agrocontrol_auth_session',
+  'colaca_silagem_auth_session',
+  'colaca_silagem_active_session',
+  'silagem_client_session',
+  'silagem_active_user_email',
+  'silagem_active_subscriber_id',
+  'silagem_active_subscriber_email',
+  'admin_impersonated_company_id',
+  'is_admin_impersonating',
+  'impersonated_subscriber_id',
+  'impersonated_subscriber_name',
+  'impersonated_subscriber_email',
+  'impersonated_subscriber_plan',
+  'supabase_auth_company_id',
+  'authenticated_user_company_id',
+  'supabase.auth.token',
+]);
+
+/**
+ * Identifica apenas tokens temporários de sessão/autenticação ou caches descartáveis
+ * que NÃO devem entrar no arquivo de backup nem ser perdidos na restauração.
+ */
+export function isTemporarySessionKey(key: string): boolean {
+  if (!key) return true;
+  const lower = key.toLowerCase();
+  if (TEMPORARY_SESSION_EXACT_KEYS.has(key) || TEMPORARY_SESSION_EXACT_KEYS.has(lower)) {
+    return true;
+  }
+  if (/^sb-.*-(auth-token|code-verifier)/.test(lower)) {
+    return true;
+  }
+  if (
+    lower.startsWith('debug_') ||
+    lower.startsWith('_temp_') ||
+    lower.startsWith('temp_')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Lista todas as chaves de dados persistentes no localStorage do navegador
+ * (incluindo todas as chaves 'agrocontrol_*' e demais chaves de módulos/sequências/cadastros).
+ */
+export function collectAllBackupableLocalStorageKeys(): string[] {
+  const keys: string[] = [];
+  if (typeof window === 'undefined' || !window.localStorage) return keys;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && !isTemporarySessionKey(k)) {
+      keys.push(k);
+    }
+  }
+  return keys.sort();
+}
+
 /**
  * Garante que todas as chaves do sistema comecem com 'agrocontrol_' sincronizando
  * os dados já cadastrados em memória/LocalStorage.
@@ -62,7 +130,6 @@ export function syncAllAgroControlKeys(): void {
     executeGlobalStorageAudit();
 
     Object.entries(AGROCONTROL_SYNC_ENTITIES).forEach(([agroKey, legacyKeys]) => {
-      // Se a chave agrocontrol_* ainda não tiver valor ou a legada tiver sido modificada recentemente
       let candidateValue: string | null = null;
       for (const legKey of legacyKeys) {
         const val = localStorage.getItem(legKey);
@@ -85,41 +152,47 @@ export function syncAllAgroControlKeys(): void {
 }
 
 /**
- * Gera e dispara o download do arquivo JSON de backup contendo todas as chaves 'agrocontrol_*'
+ * Gera e dispara o download do arquivo JSON de backup integral contendo:
+ * 1) TODAS as chaves persistentes do localStorage (excluindo apenas tokens temporários de sessão)
+ * 2) TODOS os registros de mídia/documentos do IndexedDB (AgroControlMediaDB) em `indexedDbMedia`
  */
-export function exportAgroControlBackup(subscriberName: string = 'SUA EMPRESA AQUI'): { filename: string; totalKeys: number } {
-  // Sincroniza chaves preliminarmente
+export async function exportAgroControlBackup(
+  subscriberName: string = 'SUA EMPRESA AQUI'
+): Promise<{ filename: string; totalKeys: number; totalMediaFiles: number }> {
   syncAllAgroControlKeys();
 
-  // 1. Coleta todas as chaves que começam com 'agrocontrol_'
+  const keysToBackup = collectAllBackupableLocalStorageKeys();
+  const mediaRecords = await getAllIndexedDbMediaRecords();
+
   const backupObject: Record<string, any> = {
     _meta: {
       assinante: subscriberName,
       sistema: 'AGROCONTROL_SISTEMA_AGRICOLA',
-      tipo: 'BACKUP_COMPLETO_SISTEMA',
+      tipo: 'BACKUP_COMPLETO_INTEGRAL_LOCALSTORAGE_E_INDEXEDDB',
       exportadoEm: new Date().toISOString(),
-      versao: '2.0-offline',
-      ambiente: 'LocalStorage Resiliente',
-    }
+      versao: '3.0-integral',
+      ambiente: 'LocalStorage + IndexedDB (AgroControlMediaDB)',
+      totalChavesLocalStorage: keysToBackup.length,
+      totalArquivosIndexedDb: mediaRecords.length,
+      incluiIndexedDbMedia: true,
+    },
   };
 
   let count = 0;
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith('agrocontrol_')) {
-      const raw = localStorage.getItem(key);
-      if (raw !== null) {
-        try {
-          backupObject[key] = JSON.parse(raw);
-        } catch {
-          backupObject[key] = raw;
-        }
-        count++;
+  for (const key of keysToBackup) {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) {
+      try {
+        backupObject[key] = JSON.parse(raw);
+      } catch {
+        backupObject[key] = raw;
       }
+      count++;
     }
   }
 
-  // 2. Formata a data atual padronizada (ex: 2026_10_09)
+  backupObject.indexedDbMedia = mediaRecords;
+
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -128,7 +201,6 @@ export function exportAgroControlBackup(subscriberName: string = 'SUA EMPRESA AQ
 
   const filename = `BACKUP_AGROCONTROL_COLACA_SILAGEM_${dataAtual}.json`;
 
-  // 3. Converte para string e dispara download automático via Blob
   const jsonString = JSON.stringify(backupObject, null, 2);
   const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -138,25 +210,42 @@ export function exportAgroControlBackup(subscriberName: string = 'SUA EMPRESA AQ
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-  return { filename, totalKeys: count };
+  return { filename, totalKeys: count, totalMediaFiles: mediaRecords.length };
 }
 
 /**
- * FUNÇÃO DE IMPORTAÇÃO E RESTAURAÇÃO DO ARQUIVO JSON DO SISTEMA
- * Aplica mapeamento de redundância nas chaves críticas (frotas, pneus, produtos, financeiro, funcionários)
- * e executa rotina de segurança genérica com recarregamento forçado.
+ * FUNÇÃO DE IMPORTAÇÃO E RESTAURAÇÃO INTEGRAL DO ARQUIVO JSON DO SISTEMA
+ * - Preserva tokens temporários de sessão ativa para não deslogar o operador
+ * - Restaura 100% das chaves do localStorage + espelhamentos críticos
+ * - Restaura assincronamente todos os arquivos de mídia/documentos no IndexedDB (`indexedDbMedia`)
  */
-export function handleRestoreBackup(jsonData: Record<string, any> | string): void {
+export async function handleRestoreBackup(
+  jsonData: Record<string, any> | string
+): Promise<{ restoredKeys: number; restoredMedia: number }> {
   try {
-    // 1. LIMPEZA PRÉVIA COMPULSÓRIA:
-    // Antes de injetar os novos dados do arquivo, executa comando para limpar chaves órfãs do navegador
-    localStorage.clear();
-
     const data: Record<string, any> = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
-    if (!data || typeof data !== 'object') {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new Error('Conteúdo do arquivo JSON de backup inválido ou corrompido.');
+    }
+
+    // Preserva chaves temporárias de sessão ativa antes da limpeza do localStorage
+    const preservedSessionEntries: Array<[string, string]> = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && isTemporarySessionKey(k)) {
+        const val = localStorage.getItem(k);
+        if (val !== null) preservedSessionEntries.push([k, val]);
+      }
+    }
+
+    // 1. LIMPEZA PRÉVIA COMPULSÓRIA DE CHAVES ÓRFÃS:
+    localStorage.clear();
+    for (const [sessKey, sessVal] of preservedSessionEntries) {
+      try {
+        localStorage.setItem(sessKey, sessVal);
+      } catch {}
     }
 
     const serialize = (val: any): string => {
@@ -178,11 +267,14 @@ export function handleRestoreBackup(jsonData: Record<string, any> | string): voi
       return [];
     };
 
-    // 2. GRAVAÇÃO GERAL AUTOMÁTICA DAS CHAVES CONTIDAS NO JSON:
-    // Varre todas as chaves contidas no JSON (produtos, funcionários, frotas, bancos, manifestações, etc.)
+    // 2. GRAVAÇÃO GERAL AUTOMÁTICA DE TODAS AS CHAVES DE DADOS DO JSON NO LOCALSTORAGE:
+    let restoredKeysCount = 0;
     Object.entries(data).forEach(([chave, valor]) => {
-      if (chave.startsWith('_')) return; // ignora metadados
-      safeLocalStorageSetItem(chave, serialize(valor));
+      if (chave.startsWith('_') || chave === 'indexedDbMedia') return;
+      if (isTemporarySessionKey(chave)) return;
+      if (safeLocalStorageSetItem(chave, serialize(valor))) {
+        restoredKeysCount++;
+      }
     });
 
     // 2. TRATAMENTO E UNIFICAÇÃO DE CHAVES DUPLICADAS (VÍNCULO REAL DO BACKUP):
@@ -373,12 +465,28 @@ export function handleRestoreBackup(jsonData: Record<string, any> | string): voi
       safeLocalStorageSetItem('silagem_facil_clean_v1_maintenance_logs', s);
     }
 
-    // 4. AUDITORIA E BLINDAGEM COMPLETA DO LOCALSTORAGE NAS 13 CATEGORIAS:
+    // 4. RESTAURAÇÃO INTEGRAL DAS MÍDIAS E DOCUMENTOS NO INDEXEDDB (`AgroControlMediaDB`):
+    let restoredMediaCount = 0;
+    if (data.indexedDbMedia) {
+      const mediaResult = await restoreAllIndexedDbMediaRecords(
+        data.indexedDbMedia as IndexedDbMediaExportItem[] | Record<string, any>,
+        { clearExisting: true }
+      );
+      restoredMediaCount = mediaResult.restoredCount;
+    }
+
+    // 5. AUDITORIA E BLINDAGEM COMPLETA DO LOCALSTORAGE NAS 13 CATEGORIAS:
     executeGlobalStorageAudit();
 
-    // 5. RECARREGAMENTO COM LIMPEZA DE CACHE:
-    // Ao finalizar a gravação de todas as chaves contidas no JSON, força o navegador a renderizar o novo banco imediatamente
-    window.location.reload();
+    const summaryText = `Backup restaurado com sucesso: ${restoredKeysCount} chaves de dados + ${restoredMediaCount} arquivos de mídia/documentos recuperados!`;
+    try {
+      sessionStorage.setItem(RESTORE_SUMMARY_SESSION_KEY, summaryText);
+    } catch {}
+
+    return {
+      restoredKeys: restoredKeysCount,
+      restoredMedia: restoredMediaCount,
+    };
   } catch (error) {
     console.error('ERRO CRÍTICO NA RESTAURAÇÃO DO BACKUP:', error);
     throw error;
@@ -395,46 +503,130 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeKeysCount, setActiveKeysCount] = useState<number>(0);
+  const [mediaFilesCount, setMediaFilesCount] = useState<number>(0);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
   const [pendingRestoreData, setPendingRestoreData] = useState<Record<string, any> | null>(null);
   const [pendingFileName, setPendingFileName] = useState<string>('');
   const [pendingKeysList, setPendingKeysList] = useState<string[]>([]);
+  const [pendingMediaCount, setPendingMediaCount] = useState<number>(0);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  // Varredura reativa de chaves agrocontrol_*
-  const refreshKeyCount = () => {
-    let count = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('agrocontrol_')) {
-        count++;
-      }
+  // Varredura reativa de chaves (LocalStorage) e arquivos (IndexedDB)
+  const refreshStorageCounters = async () => {
+    const keys = collectAllBackupableLocalStorageKeys();
+    setActiveKeysCount(keys.length);
+    try {
+      const stats = await verifyIndexedDbIntegrity();
+      setMediaFilesCount(stats.count);
+    } catch {
+      setMediaFilesCount(0);
     }
-    setActiveKeysCount(count);
   };
 
   useEffect(() => {
     syncAllAgroControlKeys();
-    refreshKeyCount();
+    void refreshStorageCounters();
+
+    // Exibe resumo detalhado caso uma restauração tenha acabado de recarregar a página
+    try {
+      const restoredBanner = sessionStorage.getItem(RESTORE_SUMMARY_SESSION_KEY);
+      if (restoredBanner) {
+        sessionStorage.removeItem(RESTORE_SUMMARY_SESSION_KEY);
+        setFeedback({ type: 'success', text: restoredBanner });
+        setTimeout(() => setFeedback(null), 9000);
+      }
+    } catch {}
+
+    const handleSyncCounters = () => {
+      void refreshStorageCounters();
+    };
+    window.addEventListener(MEDIA_UPDATED_EVENT, handleSyncCounters);
+    window.addEventListener('storage', handleSyncCounters);
+    return () => {
+      window.removeEventListener(MEDIA_UPDATED_EVENT, handleSyncCounters);
+      window.removeEventListener('storage', handleSyncCounters);
+    };
   }, []);
 
-  // Motor de Exportação (Backup)
-  const handleDownloadBackup = () => {
+  // Auditoria de Integridade LocalStorage + IndexedDB (somente leitura, sem modificar dados)
+  const handleVerifyIntegrity = async () => {
     try {
       setIsProcessing(true);
-      const { filename, totalKeys } = exportAgroControlBackup(subscriberName);
-      refreshKeyCount();
+      const keys = collectAllBackupableLocalStorageKeys();
+      let validJsonCount = 0;
+      const corruptedKeys: string[] = [];
+
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (raw === null) continue;
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          try {
+            JSON.parse(raw);
+            validJsonCount++;
+          } catch {
+            corruptedKeys.push(k);
+          }
+        } else {
+          validJsonCount++;
+        }
+      }
+
+      const idbStats = await verifyIndexedDbIntegrity();
+      setActiveKeysCount(keys.length);
+      setMediaFilesCount(idbStats.count);
+
+      const sizeMb = (idbStats.totalBytes / (1024 * 1024)).toFixed(2).replace('.', ',');
+
+      if (corruptedKeys.length > 0 || !idbStats.ok) {
+        const problems: string[] = [];
+        if (corruptedKeys.length > 0) {
+          problems.push(`${corruptedKeys.length} chave(s) com JSON inválido (${corruptedKeys.slice(0, 3).join(', ')})`);
+        }
+        if (!idbStats.supported) {
+          problems.push('IndexedDB indisponível neste navegador');
+        } else if (!idbStats.ok) {
+          problems.push(`${idbStats.invalidCount} registro(s) inconsistente(s) no IndexedDB`);
+        }
+        setFeedback({
+          type: 'error',
+          text: `Auditoria concluída com alertas: ${problems.join(' • ')}. (${validJsonCount} chaves e ${idbStats.count} mídias íntegras)`,
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          text: `Integridade 100% validada! ${keys.length} chaves de dados no LocalStorage + ${idbStats.count} arquivos/mídias no IndexedDB (${sizeMb} MB) íntegros e prontos para backup.`,
+        });
+      }
+      setTimeout(() => setFeedback(null), 8000);
+    } catch (err) {
+      console.error('Erro ao verificar integridade dos bancos locais:', err);
+      setFeedback({
+        type: 'error',
+        text: 'Falha ao executar verificação de integridade dos armazenamentos locais.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Motor de Exportação Integral (LocalStorage + IndexedDB)
+  const handleDownloadBackup = async () => {
+    try {
+      setIsProcessing(true);
+      const { filename, totalKeys, totalMediaFiles } = await exportAgroControlBackup(subscriberName);
+      await refreshStorageCounters();
       setFeedback({
         type: 'success',
-        text: `Backup gerado com sucesso! Arquivo "${filename}" baixado contendo ${totalKeys} módulos do sistema.`
+        text: `Backup integral gerado! "${filename}" baixado com ${totalKeys} chaves de dados + ${totalMediaFiles} arquivos/mídias do IndexedDB.`,
       });
-      setTimeout(() => setFeedback(null), 5000);
+      setTimeout(() => setFeedback(null), 7000);
     } catch (err) {
       console.error('Erro ao gerar backup:', err);
       setFeedback({
         type: 'error',
-        text: 'Falha ao gerar o arquivo de backup. Verifique as permissões do navegador.'
+        text: 'Falha ao gerar o arquivo de backup. Verifique as permissões do navegador.',
       });
     } finally {
       setIsProcessing(false);
@@ -446,11 +638,10 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Blindagem contra arquivo vazio (0 bytes)
     if (file.size === 0) {
       setFeedback({
         type: 'error',
-        text: 'O ARQUIVO SELECIONADO ESTÁ VAZIO (0 BYTES). SELECIONE UM ARQUIVO DE BACKUP JSON VÁLIDO.'
+        text: 'O ARQUIVO SELECIONADO ESTÁ VAZIO (0 BYTES). SELECIONE UM ARQUIVO DE BACKUP JSON VÁLIDO.',
       });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -467,7 +658,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
         if (!content) {
           setFeedback({
             type: 'error',
-            text: 'O ARQUIVO DE BACKUP ESTÁ VAZIO OU CORROMPIDO.'
+            text: 'O ARQUIVO DE BACKUP ESTÁ VAZIO OU CORROMPIDO.',
           });
           return;
         }
@@ -478,7 +669,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
         } catch {
           setFeedback({
             type: 'error',
-            text: 'ARQUIVO JSON INVÁLIDO: CONTEÚDO CORROMPIDO OU INCOMPLETO (ERRO DE SINTAXE).'
+            text: 'ARQUIVO JSON INVÁLIDO: CONTEÚDO CORROMPIDO OU INCOMPLETO (ERRO DE SINTAXE).',
           });
           return;
         }
@@ -486,32 +677,39 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
           setFeedback({
             type: 'error',
-            text: 'FORMATO JSON INVÁLIDO: O BACKUP DEVE CONTER UM OBJETO COM OS MÓDULOS DO SISTEMA.'
+            text: 'FORMATO JSON INVÁLIDO: O BACKUP DEVE CONTER UM OBJETO COM OS MÓDULOS DO SISTEMA.',
           });
           return;
         }
 
-        // Filtra as chaves detectadas no arquivo
-        const keys = Object.keys(parsed).filter(k => k.startsWith('agrocontrol_') || !k.startsWith('_'));
-        if (keys.length === 0) {
+        const keys = Object.keys(parsed).filter(
+          (k) => !k.startsWith('_') && k !== 'indexedDbMedia' && !isTemporarySessionKey(k)
+        );
+        const mediaCount = Array.isArray(parsed.indexedDbMedia)
+          ? parsed.indexedDbMedia.length
+          : parsed.indexedDbMedia && typeof parsed.indexedDbMedia === 'object'
+          ? Object.keys(parsed.indexedDbMedia).length
+          : 0;
+
+        if (keys.length === 0 && mediaCount === 0) {
           setFeedback({
             type: 'error',
-            text: 'NENHUMA CHAVE DE DADOS VÁLIDA ENCONTRADA NO ARQUIVO JSON.'
+            text: 'NENHUMA CHAVE DE DADOS OU MÍDIA VÁLIDA ENCONTRADA NO ARQUIVO JSON.',
           });
           return;
         }
 
         setPendingRestoreData(parsed);
         setPendingKeysList(keys);
+        setPendingMediaCount(mediaCount);
         setIsConfirmModalOpen(true);
       } catch (err: any) {
         setFeedback({
           type: 'error',
-          text: `ARQUIVO JSON INVÁLIDO: ${err?.message || 'NÃO FOI POSSÍVEL INTERPRETAR A ESTRUTURA DO ARQUIVO.'}`
+          text: `ARQUIVO JSON INVÁLIDO: ${err?.message || 'NÃO FOI POSSÍVEL INTERPRETAR A ESTRUTURA DO ARQUIVO.'}`,
         });
         setTimeout(() => setFeedback(null), 6000);
       } finally {
-        // Limpa o valor do input para permitir selecionar o mesmo arquivo novamente
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -521,7 +719,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
     reader.onerror = () => {
       setFeedback({
         type: 'error',
-        text: 'Erro ao ler o arquivo selecionado no disco.'
+        text: 'Erro ao ler o arquivo selecionado no disco.',
       });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -531,18 +729,26 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
     reader.readAsText(file);
   };
 
-  const handleConfirmRestore = () => {
+  const handleConfirmRestore = async () => {
     if (!pendingRestoreData) return;
     try {
       setIsProcessing(true);
-      handleRestoreBackup(pendingRestoreData);
+      const { restoredKeys, restoredMedia } = await handleRestoreBackup(pendingRestoreData);
+      setIsConfirmModalOpen(false);
+      setFeedback({
+        type: 'success',
+        text: `Backup restaurado com sucesso: ${restoredKeys} chaves de dados + ${restoredMedia} arquivos de mídia/documentos recuperados!`,
+      });
+      setTimeout(() => {
+        window.location.reload();
+      }, 350);
     } catch (err) {
       console.error('Erro ao restaurar backup:', err);
       setIsProcessing(false);
       setIsConfirmModalOpen(false);
       setFeedback({
         type: 'error',
-        text: 'Erro crítico ao gravar os dados restaurados no LocalStorage.'
+        text: 'Erro crítico ao gravar os dados restaurados no LocalStorage / IndexedDB.',
       });
     }
   };
@@ -552,6 +758,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
     setPendingRestoreData(null);
     setPendingFileName('');
     setPendingKeysList([]);
+    setPendingMediaCount(0);
   };
 
   return (
@@ -562,7 +769,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
         className={`rounded-xl overflow-hidden border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-2xs shrink-0 select-none ${className}`}
       >
         {/* CABEÇALHO COM GRADIENTE TRIDIMENSIONAL ACETINADO OBRIGATÓRIO */}
-        <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 p-2 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:border-stone-700 flex items-center justify-between">
+        <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 p-2 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:border-stone-700 flex flex-wrap items-center justify-between gap-1.5">
           <div className="flex items-center space-x-2">
             <span className="text-base leading-none select-none" role="img" aria-label="disquete">💾</span>
             <h2 className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-800 dark:text-stone-100 drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] dark:drop-shadow-none">
@@ -570,19 +777,28 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
             </h2>
           </div>
           
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1.5 flex-wrap">
             <span className="hidden md:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-[9px] font-bold text-emerald-800 dark:text-emerald-300">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
               <span>100% OFFLINE</span>
             </span>
-            <span className="text-[9px] font-bold text-slate-600 dark:text-stone-400 bg-slate-100/80 dark:bg-stone-800 px-2 py-0.5 rounded-md border border-slate-300 dark:border-stone-600">
-              {activeKeysCount} CHAVES ATIVAS
+            <span
+              title="Total de chaves de dados gravadas no LocalStorage (todos os módulos)"
+              className="text-[9px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100/80 dark:bg-stone-800 px-2 py-0.5 rounded-md border border-slate-300 dark:border-stone-600"
+            >
+              {activeKeysCount} CHAVES (LOCALSTORAGE)
+            </span>
+            <span
+              title="Total de fotos, logos, XMLs e certificado A1 gravados no IndexedDB (AgroControlMediaDB)"
+              className="text-[9px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50/90 dark:bg-blue-950/60 px-2 py-0.5 rounded-md border border-blue-300 dark:border-blue-800"
+            >
+              {mediaFilesCount} MÍDIAS (INDEXEDDB)
             </span>
           </div>
         </div>
 
         {/* CORPO DO CARD SLIM COM TIPOGRAFIA MICRO E FORMATO ESTÁTICO */}
-        <div className="p-2 sm:p-2.5 bg-slate-50/70 dark:bg-stone-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="p-2 sm:p-2.5 bg-slate-50/70 dark:bg-stone-900/60 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           {/* Informações de Contexto do Assinante */}
           <div className="flex items-start sm:items-center space-x-2 text-slate-700 dark:text-stone-300 min-w-0">
             <div className="p-1.5 rounded-lg bg-slate-200/80 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 shrink-0 text-slate-700 dark:text-stone-300">
@@ -595,13 +811,13 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
                 </span>
               </div>
               <p className="text-[9px] text-slate-600 dark:text-stone-400 font-medium truncate">
-                Exportação e importação direta das chaves <code className="text-[9px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-stone-800 px-1 py-0.2 rounded">agrocontrol_*</code> gravadas no LocalStorage do navegador.
+                Backup integral de todas as chaves de dados (<code className="text-[9px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-stone-800 px-1 py-0.2 rounded">LocalStorage</code>) + fotos, logos e certificado A1 (<code className="text-[9px] font-mono text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-stone-800 px-1 py-0.2 rounded">IndexedDB</code>).
               </p>
             </div>
           </div>
 
-          {/* BOTÕES DE AÇÃO: MOTOR DE BACKUP & MOTOR DE RESTAURAÇÃO */}
-          <div className="flex items-center space-x-2 shrink-0">
+          {/* BOTÕES DE AÇÃO: INTEGRIDADE, BACKUP INTEGRAL & RESTAURAÇÃO */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {/* Input oculto para carregar arquivo .json */}
             <input 
               type="file" 
@@ -612,13 +828,26 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
               id="input-restaurar-backup-file"
             />
 
+            {/* BOTÃO DISCRETO: VERIFICAR INTEGRIDADE */}
+            <button
+              type="button"
+              id="btn-verificar-integridade-backup"
+              onClick={handleVerifyIntegrity}
+              disabled={isProcessing}
+              title="Auditar integridade do LocalStorage e do IndexedDB (AgroControlMediaDB) sem alterar dados"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-200 rounded-lg text-[10px] font-bold uppercase tracking-wide border border-slate-300 dark:border-stone-600 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            >
+              <SearchCheck className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 stroke-[2.2]" />
+              <span>🔍 Verificar Integridade</span>
+            </button>
+
             {/* BOTÃO 1: GERAR BACKUP DO SISTEMA (BAIXAR ARQUIVO) */}
             <button
               type="button"
               id="btn-gerar-backup-sistema"
               onClick={handleDownloadBackup}
               disabled={isProcessing}
-              title="Baixar arquivo JSON com todas as tabelas e dados do sistema salvos no navegador"
+              title="Baixar arquivo JSON completo com todas as chaves do sistema + mídias/documentos do IndexedDB"
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-emerald-700/60 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5 text-white stroke-[2.5]" />
@@ -631,7 +860,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
               id="btn-restaurar-backup-sistema"
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
-              title="Carregar arquivo .JSON e substituir os dados locais da tela"
+              title="Carregar arquivo .JSON e restaurar dados locais + mídias/documentos do IndexedDB"
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-200 hover:text-emerald-700 dark:hover:text-emerald-400 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-slate-300 dark:border-stone-700 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
             >
               <Upload className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300 stroke-[2.5]" />
@@ -642,23 +871,23 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
 
         {/* FEEDBACK INLINE MICRO */}
         {feedback && (
-          <div className={`px-3 py-1 text-[10px] font-bold flex items-center justify-between border-t ${
+          <div className={`px-3 py-1.5 text-[10px] font-bold flex items-center justify-between border-t ${
             feedback.type === 'success' 
               ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800' 
               : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
           }`}>
-            <span className="flex items-center space-x-1.5 truncate">
+            <span className="flex items-center space-x-1.5 min-w-0">
               {feedback.type === 'success' ? (
-                <CheckCircle2 className="w-3 h-3 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
               ) : (
-                <AlertTriangle className="w-3 h-3 shrink-0 text-rose-600" />
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
               )}
-              <span className="truncate">{feedback.text}</span>
+              <span className="break-words">{feedback.text}</span>
             </span>
             <button 
               type="button" 
               onClick={() => setFeedback(null)} 
-              className="text-slate-400 hover:text-slate-600 ml-2"
+              className="text-slate-400 hover:text-slate-600 ml-2 shrink-0"
             >
               <X className="w-3 h-3" />
             </button>
@@ -721,9 +950,15 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-700 dark:text-stone-300">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Chaves Identificadas:</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Chaves Identificadas (LocalStorage):</span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                    {pendingKeysList.length} tabelas prontas para gravação
+                    {pendingKeysList.length} chaves prontas para gravação
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-700 dark:text-stone-300">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Mídias / Documentos (IndexedDB):</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    {pendingMediaCount} arquivos (fotos, logos, certificado A1)
                   </span>
                 </div>
 
@@ -752,7 +987,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
 
               {/* Informação sobre recarregamento */}
               <p className="text-[10px] text-slate-600 dark:text-stone-400 font-semibold leading-relaxed">
-                Ao clicar em confirmar, o sistema executará <code className="text-slate-800 dark:text-stone-200 bg-slate-100 dark:bg-stone-800 px-1 py-0.5 rounded font-mono">localStorage.setItem()</code> para cada registro e recarregará a aplicação instantaneamente para readmitir os novos dados.
+                Ao clicar em confirmar, o sistema restaurará todas as chaves no <code className="text-slate-800 dark:text-stone-200 bg-slate-100 dark:bg-stone-800 px-1 py-0.5 rounded font-mono">LocalStorage</code> e todas as mídias/documentos no <code className="text-slate-800 dark:text-stone-200 bg-slate-100 dark:bg-stone-800 px-1 py-0.5 rounded font-mono">IndexedDB</code>, recarregando a aplicação automaticamente.
               </p>
             </div>
 
