@@ -1,4 +1,5 @@
 import { formatCurrencyBRL, formatDateBR } from './formatters';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml } from './printIdentity';
 
 export interface MovimentacaoCaixa {
   id: string;
@@ -474,10 +475,15 @@ export function gerarHtmlRelatorioCaixa(
   formato: 'a4' | 'termica' = 'a4'
 ): string {
   const totais = calcularTotaisCaixa(caixa);
-  const empresaNome = (companyProfile?.name || companyProfile?.razaoSocial || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS').toUpperCase();
-  const empresaCnpj = companyProfile?.cnpjCpf || companyProfile?.cnpj || '';
-  const empresaTel = companyProfile?.phone || companyProfile?.telefone || '';
-  const empresaEndereco = companyProfile?.address || companyProfile?.endereco || '';
+  const subscriber = resolveSubscriberPrintHeader(companyProfile);
+  const empresaNome = subscriber.displayTitle.toUpperCase();
+  const empresaRazaoSocial =
+    subscriber.corporateName && subscriber.corporateName.toUpperCase() !== empresaNome
+      ? subscriber.corporateName.toUpperCase()
+      : '';
+  const empresaCnpj = subscriber.cnpjCpf;
+  const empresaTel = subscriber.phone;
+  const empresaEndereco = subscriber.fullAddress;
 
   const valorReal = Number(caixa.valorFechamentoReal || 0);
   const valorSistema = Number(caixa.valorFechamentoSistema ?? totais.saldoAtualDinheiro);
@@ -537,8 +543,10 @@ export function gerarHtmlRelatorioCaixa(
   </div>
 
   <div class="text-center font-bold" style="font-size: 13px;">${empresaNome}</div>
-  ${empresaCnpj ? `<div class="text-center" style="font-size: 10px;">CNPJ: ${empresaCnpj}</div>` : ''}
-  ${empresaTel ? `<div class="text-center" style="font-size: 10px;">TEL: ${empresaTel}</div>` : ''}
+  ${empresaRazaoSocial ? `<div class="text-center" style="font-size: 9px; font-weight: bold;">${empresaRazaoSocial}</div>` : ''}
+  ${empresaCnpj ? `<div class="text-center" style="font-size: 9.5px;">CNPJ/CPF: ${empresaCnpj}</div>` : ''}
+  ${empresaTel ? `<div class="text-center" style="font-size: 9.5px;">TEL: ${empresaTel}</div>` : ''}
+  ${empresaEndereco ? `<div class="text-center" style="font-size: 9px;">${empresaEndereco}</div>` : ''}
   <div class="divider"></div>
   <div class="text-center font-bold" style="font-size: 12px;">RELATÓRIO DE FECHAMENTO DE CAIXA</div>
   <div class="text-center" style="font-size: 10px;">ID CAIXA: ${caixa.id}</div>
@@ -647,8 +655,7 @@ export function gerarHtmlRelatorioCaixa(
     __________________________________________<br>
     SUPERVISÃO / GERÊNCIA FINANCEIRA
   </div>
-  <div class="divider"></div>
-  <div class="text-center" style="font-size: 9px; color: #666;">AGROCONTROL SISTEMAS • EMITIDO EM ${new Date().toLocaleString('pt-BR')}</div>
+  ${buildSystemPrintFooterHtml({ thermal: true })}
 </body>
 </html>`;
   }
@@ -819,10 +826,13 @@ export function gerarHtmlRelatorioCaixa(
   <div class="header-box">
     <div>
       <div class="title">${empresaNome}</div>
+      ${empresaRazaoSocial ? `<div class="sub" style="margin-bottom: 2px;">RAZÃO SOCIAL: ${empresaRazaoSocial}</div>` : ''}
       <div class="sub">
-        ${empresaCnpj ? `CNPJ/CPF: ${empresaCnpj} • ` : ''}
-        ${empresaTel ? `TEL: ${empresaTel} • ` : ''}
-        ${empresaEndereco ? `${empresaEndereco}` : ''}
+        ${[
+          empresaCnpj ? `CNPJ/CPF: ${empresaCnpj}` : '',
+          empresaTel ? `TEL: ${empresaTel}` : '',
+          empresaEndereco || '',
+        ].filter(Boolean).join(' • ')}
       </div>
     </div>
     <div style="text-align: right;">
@@ -990,9 +1000,7 @@ export function gerarHtmlRelatorioCaixa(
     </div>
   </div>
 
-  <div style="margin-top: 25px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
-    AGROCONTROL GESTÃO INTEGRADA • RELATÓRIO OFICIAL GERADO EM ${new Date().toLocaleString('pt-BR')}
-  </div>
+  ${buildSystemPrintFooterHtml()}
 </body>
 </html>`;
 }

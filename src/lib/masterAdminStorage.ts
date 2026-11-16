@@ -18,6 +18,7 @@ import {
   deleteCloudSubscriber
 } from './supabaseService';
 import { IS_OFFLINE_LOCAL_STORAGE_MODE } from './supabase';
+import { SYSTEM_SUPPORT_PHONE_KEY, saveSystemSupportPhone } from './printIdentity';
 
 // Chaves de armazenamento localStorage principais e padronizadas
 export const AGROCONTROL_SITE_SETTINGS_KEY = 'agrocontrol_site_settings';
@@ -610,13 +611,20 @@ export async function syncMasterAdminFromCloud(): Promise<{
 
 export function getStoredAdminSettings(): AdminSettings {
   try {
+    const supportPhoneFromKey =
+      typeof localStorage !== 'undefined' ? (localStorage.getItem(SYSTEM_SUPPORT_PHONE_KEY) || '').trim() : '';
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_ADMIN_SETTINGS));
-      return DEFAULT_ADMIN_SETTINGS;
+      const initial: AdminSettings = {
+        ...DEFAULT_ADMIN_SETTINGS,
+        systemSupportPhone: supportPhoneFromKey,
+      };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(initial));
+      return initial;
     }
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_ADMIN_SETTINGS, ...parsed };
+    const resolvedPhone = supportPhoneFromKey || String(parsed?.systemSupportPhone || '').trim();
+    return { ...DEFAULT_ADMIN_SETTINGS, ...parsed, systemSupportPhone: resolvedPhone };
   } catch (e) {
     console.error('Failed to load admin settings:', e);
     return DEFAULT_ADMIN_SETTINGS;
@@ -625,7 +633,13 @@ export function getStoredAdminSettings(): AdminSettings {
 
 export function saveStoredAdminSettings(settings: AdminSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    const formattedPhone =
+      settings.systemSupportPhone !== undefined
+        ? saveSystemSupportPhone(settings.systemSupportPhone)
+        : undefined;
+    const payload: AdminSettings =
+      formattedPhone !== undefined ? { ...settings, systemSupportPhone: formattedPhone } : settings;
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(payload));
     notifyDataChanged();
   } catch (e) {
     console.error('Failed to save admin settings:', e);

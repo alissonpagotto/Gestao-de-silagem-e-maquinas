@@ -1,5 +1,18 @@
 export type SubscriberStatus = 'ativa' | 'trial' | 'inadimplente' | 'cancelada' | 'suspensa';
 
+export type SubscriberSegmentProfile =
+  | 'completo'
+  | 'comercio_varejo'
+  | 'transportadora_logistica'
+  | 'servicos_operacoes'
+  | 'personalizado';
+
+export interface SubscriberModulesConfig {
+  segmentProfile: SubscriberSegmentProfile;
+  enabledModules: string[];
+  updatedAt?: string;
+}
+
 export interface Subscriber {
   id: string;
   name: string; // NOME DO ASSINANTE
@@ -19,6 +32,8 @@ export interface Subscriber {
   planName: string; // NOME DO PLANO
   monthlyValue: number; // VALOR MENSAL (para cálculo do MRR)
   status: SubscriberStatus; // STATUS DA ASSINATURA
+  segmentProfile?: SubscriberSegmentProfile; // PERFIL DE SEGMENTO / RAMO DE ATUAÇÃO
+  enabledModules?: string[]; // LISTA DE MÓDULOS HABILITADOS NO MENU LATERAL
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +124,7 @@ export interface AdminSettings {
   webhookPerfectPay: string;
   superAdminEmails: string[];
   masterPassword?: string; // Senha Mestre de Acesso ao Painel
+  systemSupportPhone?: string; // Telefone / WhatsApp do Sistema (Rodapé das Impressões)
 }
 
 export interface MasterSession {

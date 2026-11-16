@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { executePrint } from '../../lib/printService';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml } from '../../lib/printIdentity';
 import {
   Wrench,
   PackageMinus,
@@ -817,9 +818,14 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const buildCupomLoteStandaloneHtml = useCallback(
     (data: CupomLotePrintData) => {
       const sortedItems = enrichAndSortItemsByPickingRoute(data.items || []);
-      const companyHeader = companyProfile?.tradeName
-        ? `<p style="font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#52525b;margin:0 0 4px 0;">${companyProfile.tradeName}${companyProfile.cnpj ? ` • CNPJ: ${companyProfile.cnpj}` : ''}</p>`
-        : '';
+      const subscriberHeader = resolveSubscriberPrintHeader(companyProfile);
+      const companySub = [
+        subscriberHeader.corporateName && subscriberHeader.corporateName !== subscriberHeader.displayTitle ? subscriberHeader.corporateName : '',
+        subscriberHeader.cnpjCpf ? `CNPJ/CPF: ${subscriberHeader.cnpjCpf}` : '',
+        subscriberHeader.phone ? `Tel: ${subscriberHeader.phone}` : '',
+        subscriberHeader.fullAddress,
+      ].filter(Boolean).join(' • ');
+      const companyHeader = `<p style="font-size:10.5pt;font-weight:900;text-transform:uppercase;letter-spacing:1.2px;color:#0f172a;margin:0 0 2px 0;">${subscriberHeader.displayTitle}</p>${companySub ? `<p style="font-size:7.5pt;font-weight:600;color:#475569;margin:0 0 4px 0;">${companySub}</p>` : ''}`;
       const veiculoLine = `${data.veiculoNome}${data.veiculoPlaca ? ` — PLACA: ${data.veiculoPlaca}` : ''}`;
       const dataFormatada = formatDateOnlyPtBr(data.dataRetirada);
       const rowsHtml = sortedItems
@@ -1033,9 +1039,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         </div>
       </div>
 
-      <div style="border-top:1px solid #e4e4e7;margin-top:4px;padding-top:2px;text-align:center;font-size:6.5pt;color:#a1a1aa;">
-        Cupom emitido em ${formatDateTimePtBr(new Date().toISOString())} • Lote: ${data.loteId}
-      </div>
+      ${buildSystemPrintFooterHtml({ extraRight: `Lote: ${data.loteId}` })}
     </div>
   </div>
   <script>

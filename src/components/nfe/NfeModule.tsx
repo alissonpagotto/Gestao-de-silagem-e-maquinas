@@ -47,7 +47,9 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   User,
-  Send
+  Send,
+  FileArchive,
+  Lock
 } from 'lucide-react';
 import { 
   Expense, 
@@ -235,11 +237,20 @@ import {
 import { DevolucaoNotasView, getUnifiedFiscalDevolucaoCounts } from './DevolucaoNotasView';
 import { MdfeRecord, getStoredMdfe, saveStoredMdfe } from './MdfeView';
 import { ManifestacaoDestinatarioView, getStoredManifestacoes } from './ManifestacaoDestinatarioView';
+import { ContadorClosingModal } from './ContadorClosingModal';
+import {
+  AccountingDocItem,
+  buildFiscalXmlStorageKey,
+  classifyEntryEnviarContador,
+  classifySaidaEnviarContador,
+  saveRawFiscalXml,
+} from '../../lib/accountingExport';
 
 interface ParsedNfeItem {
   code: string;
   description: string;
   ncm: string;
+  cfop?: string;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -316,6 +327,9 @@ interface ParsedNfeData {
   categoriaPrioritaria?: string;   // Alias em português
   costCenterId?: string;
   costCenterName?: string;
+  cfop?: string;
+  enviarContador?: boolean;
+  enviarContadorMotivo?: string;
   items?: ParsedNfeItem[];
 }
 
@@ -1903,8 +1917,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [manualVehicleId, setManualVehicleId] = useState<string>('');
   const [manualAmountDisplay, setManualAmountDisplay] = useState('');
   const [manualNotes, setManualNotes] = useState('');
+  const [manualEnviarContador, setManualEnviarContador] = useState<boolean>(false);
   const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
+  const [isContadorClosingModalOpen, setIsContadorClosingModalOpen] = useState(false);
 
   // Frota / Máquinas para vínculo opcional com DRE da Frota e Remessa / Retorno
   const loadAvailableVehicles = useCallback((): Machinery[] => {
@@ -2007,6 +2023,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [saidaValorDisplay, setSaidaValorDisplay] = useState('');
   const [saidaCondicaoPagamento, setSaidaCondicaoPagamento] = useState('Boleto Bancário');
   const [saidaLancarContasReceber, setSaidaLancarContasReceber] = useState(false);
+  const [saidaEnviarContador, setSaidaEnviarContador] = useState(true);
   const [saidaFormError, setSaidaFormError] = useState('');
   const [notaSaidaTab, setNotaSaidaTab] = useState<1 | 2 | 3>(1);
   const [selectedRefNotaMeta, setSelectedRefNotaMeta] = useState<{
@@ -2455,6 +2472,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setSaidaValorDisplay('');
     setSaidaCondicaoPagamento('Boleto Bancário');
     setSaidaLancarContasReceber(false); // Desmarcado por padrão
+    setSaidaEnviarContador(true);
     setIsInformacoesComplementaresManual(false);
     setSaidaInformacoesComplementares(
       buildDefaultInformacoesComplementares({ tipoDocumento: defaultTipo })
@@ -2572,6 +2590,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setSaidaDescricao('');
       setSaidaCondicaoPagamento(payload.condicaoPagamento || 'Boleto Bancário');
       setSaidaLancarContasReceber(false); // Desmarcado por padrão (título financeiro já gerado no faturamento)
+      setSaidaEnviarContador(true);
 
       setIsInformacoesComplementaresManual(false);
       setSaidaInformacoesComplementares(
@@ -2649,6 +2668,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setSaidaValorDisplay(nota.valorTotal ? formatCurrencyInputDisplay(nota.valorTotal) : '');
     setSaidaCondicaoPagamento(nota.condicaoPagamento || 'Boleto Bancário');
     setSaidaLancarContasReceber(Boolean(nota.lancarContasReceber));
+    setSaidaEnviarContador(
+      typeof nota.enviarContador === 'boolean'
+        ? nota.enviarContador
+        : classifySaidaEnviarContador({ tipoDocumento: normalizedTipoEdit }).enviarContador
+    );
 
     // NFS-e
     const editNfseCodigo = nota.nfseCodigoServico || '17.05';
@@ -3284,6 +3308,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   const handleSaidaTipoDocumentoChange = (newTipo: TipoDocumentoSaida) => {
     setSaidaTipoDocumento(newTipo);
+    setSaidaEnviarContador(classifySaidaEnviarContador({ tipoDocumento: newTipo }).enviarContador);
     if (!newTipo.includes('Retorno') && !newTipo.includes('Remessa')) {
       setSelectedRefNotaMeta(null);
     }
@@ -4102,6 +4127,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       informacoesComplementares: saidaInformacoesComplementares.trim() || undefined,
       reservadoFisco: saidaReservadoFisco.trim() || undefined,
+      enviarContador: saidaEnviarContador,
+      enviarContadorMotivo: classifySaidaEnviarContador({
+        tipoDocumento: saidaTipoDocumento,
+        explicitFlag: saidaEnviarContador,
+      }).reason,
 
       createdAt: editingNotaSaida?.createdAt || nowIso,
       updatedAt: nowIso,
@@ -4480,6 +4510,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setManualVehicleId('');
     setManualAmountDisplay('');
     setManualNotes('');
+    setManualEnviarContador(
+      classifyEntryEnviarContador({
+        documentType: defaultType,
+        companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+      }).enviarContador
+    );
     setManualFormError('');
     setManualDocItems([]);
     setItemSearchQuery('');
@@ -4506,6 +4542,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setManualVehicleId(doc.machineryId || doc.vehicleId || '');
     setManualAmountDisplay(doc.valor_total ? formatCurrencyInputDisplay(doc.valor_total) : '');
     setManualNotes(doc.observacoes || '');
+    setManualEnviarContador(
+      typeof doc.enviarContador === 'boolean'
+        ? doc.enviarContador
+        : classifyEntryEnviarContador({
+            documentType: rawType,
+            recipientCnpj: doc.destinatario_cnpj,
+            companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+          }).enviarContador
+    );
     setManualFormError('');
     setItemSearchQuery('');
     setSelectedProduct(null);
@@ -4565,6 +4610,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setManualDueDate(order.expectedReturnDate || calculateDefaultDueDate(today));
     setManualAmountDisplay(formatCurrencyInputDisplay(orderSum));
     setManualNotes(`Retorno do Pedido de Reforma ${order.orderNumber} - ${order.supplierName}`);
+    setManualEnviarContador(false);
     setManualFormError('');
 
     const newDocId = `doc_retorno_${order.id}_${Date.now()}`;
@@ -4576,6 +4622,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       tipo_documento: 'NOTA',
       valor_total: orderSum,
       observacoes: `Retorno do Pedido de Reforma ${order.orderNumber} - ${order.supplierName}`,
+      enviarContador: false,
       status: 'Rascunho'
     };
     setCurrentManualDoc(newDoc);
@@ -4750,9 +4797,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     const targetDueDate = manualDueDate || calculateDefaultDueDate(manualDate);
     const linkedVehicle = availableVehicles.find(v => v.id === manualVehicleId);
+    const manualClass = classifyEntryEnviarContador({
+      documentType: manualDocumentType,
+      companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+      explicitFlag: manualEnviarContador,
+    });
     const vehicleFields: Partial<DocumentoEntradaRecord> = {
       condicao_pagamento: manualPaymentCondition,
       parcelas_qtd: manualInstallmentsCount,
+      enviarContador: manualEnviarContador,
+      enviarContadorMotivo: manualClass.reason,
       machineryId: linkedVehicle?.id || undefined,
       machineryName: linkedVehicle ? `${linkedVehicle.model}${linkedVehicle.licensePlateOrSerial ? ` (${linkedVehicle.licensePlateOrSerial})` : ''}` : undefined,
       vehicleId: linkedVehicle?.id || undefined,
@@ -4852,9 +4906,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const finalAmount = parsedAmount > 0 ? parsedAmount : itemsTotal;
     const targetDueDate = manualDueDate || calculateDefaultDueDate(manualDate);
     const linkedVehicle = availableVehicles.find(v => v.id === manualVehicleId);
+    const manualDraftClass = classifyEntryEnviarContador({
+      documentType: manualDocumentType,
+      companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+      explicitFlag: manualEnviarContador,
+    });
     const vehicleFields: Partial<DocumentoEntradaRecord> = {
       condicao_pagamento: manualPaymentCondition,
       parcelas_qtd: manualInstallmentsCount,
+      enviarContador: manualEnviarContador,
+      enviarContadorMotivo: manualDraftClass.reason,
       machineryId: linkedVehicle?.id || undefined,
       machineryName: linkedVehicle ? `${linkedVehicle.model}${linkedVehicle.licensePlateOrSerial ? ` (${linkedVehicle.licensePlateOrSerial})` : ''}` : undefined,
       vehicleId: linkedVehicle?.id || undefined,
@@ -5479,9 +5540,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const vehicleLabel = linkedVehicle
       ? `${linkedVehicle.model}${linkedVehicle.licensePlateOrSerial ? ` (${linkedVehicle.licensePlateOrSerial})` : ''}`
       : undefined;
+    const manualFinalClass = classifyEntryEnviarContador({
+      documentType: manualDocumentType,
+      companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+      explicitFlag: manualEnviarContador,
+    });
     const vehicleFields: Partial<DocumentoEntradaRecord> = {
       condicao_pagamento: detailedInstallments[0]?.paymentMethodLabel?.replace(/^\d+\s*-\s*/, '') || manualPaymentCondition,
       parcelas_qtd: totalParcs,
+      enviarContador: manualEnviarContador,
+      enviarContadorMotivo: manualFinalClass.reason,
       machineryId: linkedVehicle?.id || undefined,
       machineryName: vehicleLabel,
       vehicleId: linkedVehicle?.id || undefined,
@@ -7666,6 +7734,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           code: getTag(prod, 'cProd') || String(index + 1),
           description: itemDesc,
           ncm: getTag(prod, 'NCM') || '',
+          cfop: getTag(prod, 'CFOP') || '',
           quantity: qCom,
           unit: (getTag(prod, 'uCom') || getTag(prod, 'uTrib') || 'UN').toUpperCase(),
           unitPrice: custoComImpostoRound,
@@ -7725,6 +7794,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         deducedPriorityCategory = items[0].categoria;
       }
 
+      const primaryCfop = items.find((i) => i.cfop)?.cfop || '';
+      const xmlClass = classifyEntryEnviarContador({
+        documentType: 'NF-e',
+        recipientCnpj: recipientCnpj || '',
+        companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+        isXml: true,
+      });
+
       return {
         accessKey,
         invoiceNumber,
@@ -7758,6 +7835,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         categoriaPrioritaria: deducedPriorityCategory,
         operationNature: natOp || undefined,
         transactionType: initialTransactionType || undefined,
+        cfop: primaryCfop || undefined,
+        enviarContador: xmlClass.enviarContador,
+        enviarContadorMotivo: xmlClass.reason,
         items
       };
     } catch (error) {
@@ -9129,6 +9209,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       saveStoredExpenses(expensesCleaned);
     }
 
+    const xmlAutoClassNonFin = classifyEntryEnviarContador({
+      documentType: 'NF-e',
+      recipientCnpj: parsedData.recipientCnpj,
+      companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+      isXml: true,
+      explicitFlag: parsedData.enviarContador,
+    });
+    const xmlStorageKeyNonFin = xmlContent ? buildFiscalXmlStorageKey(fiscalRecordId) : undefined;
+    if (xmlContent) {
+      void saveRawFiscalXml(fiscalRecordId, xmlContent);
+      if (parsedData.accessKey) {
+        void saveRawFiscalXml(parsedData.accessKey, xmlContent);
+      }
+    }
+
     // UNICIDADE DO REGISTRO FISCAL CONSOLIDADO
     const singleFiscalRecord: Expense = {
       id: fiscalRecordId,
@@ -9139,6 +9234,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         : `${parsedData.transactionType || 'Entrada Sem Custo'} ${cleanInvoiceNumber} - ${parsedData.supplier}`,
       amount: Number(parsedData.totalAmount) || 0,
       dueDate: parsedData.dueDate || parsedData.issueDate,
+      issueDate: parsedData.issueDate,
+      accessKey: parsedData.accessKey || undefined,
+      recipientCnpj: parsedData.recipientCnpj || undefined,
+      destinatarioCnpj: parsedData.recipientCnpj || undefined,
+      cfop: parsedData.cfop || undefined,
+      xmlStorageKey: xmlStorageKeyNonFin,
+      enviarContador: xmlAutoClassNonFin.enviarContador,
+      enviarContadorMotivo: xmlAutoClassNonFin.reason,
       status: 'pago' as const,
       categoryId: 'cat_insumos',
       categoryName: isDevolucao ? 'Devolução de Cliente' : 'Entrada sem Custo (Estoque)',
@@ -9646,6 +9749,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 2. UNICIDADE DO REGISTRO FISCAL: Salva rigorosamente 1 ÚNICA LINHA no Histórico de Notas Fiscais Lançadas
     // Exibindo o VALOR TOTAL BRUTO CONSOLIDADO da NF-e (ex: R$ 600,00 ou R$ 44.365,25)
 
+    const xmlAutoClassFin = classifyEntryEnviarContador({
+      documentType: 'NF-e',
+      recipientCnpj: parsedData.recipientCnpj,
+      companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+      isXml: true,
+      explicitFlag: parsedData.enviarContador,
+    });
+    const xmlStorageKeyFin = xmlContent ? buildFiscalXmlStorageKey(fiscalRecordId) : undefined;
+    if (xmlContent) {
+      void saveRawFiscalXml(fiscalRecordId, xmlContent);
+      if (parsedData.accessKey) {
+        void saveRawFiscalXml(parsedData.accessKey, xmlContent);
+      }
+    }
+
     const singleFiscalRecord: Expense = {
       id: fiscalRecordId,
       invoiceNumber: cleanInvoiceNumber,
@@ -9656,6 +9774,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       dueDate: dueDateFinal,
       issueDate: issueDateFinal,
       entryDate: entryDateFinal,
+      accessKey: parsedData.accessKey || undefined,
+      recipientCnpj: parsedData.recipientCnpj || undefined,
+      destinatarioCnpj: parsedData.recipientCnpj || undefined,
+      cfop: parsedData.cfop || undefined,
+      xmlStorageKey: xmlStorageKeyFin,
+      enviarContador: xmlAutoClassFin.enviarContador,
+      enviarContadorMotivo: xmlAutoClassFin.reason,
       status: 'pendente' as const,
       categoryId: catId,
       categoryName: catName,
@@ -9690,6 +9815,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       fornecedor: parsedData.supplier,
       fornecedor_nome: parsedData.supplier,
       fornecedor_cnpj: parsedData.supplierCnpj || undefined,
+      destinatario_cnpj: parsedData.recipientCnpj || undefined,
+      cfop: parsedData.cfop || undefined,
+      xmlStorageKey: xmlStorageKeyFin,
+      enviarContador: xmlAutoClassFin.enviarContador,
+      enviarContadorMotivo: xmlAutoClassFin.reason,
       data: issueDateFinal,
       data_entrada: entryDateFinal,
       data_emissao: issueDateFinal,
@@ -10182,6 +10312,105 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setErrorMessage('');
   };
 
+  // Alterna rapidamente se um documento entra ou não no pacote do Contador e persiste em Storage
+  const handleToggleEnviarContador = (target: {
+    id: string;
+    sourceType: 'xml' | 'manual' | 'legacy_fiscal' | 'mdfe' | 'nota_saida';
+    rawExpense?: Expense;
+    rawManualDoc?: DocumentoEntradaRecord;
+    rawLegacyFiscalDoc?: FiscalDocumentRecord;
+    rawMdfeDoc?: MdfeRecord;
+    rawNotaSaida?: NotaSaidaRecord;
+    nextValue: boolean;
+  }) => {
+    const motivo = target.nextValue
+      ? 'Incluído no fechamento contábil'
+      : 'Marcado manualmente como Controle Interno / Não Fiscal';
+
+    if (target.sourceType === 'nota_saida' && target.rawNotaSaida) {
+      const updatedNota: NotaSaidaRecord = {
+        ...target.rawNotaSaida,
+        enviarContador: target.nextValue,
+        enviarContadorMotivo: motivo,
+        updatedAt: new Date().toISOString(),
+      };
+      saveLocalNotaSaida(updatedNota);
+      setNotasSaida(getStoredNotasSaida());
+      return;
+    }
+
+    if (target.sourceType === 'xml' || target.rawExpense) {
+      const expId = target.rawExpense?.id || target.id;
+      const storedFiscal = getStoredFiscalRecords();
+      const updatedFiscal = storedFiscal.map((f) =>
+        f.id === expId ? { ...f, enviarContador: target.nextValue, enviarContadorMotivo: motivo } : f
+      );
+      saveStoredFiscalRecords(updatedFiscal);
+      setNotasLancadas((prev) =>
+        prev.map((f) =>
+          f.id === expId ? { ...f, enviarContador: target.nextValue, enviarContadorMotivo: motivo } : f
+        )
+      );
+      // Também sincroniza espelho em documentosEntrada se existir mesmo ID
+      const storedDocs = getStoredDocumentosEntrada();
+      if (storedDocs.some((d) => d.id === expId)) {
+        const updatedDocs = storedDocs.map((d) =>
+          d.id === expId ? { ...d, enviarContador: target.nextValue, enviarContadorMotivo: motivo } : d
+        );
+        saveStoredDocumentosEntrada(updatedDocs);
+        setDocumentosEntrada(updatedDocs);
+      }
+      return;
+    }
+
+    if (target.sourceType === 'manual' || target.rawManualDoc) {
+      const docId = target.rawManualDoc?.id || target.id;
+      const storedDocs = getStoredDocumentosEntrada();
+      const updatedDocs = storedDocs.map((d) =>
+        d.id === docId ? { ...d, enviarContador: target.nextValue, enviarContadorMotivo: motivo } : d
+      );
+      saveStoredDocumentosEntrada(updatedDocs);
+      setDocumentosEntrada(updatedDocs);
+      return;
+    }
+
+    if (target.sourceType === 'legacy_fiscal' || target.rawLegacyFiscalDoc) {
+      const legId = target.rawLegacyFiscalDoc?.id || target.id;
+      const keys = [
+        FISCAL_DOCS_STORAGE_KEYS.nfe,
+        FISCAL_DOCS_STORAGE_KEYS.cte,
+        FISCAL_DOCS_STORAGE_KEYS.nfe_c,
+        FISCAL_DOCS_STORAGE_KEYS.nfse,
+      ];
+      for (const k of keys) {
+        try {
+          const raw = localStorage.getItem(k);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) continue;
+          if (parsed.some((r: any) => r && r.id === legId)) {
+            const nextArr = parsed.map((r: any) =>
+              r && r.id === legId ? { ...r, enviarContador: target.nextValue, enviarContadorMotivo: motivo } : r
+            );
+            localStorage.setItem(k, JSON.stringify(nextArr));
+          }
+        } catch {}
+      }
+      setLegacyFiscalDocs(readLegacyFiscalDocsFromStorage());
+      return;
+    }
+
+    if (target.sourceType === 'mdfe' || target.rawMdfeDoc) {
+      const mdId = target.rawMdfeDoc?.id || target.id;
+      const storedMdfe = getStoredMdfe();
+      const updatedMdfe = storedMdfe.map((m) =>
+        m.id === mdId ? ({ ...m, enviarContador: target.nextValue, enviarContadorMotivo: motivo } as MdfeRecord) : m
+      );
+      saveStoredMdfe(updatedMdfe);
+      setMdfeDocs(updatedMdfe);
+    }
+  };
+
   return (
     <div id="nfe-module" className="w-full max-w-none flex-1 min-h-0 flex flex-col">
       
@@ -10242,6 +10471,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           >
             <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ LANÇAR NOTA DE SAÍDA</span>
+          </button>
+
+          <button
+            type="button"
+            id="btn-fechamento-envio-contador-topo"
+            onClick={() => setIsContadorClosingModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold rounded-lg border border-indigo-400/80 dark:bg-indigo-700 dark:hover:bg-indigo-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap uppercase tracking-wide"
+            title="Abrir central de Fechamento Fiscal Mensal e Exportação de XMLs para o Contador"
+          >
+            <FileArchive className="w-3.5 h-3.5" />
+            <span>📦 Fechamento &amp; Envio ao Contador</span>
           </button>
         </div>
       </header>
@@ -10826,6 +11066,65 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {/* Classificação Contábil Automática (Envio ao Contador) - XML */}
+                  {(() => {
+                    const xmlClassPreview = classifyEntryEnviarContador({
+                      documentType: 'NF-e',
+                      recipientCnpj: parsedData.recipientCnpj,
+                      companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+                      isXml: true,
+                      explicitFlag: parsedData.enviarContador,
+                    });
+                    const checked = xmlClassPreview.enviarContador;
+                    return (
+                      <label
+                        htmlFor="xml-enviar-contador-checkbox"
+                        className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border cursor-pointer transition ${
+                          checked
+                            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700'
+                            : 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 dark:border-amber-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            id="xml-enviar-contador-checkbox"
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const nextChecked = e.target.checked;
+                              setParsedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      enviarContador: nextChecked,
+                                      enviarContadorMotivo: nextChecked
+                                        ? 'Fiscal CNPJ da Empresa — Vai ao Contador'
+                                        : 'Apenas Controle Interno (Desmarcado manualmente)',
+                                    }
+                                  : prev
+                              );
+                            }}
+                            className="w-4 h-4 accent-emerald-700 rounded cursor-pointer shrink-0"
+                          />
+                          <span className="text-xs font-black uppercase text-zinc-900 dark:text-stone-100">
+                            📋 Incluir no Fechamento Contábil (Enviar XML ao Contador)
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[11px] font-black px-2.5 py-0.5 rounded-md border ${
+                            checked
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-400'
+                              : 'bg-amber-100 text-amber-950 border-amber-400'
+                          }`}
+                        >
+                          {checked
+                            ? '✅ Fiscal CNPJ da Empresa — Vai ao Contador'
+                            : '⚠️ Apenas Controle Interno (Não irá no pacote do Contador — CNPJ divergente ou documento não fiscal)'}
+                        </span>
+                      </label>
+                    );
+                  })()}
 
                   {/* Tarja Informativa Reativa do Tipo de Transação Selecionado */}
                   {parsedData.transactionType && (
@@ -11757,6 +12056,74 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               {(entry.documentType || 'MANUAL').toUpperCase()} / {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
                             </span>
                           )}
+
+                          {/* 1B. Badge Clicável Rápido de Envio ao Contador */}
+                          {(() => {
+                            const compCnpj = (companyProfile || getStoredCompanyProfile())?.cnpjCpf;
+                            const isVaiContador = rawNotaSaida
+                              ? classifySaidaEnviarContador({
+                                  tipoDocumento: rawNotaSaida.tipoDocumento,
+                                  explicitFlag: rawNotaSaida.enviarContador,
+                                }).enviarContador
+                              : entry.rawExpense
+                                ? classifyEntryEnviarContador({
+                                    documentType: 'NF-e',
+                                    recipientCnpj: entry.rawExpense.recipientCnpj || entry.rawExpense.destinatarioCnpj,
+                                    companyCnpj: compCnpj,
+                                    isXml: true,
+                                    explicitFlag: entry.rawExpense.enviarContador,
+                                  }).enviarContador
+                                : entry.rawManualDoc
+                                  ? classifyEntryEnviarContador({
+                                      documentType: entry.rawManualDoc.tipo_documento,
+                                      recipientCnpj: entry.rawManualDoc.destinatario_cnpj,
+                                      companyCnpj: compCnpj,
+                                      isXml: false,
+                                      explicitFlag: entry.rawManualDoc.enviarContador,
+                                    }).enviarContador
+                                  : entry.rawLegacyFiscalDoc
+                                    ? classifyEntryEnviarContador({
+                                        documentType: entry.rawLegacyFiscalDoc.documentTypeLabel || entry.rawLegacyFiscalDoc.category,
+                                        companyCnpj: compCnpj,
+                                        isXml: false,
+                                        explicitFlag: entry.rawLegacyFiscalDoc.enviarContador,
+                                      }).enviarContador
+                                    : classifySaidaEnviarContador({
+                                        tipoDocumento: 'MDF-e',
+                                        explicitFlag: (entry.rawMdfeDoc as any)?.enviarContador,
+                                      }).enviarContador;
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleEnviarContador({
+                                    id: entry.id,
+                                    sourceType: entry.sourceType,
+                                    rawExpense: entry.rawExpense,
+                                    rawManualDoc: entry.rawManualDoc,
+                                    rawLegacyFiscalDoc: entry.rawLegacyFiscalDoc,
+                                    rawMdfeDoc: entry.rawMdfeDoc,
+                                    rawNotaSaida,
+                                    nextValue: !isVaiContador,
+                                  });
+                                }}
+                                className={`h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9.5px] font-black uppercase tracking-wide shrink-0 cursor-pointer transition whitespace-nowrap ${
+                                  isVaiContador
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-400'
+                                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400'
+                                }`}
+                                title={
+                                  isVaiContador
+                                    ? 'Documento incluído no pacote do Contador. Clique para alterar para Controle Interno.'
+                                    : 'Documento apenas de Controle Interno / Não Fiscal. Clique para incluir no pacote do Contador.'
+                                }
+                              >
+                                <span>{isVaiContador ? '📤 Contador' : '🔒 Interno / Não Fiscal'}</span>
+                              </button>
+                            );
+                          })()}
 
                           {/* 2. Ações de Transmissão / Edição conforme Status SEFAZ */}
                           {rawNotaSaida ? (
@@ -12775,7 +13142,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           if (e.target.value === '__manage__') {
                             setIsManageDocTypesModalOpen(true);
                           } else {
-                            setManualDocumentType(e.target.value as TipoDocumentoEntrada);
+                            const nextType = e.target.value as TipoDocumentoEntrada;
+                            setManualDocumentType(nextType);
+                            setManualEnviarContador(
+                              classifyEntryEnviarContador({
+                                documentType: nextType,
+                                companyCnpj: (companyProfile || getStoredCompanyProfile())?.cnpjCpf,
+                              }).enviarContador
+                            );
                           }
                         }}
                         className="flex-1 px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase shadow-2xs cursor-pointer"
@@ -12854,6 +13228,40 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </span>
                     )}
                   </div>
+
+                  {/* Checkbox Classificação Contábil (Entrada Manual) */}
+                  <label
+                    htmlFor="manual-enviar-contador-checkbox"
+                    className={`flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border cursor-pointer transition ${
+                      manualEnviarContador
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500'
+                        : 'bg-amber-50 dark:bg-amber-950/30 border-amber-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="manual-enviar-contador-checkbox"
+                        type="checkbox"
+                        checked={manualEnviarContador}
+                        onChange={(e) => setManualEnviarContador(e.target.checked)}
+                        className="w-4 h-4 accent-emerald-700 rounded cursor-pointer shrink-0"
+                      />
+                      <span className="text-[11px] font-black uppercase text-black dark:text-stone-100">
+                        📋 Incluir no Fechamento Contábil (Enviar XML ao Contador)
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-black px-2 py-0.5 rounded border ${
+                        manualEnviarContador
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-400'
+                          : 'bg-amber-100 text-amber-950 border-amber-400'
+                      }`}
+                    >
+                      {manualEnviarContador
+                        ? '✅ Fiscal CNPJ da Empresa — Vai ao Contador'
+                        : '⚠️ Apenas Controle Interno (Não irá no pacote do Contador — CNPJ divergente ou documento não fiscal)'}
+                    </span>
+                  </label>
                     </div>
                   </div>
 
@@ -14318,6 +14726,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <option value="CT-e (Conhecimento de Transporte / Frete)">CT-e (CONHECIMENTO DE TRANSPORTE / FRETE)</option>
                         <option value="NFC-e (Consumidor)">NFC-e (CONSUMIDOR FINAL)</option>
                         <option value="MDF-e (Manifesto)">MDF-e (MANIFESTO ELETRÔNICO DE DOCUMENTOS)</option>
+                        <option value="Recibo / Não Fiscal / Interno">RECIBO / NÃO FISCAL / INTERNO</option>
                       </select>
                     </div>
 
@@ -14845,6 +15254,40 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Checkbox Classificação Contábil (Nota de Saída) */}
+                  <label
+                    htmlFor="saida-enviar-contador-checkbox"
+                    className={`flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg border cursor-pointer transition ${
+                      saidaEnviarContador
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500'
+                        : 'bg-amber-50 dark:bg-amber-950/30 border-amber-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="saida-enviar-contador-checkbox"
+                        type="checkbox"
+                        checked={saidaEnviarContador}
+                        onChange={(e) => setSaidaEnviarContador(e.target.checked)}
+                        className="w-4 h-4 accent-emerald-700 rounded cursor-pointer shrink-0"
+                      />
+                      <span className="text-[11px] font-black uppercase text-black dark:text-stone-100">
+                        📋 Incluir no Fechamento Contábil (Enviar XML ao Contador)
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-black px-2 py-0.5 rounded border ${
+                        saidaEnviarContador
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-400'
+                          : 'bg-amber-100 text-amber-950 border-amber-400'
+                      }`}
+                    >
+                      {saidaEnviarContador
+                        ? '✅ Fiscal CNPJ da Empresa — Vai ao Contador'
+                        : '⚠️ Apenas Controle Interno (Não irá no pacote do Contador — CNPJ divergente ou documento não fiscal)'}
+                    </span>
+                  </label>
                 </div>
                 )}
 
@@ -17273,6 +17716,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         }}
         onPrintAuthorized={(notaAutorizada) => {
           handlePrintNotaSaida(notaAutorizada);
+        }}
+      />
+
+      <ContadorClosingModal
+        isOpen={isContadorClosingModalOpen}
+        onClose={() => setIsContadorClosingModalOpen(false)}
+        initialCompetence={fiscalCompetence}
+        companyProfile={companyProfile || getStoredCompanyProfile()}
+        notasFiscaisExibicao={notasFiscaisExibicao}
+        documentosEntrada={documentosEntrada}
+        legacyFiscalDocs={legacyFiscalDocs}
+        mdfeDocs={mdfeDocs}
+        notasSaida={notasSaida}
+        onToggleDocEnviarContador={(doc: AccountingDocItem, nextVal: boolean) => {
+          const sourceMap: Record<AccountingDocItem['sourceKind'], 'xml' | 'manual' | 'legacy_fiscal' | 'mdfe' | 'nota_saida'> = {
+            xml_expense: 'xml',
+            manual_doc: 'manual',
+            legacy_fiscal: 'legacy_fiscal',
+            mdfe: 'mdfe',
+            nota_saida: 'nota_saida',
+          };
+          handleToggleEnviarContador({
+            id: doc.id,
+            sourceType: sourceMap[doc.sourceKind],
+            rawExpense: doc.rawExpense,
+            rawManualDoc: doc.rawManualDoc,
+            rawLegacyFiscalDoc: doc.rawLegacyFiscalDoc,
+            rawMdfeDoc: doc.rawMdfeDoc,
+            rawNotaSaida: doc.rawNotaSaida,
+            nextValue: nextVal,
+          });
         }}
       />
 

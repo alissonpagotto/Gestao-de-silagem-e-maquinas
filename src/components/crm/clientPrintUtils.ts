@@ -5,6 +5,7 @@ import {
   getStoredCompanyProfile,
 } from '../../lib/storage';
 import { COMPANY_LOGO_REF, resolveMediaUrlAsync } from '../../lib/imageStorage';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml } from '../../lib/printIdentity';
 
 function escapeHtml(raw?: string | number | null): string {
   return String(raw ?? '')
@@ -27,33 +28,19 @@ function formatBirthDateBR(raw?: string): string {
 
 async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | null) {
   const company = companyProfile || getStoredCompanyProfile();
+  const header = resolveSubscriberPrintHeader(company);
   const logoDataUrl =
-    (await resolveMediaUrlAsync(company?.logoUrl)) ||
+    (await resolveMediaUrlAsync(header.logoUrl || company?.logoUrl)) ||
     (await resolveMediaUrlAsync(COMPANY_LOGO_REF)) ||
     '';
 
-  const corporateName =
-    company?.corporateName || company?.name || company?.companyName || 'AGROCONTROL';
-  const tradeName = company?.tradeName || corporateName;
-  const cnpj = company?.cnpjCpf || company?.cnpj || '';
-  const phone = company?.phone || '';
-  const email = company?.email || '';
-  const addressParts = [
-    company?.address,
-    company?.number ? `nº ${company.number}` : '',
-    company?.neighborhood ? `Bairro ${company.neighborhood}` : '',
-    company?.city ? `${company.city}${company?.state ? `/${company.state}` : ''}` : company?.state || '',
-    company?.zipCode ? `CEP ${company.zipCode}` : '',
-  ].filter(Boolean);
-  const fullAddress = addressParts.join(' • ');
-
   return {
-    corporateName,
-    tradeName,
-    cnpj,
-    phone,
-    email,
-    fullAddress,
+    corporateName: header.corporateName || header.displayTitle,
+    tradeName: header.displayTitle,
+    cnpj: header.cnpjCpf,
+    phone: header.phone,
+    email: header.email,
+    fullAddress: header.fullAddress,
     logoDataUrl,
   };
 }
@@ -348,10 +335,10 @@ export async function printClientRegistrationA4(
       <div class="header-left">
         ${logoBlock}
         <div class="company-info">
-          <h1>${escapeHtml(corporateName)}</h1>
+          <h1>${escapeHtml(tradeName)}</h1>
           ${
-            tradeName && tradeName.toLowerCase() !== corporateName.toLowerCase()
-              ? `<div class="trade">${escapeHtml(tradeName)}</div>`
+            corporateName && corporateName.toLowerCase() !== tradeName.toLowerCase()
+              ? `<div class="trade">${escapeHtml(corporateName)}</div>`
               : ''
           }
           <div class="meta">
@@ -545,10 +532,7 @@ export async function printClientRegistrationA4(
     </div>
 
     <!-- Rodapé -->
-    <div class="footer-meta">
-      <span>Documento emitido em ${escapeHtml(emitidoEm)}</span>
-      <span>${escapeHtml(corporateName)} — Ficha Cadastral do Cliente</span>
-    </div>
+    ${buildSystemPrintFooterHtml({ extraRight: `${tradeName} — Ficha Cadastral do Cliente` })}
   </div>
 
   <script>

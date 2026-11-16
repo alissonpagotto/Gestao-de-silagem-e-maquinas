@@ -47,6 +47,7 @@ import {
   STORAGE_KEYS
 } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 export interface TireReformOrder {
   id: string;
@@ -2098,28 +2099,33 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                     <Building2 className="w-7 h-7 stroke-[2]" />
                   </div>
                 )}
-                <div>
-                  <h1 className="text-lg font-black text-stone-950 uppercase tracking-tight">
-                    {(company.tradeName || 'COLAÇA SILAGEM LTDA').toUpperCase()}
-                  </h1>
-                  {company.corporateName && company.corporateName !== company.tradeName && (
-                    <p className="text-[11px] font-semibold text-stone-700 uppercase">
-                      {company.corporateName.toUpperCase()}
-                    </p>
-                  )}
-                  <div className="text-[10px] text-stone-500 font-medium space-x-1.5 mt-0.5 uppercase">
-                    {company.cnpj && <span>CNPJ: <strong className="font-mono text-stone-700">{company.cnpj}</strong></span>}
-                    {company.phone && <span>• TEL: {company.phone}</span>}
-                    {(company.city || company.state) && (
-                      <span>• {[company.city, company.state].filter(Boolean).join(' / ').toUpperCase()}</span>
-                    )}
-                  </div>
-                  {company.address && (
-                    <div className="text-[10px] text-stone-400 mt-0.5 uppercase">
-                      {company.address.toUpperCase()}{company.number ? `, Nº ${company.number}` : ''}
+                {(() => {
+                  const sub = resolveSubscriberPrintHeader(company);
+                  return (
+                    <div>
+                      <h1 className="text-lg font-black text-stone-950 uppercase tracking-tight">
+                        {sub.displayTitle.toUpperCase()}
+                      </h1>
+                      {sub.corporateName && sub.corporateName.toUpperCase() !== sub.displayTitle.toUpperCase() && (
+                        <p className="text-[11px] font-semibold text-stone-700 uppercase">
+                          {sub.corporateName.toUpperCase()}
+                        </p>
+                      )}
+                      <div className="text-[10px] text-stone-500 font-medium space-x-1.5 mt-0.5 uppercase">
+                        {sub.cnpjCpf && <span>CNPJ/CPF: <strong className="font-mono text-stone-700">{sub.cnpjCpf}</strong></span>}
+                        {sub.phone && <span>• TEL: {sub.phone}</span>}
+                        {sub.cityState && (
+                          <span>• {sub.cityState.toUpperCase()}</span>
+                        )}
+                      </div>
+                      {sub.fullAddress && (
+                        <div className="text-[10px] text-stone-400 mt-0.5 uppercase">
+                          {sub.fullAddress.toUpperCase()}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
 
               {/* Título da Ordem & Número do Pedido */}
@@ -2264,9 +2270,9 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             </div>
 
             {/* Rodapé institucional */}
-            <div className="mt-6 pt-2 border-t border-stone-200 flex items-center justify-between text-[9px] text-stone-400 uppercase">
-              <span>DOCUMENTO GERADO AUTOMATICAMENTE PELO SISTEMA AGROCONTROL • COLAÇA SILAGEM</span>
-              <span>EMISSÃO: {new Date().toLocaleDateString('pt-BR')} ÀS {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • FOLHA 1 DE 1</span>
+            <div className="mt-6 pt-2 border-t border-stone-200 flex items-center justify-between text-[9px] text-gray-700 normal-case">
+              <span>{buildSystemPrintFooterText()}</span>
+              <span className="uppercase">Folha 1 de 1</span>
             </div>
           </div>
 

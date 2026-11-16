@@ -26,12 +26,13 @@ import {
 import { formatDateBR } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { formatPhone, cleanDigits } from '../../lib/formatters';
-import { 
-  generatePdfFromElement, 
-  downloadPdfBlob, 
-  canShareFilesNatively, 
-  sharePdfNatively 
+import {
+  generatePdfFromElement,
+  downloadPdfBlob,
+  canShareFilesNatively,
+  sharePdfNatively
 } from '../../lib/pdfGenerator';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -178,16 +179,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const dateFormatted = formatDateBR(now.toISOString().split('T')[0]);
   const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-  const fullAddress = [
-    company.address,
-    company.number ? `nº ${company.number}` : '',
-    company.neighborhood ? `- ${company.neighborhood}` : '',
-    company.city ? `${company.city}` : '',
-    company.state ? `/${company.state}` : '',
-    company.zipCode ? `- CEP: ${company.zipCode}` : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const subscriberIdentity = resolveSubscriberPrintHeader(company);
+  const fullAddress = subscriberIdentity.fullAddress;
 
   const defaultPdfFilename = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
@@ -294,18 +287,19 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
               <div className="flex-1 min-w-0">
                 <h4 className="text-base font-black text-[#0963cb] uppercase tracking-tight font-['Outfit']">
-                  {company.tradeName || 'Silagem Fácil'}
+                  {subscriberIdentity.displayTitle}
                 </h4>
-                {company.corporateName && company.corporateName !== company.tradeName && (
-                  <p className="text-[11px] text-stone-600 font-semibold">
-                    Razão Social: {company.corporateName}
-                  </p>
-                )}
+                {subscriberIdentity.corporateName &&
+                  subscriberIdentity.corporateName.toUpperCase() !== subscriberIdentity.displayTitle.toUpperCase() && (
+                    <p className="text-[11px] text-stone-600 font-semibold">
+                      Razão Social: {subscriberIdentity.corporateName}
+                    </p>
+                  )}
                 <div className="text-[10px] text-stone-500 leading-relaxed mt-0.5">
-                  {company.cnpjCpf && <span><strong>CNPJ:</strong> {company.cnpjCpf} </span>}
-                  {company.stateRegistration && <span> | <strong>IE:</strong> {company.stateRegistration} </span>}
-                  {company.phone && <span> | <strong>Tel:</strong> {company.phone}</span>}
-                  {company.email && <div><strong>E-mail:</strong> {company.email}</div>}
+                  {subscriberIdentity.cnpjCpf && <span><strong>CNPJ/CPF:</strong> {subscriberIdentity.cnpjCpf} </span>}
+                  {subscriberIdentity.stateRegistration && <span> | <strong>IE:</strong> {subscriberIdentity.stateRegistration} </span>}
+                  {subscriberIdentity.phone && <span> | <strong>Tel/WhatsApp:</strong> {subscriberIdentity.phone}</span>}
+                  {subscriberIdentity.email && <div><strong>E-mail:</strong> {subscriberIdentity.email}</div>}
                   {fullAddress && <div><strong>Endereço:</strong> {fullAddress}</div>}
                 </div>
               </div>
@@ -316,7 +310,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 </span>
                 <div className="text-[10px] text-stone-500 mt-1.5 space-y-0.5">
                   <div>Emissão: <strong>{dateFormatted} às {timeFormatted}</strong></div>
-                  <div>Sistema: <strong>Silagem Fácil ERP</strong></div>
+                  <div>Sistema: <strong>AgroControl</strong></div>
                 </div>
               </div>
             </div>
@@ -354,9 +348,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             )}
 
             {/* Footer */}
-            <div className="border-t border-dashed border-stone-200 pt-2 flex items-center justify-between text-[9px] text-stone-400 page-break-inside-avoid break-inside-avoid">
-              <span>Relatório gerado automaticamente por: Silagem Fácil ERP - Gestão Integrada de Silagem & Frotas Agrícolas</span>
-              <span>Emissão: {dateFormatted} às {timeFormatted} • Página 1 de 1</span>
+            <div className="border-t border-dashed border-stone-300 pt-2 flex items-center justify-between text-[9px] text-gray-700 page-break-inside-avoid break-inside-avoid">
+              <span>{buildSystemPrintFooterText(now)}</span>
+              <span>Página 1 de 1</span>
             </div>
 
           </div>

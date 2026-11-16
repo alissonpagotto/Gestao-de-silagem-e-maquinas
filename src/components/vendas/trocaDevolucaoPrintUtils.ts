@@ -1,6 +1,7 @@
 import { CompanyProfile, TrocaDevolucaoRecord } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
 import { COMPANY_LOGO_REF, resolveMediaUrlAsync } from '../../lib/imageStorage';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 function escapeHtml(raw?: string | null): string {
   return String(raw || '')
@@ -26,33 +27,19 @@ export function getTipoOperacaoLabel(tipo: TrocaDevolucaoRecord['tipoOperacao'])
 
 async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | null) {
   const company = companyProfile || getStoredCompanyProfile();
+  const header = resolveSubscriberPrintHeader(company);
   const logoDataUrl =
-    (await resolveMediaUrlAsync(company?.logoUrl)) ||
+    (await resolveMediaUrlAsync(header.logoUrl || company?.logoUrl)) ||
     (await resolveMediaUrlAsync(COMPANY_LOGO_REF)) ||
     '';
 
-  const companyName =
-    company?.corporateName || company?.tradeName || company?.name || company?.companyName || 'AGROCONTROL';
-  const tradeName = company?.tradeName || companyName;
-  const cnpj = company?.cnpjCpf || company?.cnpj || '';
-  const phone = company?.phone || '';
-  const email = company?.email || '';
-  const addressParts = [
-    company?.address,
-    company?.number ? `nº ${company.number}` : '',
-    company?.neighborhood ? `Bairro ${company.neighborhood}` : '',
-    company?.city ? `${company.city}${company?.state ? `/${company.state}` : ''}` : company?.state || '',
-    company?.zipCode ? `CEP ${company.zipCode}` : '',
-  ].filter(Boolean);
-  const fullAddress = addressParts.join(' • ');
-
   return {
-    companyName,
-    tradeName,
-    cnpj,
-    phone,
-    email,
-    fullAddress,
+    companyName: header.corporateName || header.displayTitle,
+    tradeName: header.displayTitle,
+    cnpj: header.cnpjCpf,
+    phone: header.phone,
+    email: header.email,
+    fullAddress: header.fullAddress,
     logoDataUrl,
   };
 }
@@ -445,10 +432,7 @@ export async function printTrocaDevolucaoA4(
       </div>
     </div>
 
-    <div style="margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 6px; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between;">
-      <span>Documento emitido em ${escapeHtml(geradoEm)}</span>
-      <span>Protocolo ${escapeHtml(record.protocolo)}</span>
-    </div>
+    ${buildSystemPrintFooterHtml({ extraRight: `Protocolo ${record.protocolo}` })}
   </div>
 
   <script>
@@ -482,7 +466,7 @@ export async function printTrocaDevolucaoCupom80mm(
   const printWindow = window.open('', '_blank', 'width=420,height=720');
   if (!printWindow) return false;
 
-  const { tradeName, cnpj, phone, logoDataUrl } = await resolveActiveCompanyAndLogo(companyProfile);
+  const { companyName, tradeName, cnpj, phone, fullAddress, logoDataUrl } = await resolveActiveCompanyAndLogo(companyProfile);
   const dataEmissaoBR = formatDateBR(record.data);
 
   const html = `<!DOCTYPE html>
@@ -524,8 +508,10 @@ export async function printTrocaDevolucaoCupom80mm(
 
   ${logoDataUrl ? `<div class="text-center" style="margin-bottom: 4px;"><img src="${logoDataUrl}" alt="Logo" style="max-height: 40px; max-width: 120px; object-fit: contain;" /></div>` : ''}
   <div class="text-center font-bold" style="font-size: 13px;">${escapeHtml(tradeName)}</div>
+  ${companyName && companyName !== tradeName ? `<div class="text-center" style="font-size: 9.5px;">${escapeHtml(companyName)}</div>` : ''}
   ${cnpj ? `<div class="text-center" style="font-size: 10px;">CNPJ/CPF: ${escapeHtml(cnpj)}</div>` : ''}
   ${phone ? `<div class="text-center" style="font-size: 10px;">TEL: ${escapeHtml(phone)}</div>` : ''}
+  ${fullAddress ? `<div class="text-center" style="font-size: 9px;">${escapeHtml(fullAddress)}</div>` : ''}
 
   <div class="double-divider"></div>
   <div class="text-center font-bold" style="font-size: 12px;">COMPROVANTE DE TROCA / DEVOLUÇÃO</div>
@@ -627,7 +613,7 @@ export async function printTrocaDevolucaoCupom80mm(
     <div style="border-top: 1px solid #000; padding-top: 3px; font-size: 10px;">ASSINATURA DO CLIENTE / PORTADOR</div>
   </div>
   <div class="divider" style="margin-top: 10px;"></div>
-  <div class="text-center" style="font-size: 9px;">EMITIDO EM ${escapeHtml(new Date().toLocaleString('pt-BR'))}</div>
+  <div class="text-center" style="font-size: 9px; color: #374151; text-transform: none;">${escapeHtml(buildSystemPrintFooterText())}</div>
 
   <script>
     window.addEventListener('load', function() {

@@ -13,6 +13,7 @@ import {
 import { ExpenseStats } from './ExpenseStats';
 import { ExpenseList } from './ExpenseList';
 import { CompetenceSelector } from '../financial/CompetenceSelector';
+import { getStoredCompanyProfile } from '../../lib/storage';
 
 export interface DespesasModuleProps {
   expenses: Expense[];
@@ -221,7 +222,7 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
         costCenters={costCenters}
         employees={employees}
         teams={fleetTeams}
-        companyProfile={companyProfile || ({ tradeName: 'AGROCONTROL' } as any)}
+        companyProfile={companyProfile || getStoredCompanyProfile()}
         onNewExpense={onNewExpense}
         onEditExpense={onEditExpense}
         onDeleteExpense={onDeleteExpense}

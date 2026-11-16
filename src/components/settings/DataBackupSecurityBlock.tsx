@@ -76,6 +76,7 @@ const TEMPORARY_SESSION_EXACT_KEYS = new Set<string>([
   'impersonated_subscriber_name',
   'impersonated_subscriber_email',
   'impersonated_subscriber_plan',
+  'agrocontrol_impersonated_modules',
   'supabase_auth_company_id',
   'authenticated_user_company_id',
   'supabase.auth.token',

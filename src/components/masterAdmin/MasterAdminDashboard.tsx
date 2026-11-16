@@ -96,6 +96,22 @@ import { MasterAdminLogin } from './MasterAdminLogin';
 import { ImageUploadField } from './ImageUploadField';
 import { formatCurrencyBRL } from '../../lib/formatters';
 import { useAuth } from '../../context/AuthContext';
+import {
+  formatSystemSupportPhoneMask,
+  getSystemSupportPhone,
+  saveSystemSupportPhone,
+  SYSTEM_NAME,
+  SYSTEM_VERSION,
+} from '../../lib/printIdentity';
+import { SegmentModulesSelector } from './SegmentModulesSelector';
+import {
+  getSegmentShortLabel,
+  getStoredActiveAccountModulesConfig,
+  resolveSegmentModulesConfig,
+  saveStoredActiveAccountModulesConfig,
+  setImpersonatedModulesConfig,
+} from '../../lib/subscriberModules';
+import type { SubscriberModulesConfig, SubscriberSegmentProfile } from '../../types/masterAdmin';
 
 /**
  * Realiza um JOIN dinâmico entre o assinante e a lista atualizada de planos ('plans').
@@ -249,9 +265,18 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   }, [siteConfig]);
 
-  const [settingsForm, setSettingsForm] = useState<AdminSettings>(settings);
+  const [settingsForm, setSettingsForm] = useState<AdminSettings>(() => ({
+    ...settings,
+    systemSupportPhone: settings.systemSupportPhone || getSystemSupportPhone(),
+  }));
   const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
+
+  // Perfil de Segmento / Módulos Ativos da Conta Ativa (ERP Local)
+  const [activeAccountModules, setActiveAccountModules] = useState<SubscriberModulesConfig>(() =>
+    getStoredActiveAccountModulesConfig()
+  );
+  const [activeModulesSaveSuccess, setActiveModulesSaveSuccess] = useState(false);
 
   // Comparador seguro para evitar loops de renderização desnecessários
   const isDeepEqual = (a: any, b: any): boolean => {
@@ -446,6 +471,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             planName: resolvedPlan.planName,
             monthlyValue: resolvedPlan.monthlyValue,
             status: normalizeSubscriberStatus(row.status),
+            segmentProfile: prof?.segmentProfile || undefined,
+            enabledModules: Array.isArray(prof?.enabledModules) ? prof.enabledModules : undefined,
             createdAt: row.criado_em || row.created_at || new Date().toISOString(),
             updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
           };
@@ -828,6 +855,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       localStorage.setItem('current_company_id', targetCompanyId);
       localStorage.setItem('user_role', 'admin');
       localStorage.setItem('silagem_client_session', 'active');
+      setImpersonatedModulesConfig(
+        resolveSegmentModulesConfig(sub.segmentProfile, sub.enabledModules)
+      );
     } catch (e) {
       console.error('Erro ao salvar personificação no localStorage:', e);
     }
@@ -907,8 +937,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         neighborhood: saved.neighborhood || '',
         city: saved.city || '',
         state: saved.state || '',
+        segmentProfile: saved.segmentProfile,
+        enabledModules: saved.enabledModules,
       };
       await saveCloudCompanyProfile(profilePayload, saved.id);
+
+      // Se o assinante editado for a conta ativa no navegador, sincroniza imediatamente os módulos ativos
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const activeSubId = localStorage.getItem('silagem_active_subscriber_id');
+          const activeSubEmail = (
+            localStorage.getItem('silagem_active_subscriber_email') ||
+            localStorage.getItem('silagem_active_user_email') ||
+            ''
+          ).trim().toLowerCase();
+          const savedEmail = (saved.responsibleEmail || '').trim().toLowerCase();
+          if (
+            (activeSubId && activeSubId === saved.id) ||
+            (activeSubEmail && savedEmail && activeSubEmail === savedEmail)
+          ) {
+            const synced = saveStoredActiveAccountModulesConfig(
+              resolveSegmentModulesConfig(saved.segmentProfile, saved.enabledModules)
+            );
+            setActiveAccountModules(synced);
+          }
+        }
+      } catch {}
+
       showToast(`Assinante "${saved.name || 'Assinante'}" atualizado no Supabase com sucesso!`);
     } catch (err) {
       console.warn('Aviso ao salvar assinante na nuvem:', err);
@@ -1378,8 +1433,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   // Salvar Configurações Gerais e Webhooks
   const handleSaveAdminSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setSettings(settingsForm);
-    saveStoredAdminSettings(settingsForm);
+    const formattedSupportPhone = saveSystemSupportPhone(settingsForm.systemSupportPhone || '');
+    const updatedSettings: AdminSettings = {
+      ...settingsForm,
+      systemSupportPhone: formattedSupportPhone,
+    };
+    setSettingsForm(updatedSettings);
+    setSettings(updatedSettings);
+    saveStoredAdminSettings(updatedSettings);
     setSettingsSaveSuccess(true);
     setTimeout(() => setSettingsSaveSuccess(false), 3000);
   };
@@ -2054,8 +2115,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                             {/* Plano & Valor */}
                             <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
                               <span className="text-sm font-bold text-white block">{subPlan}</span>
-                              <span className="text-xs sm:text-sm font-semibold text-[#8a92a6]">
+                              <span className="text-xs sm:text-sm font-semibold text-[#8a92a6] block">
                                 {formatCurrencyBRL(subValue)}/mês
+                              </span>
+                              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded bg-[#1a1d24] border border-[#2f3644] text-[10px] font-bold text-emerald-300">
+                                {getSegmentShortLabel(sub.segmentProfile)}
+                                {sub.segmentProfile === 'personalizado' && Array.isArray(sub.enabledModules)
+                                  ? ` (${sub.enabledModules.length})`
+                                  : ''}
                               </span>
                             </td>
 
@@ -3081,10 +3148,10 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             {/* Cabeçalho do Módulo */}
             <div className="bg-[#252a34] p-4 sm:p-5 rounded-xl border border-[#2f3644] shadow-2xs">
               <h2 className="text-base font-black text-white tracking-tight">
-                Webhooks de Pagamento & Permissões de Super Admin
+                Configurações Gerais, Identidade da Plataforma & Webhooks
               </h2>
               <p className="text-xs text-[#8a92a6] font-medium mt-0.5">
-                Integre plataformas de checkout automáticas e gerencie os e-mails com permissão de acesso ao Admin Mestre.
+                Configure o telefone de suporte exibido no rodapé das impressões, integre webhooks de checkout e gerencie os acessos de Super Admin.
               </p>
             </div>
 
@@ -3094,6 +3161,133 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <span>Configurações atualizadas com sucesso!</span>
               </div>
             )}
+
+            {/* Perfil / Segmento da Conta Ativa (Módulos Habilitados no Menu Lateral) */}
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-[#2f3644] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-emerald-400" />
+                    <span>Conta Ativa: Perfil de Segmento / Módulos Ativos</span>
+                  </h3>
+                  <p className="text-[11px] text-[#8a92a6] font-medium mt-0.5">
+                    Defina o ramo de atuação da empresa ativa neste navegador para adaptar imediatamente os módulos do Menu Lateral Esquerdo.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const saved = saveStoredActiveAccountModulesConfig(activeAccountModules);
+                    setActiveAccountModules(saved);
+                    try {
+                      const currentComp = getStoredCompanyProfile();
+                      saveStoredCompanyProfile({
+                        ...currentComp,
+                        segmentProfile: saved.segmentProfile,
+                        enabledModules: saved.enabledModules,
+                      });
+                      const activeSubId =
+                        typeof localStorage !== 'undefined'
+                          ? localStorage.getItem('silagem_active_subscriber_id')
+                          : null;
+                      if (activeSubId) {
+                        const updatedSubs = (subscribers || []).map((s) =>
+                          s.id === activeSubId
+                            ? {
+                                ...s,
+                                segmentProfile: saved.segmentProfile,
+                                enabledModules: saved.enabledModules,
+                                updatedAt: new Date().toISOString(),
+                              }
+                            : s
+                        );
+                        setSubscribers(updatedSubs);
+                        saveStoredSubscribers(updatedSubs);
+                      }
+                    } catch {}
+                    setActiveModulesSaveSuccess(true);
+                    showToast('Perfil de segmento e módulos ativos salvos para a conta ativa!');
+                    setTimeout(() => setActiveModulesSaveSuccess(false), 3500);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold border border-emerald-500 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Módulos da Conta Ativa</span>
+                </button>
+              </div>
+
+              {activeModulesSaveSuccess && (
+                <div className="p-3 bg-[#1a1d24] border border-emerald-500/40 rounded-lg text-xs font-bold text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Módulos do menu lateral atualizados com sucesso!</span>
+                </div>
+              )}
+
+              <SegmentModulesSelector
+                segmentProfile={activeAccountModules.segmentProfile}
+                enabledModules={activeAccountModules.enabledModules}
+                onChange={(nextSeg: SubscriberSegmentProfile, nextMods: string[]) => {
+                  const nextConf = resolveSegmentModulesConfig(nextSeg, nextMods);
+                  setActiveAccountModules(nextConf);
+                  // Persistência imediata no localStorage para adaptação dinâmica instantânea
+                  saveStoredActiveAccountModulesConfig(nextConf);
+                }}
+                title="Perfil de Segmento / Módulos Ativos"
+                subtitle="As alterações são aplicadas imediatamente no Menu Lateral. Dashboard e Dados da Empresa permanecem sempre acessíveis."
+              />
+            </div>
+
+            {/* Identidade da Plataforma & Telefone de Suporte/Comercial nas Impressões */}
+            <form onSubmit={handleSaveAdminSettings} className="bg-[#252a34] border border-[#2f3644] rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-[#2f3644] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-[#8a92a6]" />
+                    <span>Identidade da Plataforma & Suporte nas Impressões</span>
+                  </h3>
+                  <p className="text-[11px] text-[#8a92a6] font-medium mt-0.5">
+                    Este número é exibido no rodapé discreto de todos os cupons, recibos e relatórios impressos pelos assinantes.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-[#4d576a]"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Telefone de Suporte</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1 tracking-wide">
+                    Telefone / WhatsApp do Sistema (Rodapé das Impressões)
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={15}
+                    value={settingsForm.systemSupportPhone || ''}
+                    onChange={(e) => {
+                      const masked = formatSystemSupportPhoneMask(e.target.value);
+                      setSettingsForm({ ...settingsForm, systemSupportPhone: masked });
+                    }}
+                    placeholder="(00) 00000-0000"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-mono text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
+                  />
+                </div>
+
+                <div className="p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg">
+                  <span className="block text-[10px] font-bold uppercase text-[#8a92a6] mb-0.5">
+                    Prévia do Rodapé nas Impressões:
+                  </span>
+                  <span className="block text-[11px] font-mono text-white/90 break-words">
+                    {SYSTEM_NAME} • Versão {SYSTEM_VERSION}
+                    {settingsForm.systemSupportPhone ? ` • Suporte/Contato: ${settingsForm.systemSupportPhone}` : ''} • Emitido em DD/MM/AAAA às HH:mm
+                  </span>
+                </div>
+              </div>
+            </form>
 
             {/* Form Webhooks */}
             <form onSubmit={handleSaveAdminSettings} className="bg-[#252a34] border border-[#2f3644] rounded-xl p-5 space-y-4 shadow-2xs">

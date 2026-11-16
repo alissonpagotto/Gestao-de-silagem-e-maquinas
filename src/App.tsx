@@ -26,8 +26,17 @@ import {
   SalaryAdvance,
   PaymentMethod
 } from './types';
-import { Subscriber } from './types/masterAdmin';
+import { Subscriber, SubscriberModulesConfig } from './types/masterAdmin';
 import { getStoredSubscribers } from './lib/masterAdminStorage';
+import {
+  getEffectiveModulesConfig,
+  IMPERSONATED_MODULES_STORAGE_KEY,
+  isModuleEnabledForSubscriber,
+  resolveSegmentModulesConfig,
+  setImpersonatedModulesConfig,
+  SUBSCRIBER_MODULES_STORAGE_KEY,
+  SUBSCRIBER_MODULES_UPDATED_EVENT,
+} from './lib/subscriberModules';
 import { executeGlobalStorageAudit } from './lib/globalStorageAudit';
 import {
   PENDING_NFSE_PREFILL_STORAGE_KEY,
@@ -1684,6 +1693,65 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState<string>(getResolvedActiveTab);
+  const [subscriberModulesConfig, setSubscriberModulesConfig] = useState<SubscriberModulesConfig>(
+    () => getEffectiveModulesConfig(companyProfile)
+  );
+
+  // Sincroniza configuração de módulos do assinante (Perfil / Segmento) em tempo real
+  useEffect(() => {
+    const syncSubscriberModules = () => {
+      setSubscriberModulesConfig(getEffectiveModulesConfig(companyProfile));
+    };
+
+    syncSubscriberModules();
+
+    const handleStorageModules = (e: StorageEvent) => {
+      if (
+        !e.key ||
+        e.key === SUBSCRIBER_MODULES_STORAGE_KEY ||
+        e.key === IMPERSONATED_MODULES_STORAGE_KEY ||
+        e.key === 'silagem_master_subscribers_v2' ||
+        e.key === 'is_admin_impersonating'
+      ) {
+        syncSubscriberModules();
+      }
+    };
+
+    window.addEventListener(SUBSCRIBER_MODULES_UPDATED_EVENT, syncSubscriberModules);
+    window.addEventListener('master_admin_data_changed', syncSubscriberModules);
+    window.addEventListener('agrocontrol_company_profile_updated', syncSubscriberModules);
+    window.addEventListener('company_profile_updated', syncSubscriberModules);
+    window.addEventListener('silagem_company_profile_updated', syncSubscriberModules);
+    window.addEventListener('storage', handleStorageModules);
+
+    return () => {
+      window.removeEventListener(SUBSCRIBER_MODULES_UPDATED_EVENT, syncSubscriberModules);
+      window.removeEventListener('master_admin_data_changed', syncSubscriberModules);
+      window.removeEventListener('agrocontrol_company_profile_updated', syncSubscriberModules);
+      window.removeEventListener('company_profile_updated', syncSubscriberModules);
+      window.removeEventListener('silagem_company_profile_updated', syncSubscriberModules);
+      window.removeEventListener('storage', handleStorageModules);
+    };
+  }, [companyProfile]);
+
+  const navigateIfModuleEnabled = useCallback(
+    (targetTab: string) => {
+      const latestConfig = getEffectiveModulesConfig(companyProfile);
+      if (!isModuleEnabledForSubscriber(targetTab, latestConfig)) {
+        setActiveTab('dashboard');
+        return;
+      }
+      setActiveTab(targetTab);
+    },
+    [companyProfile]
+  );
+
+  // Se o módulo atualmente aberto for desativado pelo Perfil/Segmento no Master Admin, redireciona automaticamente para o Dashboard
+  useEffect(() => {
+    if (!isModuleEnabledForSubscriber(activeTab, subscriberModulesConfig)) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, subscriberModulesConfig]);
 
   // Estados reativos para ponte de redirecionamento de cadastro de motorista para o módulo RH
   const [rhInitialSubTab, setRhInitialSubTab] = useState<RHTabType | undefined>(undefined);
@@ -1691,11 +1759,16 @@ export default function App() {
   const [rhDefaultEmployeeRole, setRhDefaultEmployeeRole] = useState<string | undefined>(undefined);
 
   const handleNavigateToNewDriverEmployee = useCallback(() => {
+    const latestConfig = getEffectiveModulesConfig(companyProfile);
+    if (!isModuleEnabledForSubscriber('rh', latestConfig)) {
+      setActiveTab('dashboard');
+      return;
+    }
     setActiveTab('rh');
     setRhInitialSubTab('funcionarios');
     setRhDefaultEmployeeRole('Motorista');
     setRhAutoOpenNewEmployeeTrigger((prev) => prev + 1);
-  }, []);
+  }, [companyProfile]);
 
   useEffect(() => {
     const handleGlobalDriverNav = () => {
@@ -1784,7 +1857,7 @@ export default function App() {
     const handleAppNavigate = (e: any) => {
       const target = typeof e?.detail === 'string' ? e.detail : e?.detail?.tab;
       if (target && typeof target === 'string') {
-        setActiveTab(target);
+        navigateIfModuleEnabled(target);
       }
     };
     window.addEventListener('app:navigate', handleAppNavigate);
@@ -1796,7 +1869,7 @@ export default function App() {
       window.removeEventListener('app:navigate', handleAppNavigate);
       window.removeEventListener('navigate-tab', handleAppNavigate);
     };
-  }, []);
+  }, [navigateIfModuleEnabled]);
 
   const getRequiredModulePermission = (tab: string): ModulePermissionKey | null => {
     if (tab === 'financeiro' || tab === 'despesas' || tab === 'contas' || tab === 'bancos' || tab === 'pagar' || tab === 'receber') return 'financeiro';
@@ -2156,7 +2229,9 @@ export default function App() {
     setFuelLogs(getStoredFuelLogs());
     setMaintenanceLogs(getStoredMaintenanceLogs());
     setAdvances(getStoredSalaryAdvances());
-    setCompanyProfile(getStoredCompanyProfile());
+    const loadedProfile = getStoredCompanyProfile();
+    setCompanyProfile(loadedProfile);
+    setSubscriberModulesConfig(getEffectiveModulesConfig(loadedProfile));
   };
 
   // Expense Handlers (Multi-Tenant Persistência no Supabase)
@@ -3021,6 +3096,7 @@ export default function App() {
       } catch (e) {
         console.error(e);
       }
+      setSubscriberModulesConfig(getEffectiveModulesConfig(companyProfile));
       setCurrentRoute('dashboard');
     } else {
       // Se NÃO estiver logado, redireciona imediatamente para a tela de login na rota /auth?mode=login
@@ -3064,6 +3140,7 @@ export default function App() {
     }
     try {
       stopImpersonation();
+      setImpersonatedModulesConfig(null);
     } catch (e) {
       console.error(e);
     }
@@ -3096,6 +3173,7 @@ export default function App() {
       localStorage.removeItem('impersonated_subscriber_plan');
       localStorage.removeItem('current_company_id');
       stopImpersonation();
+      setImpersonatedModulesConfig(null);
       if (currentUser) {
         await signOutUser();
       }
@@ -3186,6 +3264,14 @@ export default function App() {
       planName: sub.planName || 'Produtor Essencial',
     });
 
+    try {
+      const impModules = resolveSegmentModulesConfig(sub.segmentProfile, sub.enabledModules);
+      setImpersonatedModulesConfig(impModules);
+      setSubscriberModulesConfig(impModules);
+    } catch (e) {
+      console.error(e);
+    }
+
     const impersonatedProfile: CompanyProfile = {
       ...companyProfile,
       id: targetCompanyId,
@@ -3202,6 +3288,8 @@ export default function App() {
       city: sub.city || '',
       state: sub.state || '',
       planName: sub.planName || 'Produtor Essencial',
+      segmentProfile: sub.segmentProfile || 'completo',
+      enabledModules: sub.enabledModules,
     };
     setCompanyProfile(impersonatedProfile);
 
@@ -3314,13 +3402,16 @@ export default function App() {
 
     try {
       stopImpersonation();
+      setImpersonatedModulesConfig(null);
     } catch (e) {
       console.error(e);
     }
 
     setIsAdminImpersonating(false);
     setImpersonatedSubscriber(null);
-    setCompanyProfile(getStoredCompanyProfile());
+    const restoredProfile = getStoredCompanyProfile();
+    setCompanyProfile(restoredProfile);
+    setSubscriberModulesConfig(getEffectiveModulesConfig(restoredProfile));
 
     try {
       window.history.pushState({}, '', '/master-admin');
@@ -3881,7 +3972,7 @@ export default function App() {
               {/* TAB 0: Tela Inicial de Boas-Vindas AGROCONTROL */}
               {activeTab === 'home' && (
                 <AgroControlHome
-                  onNavigate={(tab) => setActiveTab(tab)}
+                  onNavigate={navigateIfModuleEnabled}
                   companyProfile={companyProfile}
                 />
               )}
@@ -3898,7 +3989,7 @@ export default function App() {
               inventory={inventory}
               fuelLogs={fuelLogs}
               seasons={seasons}
-              onNavigate={(tab) => setActiveTab(tab)}
+              onNavigate={navigateIfModuleEnabled}
               onNewExpense={() => {
                 setEditingExpense(null);
                 setIsExpenseModalOpen(true);

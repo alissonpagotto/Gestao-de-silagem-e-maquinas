@@ -25,6 +25,7 @@ import {
   Wrench
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Supplier } from '../../types';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml } from '../../lib/printIdentity';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -95,6 +96,9 @@ export interface FiscalDocumentRecord {
     status: 'PENDENTE' | 'PAGO';
   }>;
   status: 'CONFIRMADO' | 'PENDENTE' | 'ATENDIDO' | 'CANCELADO';
+  cfop?: string;
+  enviarContador?: boolean;
+  enviarContadorMotivo?: string;
   notes?: string;
   createdAt: string;
 }
@@ -1096,12 +1100,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         return;
       }
 
-      const subscriberTitle = companyProfile?.tradeName || companyProfile?.corporateName || 'COLAÇA SILAGEM LTDA';
-      const subscriberCnpj = companyProfile?.cnpj || '12.345.678/0001-90';
-      const subscriberPhone = companyProfile?.phone || '(19) 99876-5432';
-      const subscriberAddress = companyProfile?.address 
-        ? `${companyProfile.address}, ${companyProfile.city || ''} - ${companyProfile.state || 'SP'}`
-        : 'RODOVIA SP-340, KM 128 - ZONA RURAL, MOCOCA - SP';
+      const subHeader = resolveSubscriberPrintHeader(companyProfile);
+      const subscriberTitle = subHeader.displayTitle;
+      const subscriberCorporate = subHeader.corporateName && subHeader.corporateName !== subHeader.displayTitle ? subHeader.corporateName : '';
+      const subscriberCnpj = subHeader.cnpjCpf;
+      const subscriberPhone = subHeader.phone;
+      const subscriberAddress = subHeader.fullAddress;
 
       const itemsHtml = doc.items.map((item, idx) => `
         <tr style="border-bottom: 1px solid #cbd5e1;">
@@ -1127,7 +1131,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         <html>
           <head>
             <meta charset="utf-8" />
-            <title>${doc.documentTypeLabel} ${doc.number} - COLAÇA SILAGEM</title>
+            <title>${doc.documentTypeLabel} ${doc.number} - ${subscriberTitle}</title>
             <style>
               @media print {
                 body { margin: 0; padding: 0; }
@@ -1175,8 +1179,9 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px;">
               <div>
                 <h1 style="font-size: 16px; font-weight: 900; margin: 0; color: #0f172a;">${subscriberTitle}</h1>
-                <div style="font-size: 10px; color: #334155; font-weight: bold;">CNPJ: ${subscriberCnpj} • CONTATO: ${subscriberPhone}</div>
-                <div style="font-size: 9px; color: #64748b;">${subscriberAddress}</div>
+                ${subscriberCorporate ? `<div style="font-size: 10px; color: #334155; font-weight: 700;">${subscriberCorporate}</div>` : ''}
+                ${(subscriberCnpj || subscriberPhone) ? `<div style="font-size: 10px; color: #334155; font-weight: bold;">${[subscriberCnpj ? `CNPJ/CPF: ${subscriberCnpj}` : '', subscriberPhone ? `CONTATO: ${subscriberPhone}` : ''].filter(Boolean).join(' • ')}</div>` : ''}
+                ${subscriberAddress ? `<div style="font-size: 9px; color: #64748b;">${subscriberAddress}</div>` : ''}
               </div>
               <div style="text-align: right; border: 2px solid #0f172a; border-radius: 6px; padding: 6px 12px; background-color: #f1f5f9;">
                 <div style="font-size: 11px; font-weight: 900; color: #047857;">${doc.documentTypeLabel}</div>
@@ -1261,9 +1266,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                 <div style="border-top: 1px solid #0f172a; margin-top: 30px; padding-top: 4px; font-size: 9px; font-weight: 900;">
                   ALMOXARIFADO & GESTÃO DE FROTAS
                 </div>
-                <div style="font-size: 8px; color: #64748b;">COLAÇA SILAGEM LTDA</div>
+                <div style="font-size: 8px; color: #64748b;">${subscriberTitle}</div>
               </div>
             </div>
+            ${buildSystemPrintFooterHtml()}
           </body>
         </html>
       `);

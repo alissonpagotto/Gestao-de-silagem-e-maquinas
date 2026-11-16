@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Employee, Machinery, CompanyProfile } from '../../types';
 import { formatDateBR, checkCnhStatus, getActiveCompanyId } from '../../lib/storage';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 import { 
   saveFleetDriverToSupabase, 
   deleteFleetDriverFromSupabase, 
@@ -584,7 +585,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-base font-black uppercase tracking-wider">
-                {companyProfile?.tradeName || companyProfile?.corporateName || 'COLAÇA SILAGEM'} — RELATÓRIO DE MOTORISTAS & CNH
+                {resolveSubscriberPrintHeader(companyProfile).displayTitle} — RELATÓRIO DE MOTORISTAS & CNH
               </h1>
               <p className="text-[11px] text-gray-700">
                 Gestão de Frotas & Transporte • Emissão: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -786,8 +787,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           </div>
 
         {/* Rodapé Corporativo Exclusivo para Impressão */}
-        <div className="hidden print:block mt-6 pt-3 border-t-2 border-black text-center text-[10px] text-gray-700 uppercase font-semibold">
-          SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+        <div className="hidden print:block mt-6 pt-3 border-t border-gray-300 text-center text-[9px] text-gray-700 font-medium">
+          {buildSystemPrintFooterText()}
         </div>
       </div>
 

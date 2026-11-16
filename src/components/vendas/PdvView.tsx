@@ -50,6 +50,13 @@ import {
   doesPaymentMethodGenerateInstallment,
 } from '../../lib/paymentMethodsStorage';
 import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+import {
+  resolveSubscriberPrintHeader,
+  buildSystemPrintFooterHtml,
+  buildSystemPrintFooterText,
+  getPdvAutoPrintPreference,
+  savePdvAutoPrintPreference,
+} from '../../lib/printIdentity';
 
 export interface PdvItem {
   id: string;
@@ -325,13 +332,39 @@ export const getPrioritaryBankAccount = (): { bankName: string; agency: string; 
 export const generatePrintableSaleHtml = (
   sale: any,
   format: 'a4' | 'termica',
-  company?: CompanyProfile | null
+  company?: CompanyProfile | null,
+  autoCloseAfterPrint: boolean = false
 ): string => {
   const isA4 = format === 'a4';
-  const companyName = (company?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS').toUpperCase();
-  const companyDoc = company?.cnpjCpf || company?.cnpj || '12.345.678/0001-90';
-  const companyAddress = company?.address || 'Rodovia BR-163, KM 120 • Sorriso - MT';
-  const companyPhone = company?.phone || '(66) 99988-7766';
+  const subscriber = resolveSubscriberPrintHeader(company);
+  const companyName = subscriber.displayTitle.toUpperCase();
+  const companyCorporateName =
+    subscriber.corporateName && subscriber.corporateName.toUpperCase() !== companyName
+      ? subscriber.corporateName.toUpperCase()
+      : '';
+  const companyDoc = subscriber.cnpjCpf;
+  const companyStateReg = subscriber.stateRegistration;
+  const companyAddress = subscriber.fullAddress;
+  const companyPhone = subscriber.phone;
+
+  const autoPrintScript = `
+  <script>
+    window.onload = function() {
+      window.focus();
+      ${
+        autoCloseAfterPrint
+          ? `window.onafterprint = function() {
+        setTimeout(function() {
+          try { window.close(); } catch (e) {}
+        }, 350);
+      };`
+          : ''
+      }
+      setTimeout(function() {
+        try { window.print(); } catch (e) {}
+      }, 250);
+    };
+  </script>`;
 
   if (isA4) {
     return `<!DOCTYPE html>
@@ -343,9 +376,10 @@ export const generatePrintableSaleHtml = (
     @page { size: A4 portrait; margin: 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 11px; color: #0f172a; background: #fff; line-height: 1.35; padding: 15px; }
-    .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .company-title { font-size: 15px; font-weight: 900; text-transform: uppercase; color: #047857; letter-spacing: 0.5px; }
-    .company-sub { font-size: 10px; color: #475569; margin-top: 3px; font-weight: 500; }
+    .company-corporate { font-size: 10px; font-weight: 700; color: #334155; margin-top: 2px; text-transform: uppercase; }
+    .company-sub { font-size: 10px; color: #475569; margin-top: 3px; font-weight: 500; line-height: 1.35; }
     .order-box { text-align: right; border-left: 1px solid #cbd5e1; padding-left: 14px; min-width: 190px; }
     .order-tag { display: inline-block; background: #d1fae5; color: #065f46; font-size: 9px; font-weight: 900; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
     .order-num { font-size: 17px; font-weight: 900; font-family: monospace; color: #0f172a; margin-top: 3px; }
@@ -376,8 +410,14 @@ export const generatePrintableSaleHtml = (
   <div class="header">
     <div>
       <div class="company-title">${companyName}</div>
+      ${companyCorporateName ? `<div class="company-corporate">Razão Social: ${companyCorporateName}</div>` : ''}
       <div class="company-sub">
-        CNPJ/CPF: ${companyDoc} | ${companyAddress} | ${companyPhone}
+        ${[
+          companyDoc ? `CNPJ/CPF: ${companyDoc}` : '',
+          companyStateReg ? `IE: ${companyStateReg}` : '',
+          companyPhone ? `Tel/WhatsApp: ${companyPhone}` : '',
+        ].filter(Boolean).join(' • ')}
+        ${companyAddress ? `<div>${companyAddress}</div>` : ''}
       </div>
     </div>
     <div class="order-box">
@@ -481,12 +521,9 @@ export const generatePrintableSaleHtml = (
     <div class="sig-line">${sale.client || 'ASSINATURA DO CLIENTE'}</div>
   </div>
 
-  <script>
-    window.onload = function() {
-      window.focus();
-      setTimeout(function() { window.print(); }, 250);
-    };
-  </script>
+  ${buildSystemPrintFooterHtml()}
+
+  ${autoPrintScript}
 </body>
 </html>`;
   }
@@ -513,9 +550,11 @@ export const generatePrintableSaleHtml = (
   </style>
 </head>
 <body>
-  <div class="text-center font-bold" style="font-size: 12px;">${companyName}</div>
-  <div class="text-center" style="font-size: 9px;">${companyDoc}</div>
-  <div class="text-center" style="font-size: 9px;">${companyAddress}</div>
+  <div class="text-center font-bold" style="font-size: 12.5px;">${companyName}</div>
+  ${companyCorporateName ? `<div class="text-center" style="font-size: 8.5px; font-weight: bold;">${companyCorporateName}</div>` : ''}
+  ${companyDoc ? `<div class="text-center" style="font-size: 9px;">CNPJ/CPF: ${companyDoc}</div>` : ''}
+  ${companyPhone ? `<div class="text-center" style="font-size: 9px;">TEL: ${companyPhone}</div>` : ''}
+  ${companyAddress ? `<div class="text-center" style="font-size: 8.5px;">${companyAddress}</div>` : ''}
   <div class="dashed"></div>
   <div class="text-center font-bold">CUPOM NÃO FISCAL</div>
   <div class="text-center font-bold" style="font-size: 13px;">PEDIDO: ${sale.orderNumber}</div>
@@ -560,14 +599,9 @@ export const generatePrintableSaleHtml = (
     `).join('')}
   ` : ''}
   <div class="dashed"></div>
-  <div class="text-center" style="font-size: 9px; margin-top: 6px;">OBRIGADO PELA PREFERÊNCIA!</div>
-  <div class="text-center font-bold" style="font-size: 8px;">AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE</div>
-  <script>
-    window.onload = function() {
-      window.focus();
-      setTimeout(function() { window.print(); }, 250);
-    };
-  </script>
+  <div class="text-center" style="font-size: 9px; margin-top: 4px;">OBRIGADO PELA PREFERÊNCIA!</div>
+  ${buildSystemPrintFooterHtml({ thermal: true })}
+  ${autoPrintScript}
 </body>
 </html>`;
 };
@@ -900,6 +934,27 @@ export const PdvView: React.FC<PdvViewProps> = ({
       window.removeEventListener('agrocontrol_bancos_updated', syncAccount);
       window.removeEventListener('agrocontrol_bancos_contas_updated', syncAccount);
       window.removeEventListener('bank_accounts_updated', syncAccount);
+    };
+  }, []);
+
+  // Identidade dinâmica da empresa assinante para cabeçalho de cupons/espelhos
+  const subscriberIdentity = useMemo(() => resolveSubscriberPrintHeader(companyProfile), [companyProfile]);
+
+  // Preferência persistida de Impressão Automática ao Finalizar ('agrocontrol_pdv_auto_print')
+  const [autoPrintOnFinish, setAutoPrintOnFinish] = useState<boolean>(() => getPdvAutoPrintPreference());
+
+  const handleToggleAutoPrint = (checked: boolean) => {
+    setAutoPrintOnFinish(checked);
+    savePdvAutoPrintPreference(checked);
+  };
+
+  useEffect(() => {
+    const syncAutoPrint = () => setAutoPrintOnFinish(getPdvAutoPrintPreference());
+    window.addEventListener('agrocontrol_pdv_auto_print_updated', syncAutoPrint);
+    window.addEventListener('storage', syncAutoPrint);
+    return () => {
+      window.removeEventListener('agrocontrol_pdv_auto_print_updated', syncAutoPrint);
+      window.removeEventListener('storage', syncAutoPrint);
     };
   }, []);
 
@@ -2744,19 +2799,14 @@ export const PdvView: React.FC<PdvViewProps> = ({
       handleLimparPdv();
       exitPdvFullscreen();
 
-      // Decolagem da nova aba de impressão casada (A4 ou 80mm)
-      try {
-        const printHtml = generatePrintableSaleHtml(saleRecord, formatoImpressao, companyProfile);
-        const printWindow = window.open('', '_blank');
-        if (printWindow && printWindow.document) {
-          printWindow.document.open();
-          printWindow.document.write(printHtml);
-          printWindow.document.close();
-        } else {
+      if (autoPrintOnFinish) {
+        // Impressão automática com retorno imediato para nova venda (sem modal intermediário)
+        const opened = openSalePrintWindow(saleRecord, formatoImpressao, true);
+        if (!opened) {
           setIsReceiptOpen(true);
         }
-      } catch (e) {
-        console.warn('Aviso de impressão de pop-up:', e);
+      } else {
+        // Modo manual: exibe modal de resumo pós-venda com botões "Imprimir Cupom" e "Nova Venda"
         setIsReceiptOpen(true);
       }
 
@@ -2887,8 +2937,32 @@ export const PdvView: React.FC<PdvViewProps> = ({
     return () => window.removeEventListener('keydown', handleModalKeyDown);
   }, [isCheckoutModalOpen, isSaveDraftModalOpen, handleConfirmarEImprimir, handleSaveVendaRascunho, handleAcionarAVista]);
 
+  // Dispara janela de impressão limpa (Cupom 80mm ou Espelho A4) com suporte a auto-close
+  const openSalePrintWindow = (
+    saleData: any,
+    format: 'a4' | 'termica',
+    autoClose: boolean = false
+  ): boolean => {
+    try {
+      const printHtml = generatePrintableSaleHtml(saleData, format, companyProfile, autoClose);
+      const printWindow = window.open('', '_blank');
+      if (printWindow && printWindow.document) {
+        printWindow.document.open();
+        printWindow.document.write(printHtml);
+        printWindow.document.close();
+        return true;
+      }
+    } catch (e) {
+      console.warn('Aviso de impressão de pop-up:', e);
+    }
+    return false;
+  };
+
   // Funções Anti-Sandbox para Impressão, Download e Cópia Segura
   const handlePrintSafe = () => {
+    if (lastFinishedSale && openSalePrintWindow(lastFinishedSale, activePrintFormat, false)) {
+      return;
+    }
     try {
       window.print();
     } catch (err) {
@@ -2896,14 +2970,29 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
   };
 
+  const handleNovaVendaFromReceipt = () => {
+    setIsReceiptOpen(false);
+    handleLimparPdv();
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
+  };
+
   const handleCopyComprovante = () => {
     if (!lastFinishedSale) return;
     try {
       const isA4 = activePrintFormat === 'a4';
+      const subTitle = subscriberIdentity.displayTitle.toUpperCase();
+      const subCorp =
+        subscriberIdentity.corporateName && subscriberIdentity.corporateName.toUpperCase() !== subTitle
+          ? `RAZÃO SOCIAL: ${subscriberIdentity.corporateName.toUpperCase()}\n`
+          : '';
+      const subDoc = subscriberIdentity.cnpjCpf ? `CNPJ/CPF: ${subscriberIdentity.cnpjCpf}` : '';
+      const subTel = subscriberIdentity.phone ? `TEL: ${subscriberIdentity.phone}` : '';
+      const subAddr = subscriberIdentity.fullAddress ? `${subscriberIdentity.fullAddress}\n` : '';
       const text = `================================================
-${companyProfile?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS'}
-${companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : ''}
-${isA4 ? 'NOTA DE VENDA & ESPELHO DE PEDIDO DE BALCÃO (A4)' : 'CUPOM NÃO FISCAL DE VENDA (80MM)'}
+${subTitle}
+${subCorp}${[subDoc, subTel].filter(Boolean).join(' | ')}${[subDoc, subTel].some(Boolean) ? '\n' : ''}${subAddr}${isA4 ? 'NOTA DE VENDA & ESPELHO DE PEDIDO DE BALCÃO (A4)' : 'CUPOM NÃO FISCAL DE VENDA (80MM)'}
 ================================================
 PEDIDO Nº: ${lastFinishedSale.orderNumber}
 DATA/HORA: ${lastFinishedSale.date} às ${lastFinishedSale.time}
@@ -2918,7 +3007,7 @@ DESCONTO:       ${formatCurrencyBRL(lastFinishedSale.totalDesconto)}
 TOTAL LÍQUIDO:  ${formatCurrencyBRL(lastFinishedSale.totalLiquido)}
 ${lastFinishedSale.troco > 0 ? `TROCO:          ${formatCurrencyBRL(lastFinishedSale.troco)}\n` : ''}${lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 ? `\nPROGRAMAÇÃO DE PARCELAS:\n` + lastFinishedSale.parcelas.map(p => `• Parcela ${p.numero} (${formatDateBR(p.vencimento)}): ${formatCurrencyBRL(p.valor)}`).join('\n') : ''}
 ================================================
-AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
+${buildSystemPrintFooterText()}
 `;
       navigator.clipboard.writeText(text);
       setCopiedFeedback(true);
@@ -2932,10 +3021,17 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
     if (!lastFinishedSale) return;
     try {
       const isA4 = activePrintFormat === 'a4';
+      const subTitle = subscriberIdentity.displayTitle.toUpperCase();
+      const subCorp =
+        subscriberIdentity.corporateName && subscriberIdentity.corporateName.toUpperCase() !== subTitle
+          ? `RAZÃO SOCIAL: ${subscriberIdentity.corporateName.toUpperCase()}\n`
+          : '';
+      const subDoc = subscriberIdentity.cnpjCpf ? `CNPJ/CPF: ${subscriberIdentity.cnpjCpf}` : '';
+      const subTel = subscriberIdentity.phone ? `TEL: ${subscriberIdentity.phone}` : '';
+      const subAddr = subscriberIdentity.fullAddress ? `${subscriberIdentity.fullAddress}\n` : '';
       const text = `================================================
-${companyProfile?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS'}
-${companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : ''}
-${isA4 ? 'NOTA DE VENDA & ESPELHO DE PEDIDO DE BALCÃO (A4)' : 'CUPOM NÃO FISCAL DE VENDA (80MM)'}
+${subTitle}
+${subCorp}${[subDoc, subTel].filter(Boolean).join(' | ')}${[subDoc, subTel].some(Boolean) ? '\n' : ''}${subAddr}${isA4 ? 'NOTA DE VENDA & ESPELHO DE PEDIDO DE BALCÃO (A4)' : 'CUPOM NÃO FISCAL DE VENDA (80MM)'}
 ================================================
 PEDIDO Nº: ${lastFinishedSale.orderNumber}
 DATA/HORA: ${lastFinishedSale.date} às ${lastFinishedSale.time}
@@ -2950,7 +3046,7 @@ DESCONTO:       ${formatCurrencyBRL(lastFinishedSale.totalDesconto)}
 TOTAL LÍQUIDO:  ${formatCurrencyBRL(lastFinishedSale.totalLiquido)}
 ${lastFinishedSale.troco > 0 ? `TROCO:          ${formatCurrencyBRL(lastFinishedSale.troco)}\n` : ''}${lastFinishedSale.parcelas && lastFinishedSale.parcelas.length > 0 ? `\nPROGRAMAÇÃO DE PARCELAS:\n` + lastFinishedSale.parcelas.map(p => `• Parcela ${p.numero} (${formatDateBR(p.vencimento)}): ${formatCurrencyBRL(p.valor)}`).join('\n') : ''}
 ================================================
-AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
+${buildSystemPrintFooterText()}
 `;
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -3255,6 +3351,23 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                   </button>
                 </div>
               )}
+
+              <label
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold cursor-pointer select-none transition shrink-0 ${
+                  autoPrintOnFinish
+                    ? 'bg-emerald-100 border-emerald-500 text-emerald-950 dark:bg-emerald-950/60 dark:border-emerald-600 dark:text-emerald-200'
+                    : 'bg-white/90 border-slate-300 text-slate-700 dark:bg-stone-800 dark:border-stone-600 dark:text-stone-300 hover:bg-white'
+                }`}
+                title="Quando ativado, ao finalizar a venda o cupom é enviado automaticamente para impressão e o PDV volta imediatamente pronto para a próxima venda"
+              >
+                <input
+                  type="checkbox"
+                  checked={autoPrintOnFinish}
+                  onChange={e => handleToggleAutoPrint(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer rounded"
+                />
+                <span>🖨️ Impressão Automática ao Finalizar</span>
+              </label>
 
               <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-stone-400">
                 <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 font-mono font-bold text-slate-700 dark:text-stone-300">[F3] BUSCA</span>
@@ -4378,6 +4491,39 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     </div>
                   </button>
                 </div>
+
+                {/* Preferência de Impressão Automática com Retorno Imediato */}
+                <label
+                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition ${
+                    autoPrintOnFinish
+                      ? 'bg-emerald-50 border-emerald-600 text-emerald-950'
+                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={autoPrintOnFinish}
+                      onChange={e => handleToggleAutoPrint(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600 cursor-pointer rounded"
+                    />
+                    <div>
+                      <div className="text-xs font-black">🖨️ Impressão Automática ao Finalizar</div>
+                      <div className="text-[10px] text-slate-600">
+                        {autoPrintOnFinish
+                          ? 'Ativado: ao confirmar, imprime o cupom automaticamente e limpa o caixa pronto para a próxima venda.'
+                          : 'Desativado: ao confirmar, exibe o resumo pós-venda para impressão manual e início da próxima venda.'}
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${
+                      autoPrintOnFinish ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {autoPrintOnFinish ? 'AUTOMÁTICO' : 'MANUAL'}
+                  </span>
+                </label>
               </div>
 
             </div>
@@ -4593,20 +4739,39 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                       <div className="flex items-center gap-2">
                         <Tractor className="w-6 h-6 text-emerald-700" />
                         <h2 className="text-base font-black uppercase tracking-tight text-zinc-900">
-                          {companyProfile?.name || 'AGROCONTROL • SOLUÇÕES AGRÍCOLAS & FORRAGENS'}
+                          {subscriberIdentity.displayTitle.toUpperCase()}
                         </h2>
                       </div>
+                      {subscriberIdentity.corporateName &&
+                        subscriberIdentity.corporateName.toUpperCase() !== subscriberIdentity.displayTitle.toUpperCase() && (
+                          <div className="text-[11px] font-bold text-slate-700 uppercase mt-0.5">
+                            Razão Social: {subscriberIdentity.corporateName}
+                          </div>
+                        )}
                       <div className="text-[11px] text-slate-600 mt-1 space-y-0.5">
-                        <div>
-                          <span className="font-bold">CNPJ/CPF:</span> {companyProfile?.cnpjCpf || companyProfile?.cnpj || '12.345.678/0001-90'}
-                          {companyProfile?.stateRegistration && <span className="ml-2"><span className="font-bold">IE:</span> {companyProfile.stateRegistration}</span>}
-                        </div>
-                        <div>
-                          <span className="font-bold">ENDEREÇO:</span> {companyProfile?.address || 'Rodovia BR-163, KM 120'} • {companyProfile?.city || 'Sorriso'} - {companyProfile?.state || 'MT'}
-                        </div>
-                        <div>
-                          <span className="font-bold">CONTATO:</span> {companyProfile?.phone || '(66) 99988-7766'} • {companyProfile?.email || 'contato@agrocontrol.com.br'}
-                        </div>
+                        {(subscriberIdentity.cnpjCpf || subscriberIdentity.stateRegistration) && (
+                          <div>
+                            {subscriberIdentity.cnpjCpf && (
+                              <span><span className="font-bold">CNPJ/CPF:</span> {subscriberIdentity.cnpjCpf}</span>
+                            )}
+                            {subscriberIdentity.stateRegistration && (
+                              <span className={subscriberIdentity.cnpjCpf ? 'ml-2' : ''}>
+                                <span className="font-bold">IE:</span> {subscriberIdentity.stateRegistration}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {subscriberIdentity.fullAddress && (
+                          <div>
+                            <span className="font-bold">ENDEREÇO:</span> {subscriberIdentity.fullAddress}
+                          </div>
+                        )}
+                        {(subscriberIdentity.phone || subscriberIdentity.email) && (
+                          <div>
+                            <span className="font-bold">CONTATO:</span>{' '}
+                            {[subscriberIdentity.phone, subscriberIdentity.email].filter(Boolean).join(' • ')}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -4784,10 +4949,15 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                       </div>
                       <div className="text-center">
                         <div className="border-t border-slate-400 w-4/5 mx-auto mb-1"></div>
-                        <span className="font-bold uppercase text-zinc-900 block">{companyProfile?.name || 'AGROCONTROL'}</span>
+                        <span className="font-bold uppercase text-zinc-900 block">{subscriberIdentity.displayTitle.toUpperCase()}</span>
                         <span className="text-[9px] text-slate-500 uppercase">RESPONSÁVEL PELO CAIXA / EMISSOR</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Rodapé Discreto do Sistema */}
+                  <div className="pt-2 border-t border-dashed border-slate-300 text-center text-[9px] text-zinc-700">
+                    {buildSystemPrintFooterText()}
                   </div>
                 </div>
               ) : (
@@ -4796,9 +4966,21 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                    ============================================================= */
                 <div id="cupom-pdv-imprimivel" className="w-full max-w-[340px] mx-auto bg-white text-zinc-900 p-4 rounded-lg border border-slate-300 shadow-md font-mono text-[11px] space-y-2">
                   <div className="text-center pb-2 border-b border-dashed border-slate-400">
-                    <div className="font-black text-xs uppercase">{companyProfile?.name || 'AGROCONTROL SILAGEM'}</div>
-                    <div className="text-[10px] text-slate-600">{companyProfile?.cnpjCpf || companyProfile?.cnpj ? `CNPJ/CPF: ${companyProfile.cnpjCpf || companyProfile.cnpj}` : 'SISTEMA DE VENDAS AGRÍCOLAS'}</div>
-                    <div className="text-[10px] text-slate-600">{lastFinishedSale.date} às {lastFinishedSale.time}</div>
+                    <div className="font-black text-xs uppercase">{subscriberIdentity.displayTitle.toUpperCase()}</div>
+                    {subscriberIdentity.corporateName &&
+                      subscriberIdentity.corporateName.toUpperCase() !== subscriberIdentity.displayTitle.toUpperCase() && (
+                        <div className="text-[9.5px] font-bold text-slate-700 uppercase">{subscriberIdentity.corporateName}</div>
+                      )}
+                    {subscriberIdentity.cnpjCpf && (
+                      <div className="text-[10px] text-slate-700">CNPJ/CPF: {subscriberIdentity.cnpjCpf}</div>
+                    )}
+                    {subscriberIdentity.phone && (
+                      <div className="text-[10px] text-slate-700">TEL: {subscriberIdentity.phone}</div>
+                    )}
+                    {subscriberIdentity.fullAddress && (
+                      <div className="text-[9px] text-slate-600">{subscriberIdentity.fullAddress}</div>
+                    )}
+                    <div className="text-[10px] text-slate-600 mt-0.5">{lastFinishedSale.date} às {lastFinishedSale.time}</div>
                     <div className="text-[11px] font-black mt-1 uppercase text-zinc-900">
                       CUPOM: {lastFinishedSale.orderNumber}
                     </div>
@@ -4871,8 +5053,11 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
                     </div>
                   )}
 
-                  <div className="text-center pt-2 text-[9px] text-slate-500 uppercase border-t border-dashed border-slate-400">
+                  <div className="text-center pt-2 text-[9px] text-slate-700 uppercase border-t border-dashed border-slate-400">
                     OBRIGADO PELA PREFERÊNCIA • VOLTE SEMPRE!
+                  </div>
+                  <div className="text-center pt-1 text-[9px] text-zinc-700 font-sans">
+                    {buildSystemPrintFooterText()}
                   </div>
                 </div>
               )}
@@ -4905,10 +5090,10 @@ AGROCONTROL - GESTÃO AGRÍCOLA INTELIGENTE
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsReceiptOpen(false)}
+                  onClick={handleNovaVendaFromReceipt}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold border border-black bg-white text-slate-900 hover:bg-slate-100 cursor-pointer"
                 >
-                  FECHAR
+                  ✨ NOVA VENDA
                 </button>
                 <button
                   type="button"

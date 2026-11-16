@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
 import { CompanyProfile } from '../../types';
+import { buildSystemPrintFooterText, resolveSubscriberPrintHeader } from '../../lib/printIdentity';
 
 export interface PrintReportFooterProps {
   className?: string;
@@ -39,12 +40,8 @@ export const PrintReportFooter: React.FC<PrintReportFooterProps> = ({
   rightSignatureRole,
 }) => {
   const profile = companyProfile || getStoredCompanyProfile();
-  const effectiveCompanyName =
-    companyName ||
-    profile?.tradeName ||
-    profile?.companyName ||
-    profile?.corporateName ||
-    'Silagem Fácil ERP';
+  const identity = resolveSubscriberPrintHeader(profile);
+  const effectiveCompanyName = companyName || identity.displayTitle;
 
   const now = new Date();
   const dateFormatted = formatDateBR(now.toISOString().split('T')[0]);
@@ -90,14 +87,12 @@ export const PrintReportFooter: React.FC<PrintReportFooterProps> = ({
       <div className="w-full border-t border-stone-300 dark:border-stone-700 print:border-stone-400 mb-2.5" />
 
       {/* Linha de Metadados e Institucional */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-1 text-[10px] sm:text-[11px] font-medium leading-tight">
-        <div className="text-left font-semibold text-stone-600 print:text-black">
-          {customInstitutionalText || 'SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3'}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-1 text-[9px] text-gray-700 font-medium leading-tight">
+        <div className="text-left font-medium text-gray-700">
+          {customInstitutionalText || buildSystemPrintFooterText(now)}
         </div>
 
-        <div className="text-right flex items-center gap-2 text-stone-500 print:text-stone-700 text-[10px] shrink-0">
-          <span>Emissão: <strong>{dateFormatted} às {timeFormatted}</strong></span>
-          <span>•</span>
+        <div className="text-right flex items-center gap-2 text-gray-700 text-[9px] shrink-0">
           <span>Autenticação: <strong className="font-mono">{generatedAuth}</strong></span>
           <span>•</span>
           <span className="font-bold">{pageText}</span>

@@ -46,6 +46,8 @@ export interface CompanyProfile {
   rntrc?: string; // RNTRC (ANTT) para CT-e / MDF-e
   cscId?: string; // ID Token CSC para NFC-e (ex: 000001)
   cscToken?: string; // Código CSC para NFC-e (PDV)
+  segmentProfile?: string;
+  enabledModules?: string[];
 }
 
 export type ExpenseStatus =
@@ -135,6 +137,12 @@ export interface Expense {
   transactionType?: string; // Tipo de Transação da NF-e (ex: COMPRA DE MERCADORIA, etc.)
   isRecurring?: boolean;
   accessKey?: string;
+  recipientCnpj?: string;
+  destinatarioCnpj?: string;
+  cfop?: string;
+  xmlStorageKey?: string;
+  enviarContador?: boolean;
+  enviarContadorMotivo?: string;
   installmentsCount?: number;
   expenseIds?: string[];
   paidByEmployeeId?: string; // ID do funcionário que realizou o pagamento
@@ -2136,6 +2144,11 @@ export interface DocumentoEntradaRecord {
   fornecedor_nome?: string;
   fornecedor_id?: string | null;
   fornecedor_cnpj?: string;
+  destinatario_cnpj?: string;
+  cfop?: string;
+  enviarContador?: boolean;
+  enviarContadorMotivo?: string;
+  xmlStorageKey?: string;
   data: string;
   data_emissao?: string;
   data_entrada?: string;
@@ -2182,6 +2195,7 @@ export type TipoDocumentoSaida =
   | 'CT-e (Conhecimento de Transporte / Frete)'
   | 'NFC-e (Consumidor)'
   | 'MDF-e (Manifesto)'
+  | 'Recibo / Não Fiscal / Interno'
   | string;
 
 export interface NotaSaidaItem {
@@ -2329,6 +2343,9 @@ export interface NotaSaidaRecord {
   // Dados Adicionais / Reservado ao Fisco (universal)
   informacoesComplementares?: string;
   reservadoFisco?: string;
+  enviarContador?: boolean;
+  enviarContadorMotivo?: string;
+  xmlStorageKey?: string;
 
   createdAt: string;
   updatedAt?: string;

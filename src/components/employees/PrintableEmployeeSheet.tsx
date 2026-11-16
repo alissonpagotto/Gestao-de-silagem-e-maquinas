@@ -4,6 +4,7 @@ import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 import { formatEmployeeFullAddress } from './employeePrintUtils';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 interface PrintableEmployeeSheetProps {
   employee: Partial<Employee> | null;
@@ -35,12 +36,12 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
     return age;
   })();
 
-  const companyName = companyProfile?.tradeName || companyProfile?.companyName || 'Silagem Fácil Gestão Agrícola';
-  const companyCnpj = companyProfile?.cnpj || '';
-  const companyPhone = companyProfile?.phone || '';
-  const companyAddress = [companyProfile?.address, companyProfile?.city, companyProfile?.state]
-    .filter(Boolean)
-    .join(' - ');
+  const subscriberHeader = resolveSubscriberPrintHeader(companyProfile);
+  const companyName = subscriberHeader.displayTitle;
+  const companyCorporateName = subscriberHeader.corporateName;
+  const companyCnpj = subscriberHeader.cnpjCpf;
+  const companyPhone = subscriberHeader.phone;
+  const companyAddress = subscriberHeader.fullAddress;
 
   return (
     <div id="printable-employee-sheet" className="printable-sheet-container">
@@ -117,9 +118,16 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
           <h1 style={{ fontSize: '15pt', fontWeight: 'bold', margin: '0 0 2px 0', color: '#0f766e', textTransform: 'uppercase' }}>
             {companyName}
           </h1>
-          {companyCnpj && (
+          {companyCorporateName && companyCorporateName !== companyName && (
+            <div style={{ fontSize: '8.5pt', color: '#334155', fontWeight: 600 }}>
+              {companyCorporateName}
+            </div>
+          )}
+          {(companyCnpj || companyPhone) && (
             <div style={{ fontSize: '8.5pt', color: '#475569' }}>
-              <strong>CNPJ:</strong> {companyCnpj} {companyPhone ? ` | Tel: ${companyPhone}` : ''}
+              {companyCnpj ? <><strong>CNPJ/CPF:</strong> {companyCnpj}</> : null}
+              {companyCnpj && companyPhone ? ' | ' : ''}
+              {companyPhone ? <>Tel: {companyPhone}</> : null}
             </div>
           )}
           {companyAddress && (
@@ -390,8 +398,8 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
         </div>
       </div>
 
-      <div style={{ marginTop: '25px', textAlign: 'center', fontSize: '7.5pt', color: '#94a3b8' }}>
-        Documento gerado eletronicamente em {todayBR} às {new Date().toLocaleTimeString('pt-BR')} via Sistema de Gestão Silagem Fácil Pro.
+      <div style={{ marginTop: '25px', textAlign: 'center', fontSize: '9px', color: '#374151', borderTop: '1px dashed #cbd5e1', paddingTop: '6px' }}>
+        {buildSystemPrintFooterText()}
       </div>
     </div>
   );

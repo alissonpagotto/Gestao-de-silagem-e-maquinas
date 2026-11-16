@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Search, AlertCircle, Building2, User, Key, MapPin, CreditCard, Sparkles, RefreshCw, Layers } from 'lucide-react';
-import { Subscriber, PlanDefinition } from '../../types/masterAdmin';
+import { Subscriber, PlanDefinition, SubscriberSegmentProfile } from '../../types/masterAdmin';
 import { formatCpfCnpj, formatPhone, formatCep, formatIE, fetchAddressByCep, formatCurrencyBRL } from '../../lib/formatters';
 import { supabase } from '../../lib/supabase';
 import { fetchCloudPlans, fetchSubscriberFullDetails } from '../../lib/supabaseService';
+import { SegmentModulesSelector } from './SegmentModulesSelector';
+import { resolveSegmentModulesConfig } from '../../lib/subscriberModules';
 
 interface EditSubscriberModalProps {
   isOpen: boolean;
@@ -40,6 +42,10 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
   const [planName, setPlanName] = useState('Produtor Essencial');
   const [monthlyValue, setMonthlyValue] = useState<number>(59.9);
   const [status, setStatus] = useState<Subscriber['status']>('ativa');
+  const [segmentProfile, setSegmentProfile] = useState<SubscriberSegmentProfile>('completo');
+  const [enabledModules, setEnabledModules] = useState<string[]>(
+    () => resolveSegmentModulesConfig('completo').enabledModules
+  );
 
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [cepError, setCepError] = useState('');
@@ -215,6 +221,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       }
 
       setStatus(subscriber.status || 'ativa');
+      const resolvedModules = resolveSegmentModulesConfig(
+        subscriber.segmentProfile || localProf?.segmentProfile,
+        subscriber.enabledModules || localProf?.enabledModules
+      );
+      setSegmentProfile(resolvedModules.segmentProfile);
+      setEnabledModules(resolvedModules.enabledModules);
     } else {
       // Novo Assinante
       setName('');
@@ -238,6 +250,9 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       setPlanName(defaultPlan?.name || 'Produtor Essencial');
       setMonthlyValue(defaultPlan?.price || 59.9);
       setStatus('trial');
+      const defaultModules = resolveSegmentModulesConfig('completo');
+      setSegmentProfile(defaultModules.segmentProfile);
+      setEnabledModules(defaultModules.enabledModules);
     }
     setCepError('');
     setValidationError('');
@@ -303,6 +318,8 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       return;
     }
 
+    const resolvedModules = resolveSegmentModulesConfig(segmentProfile, enabledModules);
+
     const updatedSubscriber: Subscriber = {
       id: subscriber?.id || `sub-${Date.now()}`,
       name: name.trim(),
@@ -322,6 +339,8 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       planName: planName || subscriber?.planName || 'Produtor Essencial',
       monthlyValue: Number(monthlyValue) || 0,
       status,
+      segmentProfile: resolvedModules.segmentProfile,
+      enabledModules: resolvedModules.enabledModules,
       createdAt: subscriber?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -343,6 +362,8 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
         neighborhood: updatedSubscriber.neighborhood,
         city: updatedSubscriber.city,
         state: updatedSubscriber.state,
+        segmentProfile: resolvedModules.segmentProfile,
+        enabledModules: resolvedModules.enabledModules,
       };
       localStorage.setItem(`company_profile_${updatedSubscriber.id}`, JSON.stringify(companyProf));
       localStorage.setItem(`cloud_company_${updatedSubscriber.id}`, JSON.stringify(companyProf));
@@ -651,6 +672,23 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                 </select>
               </div>
             </div>
+          </div>
+
+          {/* Seção 5: Perfil de Segmento / Módulos Ativos */}
+          <div className="space-y-3 p-4 bg-[#252a34] border border-[#2f3644] rounded-xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider border-b border-[#2f3644] pb-2">
+              <Layers className="w-4 h-4 text-emerald-400" />
+              <span>5. Perfil de Segmento &amp; Módulos Ativos no Menu Lateral</span>
+            </div>
+
+            <SegmentModulesSelector
+              segmentProfile={segmentProfile}
+              enabledModules={enabledModules}
+              onChange={(nextSeg, nextMods) => {
+                setSegmentProfile(nextSeg);
+                setEnabledModules(nextMods);
+              }}
+            />
           </div>
 
           {/* Rodapé e Botões */}

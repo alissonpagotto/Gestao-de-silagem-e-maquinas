@@ -67,6 +67,8 @@ export interface MdfeRecord {
   dataAutorizacao: string;
   dataEncerramento?: string;
   observacoes?: string;
+  enviarContador?: boolean;
+  enviarContadorMotivo?: string;
   createdAt: string;
 }
 

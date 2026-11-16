@@ -20,6 +20,7 @@ import {
 import { Subscriber, PlanDefinition } from '../../types/masterAdmin';
 import { formatCurrencyBRL } from '../../lib/formatters';
 import { fetchSubscriberFullDetails } from '../../lib/supabaseService';
+import { getSegmentLabel, resolveSegmentModulesConfig, SIDEBAR_MODULE_OPTIONS } from '../../lib/subscriberModules';
 
 interface SubscriberDetailModalProps {
   isOpen: boolean;
@@ -329,6 +330,44 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* 4. Perfil de Segmento / Módulos Ativos */}
+          {(() => {
+            const modConf = resolveSegmentModulesConfig(
+              subscriber.segmentProfile,
+              subscriber.enabledModules
+            );
+            const activeSet = new Set(modConf.enabledModules);
+            return (
+              <div className="p-4 bg-[#252a34] rounded-xl border border-[#2f3644] space-y-2.5">
+                <div className="flex items-center justify-between border-b border-[#2f3644] pb-2">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Perfil de Segmento &amp; Módulos Ativos
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-300">
+                    {getSegmentLabel(modConf.segmentProfile)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {SIDEBAR_MODULE_OPTIONS.map((m) => {
+                    const enabled = activeSet.has(m.id);
+                    return (
+                      <span
+                        key={m.id}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          enabled
+                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                            : 'bg-[#1a1d24] text-[#6b7280] border-[#2f3644] line-through'
+                        }`}
+                      >
+                        {m.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Rodapé */}

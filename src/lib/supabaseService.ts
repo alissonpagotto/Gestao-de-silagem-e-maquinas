@@ -7813,6 +7813,8 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
                 if (!target.cpfCnpj) target.cpfCnpj = p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document || '';
                 if (!target.stateRegistration) target.stateRegistration = p.stateRegistration || p.state_registration || p.inscricaoEstadual || '';
                 if (!target.phone) target.phone = p.phone || p.telefone || p.whatsapp || '';
+                if (!target.segmentProfile && p.segmentProfile) target.segmentProfile = p.segmentProfile;
+                if (!target.enabledModules && Array.isArray(p.enabledModules)) target.enabledModules = p.enabledModules;
               }
             }
           } catch {}
@@ -7932,6 +7934,8 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
         neighborhood: sub.neighborhood || '',
         city: sub.city || '',
         state: sub.state || '',
+        segmentProfile: sub.segmentProfile,
+        enabledModules: sub.enabledModules,
       };
       await saveCloudCompanyProfile(profilePayload, validId);
     } catch (profErr) {

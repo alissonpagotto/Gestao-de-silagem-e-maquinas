@@ -1,6 +1,7 @@
 import { CompanyProfile } from '../types';
 import { formatDateBR } from './storage';
 import { getCachedMediaUrl } from './imageStorage';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from './printIdentity';
 
 export interface PrintDocumentOptions {
   title: string;
@@ -35,24 +36,16 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
   const now = new Date();
   const dateFormatted = formatDateBR(now.toISOString().split('T')[0]);
   const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const fullAddress = [
-    company.address,
-    company.number ? `nº ${company.number}` : '',
-    company.neighborhood ? `- ${company.neighborhood}` : '',
-    company.city ? `${company.city}` : '',
-    company.state ? `/${company.state}` : '',
-    company.zipCode ? `- CEP: ${company.zipCode}` : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const subscriber = resolveSubscriberPrintHeader(company);
+  const fullAddress = subscriber.fullAddress;
 
-  const logoSrc = getCachedMediaUrl(company.logoUrl) || '';
+  const logoSrc = getCachedMediaUrl(subscriber.logoUrl || company?.logoUrl) || '';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>${title} - ${company.tradeName || 'Silagem Fácil'}</title>
+  <title>${title} - ${subscriber.displayTitle}</title>
   <style>
     @page {
       size: ${orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait'};
@@ -285,9 +278,9 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
     .print-footer {
       margin-top: 16px;
       border-top: 1px dashed #cbd5e1;
-      padding-top: 8px;
-      font-size: 7.5pt;
-      color: #94a3b8;
+      padding-top: 6px;
+      font-size: 9px;
+      color: #374151;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -310,22 +303,22 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
         ${logoSrc ? `<img src="${logoSrc}" alt="Logo ${company.tradeName}" />` : `<div style="font-weight:900;color:#0963cb;font-size:22pt;">SF</div>`}
       </div>
 
-      <!-- Lado Direito: Nome Fantasia em destaque, CNPJ e Cidade/UF -->
+      <!-- Lado Direito: Nome Fantasia em destaque, Razão Social, CNPJ e Endereço -->
       <div class="company-info-right">
-        <h2 class="company-trade-name">${company.tradeName || company.corporateName || 'SILAGEM FÁCIL ERP'}</h2>
-        ${company.corporateName && company.corporateName !== company.tradeName ? `<p class="company-corporate-name">Razão Social: ${company.corporateName}</p>` : ''}
+        <h2 class="company-trade-name">${subscriber.displayTitle}</h2>
+        ${subscriber.corporateName && subscriber.corporateName.toUpperCase() !== subscriber.displayTitle.toUpperCase() ? `<p class="company-corporate-name">Razão Social: ${subscriber.corporateName}</p>` : ''}
         <div class="company-details">
-          ${company.cnpjCpf ? `<strong>CNPJ:</strong> ${company.cnpjCpf}` : ''}
-          ${company.city ? ` • <strong>${company.city}${company.state ? `/${company.state}` : ''}</strong>` : ''}
-          ${company.phone ? ` &nbsp;|&nbsp; <strong>Contato:</strong> ${company.phone}` : ''}
-          ${company.email ? ` &nbsp;|&nbsp; <strong>E-mail:</strong> ${company.email}` : ''}
+          ${subscriber.cnpjCpf ? `<strong>CNPJ/CPF:</strong> ${subscriber.cnpjCpf}` : ''}
+          ${subscriber.cityState ? ` • <strong>${subscriber.cityState}</strong>` : ''}
+          ${subscriber.phone ? ` &nbsp;|&nbsp; <strong>Contato:</strong> ${subscriber.phone}` : ''}
+          ${subscriber.email ? ` &nbsp;|&nbsp; <strong>E-mail:</strong> ${subscriber.email}` : ''}
           ${fullAddress ? `<br><span style="font-size:7.5pt;color:#64748b;">${fullAddress}</span>` : ''}
         </div>
         <div class="doc-badge-box">
           <span class="doc-type-badge">${documentType}</span>
           <div class="doc-meta">
             <span>Emissão: <strong>${dateFormatted} às ${timeFormatted}</strong></span>
-            <span>• Autenticação: <strong>SF-${now.getTime().toString(36).toUpperCase()}</strong></span>
+            <span>• Autenticação: <strong>AC-${now.getTime().toString(36).toUpperCase()}</strong></span>
           </div>
         </div>
       </div>
@@ -349,7 +342,7 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
         <div class="signature-box">
           <div class="signature-line"></div>
           <div class="signature-title">${label}</div>
-          <div class="signature-sub">${company.tradeName} • Data: ____/____/________</div>
+          <div class="signature-sub">${subscriber.displayTitle} • Data: ____/____/________</div>
         </div>
       `).join('')}
     </div>
@@ -357,7 +350,7 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
 
     <!-- Footer (Standard Fixed) -->
     <footer class="print-footer">
-      <div>Relatório gerado automaticamente por: Silagem Fácil ERP - Gestão Integrada de Silagem & Frotas Agrícolas</div>
+      <div>${buildSystemPrintFooterText(now)}</div>
       <div>Página 1 de 1</div>
     </footer>
 

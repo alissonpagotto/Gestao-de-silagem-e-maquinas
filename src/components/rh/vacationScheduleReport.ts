@@ -2,6 +2,7 @@ import { Employee, VacationRecord, AbsenceRecord, LeaveRecord, CompanyProfile } 
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
 import { formatIsoDateOnly, toValidUUID } from '../../lib/supabaseService';
 import { normalizeNameForComparison } from './vacationHelpers';
+import { buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 interface VacationScheduleRow {
   isFirstRowOfEmployee: boolean;
@@ -659,9 +660,9 @@ export function generateVacationScheduleReportHtml({
     </table>
 
     <!-- Rodapé da Folha -->
-    <div class="footer-grid">
+    <div class="footer-grid" style="font-size: 9px; color: #374151;">
       <div class="footer-left">
-        SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+        ${buildSystemPrintFooterText()}
       </div>
       <div class="footer-right">
         Total de empregados: ${totalEmployeesCount}

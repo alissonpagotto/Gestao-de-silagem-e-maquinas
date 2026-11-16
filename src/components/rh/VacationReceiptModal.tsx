@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { X, Printer, Palmtree, Wifi } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
 import { formatDateBR, getStoredCompanyProfile, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
+import { buildSystemPrintFooterText } from '../../lib/printIdentity';
 import { formatEmployeeBankDeposit } from './payrollHelpers';
 import { PixQrCodeBlock } from './PixQrCodeBlock';
 import { resolveEmployeePixKey } from './pixQrCodeHelper';
@@ -1287,8 +1288,8 @@ export function VacationReceiptModal({
               </div>
 
               {/* Assinatura de Governança Micro de Marca */}
-              <div className="pt-2 mt-3 border-t border-stone-200 text-center text-[9px] text-stone-500 uppercase tracking-tight font-semibold">
-                SISTEMA AGROCONTROL • GESTÃO DE SILAGEM E VEÍCULOS • VERSÃO 1.0.3
+              <div className="pt-2 mt-3 border-t border-stone-200 text-center text-[9px] text-gray-700 font-medium">
+                {buildSystemPrintFooterText()}
               </div>
             </div>
           </div>

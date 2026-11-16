@@ -38,6 +38,7 @@ import {
   extractGlobalPaymentMethodFromRecord,
 } from '../../lib/paymentMethodsStorage';
 import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
@@ -1537,6 +1538,20 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             {/* Receipt Body */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#cad4e6] flex flex-col items-center">
             <div className="w-full max-w-3xl p-6 space-y-4 text-black bg-white border border-black rounded-xl shadow-sm" id="broker-receipt-printable">
+              {(() => {
+                const sub = resolveSubscriberPrintHeader();
+                return (
+                  <div className="text-center border-b border-stone-300 pb-2 mb-2">
+                    <div className="text-sm font-black uppercase tracking-wide text-stone-900">{sub.displayTitle}</div>
+                    {(sub.corporateName && sub.corporateName !== sub.displayTitle) && (
+                      <div className="text-[10px] font-semibold text-stone-700">{sub.corporateName}</div>
+                    )}
+                    <div className="text-[10px] text-stone-600">
+                      {[sub.cnpjCpf ? `CNPJ/CPF: ${sub.cnpjCpf}` : '', sub.phone ? `Tel: ${sub.phone}` : '', sub.fullAddress].filter(Boolean).join(' • ')}
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="text-center border-b-2 border-stone-800 pb-3">
                 <h2 className="text-base font-black uppercase tracking-wider">
                   RECIBO DE REPASSE DE COMISSÃO
@@ -1624,7 +1639,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                     <div className="border-t border-stone-800 pt-1.5 text-xs font-bold uppercase">
                       EMPRESA CONTRATANTE
                     </div>
-                    <span className="text-[10px] text-stone-500">Silagem Fácil Gestão Agrícola</span>
+                    <span className="text-[10px] text-stone-500">{resolveSubscriberPrintHeader().displayTitle}</span>
                   </div>
 
                   <div className="text-center">
@@ -1634,6 +1649,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                     <span className="text-[10px] text-stone-500">Agenciador Beneficiário</span>
                   </div>
                 </div>
+              </div>
+              <div className="pt-3 border-t border-dashed border-stone-300 text-center text-[9px] text-gray-700 font-medium">
+                {buildSystemPrintFooterText()}
               </div>
             </div>
             </div>

@@ -21,6 +21,14 @@ import {
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredCompanyProfile } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
+import {
+  getEffectiveModulesConfig,
+  IMPERSONATED_MODULES_STORAGE_KEY,
+  isModuleEnabledForSubscriber,
+  SUBSCRIBER_MODULES_STORAGE_KEY,
+  SUBSCRIBER_MODULES_UPDATED_EVENT,
+} from '../../lib/subscriberModules';
+import type { SubscriberModulesConfig } from '../../types/masterAdmin';
 
 export interface SidebarProps {
   activeTab: string;
@@ -56,6 +64,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+  const [subscriberModulesConfig, setSubscriberModulesConfig] = useState<SubscriberModulesConfig>(
+    () => getEffectiveModulesConfig(companyProfile)
+  );
 
   interface ResolvedCompanyInfo {
     title: string;
@@ -368,6 +379,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+  // Sincroniza módulos ativos do assinante (Perfil / Segmento configurado no Master Admin)
+  useEffect(() => {
+    let isMounted = true;
+    const syncModules = () => {
+      if (!isMounted) return;
+      setSubscriberModulesConfig(getEffectiveModulesConfig(companyProfile));
+    };
+
+    syncModules();
+
+    const handleStorageModules = (e: StorageEvent) => {
+      if (
+        !e.key ||
+        e.key === SUBSCRIBER_MODULES_STORAGE_KEY ||
+        e.key === IMPERSONATED_MODULES_STORAGE_KEY ||
+        e.key === 'silagem_master_subscribers_v2' ||
+        e.key === 'is_admin_impersonating' ||
+        e.key === 'admin_impersonated_company_id'
+      ) {
+        syncModules();
+      }
+    };
+
+    window.addEventListener(SUBSCRIBER_MODULES_UPDATED_EVENT, syncModules);
+    window.addEventListener('master_admin_data_changed', syncModules);
+    window.addEventListener('agrocontrol_company_profile_updated', syncModules);
+    window.addEventListener('company_profile_updated', syncModules);
+    window.addEventListener('storage', handleStorageModules);
+    return () => {
+      isMounted = false;
+      window.removeEventListener(SUBSCRIBER_MODULES_UPDATED_EVENT, syncModules);
+      window.removeEventListener('master_admin_data_changed', syncModules);
+      window.removeEventListener('agrocontrol_company_profile_updated', syncModules);
+      window.removeEventListener('company_profile_updated', syncModules);
+      window.removeEventListener('storage', handleStorageModules);
+    };
+  }, [companyProfile]);
+
   useEffect(() => {
     let isMounted = true;
     const handleOrderSync = (e: any) => {
@@ -416,17 +465,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isModuleRestricted = isModuleHidden;
 
-  // Redireciona caso a tela ativa seja ocultada pelo perfil selecionado
+  // Redireciona caso a tela ativa seja ocultada pelo cargo ou desativada pelo perfil de segmento do assinante
   useEffect(() => {
-    if (isModuleHidden(activeTab)) {
+    const blockedByRole = isModuleHidden(activeTab);
+    const disabledBySegment = !isModuleEnabledForSubscriber(activeTab, subscriberModulesConfig);
+    if (blockedByRole || disabledBySegment) {
       const timer = setTimeout(() => {
         setActiveTab('dashboard');
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [userSession, activeTab]);
+  }, [userSession, activeTab, subscriberModulesConfig]);
 
   const handleSelect = (tabId: string) => {
+    if (!isModuleEnabledForSubscriber(tabId, subscriberModulesConfig)) {
+      setActiveTab('dashboard');
+      if (onCloseMobile) onCloseMobile();
+      return;
+    }
+
     // 4. TRAVA DE SEGURANÇA NA SIDEBAR (INTERCEPÇÃO VISUAL)
     if (isModuleHidden(tabId)) {
       setActiveTab(`acesso_restrito_${tabId}`);
@@ -445,9 +502,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .filter((item): item is MenuItemDef => Boolean(item));
 
   // 1. Menus principais (Dashboard até Cadastros Base) que ficam na lista com rolagem flexível
-  // Oculta imediatamente abas não permitidas para o cargo/colaborador selecionado
+  // Oculta abas desativadas para o segmento do assinante e abas não permitidas para o cargo/colaborador selecionado
   const middleNavItems = navItems
     .filter(item => item.id !== 'configuracoes' && item.id !== 'empresa')
+    .filter(item => isModuleEnabledForSubscriber(item.id, subscriberModulesConfig))
     .filter(item => !isModuleHidden(item.id));
 
   // 2. Estado de acesso do botão Dados da Empresa (fixado obrigatoriamente no rodapé)
@@ -571,15 +629,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isCollapsed ? (
             <div className="py-1 px-1 flex flex-col items-center justify-center gap-1 border-b border-slate-300/60 dark:border-stone-700/60">
               {/* Notificações / Sininho */}
-              <button
-                type="button"
-                onClick={() => handleSelect('funcionarios')}
-                title="NOTIFICAÇÕES E AVISOS DE CNH"
-                className="relative p-1 rounded-md text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
-              >
-                <Bell className="w-3.5 h-3.5" />
-                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-              </button>
+              {isModuleEnabledForSubscriber('rh', subscriberModulesConfig) && (
+                <button
+                  type="button"
+                  onClick={() => handleSelect('funcionarios')}
+                  title="NOTIFICAÇÕES E AVISOS DE CNH"
+                  className="relative p-1 rounded-md text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                </button>
+              )}
 
               {/* Alternar Tema Claro / Escuro */}
               {setIsDarkMode && (
@@ -613,15 +673,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
                 {/* Notificações / Sininho */}
-                <button
-                  type="button"
-                  onClick={() => handleSelect('funcionarios')}
-                  title="NOTIFICAÇÕES E AVISOS DE CNH"
-                  className="relative p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
-                >
-                  <Bell className="w-4 h-4" />
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                </button>
+                {isModuleEnabledForSubscriber('rh', subscriberModulesConfig) && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelect('funcionarios')}
+                    title="NOTIFICAÇÕES E AVISOS DE CNH"
+                    className="relative p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  </button>
+                )}
 
                 {/* Alternar Tema Claro / Escuro */}
                 {setIsDarkMode && (

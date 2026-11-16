@@ -18,6 +18,7 @@ import {
 import { Machinery, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
+import { buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 interface ReportsAtivoImobilizadoTabProps {
   machineries: Machinery[];
@@ -234,8 +235,8 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
           </table>
         </div>
 
-        <div style="margin-top: 14px; font-size: 10px; color: #64748b; text-align: right;">
-          Demonstrativo gerado em ${todayStr} às ${new Date().toLocaleTimeString('pt-BR')} • Silagem Fácil Pro - Gestão Patrimonial
+        <div style="margin-top: 14px; font-size: 9px; color: #374151; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
+          ${buildSystemPrintFooterText()}
         </div>
       </div>
     `;

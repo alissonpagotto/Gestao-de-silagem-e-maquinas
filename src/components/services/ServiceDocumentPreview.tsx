@@ -24,6 +24,7 @@ import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { parseCurrencyToFloat } from '../../lib/formatters';
 import { ServiceTruckItem, CompanyProfile, ServiceFuelEntry, ServiceMealExpense } from '../../types';
 import { TruckExpenseDetail } from './DRESummaryBlock';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 export type PrintContentType = 'client' | 'full';
 export type PrintPaperFormat = 'thermal_80mm' | 'a4';
@@ -184,18 +185,11 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
 
   // Perfil da empresa prestadora (via props ou armazenamento local sincronizado)
   const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
-  const resolvedCompanyLogo = useResolvedMediaUrl(company.logoUrl);
+  const subscriberHeader = useMemo(() => resolveSubscriberPrintHeader(company), [company]);
+  const resolvedCompanyLogo = useResolvedMediaUrl(subscriberHeader.logoUrl || company.logoUrl);
 
   // Formatação completa do endereço da empresa
-  const fullCompanyAddress = useMemo(() => {
-    const parts = [
-      company.address ? `${company.address}${company.number ? `, nº ${company.number}` : ''}` : '',
-      company.neighborhood ? `Bairro ${company.neighborhood}` : '',
-      company.city ? `${company.city}${company.state ? `/${company.state}` : ''}` : (company.state || ''),
-      company.zipCode ? `CEP: ${company.zipCode}` : '',
-    ].filter(Boolean);
-    return parts.join(' - ');
-  }, [company.address, company.number, company.neighborhood, company.city, company.state, company.zipCode]);
+  const fullCompanyAddress = subscriberHeader.fullAddress;
 
   const displayOrderNumber = orderNumber || `#${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
@@ -1018,17 +1012,17 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                   </div>
                 )}
                 <h2 className="font-black text-sm tracking-wider uppercase">
-                  {company.tradeName || company.corporateName || 'SILAGEM FÁCIL'}
+                  {subscriberHeader.displayTitle}
                 </h2>
-                {company.corporateName && company.corporateName !== company.tradeName && (
-                  <p className="text-[9px] text-gray-700 font-semibold">{company.corporateName}</p>
+                {subscriberHeader.corporateName && subscriberHeader.corporateName !== subscriberHeader.displayTitle && (
+                  <p className="text-[9px] text-gray-700 font-semibold">{subscriberHeader.corporateName}</p>
                 )}
-                {company.cnpjCpf && (
-                  <p className="text-[9px] text-gray-700 font-bold">CNPJ/CPF: {company.cnpjCpf}</p>
+                {subscriberHeader.cnpjCpf && (
+                  <p className="text-[9px] text-gray-700 font-bold">CNPJ/CPF: {subscriberHeader.cnpjCpf}</p>
                 )}
-                {(company.phone || company.city) && (
+                {(subscriberHeader.phone || subscriberHeader.fullAddress) && (
                   <p className="text-[8.5px] text-gray-600">
-                    {[company.phone ? `Tel: ${company.phone}` : '', company.city ? `${company.city}/${company.state || ''}` : ''].filter(Boolean).join(' • ')}
+                    {[subscriberHeader.phone ? `Tel: ${subscriberHeader.phone}` : '', subscriberHeader.fullAddress].filter(Boolean).join(' • ')}
                   </p>
                 )}
                 <div className="mt-1 pt-1 border-t border-dotted border-gray-400">
@@ -1374,16 +1368,19 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                       <div className="border-b border-black w-full"></div>
                     </div>
                     <p className="font-bold text-[10px] uppercase">{operatorName || 'Encarregado Operacional'}</p>
-                    <p className="text-[8px] text-gray-500">{company.tradeName || 'Silagem Fácil'} - Fechamento de Campo</p>
+                    <p className="text-[8px] text-gray-500">{subscriberHeader.displayTitle} - Fechamento de Campo</p>
                   </div>
                 )}
               </div>
 
               {/* RODAPÉ DO CUPOM */}
-              <div className="text-center pt-2 border-t border-dotted border-gray-400 text-[9px] text-gray-600 space-y-0.5">
-                <p className="font-bold tracking-wider">{(company.tradeName || 'SILAGEM FÁCIL').toUpperCase()} - GESTÃO AGRÍCOLA</p>
-                <p className="text-[8px] text-gray-400">
+              <div className="text-center pt-2 border-t border-dotted border-gray-400 text-[9px] text-gray-700 space-y-0.5">
+                <p className="font-bold tracking-wider uppercase">{subscriberHeader.displayTitle}</p>
+                <p className="text-[8px] text-gray-600">
                   {contentType === 'client' ? 'Via do Produtor Rural' : 'Via Gerencial Interna'}
+                </p>
+                <p className="text-[9px] text-gray-700 font-medium pt-0.5 normal-case">
+                  {buildSystemPrintFooterText()}
                 </p>
               </div>
             </div>
@@ -1412,7 +1409,7 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                         />
                       ) : (
                         <div className="w-full h-full bg-emerald-100 flex items-center justify-center text-emerald-800 font-black text-lg rounded">
-                          {(company.tradeName || company.corporateName || 'SF').substring(0, 2).toUpperCase()}
+                          {subscriberHeader.displayTitle.substring(0, 2).toUpperCase()}
                         </div>
                       )}
                     </div>
@@ -1422,7 +1419,7 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                       {/* Nome Fantasia + Badge da Via */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base sm:text-lg font-black tracking-tight text-slate-900 uppercase truncate">
-                          {company.tradeName || company.corporateName || 'SILAGEM FÁCIL'}
+                          {subscriberHeader.displayTitle}
                         </span>
                         <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border shrink-0 ${
                           contentType === 'client'
@@ -1434,26 +1431,26 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                       </div>
 
                       {/* Razão Social */}
-                      {company.corporateName && company.corporateName !== company.tradeName && (
+                      {subscriberHeader.corporateName && subscriberHeader.corporateName !== subscriberHeader.displayTitle && (
                         <p className="text-[9.5px] text-slate-700 font-semibold truncate">
-                          Razão Social: <span className="text-slate-900 font-bold">{company.corporateName}</span>
+                          Razão Social: <span className="text-slate-900 font-bold">{subscriberHeader.corporateName}</span>
                         </p>
                       )}
 
                       {/* Bloco de Dados Cadastrais: CNPJ/CPF, Inscrição Estadual, Contato (Tel/Email) e Endereço */}
                       <div className="text-[9px] text-slate-600 leading-tight space-y-0.5">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          {company.cnpjCpf && (
-                            <span><strong className="text-slate-800">CNPJ/CPF:</strong> {company.cnpjCpf}</span>
+                          {subscriberHeader.cnpjCpf && (
+                            <span><strong className="text-slate-800">CNPJ/CPF:</strong> {subscriberHeader.cnpjCpf}</span>
                           )}
-                          {company.stateRegistration && (
-                            <span>• <strong className="text-slate-800">IE:</strong> {company.stateRegistration}</span>
+                          {subscriberHeader.stateRegistration && (
+                            <span>• <strong className="text-slate-800">IE:</strong> {subscriberHeader.stateRegistration}</span>
                           )}
-                          {company.phone && (
-                            <span>• <strong className="text-slate-800">Contato:</strong> {company.phone}</span>
+                          {subscriberHeader.phone && (
+                            <span>• <strong className="text-slate-800">Contato:</strong> {subscriberHeader.phone}</span>
                           )}
-                          {company.email && (
-                            <span>• <strong className="text-slate-800">E-mail:</strong> {company.email}</span>
+                          {subscriberHeader.email && (
+                            <span>• <strong className="text-slate-800">E-mail:</strong> {subscriberHeader.email}</span>
                           )}
                         </div>
                         {fullCompanyAddress && (
@@ -1952,7 +1949,7 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                       <div className="border-b border-slate-400 w-4/5 mx-auto signature-line"></div>
                     </div>
                     <p className="font-bold text-slate-900 block text-[10.5px]">
-                      {operatorName || `${company.tradeName || 'Silagem Fácil'} - Responsável Técnico`}
+                      {operatorName || `${subscriberHeader.displayTitle} - Responsável Técnico`}
                     </p>
                     <p className="text-[8.5px] text-slate-500 block mt-0.5">
                       {contentType === 'client' ? 'Conferência e encerramento operacional' : 'Validação de DRE e encerramento financeiro'}
@@ -1961,19 +1958,10 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                 </div>
 
                 {/* RODAPÉ INSTITUCIONAL DO SISTEMA PARA IMPRESSÃO A4 */}
-                <div className="footer-sistema border-t border-slate-300 pt-1 text-center text-[8.5px] text-slate-500 leading-tight break-avoid">
-                  <p className="font-bold text-slate-700">
-                    {company.tradeName || company.corporateName || 'Silagem Fácil'} — Sistema de Gestão e Operações Agrícolas
+                <div className="footer-sistema border-t border-slate-300 pt-1 text-center text-[9px] text-gray-700 leading-tight break-avoid">
+                  <p className="font-semibold text-gray-700">
+                    {buildSystemPrintFooterText()}
                   </p>
-                  {(company.cnpjCpf || company.phone || company.email) && (
-                    <p>
-                      {[
-                        company.cnpjCpf ? `CNPJ/CPF: ${company.cnpjCpf}` : null,
-                        company.phone ? `Contato: ${company.phone}` : null,
-                        company.email ? `E-mail: ${company.email}` : null,
-                      ].filter(Boolean).join(' • ')}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

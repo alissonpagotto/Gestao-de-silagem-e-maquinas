@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   LayoutDashboard, 
   Tractor, 
@@ -7,6 +7,11 @@ import {
   PlusCircle, 
   Menu
 } from 'lucide-react';
+import {
+  getEffectiveModulesConfig,
+  isModuleEnabledForSubscriber,
+  SUBSCRIBER_MODULES_UPDATED_EVENT,
+} from '../../lib/subscriberModules';
 
 interface BottomNavigationProps {
   activeTab: string;
@@ -21,12 +26,26 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onOpenMobileMenu,
   onNewExpense,
 }) => {
+  const [modulesConfig, setModulesConfig] = useState(() => getEffectiveModulesConfig());
+
+  useEffect(() => {
+    const sync = () => setModulesConfig(getEffectiveModulesConfig());
+    window.addEventListener(SUBSCRIBER_MODULES_UPDATED_EVENT, sync);
+    window.addEventListener('master_admin_data_changed', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(SUBSCRIBER_MODULES_UPDATED_EVENT, sync);
+      window.removeEventListener('master_admin_data_changed', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
     { id: 'servicos', label: 'Prestação de Serviços', icon: Tractor },
     { id: 'despesas', label: 'Despesas', icon: Receipt },
     { id: 'clientes', label: 'Clientes', icon: Users },
-  ];
+  ].filter((item) => isModuleEnabledForSubscriber(item.id, modulesConfig));
 
   return (
     <nav

@@ -8,6 +8,7 @@ import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrC
 import { generateQrCodeDataUrl, buildOfficialPixBrCode } from './pixQrCodeHelper';
 import { QRCode } from './PixQrCodeBlock';
 import { getStoredVerbasRH, updateVerbaInStorage, findVerbaByCodigo } from './verbasRH';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -82,14 +83,10 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   customVerbaOverrides = {},
   onUpdateVerba,
 }) => {
-  const tradeName =
-    companyProfile?.tradeName ||
-    companyProfile?.companyName ||
-    companyProfile?.corporateName ||
-    'COLAÇA SILAGEM';
-
-  const cnpj = companyProfile?.cnpjCpf || (companyProfile as any)?.cnpj || '';
-  const resolvedLogoUrl = useResolvedMediaUrl(companyProfile?.logoUrl);
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+  const tradeName = subHeader.displayTitle;
+  const cnpj = subHeader.cnpjCpf;
+  const resolvedLogoUrl = useResolvedMediaUrl(subHeader.logoUrl || companyProfile?.logoUrl);
   const todayStr = formatDateBR(new Date().toISOString().split('T')[0]);
 
   const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
@@ -712,6 +709,9 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
           <div className="pt-2 max-w-[200px] mx-auto border-b border-stone-400" />
           <p className="text-[9px] font-bold text-stone-700 uppercase">
             {employee?.name || 'Assinatura do Colaborador'}
+          </p>
+          <p className="text-[9px] text-gray-700 pt-1">
+            {buildSystemPrintFooterText()}
           </p>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { CompanyProfile } from '../../types';
 import { getStoredCompanyProfile } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
+import { resolveSubscriberPrintHeader } from '../../lib/printIdentity';
 import { Building2 } from 'lucide-react';
 
 export interface PrintReportHeaderProps {
@@ -19,7 +20,7 @@ export interface PrintReportHeaderProps {
  * Standardized Corporate Print Report Header
  * 2 Columns:
  * - Left: Company Logo (dynamically loaded from Company Settings) or stylized monogram fallback
- * - Right: Trade Name (Nome Fantasia) in bold highlight, with CNPJ and City/UF directly below
+ * - Right: Trade Name (Nome Fantasia) in bold highlight, with Razão Social, CNPJ, Phone and Full Address directly below
  * Separated by a subtle horizontal divider line in corporate blue / dark gray.
  */
 export const PrintReportHeader: React.FC<PrintReportHeaderProps> = ({
@@ -35,20 +36,19 @@ export const PrintReportHeader: React.FC<PrintReportHeaderProps> = ({
   const finalTitle = reportTitle || title;
   const finalSubtitle = reportSubtitle || subtitle;
   const company = companyProfile || getStoredCompanyProfile();
-  const resolvedLogoUrl = useResolvedMediaUrl(company?.logoUrl);
+  const identity = resolveSubscriberPrintHeader(company);
+  const resolvedLogoUrl = useResolvedMediaUrl(identity.logoUrl || company?.logoUrl);
 
-  const tradeName =
-    company?.tradeName ||
-    company?.companyName ||
-    company?.corporateName ||
-    'Silagem Fácil - Gestão Agrícola';
+  const tradeName = identity.displayTitle;
+  const corporateName =
+    identity.corporateName && identity.corporateName.toUpperCase() !== tradeName.toUpperCase()
+      ? identity.corporateName
+      : null;
 
-  const corporateName = company?.corporateName && company.corporateName !== tradeName ? company.corporateName : null;
-
-  const cnpj = company?.cnpjCpf || company?.cnpj || '';
-  const cityUf = [company?.city, company?.state].filter(Boolean).join(' / ');
-  const contact = [company?.phone, company?.email].filter(Boolean).join(' • ');
-  const address = company?.address ? `${company.address}${company.number ? `, nº ${company.number}` : ''}` : '';
+  const cnpj = identity.cnpjCpf;
+  const cityUf = identity.cityState;
+  const contact = [identity.phone, identity.email].filter(Boolean).join(' • ');
+  const address = identity.fullAddress;
 
   return (
     <header className={`print-corporate-header w-full pb-3 mb-4 ${className}`}>
