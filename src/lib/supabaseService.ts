@@ -2616,12 +2616,23 @@ export function encodeRhFuncionarioMeta(meta: {
   cnh_upgrade_category?: string | null;
   termination_date?: string | null;
   numero_registro?: string | null;
+  personal_email?: string | null;
+  emergency_contact?: string | null;
+  dependents_count?: number | null;
+  work_schedule?: string | null;
+  work_schedule_id?: string | null;
 }): string {
   const cleanRg = meta.numero_rg ? String(meta.numero_rg).trim().toUpperCase() : null;
   const cleanBirth = formatIsoDateOnly(meta.data_nascimento) || null;
   const cleanPis = meta.numero_pis ? String(meta.numero_pis).trim().toUpperCase() : null;
   const cleanRegime = meta.regime_contratacao ? String(meta.regime_contratacao).trim() : 'Registrado (CLT)';
   const cleanRegistro = meta.numero_registro ? String(meta.numero_registro).replace(/\D/g, '').slice(0, 6) : undefined;
+  const cleanPersonalEmail = meta.personal_email ? String(meta.personal_email).trim().toLowerCase() : undefined;
+  const cleanEmergencyContact = meta.emergency_contact ? String(meta.emergency_contact).trim() : undefined;
+  const cleanDependents = typeof meta.dependents_count === 'number' && !isNaN(meta.dependents_count)
+    ? Math.max(0, Math.floor(meta.dependents_count))
+    : undefined;
+  const cleanWorkSchedule = meta.work_schedule ? String(meta.work_schedule).trim() : undefined;
 
   return JSON.stringify({
     __rh_meta: 1,
@@ -2648,6 +2659,15 @@ export function encodeRhFuncionarioMeta(meta: {
     cnh_upgrade_category: meta.cnh_upgrade_category || undefined,
     termination_date: formatIsoDateOnly(meta.termination_date) || undefined,
     numero_registro: cleanRegistro || undefined,
+    personal_email: cleanPersonalEmail || undefined,
+    email_pessoal: cleanPersonalEmail || undefined,
+    emergency_contact: cleanEmergencyContact || undefined,
+    contato_emergencia: cleanEmergencyContact || undefined,
+    dependents_count: cleanDependents,
+    dependentes: cleanDependents,
+    work_schedule: cleanWorkSchedule || undefined,
+    jornada_trabalho: cleanWorkSchedule || undefined,
+    work_schedule_id: meta.work_schedule_id || undefined,
   });
 }
 
@@ -2662,6 +2682,20 @@ export function parseRhFuncionarioMeta(rawEmail?: any): Record<string, any> {
     }
   } catch (_) {}
   return {};
+}
+
+export function extractCleanEmployeeEmail(rawEmail?: any, meta?: Record<string, any>): string {
+  const fromMeta = meta?.personal_email || meta?.email_pessoal || meta?.contact_email;
+  if (fromMeta && typeof fromMeta === 'string' && !fromMeta.trim().startsWith('{')) {
+    return fromMeta.trim();
+  }
+  if (rawEmail && typeof rawEmail === 'string') {
+    const trimmed = rawEmail.trim();
+    if (trimmed && !trimmed.startsWith('{')) {
+      return trimmed;
+    }
+  }
+  return '';
 }
 
 /**
@@ -2825,6 +2859,99 @@ export function mapRowToEmployee(row: any): Employee {
     pis: resolvedPis ? String(resolvedPis).trim().toUpperCase() : undefined,
     numero_pis: resolvedPis ? String(resolvedPis).trim().toUpperCase() : undefined,
     phone: row.phone || row.telefone || '',
+    email: (() => {
+      const resolved =
+        row.personal_email ||
+        row.email_pessoal ||
+        extractCleanEmployeeEmail(row.email, meta) ||
+        localEmp?.personalEmail ||
+        localEmp?.email_pessoal ||
+        extractCleanEmployeeEmail(localEmp?.email);
+      return resolved || undefined;
+    })(),
+    personalEmail: (() => {
+      const resolved =
+        row.personal_email ||
+        row.email_pessoal ||
+        extractCleanEmployeeEmail(row.email, meta) ||
+        localEmp?.personalEmail ||
+        localEmp?.email_pessoal ||
+        extractCleanEmployeeEmail(localEmp?.email);
+      return resolved || undefined;
+    })(),
+    email_pessoal: (() => {
+      const resolved =
+        row.personal_email ||
+        row.email_pessoal ||
+        extractCleanEmployeeEmail(row.email, meta) ||
+        localEmp?.personalEmail ||
+        localEmp?.email_pessoal ||
+        extractCleanEmployeeEmail(localEmp?.email);
+      return resolved || undefined;
+    })(),
+    emergencyContact:
+      row.contato_emergencia ||
+      row.emergency_contact ||
+      meta.emergency_contact ||
+      meta.contato_emergencia ||
+      localEmp?.emergencyContact ||
+      localEmp?.contato_emergencia ||
+      undefined,
+    contato_emergencia:
+      row.contato_emergencia ||
+      row.emergency_contact ||
+      meta.emergency_contact ||
+      meta.contato_emergencia ||
+      localEmp?.emergencyContact ||
+      localEmp?.contato_emergencia ||
+      undefined,
+    dependentsCount: (() => {
+      const rawDep =
+        row.numero_dependentes ??
+        row.dependentes ??
+        row.dependents_count ??
+        meta.dependents_count ??
+        meta.dependentes ??
+        localEmp?.dependentsCount ??
+        localEmp?.dependentes ??
+        0;
+      const parsedDep = parseInt(String(rawDep), 10);
+      return isNaN(parsedDep) || parsedDep < 0 ? 0 : parsedDep;
+    })(),
+    dependentes: (() => {
+      const rawDep =
+        row.numero_dependentes ??
+        row.dependentes ??
+        row.dependents_count ??
+        meta.dependents_count ??
+        meta.dependentes ??
+        localEmp?.dependentsCount ??
+        localEmp?.dependentes ??
+        0;
+      const parsedDep = parseInt(String(rawDep), 10);
+      return isNaN(parsedDep) || parsedDep < 0 ? 0 : parsedDep;
+    })(),
+    workScheduleId:
+      row.work_schedule_id ||
+      meta.work_schedule_id ||
+      localEmp?.workScheduleId ||
+      undefined,
+    workSchedule:
+      row.jornada_trabalho ||
+      row.work_schedule ||
+      meta.work_schedule ||
+      meta.jornada_trabalho ||
+      localEmp?.workSchedule ||
+      localEmp?.jornada_trabalho ||
+      undefined,
+    jornada_trabalho:
+      row.jornada_trabalho ||
+      row.work_schedule ||
+      meta.work_schedule ||
+      meta.jornada_trabalho ||
+      localEmp?.workSchedule ||
+      localEmp?.jornada_trabalho ||
+      undefined,
     status: (row.status || 'ativo') as any,
     active: row.status !== 'inativo' && row.active !== false,
     registrationType: (row.registration_type || row.tipo_registro || 'Funcionário') as any,
@@ -2991,6 +3118,11 @@ export function sanitizeRhFuncionarioPayload(
     cnh_upgrade_category: employee.cnhUpgradeCategory || null,
     termination_date: formatIsoDateOnly(employee.terminationDate) || null,
     numero_registro: (employee.badgeRegistrationNumber || employee.numero_registro) ? String(employee.badgeRegistrationNumber || employee.numero_registro).replace(/\D/g, '').slice(0, 6) : null,
+    personal_email: employee.personalEmail || employee.email_pessoal || extractCleanEmployeeEmail(employee.email) || null,
+    emergency_contact: employee.emergencyContact || employee.contato_emergencia || null,
+    dependents_count: typeof employee.dependentsCount === 'number' ? employee.dependentsCount : (typeof employee.dependentes === 'number' ? employee.dependentes : 0),
+    work_schedule: employee.workSchedule || employee.jornada_trabalho || null,
+    work_schedule_id: employee.workScheduleId || null,
   });
 
   // Tratamento numérico de salário (NUMERIC em PostgreSQL)

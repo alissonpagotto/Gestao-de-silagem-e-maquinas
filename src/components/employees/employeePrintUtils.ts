@@ -2,6 +2,55 @@ import { Employee, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
 import { getCachedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
+import { extractCleanEmployeeEmail, parseRhFuncionarioMeta } from '../../lib/supabaseService';
+
+function escapeEmployeeHtml(value?: string | number | null): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function resolveEmployeePrintFields(employee: Partial<Employee>) {
+  const empAny = employee as any;
+  const meta = parseRhFuncionarioMeta(empAny?.email);
+  const cleanEmail =
+    (employee.personalEmail && !String(employee.personalEmail).trim().startsWith('{') ? String(employee.personalEmail).trim() : '') ||
+    (employee.email_pessoal && !String(employee.email_pessoal).trim().startsWith('{') ? String(employee.email_pessoal).trim() : '') ||
+    extractCleanEmployeeEmail(empAny?.email, meta);
+  const emergencyContact = String(
+    employee.emergencyContact ||
+      empAny?.contato_emergencia ||
+      meta.emergency_contact ||
+      meta.contato_emergencia ||
+      ''
+  ).trim();
+  const workSchedule = String(
+    employee.workSchedule ||
+      empAny?.jornada_trabalho ||
+      meta.work_schedule ||
+      meta.jornada_trabalho ||
+      ''
+  ).trim();
+  const rawDependents =
+    employee.dependentsCount ??
+    empAny?.dependentes ??
+    empAny?.numero_dependentes ??
+    meta.dependents_count ??
+    meta.dependentes ??
+    0;
+  const parsedDependents = parseInt(String(rawDependents), 10);
+  const dependentsCount = isNaN(parsedDependents) || parsedDependents < 0 ? 0 : parsedDependents;
+
+  return {
+    personalEmail: cleanEmail,
+    emergencyContact,
+    workSchedule,
+    dependentsCount,
+  };
+}
 
 /**
  * Calculates age based on birthDate string (YYYY-MM-DD)
@@ -57,6 +106,7 @@ export function generateEmployeeSheetHtml(
 ): string {
   const age = calculateAge(employee.birthDate);
   const salary = employee.baseSalary !== undefined ? employee.baseSalary : (employee.salary || 0);
+  const extraFields = resolveEmployeePrintFields(employee);
 
   const rawPhoto = employee.avatar_url || employee.foto || employee.foto_url || employee.photoUrl;
   const resolvedPhoto = getCachedMediaUrl(rawPhoto);
@@ -150,6 +200,16 @@ export function generateEmployeeSheetHtml(
                 </td>
               </tr>
               <tr>
+                <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 6px 8px; border: 1px solid #cbd5e1;">E-mail:</td>
+                <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: 600; word-break: break-all;">
+                  ${extraFields.personalEmail ? escapeEmployeeHtml(extraFields.personalEmail) : 'Não informado'}
+                </td>
+                <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 6px 8px; border: 1px solid #cbd5e1;">Contato Emergência:</td>
+                <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
+                  ${extraFields.emergencyContact ? escapeEmployeeHtml(extraFields.emergencyContact) : 'Não informado'}
+                </td>
+              </tr>
+              <tr>
                 <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 6px 8px; border: 1px solid #cbd5e1;">Endereço Residencial:</td>
                 <td colspan="3" style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
                   ${formatEmployeeFullAddress(employee)}
@@ -192,6 +252,16 @@ export function generateEmployeeSheetHtml(
             <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Data Nascimento:</td>
             <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">
               ${employee.birthDate ? `${formatDateBR(employee.birthDate)} ${age !== null ? `(${age} anos)` : ''}` : 'Não informado'}
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Jornada / Turno:</td>
+            <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
+              ${extraFields.workSchedule ? escapeEmployeeHtml(extraFields.workSchedule) : 'Não informada'}
+            </td>
+            <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Nº Dependentes (IRRF):</td>
+            <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: bold;">
+              ${extraFields.dependentsCount}
             </td>
           </tr>
         </tbody>
@@ -343,13 +413,19 @@ export function generateEmployeeWhatsAppText(
   text += `📅 *Data de Emissão:* ${dateStr}\n`;
   text += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
+  const extraFields = resolveEmployeePrintFields(employee);
+
   text += `👤 *Nome:* ${employee.name || 'Não informado'}\n`;
   text += `💼 *Cargo:* ${employee.role || 'Não informado'}\n`;
   if (employee.actingRegion) text += `📍 *Região de Atuação:* ${employee.actingRegion}\n`;
   text += `📄 *Tipo Cadastro:* ${employee.registrationType || 'Funcionário'}\n`;
   text += `📝 *Regime:* ${employee.contractType || 'CLT'}\n`;
+  if (extraFields.workSchedule) text += `🕒 *Jornada / Turno:* ${extraFields.workSchedule}\n`;
+  text += `👨‍👩‍👧 *Dependentes (IRRF):* ${extraFields.dependentsCount}\n`;
   if (employee.admissionDate) text += `📅 *Admissão:* ${formatDateBR(employee.admissionDate)}\n`;
   if (employee.phone) text += `📞 *Telefone:* ${employee.phone}\n`;
+  if (extraFields.personalEmail) text += `✉️ *E-mail:* ${extraFields.personalEmail}\n`;
+  if (extraFields.emergencyContact) text += `🆘 *Emergência:* ${extraFields.emergencyContact}\n`;
   const fullAddress = formatEmployeeFullAddress(employee);
   if (fullAddress !== 'Não informado') text += `🏠 *Endereço:* ${fullAddress}\n`;
 

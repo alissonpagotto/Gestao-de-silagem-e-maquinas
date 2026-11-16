@@ -2860,10 +2860,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   };
 
   return (
-    <div className="space-y-2.5 max-w-full overflow-visible">
+    <div className="flex-1 min-h-0 flex flex-col gap-2.5 w-full max-w-full overflow-hidden">
       
       {/* Top Header & Actions */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         <div className="flex items-center space-x-2">
           <div className="p-2 rounded-lg bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
             <Calendar className="w-5 h-5" />
@@ -2903,7 +2903,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       </div>
 
       {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais com Backgrounds Pastéis) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
         {/* 1. PERÍODOS VENCIDOS (Vermelho claro/pastel #FEF2F2) */}
         <div
           onClick={() => setStatusFilter('vencido')}
@@ -3026,7 +3026,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       </div>
 
       {/* Barra Unificada de Busca e Sub-Abas (Segmented Control) */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-black dark:text-white">
+      <div className="shrink-0 bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-black dark:text-white">
         <div className="relative w-full lg:w-72 shrink-0">
           <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -3133,7 +3133,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       {/* Banner de Confirmação de Operação Financeira / Fluxo de Férias */}
       {operationBanner && (
         <div
-          className={`rounded-xl p-3 border shadow-xs flex items-start justify-between gap-3 ${
+          className={`shrink-0 rounded-xl p-3 border shadow-xs flex items-start justify-between gap-3 ${
             operationBanner.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100'
               : 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-950 dark:text-blue-100'
@@ -3158,19 +3158,17 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       )}
 
       {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs text-black dark:text-white">
-        <div
-          className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto rounded-xl"
-        >
-          <table className="w-full text-left text-xs sm:text-sm border-separate border-spacing-0">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs text-black dark:text-white overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto rounded-xl">
+          <table className="w-full table-auto text-left text-xs border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-black dark:text-white uppercase tracking-wider shadow-sm">
               <tr>
-                <th className="py-1.5 px-3 sticky top-0 left-0 z-30 bg-slate-100 dark:bg-stone-800 border-b border-r border-slate-300 dark:border-stone-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Colaborador</th>
-                <th className="py-1.5 px-3 sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Período Aquisitivo</th>
-                <th className="py-1.5 px-3 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Dias de Direito</th>
-                <th className="py-1.5 px-3 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Status do Período</th>
-                <th className="py-1.5 px-3 sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Limite para Gozo</th>
-                <th className="py-1.5 px-3 text-right sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Ações</th>
+                <th className="py-1.5 px-2 sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Colaborador</th>
+                <th className="py-1.5 px-2 sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Período Aquisitivo</th>
+                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Dias de Direito</th>
+                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Status</th>
+                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Limite Gozo</th>
+                <th className="py-1.5 px-2 text-right sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -3179,84 +3177,88 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   const vac = row.vacationRecord;
                   return (
                     <tr key={row.rowKey} className="group even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition">
-                      {/* 1. Colaborador (Linha Única Compacta: Avatar Local + Nome + Cargo + Adm + DRE) */}
-                      <td className="py-1 px-3 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-stone-900 border-r border-gray-200 dark:border-stone-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-b border-b-slate-200 dark:border-b-stone-800 group-last:border-b-0">
-                        <div className="flex items-center space-x-2">
+                      {/* 1. Colaborador (Compacto em 2 linhas para caber 100% na tela) */}
+                      <td className="py-1.5 px-2 border-b border-b-slate-200 dark:border-b-stone-800 group-last:border-b-0 align-middle">
+                        <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-[10px] shrink-0 select-none">
                             {getColabInitials(row.employee.name)}
                           </div>
-                          <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="font-bold text-black dark:text-white uppercase text-xs truncate max-w-[170px] sm:max-w-[210px]" title={row.employee.name}>
+                          <div className="min-w-0 flex flex-col gap-0.5">
+                            <span className="font-bold text-black dark:text-white uppercase text-[11px] leading-tight truncate max-w-[180px]" title={row.employee.name}>
                               {row.employee.name}
                             </span>
-                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-sky-50 dark:bg-sky-950/50 text-sky-900 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800 shrink-0">
-                              {row.roleLabel}
-                            </span>
-                            {row.employee.admissionDate && (
-                              <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium shrink-0">
-                                Adm: {formatDateBR(row.employee.admissionDate)}
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-semibold bg-sky-50 dark:bg-sky-950/50 text-sky-900 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800">
+                                {row.roleLabel}
                               </span>
-                            )}
-                            {row.linkedMachinery && (
-                              <span
-                                className="inline-flex items-center space-x-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0"
-                                title={`Veículo fixo DRE: ${row.linkedMachinery.name || row.linkedMachinery.model}`}
-                              >
-                                <Truck className="w-2.5 h-2.5 text-amber-600 shrink-0" />
-                                <span>{row.linkedMachinery.name || row.linkedMachinery.model}</span>
-                              </span>
-                            )}
+                              {row.employee.admissionDate && (
+                                <span className="text-[9px] text-slate-500 dark:text-stone-400 font-medium whitespace-nowrap">
+                                  Adm: {formatDateBR(row.employee.admissionDate)}
+                                </span>
+                              )}
+                              {row.linkedMachinery && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                                  title={`Veículo fixo DRE: ${row.linkedMachinery.name || row.linkedMachinery.model}`}
+                                >
+                                  <Truck className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                                  <span className="truncate max-w-[90px]">{row.linkedMachinery.name || row.linkedMachinery.model}</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* 2. Período Aquisitivo (Linha Única: Ciclo + Datas + Gozo Programado + Badges + Líquido) */}
-                      <td className="py-1 px-3 whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
-                        <div className="flex items-center gap-1.5 whitespace-nowrap">
-                          {row.totalCycles > 1 && (
-                            <span
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-slate-200/80 dark:bg-stone-700 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-600 shrink-0"
-                              title={`Ciclo ${row.cycleNumber} de ${row.totalCycles}`}
-                            >
-                              {row.cycleNumber}º Ciclo
-                            </span>
-                          )}
-                          <div className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-stone-700 shrink-0">
-                            <Calendar className="w-3 h-3 text-[#0963cb] shrink-0" />
-                            <span>
-                              {formatDateBR(row.acquisitionStart)} a {formatDateBR(row.acquisitionEnd)}
-                            </span>
+                      {/* 2. Período Aquisitivo (Compacto com quebra controlada para evitar corte lateral) */}
+                      <td className="py-1.5 px-2 border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {row.totalCycles > 1 && (
+                              <span
+                                className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-black uppercase bg-slate-200/80 dark:bg-stone-700 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-600 shrink-0"
+                                title={`Ciclo ${row.cycleNumber} de ${row.totalCycles}`}
+                              >
+                                {row.cycleNumber}º Ciclo
+                              </span>
+                            )}
+                            <div className="inline-flex items-center space-x-1 font-mono font-bold text-[10px] text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-stone-700 whitespace-nowrap">
+                              <Calendar className="w-3 h-3 text-[#0963cb] shrink-0" />
+                              <span>
+                                {formatDateBR(row.acquisitionStart)} a {formatDateBR(row.acquisitionEnd)}
+                              </span>
+                            </div>
                           </div>
                           {vac && (
-                            <>
-                              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold shrink-0">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold whitespace-nowrap">
                                 Gozo: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
                               </span>
                               {row.isProgramado && (
-                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                                <span className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-black uppercase bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                                   Programado
                                 </span>
                               )}
                               {row.isEmGozo && (
-                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                                <span className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-black uppercase bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                                   Em Gozo
                                 </span>
                               )}
                               {((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
-                                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap">
                                   Líq: {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
                                 </span>
                               )}
-                            </>
+                            </div>
                           )}
                         </div>
                       </td>
 
-                      {/* 3. Dias de Direito (Linha Única - CLT: Vencidos + Proporcionais em CAIXA ALTA) */}
-                      <td className="py-1 px-3 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
-                        <div className="inline-flex items-center gap-1.5 justify-center whitespace-nowrap">
+                      {/* 3. Dias de Direito (CLT: Vencidos + Proporcionais em CAIXA ALTA) */}
+                      <td className="py-1.5 px-2 text-center border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                        <div className="inline-flex flex-wrap items-center gap-1 justify-center">
                           <span
-                            className={`text-[10px] sm:text-[11px] font-black uppercase px-2 py-0.5 rounded-full border tracking-tight ${
+                            className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border tracking-tight leading-tight text-center ${
                               row.expiredDays > 0
                                 ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-800'
                                 : row.isEmGozo
@@ -3270,51 +3272,51 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                             {row.diasDireitoLabel}
                           </span>
                           {row.unjustifiedAbsencesCount > 0 ? (
-                            <span className="text-[10px] text-rose-600 font-bold shrink-0">
+                            <span className="text-[9px] text-rose-600 font-bold whitespace-nowrap">
                               ({row.unjustifiedAbsencesCount} falta{row.unjustifiedAbsencesCount > 1 ? 's' : ''})
                             </span>
                           ) : vac && vac.sellDaysCount > 0 ? (
-                            <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold shrink-0">
+                            <span className="text-[9px] text-amber-800 dark:text-amber-300 font-bold whitespace-nowrap">
                               (+{vac.sellDaysCount}d abono)
                             </span>
                           ) : null}
                         </div>
                       </td>
 
-                      {/* 4. Status do Período (Linha Única - Badges Atualizados CLT) */}
-                      <td className="py-1 px-3 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
-                        <div className="inline-flex items-center gap-1 justify-center whitespace-nowrap">
+                      {/* 4. Status do Período (Badges CLT compactos) */}
+                      <td className="py-1.5 px-2 text-center border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                        <div className="inline-flex flex-wrap items-center gap-1 justify-center">
                           {row.isEmGozo ? (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-600 text-white shadow-2xs whitespace-nowrap">
                               <Palmtree className="w-3 h-3 shrink-0" />
                               <span>EM GOZO</span>
                             </span>
                           ) : (
                             <>
                               {row.periodStatus === 'vencido' && (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
+                                <span className="inline-flex flex-wrap items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-2xs leading-tight">
                                   <AlertCircle className="w-3 h-3 shrink-0" />
                                   <span>VENCIDO</span>
                                   {(row.overdueLabel || row.monthsLabel) && (
-                                    <span className="font-normal opacity-90">({row.overdueLabel || row.monthsLabel})</span>
+                                    <span className="font-normal opacity-90 text-[9px]">({row.overdueLabel || row.monthsLabel})</span>
                                   )}
                                 </span>
                               )}
                               {row.periodStatus === 'proximo' && (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs shrink-0">
+                                <span className="inline-flex flex-wrap items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs leading-tight">
                                   <AlertTriangle className="w-3 h-3 shrink-0" />
                                   <span>PRÓXIMO</span>
-                                  {row.monthsLabel && <span className="font-normal opacity-90">({row.monthsLabel})</span>}
+                                  {row.monthsLabel && <span className="font-normal opacity-90 text-[9px]">({row.monthsLabel})</span>}
                                 </span>
                               )}
                               {row.periodStatus === 'proporcional' && (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-sky-600 text-white shadow-2xs shrink-0">
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-sky-600 text-white shadow-2xs leading-tight">
                                   <Clock className="w-3 h-3 shrink-0" />
                                   <span>EM ANDAMENTO (PROPORCIONAL)</span>
                                 </span>
                               )}
                               {row.periodStatus === 'quitado' && (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shadow-2xs shrink-0">
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shadow-2xs whitespace-nowrap">
                                   <CheckCircle2 className="w-3 h-3 shrink-0" />
                                   <span>QUITADO</span>
                                 </span>
@@ -3322,17 +3324,17 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                             </>
                           )}
                           {vac && !row.isQuitadoRegular && ((vac as any).valor_liquido_pago !== undefined || vac.netAmount !== undefined) && (
-                            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap">
                               {formatCurrencyBRL((vac as any).valor_liquido_pago ?? vac.netAmount ?? 0)}
                             </span>
                           )}
                         </div>
                       </td>
 
-                      {/* 5. Limite para Gozo (Linha Única) */}
-                      <td className="py-1 px-3 whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
+                      {/* 5. Limite para Gozo */}
+                      <td className="py-1.5 px-2 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded border font-mono text-[11px] font-bold ${
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${
                             row.periodStatus === 'vencido'
                               ? 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
                               : row.periodStatus === 'proximo'
@@ -3345,15 +3347,15 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                         </span>
                       </td>
 
-                      {/* 6. Ações (Botões Horizontais Achatados de Perfil Baixo com Mini-Ícones) */}
-                      <td className="py-1 px-3 text-right whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0">
+                      {/* 6. Ações (Botões Horizontais Compactos 100% visíveis) */}
+                      <td className="py-1.5 px-2 text-right whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <div className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
                           {/* Botão "Efetivar Gozo" (quando programado) */}
                           {row.isProgramado && vac && (
                             <button
                               type="button"
                               onClick={() => handleEfetivarGozo(row)}
-                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
+                              className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                               title="Efetivar Gozo de Férias agora, lançar Líquido no Contas a Pagar e Bruto no DRE do Veículo"
                             >
                               <PlayCircle className="w-3 h-3 shrink-0" />
@@ -3366,7 +3368,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleConfirmarRetorno(row)}
-                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
+                              className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                               title="Confirmar Retorno de Férias"
                             >
                               <RotateCcw className="w-3 h-3 shrink-0" />
@@ -3378,7 +3380,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenModalForRow(row)}
-                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-[#0963cb] hover:bg-[#0852a8] text-white text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
+                            className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-[#0963cb] hover:bg-[#0852a8] text-white text-[10px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                             title="Programar/Editar Férias"
                           >
                             <Calendar className="w-3 h-3 shrink-0" />
@@ -3389,7 +3391,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handlePrintReceiptForRow(row)}
-                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-stone-950 text-[11px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
+                            className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-stone-950 text-[10px] font-bold shadow-2xs transition cursor-pointer active:scale-95 shrink-0"
                             title="Imprimir Aviso/Recibo de Férias"
                             aria-label="Imprimir Aviso/Recibo de Férias"
                           >

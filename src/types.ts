@@ -709,6 +709,20 @@ export type EmployeeRegistrationType =
   | 'mecanico_especialista' 
   | string;
 
+export type WorkScheduleDay = 'Seg' | 'Ter' | 'Qua' | 'Qui' | 'Sex' | 'Sáb' | 'Dom';
+
+export interface WorkScheduleItem {
+  id: string;
+  name: string; // Nome da Escala / Turno (ex: Comercial Padrão, Escala Safra / Campo, Turno 12x36)
+  startTime: string; // Horário de Entrada (ex: 07:30)
+  endTime: string; // Horário de Saída (ex: 17:30)
+  breakInterval: string; // Intervalo / Almoço (ex: 12:00 às 13:30 ou 1h30)
+  weeklyHours: string; // Carga Horária Semanal (ex: 44h, 40h, 36h)
+  daysOfWeek: WorkScheduleDay[]; // Dias da Semana Aplicáveis
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SalaryChangeRecord {
   id: string;
   employeeId: string;
@@ -750,6 +764,11 @@ export interface Employee {
   avatar_url?: string; // Alias banco Supabase / IndexedDB / localStorage (avatar_url)
   has_avatar?: boolean; // Indica se o colaborador possui foto salva localmente no IndexedDB
   phone: string;
+  email?: string; // E-mail Pessoal / Corporativo
+  personalEmail?: string; // Alias E-mail Pessoal / Corporativo
+  email_pessoal?: string; // Alias banco Supabase
+  emergencyContact?: string; // Contato de Emergência (Nome & Telefone)
+  contato_emergencia?: string; // Alias banco Supabase
   city?: string; // Cidade de residência
   cidade?: string; // Alias banco Supabase
   cep?: string; // CEP residencial (00000-000)
@@ -761,6 +780,12 @@ export interface Employee {
   baseSalary?: number; // Salário Base (R$)
   contractType?: 'Registrado (CLT)' | 'Diarista / Safrista' | 'PJ / Prestador de Serviço' | 'Autônomo' | 'Comissionado' | string;
   regime_contratacao?: string; // Alias banco Supabase (regime_contratacao)
+  workScheduleId?: string; // ID da escala vinculada (agrocontrol_escalas_trabalho)
+  workSchedule?: string; // Jornada / Turno de Trabalho
+  jornada_trabalho?: string; // Alias banco Supabase
+  dependentsCount?: number; // Nº de Dependentes (IRRF / Salário-Família)
+  dependentes?: number; // Alias banco Supabase
+  numero_dependentes?: number; // Alias banco Supabase
   admissionDate?: string; // Data de Admissão
   terminationDate?: string; // Data de Demissão
   active?: boolean; // Funcionário ativo (toggle)

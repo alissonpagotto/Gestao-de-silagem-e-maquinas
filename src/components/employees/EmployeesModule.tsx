@@ -31,12 +31,14 @@ import {
   ShieldCheck,
   Check,
   Lock,
-  Stethoscope
+  Stethoscope,
+  Settings,
+  Clock
 } from 'lucide-react';
-import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
+import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord, WorkScheduleItem } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, saveCompanyFuncionarios, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredAllEmployees, getStoredTerminations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay, formatCep, fetchAddressByCep } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, extractCleanEmployeeEmail, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
 import { compressImageToLocalBase64, resolveEmployeePhoto } from '../../lib/localPhotoUtils';
 import {
@@ -60,6 +62,12 @@ import { PrintableEmployeeSheet } from './PrintableEmployeeSheet';
 import { generateEmployeeSheetHtml, generateEmployeeWhatsAppText } from './employeePrintUtils';
 import { EmployeeAvatar, isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 import { EmployeeIndividualHistory } from './EmployeeIndividualHistory';
+import { WorkSchedulesManager } from './WorkSchedulesManager';
+import {
+  formatWorkScheduleLabel,
+  getStoredWorkSchedules,
+  WORK_SCHEDULES_UPDATED_EVENT,
+} from '../../lib/workSchedulesStorage';
 import { 
   getStoredCargosPermissoes, 
   attachCargoPermissionsToEmployee,
@@ -594,18 +602,31 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
-  const [employeesSubView, setEmployeesSubView] = useState<'listagem' | 'historico' | 'demitidos'>('listagem');
+  const [employeesSubView, setEmployeesSubView] = useState<'listagem' | 'historico' | 'demitidos' | 'escalas'>('listagem');
   const [selectedEmployeeForHistoryId, setSelectedEmployeeForHistoryId] = useState<string | undefined>(undefined);
   const [exEmployeesSearchTerm, setExEmployeesSearchTerm] = useState('');
   const [employeesStorageVersion, setEmployeesStorageVersion] = useState(0);
+  const [workSchedules, setWorkSchedules] = useState<WorkScheduleItem[]>(() => getStoredWorkSchedules());
+  const [isWorkScheduleManagerOpen, setIsWorkScheduleManagerOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const handleSync = () => setEmployeesStorageVersion((v) => v + 1);
+    const handleWorkSchedulesSync = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setWorkSchedules(e.detail);
+      } else {
+        setWorkSchedules(getStoredWorkSchedules());
+      }
+    };
     window.addEventListener('storage', handleSync);
+    window.addEventListener('storage', handleWorkSchedulesSync);
     window.addEventListener('agrocontrol_funcionarios_updated', handleSync);
+    window.addEventListener(WORK_SCHEDULES_UPDATED_EVENT, handleWorkSchedulesSync);
     return () => {
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('storage', handleWorkSchedulesSync);
       window.removeEventListener('agrocontrol_funcionarios_updated', handleSync);
+      window.removeEventListener(WORK_SCHEDULES_UPDATED_EVENT, handleWorkSchedulesSync);
     };
   }, []);
   const [vacationQuickFilter, setVacationQuickFilter] = useState<'all' | 'expired' | 'warning'>('all');
@@ -945,6 +966,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [photoUrl, setPhotoUrl] = useState<string | undefined>('');
   const resolvedModalPhotoUrl = useResolvedMediaUrl(photoUrl);
   const [phone, setPhone] = useState<string>('');
+  const [personalEmail, setPersonalEmail] = useState<string>('');
+  const [emergencyContact, setEmergencyContact] = useState<string>('');
+  const [dependentsCount, setDependentsCount] = useState<number>(0);
+  const [workSchedule, setWorkSchedule] = useState<string>('');
+  const [workScheduleId, setWorkScheduleId] = useState<string>('');
   const [cep, setCep] = useState<string>('');
   const [logradouro, setLogradouro] = useState<string>('');
   const [numero, setNumero] = useState<string>('');
@@ -1152,11 +1178,43 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           initialMeta.numero_registro ||
           ''
       );
+      const initPersonalEmail =
+        (editingEmployee.personalEmail && !String(editingEmployee.personalEmail).trim().startsWith('{') ? String(editingEmployee.personalEmail).trim() : '') ||
+        (editingEmployee.email_pessoal && !String(editingEmployee.email_pessoal).trim().startsWith('{') ? String(editingEmployee.email_pessoal).trim() : '') ||
+        extractCleanEmployeeEmail((editingEmployee as any).email, initialMeta);
+      const initEmergencyContact = String(
+        editingEmployee.emergencyContact ||
+          editingEmployee.contato_emergencia ||
+          initialMeta.emergency_contact ||
+          initialMeta.contato_emergencia ||
+          ''
+      ).trim();
+      const rawInitDep =
+        editingEmployee.dependentsCount ??
+        editingEmployee.dependentes ??
+        editingEmployee.numero_dependentes ??
+        initialMeta.dependents_count ??
+        initialMeta.dependentes ??
+        0;
+      const parsedInitDep = parseInt(String(rawInitDep), 10);
+      const initWorkSchedule = String(
+        editingEmployee.workSchedule ||
+          editingEmployee.jornada_trabalho ||
+          initialMeta.work_schedule ||
+          initialMeta.jornada_trabalho ||
+          ''
+      ).trim();
 
       if (initRg) setRgNumero(String(initRg).trim().toUpperCase());
       if (initBirth) setDataNascimento(initBirth);
       if (initPis) setPisNumero(String(initPis).trim().toUpperCase());
       if (initRegime) setRegimeContratacao(String(initRegime).trim());
+      if (initPersonalEmail) setPersonalEmail(initPersonalEmail);
+      if (initEmergencyContact) setEmergencyContact(initEmergencyContact);
+      setDependentsCount(isNaN(parsedInitDep) || parsedInitDep < 0 ? 0 : parsedInitDep);
+      if (initWorkSchedule) setWorkSchedule(initWorkSchedule);
+      const initScheduleId = String(editingEmployee.workScheduleId || initialMeta.work_schedule_id || '').trim();
+      if (initScheduleId) setWorkScheduleId(initScheduleId);
       if (isValidBadgeRegistrationNumber(initBadge)) {
         setBadgeRegistrationNumber(initBadge);
         setBadgeManualOverride(true);
@@ -1222,6 +1280,49 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           if (isValidBadgeRegistrationNumber(loadedBadge)) {
             setBadgeRegistrationNumber(loadedBadge);
             setBadgeManualOverride(true);
+          }
+
+          const loadedEmail =
+            dbRow.personal_email ||
+            dbRow.email_pessoal ||
+            extractCleanEmployeeEmail(dbRow.email, meta);
+          if (loadedEmail) {
+            setPersonalEmail(loadedEmail);
+          }
+
+          const loadedEmergency =
+            dbRow.contato_emergencia ||
+            dbRow.emergency_contact ||
+            meta.emergency_contact ||
+            meta.contato_emergencia;
+          if (loadedEmergency) {
+            setEmergencyContact(String(loadedEmergency).trim());
+          }
+
+          const rawLoadedDep =
+            dbRow.numero_dependentes ??
+            dbRow.dependentes ??
+            dbRow.dependents_count ??
+            meta.dependents_count ??
+            meta.dependentes;
+          if (rawLoadedDep !== undefined && rawLoadedDep !== null) {
+            const parsedDep = parseInt(String(rawLoadedDep), 10);
+            if (!isNaN(parsedDep) && parsedDep >= 0) {
+              setDependentsCount(parsedDep);
+            }
+          }
+
+          const loadedSchedule =
+            dbRow.jornada_trabalho ||
+            dbRow.work_schedule ||
+            meta.work_schedule ||
+            meta.jornada_trabalho;
+          if (loadedSchedule) {
+            setWorkSchedule(String(loadedSchedule).trim());
+          }
+          const loadedScheduleId = dbRow.work_schedule_id || meta.work_schedule_id;
+          if (loadedScheduleId) {
+            setWorkScheduleId(String(loadedScheduleId).trim());
           }
         }
       } catch (err) {
@@ -1785,6 +1886,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setPisNumero('');
     setPhotoUrl('');
     setPhone('');
+    setPersonalEmail('');
+    setEmergencyContact('');
+    setDependentsCount(0);
+    setWorkSchedule('');
+    setWorkScheduleId('');
     setCep('');
     setLogradouro('');
     setNumero('');
@@ -1926,6 +2032,39 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setPisNumero(loadedPis);
     setPhotoUrl(resolveEmployeePhoto(emp) || '');
     setPhone(emp.phone || '');
+    const loadedPersonalEmail =
+      (emp.personalEmail && !String(emp.personalEmail).trim().startsWith('{') ? String(emp.personalEmail).trim() : '') ||
+      (emp.email_pessoal && !String(emp.email_pessoal).trim().startsWith('{') ? String(emp.email_pessoal).trim() : '') ||
+      extractCleanEmployeeEmail((emp as any).email, empMeta);
+    setPersonalEmail(loadedPersonalEmail);
+    setEmergencyContact(
+      String(
+        emp.emergencyContact ||
+          emp.contato_emergencia ||
+          empMeta.emergency_contact ||
+          empMeta.contato_emergencia ||
+          ''
+      ).trim()
+    );
+    const rawLoadedDependents =
+      emp.dependentsCount ??
+      emp.dependentes ??
+      emp.numero_dependentes ??
+      empMeta.dependents_count ??
+      empMeta.dependentes ??
+      0;
+    const parsedLoadedDependents = parseInt(String(rawLoadedDependents), 10);
+    setDependentsCount(isNaN(parsedLoadedDependents) || parsedLoadedDependents < 0 ? 0 : parsedLoadedDependents);
+    setWorkSchedule(
+      String(
+        emp.workSchedule ||
+          emp.jornada_trabalho ||
+          empMeta.work_schedule ||
+          empMeta.jornada_trabalho ||
+          ''
+      ).trim()
+    );
+    setWorkScheduleId(String(emp.workScheduleId || empMeta.work_schedule_id || '').trim());
     const loadedCep = formatCep(emp.cep || (emp as any).zipCode || '');
     setCep(loadedCep);
     setLogradouro(emp.logradouro || (emp as any).endereco || '');
@@ -2180,6 +2319,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
       photoUrl: photoUrl || undefined,
       phone: phone.trim() || 'Não informado',
+      email: personalEmail.trim().toLowerCase() || undefined,
+      personalEmail: personalEmail.trim().toLowerCase() || undefined,
+      email_pessoal: personalEmail.trim().toLowerCase() || undefined,
+      emergencyContact: emergencyContact.trim() || undefined,
+      contato_emergencia: emergencyContact.trim() || undefined,
+      dependentsCount: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
+      dependentes: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
+      workScheduleId: workScheduleId.trim() || undefined,
+      workSchedule: workSchedule.trim() || undefined,
+      jornada_trabalho: workSchedule.trim() || undefined,
       cep: cep.trim() || undefined,
       logradouro: logradouro.trim() || undefined,
       numero: numero.trim() || undefined,
@@ -2600,6 +2749,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         cnh_url: finalCnhUrl || undefined,
         ficha_registro_url: finalFichaUrl || undefined,
         phone: phone.trim(),
+        email: personalEmail.trim() ? personalEmail.trim().toLowerCase() : undefined,
+        personalEmail: personalEmail.trim() ? personalEmail.trim().toLowerCase() : undefined,
+        email_pessoal: personalEmail.trim() ? personalEmail.trim().toLowerCase() : undefined,
+        emergencyContact: emergencyContact.trim() || undefined,
+        contato_emergencia: emergencyContact.trim() || undefined,
+        dependentsCount: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
+        dependentes: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
+        numero_dependentes: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
+        workScheduleId: workScheduleId.trim() || undefined,
+        workSchedule: workSchedule.trim() || undefined,
+        jornada_trabalho: workSchedule.trim() || undefined,
         cep: cep.trim() || undefined,
         logradouro: logradouro.trim() || undefined,
         numero: numero.trim() || undefined,
@@ -2742,6 +2902,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             cnh_upgrade_category: cnhUpgradeDT ? cnhUpgradeCategory : null,
             termination_date: formattedTerminationDate || null,
             numero_registro: finalBadgeNumber,
+            personal_email: personalEmail.trim() ? personalEmail.trim().toLowerCase() : null,
+            emergency_contact: emergencyContact.trim() || null,
+            dependents_count: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
+            work_schedule: workSchedule.trim() || null,
+            work_schedule_id: workScheduleId.trim() || null,
           });
 
           const [rhSchemaCols, funcSchemaCols] = await Promise.all([
@@ -3236,7 +3401,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   return (
     <div id="employees-module" className="space-y-3 sm:space-y-3.5 animate-fade-in">
       {/* SUB-BARRA DE ABAS REATIVA (MDI SLIM DESIGN) */}
-      <div className="no-print flex items-center gap-1.5 pb-0.5">
+      <div className="no-print flex flex-wrap items-center gap-1.5 pb-0.5">
         <button
           type="button"
           onClick={() => setEmployeesSubView('listagem')}
@@ -3272,9 +3437,27 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         >
           <span>🗂️ EX-COLABORADORES / HISTÓRICO</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setEmployeesSubView('escalas')}
+          className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
+            employeesSubView === 'escalas'
+              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
+              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+          }`}
+        >
+          <span>⏰ ESCALAS &amp; HORÁRIOS DE TRABALHO</span>
+        </button>
       </div>
 
-      {employeesSubView === 'historico' ? (
+      {employeesSubView === 'escalas' ? (
+        <WorkSchedulesManager
+          schedules={workSchedules}
+          employees={localEmployees}
+          onSchedulesChange={setWorkSchedules}
+        />
+      ) : employeesSubView === 'historico' ? (
         <EmployeeIndividualHistory
           employees={allEmployeesForHistory}
           selectedEmployeeId={selectedEmployeeForHistoryId}
@@ -4111,30 +4294,30 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       />
                     </div>
 
-                    {/* Número de Registro / Crachá (5 Dígitos) */}
-                    <div className="sm:col-span-2">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label htmlFor="employee-badge-registration" className="block text-xs font-bold text-black">
-                          Número de Registro / Crachá (5 Dígitos)
-                        </label>
-                        {badgeManualOverride && cpf.replace(/\D/g, '').length >= 3 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const seq = editingEmployee
-                                ? Math.max(1, localEmployees.findIndex((item) => item.id === editingEmployee.id) + 1 || localEmployees.length + 1)
-                                : localEmployees.length + 1;
-                              setBadgeRegistrationNumber(generateBadgeRegistrationNumber(cpf, seq));
-                              setBadgeManualOverride(false);
-                              setBadgeError('');
-                            }}
-                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
-                          >
-                            Gerar pelo CPF
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    {/* Linha inferior do Card 1: Número de Registro / Crachá + E-mail + Contato de Emergência */}
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <label htmlFor="employee-badge-registration" className="block text-xs font-bold text-black truncate">
+                            Nº Registro / Crachá (5 Díg.)
+                          </label>
+                          {badgeManualOverride && cpf.replace(/\D/g, '').length >= 3 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const seq = editingEmployee
+                                  ? Math.max(1, localEmployees.findIndex((item) => item.id === editingEmployee.id) + 1 || localEmployees.length + 1)
+                                  : localEmployees.length + 1;
+                                setBadgeRegistrationNumber(generateBadgeRegistrationNumber(cpf, seq));
+                                setBadgeManualOverride(false);
+                                setBadgeError('');
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer shrink-0"
+                            >
+                              Gerar pelo CPF
+                            </button>
+                          )}
+                        </div>
                         <input
                           id="employee-badge-registration"
                           type="text"
@@ -4151,20 +4334,48 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             }
                           }}
                           maxLength={6}
-                          placeholder="Ex: 09101 (automático ao digitar o CPF)"
-                          className={`w-full sm:max-w-[260px] px-3 py-1.5 bg-white border rounded-lg text-black text-xs sm:text-sm font-mono font-bold tracking-wider focus:outline-none focus:ring-1 ${
+                          placeholder="Ex: 09101"
+                          className={`w-full px-3 py-1.5 bg-white border rounded-lg text-black text-xs sm:text-sm font-mono font-bold tracking-wider focus:outline-none focus:ring-1 ${
                             badgeError
                               ? 'border-rose-600 focus:ring-rose-500'
                               : 'border-gray-400 focus:ring-[#0963cb]'
                           }`}
                         />
-                        <span className="text-[11px] font-medium text-stone-700">
+                        <span className="block text-[10px] leading-tight font-medium text-stone-700 mt-1">
                           {badgeError ? (
                             <span className="text-rose-700 font-bold">{badgeError}</span>
                           ) : (
-                            'Padrão: [3 primeiros dígitos do CPF] + [sequencial 01, 02...]. Aceita 4 a 6 dígitos.'
+                            'Padrão: 3 primeiros dígitos do CPF + seq. (4 a 6 dígitos).'
                           )}
                         </span>
+                      </div>
+
+                      <div>
+                        <label htmlFor="employee-personal-email" className="block text-xs font-bold text-black mb-1">
+                          E-mail Pessoal / Corporativo
+                        </label>
+                        <input
+                          id="employee-personal-email"
+                          type="email"
+                          value={personalEmail}
+                          onChange={(e) => setPersonalEmail(e.target.value)}
+                          placeholder="colaborador@email.com"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="employee-emergency-contact" className="block text-xs font-bold text-black mb-1">
+                          Contato de Emergência (Nome & Telefone)
+                        </label>
+                        <input
+                          id="employee-emergency-contact"
+                          type="text"
+                          value={emergencyContact}
+                          onChange={(e) => setEmergencyContact(e.target.value)}
+                          placeholder="Ex: Maria - (46) 99999-0000"
+                          className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        />
                       </div>
                     </div>
                   </div>
@@ -4657,6 +4868,82 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       onChange={(e) => setTerminationDate(e.target.value)}
                       className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
+                  </div>
+
+                  {/* Linha 5: Nº de Dependentes (IRRF / Salário-Família) & Jornada / Turno de Trabalho */}
+                  <div>
+                    <label htmlFor="employee-dependents-count" className="block text-xs font-bold text-black mb-1">
+                      Nº de Dependentes (IRRF / Salário-Família)
+                    </label>
+                    <input
+                      id="employee-dependents-count"
+                      type="number"
+                      min={0}
+                      value={dependentsCount}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10);
+                        setDependentsCount(isNaN(parsed) || parsed < 0 ? 0 : parsed);
+                      }}
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                    <span className="block text-[10px] text-stone-700 font-medium mt-1">
+                      Padrão 0 • Usado pela contabilidade para IRRF e Salário-Família.
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label htmlFor="employee-work-schedule" className="block text-xs font-bold text-black">
+                        Jornada / Turno de Trabalho
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsWorkScheduleManagerOpen(true)}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-400 bg-white hover:bg-slate-100 text-[10px] font-bold text-black hover:text-[#0963cb] transition cursor-pointer"
+                        title="Gerenciar Escalas & Horários de Trabalho"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>⚙️ Escalas</span>
+                      </button>
+                    </div>
+                    <input
+                      id="employee-work-schedule"
+                      type="text"
+                      value={workSchedule}
+                      onChange={(e) => {
+                        const typed = e.target.value;
+                        setWorkSchedule(typed);
+                        const matched = workSchedules.find((s) => formatWorkScheduleLabel(s) === typed.trim());
+                        setWorkScheduleId(matched ? matched.id : '');
+                      }}
+                      placeholder="Ex: 07:30 às 17:30 (Seg a Sex) ou Escala Safra"
+                      className="w-full px-3 py-1.5 bg-white border border-gray-400 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    />
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                      {workSchedules.map((scale) => {
+                        const formattedLabel = formatWorkScheduleLabel(scale);
+                        const isSelected =
+                          workScheduleId === scale.id || workSchedule.trim() === formattedLabel;
+                        return (
+                          <button
+                            key={scale.id}
+                            type="button"
+                            onClick={() => {
+                              setWorkSchedule(formattedLabel);
+                              setWorkScheduleId(scale.id);
+                            }}
+                            title={`${formattedLabel}${scale.breakInterval ? ` • Intervalo: ${scale.breakInterval}` : ''}${scale.weeklyHours ? ` • Carga: ${scale.weeklyHours}` : ''}`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#0963cb] text-white border-[#06458f] shadow-2xs'
+                                : 'bg-white text-black border-gray-400 hover:border-[#0963cb] hover:text-[#0963cb]'
+                            }`}
+                          >
+                            {scale.name} ({scale.startTime}–{scale.endTime})
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -5464,6 +5751,45 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         }}
         onConfirm={handleConfirmCrop}
       />
+
+      {/* Modal Rápido de Gerenciamento de Escalas & Horários de Trabalho (sem sair do cadastro) */}
+      {isWorkScheduleManagerOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-5">
+          <div className="w-full max-w-5xl max-h-[90vh] bg-[#cad4e6] border-2 border-black rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-[#e0e6f1] border-b border-black shrink-0">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#0963cb]" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black">
+                  Gerenciar Escalas &amp; Horários de Trabalho
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWorkScheduleManagerOpen(false)}
+                className="p-1.5 rounded-lg bg-white border border-gray-400 hover:bg-rose-50 text-black hover:text-rose-700 transition cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 sm:p-4 overflow-y-auto flex-1">
+              <WorkSchedulesManager
+                schedules={workSchedules}
+                employees={localEmployees}
+                onSchedulesChange={setWorkSchedules}
+                isModalContext
+                selectedScheduleId={workScheduleId}
+                selectedScheduleText={workSchedule}
+                onSelectSchedule={(scale) => {
+                  setWorkSchedule(formatWorkScheduleLabel(scale));
+                  setWorkScheduleId(scale.id);
+                  setIsWorkScheduleManagerOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -3,7 +3,7 @@ import { Employee, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
-import { formatEmployeeFullAddress } from './employeePrintUtils';
+import { formatEmployeeFullAddress, resolveEmployeePrintFields } from './employeePrintUtils';
 import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 
 interface PrintableEmployeeSheetProps {
@@ -21,6 +21,7 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
   if (!employee) return null;
 
   const todayBR = new Date().toLocaleDateString('pt-BR');
+  const extraFields = resolveEmployeePrintFields(employee);
 
   // Calculate age if birthDate is present
   const calculatedAge = (() => {
@@ -204,6 +205,12 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
                   {employee.admissionDate ? formatDateBR(employee.admissionDate) : '—'}
                 </td>
               </tr>
+              <tr>
+                <td className="label-cell">Jornada / Turno:</td>
+                <td className="value-cell">{extraFields.workSchedule || 'Não informada'}</td>
+                <td className="label-cell">Nº Dependentes (IRRF):</td>
+                <td className="value-cell" style={{ fontWeight: 'bold' }}>{extraFields.dependentsCount}</td>
+              </tr>
               {employee.actingRegion && (
                 <tr>
                   <td className="label-cell">Região de Atuação:</td>
@@ -242,6 +249,12 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
             <td className="value-cell">
               {employee.active !== false && employee.status !== 'inativo' ? 'ATIVO NO QUADRO' : 'INATIVO / DESLIGADO'}
             </td>
+          </tr>
+          <tr>
+            <td className="label-cell">E-mail:</td>
+            <td className="value-cell" style={{ wordBreak: 'break-all' }}>{extraFields.personalEmail || 'Não informado'}</td>
+            <td className="label-cell">Contato Emergência:</td>
+            <td className="value-cell">{extraFields.emergencyContact || 'Não informado'}</td>
           </tr>
           <tr>
             <td className="label-cell">Endereço Residencial:</td>
